@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState, useEffect } from 'react'
-import './App.css'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
+import './App.css'
 import { supabase } from './supabase'
 
 const CONTRACT_COLUMNS = [
@@ -25,7 +25,6 @@ const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
 const ADMIN_PASSWORD = 'admin'
 const ALL_OPTION = '전체'
-
 const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
 
 const emptyContract = {
@@ -53,8 +52,13 @@ const emptyEvent = {
   note: '',
 }
 
+function safeString(value) {
+  if (value === null || value === undefined) return ''
+  return String(value)
+}
+
 function normalizeHeader(text) {
-  return String(text ?? '')
+  return safeString(text)
     .trim()
     .replace(/\s+/g, '')
     .replace(/\(.*?\)/g, '')
@@ -64,13 +68,14 @@ function normalizeHeader(text) {
 
 function getValueByHeader(row, candidates, fallback = '') {
   const map = new Map()
+
   Object.keys(row).forEach((key) => {
     map.set(normalizeHeader(key), row[key])
   })
 
   for (const candidate of candidates) {
     const value = map.get(normalizeHeader(candidate))
-    if (value !== undefined && value !== null && String(value).trim() !== '') {
+    if (value !== undefined && value !== null && safeString(value).trim() !== '') {
       return value
     }
   }
@@ -90,7 +95,7 @@ function excelDateToInput(value) {
     return `${yyyy}-${mm}-${dd}`
   }
 
-  const str = String(value).trim()
+  const str = safeString(value).trim()
   if (!str) return ''
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str
@@ -98,19 +103,31 @@ function excelDateToInput(value) {
   if (/^\d{4}\/\d{2}\/\d{2}$/.test(str)) return str.replaceAll('/', '-')
 
   const date = new Date(str)
-  if (!Number.isNaN(date.getTime())) {
-    const yyyy = String(date.getFullYear())
-    const mm = String(date.getMonth() + 1).padStart(2, '0')
-    const dd = String(date.getDate()).padStart(2, '0')
-    return `${yyyy}-${mm}-${dd}`
+  if (Number.isNaN(date.getTime())) return ''
+
+  const yyyy = String(date.getFullYear())
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function parseDateOnly(value) {
+  const str = safeString(value).trim()
+  if (!str) return null
+
+  const match = str.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (match) {
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
   }
 
-  return ''
+  const date = new Date(str)
+  if (Number.isNaN(date.getTime())) return null
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
 
 function normalizeAmountValue(value) {
   if (value === null || value === undefined || value === '') return ''
-  return String(value).replace(/[^\d]/g, '')
+  return safeString(value).replace(/[^\d]/g, '')
 }
 
 function formatAmount(value) {
@@ -126,12 +143,6 @@ function formatAmountDisplay(value) {
 function formatAmountWithWon(value) {
   const formatted = formatAmountDisplay(value)
   return formatted ? `${formatted}원` : '-'
-}
-
-function formatPercent(value) {
-  if (!Number.isFinite(value) || value <= 0) return '0%'
-  if (value >= 99.95) return '100%'
-  return `${value.toFixed(1)}%`
 }
 
 function parseAmount(value) {
@@ -173,12 +184,7 @@ function normalizeEditValue(key, value) {
   if (key === 'amount') return parseAmount(value)
   if (key === 'year') return parseYearValue(value)
   if (key === 'contractDate' || key === 'dueDate') return toDbDate(value)
-  return safeString(value)
-}
-
-function safeString(value) {
-  if (value === null || value === undefined) return ''
-  return String(value)
+  return safeString(value).trim()
 }
 
 function normalizeKey(value) {
@@ -188,8 +194,10 @@ function normalizeKey(value) {
 function getContractDuplicateKey(item) {
   const projectKey = normalizeKey(item.projectName)
   if (projectKey) return `project:${projectKey}`
+
   const contractKey = normalizeKey(item.contractNo)
   if (contractKey) return `contract:${contractKey}`
+
   return ''
 }
 
@@ -205,7 +213,7 @@ function getOptions(items, key) {
 }
 
 function getYearLabel(value) {
-  if (value === '전체') return value
+  if (value === ALL_OPTION) return value
   const match = safeString(value).match(/\d{4}/)
   return match ? match[0] : safeString(value)
 }
@@ -218,21 +226,59 @@ function sortContracts(items) {
   })
 }
 
-function getDdayText(dateString) {
-  if (!dateString) return ''
+function getDateDiffFromToday(dateString) {
+  const targetDate = parseDateOnly(dateString)
+  if (!targetDate) return null
 
   const today = new Date()
-  const current = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const target = new Date(dateString)
+  const currentDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  return Math.round((targetDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24))
+}
 
-  if (Number.isNaN(target.getTime())) return ''
-
-  const targetDate = new Date(target.getFullYear(), target.getMonth(), target.getDate())
-  const diff = Math.round((targetDate.getTime() - current.getTime()) / (1000 * 60 * 60 * 24))
-
+function getDdayText(dateString) {
+  const diff = getDateDiffFromToday(dateString)
+  if (diff === null) return ''
   if (diff < 0) return `D+${Math.abs(diff)}`
   if (diff === 0) return 'D-Day'
   return `D-${diff}`
+}
+
+function getDueDateAlertLevel(dateString) {
+  const diff = getDateDiffFromToday(dateString)
+  if (diff === null) return 'normal'
+  if (diff < 0) return 'overdue'
+  if (diff <= 7) return 'upcoming'
+  return 'normal'
+}
+
+function getDueDateBadgeStyle(level) {
+  if (level === 'overdue') {
+    return {
+      color: '#b91c1c',
+      background: '#fef2f2',
+      border: '1px solid #fecaca',
+      borderRadius: '8px',
+      fontWeight: 800,
+    }
+  }
+
+  if (level === 'upcoming') {
+    return {
+      color: '#b45309',
+      background: '#fff7ed',
+      border: '1px solid #fed7aa',
+      borderRadius: '8px',
+      fontWeight: 800,
+    }
+  }
+
+  return null
+}
+
+function formatPercent(value) {
+  if (!Number.isFinite(value) || value <= 0) return '0%'
+  if (value >= 99.95) return '100%'
+  return `${value.toFixed(1)}%`
 }
 
 function getMonthLabel(date) {
@@ -296,45 +342,11 @@ function buildDashboardSummary(contracts) {
 }
 
 function App() {
-
   const [contracts, setContracts] = useState([])
-
-  const saveContractToSupabase = async (formData) => {
-    const payload = normalizeContractForSupabase(formData)
-    const { data, error } = await supabase.from('contracts').insert([payload]).select()
-
-    if (error) {
-      console.error('저장 오류:', error)
-      alert(error.message)
-      return null
-    }
-
-    return data
-  }
-
-  const fetchContracts = async () => {
-    const { data, error } = await supabase
-      .from('contracts')
-      .select('*')
-      .order('year', { ascending: false })
-
-    if (error) {
-      console.error('조회 오류:', error)
-      alert(error.message)
-      return
-    }
-
-    setContracts(data ?? [])
-  }
-
-  useEffect(() => {
-    fetchContracts()
-  }, [])
   const [menu, setMenu] = useState('dashboard')
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
-
   const [manualEvents, setManualEvents] = useState(() => {
     const saved = localStorage.getItem(CALENDAR_STORAGE_KEY)
     if (saved) {
@@ -346,7 +358,6 @@ function App() {
     }
     return []
   })
-
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({
     year: ALL_OPTION,
@@ -355,27 +366,53 @@ function App() {
     salesOwner: ALL_OPTION,
     pm: ALL_OPTION,
   })
-
   const [isAddingRow, setIsAddingRow] = useState(false)
-  const [newRow, setNewRow] = useState(emptyContract)
-
+  const [newRow, setNewRow] = useState({ ...emptyContract })
   const [editingCell, setEditingCell] = useState(null)
   const [editingValue, setEditingValue] = useState('')
-
   const [calendarCursor, setCalendarCursor] = useState(() => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
-
-  const [eventForm, setEventForm] = useState(emptyEvent)
+  const [eventForm, setEventForm] = useState({ ...emptyEvent })
   const [monthSearch, setMonthSearch] = useState('')
   const [monthTypeFilter, setMonthTypeFilter] = useState(ALL_OPTION)
   const [isCalendarGridCollapsed, setIsCalendarGridCollapsed] = useState(false)
   const [isMonthListCollapsed, setIsMonthListCollapsed] = useState(false)
-
   const [detailModal, setDetailModal] = useState(null)
 
   const fileInputRef = useRef(null)
+
+  const fetchContracts = async () => {
+    const { data, error } = await supabase
+      .from('contracts')
+      .select('*')
+      .order('year', { ascending: false })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setContracts(data ?? [])
+  }
+
+  const saveContractToSupabase = async (formData) => {
+    const payload = normalizeContractForSupabase(formData)
+
+    const { data, error } = await supabase.from('contracts').insert([payload]).select()
+
+    if (error) {
+      alert(error.message)
+      return null
+    }
+
+    return data
+  }
+
+  useEffect(() => {
+    fetchContracts()
+  }, [])
 
   const filteredContracts = useMemo(() => {
     return sortContracts(
@@ -401,8 +438,8 @@ function App() {
           .toLowerCase()
 
         const searchMatch = text.includes(search.toLowerCase())
-
-        const yearMatch = filters.year === ALL_OPTION || getYearLabel(item.year) === getYearLabel(filters.year)
+        const yearMatch =
+          filters.year === ALL_OPTION || getYearLabel(item.year) === getYearLabel(filters.year)
         const methodMatch =
           filters.contractMethod === ALL_OPTION || item.contractMethod === filters.contractMethod
         const typeMatch =
@@ -437,6 +474,7 @@ function App() {
         items: [...items].sort((a, b) => {
           const segmentCompare = compareKoreanText(a.segment, b.segment)
           if (segmentCompare !== 0) return segmentCompare
+
           const aDate = a.contractDate || a.dueDate || '1900-01-01'
           const bDate = b.contractDate || b.dueDate || '1900-01-01'
           return new Date(bDate).getTime() - new Date(aDate).getTime()
@@ -447,10 +485,12 @@ function App() {
   const dashboardSummary = useMemo(() => buildDashboardSummary(contracts), [contracts])
   const defaultDashboardYear = dashboardSummary.years[0]?.year
   const defaultContractYear = groupedContracts[0]?.year
+
   const isDashboardYearOpen = (year) =>
     Object.prototype.hasOwnProperty.call(openDashboardYears, year)
       ? openDashboardYears[year]
       : year === defaultDashboardYear
+
   const isContractYearOpen = (year) =>
     Object.prototype.hasOwnProperty.call(openContractYears, year)
       ? openContractYears[year]
@@ -519,8 +559,8 @@ function App() {
 
     return [...calendarItems]
       .filter((item) => {
-        const d = new Date(item.date)
-        const monthMatch = d.getFullYear() === year && d.getMonth() + 1 === month
+        const d = parseDateOnly(item.date)
+        const monthMatch = d ? d.getFullYear() === year && d.getMonth() + 1 === month : false
         const typeMatch = monthTypeFilter === ALL_OPTION || item.type === monthTypeFilter
         const searchMatch = `${item.text} ${item.owner || ''} ${item.pm || ''} ${item.note || ''}`
           .toLowerCase()
@@ -528,8 +568,12 @@ function App() {
 
         return monthMatch && typeMatch && searchMatch
       })
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-  }, [calendarCursor, calendarItems, monthTypeFilter, monthSearch])
+      .sort((a, b) => {
+        const aDate = parseDateOnly(a.date)
+        const bDate = parseDateOnly(b.date)
+        return (aDate?.getTime() ?? 0) - (bDate?.getTime() ?? 0)
+      })
+  }, [calendarCursor, calendarItems, monthSearch, monthTypeFilter])
 
   const persistEvents = (next) => {
     setManualEvents(next)
@@ -546,13 +590,15 @@ function App() {
     if (isAdmin) {
       setIsAdmin(false)
       localStorage.removeItem(ADMIN_SESSION_KEY)
-      cancelEdit()
+      setEditingCell(null)
+      setEditingValue('')
       setIsAddingRow(false)
       return
     }
 
     const password = window.prompt('관리자 비밀번호를 입력하세요.')
     if (password === null) return
+
     if (password !== ADMIN_PASSWORD) {
       alert('비밀번호가 올바르지 않습니다.')
       return
@@ -594,6 +640,7 @@ function App() {
       const arrayBuffer = await file.arrayBuffer()
       const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: false })
       const firstSheetName = workbook.SheetNames[0]
+
       if (!firstSheetName) {
         alert('엑셀 시트를 찾을 수 없습니다.')
         return
@@ -669,19 +716,17 @@ function App() {
       }
 
       const payload = uniqueImported.map(normalizeContractForSupabase)
+
       const { error } = await supabase.from('contracts').insert(payload)
 
       if (error) {
-        console.error('엑셀 저장 오류:', error)
         alert(error.message)
         return
       }
 
       await fetchContracts()
-
       alert(`엑셀 업로드 완료: 신규 ${uniqueImported.length}건 추가, 중복 ${imported.length - uniqueImported.length}건 제외`)
-    } catch (error) {
-      console.error(error)
+    } catch {
       alert('엑셀 업로드 중 오류가 발생했습니다.')
     } finally {
       e.target.value = ''
@@ -716,15 +761,44 @@ function App() {
     XLSX.writeFile(workbook, filename)
   }
 
+  const handleBackupDownload = () => {
+    const rows = sortContracts(contracts).map((item) => ({
+      ID: item.id,
+      사업년도: item.year,
+      구분: item.segment,
+      참고번호: item.refNo,
+      계약번호: item.contractNo,
+      발주처: item.client,
+      담당부서: item.department,
+      계약방식: item.contractMethod,
+      계약분류: item.contractType,
+      계약일자: item.contractDate,
+      준공일자: item.dueDate,
+      사업명: item.projectName,
+      계약금액: formatAmountDisplay(item.amount),
+      영업담당자: item.salesOwner,
+      '현장 PM': item.pm,
+      비고: item.note,
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, '백업')
+
+    const now = new Date()
+    const filename = `contract_backup_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}.xlsx`
+    XLSX.writeFile(workbook, filename)
+  }
+
   const openAddRow = () => {
     if (!requireAdmin()) return
     setIsAddingRow(true)
-    setNewRow(emptyContract)
+    setNewRow({ ...emptyContract })
   }
 
   const cancelAddRow = () => {
     setIsAddingRow(false)
-    setNewRow(emptyContract)
+    setNewRow({ ...emptyContract })
   }
 
   const saveAddRow = async () => {
@@ -740,7 +814,7 @@ function App() {
 
     await fetchContracts()
     setIsAddingRow(false)
-    setNewRow(emptyContract)
+    setNewRow({ ...emptyContract })
     alert('저장되었습니다.')
   }
 
@@ -753,7 +827,6 @@ function App() {
     const { error } = await supabase.from('contracts').delete().eq('id', id)
 
     if (error) {
-      console.error('삭제 오류:', error)
       alert(error.message)
       return
     }
@@ -763,8 +836,15 @@ function App() {
 
   const startEdit = (rowId, key, value) => {
     if (!isAdmin) return
+
     setEditingCell({ rowId, key })
-    setEditingValue(key === 'amount' ? normalizeAmountValue(value) : safeString(value))
+
+    if (key === 'amount') {
+      setEditingValue(normalizeAmountValue(value))
+      return
+    }
+
+    setEditingValue(safeString(value))
   }
 
   const cancelEdit = () => {
@@ -776,13 +856,13 @@ function App() {
     if (!editingCell) return
 
     const value = normalizeEditValue(editingCell.key, editingValue)
+
     const { error } = await supabase
       .from('contracts')
       .update({ [editingCell.key]: value })
       .eq('id', editingCell.rowId)
 
     if (error) {
-      console.error('수정 오류:', error)
       alert(error.message)
       return
     }
@@ -794,21 +874,22 @@ function App() {
 
   const moveEdit = (rowId, key, direction) => {
     const currentIndex = CONTRACT_COLUMNS.findIndex((column) => column.key === key)
-    if (currentIndex < 0) {
-      return
-    }
+    if (currentIndex < 0) return
 
     const nextIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1
-    if (nextIndex < 0 || nextIndex >= CONTRACT_COLUMNS.length) {
-      return
-    }
+    if (nextIndex < 0 || nextIndex >= CONTRACT_COLUMNS.length) return
 
     const targetRow = contracts.find((item) => item.id === rowId)
     const nextColumn = CONTRACT_COLUMNS[nextIndex]
-    const nextValue = safeString(targetRow?.[nextColumn.key] ?? '')
+    const nextValue = targetRow?.[nextColumn.key]
 
     setEditingCell({ rowId, key: nextColumn.key })
-    setEditingValue(nextColumn.key === 'amount' ? normalizeAmountValue(nextValue) : nextValue)
+    if (nextColumn.key === 'amount') {
+      setEditingValue(normalizeAmountValue(nextValue))
+      return
+    }
+
+    setEditingValue(safeString(nextValue ?? ''))
   }
 
   const renderEditor = (row, column) => {
@@ -820,8 +901,7 @@ function App() {
       value: editingValue,
       autoFocus: true,
       onChange: (e) => {
-        const value =
-          column.key === 'amount' ? normalizeAmountValue(e.target.value) : e.target.value
+        const value = column.key === 'amount' ? normalizeAmountValue(e.target.value) : e.target.value
         setEditingValue(value)
       },
       onBlur: saveEdit,
@@ -862,6 +942,7 @@ function App() {
 
   const addManualEvent = () => {
     if (!requireAdmin()) return
+
     if (!eventForm.date || !eventForm.title.trim()) {
       alert('날짜와 일정 내용을 입력해주세요.')
       return
@@ -876,13 +957,15 @@ function App() {
     ]
 
     persistEvents(next)
-    setEventForm(emptyEvent)
+    setEventForm({ ...emptyEvent })
   }
 
   const deleteManualEvent = (id) => {
     if (!requireAdmin()) return
+
     const ok = window.confirm('이 일정을 삭제하시겠습니까?')
     if (!ok) return
+
     persistEvents(manualEvents.filter((item) => item.id !== id))
   }
 
@@ -1013,6 +1096,7 @@ function App() {
                           총 {yearBlock.totalAmount.toLocaleString('ko-KR')}원
                         </span>
                       </div>
+
                       <button
                         className="panel-toggle-btn"
                         type="button"
@@ -1028,6 +1112,7 @@ function App() {
                         {yearBlock.items.map((item) => (
                           <div className="dashboard-year-card" key={`${yearBlock.year}-${item.name}`}>
                             <div className="graph-card-title">{item.name}</div>
+
                             <div className="year-card-body">
                               <div
                                 className="dashboard-donut"
@@ -1036,15 +1121,18 @@ function App() {
                               >
                                 <span>{formatPercent(item.ratio)}</span>
                               </div>
+
                               <div className="year-card-metrics">
                                 <div className="year-card-metric">
                                   <span className="year-card-label">계약</span>
                                   <strong>{item.count.toLocaleString('ko-KR')}건</strong>
                                 </div>
+
                                 <div className="year-card-metric">
                                   <span className="year-card-label">금액</span>
                                   <strong>{item.amount.toLocaleString('ko-KR')}원</strong>
                                 </div>
+
                                 <div className="year-card-metric ratio">
                                   <span className="year-card-label">비율</span>
                                   <strong>{formatPercent(item.ratio)}</strong>
@@ -1079,6 +1167,10 @@ function App() {
 
               <button className="secondary-btn" type="button" onClick={handleExcelDownload}>
                 엑셀로 내려받기
+              </button>
+
+              <button className="secondary-btn" type="button" onClick={handleBackupDownload}>
+                백업 다운로드
               </button>
 
               <input
@@ -1191,6 +1283,7 @@ function App() {
                               ? 'th-align-left'
                               : 'th-align-center'
                           }`}
+                          style={column.width ? { width: column.width } : undefined}
                         >
                           {column.label}
                         </th>
@@ -1226,6 +1319,7 @@ function App() {
                                 ? 'td-align-left'
                                 : 'td-align-center'
                             }`}
+                            style={column.width ? { width: column.width } : undefined}
                           >
                             {column.type === 'textarea' ? (
                               <textarea
@@ -1288,6 +1382,7 @@ function App() {
                     ) : (
                       groupedContracts.flatMap((yearBlock) => {
                         const collapsed = !isContractYearOpen(yearBlock.year)
+
                         const yearRow = (
                           <tr className="contract-year-row" key={`year-${yearBlock.year}`}>
                             <td colSpan={CONTRACT_COLUMNS.length + 2}>
@@ -1310,74 +1405,89 @@ function App() {
 
                         return [
                           yearRow,
-                          ...yearBlock.items.map((item, index) => (
-                            <tr
-                              key={item.id}
-                              className={index % 2 === 0 ? 'row-even' : 'row-odd'}
-                            >
-                              <td className="col-action td-align-center">
-                                {isAdmin ? (
-                                  <div className="row-action-group">
-                                    <button
-                                      className="row-icon-btn edit"
-                                      type="button"
-                                      title="수정"
-                                      aria-label="수정"
-                                      onClick={() => startEdit(item.id, 'projectName', item.projectName)}
-                                    >
-                                      ✎
-                                    </button>
-                                    <button
-                                      className="row-icon-btn delete"
-                                      type="button"
-                                      title="삭제"
-                                      aria-label="삭제"
-                                      onClick={() => deleteRow(item.id)}
-                                    >
-                                      ×
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <span className="viewer-action-mark">보기</span>
-                                )}
-                              </td>
+                          ...yearBlock.items.map((item, index) => {
+                            const dueLevel = getDueDateAlertLevel(item.dueDate)
+                            const dueBadgeStyle = getDueDateBadgeStyle(dueLevel)
 
-                              <td className="col-dday td-align-center">
-                                <div className="cell-display dday-cell">{getDdayText(item.dueDate)}</div>
-                              </td>
+                            return (
+                              <tr key={item.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                                <td className="col-action td-align-center">
+                                  {isAdmin ? (
+                                    <div className="row-action-group">
+                                      <button
+                                        className="row-icon-btn edit"
+                                        type="button"
+                                        title="수정"
+                                        aria-label="수정"
+                                        onClick={() => startEdit(item.id, 'projectName', item.projectName)}
+                                      >
+                                        ✎
+                                      </button>
+                                      <button
+                                        className="row-icon-btn delete"
+                                        type="button"
+                                        title="삭제"
+                                        aria-label="삭제"
+                                        onClick={() => deleteRow(item.id)}
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="viewer-action-mark">보기</span>
+                                  )}
+                                </td>
 
-                              {CONTRACT_COLUMNS.map((column) => {
-                                const isEditing =
-                                  editingCell?.rowId === item.id && editingCell?.key === column.key
-
-                                return (
-                                  <td
-                                    key={column.key}
-                                    className={`${column.className} ${
-                                      column.align === 'right'
-                                        ? 'td-align-right'
-                                        : column.align === 'left'
-                                        ? 'td-align-left'
-                                        : 'td-align-center'
-                                    } ${column.type === 'textarea' ? 'multiline-cell' : ''} ${
-                                      column.key === 'note' ? 'note-cell' : ''
-                                    } ${isAdmin ? 'editable-cell' : ''}`}
-                                    onClick={() => startEdit(item.id, column.key, item[column.key])}
+                                <td className="col-dday td-align-center">
+                                  <div
+                                    className="cell-display dday-cell"
+                                    style={dueBadgeStyle ? { ...dueBadgeStyle, justifyContent: 'center' } : undefined}
                                   >
-                                    {isEditing ? (
-                                      renderEditor(item, column)
-                                    ) : (
-                                      <div className="cell-display">
-                                        {column.key === 'amount'
-                                          ? formatAmountDisplay(item[column.key])
-                                          : item[column.key]}
-                                      </div>
-                                    )}
-                                  </td>
-                                )
-                              })}
-                            </tr>
-                          )),
+                                    {getDdayText(item.dueDate)}
+                                  </div>
+                                </td>
+
+                                {CONTRACT_COLUMNS.map((column) => {
+                                  const isEditing =
+                                    editingCell?.rowId === item.id && editingCell?.key === column.key
+
+                                  return (
+                                    <td
+                                      key={column.key}
+                                      className={`${column.className} ${
+                                        column.align === 'right'
+                                          ? 'td-align-right'
+                                          : column.align === 'left'
+                                          ? 'td-align-left'
+                                          : 'td-align-center'
+                                      } ${column.type === 'textarea' ? 'multiline-cell' : ''} ${
+                                        column.key === 'note' ? 'note-cell' : ''
+                                      } ${isAdmin ? 'editable-cell' : ''}`}
+                                      style={column.width ? { width: column.width } : undefined}
+                                      onClick={() => startEdit(item.id, column.key, item[column.key])}
+                                    >
+                                      {isEditing ? (
+                                        renderEditor(item, column)
+                                      ) : (
+                                        <div
+                                          className="cell-display"
+                                          style={
+                                            column.key === 'dueDate' && dueBadgeStyle
+                                              ? dueBadgeStyle
+                                              : undefined
+                                          }
+                                        >
+                                          {column.key === 'amount'
+                                            ? formatAmountDisplay(item[column.key])
+                                            : item[column.key]}
+                                        </div>
+                                      )}
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            )
+                          }),
                         ]
                       })
                     )}
@@ -1497,6 +1607,7 @@ function App() {
                     value={monthSearch}
                     onChange={(e) => setMonthSearch(e.target.value)}
                   />
+
                   <button
                     className="panel-toggle-btn"
                     type="button"
@@ -1516,7 +1627,7 @@ function App() {
                     monthEventList.map((item) => {
                       const listDday =
                         item.type === 'contract' || item.type === 'due'
-                          ? String(item.dday).startsWith('D+')
+                          ? safeString(item.dday).startsWith('D+')
                             ? ''
                             : item.dday || ''
                           : item.dday || ''
