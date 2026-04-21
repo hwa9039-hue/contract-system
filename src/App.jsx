@@ -23,6 +23,7 @@ const CONTRACT_COLUMNS = [
 
 const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
+const CONTRACT_BACKUP_LAST_DATE_KEY = 'CONTRACT_BACKUP_LAST_DATE'
 const ADMIN_PASSWORD = 'admin'
 const ALL_OPTION = '전체'
 const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
@@ -235,44 +236,30 @@ function getDateDiffFromToday(dateString) {
   return Math.round((targetDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24))
 }
 
+function formatTodayBackupKey() {
+  const today = new Date()
+  const yyyy = String(today.getFullYear())
+  const mm = String(today.getMonth() + 1).padStart(2, '0')
+  const dd = String(today.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function getElapsedDaysFromDate(dateString) {
+  const baseDate = parseDateOnly(dateString)
+  if (!baseDate) return null
+
+  const today = new Date()
+  const currentDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const diff = Math.floor((currentDate.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24))
+  return diff < 0 ? 0 : diff
+}
+
 function getDdayText(dateString) {
   const diff = getDateDiffFromToday(dateString)
   if (diff === null) return ''
   if (diff < 0) return `D+${Math.abs(diff)}`
   if (diff === 0) return 'D-Day'
   return `D-${diff}`
-}
-
-function getDueDateAlertLevel(dateString) {
-  const diff = getDateDiffFromToday(dateString)
-  if (diff === null) return 'normal'
-  if (diff < 0) return 'overdue'
-  if (diff <= 7) return 'upcoming'
-  return 'normal'
-}
-
-function getDueDateBadgeStyle(level) {
-  if (level === 'overdue') {
-    return {
-      color: '#b91c1c',
-      background: '#fef2f2',
-      border: '1px solid #fecaca',
-      borderRadius: '8px',
-      fontWeight: 800,
-    }
-  }
-
-  if (level === 'upcoming') {
-    return {
-      color: '#b45309',
-      background: '#fff7ed',
-      border: '1px solid #fed7aa',
-      borderRadius: '8px',
-      fontWeight: 800,
-    }
-  }
-
-  return null
 }
 
 function formatPercent(value) {
@@ -380,6 +367,13 @@ function App() {
   const [isCalendarGridCollapsed, setIsCalendarGridCollapsed] = useState(false)
   const [isMonthListCollapsed, setIsMonthListCollapsed] = useState(false)
   const [detailModal, setDetailModal] = useState(null)
+  const [lastBackupDate, setLastBackupDate] = useState(() => {
+    try {
+      return localStorage.getItem(CONTRACT_BACKUP_LAST_DATE_KEY) || ''
+    } catch {
+      return ''
+    }
+  })
 
   const fileInputRef = useRef(null)
 
@@ -457,6 +451,35 @@ function App() {
     () => filteredContracts.reduce((sum, item) => sum + parseAmount(item.amount), 0),
     [filteredContracts]
   )
+
+  const backupWarning = useMemo(() => {
+    if (!lastBackupDate) {
+      return {
+        show: true,
+        message: '⚠ 백업 이력이 없습니다. 지금 백업 다운로드를 진행하세요.',
+      }
+    }
+
+    const elapsedDays = getElapsedDaysFromDate(lastBackupDate)
+    if (elapsedDays === null) {
+      return {
+        show: true,
+        message: '⚠ 백업 이력이 없습니다. 지금 백업 다운로드를 진행하세요.',
+      }
+    }
+
+    if (elapsedDays >= 7) {
+      return {
+        show: true,
+        message: '⚠ 최근 7일 이상 백업이 없습니다. 백업 다운로드를 진행하세요.',
+      }
+    }
+
+    return {
+      show: false,
+      message: '',
+    }
+  }, [lastBackupDate])
 
   const groupedContracts = useMemo(() => {
     const groups = new Map()
@@ -788,6 +811,14 @@ function App() {
     const now = new Date()
     const filename = `contract_backup_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}.xlsx`
     XLSX.writeFile(workbook, filename)
+
+    const todayKey = formatTodayBackupKey()
+    try {
+      localStorage.setItem(CONTRACT_BACKUP_LAST_DATE_KEY, todayKey)
+    } catch {
+      // no-op
+    }
+    setLastBackupDate(todayKey)
   }
 
   const openAddRow = () => {
@@ -1198,6 +1229,27 @@ function App() {
               </div>
             </div>
 
+            {backupWarning.show && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  minHeight: 42,
+                  marginBottom: 12,
+                  padding: '10px 12px',
+                  border: '1px solid #f5c77a',
+                  borderRadius: 8,
+                  background: '#fff8e8',
+                  color: '#9a5b00',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  lineHeight: 1.4,
+                }}
+              >
+                {backupWarning.message}
+              </div>
+            )}
+
             <div className="contract-filter-row five-only">
               <select
                 className="contract-filter-select"
@@ -1406,9 +1458,6 @@ function App() {
                         return [
                           yearRow,
                           ...yearBlock.items.map((item, index) => {
-                            const dueLevel = getDueDateAlertLevel(item.dueDate)
-                            const dueBadgeStyle = getDueDateBadgeStyle(dueLevel)
-
                             return (
                               <tr key={item.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
                                 <td className="col-action td-align-center">
@@ -1439,12 +1488,7 @@ function App() {
                                 </td>
 
                                 <td className="col-dday td-align-center">
-                                  <div
-                                    className="cell-display dday-cell"
-                                    style={dueBadgeStyle ? { ...dueBadgeStyle, justifyContent: 'center' } : undefined}
-                                  >
-                                    {getDdayText(item.dueDate)}
-                                  </div>
+                                  <div className="cell-display dday-cell">{getDdayText(item.dueDate)}</div>
                                 </td>
 
                                 {CONTRACT_COLUMNS.map((column) => {
@@ -1469,14 +1513,7 @@ function App() {
                                       {isEditing ? (
                                         renderEditor(item, column)
                                       ) : (
-                                        <div
-                                          className="cell-display"
-                                          style={
-                                            column.key === 'dueDate' && dueBadgeStyle
-                                              ? dueBadgeStyle
-                                              : undefined
-                                          }
-                                        >
+                                        <div className="cell-display">
                                           {column.key === 'amount'
                                             ? formatAmountDisplay(item[column.key])
                                             : item[column.key]}
