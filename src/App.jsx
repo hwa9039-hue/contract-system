@@ -23,8 +23,10 @@ const CONTRACT_COLUMNS = [
 
 const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
+const APP_ACCESS_SESSION_KEY = 'contract_manager_app_access_v1'
 const CONTRACT_BACKUP_LAST_DATE_KEY = 'CONTRACT_BACKUP_LAST_DATE'
 const ADMIN_PASSWORD = 'admin'
+const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'SMARTDI2026!'
 const ALL_OPTION = '전체'
 const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
 
@@ -374,6 +376,15 @@ function App() {
       return ''
     }
   })
+  const [isAppAuthenticated, setIsAppAuthenticated] = useState(() => {
+    try {
+      return localStorage.getItem(APP_ACCESS_SESSION_KEY) === 'true'
+    } catch {
+      return false
+    }
+  })
+  const [appPasswordInput, setAppPasswordInput] = useState('')
+  const [appLoginError, setAppLoginError] = useState('')
 
   const fileInputRef = useRef(null)
 
@@ -629,6 +640,42 @@ function App() {
 
     setIsAdmin(true)
     localStorage.setItem(ADMIN_SESSION_KEY, 'true')
+  }
+
+  const handleAppLogin = (e) => {
+    e.preventDefault()
+
+    if (appPasswordInput !== SHARED_APP_PASSWORD) {
+      setAppLoginError('공용 비밀번호가 올바르지 않습니다.')
+      return
+    }
+
+    try {
+      localStorage.setItem(APP_ACCESS_SESSION_KEY, 'true')
+    } catch {
+      // no-op
+    }
+
+    setIsAppAuthenticated(true)
+    setAppPasswordInput('')
+    setAppLoginError('')
+  }
+
+  const handleAppLogout = () => {
+    try {
+      localStorage.removeItem(APP_ACCESS_SESSION_KEY)
+    } catch {
+      // no-op
+    }
+
+    setIsAppAuthenticated(false)
+    setAppPasswordInput('')
+    setAppLoginError('')
+    setIsAdmin(false)
+    localStorage.removeItem(ADMIN_SESSION_KEY)
+    setEditingCell(null)
+    setEditingValue('')
+    setIsAddingRow(false)
   }
 
   const toggleContractYear = (year) => {
@@ -1056,6 +1103,110 @@ function App() {
     })
   }
 
+  if (!isAppAuthenticated) {
+    return (
+      <div
+        className="app-shell"
+        style={{
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 24,
+        }}
+      >
+        <div
+          style={{
+            width: 'min(420px, 100%)',
+            background: 'rgba(255, 255, 255, 0.96)',
+            border: '1px solid rgba(220, 227, 237, 0.92)',
+            borderRadius: 12,
+            boxShadow: '0 16px 40px rgba(15, 23, 42, 0.12)',
+            padding: 28,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 12,
+              marginBottom: 20,
+            }}
+          >
+            <div className="company-logo-box" style={{ width: '100%', marginBottom: 0 }}>
+              <img className="company-logo-img" src="/logo.png" alt="스마트DI" />
+            </div>
+            <div
+              style={{
+                fontFamily: 'SUIT, Pretendard, sans-serif',
+                fontSize: 22,
+                fontWeight: 800,
+                color: '#1f2937',
+                textAlign: 'center',
+              }}
+            >
+              스마트DI사업부 통합관리
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: '#64748b',
+                textAlign: 'center',
+                lineHeight: 1.5,
+              }}
+            >
+              공용 비밀번호를 입력한 뒤 시스템에 접속하세요.
+            </div>
+          </div>
+
+          <form onSubmit={handleAppLogin}>
+            <input
+              type="password"
+              className="table-search-input"
+              value={appPasswordInput}
+              onChange={(e) => {
+                setAppPasswordInput(e.target.value)
+                if (appLoginError) {
+                  setAppLoginError('')
+                }
+              }}
+              placeholder="공용 비밀번호 입력"
+              autoFocus
+            />
+
+            {appLoginError && (
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#b91c1c',
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              >
+                {appLoginError}
+              </div>
+            )}
+
+            <button
+              className="primary-btn"
+              type="submit"
+              style={{
+                width: '100%',
+                marginTop: 14,
+                minHeight: 44,
+              }}
+            >
+              로그인
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -1092,6 +1243,14 @@ function App() {
           <div className="viewer-badge">{isAdmin ? '관리자 모드' : '뷰어 모드'}</div>
           <button className="logout-btn" type="button" onClick={handleAdminLogin}>
             {isAdmin ? '관리자 로그아웃' : '관리자 로그인'}
+          </button>
+          <button
+            className="secondary-btn"
+            type="button"
+            onClick={handleAppLogout}
+            style={{ width: '100%', marginTop: 8 }}
+          >
+            앱 로그아웃
           </button>
         </div>
       </aside>
