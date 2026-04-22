@@ -23,8 +23,10 @@ const CONTRACT_COLUMNS = [
 
 const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
-const APP_ACCESS_SESSION_KEY = 'contract_manager_app_access_v1'
 const CONTRACT_BACKUP_LAST_DATE_KEY = 'CONTRACT_BACKUP_LAST_DATE'
+const CONTRACT_SHARED_AUTH_KEY = 'CONTRACT_SHARED_AUTH'
+const CONTRACT_SHARED_EXPIRES_AT_KEY = 'CONTRACT_SHARED_EXPIRES_AT'
+const CONTRACT_SHARED_SESSION_DURATION_MS = 20 * 60 * 1000
 const ADMIN_PASSWORD = 'admin'
 const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'SMARTDI2026!'
 const ALL_OPTION = '전체'
@@ -256,6 +258,52 @@ function getElapsedDaysFromDate(dateString) {
   return diff < 0 ? 0 : diff
 }
 
+function readSharedAuthSession() {
+  try {
+    const isAuthenticated = sessionStorage.getItem(CONTRACT_SHARED_AUTH_KEY) === 'true'
+    const expiresAt = Number(sessionStorage.getItem(CONTRACT_SHARED_EXPIRES_AT_KEY) || 0)
+
+    if (isAuthenticated && Number.isFinite(expiresAt) && expiresAt > Date.now()) {
+      return {
+        isAuthenticated: true,
+        expiresAt,
+      }
+    }
+  } catch {
+    // no-op
+  }
+
+  try {
+    sessionStorage.removeItem(CONTRACT_SHARED_AUTH_KEY)
+    sessionStorage.removeItem(CONTRACT_SHARED_EXPIRES_AT_KEY)
+  } catch {
+    // no-op
+  }
+
+  return {
+    isAuthenticated: false,
+    expiresAt: 0,
+  }
+}
+
+function writeSharedAuthSession(expiresAt) {
+  try {
+    sessionStorage.setItem(CONTRACT_SHARED_AUTH_KEY, 'true')
+    sessionStorage.setItem(CONTRACT_SHARED_EXPIRES_AT_KEY, String(expiresAt))
+  } catch {
+    // no-op
+  }
+}
+
+function clearSharedAuthSession() {
+  try {
+    sessionStorage.removeItem(CONTRACT_SHARED_AUTH_KEY)
+    sessionStorage.removeItem(CONTRACT_SHARED_EXPIRES_AT_KEY)
+  } catch {
+    // no-op
+  }
+}
+
 function getDdayText(dateString) {
   const diff = getDateDiffFromToday(dateString)
   if (diff === null) return ''
@@ -331,6 +379,7 @@ function buildDashboardSummary(contracts) {
 }
 
 function App() {
+  const initialSharedAuth = readSharedAuthSession()
   const [contracts, setContracts] = useState([])
   const [menu, setMenu] = useState('dashboard')
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
@@ -376,13 +425,9 @@ function App() {
       return ''
     }
   })
-  const [isAppAuthenticated, setIsAppAuthenticated] = useState(() => {
-    try {
-      return localStorage.getItem(APP_ACCESS_SESSION_KEY) === 'true'
-    } catch {
-      return false
-    }
-  })
+  const [isAppAuthenticated, setIsAppAuthenticated] = useState(initialSharedAuth.isAuthenticated)
+  const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(initialSharedAuth.expiresAt)
+  const [currentTimestamp, setCurrentTimestamp] = useState(Date.now())
   const [appPasswordInput, setAppPasswordInput] = useState('')
   const [appLoginError, setAppLoginError] = useState('')
 
@@ -418,6 +463,26 @@ function App() {
   useEffect(() => {
     fetchContracts()
   }, [])
+
+  useEffect(() => {
+    if (!isAppAuthenticated || !sharedSessionExpiresAt) return undefined
+
+    const checkSession = () => {
+      const now = Date.now()
+      setCurrentTimestamp(now)
+
+      if (now >= sharedSessionExpiresAt) {
+        clearSharedAuthState()
+      }
+    }
+
+    checkSession()
+    const timer = window.setInterval(checkSession, 1000)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [isAppAuthenticated, sharedSessionExpiresAt])
 
   const filteredContracts = useMemo(() => {
     return sortContracts(
@@ -491,6 +556,12 @@ function App() {
       message: '',
     }
   }, [lastBackupDate])
+
+  const remainingSessionMinutes = useMemo(() => {
+    if (!isAppAuthenticated || !sharedSessionExpiresAt) return 0
+    const remainingMs = Math.max(0, sharedSessionExpiresAt - currentTimestamp)
+    return Math.max(0, Math.ceil(remainingMs / (60 * 1000)))
+  }, [currentTimestamp, isAppAuthenticated, sharedSessionExpiresAt])
 
   const groupedContracts = useMemo(() => {
     const groups = new Map()
@@ -614,6 +685,20 @@ function App() {
     localStorage.setItem(CALENDAR_STORAGE_KEY, JSON.stringify(next))
   }
 
+  const clearSharedAuthState = () => {
+    clearSharedAuthSession()
+    setIsAppAuthenticated(false)
+    setSharedSessionExpiresAt(0)
+    setCurrentTimestamp(Date.now())
+    setAppPasswordInput('')
+    setAppLoginError('')
+    setIsAdmin(false)
+    localStorage.removeItem(ADMIN_SESSION_KEY)
+    setEditingCell(null)
+    setEditingValue('')
+    setIsAddingRow(false)
+  }
+
   const requireAdmin = () => {
     if (isAdmin) return true
     alert('관리자 로그인 후 편집할 수 있습니다.')
@@ -650,32 +735,25 @@ function App() {
       return
     }
 
-    try {
-      localStorage.setItem(APP_ACCESS_SESSION_KEY, 'true')
-    } catch {
-      // no-op
-    }
+    const expiresAt = Date.now() + CONTRACT_SHARED_SESSION_DURATION_MS
+    writeSharedAuthSession(expiresAt)
 
     setIsAppAuthenticated(true)
+    setSharedSessionExpiresAt(expiresAt)
+    setCurrentTimestamp(Date.now())
     setAppPasswordInput('')
     setAppLoginError('')
   }
 
-  const handleAppLogout = () => {
-    try {
-      localStorage.removeItem(APP_ACCESS_SESSION_KEY)
-    } catch {
-      // no-op
-    }
+  const handleExtendLogin = () => {
+    const expiresAt = Date.now() + CONTRACT_SHARED_SESSION_DURATION_MS
+    writeSharedAuthSession(expiresAt)
+    setSharedSessionExpiresAt(expiresAt)
+    setCurrentTimestamp(Date.now())
+  }
 
-    setIsAppAuthenticated(false)
-    setAppPasswordInput('')
-    setAppLoginError('')
-    setIsAdmin(false)
-    localStorage.removeItem(ADMIN_SESSION_KEY)
-    setEditingCell(null)
-    setEditingValue('')
-    setIsAddingRow(false)
+  const handleAppLogout = () => {
+    clearSharedAuthState()
   }
 
   const toggleContractYear = (year) => {
@@ -1259,7 +1337,42 @@ function App() {
         <div className="top-system-bar">
           <div className="top-system-title">
             <span>스마트DI사업부 통합관리</span>
-            <span className="top-system-subtitle">계약현황 · 일정관리</span>
+            <div
+              style={{
+                marginLeft: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                flexWrap: 'wrap',
+                justifyContent: 'flex-end',
+              }}
+            >
+              <span className="top-system-subtitle">계약현황 · 일정관리</span>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  minHeight: 30,
+                  padding: '0 10px',
+                  borderRadius: 999,
+                  background: remainingSessionMinutes <= 1 ? '#fef2f2' : '#eef5ff',
+                  border: remainingSessionMinutes <= 1 ? '1px solid #fecaca' : '1px solid #cfe0ff',
+                  color: remainingSessionMinutes <= 1 ? '#b91c1c' : '#1f4fd1',
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                남은 시간 {remainingSessionMinutes}분
+              </span>
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={handleExtendLogin}
+                style={{ minHeight: 34, padding: '7px 12px' }}
+              >
+                로그인 연장
+              </button>
+            </div>
           </div>
         </div>
 
