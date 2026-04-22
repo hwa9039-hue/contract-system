@@ -447,6 +447,7 @@ function App() {
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
   const [selectedDocumentIds, setSelectedDocumentIds] = useState([])
+  const [editingDocumentIds, setEditingDocumentIds] = useState([])
   const [isSavingDocuments, setIsSavingDocuments] = useState(false)
   const [manualEvents, setManualEvents] = useState(() => {
     const saved = localStorage.getItem(CALENDAR_STORAGE_KEY)
@@ -1064,6 +1065,10 @@ function App() {
     )
   }
 
+  const startDocumentEdit = (rowId) => {
+    setEditingDocumentIds((prev) => (prev.includes(rowId) ? prev : [...prev, rowId]))
+  }
+
   const toggleDocumentSelection = (rowId) => {
     setSelectedDocumentIds((prev) =>
       prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
@@ -1095,17 +1100,21 @@ function App() {
       }
 
       setDocuments(remainingDrafts)
+      setEditingDocumentIds((prev) => prev.filter((id) => !selectedDocumentIds.includes(id)))
       await fetchDocuments(true)
       return
     }
 
     setDocuments((prev) => prev.filter((row) => !selectedDocumentIds.includes(row.id)))
     setSelectedDocumentIds([])
+    setEditingDocumentIds((prev) => prev.filter((id) => !selectedDocumentIds.includes(id)))
   }
 
   const saveDocuments = async () => {
     const rowsToInsert = documents.filter((row) => row.isDraft && !isDocumentRowEmpty(row))
-    const rowsToUpdate = documents.filter((row) => !row.isDraft)
+    const rowsToUpdate = documents.filter(
+      (row) => !row.isDraft && editingDocumentIds.includes(row.id)
+    )
     const hasEmptyDraftRows = documents.some((row) => row.isDraft && isDocumentRowEmpty(row))
 
     if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && !hasEmptyDraftRows) {
@@ -1151,12 +1160,14 @@ function App() {
       if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && hasEmptyDraftRows) {
         setDocuments((prev) => prev.filter((row) => !(row.isDraft && isDocumentRowEmpty(row))))
         setSelectedDocumentIds([])
+        setEditingDocumentIds([])
         alert('저장되었습니다.')
         return
       }
 
       await fetchDocuments(false)
       setSelectedDocumentIds([])
+      setEditingDocumentIds([])
       alert('저장되었습니다.')
     } finally {
       setIsSavingDocuments(false)
@@ -2084,20 +2095,9 @@ function App() {
             >
               <div
                 style={{
-                  fontSize: 16,
-                  fontWeight: 800,
-                  color: '#1f4fd1',
-                  marginBottom: 10,
-                }}
-              >
-                문서수발신대장 (이력관리)
-              </div>
-
-              <div
-                style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                  gap: 12,
+                  gap: 14,
                   fontSize: 13,
                   lineHeight: 1.6,
                 }}
@@ -2117,9 +2117,7 @@ function App() {
                 </div>
 
                 <div>
-                  <div style={{ fontWeight: 800, marginBottom: 4 }}>문서번호 구성</div>
-                  <div>발송부서 / 발송일 / 순번</div>
-                  <div style={{ fontWeight: 800, marginTop: 8, marginBottom: 6 }}>담당자 약어</div>
+                  <div style={{ fontWeight: 800, marginBottom: 6 }}>담당자 약어</div>
                   <div
                     style={{
                       display: 'grid',
@@ -2127,17 +2125,17 @@ function App() {
                       gap: '4px 14px',
                     }}
                   >
-                    <div>S1 : 전기용이사</div>
-                    <div>S2 : 유영우부장</div>
-                    <div>S3 : 김성수과장</div>
-                    <div>S4 : 이채승대리</div>
-                    <div>R1 : 이용자부장</div>
-                    <div>R2 : 박재범과장</div>
-                    <div>A1 : 전재우차장</div>
-                    <div>A2 : 정화영대리</div>
-                    <div>A3 : 정주희대리</div>
-                    <div>A4 : 문병현대리</div>
-                    <div>A5 : 전유찬대리</div>
+                    <div>S1 : 전기웅 이사</div>
+                    <div>S2 : 유영우 부장</div>
+                    <div>S3 : 김성수 과장</div>
+                    <div>S4 : 이재승 대리</div>
+                    <div>R1 : 이용자 부장</div>
+                    <div>R2 : 박재범 과장</div>
+                    <div>A1 : 전재우 차장</div>
+                    <div>A2 : 정화영 대리</div>
+                    <div>A3 : 정주희 대리</div>
+                    <div>A4 : 문병현 대리</div>
+                    <div>A5 : 전유찬 대리</div>
                   </div>
                 </div>
               </div>
@@ -2149,7 +2147,7 @@ function App() {
                 type="button"
                 onClick={handleAddDocumentRow}
               >
-                행 추가
+                추가
               </button>
 
               <button
@@ -2233,38 +2231,55 @@ function App() {
                                   : 'td-align-center'
                               } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
                               style={column.width ? { width: column.width } : undefined}
+                              onClick={() => {
+                                if (!row.isDraft && !editingDocumentIds.includes(row.id)) {
+                                  startDocumentEdit(row.id)
+                                }
+                              }}
                             >
-                              {column.type === 'textarea' ? (
-                                <textarea
-                                  className={`inline-row-editor cell-inline-editor ${
-                                    column.align === 'right' ? 'align-right' : ''
-                                  }`}
-                                  rows={1}
-                                  value={row[column.key] ?? ''}
-                                  onChange={(e) =>
-                                    handleDocumentCellChange(row.id, column.key, e.target.value)
-                                  }
-                                />
-                              ) : column.type === 'date' ? (
-                                <input
-                                  className="inline-row-editor cell-inline-editor"
-                                  type="date"
-                                  value={row[column.key] ?? ''}
-                                  onChange={(e) =>
-                                    handleDocumentCellChange(row.id, column.key, e.target.value)
-                                  }
-                                />
+                              {row.isDraft || editingDocumentIds.includes(row.id) ? (
+                                column.type === 'textarea' ? (
+                                  <textarea
+                                    className={`inline-row-editor cell-inline-editor ${
+                                      column.align === 'right' ? 'align-right' : ''
+                                    }`}
+                                    rows={1}
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleDocumentCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                ) : column.type === 'date' ? (
+                                  <input
+                                    className="inline-row-editor cell-inline-editor"
+                                    type="date"
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleDocumentCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                ) : (
+                                  <input
+                                    className={`inline-row-editor cell-inline-editor ${
+                                      column.align === 'right' ? 'align-right' : ''
+                                    }`}
+                                    type="text"
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleDocumentCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                )
                               ) : (
-                                <input
-                                  className={`inline-row-editor cell-inline-editor ${
-                                    column.align === 'right' ? 'align-right' : ''
-                                  }`}
-                                  type="text"
-                                  value={row[column.key] ?? ''}
-                                  onChange={(e) =>
-                                    handleDocumentCellChange(row.id, column.key, e.target.value)
-                                  }
-                                />
+                                <div
+                                  className="cell-display"
+                                  style={{
+                                    whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
+                                    cursor: 'text',
+                                  }}
+                                >
+                                  {safeString(row[column.key]).trim() || '-'}
+                                </div>
                               )}
                             </td>
                           ))}
