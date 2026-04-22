@@ -447,7 +447,6 @@ function App() {
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
   const [selectedDocumentIds, setSelectedDocumentIds] = useState([])
-  const [documentsLoaded, setDocumentsLoaded] = useState(false)
   const [isSavingDocuments, setIsSavingDocuments] = useState(false)
   const [manualEvents, setManualEvents] = useState(() => {
     const saved = localStorage.getItem(CALENDAR_STORAGE_KEY)
@@ -534,7 +533,6 @@ function App() {
       return [...draftRows, ...(data ?? []).map(normalizeDocumentRow)]
     })
     setSelectedDocumentIds([])
-    setDocumentsLoaded(true)
   }
 
   const saveContractToSupabase = async (formData) => {
@@ -555,10 +553,10 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (menu === 'documents' && !documentsLoaded) {
-      fetchDocuments()
+    if (menu === 'documents') {
+      fetchDocuments(true)
     }
-  }, [documentsLoaded, menu])
+  }, [menu])
 
   useEffect(() => {
     if (!isAppAuthenticated || !sharedSessionExpiresAt) return undefined
@@ -1049,16 +1047,11 @@ function App() {
   }
 
   const handleAddDocumentRow = () => {
-    if (!requireAdmin()) return
-
     setDocuments((prev) => [createDocumentDraftRow(), ...prev])
     setSelectedDocumentIds([])
-    setDocumentsLoaded(true)
   }
 
   const handleDocumentCellChange = (rowId, key, value) => {
-    if (!isAdmin) return
-
     setDocuments((prev) =>
       prev.map((row) =>
         row.id === rowId
@@ -1078,8 +1071,6 @@ function App() {
   }
 
   const deleteSelectedDocuments = async () => {
-    if (!requireAdmin()) return
-
     if (selectedDocumentIds.length === 0) {
       alert('삭제할 행을 선택하세요.')
       return
@@ -1113,12 +1104,11 @@ function App() {
   }
 
   const saveDocuments = async () => {
-    if (!requireAdmin()) return
-
     const rowsToInsert = documents.filter((row) => row.isDraft && !isDocumentRowEmpty(row))
     const rowsToUpdate = documents.filter((row) => !row.isDraft)
+    const hasEmptyDraftRows = documents.some((row) => row.isDraft && isDocumentRowEmpty(row))
 
-    if (rowsToInsert.length === 0 && rowsToUpdate.length === 0) {
+    if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && !hasEmptyDraftRows) {
       alert('저장할 행이 없습니다.')
       return
     }
@@ -1158,7 +1148,15 @@ function App() {
         }
       }
 
+      if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && hasEmptyDraftRows) {
+        setDocuments((prev) => prev.filter((row) => !(row.isDraft && isDocumentRowEmpty(row))))
+        setSelectedDocumentIds([])
+        alert('저장되었습니다.')
+        return
+      }
+
       await fetchDocuments(false)
+      setSelectedDocumentIds([])
       alert('저장되었습니다.')
     } finally {
       setIsSavingDocuments(false)
@@ -2106,9 +2104,9 @@ function App() {
               >
                 <div>
                   <div style={{ fontWeight: 800, marginBottom: 4 }}>문서번호 체계 안내</div>
-                  <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-S-260320-01</div>
-                  <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-R-260320-01</div>
-                  <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-A-260320-01</div>
+                  <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-S-260000-01</div>
+                  <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-R-260000-01</div>
+                  <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-A-260000-01</div>
                 </div>
 
                 <div>
@@ -2121,8 +2119,26 @@ function App() {
                 <div>
                   <div style={{ fontWeight: 800, marginBottom: 4 }}>문서번호 구성</div>
                   <div>발송부서 / 발송일 / 순번</div>
-                  <div style={{ fontWeight: 800, marginTop: 8, marginBottom: 4 }}>담당자 약어</div>
-                  <div>S1, S2, A1 등 내부 약어를 동일 규칙으로 사용</div>
+                  <div style={{ fontWeight: 800, marginTop: 8, marginBottom: 6 }}>담당자 약어</div>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                      gap: '4px 14px',
+                    }}
+                  >
+                    <div>S1 : 전기용이사</div>
+                    <div>S2 : 유영우부장</div>
+                    <div>S3 : 김성수과장</div>
+                    <div>S4 : 이채승대리</div>
+                    <div>R1 : 이용자부장</div>
+                    <div>R2 : 박재범과장</div>
+                    <div>A1 : 전재우차장</div>
+                    <div>A2 : 정화영대리</div>
+                    <div>A3 : 정주희대리</div>
+                    <div>A4 : 문병현대리</div>
+                    <div>A5 : 전유찬대리</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2132,8 +2148,6 @@ function App() {
                 className="primary-btn"
                 type="button"
                 onClick={handleAddDocumentRow}
-                disabled={!isAdmin}
-                style={!isAdmin ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
               >
                 행 추가
               </button>
@@ -2142,8 +2156,8 @@ function App() {
                 className="secondary-btn"
                 type="button"
                 onClick={saveDocuments}
-                disabled={!isAdmin || isSavingDocuments}
-                style={!isAdmin || isSavingDocuments ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+                disabled={isSavingDocuments}
+                style={isSavingDocuments ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
               >
                 {isSavingDocuments ? '저장 중...' : '저장'}
               </button>
@@ -2152,9 +2166,9 @@ function App() {
                 className="secondary-btn"
                 type="button"
                 onClick={deleteSelectedDocuments}
-                disabled={!isAdmin || selectedDocumentIds.length === 0}
+                disabled={selectedDocumentIds.length === 0}
                 style={
-                  !isAdmin || selectedDocumentIds.length === 0
+                  selectedDocumentIds.length === 0
                     ? { opacity: 0.55, cursor: 'not-allowed' }
                     : undefined
                 }
@@ -2162,12 +2176,6 @@ function App() {
                 삭제
               </button>
             </div>
-
-            {!isAdmin && (
-              <div className="viewer-only-note" style={{ marginBottom: 12 }}>
-                뷰어 모드에서는 문서수발신대장을 조회할 수만 있습니다.
-              </div>
-            )}
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll">
@@ -2233,7 +2241,6 @@ function App() {
                                   }`}
                                   rows={1}
                                   value={row[column.key] ?? ''}
-                                  disabled={!isAdmin}
                                   onChange={(e) =>
                                     handleDocumentCellChange(row.id, column.key, e.target.value)
                                   }
@@ -2243,7 +2250,6 @@ function App() {
                                   className="inline-row-editor cell-inline-editor"
                                   type="date"
                                   value={row[column.key] ?? ''}
-                                  disabled={!isAdmin}
                                   onChange={(e) =>
                                     handleDocumentCellChange(row.id, column.key, e.target.value)
                                   }
@@ -2255,7 +2261,6 @@ function App() {
                                   }`}
                                   type="text"
                                   value={row[column.key] ?? ''}
-                                  disabled={!isAdmin}
                                   onChange={(e) =>
                                     handleDocumentCellChange(row.id, column.key, e.target.value)
                                   }
