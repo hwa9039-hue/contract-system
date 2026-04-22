@@ -2096,7 +2096,7 @@ function App() {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                  gridTemplateColumns: 'minmax(240px, 320px) minmax(420px, 1fr)',
                   gap: 14,
                   fontSize: 13,
                   lineHeight: 1.6,
@@ -2110,32 +2110,47 @@ function App() {
                 </div>
 
                 <div>
-                  <div style={{ fontWeight: 800, marginBottom: 4 }}>발송부서</div>
-                  <div>S = 영업부</div>
-                  <div>R = 도로사업팀</div>
-                  <div>A = 영업지원팀</div>
-                </div>
-
-                <div>
                   <div style={{ fontWeight: 800, marginBottom: 6 }}>담당자 약어</div>
                   <div
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                      gap: '4px 14px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 28,
+                      alignItems: 'flex-start',
                     }}
                   >
-                    <div>S1 : 전기웅 이사</div>
-                    <div>S2 : 유영우 부장</div>
-                    <div>S3 : 김성수 과장</div>
-                    <div>S4 : 이재승 대리</div>
-                    <div>R1 : 이용자 부장</div>
-                    <div>R2 : 박재범 과장</div>
-                    <div>A1 : 전재우 차장</div>
-                    <div>A2 : 정화영 대리</div>
-                    <div>A3 : 정주희 대리</div>
-                    <div>A4 : 문병현 대리</div>
-                    <div>A5 : 전유찬 대리</div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4,
+                        minWidth: 0,
+                        flex: 1,
+                      }}
+                    >
+                      <div>S1 : 전기웅 이사</div>
+                      <div>S2 : 유영우 부장</div>
+                      <div>S3 : 김성수 과장</div>
+                      <div>S4 : 이재승 대리</div>
+                      <div style={{ height: 10 }} />
+                      <div>R1 : 이용자 부장</div>
+                      <div>R2 : 박재범 과장</div>
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4,
+                        minWidth: 0,
+                        flex: 1,
+                      }}
+                    >
+                      <div>A1 : 전재우 차장</div>
+                      <div>A2 : 정화영 대리</div>
+                      <div>A3 : 정주희 대리</div>
+                      <div>A4 : 문병현 대리</div>
+                      <div>A5 : 전유찬 대리</div>
+                    </div>
                   </div>
                 </div>
               </div>
