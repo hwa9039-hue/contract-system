@@ -21,12 +21,23 @@ const CONTRACT_COLUMNS = [
   { key: 'note', label: '비고', className: 'col-note', align: 'left', type: 'textarea' },
 ]
 
+const DOCUMENT_COLUMNS = [
+  { key: 'docDate', label: '일자', align: 'center', type: 'date', width: 120 },
+  { key: 'docNo', label: '문서번호', align: 'center', type: 'text', width: 210 },
+  { key: 'senderReceiver', label: '수신처 발신처', align: 'center', type: 'textarea', width: 190 },
+  { key: 'title', label: '문서명 또는 제목', align: 'left', type: 'textarea', width: 280 },
+  { key: 'method', label: '접수형태 발송형태', align: 'center', type: 'text', width: 170 },
+  { key: 'writer', label: '수신자 작성자', align: 'center', type: 'text', width: 160 },
+  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 240 },
+]
+
 const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
 const CONTRACT_BACKUP_LAST_DATE_KEY = 'CONTRACT_BACKUP_LAST_DATE'
 const CONTRACT_SHARED_AUTH_KEY = 'CONTRACT_SHARED_AUTH'
 const CONTRACT_SHARED_EXPIRES_AT_KEY = 'CONTRACT_SHARED_EXPIRES_AT'
 const CONTRACT_SHARED_SESSION_DURATION_MS = 20 * 60 * 1000
+const CONTRACT_SHARED_WARNING_MS = 5 * 60 * 1000
 const ADMIN_PASSWORD = 'admin'
 const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'SMARTDI2026!'
 const ALL_OPTION = '전체'
@@ -55,6 +66,22 @@ const emptyEvent = {
   title: '',
   owner: '',
   note: '',
+}
+
+function createDocumentDraftRow() {
+  return {
+    id: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    docDate: '',
+    docNo: '',
+    senderReceiver: '',
+    title: '',
+    method: '',
+    writer: '',
+    note: '',
+    createdAt: '',
+    updatedAt: '',
+    isDraft: true,
+  }
 }
 
 function safeString(value) {
@@ -304,6 +331,39 @@ function clearSharedAuthSession() {
   }
 }
 
+function normalizeDocumentRow(item) {
+  return {
+    id: safeString(item.id),
+    docDate: safeString(item.docDate ?? item.docdate),
+    docNo: safeString(item.docNo ?? item.docno),
+    senderReceiver: safeString(item.senderReceiver ?? item.senderreceiver),
+    title: safeString(item.title),
+    method: safeString(item.method),
+    writer: safeString(item.writer),
+    note: safeString(item.note),
+    createdAt: safeString(item.createdAt ?? item.createdat),
+    updatedAt: safeString(item.updatedAt ?? item.updatedat),
+    isDraft: false,
+  }
+}
+
+function isDocumentRowEmpty(row) {
+  return DOCUMENT_COLUMNS.every((column) => safeString(row[column.key]).trim() === '')
+}
+
+function toDocumentPayload(row, timestamp) {
+  return {
+    docDate: toDbDate(row.docDate),
+    docNo: safeString(row.docNo).trim(),
+    senderReceiver: safeString(row.senderReceiver).trim(),
+    title: safeString(row.title).trim(),
+    method: safeString(row.method).trim(),
+    writer: safeString(row.writer).trim(),
+    note: safeString(row.note).trim(),
+    updatedAt: timestamp,
+  }
+}
+
 function getDdayText(dateString) {
   const diff = getDateDiffFromToday(dateString)
   if (diff === null) return ''
@@ -381,10 +441,14 @@ function buildDashboardSummary(contracts) {
 function App() {
   const initialSharedAuth = readSharedAuthSession()
   const [contracts, setContracts] = useState([])
+  const [documents, setDocuments] = useState([])
   const [menu, setMenu] = useState('dashboard')
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState([])
+  const [documentsLoaded, setDocumentsLoaded] = useState(false)
+  const [isSavingDocuments, setIsSavingDocuments] = useState(false)
   const [manualEvents, setManualEvents] = useState(() => {
     const saved = localStorage.getItem(CALENDAR_STORAGE_KEY)
     if (saved) {
@@ -427,7 +491,14 @@ function App() {
   })
   const [isAppAuthenticated, setIsAppAuthenticated] = useState(initialSharedAuth.isAuthenticated)
   const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(initialSharedAuth.expiresAt)
-  const [currentTimestamp, setCurrentTimestamp] = useState(Date.now())
+  const [remainingTime, setRemainingTime] = useState(
+    initialSharedAuth.isAuthenticated ? Math.max(0, initialSharedAuth.expiresAt - Date.now()) : 0
+  )
+  const [showSessionWarning, setShowSessionWarning] = useState(
+    initialSharedAuth.isAuthenticated &&
+      initialSharedAuth.expiresAt - Date.now() > 0 &&
+      initialSharedAuth.expiresAt - Date.now() <= CONTRACT_SHARED_WARNING_MS
+  )
   const [appPasswordInput, setAppPasswordInput] = useState('')
   const [appLoginError, setAppLoginError] = useState('')
 
@@ -445,6 +516,25 @@ function App() {
     }
 
     setContracts(data ?? [])
+  }
+
+  const fetchDocuments = async (preserveDrafts = true) => {
+    const { data, error } = await supabase
+      .from('document_register')
+      .select('*')
+      .order('createdAt', { ascending: false })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setDocuments((prev) => {
+      const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
+      return [...draftRows, ...(data ?? []).map(normalizeDocumentRow)]
+    })
+    setSelectedDocumentIds([])
+    setDocumentsLoaded(true)
   }
 
   const saveContractToSupabase = async (formData) => {
@@ -465,11 +555,21 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (menu === 'documents' && !documentsLoaded) {
+      fetchDocuments()
+    }
+  }, [documentsLoaded, menu])
+
+  useEffect(() => {
     if (!isAppAuthenticated || !sharedSessionExpiresAt) return undefined
 
     const checkSession = () => {
       const now = Date.now()
-      setCurrentTimestamp(now)
+      const nextRemainingTime = Math.max(0, sharedSessionExpiresAt - now)
+      setRemainingTime(nextRemainingTime)
+      setShowSessionWarning(
+        nextRemainingTime > 0 && nextRemainingTime <= CONTRACT_SHARED_WARNING_MS
+      )
 
       if (now >= sharedSessionExpiresAt) {
         clearSharedAuthState()
@@ -559,9 +659,8 @@ function App() {
 
   const remainingSessionMinutes = useMemo(() => {
     if (!isAppAuthenticated || !sharedSessionExpiresAt) return 0
-    const remainingMs = Math.max(0, sharedSessionExpiresAt - currentTimestamp)
-    return Math.max(0, Math.ceil(remainingMs / (60 * 1000)))
-  }, [currentTimestamp, isAppAuthenticated, sharedSessionExpiresAt])
+    return Math.max(0, Math.ceil(remainingTime / (60 * 1000)))
+  }, [isAppAuthenticated, remainingTime, sharedSessionExpiresAt])
 
   const groupedContracts = useMemo(() => {
     const groups = new Map()
@@ -689,7 +788,8 @@ function App() {
     clearSharedAuthSession()
     setIsAppAuthenticated(false)
     setSharedSessionExpiresAt(0)
-    setCurrentTimestamp(Date.now())
+    setRemainingTime(0)
+    setShowSessionWarning(false)
     setAppPasswordInput('')
     setAppLoginError('')
     setIsAdmin(false)
@@ -740,7 +840,8 @@ function App() {
 
     setIsAppAuthenticated(true)
     setSharedSessionExpiresAt(expiresAt)
-    setCurrentTimestamp(Date.now())
+    setRemainingTime(CONTRACT_SHARED_SESSION_DURATION_MS)
+    setShowSessionWarning(false)
     setAppPasswordInput('')
     setAppLoginError('')
   }
@@ -749,7 +850,8 @@ function App() {
     const expiresAt = Date.now() + CONTRACT_SHARED_SESSION_DURATION_MS
     writeSharedAuthSession(expiresAt)
     setSharedSessionExpiresAt(expiresAt)
-    setCurrentTimestamp(Date.now())
+    setRemainingTime(CONTRACT_SHARED_SESSION_DURATION_MS)
+    setShowSessionWarning(false)
   }
 
   const handleAppLogout = () => {
@@ -944,6 +1046,123 @@ function App() {
       // no-op
     }
     setLastBackupDate(todayKey)
+  }
+
+  const handleAddDocumentRow = () => {
+    if (!requireAdmin()) return
+
+    setDocuments((prev) => [createDocumentDraftRow(), ...prev])
+    setSelectedDocumentIds([])
+    setDocumentsLoaded(true)
+  }
+
+  const handleDocumentCellChange = (rowId, key, value) => {
+    if (!isAdmin) return
+
+    setDocuments((prev) =>
+      prev.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              [key]: value,
+            }
+          : row
+      )
+    )
+  }
+
+  const toggleDocumentSelection = (rowId) => {
+    setSelectedDocumentIds((prev) =>
+      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
+    )
+  }
+
+  const deleteSelectedDocuments = async () => {
+    if (!requireAdmin()) return
+
+    if (selectedDocumentIds.length === 0) {
+      alert('삭제할 행을 선택하세요.')
+      return
+    }
+
+    const ok = window.confirm('선택한 문서 행을 삭제하시겠습니까?')
+    if (!ok) return
+
+    const persistedIds = documents
+      .filter((row) => selectedDocumentIds.includes(row.id) && !row.isDraft)
+      .map((row) => row.id)
+
+    if (persistedIds.length > 0) {
+      const remainingDrafts = documents.filter(
+        (row) => row.isDraft && !selectedDocumentIds.includes(row.id)
+      )
+      const { error } = await supabase.from('document_register').delete().in('id', persistedIds)
+
+      if (error) {
+        alert(error.message)
+        return
+      }
+
+      setDocuments(remainingDrafts)
+      await fetchDocuments(true)
+      return
+    }
+
+    setDocuments((prev) => prev.filter((row) => !selectedDocumentIds.includes(row.id)))
+    setSelectedDocumentIds([])
+  }
+
+  const saveDocuments = async () => {
+    if (!requireAdmin()) return
+
+    const rowsToInsert = documents.filter((row) => row.isDraft && !isDocumentRowEmpty(row))
+    const rowsToUpdate = documents.filter((row) => !row.isDraft)
+
+    if (rowsToInsert.length === 0 && rowsToUpdate.length === 0) {
+      alert('저장할 행이 없습니다.')
+      return
+    }
+
+    setIsSavingDocuments(true)
+
+    try {
+      const timestamp = new Date().toISOString()
+
+      if (rowsToInsert.length > 0) {
+        const insertPayload = rowsToInsert.map((row) => ({
+          ...toDocumentPayload(row, timestamp),
+          createdAt: timestamp,
+        }))
+
+        const { error } = await supabase.from('document_register').insert(insertPayload)
+        if (error) {
+          alert(error.message)
+          return
+        }
+      }
+
+      if (rowsToUpdate.length > 0) {
+        const updateResults = await Promise.all(
+          rowsToUpdate.map((row) =>
+            supabase
+              .from('document_register')
+              .update(toDocumentPayload(row, timestamp))
+              .eq('id', row.id)
+          )
+        )
+
+        const failedUpdate = updateResults.find((result) => result.error)
+        if (failedUpdate?.error) {
+          alert(failedUpdate.error.message)
+          return
+        }
+      }
+
+      await fetchDocuments(false)
+      alert('저장되었습니다.')
+    } finally {
+      setIsSavingDocuments(false)
+    }
   }
 
   const openAddRow = () => {
@@ -1314,6 +1533,13 @@ function App() {
             >
               <span className="menu-label-strong">캘린더</span>
             </button>
+
+            <button
+              className={menu === 'documents' ? 'menu-btn active' : 'menu-btn'}
+              onClick={() => setMenu('documents')}
+            >
+              문서수발신대장
+            </button>
           </div>
         </div>
 
@@ -1347,7 +1573,7 @@ function App() {
                 justifyContent: 'flex-end',
               }}
             >
-              <span className="top-system-subtitle">계약현황 · 일정관리</span>
+              <span className="top-system-subtitle">계약현황 · 일정관리 · 문서수발신대장</span>
               <span
                 style={{
                   display: 'inline-flex',
@@ -1381,8 +1607,46 @@ function App() {
             {menu === 'dashboard' && '대시보드'}
             {menu === 'contracts' && '계약현황'}
             {menu === 'calendar' && '캘린더'}
+            {menu === 'documents' && '문서수발신대장'}
           </h1>
         </div>
+
+        {showSessionWarning && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              marginBottom: 12,
+              padding: '12px 14px',
+              border: remainingSessionMinutes <= 1 ? '1px solid #fecaca' : '1px solid #fed7aa',
+              borderRadius: 8,
+              background: remainingSessionMinutes <= 1 ? '#fef2f2' : '#fff7ed',
+              color: remainingSessionMinutes <= 1 ? '#b91c1c' : '#b45309',
+              boxShadow: '0 6px 18px rgba(15, 23, 42, 0.06)',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 800,
+                lineHeight: 1.45,
+              }}
+            >
+              세션이 곧 만료됩니다 (약 {remainingSessionMinutes}분 남음)
+            </div>
+
+            <button
+              className="primary-btn"
+              type="button"
+              onClick={handleExtendLogin}
+              style={{ minWidth: 108, whiteSpace: 'nowrap' }}
+            >
+              로그인 연장
+            </button>
+          </div>
+        )}
 
         {menu === 'dashboard' && (
           <section className="stat-card">
@@ -1799,6 +2063,208 @@ function App() {
                           }),
                         ]
                       })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {menu === 'documents' && (
+          <section className="stat-card">
+            <div
+              style={{
+                marginBottom: 14,
+                padding: '16px 18px',
+                borderRadius: 10,
+                border: '1px solid #d7e3ff',
+                background: '#f8fbff',
+                color: '#334155',
+                boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 16,
+                  fontWeight: 800,
+                  color: '#1f4fd1',
+                  marginBottom: 10,
+                }}
+              >
+                문서수발신대장 (이력관리)
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                  gap: 12,
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 800, marginBottom: 4 }}>문서번호 체계 안내</div>
+                  <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-S-260320-01</div>
+                  <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-R-260320-01</div>
+                  <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-A-260320-01</div>
+                </div>
+
+                <div>
+                  <div style={{ fontWeight: 800, marginBottom: 4 }}>발송부서</div>
+                  <div>S = 영업부</div>
+                  <div>R = 도로사업팀</div>
+                  <div>A = 영업지원팀</div>
+                </div>
+
+                <div>
+                  <div style={{ fontWeight: 800, marginBottom: 4 }}>문서번호 구성</div>
+                  <div>발송부서 / 발송일 / 순번</div>
+                  <div style={{ fontWeight: 800, marginTop: 8, marginBottom: 4 }}>담당자 약어</div>
+                  <div>S1, S2, A1 등 내부 약어를 동일 규칙으로 사용</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="contracts-header-actions">
+              <button
+                className="primary-btn"
+                type="button"
+                onClick={handleAddDocumentRow}
+                disabled={!isAdmin}
+                style={!isAdmin ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+              >
+                행 추가
+              </button>
+
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={saveDocuments}
+                disabled={!isAdmin || isSavingDocuments}
+                style={!isAdmin || isSavingDocuments ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+              >
+                {isSavingDocuments ? '저장 중...' : '저장'}
+              </button>
+
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={deleteSelectedDocuments}
+                disabled={!isAdmin || selectedDocumentIds.length === 0}
+                style={
+                  !isAdmin || selectedDocumentIds.length === 0
+                    ? { opacity: 0.55, cursor: 'not-allowed' }
+                    : undefined
+                }
+              >
+                삭제
+              </button>
+            </div>
+
+            {!isAdmin && (
+              <div className="viewer-only-note" style={{ marginBottom: 12 }}>
+                뷰어 모드에서는 문서수발신대장을 조회할 수만 있습니다.
+              </div>
+            )}
+
+            <div className="contract-table-panel">
+              <div className="table-wrap contracts-only-scroll">
+                <table className="contract-table excel-table">
+                  <thead>
+                    <tr>
+                      <th className="th-align-center" style={{ width: 64 }}>
+                        선택
+                      </th>
+                      {DOCUMENT_COLUMNS.map((column) => (
+                        <th
+                          key={column.key}
+                          className={
+                            column.align === 'right'
+                              ? 'th-align-right'
+                              : column.align === 'left'
+                              ? 'th-align-left'
+                              : 'th-align-center'
+                          }
+                          style={column.width ? { width: column.width } : undefined}
+                        >
+                          {column.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {documents.length === 0 ? (
+                      <tr>
+                        <td colSpan={DOCUMENT_COLUMNS.length + 1} className="empty-cell">
+                          등록된 문서수발신 이력이 없습니다.
+                        </td>
+                      </tr>
+                    ) : (
+                      documents.map((row, index) => (
+                        <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                          <td className="td-align-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedDocumentIds.includes(row.id)}
+                              onChange={() => toggleDocumentSelection(row.id)}
+                              style={{ width: 16, height: 16 }}
+                            />
+                          </td>
+
+                          {DOCUMENT_COLUMNS.map((column) => (
+                            <td
+                              key={column.key}
+                              className={`${
+                                column.align === 'right'
+                                  ? 'td-align-right'
+                                  : column.align === 'left'
+                                  ? 'td-align-left'
+                                  : 'td-align-center'
+                              } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
+                              style={column.width ? { width: column.width } : undefined}
+                            >
+                              {column.type === 'textarea' ? (
+                                <textarea
+                                  className={`inline-row-editor cell-inline-editor ${
+                                    column.align === 'right' ? 'align-right' : ''
+                                  }`}
+                                  rows={1}
+                                  value={row[column.key] ?? ''}
+                                  disabled={!isAdmin}
+                                  onChange={(e) =>
+                                    handleDocumentCellChange(row.id, column.key, e.target.value)
+                                  }
+                                />
+                              ) : column.type === 'date' ? (
+                                <input
+                                  className="inline-row-editor cell-inline-editor"
+                                  type="date"
+                                  value={row[column.key] ?? ''}
+                                  disabled={!isAdmin}
+                                  onChange={(e) =>
+                                    handleDocumentCellChange(row.id, column.key, e.target.value)
+                                  }
+                                />
+                              ) : (
+                                <input
+                                  className={`inline-row-editor cell-inline-editor ${
+                                    column.align === 'right' ? 'align-right' : ''
+                                  }`}
+                                  type="text"
+                                  value={row[column.key] ?? ''}
+                                  disabled={!isAdmin}
+                                  onChange={(e) =>
+                                    handleDocumentCellChange(row.id, column.key, e.target.value)
+                                  }
+                                />
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      ))
                     )}
                   </tbody>
                 </table>
