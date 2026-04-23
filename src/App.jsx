@@ -2094,72 +2094,33 @@ function App() {
               }}
             >
               <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'flex-start',
-                  flexWrap: 'wrap',
-                  columnGap: 24,
-                  rowGap: 12,
-                  fontSize: 13,
-                  lineHeight: 1.6,
-                }}
+                className="doc-guide-layout"
               >
                 <div
-                  style={{
-                    flex: '0 0 auto',
-                    minWidth: 250,
-                    maxWidth: 300,
-                  }}
+                  className="doc-guide-pattern"
                 >
                   <div style={{ fontWeight: 800, marginBottom: 4 }}>문서번호 체계 안내</div>
-                  <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-S-260000-01</div>
-                  <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-R-260000-01</div>
-                  <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-A-260000-01</div>
+                  <div className="doc-guide-code">SIGN-DI-S-260000-01</div>
+                  <div className="doc-guide-code">SIGN-DI-R-260000-01</div>
+                  <div className="doc-guide-code">SIGN-DI-A-260000-01</div>
                 </div>
 
                 <div
-                  style={{
-                    flex: '0 1 auto',
-                    minWidth: 340,
-                    maxWidth: 560,
-                  }}
+                  className="doc-guide-owners-wrap"
                 >
                   <div style={{ fontWeight: 800, marginBottom: 6 }}>담당자 약어</div>
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'max-content max-content',
-                      columnGap: 20,
-                      rowGap: 0,
-                      alignItems: 'start',
-                      justifyContent: 'start',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 4,
-                        minWidth: 'max-content',
-                      }}
-                    >
+                  <div className="doc-guide-owners-grid">
+                    <div className="doc-guide-owner-col">
                       <div>S1 : 전기웅 이사</div>
                       <div>S2 : 유영우 부장</div>
                       <div>S3 : 김성수 과장</div>
                       <div>S4 : 이재승 대리</div>
-                      <div style={{ height: 10 }} />
+                    </div>
+                    <div className="doc-guide-owner-col">
                       <div>R1 : 이용자 부장</div>
                       <div>R2 : 박재범 과장</div>
                     </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 4,
-                        minWidth: 'max-content',
-                      }}
-                    >
+                    <div className="doc-guide-owner-col">
                       <div>A1 : 전재우 차장</div>
                       <div>A2 : 정화영 대리</div>
                       <div>A3 : 정주희 대리</div>

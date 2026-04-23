@@ -2223,3 +2223,46 @@ textarea:focus-visible {
   align-items: center;
 }
 
+.doc-guide-layout {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  column-gap: 20px;
+  row-gap: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.doc-guide-pattern {
+  flex: 0 0 auto;
+  min-width: 248px;
+  max-width: 292px;
+}
+
+.doc-guide-code {
+  font-family: Consolas, monospace;
+}
+
+.doc-guide-owners-wrap {
+  flex: 0 1 auto;
+  min-width: 408px;
+  max-width: 620px;
+}
+
+.doc-guide-owners-grid {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  column-gap: 20px;
+  row-gap: 0;
+  align-items: start;
+  justify-content: start;
+}
+
+.doc-guide-owner-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: max-content;
+}
+
