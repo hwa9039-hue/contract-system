@@ -34,6 +34,16 @@ const DOCUMENT_COLUMNS = [
 const SALES_CATEGORY_OPTIONS = ['DI사업', '도로사업']
 const SALES_STAGE_OPTIONS = ['대기', '대응중', '확인필요', '보류', '완료', '발주계획', '사전규격', '입찰공고']
 const SALES_MANAGER_OPTIONS = ['전기웅 이사', '유영무 부장', '김성수 과장', '이재승 대리', '이용자 부장', '박재범 과장']
+const SALES_STAGE_TONE_MAP = {
+  대기: { className: 'sales-stage-badge stage-waiting', optionStyle: { backgroundColor: '#fff8db', color: '#a16207' } },
+  대응중: { className: 'sales-stage-badge stage-working', optionStyle: { backgroundColor: '#eaf1ff', color: '#1f4fd1' } },
+  확인필요: { className: 'sales-stage-badge stage-alert', optionStyle: { backgroundColor: '#fff1e8', color: '#c2410c' } },
+  보류: { className: 'sales-stage-badge stage-hold', optionStyle: { backgroundColor: '#f3f4f6', color: '#4b5563' } },
+  완료: { className: 'sales-stage-badge stage-done', optionStyle: { backgroundColor: '#e5e7eb', color: '#111827' } },
+  발주계획: { className: 'sales-stage-badge stage-green', optionStyle: { backgroundColor: '#ecfdf3', color: '#166534' } },
+  사전규격: { className: 'sales-stage-badge stage-green', optionStyle: { backgroundColor: '#ecfdf3', color: '#166534' } },
+  입찰공고: { className: 'sales-stage-badge stage-green', optionStyle: { backgroundColor: '#ecfdf3', color: '#166534' } },
+}
 
 const SALES_COLUMNS = [
   { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 128 },
@@ -447,6 +457,17 @@ function toSalesPayload(row, timestamp) {
     salesNote: safeString(row.salesNote).trim(),
     actionRequest: safeString(row.actionRequest).trim(),
     updatedAt: timestamp,
+  }
+}
+
+function getSalesStageClassName(stage) {
+  return SALES_STAGE_TONE_MAP[safeString(stage).trim()]?.className || 'sales-stage-badge'
+}
+
+function getSalesStageOptionStyle(stage) {
+  return {
+    fontWeight: 700,
+    ...SALES_STAGE_TONE_MAP[safeString(stage).trim()]?.optionStyle,
   }
 }
 
@@ -1424,13 +1445,6 @@ function App() {
     } finally {
       setIsSavingSales(false)
     }
-  }
-
-  const resetSalesFilters = () => {
-    setSalesFilters({
-      projectCategory: '',
-      manager: '',
-    })
   }
 
   const handleSalesExcelDownload = () => {
@@ -2435,10 +2449,6 @@ function App() {
                 ))}
               </select>
 
-              <button className="secondary-btn" type="button" onClick={resetSalesFilters}>
-                초기화
-              </button>
-
               <button className="secondary-btn" type="button" onClick={handleSalesExcelDownload}>
                 엑셀 다운로드
               </button>
@@ -2538,7 +2548,11 @@ function App() {
                                   />
                                 ) : column.type === 'select' ? (
                                   <select
-                                    className="inline-row-editor cell-inline-editor"
+                                    className={`inline-row-editor cell-inline-editor ${
+                                      column.key === 'projectStage'
+                                        ? `sales-stage-select ${getSalesStageClassName(row[column.key])}`
+                                        : ''
+                                    }`}
                                     value={row[column.key] ?? ''}
                                     onChange={(e) =>
                                       handleSalesCellChange(row.id, column.key, e.target.value)
@@ -2546,7 +2560,15 @@ function App() {
                                   >
                                     <option value="">선택</option>
                                     {column.options.map((option) => (
-                                      <option key={option} value={option}>
+                                      <option
+                                        key={option}
+                                        value={option}
+                                        style={
+                                          column.key === 'projectStage'
+                                            ? getSalesStageOptionStyle(option)
+                                            : undefined
+                                        }
+                                      >
                                         {option}
                                       </option>
                                     ))}
@@ -2571,9 +2593,19 @@ function App() {
                                     cursor: 'text',
                                   }}
                                 >
-                                  {column.key === 'projectAmount'
-                                    ? formatAmountDisplay(row[column.key]) || '-'
-                                    : safeString(row[column.key]).trim() || '-'}
+                                  {column.key === 'projectAmount' ? (
+                                    formatAmountDisplay(row[column.key]) || '-'
+                                  ) : column.key === 'projectStage' ? (
+                                    safeString(row[column.key]).trim() ? (
+                                      <span className={getSalesStageClassName(row[column.key])}>
+                                        {row[column.key]}
+                                      </span>
+                                    ) : (
+                                      '-'
+                                    )
+                                  ) : (
+                                    safeString(row[column.key]).trim() || '-'
+                                  )}
                                 </div>
                               )}
                             </td>
