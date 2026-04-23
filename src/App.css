@@ -2280,49 +2280,43 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
-.sales-stage-select {
-  border-radius: 999px;
-  font-weight: 800;
-  text-align: center;
-}
-
 .sales-stage-badge.stage-waiting,
-.sales-stage-select.stage-waiting {
+.sales-stage-badge.stage-waiting {
   background: #fff8db;
   color: #a16207;
   border-color: #f6d56c;
 }
 
 .sales-stage-badge.stage-working,
-.sales-stage-select.stage-working {
+.sales-stage-badge.stage-working {
   background: #eaf1ff;
   color: #1f4fd1;
   border-color: #bfd0ff;
 }
 
 .sales-stage-badge.stage-alert,
-.sales-stage-select.stage-alert {
+.sales-stage-badge.stage-alert {
   background: #fff1e8;
   color: #c2410c;
   border-color: #fdba74;
 }
 
 .sales-stage-badge.stage-hold,
-.sales-stage-select.stage-hold {
+.sales-stage-badge.stage-hold {
   background: #f3f4f6;
   color: #4b5563;
   border-color: #d1d5db;
 }
 
 .sales-stage-badge.stage-done,
-.sales-stage-select.stage-done {
+.sales-stage-badge.stage-done {
   background: #e5e7eb;
   color: #111827;
   border-color: #9ca3af;
 }
 
 .sales-stage-badge.stage-green,
-.sales-stage-select.stage-green {
+.sales-stage-badge.stage-green {
   background: #ecfdf3;
   color: #166534;
   border-color: #bbf7d0;

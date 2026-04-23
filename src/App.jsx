@@ -465,10 +465,7 @@ function getSalesStageClassName(stage) {
 }
 
 function getSalesStageOptionStyle(stage) {
-  return {
-    fontWeight: 700,
-    ...SALES_STAGE_TONE_MAP[safeString(stage).trim()]?.optionStyle,
-  }
+  return undefined
 }
 
 function getDdayText(dateString) {
@@ -2548,11 +2545,7 @@ function App() {
                                   />
                                 ) : column.type === 'select' ? (
                                   <select
-                                    className={`inline-row-editor cell-inline-editor ${
-                                      column.key === 'projectStage'
-                                        ? `sales-stage-select ${getSalesStageClassName(row[column.key])}`
-                                        : ''
-                                    }`}
+                                    className="inline-row-editor cell-inline-editor"
                                     value={row[column.key] ?? ''}
                                     onChange={(e) =>
                                       handleSalesCellChange(row.id, column.key, e.target.value)
@@ -2560,15 +2553,7 @@ function App() {
                                   >
                                     <option value="">선택</option>
                                     {column.options.map((option) => (
-                                      <option
-                                        key={option}
-                                        value={option}
-                                        style={
-                                          column.key === 'projectStage'
-                                            ? getSalesStageOptionStyle(option)
-                                            : undefined
-                                        }
-                                      >
+                                      <option key={option} value={option}>
                                         {option}
                                       </option>
                                     ))}
