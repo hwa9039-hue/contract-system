@@ -539,6 +539,10 @@ function App() {
   const [selectedSalesIds, setSelectedSalesIds] = useState([])
   const [editingSalesIds, setEditingSalesIds] = useState([])
   const [isSavingSales, setIsSavingSales] = useState(false)
+  const [salesFilters, setSalesFilters] = useState({
+    projectCategory: '',
+    manager: '',
+  })
   const [manualEvents, setManualEvents] = useState(() => {
     const saved = localStorage.getItem(CALENDAR_STORAGE_KEY)
     if (saved) {
@@ -798,6 +802,15 @@ function App() {
         }),
       }))
   }, [filteredContracts])
+
+  const filteredSalesRows = useMemo(() => {
+    return salesRows.filter((row) => {
+      const categoryMatch =
+        !salesFilters.projectCategory || row.projectCategory === salesFilters.projectCategory
+      const managerMatch = !salesFilters.manager || row.manager === salesFilters.manager
+      return categoryMatch && managerMatch
+    })
+  }, [salesFilters.manager, salesFilters.projectCategory, salesRows])
 
   const dashboardSummary = useMemo(() => buildDashboardSummary(contracts), [contracts])
   const defaultDashboardYear = dashboardSummary.years[0]?.year
@@ -1411,6 +1424,38 @@ function App() {
     } finally {
       setIsSavingSales(false)
     }
+  }
+
+  const resetSalesFilters = () => {
+    setSalesFilters({
+      projectCategory: '',
+      manager: '',
+    })
+  }
+
+  const handleSalesExcelDownload = () => {
+    const rows = filteredSalesRows.map((row) => ({
+      등록일: row.registerDate,
+      발주처: row.client,
+      프로젝트: row.projectName,
+      사업금액: formatAmountDisplay(row.projectAmount),
+      사업구분: row.projectCategory,
+      담당자: row.manager,
+      상태: row.projectStage,
+      담당부서: row.department,
+      세부내용: row.detail,
+      출처: row.source,
+      영업매칭: row.salesNote,
+      '영업 요청사항': row.actionRequest,
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, '영업관리대장')
+
+    const now = new Date()
+    const filename = `영업관리대장_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
+    XLSX.writeFile(workbook, filename)
   }
 
   const openAddRow = () => {
@@ -2357,6 +2402,46 @@ function App() {
               >
                 삭제
               </button>
+
+              <select
+                className="contract-filter-select"
+                value={salesFilters.projectCategory}
+                onChange={(e) =>
+                  setSalesFilters((prev) => ({ ...prev, projectCategory: e.target.value }))
+                }
+                style={{ width: 132 }}
+              >
+                <option value="">사업구분</option>
+                {SALES_CATEGORY_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="contract-filter-select"
+                value={salesFilters.manager}
+                onChange={(e) =>
+                  setSalesFilters((prev) => ({ ...prev, manager: e.target.value }))
+                }
+                style={{ width: 150 }}
+              >
+                <option value="">담당자</option>
+                {SALES_MANAGER_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+
+              <button className="secondary-btn" type="button" onClick={resetSalesFilters}>
+                초기화
+              </button>
+
+              <button className="secondary-btn" type="button" onClick={handleSalesExcelDownload}>
+                엑셀 다운로드
+              </button>
             </div>
 
             <div className="contract-table-panel">
@@ -2395,14 +2480,14 @@ function App() {
                   </thead>
 
                   <tbody>
-                    {salesRows.length === 0 ? (
+                    {filteredSalesRows.length === 0 ? (
                       <tr>
                         <td colSpan={SALES_COLUMNS.length + 1} className="empty-cell">
                           등록된 영업관리 이력이 없습니다.
                         </td>
                       </tr>
                     ) : (
-                      salesRows.map((row, index) => (
+                      filteredSalesRows.map((row, index) => (
                         <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
                           <td className="td-align-center">
                             <input
