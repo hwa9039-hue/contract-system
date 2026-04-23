@@ -2095,28 +2095,45 @@ function App() {
             >
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'minmax(240px, 320px) minmax(420px, 1fr)',
-                  gap: 14,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'flex-start',
+                  flexWrap: 'wrap',
+                  columnGap: 24,
+                  rowGap: 12,
                   fontSize: 13,
                   lineHeight: 1.6,
                 }}
               >
-                <div>
+                <div
+                  style={{
+                    flex: '0 0 auto',
+                    minWidth: 250,
+                    maxWidth: 300,
+                  }}
+                >
                   <div style={{ fontWeight: 800, marginBottom: 4 }}>문서번호 체계 안내</div>
                   <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-S-260000-01</div>
                   <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-R-260000-01</div>
                   <div style={{ fontFamily: 'Consolas, monospace' }}>SIGN-DI-A-260000-01</div>
                 </div>
 
-                <div>
+                <div
+                  style={{
+                    flex: '0 1 auto',
+                    minWidth: 340,
+                    maxWidth: 560,
+                  }}
+                >
                   <div style={{ fontWeight: 800, marginBottom: 6 }}>담당자 약어</div>
                   <div
                     style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 28,
-                      alignItems: 'flex-start',
+                      display: 'grid',
+                      gridTemplateColumns: 'max-content max-content',
+                      columnGap: 20,
+                      rowGap: 0,
+                      alignItems: 'start',
+                      justifyContent: 'start',
                     }}
                   >
                     <div
@@ -2124,8 +2141,7 @@ function App() {
                         display: 'flex',
                         flexDirection: 'column',
                         gap: 4,
-                        minWidth: 0,
-                        flex: 1,
+                        minWidth: 'max-content',
                       }}
                     >
                       <div>S1 : 전기웅 이사</div>
@@ -2141,8 +2157,7 @@ function App() {
                         display: 'flex',
                         flexDirection: 'column',
                         gap: 4,
-                        minWidth: 0,
-                        flex: 1,
+                        minWidth: 'max-content',
                       }}
                     >
                       <div>A1 : 전재우 차장</div>
