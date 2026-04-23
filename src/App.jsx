@@ -31,6 +31,29 @@ const DOCUMENT_COLUMNS = [
   { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 240 },
 ]
 
+const SALES_CATEGORY_OPTIONS = ['도로사업', 'ITS', '관급', '민수', '유지보수', '기타']
+const SALES_STAGE_OPTIONS = ['신규검토', '제안준비', '견적진행', '입찰준비', '계약진행', '보류', '완료']
+const SALES_MANAGER_OPTIONS = ['정화영', '정주희', '전재우', '전유찬', '유영우', '김성수', '박재범', '이용자', '이재승']
+const SALES_TYPE_OPTIONS = ['신규', '기존', '긴급', '제안', '입찰', '계약', '관리']
+const SALES_DEPARTMENT_OPTIONS = ['영업부', '도로사업팀', '영업지원팀']
+const SALES_SOURCE_OPTIONS = ['나라장터', '기존거래처', '전화문의', '이메일', '소개', '내부공유', '기타']
+
+const SALES_COLUMNS = [
+  { key: 'registerDate', label: '등록일자', align: 'center', type: 'date', width: 128 },
+  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 180 },
+  { key: 'projectName', label: '프로젝트', align: 'left', type: 'textarea', width: 220 },
+  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 150 },
+  { key: 'projectCategory', label: '사업 구분', align: 'center', type: 'select', options: SALES_CATEGORY_OPTIONS, width: 128 },
+  { key: 'projectStage', label: '사업 진행', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 128 },
+  { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_MANAGER_OPTIONS, width: 112 },
+  { key: 'projectType', label: '성격', align: 'center', type: 'select', options: SALES_TYPE_OPTIONS, width: 100 },
+  { key: 'department', label: '담당부서', align: 'center', type: 'select', options: SALES_DEPARTMENT_OPTIONS, width: 128 },
+  { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 260 },
+  { key: 'source', label: '정보출처', align: 'center', type: 'select', options: SALES_SOURCE_OPTIONS, width: 120 },
+  { key: 'salesNote', label: '영업비고', align: 'left', type: 'textarea', width: 220 },
+  { key: 'actionRequest', label: '진행 요청사항', align: 'left', type: 'textarea', width: 240 },
+]
+
 const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
 const CONTRACT_BACKUP_LAST_DATE_KEY = 'CONTRACT_BACKUP_LAST_DATE'
@@ -78,6 +101,28 @@ function createDocumentDraftRow() {
     method: '',
     writer: '',
     note: '',
+    createdAt: '',
+    updatedAt: '',
+    isDraft: true,
+  }
+}
+
+function createSalesDraftRow() {
+  return {
+    id: `sales-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    registerDate: '',
+    client: '',
+    projectName: '',
+    projectAmount: '',
+    projectCategory: '',
+    projectStage: '',
+    manager: '',
+    projectType: '',
+    department: '',
+    detail: '',
+    source: '',
+    salesNote: '',
+    actionRequest: '',
     createdAt: '',
     updatedAt: '',
     isDraft: true,
@@ -364,6 +409,51 @@ function toDocumentPayload(row, timestamp) {
   }
 }
 
+function normalizeSalesRow(item) {
+  return {
+    id: safeString(item.id),
+    registerDate: safeString(item.registerDate ?? item.registerdate),
+    client: safeString(item.client),
+    projectName: safeString(item.projectName ?? item.projectname),
+    projectAmount: safeString(item.projectAmount ?? item.projectamount),
+    projectCategory: safeString(item.projectCategory ?? item.projectcategory),
+    projectStage: safeString(item.projectStage ?? item.projectstage),
+    manager: safeString(item.manager),
+    projectType: safeString(item.projectType ?? item.projecttype),
+    department: safeString(item.department),
+    detail: safeString(item.detail),
+    source: safeString(item.source),
+    salesNote: safeString(item.salesNote ?? item.salesnote),
+    actionRequest: safeString(item.actionRequest ?? item.actionrequest),
+    createdAt: safeString(item.createdAt ?? item.createdat),
+    updatedAt: safeString(item.updatedAt ?? item.updatedat),
+    isDraft: false,
+  }
+}
+
+function isSalesRowEmpty(row) {
+  return SALES_COLUMNS.every((column) => safeString(row[column.key]).trim() === '')
+}
+
+function toSalesPayload(row, timestamp) {
+  return {
+    registerDate: toDbDate(row.registerDate),
+    client: safeString(row.client).trim(),
+    projectName: safeString(row.projectName).trim(),
+    projectAmount: parseAmount(row.projectAmount),
+    projectCategory: safeString(row.projectCategory).trim(),
+    projectStage: safeString(row.projectStage).trim(),
+    manager: safeString(row.manager).trim(),
+    projectType: safeString(row.projectType).trim(),
+    department: safeString(row.department).trim(),
+    detail: safeString(row.detail).trim(),
+    source: safeString(row.source).trim(),
+    salesNote: safeString(row.salesNote).trim(),
+    actionRequest: safeString(row.actionRequest).trim(),
+    updatedAt: timestamp,
+  }
+}
+
 function getDdayText(dateString) {
   const diff = getDateDiffFromToday(dateString)
   if (diff === null) return ''
@@ -442,6 +532,7 @@ function App() {
   const initialSharedAuth = readSharedAuthSession()
   const [contracts, setContracts] = useState([])
   const [documents, setDocuments] = useState([])
+  const [salesRows, setSalesRows] = useState([])
   const [menu, setMenu] = useState('dashboard')
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
@@ -449,6 +540,9 @@ function App() {
   const [selectedDocumentIds, setSelectedDocumentIds] = useState([])
   const [editingDocumentIds, setEditingDocumentIds] = useState([])
   const [isSavingDocuments, setIsSavingDocuments] = useState(false)
+  const [selectedSalesIds, setSelectedSalesIds] = useState([])
+  const [editingSalesIds, setEditingSalesIds] = useState([])
+  const [isSavingSales, setIsSavingSales] = useState(false)
   const [manualEvents, setManualEvents] = useState(() => {
     const saved = localStorage.getItem(CALENDAR_STORAGE_KEY)
     if (saved) {
@@ -536,6 +630,24 @@ function App() {
     setSelectedDocumentIds([])
   }
 
+  const fetchSalesRows = async (preserveDrafts = true) => {
+    const { data, error } = await supabase
+      .from('sales_register')
+      .select('*')
+      .order('createdAt', { ascending: false })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setSalesRows((prev) => {
+      const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
+      return [...draftRows, ...(data ?? []).map(normalizeSalesRow)]
+    })
+    setSelectedSalesIds([])
+  }
+
   const saveContractToSupabase = async (formData) => {
     const payload = normalizeContractForSupabase(formData)
 
@@ -556,6 +668,12 @@ function App() {
   useEffect(() => {
     if (menu === 'documents') {
       fetchDocuments(true)
+    }
+  }, [menu])
+
+  useEffect(() => {
+    if (menu === 'sales') {
+      fetchSalesRows(true)
     }
   }, [menu])
 
@@ -1174,6 +1292,131 @@ function App() {
     }
   }
 
+  const handleAddSalesRow = () => {
+    setSalesRows((prev) => [createSalesDraftRow(), ...prev])
+    setSelectedSalesIds([])
+  }
+
+  const handleSalesCellChange = (rowId, key, value) => {
+    setSalesRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              [key]: key === 'projectAmount' ? formatAmount(value) : value,
+            }
+          : row
+      )
+    )
+  }
+
+  const startSalesEdit = (rowId) => {
+    setEditingSalesIds((prev) => (prev.includes(rowId) ? prev : [...prev, rowId]))
+  }
+
+  const toggleSalesSelection = (rowId) => {
+    setSelectedSalesIds((prev) =>
+      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
+    )
+  }
+
+  const deleteSelectedSalesRows = async () => {
+    if (selectedSalesIds.length === 0) {
+      alert('삭제할 행을 선택하세요.')
+      return
+    }
+
+    const ok = window.confirm('선택한 영업관리대장 행을 삭제하시겠습니까?')
+    if (!ok) return
+
+    const persistedIds = salesRows
+      .filter((row) => selectedSalesIds.includes(row.id) && !row.isDraft)
+      .map((row) => row.id)
+
+    if (persistedIds.length > 0) {
+      const remainingDrafts = salesRows.filter(
+        (row) => row.isDraft && !selectedSalesIds.includes(row.id)
+      )
+      const { error } = await supabase.from('sales_register').delete().in('id', persistedIds)
+
+      if (error) {
+        alert(error.message)
+        return
+      }
+
+      setSalesRows(remainingDrafts)
+      setEditingSalesIds((prev) => prev.filter((id) => !selectedSalesIds.includes(id)))
+      await fetchSalesRows(true)
+      return
+    }
+
+    setSalesRows((prev) => prev.filter((row) => !selectedSalesIds.includes(row.id)))
+    setSelectedSalesIds([])
+    setEditingSalesIds((prev) => prev.filter((id) => !selectedSalesIds.includes(id)))
+  }
+
+  const saveSalesRows = async () => {
+    const rowsToInsert = salesRows.filter((row) => row.isDraft && !isSalesRowEmpty(row))
+    const rowsToUpdate = salesRows.filter((row) => !row.isDraft && editingSalesIds.includes(row.id))
+    const hasEmptyDraftRows = salesRows.some((row) => row.isDraft && isSalesRowEmpty(row))
+
+    if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && !hasEmptyDraftRows) {
+      alert('저장할 행이 없습니다.')
+      return
+    }
+
+    setIsSavingSales(true)
+
+    try {
+      const timestamp = new Date().toISOString()
+
+      if (rowsToInsert.length > 0) {
+        const insertPayload = rowsToInsert.map((row) => ({
+          ...toSalesPayload(row, timestamp),
+          createdAt: timestamp,
+        }))
+
+        const { error } = await supabase.from('sales_register').insert(insertPayload)
+        if (error) {
+          alert(error.message)
+          return
+        }
+      }
+
+      if (rowsToUpdate.length > 0) {
+        const updateResults = await Promise.all(
+          rowsToUpdate.map((row) =>
+            supabase
+              .from('sales_register')
+              .update(toSalesPayload(row, timestamp))
+              .eq('id', row.id)
+          )
+        )
+
+        const failedUpdate = updateResults.find((result) => result.error)
+        if (failedUpdate?.error) {
+          alert(failedUpdate.error.message)
+          return
+        }
+      }
+
+      if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && hasEmptyDraftRows) {
+        setSalesRows((prev) => prev.filter((row) => !(row.isDraft && isSalesRowEmpty(row))))
+        setSelectedSalesIds([])
+        setEditingSalesIds([])
+        alert('저장되었습니다.')
+        return
+      }
+
+      await fetchSalesRows(false)
+      setSelectedSalesIds([])
+      setEditingSalesIds([])
+      alert('저장되었습니다.')
+    } finally {
+      setIsSavingSales(false)
+    }
+  }
+
   const openAddRow = () => {
     if (!requireAdmin()) return
     setIsAddingRow(true)
@@ -1544,6 +1787,13 @@ function App() {
             </button>
 
             <button
+              className={menu === 'sales' ? 'menu-btn active' : 'menu-btn'}
+              onClick={() => setMenu('sales')}
+            >
+              영업관리대장
+            </button>
+
+            <button
               className={menu === 'documents' ? 'menu-btn active' : 'menu-btn'}
               onClick={() => setMenu('documents')}
             >
@@ -1582,7 +1832,7 @@ function App() {
                 justifyContent: 'flex-end',
               }}
             >
-              <span className="top-system-subtitle">계약현황 · 일정관리 · 문서수발신대장</span>
+              <span className="top-system-subtitle">계약현황 · 일정관리 · 영업관리대장 · 문서수발신대장</span>
               <span
                 style={{
                   display: 'inline-flex',
@@ -1616,6 +1866,7 @@ function App() {
             {menu === 'dashboard' && '대시보드'}
             {menu === 'contracts' && '계약현황'}
             {menu === 'calendar' && '캘린더'}
+            {menu === 'sales' && '영업관리대장'}
             {menu === 'documents' && '문서수발신대장'}
           </h1>
         </div>
@@ -2072,6 +2323,182 @@ function App() {
                           }),
                         ]
                       })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {menu === 'sales' && (
+          <section className="stat-card">
+            <div className="contracts-header-actions">
+              <button className="primary-btn" type="button" onClick={handleAddSalesRow}>
+                추가
+              </button>
+
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={saveSalesRows}
+                disabled={isSavingSales}
+                style={isSavingSales ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+              >
+                {isSavingSales ? '저장 중...' : '저장'}
+              </button>
+
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={deleteSelectedSalesRows}
+                disabled={selectedSalesIds.length === 0}
+                style={
+                  selectedSalesIds.length === 0
+                    ? { opacity: 0.55, cursor: 'not-allowed' }
+                    : undefined
+                }
+              >
+                삭제
+              </button>
+            </div>
+
+            <div className="contract-table-panel">
+              <div className="table-wrap contracts-only-scroll">
+                <table className="contract-table excel-table">
+                  <thead>
+                    <tr>
+                      <th
+                        className="th-align-center"
+                        style={{ width: 64, position: 'sticky', top: 0, zIndex: 6 }}
+                      >
+                        선택
+                      </th>
+                      {SALES_COLUMNS.map((column) => (
+                        <th
+                          key={column.key}
+                          className={
+                            column.align === 'right'
+                              ? 'th-align-right'
+                              : column.align === 'left'
+                              ? 'th-align-left'
+                              : 'th-align-center'
+                          }
+                          style={{
+                            width: column.width,
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 6,
+                            background: '#f8fbff',
+                          }}
+                        >
+                          {column.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {salesRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={SALES_COLUMNS.length + 1} className="empty-cell">
+                          등록된 영업관리 이력이 없습니다.
+                        </td>
+                      </tr>
+                    ) : (
+                      salesRows.map((row, index) => (
+                        <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                          <td className="td-align-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedSalesIds.includes(row.id)}
+                              onChange={() => toggleSalesSelection(row.id)}
+                              style={{ width: 16, height: 16 }}
+                            />
+                          </td>
+
+                          {SALES_COLUMNS.map((column) => (
+                            <td
+                              key={column.key}
+                              className={`${
+                                column.align === 'right'
+                                  ? 'td-align-right'
+                                  : column.align === 'left'
+                                  ? 'td-align-left'
+                                  : 'td-align-center'
+                              } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
+                              style={{ width: column.width }}
+                              onClick={() => {
+                                if (!row.isDraft && !editingSalesIds.includes(row.id)) {
+                                  startSalesEdit(row.id)
+                                }
+                              }}
+                            >
+                              {row.isDraft || editingSalesIds.includes(row.id) ? (
+                                column.type === 'textarea' ? (
+                                  <textarea
+                                    className={`inline-row-editor cell-inline-editor ${
+                                      column.align === 'right' ? 'align-right' : ''
+                                    }`}
+                                    rows={1}
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleSalesCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                ) : column.type === 'date' ? (
+                                  <input
+                                    className="inline-row-editor cell-inline-editor"
+                                    type="date"
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleSalesCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                ) : column.type === 'select' ? (
+                                  <select
+                                    className="inline-row-editor cell-inline-editor"
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleSalesCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  >
+                                    <option value="">선택</option>
+                                    {column.options.map((option) => (
+                                      <option key={option} value={option}>
+                                        {option}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    className={`inline-row-editor cell-inline-editor ${
+                                      column.align === 'right' ? 'align-right' : ''
+                                    }`}
+                                    type="text"
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleSalesCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                )
+                              ) : (
+                                <div
+                                  className="cell-display"
+                                  style={{
+                                    whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
+                                    cursor: 'text',
+                                  }}
+                                >
+                                  {column.key === 'projectAmount'
+                                    ? formatAmountDisplay(row[column.key]) || '-'
+                                    : safeString(row[column.key]).trim() || '-'}
+                                </div>
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      ))
                     )}
                   </tbody>
                 </table>
