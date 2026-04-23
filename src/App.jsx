@@ -32,26 +32,24 @@ const DOCUMENT_COLUMNS = [
 ]
 
 const SALES_CATEGORY_OPTIONS = ['도로사업', 'ITS', '관급', '민수', '유지보수', '기타']
-const SALES_STAGE_OPTIONS = ['신규검토', '제안준비', '견적진행', '입찰준비', '계약진행', '보류', '완료']
-const SALES_MANAGER_OPTIONS = ['정화영', '정주희', '전재우', '전유찬', '유영우', '김성수', '박재범', '이용자', '이재승']
-const SALES_TYPE_OPTIONS = ['신규', '기존', '긴급', '제안', '입찰', '계약', '관리']
+const SALES_STAGE_OPTIONS = ['대기', '대응중', '확인필요', '보류', '완료', '발주계획', '사전규격', '입찰공고']
+const SALES_MANAGER_OPTIONS = ['전기웅 이사', '유영무 부장', '김성수 과장', '이재승 대리', '이용자 부장', '박재범 과장']
 const SALES_DEPARTMENT_OPTIONS = ['영업부', '도로사업팀', '영업지원팀']
 const SALES_SOURCE_OPTIONS = ['나라장터', '기존거래처', '전화문의', '이메일', '소개', '내부공유', '기타']
 
 const SALES_COLUMNS = [
-  { key: 'registerDate', label: '등록일자', align: 'center', type: 'date', width: 128 },
+  { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 128 },
   { key: 'client', label: '발주처', align: 'center', type: 'text', width: 180 },
   { key: 'projectName', label: '프로젝트', align: 'left', type: 'textarea', width: 220 },
   { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 150 },
-  { key: 'projectCategory', label: '사업 구분', align: 'center', type: 'select', options: SALES_CATEGORY_OPTIONS, width: 128 },
-  { key: 'projectStage', label: '사업 진행', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 128 },
-  { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_MANAGER_OPTIONS, width: 112 },
-  { key: 'projectType', label: '성격', align: 'center', type: 'select', options: SALES_TYPE_OPTIONS, width: 100 },
+  { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: SALES_CATEGORY_OPTIONS, width: 128 },
+  { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_MANAGER_OPTIONS, width: 132 },
+  { key: 'projectStage', label: '상태', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 128 },
   { key: 'department', label: '담당부서', align: 'center', type: 'select', options: SALES_DEPARTMENT_OPTIONS, width: 128 },
   { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 260 },
-  { key: 'source', label: '정보출처', align: 'center', type: 'select', options: SALES_SOURCE_OPTIONS, width: 120 },
-  { key: 'salesNote', label: '영업비고', align: 'left', type: 'textarea', width: 220 },
-  { key: 'actionRequest', label: '진행 요청사항', align: 'left', type: 'textarea', width: 240 },
+  { key: 'source', label: '출처', align: 'center', type: 'select', options: SALES_SOURCE_OPTIONS, width: 120 },
+  { key: 'salesNote', label: '영업매칭', align: 'left', type: 'textarea', width: 220 },
+  { key: 'actionRequest', label: '영업 요청사항', align: 'left', type: 'textarea', width: 240 },
 ]
 
 const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
