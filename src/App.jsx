@@ -153,15 +153,15 @@ const EXCLUDED_COLUMNS = [
 
 const WORK_REPORT_TABLE = 'weekly_work_reports'
 const WORK_REPORT_WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
+const WORK_REPORT_MAIN_CHECK_COUNT = 5
+const WORK_REPORT_EXTERNAL_USER_OPTIONS = SALES_MANAGER_OPTIONS
 const WORK_REPORT_SECTIONS = [
-  { category: '주요업무', label: '주요업무', className: 'work-report-section-major' },
-  { category: '외부일정', label: '외부일정', className: 'work-report-section-external' },
-  { category: '공지사항', label: '공지사항', className: 'work-report-section-notice' },
-  { category: '진행업무', label: '진행업무', className: 'work-report-section-progress' },
-  { category: '완료업무', label: '완료업무', className: 'work-report-section-done' },
+  { section: '주요확인사항', label: '주요 확인사항', type: 'checklist' },
+  { section: '외부업무', label: '외부업무', type: 'external' },
+  { section: '내부업무', label: '내부업무', type: 'text' },
+  { section: '도급사업', label: '도급사업', type: 'text' },
+  { section: '협력사현황', label: '협력사현황', type: 'text' },
 ]
-const WORK_REPORT_TOP_SECTIONS = WORK_REPORT_SECTIONS.slice(0, 3)
-const WORK_REPORT_BOTTOM_SECTIONS = WORK_REPORT_SECTIONS.slice(3)
 
 const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
@@ -309,19 +309,14 @@ function createExcludedDraftRow() {
   }
 }
 
-function createWorkReportDraftRow({ weekStartDate, reportDate, category, assignee = '', team = '' }) {
-  const meta = buildWorkReportWeekMeta(weekStartDate)
+function createWorkReportDraftRow({ reportDate, section, user = '', content = '', orderIndex = 1 }) {
   return {
     id: `work-report-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    reportYear: meta.year,
-    reportMonth: meta.month,
-    weekNumber: meta.weekNumber,
-    weekStartDate,
-    reportDate,
-    assignee,
-    team,
-    category,
-    content: '',
+    date: reportDate,
+    user,
+    section,
+    content,
+    orderIndex,
     createdAt: '',
     updatedAt: '',
     isDraft: true,
@@ -861,15 +856,11 @@ function toExcludedPayload(row, timestamp) {
 function normalizeWorkReportRow(item) {
   return {
     id: safeString(item.id),
-    reportYear: Number(item.reportYear ?? item.reportyear ?? 0),
-    reportMonth: Number(item.reportMonth ?? item.reportmonth ?? 0),
-    weekNumber: Number(item.weekNumber ?? item.weeknumber ?? 0),
-    weekStartDate: safeString(item.weekStartDate ?? item.weekstartdate),
-    reportDate: safeString(item.reportDate ?? item.reportdate),
-    assignee: safeString(item.assignee),
-    team: safeString(item.team),
-    category: safeString(item.category),
+    date: safeString(item.date ?? item.reportDate ?? item.reportdate ?? item.weekStartDate ?? item.weekstartdate),
+    user: safeString(item.user ?? item.assignee),
+    section: safeString(item.section ?? item.category),
     content: safeString(item.content),
+    orderIndex: Number(item.order_index ?? item.orderIndex ?? 1),
     createdAt: safeString(item.createdAt ?? item.createdat),
     updatedAt: safeString(item.updatedAt ?? item.updatedat),
     isDraft: false,
@@ -877,25 +868,20 @@ function normalizeWorkReportRow(item) {
 }
 
 function isWorkReportRowEmpty(row) {
-  return (
-    safeString(row.assignee).trim() === '' &&
-    safeString(row.team).trim() === '' &&
-    safeString(row.content).trim() === ''
-  )
+  const normalizedSection = safeString(row.section).trim()
+  if (normalizedSection === '외부업무') {
+    return safeString(row.user).trim() === '' && safeString(row.content).trim() === ''
+  }
+  return safeString(row.content).trim() === ''
 }
 
 function toWorkReportPayload(row, timestamp) {
-  const meta = buildWorkReportWeekMeta(row.weekStartDate || row.reportDate || new Date())
   return {
-    reportYear: meta.year,
-    reportMonth: meta.month,
-    weekNumber: meta.weekNumber,
-    weekStartDate: toDbDate(meta.weekStartDate),
-    reportDate: toDbDate(row.reportDate),
-    assignee: safeString(row.assignee).trim(),
-    team: safeString(row.team).trim(),
-    category: safeString(row.category).trim(),
+    date: toDbDate(row.date),
+    user: safeString(row.user).trim(),
+    section: safeString(row.section).trim(),
     content: safeString(row.content).trim(),
+    order_index: Number(row.orderIndex || 1),
     updatedAt: timestamp,
   }
 }
@@ -1060,8 +1046,8 @@ function App() {
     keyword: '',
     writer: '',
   })
-  const [editingWorkReportIds, setEditingWorkReportIds] = useState([])
-  const [workReportEditSnapshots, setWorkReportEditSnapshots] = useState({})
+  const [editingWorkCellKey, setEditingWorkCellKey] = useState('')
+  const [editingWorkCellData, setEditingWorkCellData] = useState(null)
   const [isSavingWorkReports, setIsSavingWorkReports] = useState(false)
   const [generatedWorkWeeks, setGeneratedWorkWeeks] = useState([])
   const [selectedWorkWeek, setSelectedWorkWeek] = useState(() =>
@@ -1069,7 +1055,6 @@ function App() {
   )
   const [workReportFilters, setWorkReportFilters] = useState({
     assignee: '',
-    team: '',
   })
   const [isExcludedGuideCollapsed, setIsExcludedGuideCollapsed] = useState(true)
   const [isDocumentGuideCollapsed, setIsDocumentGuideCollapsed] = useState(true)
@@ -1240,8 +1225,8 @@ function App() {
     const { data, error } = await supabase
       .from(WORK_REPORT_TABLE)
       .select('*')
-      .order('weekStartDate', { ascending: false })
-      .order('reportDate', { ascending: true })
+      .order('date', { ascending: false })
+      .order('order_index', { ascending: true })
       .order('createdAt', { ascending: true })
 
     if (error) {
@@ -1249,10 +1234,7 @@ function App() {
       return
     }
 
-    setWorkReportRows((prev) => {
-      const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-      return [...draftRows, ...(data ?? []).map(normalizeWorkReportRow)]
-    })
+    setWorkReportRows((data ?? []).map(normalizeWorkReportRow))
   }
 
   const saveContractToSupabase = async (formData) => {
@@ -1494,9 +1476,9 @@ function App() {
     })
 
     workReportRows.forEach((row) => {
-      if (!row.weekStartDate) return
-      if (!weekMap.has(row.weekStartDate)) {
-        weekMap.set(row.weekStartDate, buildWorkReportWeekMeta(row.weekStartDate))
+      const weekStartDate = buildWorkReportWeekMeta(row.date || new Date()).weekStartDate
+      if (!weekMap.has(weekStartDate)) {
+        weekMap.set(weekStartDate, buildWorkReportWeekMeta(weekStartDate))
       }
     })
 
@@ -1523,24 +1505,21 @@ function App() {
 
   const filteredWorkReportRows = useMemo(() => {
     return workReportRows.filter((row) => {
-      if (row.weekStartDate !== selectedWorkWeekMeta.weekStartDate) return false
-      if (row.isDraft || editingWorkReportIds.includes(row.id)) return true
+      const rowWeekStartDate = buildWorkReportWeekMeta(row.date || new Date()).weekStartDate
+      if (rowWeekStartDate !== selectedWorkWeekMeta.weekStartDate) return false
+      if (editingWorkCellData?.id === row.id) return true
       if (
         workReportFilters.assignee &&
-        !safeString(row.assignee).toLowerCase().includes(workReportFilters.assignee.toLowerCase())
+        !safeString(row.user).toLowerCase().includes(workReportFilters.assignee.toLowerCase())
       ) {
-        return false
-      }
-      if (workReportFilters.team && !safeString(row.team).toLowerCase().includes(workReportFilters.team.toLowerCase())) {
         return false
       }
       return true
     })
   }, [
-    editingWorkReportIds,
+    editingWorkCellData,
     selectedWorkWeekMeta.weekStartDate,
     workReportFilters.assignee,
-    workReportFilters.team,
     workReportRows,
   ])
 
@@ -3220,110 +3199,78 @@ function App() {
   }
 
   const handleShiftWorkWeek = (offset) => {
-    const nextWeek = formatDateInput(addDays(getWeekStartMonday(selectedWorkWeekMeta.weekStartDate), offset * 7))
+    const nextWeek = formatDateInput(
+      addDays(getWeekStartMonday(selectedWorkWeekMeta.weekStartDate), offset * 7)
+    )
     trackWorkWeek(nextWeek)
   }
 
-  const handleWorkReportCellChange = (rowId, key, value) => {
-    setWorkReportRows((prev) =>
-      prev.map((row) =>
-        row.id === rowId
-          ? {
-              ...row,
-              [key]: key === 'content' ? value : safeString(value),
-            }
-          : row
-      )
+  const getWorkReportCellKey = (date, section, orderIndex = 1) => `${date}__${section}__${orderIndex}`
+
+  const getStoredWorkReportEntry = (date, section, orderIndex = 1) =>
+    filteredWorkReportRows.find(
+      (row) => row.date === date && row.section === section && Number(row.orderIndex || 1) === orderIndex
+    )
+
+  const getDisplayedWorkReportEntry = (date, section, orderIndex = 1) => {
+    const cellKey = getWorkReportCellKey(date, section, orderIndex)
+    if (editingWorkCellKey === cellKey && editingWorkCellData) {
+      return editingWorkCellData
+    }
+    return getStoredWorkReportEntry(date, section, orderIndex)
+  }
+
+  const startWorkReportCellEdit = (date, section, orderIndex = 1) => {
+    const cellKey = getWorkReportCellKey(date, section, orderIndex)
+    if (editingWorkCellKey === cellKey) return
+
+    const existingEntry = workReportRows.find(
+      (row) => row.date === date && row.section === section && Number(row.orderIndex || 1) === orderIndex
+    )
+
+    setEditingWorkCellKey(cellKey)
+    setEditingWorkCellData(
+      existingEntry
+        ? { ...existingEntry }
+        : createWorkReportDraftRow({
+            reportDate: date,
+            section,
+            user: workReportFilters.assignee,
+            orderIndex,
+          })
     )
   }
 
-  const startWorkReportEdit = (rowId) => {
-    const targetRow = workReportRows.find((row) => row.id === rowId)
-    if (!targetRow || targetRow.isDraft) return
-    if (
-      workReportRows.some((row) => row.isDraft) ||
-      (editingWorkReportIds.length > 0 && !editingWorkReportIds.includes(rowId))
-    ) {
-      alert('현재 편집 중인 내용을 먼저 저장하거나 취소해주세요.')
-      return
-    }
-
-    setWorkReportEditSnapshots((prev) =>
-      prev[rowId]
-        ? prev
-        : {
+  const handleWorkReportEditorChange = (key, value) => {
+    setEditingWorkCellData((prev) =>
+      prev
+        ? {
             ...prev,
-            [rowId]: { ...targetRow },
+            [key]: key === 'orderIndex' ? Number(value || 1) : value,
           }
+        : prev
     )
-    setEditingWorkReportIds([rowId])
   }
 
-  const handleCreateWorkReportEntry = (reportDate, category) => {
-    if (workReportRows.some((row) => row.isDraft) || editingWorkReportIds.length > 0) {
-      alert('현재 편집 중인 내용을 먼저 저장하거나 취소해주세요.')
-      return
-    }
-
-    const nextDraft = createWorkReportDraftRow({
-      weekStartDate: selectedWorkWeekMeta.weekStartDate,
-      reportDate,
-      category,
-      assignee: workReportFilters.assignee,
-      team: workReportFilters.team,
-    })
-
-    setWorkReportRows((prev) => [nextDraft, ...prev])
-    setEditingWorkReportIds([nextDraft.id])
-    trackWorkWeek(selectedWorkWeekMeta.weekStartDate)
+  const cancelWorkReportEdit = () => {
+    setEditingWorkCellKey('')
+    setEditingWorkCellData(null)
   }
 
-  const cancelWorkReportRow = (rowId) => {
-    const targetRow = workReportRows.find((row) => row.id === rowId)
-    if (!targetRow) return
-
-    if (targetRow.isDraft) {
-      setWorkReportRows((prev) => prev.filter((row) => row.id !== rowId))
-    } else {
-      setWorkReportRows((prev) =>
-        prev.map((row) => (row.id === rowId ? workReportEditSnapshots[rowId] ?? row : row))
-      )
-    }
-
-    setEditingWorkReportIds((prev) => prev.filter((id) => id !== rowId))
-    setWorkReportEditSnapshots((prev) => removeObjectKey(prev, rowId))
-  }
-
-  const deleteWorkReportRow = async (rowId) => {
-    const targetRow = workReportRows.find((row) => row.id === rowId)
-    if (!targetRow) return
-
-    if (targetRow.isDraft) {
-      setWorkReportRows((prev) => prev.filter((row) => row.id !== rowId))
-      setEditingWorkReportIds((prev) => prev.filter((id) => id !== rowId))
-      return
-    }
-
-    const ok = window.confirm('이 업무보고 항목을 삭제하시겠습니까?')
-    if (!ok) return
-
-    const { error } = await supabase.from(WORK_REPORT_TABLE).delete().eq('id', rowId)
-    if (error) {
-      alert(error.message)
-      return
-    }
-
-    setEditingWorkReportIds((prev) => prev.filter((id) => id !== rowId))
-    setWorkReportEditSnapshots((prev) => removeObjectKey(prev, rowId))
-    await fetchWorkReportRows(false)
-  }
-
-  const saveWorkReportRow = async (rowId) => {
-    const targetRow = workReportRows.find((row) => row.id === rowId)
+  const commitWorkReportEdit = async () => {
+    const targetRow = editingWorkCellData
     if (!targetRow) return
 
     if (isWorkReportRowEmpty(targetRow)) {
-      alert('담당자, 팀 또는 내용을 입력해주세요.')
+      if (!targetRow.isDraft && targetRow.id) {
+        const { error } = await supabase.from(WORK_REPORT_TABLE).delete().eq('id', targetRow.id)
+        if (error) {
+          alert(error.message)
+          return
+        }
+        await fetchWorkReportRows(false)
+      }
+      cancelWorkReportEdit()
       return
     }
 
@@ -3348,7 +3295,7 @@ function App() {
         const { error } = await supabase
           .from(WORK_REPORT_TABLE)
           .update(toWorkReportPayload(targetRow, timestamp))
-          .eq('id', rowId)
+          .eq('id', targetRow.id)
 
         if (error) {
           alert(error.message)
@@ -3357,17 +3304,12 @@ function App() {
       }
 
       await fetchWorkReportRows(false)
-      setEditingWorkReportIds((prev) => prev.filter((id) => id !== rowId))
-      setWorkReportEditSnapshots((prev) => removeObjectKey(prev, rowId))
-      trackWorkWeek(targetRow.weekStartDate || selectedWorkWeekMeta.weekStartDate)
-      alert('저장되었습니다.')
+      trackWorkWeek(targetRow.date)
+      cancelWorkReportEdit()
     } finally {
       setIsSavingWorkReports(false)
     }
   }
-
-  const getWorkReportCellEntries = (reportDate, category) =>
-    filteredWorkReportRows.filter((row) => row.reportDate === reportDate && row.category === category)
 
   const handleWorkReportPdfDownload = () => {
     const popup = window.open('', '_blank', 'width=1480,height=980')
@@ -3376,47 +3318,48 @@ function App() {
       return
     }
 
-    const sectionsMarkup = [...WORK_REPORT_TOP_SECTIONS, ...WORK_REPORT_BOTTOM_SECTIONS]
-      .map((section) => {
-        const cellMarkup = selectedWorkWeekDays
-          .map((day) => {
-            const entries = getWorkReportCellEntries(day.date, section.category)
-            const body =
-              entries.length > 0
-                ? entries
-                    .map(
-                      (entry) => `
-                        <div class="report-entry">
-                          <div class="report-entry-meta">${escapeHtml(entry.assignee || '-')} / ${escapeHtml(entry.team || '-')}</div>
-                          <div class="report-entry-body">${escapeHtml(entry.content).replaceAll('\n', '<br />')}</div>
-                        </div>
-                      `
-                    )
-                    .join('')
-                : '<div class="report-empty">-</div>'
+    const cardMarkup = selectedWorkWeekDays
+      .map((day) => {
+        const mainCheckItems = Array.from({ length: WORK_REPORT_MAIN_CHECK_COUNT }, (_, index) => {
+          const entry = getDisplayedWorkReportEntry(day.date, '주요확인사항', index + 1)
+          return `<li>${escapeHtml(entry?.content || '') || '&nbsp;'}</li>`
+        }).join('')
 
-            return `<div class="report-cell">${body}</div>`
-          })
-          .join('')
+        const externalEntry = getDisplayedWorkReportEntry(day.date, '외부업무', 1)
+        const internalEntry = getDisplayedWorkReportEntry(day.date, '내부업무', 1)
+        const contractEntry = getDisplayedWorkReportEntry(day.date, '도급사업', 1)
+        const partnerEntry = getDisplayedWorkReportEntry(day.date, '협력사현황', 1)
 
         return `
-          <div class="report-row">
-            <div class="report-row-title">${escapeHtml(section.label)}</div>
-            <div class="report-row-grid">${cellMarkup}</div>
+          <div class="weekly-card">
+            <div class="weekly-card-head">
+              <div class="weekly-card-weekday">${escapeHtml(day.label)}</div>
+              <div class="weekly-card-date">${escapeHtml(day.date)}</div>
+            </div>
+            <div class="weekly-section">
+              <div class="weekly-section-title">주요 확인사항</div>
+              <ol class="weekly-check-list">${mainCheckItems}</ol>
+            </div>
+            <div class="weekly-section">
+              <div class="weekly-section-title">외부업무</div>
+              <div class="weekly-user">${escapeHtml(externalEntry?.user || '-')}</div>
+              <div class="weekly-content">${escapeHtml(externalEntry?.content || '-').replaceAll('\n', '<br />')}</div>
+            </div>
+            <div class="weekly-section">
+              <div class="weekly-section-title">내부업무</div>
+              <div class="weekly-content">${escapeHtml(internalEntry?.content || '-').replaceAll('\n', '<br />')}</div>
+            </div>
+            <div class="weekly-section">
+              <div class="weekly-section-title">도급사업</div>
+              <div class="weekly-content">${escapeHtml(contractEntry?.content || '-').replaceAll('\n', '<br />')}</div>
+            </div>
+            <div class="weekly-section">
+              <div class="weekly-section-title">협력사현황</div>
+              <div class="weekly-content">${escapeHtml(partnerEntry?.content || '-').replaceAll('\n', '<br />')}</div>
+            </div>
           </div>
         `
       })
-      .join('')
-
-    const headerDaysMarkup = selectedWorkWeekDays
-      .map(
-        (day) => `
-          <div class="report-day">
-            <div class="report-day-label">${escapeHtml(day.label)}</div>
-            <div class="report-day-date">${escapeHtml(day.date)}</div>
-          </div>
-        `
-      )
       .join('')
 
     popup.document.write(`
@@ -3427,26 +3370,22 @@ function App() {
           <title>일일/주간업무보고서</title>
           <style>
             body { font-family: "Malgun Gothic", sans-serif; margin: 0; padding: 24px; color: #1f2937; background: #fff; }
-            .report-shell { border: 1px solid #d6e0ef; border-radius: 16px; overflow: hidden; }
-            .report-header { padding: 18px 22px; border-bottom: 1px solid #dbe6f5; background: #f8fbff; }
+            .report-shell { border: 1px solid #d6dee8; border-radius: 16px; overflow: hidden; }
+            .report-header { padding: 18px 22px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
             .report-title { font-size: 24px; font-weight: 800; margin-bottom: 6px; }
             .report-subtitle { font-size: 13px; color: #475569; }
-            .report-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-bottom: 1px solid #dbe6f5; }
-            .report-day { padding: 12px; border-right: 1px solid #e5edf8; background: #fff; min-height: 72px; }
-            .report-day:last-child { border-right: none; }
-            .report-day-label { font-size: 13px; font-weight: 800; margin-bottom: 6px; color: #2563eb; }
-            .report-day-date { font-size: 12px; color: #64748b; }
-            .report-sections { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
-            .report-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); border: 1px solid #dbe6f5; border-radius: 12px; overflow: hidden; }
-            .report-row-title { padding: 16px 14px; background: #f8fbff; border-right: 1px solid #dbe6f5; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; text-align: center; }
-            .report-row-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); min-height: 150px; }
-            .report-cell { padding: 12px; border-right: 1px solid #edf2fb; min-height: 150px; }
-            .report-cell:last-child { border-right: none; }
-            .report-entry { margin-bottom: 10px; padding: 10px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0; }
-            .report-entry:last-child { margin-bottom: 0; }
-            .report-entry-meta { font-size: 11px; font-weight: 800; color: #2563eb; margin-bottom: 6px; }
-            .report-entry-body { font-size: 12px; line-height: 1.6; white-space: normal; word-break: break-word; }
-            .report-empty { font-size: 12px; color: #94a3b8; }
+            .weekly-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; padding: 16px; }
+            .weekly-card { border: 1px solid #d8dee7; border-radius: 12px; background: #f8fafc; overflow: hidden; }
+            .weekly-card-head { padding: 12px 12px 10px; border-bottom: 1px solid #e5e7eb; background: #ffffff; }
+            .weekly-card-weekday { font-size: 13px; font-weight: 800; color: #2563eb; margin-bottom: 4px; }
+            .weekly-card-date { font-size: 12px; color: #64748b; }
+            .weekly-section { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
+            .weekly-section:last-child { border-bottom: none; }
+            .weekly-section-title { font-size: 12px; font-weight: 800; color: #334155; margin-bottom: 8px; }
+            .weekly-check-list { margin: 0; padding-left: 18px; }
+            .weekly-check-list li { min-height: 20px; font-size: 12px; color: #334155; line-height: 1.5; }
+            .weekly-user { font-size: 11px; font-weight: 800; color: #2563eb; margin-bottom: 6px; }
+            .weekly-content { font-size: 12px; color: #334155; line-height: 1.6; white-space: normal; word-break: break-word; min-height: 20px; }
             @media print { body { padding: 0; } .report-shell { border: none; border-radius: 0; } }
           </style>
         </head>
@@ -3457,11 +3396,10 @@ function App() {
               <div class="report-subtitle">${escapeHtml(
                 `${getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)} · 담당자 ${
                   workReportFilters.assignee || '전체'
-                } · 팀 ${workReportFilters.team || '전체'}`
+                }`
               )}</div>
             </div>
-            <div class="report-days">${headerDaysMarkup}</div>
-            <div class="report-sections">${sectionsMarkup}</div>
+            <div class="weekly-grid">${cardMarkup}</div>
           </div>
           <script>
             window.onload = function () {
@@ -3842,70 +3780,128 @@ function App() {
     )
   }
 
-  const renderWorkReportEditor = (row) => (
-    <div className="work-report-entry-card work-report-entry-editor">
-      <div className="work-report-entry-fields">
-        <input
-          className="table-search-input work-report-mini-input"
-          type="text"
-          placeholder="담당자"
-          value={row.assignee}
-          onChange={(e) => handleWorkReportCellChange(row.id, 'assignee', e.target.value)}
-        />
-        <input
-          className="table-search-input work-report-mini-input"
-          type="text"
-          placeholder="팀"
-          value={row.team}
-          onChange={(e) => handleWorkReportCellChange(row.id, 'team', e.target.value)}
-        />
-      </div>
-      <textarea
-        className="inline-row-editor cell-inline-editor work-report-entry-textarea"
-        rows={5}
-        placeholder="업무 내용을 입력하세요."
-        value={row.content}
-        onChange={(e) => handleWorkReportCellChange(row.id, 'content', e.target.value)}
-      />
-      <div className="work-report-entry-actions">
-        {!row.isDraft && (
-          <button className="mini-cancel-btn" type="button" onClick={() => deleteWorkReportRow(row.id)}>
-            삭제
-          </button>
-        )}
-        <button className="mini-cancel-btn" type="button" onClick={() => cancelWorkReportRow(row.id)}>
-          취소
-        </button>
-        <button
-          className="mini-save-btn"
-          type="button"
-          onClick={() => saveWorkReportRow(row.id)}
-          disabled={isSavingWorkReports}
-          style={isSavingWorkReports ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
-        >
-          저장
-        </button>
-      </div>
-    </div>
-  )
+  const renderWorkReportChecklistItem = (date, orderIndex) => {
+    const cellKey = getWorkReportCellKey(date, '주요확인사항', orderIndex)
+    const isEditing = editingWorkCellKey === cellKey
+    const entry = getDisplayedWorkReportEntry(date, '주요확인사항', orderIndex)
 
-  const renderWorkReportEntry = (row) => {
-    const isEditing = row.isDraft || editingWorkReportIds.includes(row.id)
-    if (isEditing) {
-      return renderWorkReportEditor(row)
+    if (isEditing && editingWorkCellData) {
+      return (
+        <div
+          className="work-report-line-editor"
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+              commitWorkReportEdit()
+            }
+          }}
+        >
+          <input
+            className="work-report-line-input"
+            type="text"
+            value={editingWorkCellData.content}
+            autoFocus
+            onChange={(e) => handleWorkReportEditorChange('content', e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault()
+                cancelWorkReportEdit()
+              }
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                e.currentTarget.blur()
+              }
+            }}
+          />
+        </div>
+      )
     }
 
     return (
       <button
         type="button"
-        className="work-report-entry-card work-report-entry-view"
-        onClick={() => startWorkReportEdit(row.id)}
+        className={`work-report-check-line ${entry?.content ? 'has-value' : ''}`}
+        onClick={() => startWorkReportCellEdit(date, '주요확인사항', orderIndex)}
       >
-        <div className="work-report-entry-meta">
-          <span>{row.assignee || '담당자 미입력'}</span>
-          <span>{row.team || '팀 미입력'}</span>
+        {entry?.content || ''}
+      </button>
+    )
+  }
+
+  const renderWorkReportSectionCard = (date, sectionConfig) => {
+    const { section, label, type } = sectionConfig
+    const cellKey = getWorkReportCellKey(date, section, 1)
+    const isEditing = editingWorkCellKey === cellKey
+    const entry = getDisplayedWorkReportEntry(date, section, 1)
+
+    if (type === 'checklist') {
+      return (
+        <div className="work-report-section-card work-report-section-card-checklist">
+          <div className="work-report-section-card-title">{label}</div>
+          <div className="work-report-check-list">
+            {Array.from({ length: WORK_REPORT_MAIN_CHECK_COUNT }, (_, index) => (
+              <div key={`${date}-${section}-${index + 1}`} className="work-report-check-item">
+                <span className="work-report-check-index">{index + 1}</span>
+                {renderWorkReportChecklistItem(date, index + 1)}
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="work-report-entry-body">{row.content || '-'}</div>
+      )
+    }
+
+    if (isEditing && editingWorkCellData) {
+      return (
+        <div
+          className="work-report-section-card work-report-section-card-editing"
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+              commitWorkReportEdit()
+            }
+          }}
+        >
+          <div className="work-report-section-card-title">{label}</div>
+          {type === 'external' && (
+            <select
+              className="contract-filter-select work-report-user-select"
+              value={editingWorkCellData.user}
+              autoFocus
+              onChange={(e) => handleWorkReportEditorChange('user', e.target.value)}
+            >
+              <option value="">담당자</option>
+              {WORK_REPORT_EXTERNAL_USER_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          )}
+          <textarea
+            className="work-report-section-textarea"
+            rows={type === 'external' ? 3 : 4}
+            autoFocus={type !== 'external'}
+            value={editingWorkCellData.content}
+            placeholder="내용 입력"
+            onChange={(e) => handleWorkReportEditorChange('content', e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault()
+                cancelWorkReportEdit()
+              }
+            }}
+          />
+        </div>
+      )
+    }
+
+    return (
+      <button
+        type="button"
+        className={`work-report-section-card ${entry?.content ? 'has-value' : ''}`}
+        onClick={() => startWorkReportCellEdit(date, section, 1)}
+      >
+        <div className="work-report-section-card-title">{label}</div>
+        {type === 'external' && <div className="work-report-section-user">{entry?.user || '담당자'}</div>}
+        <div className="work-report-section-content">{entry?.content || ''}</div>
       </button>
     )
   }
@@ -4208,13 +4204,6 @@ function App() {
                   setWorkReportFilters((prev) => ({ ...prev, assignee: e.target.value }))
                 }
               />
-              <input
-                className="table-search-input work-report-filter-input"
-                type="text"
-                placeholder="팀"
-                value={workReportFilters.team}
-                onChange={(e) => setWorkReportFilters((prev) => ({ ...prev, team: e.target.value }))}
-              />
               <button className="secondary-btn" type="button" onClick={handleWorkReportPdfDownload}>
                 PDF 다운로드
               </button>
@@ -4225,118 +4214,36 @@ function App() {
                 {getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)}
               </div>
               <div className="work-report-summary-meta">
-                <span>연도 {selectedWorkWeekMeta.year}</span>
-                <span>월 {selectedWorkWeekMeta.month}</span>
                 <span>주차 {selectedWorkWeekMeta.weekNumber}주차</span>
                 <span>시작일 {selectedWorkWeekMeta.weekStartDate}</span>
+                <span>담당자 {workReportFilters.assignee || '전체'}</span>
               </div>
             </div>
 
-            <div className="work-report-board">
-              <div className="work-report-calendar-strip">
-                {selectedWorkWeekDays.map((day) => (
-                  <div
-                    key={day.date}
-                    className={`work-report-calendar-day ${day.isToday ? 'is-today' : ''}`}
-                  >
-                    <div className="work-report-calendar-weekday">{day.label}</div>
-                    <div className="work-report-calendar-date">{day.date}</div>
-                    <div className="work-report-calendar-short">{day.monthDay}</div>
+            <div className="work-report-week-grid">
+              {selectedWorkWeekDays.map((day) => (
+                <div key={day.date} className={`work-report-day-board ${day.isToday ? 'is-today' : ''}`}>
+                  <div className="work-report-day-head">
+                    <div className="work-report-day-weekday">{day.label}</div>
+                    <div className="work-report-day-date">{day.date}</div>
                   </div>
-                ))}
-              </div>
-
-              <div className="work-report-section-stack">
-                <div className="work-report-section-group">
-                  {WORK_REPORT_TOP_SECTIONS.map((section) => (
-                    <div
-                      key={section.category}
-                      className={`work-report-section-row ${section.className}`}
-                    >
-                      <div className="work-report-section-title">{section.label}</div>
-                      <div className="work-report-section-grid">
-                        {selectedWorkWeekDays.map((day) => {
-                          const entries = getWorkReportCellEntries(day.date, section.category)
-                          return (
-                            <div key={`${section.category}-${day.date}`} className="work-report-day-cell">
-                              <div className="work-report-cell-toolbar">
-                                <span>{day.label}</span>
-                                <button
-                                  className="work-report-cell-add"
-                                  type="button"
-                                  onClick={() => handleCreateWorkReportEntry(day.date, section.category)}
-                                >
-                                  +
-                                </button>
-                              </div>
-                              <div className="work-report-cell-list">
-                                {entries.length > 0 ? (
-                                  entries.map((entry) => (
-                                    <div key={entry.id}>{renderWorkReportEntry(entry)}</div>
-                                  ))
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className="work-report-empty-button"
-                                    onClick={() => handleCreateWorkReportEntry(day.date, section.category)}
-                                  >
-                                    내용 입력
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          )
-                        })}
+                  <div className="work-report-day-sections">
+                    {WORK_REPORT_SECTIONS.map((sectionConfig) => (
+                      <div key={`${day.date}-${sectionConfig.section}`}>
+                        {renderWorkReportSectionCard(day.date, sectionConfig)}
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
+              ))}
+            </div>
 
-                <div className="work-report-section-group work-report-section-group-bottom">
-                  {WORK_REPORT_BOTTOM_SECTIONS.map((section) => (
-                    <div
-                      key={section.category}
-                      className={`work-report-section-row ${section.className}`}
-                    >
-                      <div className="work-report-section-title">{section.label}</div>
-                      <div className="work-report-section-grid">
-                        {selectedWorkWeekDays.map((day) => {
-                          const entries = getWorkReportCellEntries(day.date, section.category)
-                          return (
-                            <div key={`${section.category}-${day.date}`} className="work-report-day-cell">
-                              <div className="work-report-cell-toolbar">
-                                <span>{day.label}</span>
-                                <button
-                                  className="work-report-cell-add"
-                                  type="button"
-                                  onClick={() => handleCreateWorkReportEntry(day.date, section.category)}
-                                >
-                                  +
-                                </button>
-                              </div>
-                              <div className="work-report-cell-list">
-                                {entries.length > 0 ? (
-                                  entries.map((entry) => (
-                                    <div key={entry.id}>{renderWorkReportEntry(entry)}</div>
-                                  ))
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className="work-report-empty-button"
-                                    onClick={() => handleCreateWorkReportEntry(day.date, section.category)}
-                                  >
-                                    내용 입력
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {isSavingWorkReports && (
+              <div className="work-report-saving-indicator">업무보고 내용을 저장하고 있습니다.</div>
+            )}
+
+            <div className="work-report-help-text">
+              각 항목을 클릭하면 바로 입력할 수 있고, 포커스가 빠질 때 자동 저장됩니다.
             </div>
           </section>
         )}
