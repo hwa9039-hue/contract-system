@@ -3270,3 +3270,86 @@ textarea:focus-visible {
   border-right: none;
 }
 
+.work-report-summary-card {
+  display: none;
+}
+
+.work-report-week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(400px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  align-items: start;
+}
+
+.work-report-day-board-dense {
+  min-width: 400px;
+}
+
+.work-report-board-header-row-no-index,
+.work-report-board-row-no-index {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+}
+
+.work-report-board-header-row-external-no-index,
+.work-report-board-row-external-no-index {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) 120px;
+}
+
+.work-report-board-header-row-no-index,
+.work-report-board-header-row-external-no-index {
+  min-height: 34px;
+  background: #edf4ff;
+  border-bottom: 1px solid #d7e0eb;
+}
+
+.work-report-board-row-no-index,
+.work-report-board-row-external-no-index {
+  background: #ffffff;
+  border-bottom: 1px solid #d7e0eb;
+}
+
+.work-report-board-row-no-index > *,
+.work-report-board-row-external-no-index > *,
+.work-report-board-header-row-no-index > *,
+.work-report-board-header-row-external-no-index > * {
+  min-width: 0;
+  border-right: 1px solid #d7e0eb;
+}
+
+.work-report-board-row-no-index > *:last-child,
+.work-report-board-row-external-no-index > *:last-child,
+.work-report-board-header-row-no-index > *:last-child,
+.work-report-board-header-row-external-no-index > *:last-child {
+  border-right: none;
+}
+
+.work-report-board-section-title,
+.work-report-board-support-title {
+  background: #2c6cbf;
+  color: #ffffff;
+}
+
+.work-report-board-textarea-check {
+  min-height: 28px;
+  padding: 5px 8px;
+}
+
+.work-report-board-textarea-external,
+.work-report-board-textarea-destination {
+  min-height: 36px;
+  padding: 6px 8px;
+}
+
+.work-report-board-textarea-support-line {
+  min-height: 30px;
+  padding: 5px 8px;
+}
+
+.work-report-filter-input {
+  width: 136px;
+  min-width: 136px;
+}
+
