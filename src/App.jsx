@@ -151,6 +151,18 @@ const EXCLUDED_COLUMNS = [
   { key: 'exclusionReason', label: '제외 사유', align: 'left', type: 'textarea', width: 260 },
 ]
 
+const WORK_REPORT_TABLE = 'weekly_work_reports'
+const WORK_REPORT_WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
+const WORK_REPORT_SECTIONS = [
+  { category: '주요업무', label: '주요업무', className: 'work-report-section-major' },
+  { category: '외부일정', label: '외부일정', className: 'work-report-section-external' },
+  { category: '공지사항', label: '공지사항', className: 'work-report-section-notice' },
+  { category: '진행업무', label: '진행업무', className: 'work-report-section-progress' },
+  { category: '완료업무', label: '완료업무', className: 'work-report-section-done' },
+]
+const WORK_REPORT_TOP_SECTIONS = WORK_REPORT_SECTIONS.slice(0, 3)
+const WORK_REPORT_BOTTOM_SECTIONS = WORK_REPORT_SECTIONS.slice(3)
+
 const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
 const CONTRACT_BACKUP_LAST_DATE_KEY = 'CONTRACT_BACKUP_LAST_DATE'
@@ -164,6 +176,7 @@ const ALL_OPTION = '전체'
 const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
 const PAGE_TITLE_MAP = {
   dashboard: '대시보드',
+  workReports: '일일/주간업무보고서',
   contracts: '계약현황',
   calendar: '캘린더',
   sales: '영업관리대장',
@@ -173,7 +186,7 @@ const PAGE_TITLE_MAP = {
   documents: '문서수발신대장',
 }
 const TOP_SYSTEM_SUBTITLE =
-  '계약현황 · 일정관리 · 영업관리대장 · 본예산 진행정보 · 건축정보 · 사업검색이력 · 문서수발신대장'
+  '일일/주간업무보고서 · 계약현황 · 일정관리 · 영업관리대장 · 본예산 진행정보 · 건축정보 · 사업검색이력 · 문서수발신대장'
 
 const emptyContract = {
   year: '',
@@ -296,6 +309,25 @@ function createExcludedDraftRow() {
   }
 }
 
+function createWorkReportDraftRow({ weekStartDate, reportDate, category, assignee = '', team = '' }) {
+  const meta = buildWorkReportWeekMeta(weekStartDate)
+  return {
+    id: `work-report-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    reportYear: meta.year,
+    reportMonth: meta.month,
+    weekNumber: meta.weekNumber,
+    weekStartDate,
+    reportDate,
+    assignee,
+    team,
+    category,
+    content: '',
+    createdAt: '',
+    updatedAt: '',
+    isDraft: true,
+  }
+}
+
 function safeString(value) {
   if (value === null || value === undefined) return ''
   return String(value)
@@ -373,6 +405,77 @@ function parseDateOnly(value) {
   const date = new Date(str)
   if (Number.isNaN(date.getTime())) return null
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+function formatDateInput(date) {
+  const yyyy = String(date.getFullYear())
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function addDays(baseDate, days) {
+  const nextDate = new Date(baseDate)
+  nextDate.setDate(nextDate.getDate() + days)
+  return nextDate
+}
+
+function getWeekStartMonday(dateInput = new Date()) {
+  const sourceDate =
+    typeof dateInput === 'string' ? parseDateOnly(dateInput) ?? new Date() : new Date(dateInput)
+  const normalizedDate = new Date(
+    sourceDate.getFullYear(),
+    sourceDate.getMonth(),
+    sourceDate.getDate()
+  )
+  const day = normalizedDate.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  normalizedDate.setDate(normalizedDate.getDate() + diff)
+  return normalizedDate
+}
+
+function getWeekNumberInMonth(dateInput) {
+  const sourceDate = typeof dateInput === 'string' ? parseDateOnly(dateInput) : dateInput
+  if (!sourceDate) return 1
+
+  const targetDate = new Date(sourceDate.getFullYear(), sourceDate.getMonth(), sourceDate.getDate())
+  const firstDayOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1)
+  const firstWeekStart = getWeekStartMonday(firstDayOfMonth)
+  return Math.floor((getWeekStartMonday(targetDate).getTime() - firstWeekStart.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+}
+
+function buildWorkReportWeekMeta(weekStartDate) {
+  const monday = getWeekStartMonday(weekStartDate)
+  return {
+    weekStartDate: formatDateInput(monday),
+    year: monday.getFullYear(),
+    month: monday.getMonth() + 1,
+    weekNumber: getWeekNumberInMonth(monday),
+  }
+}
+
+function getWorkReportWeekLabel(weekStartDate) {
+  const meta = buildWorkReportWeekMeta(weekStartDate)
+  const monday = getWeekStartMonday(weekStartDate)
+  const sunday = addDays(monday, 6)
+  return `${meta.year}년 ${meta.month}월 ${meta.weekNumber}주차 (${String(
+    monday.getMonth() + 1
+  ).padStart(2, '0')}.${String(monday.getDate()).padStart(2, '0')} ~ ${String(
+    sunday.getMonth() + 1
+  ).padStart(2, '0')}.${String(sunday.getDate()).padStart(2, '0')})`
+}
+
+function getWorkReportWeekDays(weekStartDate) {
+  const monday = getWeekStartMonday(weekStartDate)
+  return WORK_REPORT_WEEKDAY_LABELS.map((label, index) => {
+    const date = addDays(monday, index)
+    return {
+      label,
+      date: formatDateInput(date),
+      monthDay: `${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`,
+      isToday: formatDateInput(date) === formatDateInput(new Date()),
+    }
+  })
 }
 
 function normalizeAmountValue(value) {
@@ -501,6 +604,15 @@ function getElapsedDaysFromDate(dateString) {
   const currentDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   const diff = Math.floor((currentDate.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24))
   return diff < 0 ? 0 : diff
+}
+
+function escapeHtml(text) {
+  return safeString(text)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
 }
 
 function readSharedAuthSession() {
@@ -746,6 +858,48 @@ function toExcludedPayload(row, timestamp) {
   }
 }
 
+function normalizeWorkReportRow(item) {
+  return {
+    id: safeString(item.id),
+    reportYear: Number(item.reportYear ?? item.reportyear ?? 0),
+    reportMonth: Number(item.reportMonth ?? item.reportmonth ?? 0),
+    weekNumber: Number(item.weekNumber ?? item.weeknumber ?? 0),
+    weekStartDate: safeString(item.weekStartDate ?? item.weekstartdate),
+    reportDate: safeString(item.reportDate ?? item.reportdate),
+    assignee: safeString(item.assignee),
+    team: safeString(item.team),
+    category: safeString(item.category),
+    content: safeString(item.content),
+    createdAt: safeString(item.createdAt ?? item.createdat),
+    updatedAt: safeString(item.updatedAt ?? item.updatedat),
+    isDraft: false,
+  }
+}
+
+function isWorkReportRowEmpty(row) {
+  return (
+    safeString(row.assignee).trim() === '' &&
+    safeString(row.team).trim() === '' &&
+    safeString(row.content).trim() === ''
+  )
+}
+
+function toWorkReportPayload(row, timestamp) {
+  const meta = buildWorkReportWeekMeta(row.weekStartDate || row.reportDate || new Date())
+  return {
+    reportYear: meta.year,
+    reportMonth: meta.month,
+    weekNumber: meta.weekNumber,
+    weekStartDate: toDbDate(meta.weekStartDate),
+    reportDate: toDbDate(row.reportDate),
+    assignee: safeString(row.assignee).trim(),
+    team: safeString(row.team).trim(),
+    category: safeString(row.category).trim(),
+    content: safeString(row.content).trim(),
+    updatedAt: timestamp,
+  }
+}
+
 function getSalesStageClassName(stage) {
   return SALES_STAGE_TONE_MAP[safeString(stage).trim()]?.className || 'sales-stage-badge'
 }
@@ -863,6 +1017,7 @@ function App() {
   const [budgetRows, setBudgetRows] = useState([])
   const [discoveryRows, setDiscoveryRows] = useState([])
   const [excludedRows, setExcludedRows] = useState([])
+  const [workReportRows, setWorkReportRows] = useState([])
   const [menu, setMenu] = useState('dashboard')
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
@@ -904,6 +1059,17 @@ function App() {
     category: '',
     keyword: '',
     writer: '',
+  })
+  const [editingWorkReportIds, setEditingWorkReportIds] = useState([])
+  const [workReportEditSnapshots, setWorkReportEditSnapshots] = useState({})
+  const [isSavingWorkReports, setIsSavingWorkReports] = useState(false)
+  const [generatedWorkWeeks, setGeneratedWorkWeeks] = useState([])
+  const [selectedWorkWeek, setSelectedWorkWeek] = useState(() =>
+    buildWorkReportWeekMeta(new Date()).weekStartDate
+  )
+  const [workReportFilters, setWorkReportFilters] = useState({
+    assignee: '',
+    team: '',
   })
   const [isExcludedGuideCollapsed, setIsExcludedGuideCollapsed] = useState(true)
   const [isDocumentGuideCollapsed, setIsDocumentGuideCollapsed] = useState(true)
@@ -1070,6 +1236,25 @@ function App() {
     setSelectedExcludedIds([])
   }
 
+  const fetchWorkReportRows = async (preserveDrafts = true) => {
+    const { data, error } = await supabase
+      .from(WORK_REPORT_TABLE)
+      .select('*')
+      .order('weekStartDate', { ascending: false })
+      .order('reportDate', { ascending: true })
+      .order('createdAt', { ascending: true })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setWorkReportRows((prev) => {
+      const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
+      return [...draftRows, ...(data ?? []).map(normalizeWorkReportRow)]
+    })
+  }
+
   const saveContractToSupabase = async (formData) => {
     const payload = normalizeContractForSupabase(formData)
 
@@ -1086,6 +1271,12 @@ function App() {
   useEffect(() => {
     fetchContracts()
   }, [])
+
+  useEffect(() => {
+    if (menu === 'workReports') {
+      fetchWorkReportRows(true)
+    }
+  }, [menu])
 
   useEffect(() => {
     if (menu === 'documents') {
@@ -1292,6 +1483,66 @@ function App() {
       return categoryMatch && keywordMatch
     })
   }, [excludedFilters.category, excludedFilters.keyword, excludedRows])
+
+  const workReportWeekOptions = useMemo(() => {
+    const weekMap = new Map()
+
+    generatedWorkWeeks.forEach((weekStartDate) => {
+      if (!weekMap.has(weekStartDate)) {
+        weekMap.set(weekStartDate, buildWorkReportWeekMeta(weekStartDate))
+      }
+    })
+
+    workReportRows.forEach((row) => {
+      if (!row.weekStartDate) return
+      if (!weekMap.has(row.weekStartDate)) {
+        weekMap.set(row.weekStartDate, buildWorkReportWeekMeta(row.weekStartDate))
+      }
+    })
+
+    if (!weekMap.has(selectedWorkWeek)) {
+      weekMap.set(selectedWorkWeek, buildWorkReportWeekMeta(selectedWorkWeek))
+    }
+
+    return [...weekMap.values()].sort(
+      (a, b) => new Date(b.weekStartDate).getTime() - new Date(a.weekStartDate).getTime()
+    )
+  }, [generatedWorkWeeks, selectedWorkWeek, workReportRows])
+
+  const selectedWorkWeekMeta = useMemo(
+    () =>
+      workReportWeekOptions.find((item) => item.weekStartDate === selectedWorkWeek) ??
+      buildWorkReportWeekMeta(selectedWorkWeek),
+    [selectedWorkWeek, workReportWeekOptions]
+  )
+
+  const selectedWorkWeekDays = useMemo(
+    () => getWorkReportWeekDays(selectedWorkWeekMeta.weekStartDate),
+    [selectedWorkWeekMeta.weekStartDate]
+  )
+
+  const filteredWorkReportRows = useMemo(() => {
+    return workReportRows.filter((row) => {
+      if (row.weekStartDate !== selectedWorkWeekMeta.weekStartDate) return false
+      if (row.isDraft || editingWorkReportIds.includes(row.id)) return true
+      if (
+        workReportFilters.assignee &&
+        !safeString(row.assignee).toLowerCase().includes(workReportFilters.assignee.toLowerCase())
+      ) {
+        return false
+      }
+      if (workReportFilters.team && !safeString(row.team).toLowerCase().includes(workReportFilters.team.toLowerCase())) {
+        return false
+      }
+      return true
+    })
+  }, [
+    editingWorkReportIds,
+    selectedWorkWeekMeta.weekStartDate,
+    workReportFilters.assignee,
+    workReportFilters.team,
+    workReportRows,
+  ])
 
   const dashboardSummary = useMemo(() => buildDashboardSummary(contracts), [contracts])
   const defaultDashboardYear = dashboardSummary.years[0]?.year
@@ -2958,6 +3209,271 @@ function App() {
     XLSX.writeFile(workbook, filename)
   }
 
+  const trackWorkWeek = (weekStartDate) => {
+    const normalized = buildWorkReportWeekMeta(weekStartDate).weekStartDate
+    setGeneratedWorkWeeks((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]))
+    setSelectedWorkWeek(normalized)
+  }
+
+  const handleCreateCurrentWorkWeek = () => {
+    trackWorkWeek(buildWorkReportWeekMeta(new Date()).weekStartDate)
+  }
+
+  const handleShiftWorkWeek = (offset) => {
+    const nextWeek = formatDateInput(addDays(getWeekStartMonday(selectedWorkWeekMeta.weekStartDate), offset * 7))
+    trackWorkWeek(nextWeek)
+  }
+
+  const handleWorkReportCellChange = (rowId, key, value) => {
+    setWorkReportRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              [key]: key === 'content' ? value : safeString(value),
+            }
+          : row
+      )
+    )
+  }
+
+  const startWorkReportEdit = (rowId) => {
+    const targetRow = workReportRows.find((row) => row.id === rowId)
+    if (!targetRow || targetRow.isDraft) return
+    if (
+      workReportRows.some((row) => row.isDraft) ||
+      (editingWorkReportIds.length > 0 && !editingWorkReportIds.includes(rowId))
+    ) {
+      alert('현재 편집 중인 내용을 먼저 저장하거나 취소해주세요.')
+      return
+    }
+
+    setWorkReportEditSnapshots((prev) =>
+      prev[rowId]
+        ? prev
+        : {
+            ...prev,
+            [rowId]: { ...targetRow },
+          }
+    )
+    setEditingWorkReportIds([rowId])
+  }
+
+  const handleCreateWorkReportEntry = (reportDate, category) => {
+    if (workReportRows.some((row) => row.isDraft) || editingWorkReportIds.length > 0) {
+      alert('현재 편집 중인 내용을 먼저 저장하거나 취소해주세요.')
+      return
+    }
+
+    const nextDraft = createWorkReportDraftRow({
+      weekStartDate: selectedWorkWeekMeta.weekStartDate,
+      reportDate,
+      category,
+      assignee: workReportFilters.assignee,
+      team: workReportFilters.team,
+    })
+
+    setWorkReportRows((prev) => [nextDraft, ...prev])
+    setEditingWorkReportIds([nextDraft.id])
+    trackWorkWeek(selectedWorkWeekMeta.weekStartDate)
+  }
+
+  const cancelWorkReportRow = (rowId) => {
+    const targetRow = workReportRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (targetRow.isDraft) {
+      setWorkReportRows((prev) => prev.filter((row) => row.id !== rowId))
+    } else {
+      setWorkReportRows((prev) =>
+        prev.map((row) => (row.id === rowId ? workReportEditSnapshots[rowId] ?? row : row))
+      )
+    }
+
+    setEditingWorkReportIds((prev) => prev.filter((id) => id !== rowId))
+    setWorkReportEditSnapshots((prev) => removeObjectKey(prev, rowId))
+  }
+
+  const deleteWorkReportRow = async (rowId) => {
+    const targetRow = workReportRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (targetRow.isDraft) {
+      setWorkReportRows((prev) => prev.filter((row) => row.id !== rowId))
+      setEditingWorkReportIds((prev) => prev.filter((id) => id !== rowId))
+      return
+    }
+
+    const ok = window.confirm('이 업무보고 항목을 삭제하시겠습니까?')
+    if (!ok) return
+
+    const { error } = await supabase.from(WORK_REPORT_TABLE).delete().eq('id', rowId)
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setEditingWorkReportIds((prev) => prev.filter((id) => id !== rowId))
+    setWorkReportEditSnapshots((prev) => removeObjectKey(prev, rowId))
+    await fetchWorkReportRows(false)
+  }
+
+  const saveWorkReportRow = async (rowId) => {
+    const targetRow = workReportRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (isWorkReportRowEmpty(targetRow)) {
+      alert('담당자, 팀 또는 내용을 입력해주세요.')
+      return
+    }
+
+    setIsSavingWorkReports(true)
+
+    try {
+      const timestamp = new Date().toISOString()
+
+      if (targetRow.isDraft) {
+        const { error } = await supabase.from(WORK_REPORT_TABLE).insert([
+          {
+            ...toWorkReportPayload(targetRow, timestamp),
+            createdAt: timestamp,
+          },
+        ])
+
+        if (error) {
+          alert(error.message)
+          return
+        }
+      } else {
+        const { error } = await supabase
+          .from(WORK_REPORT_TABLE)
+          .update(toWorkReportPayload(targetRow, timestamp))
+          .eq('id', rowId)
+
+        if (error) {
+          alert(error.message)
+          return
+        }
+      }
+
+      await fetchWorkReportRows(false)
+      setEditingWorkReportIds((prev) => prev.filter((id) => id !== rowId))
+      setWorkReportEditSnapshots((prev) => removeObjectKey(prev, rowId))
+      trackWorkWeek(targetRow.weekStartDate || selectedWorkWeekMeta.weekStartDate)
+      alert('저장되었습니다.')
+    } finally {
+      setIsSavingWorkReports(false)
+    }
+  }
+
+  const getWorkReportCellEntries = (reportDate, category) =>
+    filteredWorkReportRows.filter((row) => row.reportDate === reportDate && row.category === category)
+
+  const handleWorkReportPdfDownload = () => {
+    const popup = window.open('', '_blank', 'width=1480,height=980')
+    if (!popup) {
+      alert('팝업을 허용한 뒤 다시 시도해주세요.')
+      return
+    }
+
+    const sectionsMarkup = [...WORK_REPORT_TOP_SECTIONS, ...WORK_REPORT_BOTTOM_SECTIONS]
+      .map((section) => {
+        const cellMarkup = selectedWorkWeekDays
+          .map((day) => {
+            const entries = getWorkReportCellEntries(day.date, section.category)
+            const body =
+              entries.length > 0
+                ? entries
+                    .map(
+                      (entry) => `
+                        <div class="report-entry">
+                          <div class="report-entry-meta">${escapeHtml(entry.assignee || '-')} / ${escapeHtml(entry.team || '-')}</div>
+                          <div class="report-entry-body">${escapeHtml(entry.content).replaceAll('\n', '<br />')}</div>
+                        </div>
+                      `
+                    )
+                    .join('')
+                : '<div class="report-empty">-</div>'
+
+            return `<div class="report-cell">${body}</div>`
+          })
+          .join('')
+
+        return `
+          <div class="report-row">
+            <div class="report-row-title">${escapeHtml(section.label)}</div>
+            <div class="report-row-grid">${cellMarkup}</div>
+          </div>
+        `
+      })
+      .join('')
+
+    const headerDaysMarkup = selectedWorkWeekDays
+      .map(
+        (day) => `
+          <div class="report-day">
+            <div class="report-day-label">${escapeHtml(day.label)}</div>
+            <div class="report-day-date">${escapeHtml(day.date)}</div>
+          </div>
+        `
+      )
+      .join('')
+
+    popup.document.write(`
+      <!doctype html>
+      <html lang="ko">
+        <head>
+          <meta charset="UTF-8" />
+          <title>일일/주간업무보고서</title>
+          <style>
+            body { font-family: "Malgun Gothic", sans-serif; margin: 0; padding: 24px; color: #1f2937; background: #fff; }
+            .report-shell { border: 1px solid #d6e0ef; border-radius: 16px; overflow: hidden; }
+            .report-header { padding: 18px 22px; border-bottom: 1px solid #dbe6f5; background: #f8fbff; }
+            .report-title { font-size: 24px; font-weight: 800; margin-bottom: 6px; }
+            .report-subtitle { font-size: 13px; color: #475569; }
+            .report-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-bottom: 1px solid #dbe6f5; }
+            .report-day { padding: 12px; border-right: 1px solid #e5edf8; background: #fff; min-height: 72px; }
+            .report-day:last-child { border-right: none; }
+            .report-day-label { font-size: 13px; font-weight: 800; margin-bottom: 6px; color: #2563eb; }
+            .report-day-date { font-size: 12px; color: #64748b; }
+            .report-sections { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+            .report-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); border: 1px solid #dbe6f5; border-radius: 12px; overflow: hidden; }
+            .report-row-title { padding: 16px 14px; background: #f8fbff; border-right: 1px solid #dbe6f5; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; text-align: center; }
+            .report-row-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); min-height: 150px; }
+            .report-cell { padding: 12px; border-right: 1px solid #edf2fb; min-height: 150px; }
+            .report-cell:last-child { border-right: none; }
+            .report-entry { margin-bottom: 10px; padding: 10px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0; }
+            .report-entry:last-child { margin-bottom: 0; }
+            .report-entry-meta { font-size: 11px; font-weight: 800; color: #2563eb; margin-bottom: 6px; }
+            .report-entry-body { font-size: 12px; line-height: 1.6; white-space: normal; word-break: break-word; }
+            .report-empty { font-size: 12px; color: #94a3b8; }
+            @media print { body { padding: 0; } .report-shell { border: none; border-radius: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="report-shell">
+            <div class="report-header">
+              <div class="report-title">일일/주간업무보고서</div>
+              <div class="report-subtitle">${escapeHtml(
+                `${getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)} · 담당자 ${
+                  workReportFilters.assignee || '전체'
+                } · 팀 ${workReportFilters.team || '전체'}`
+              )}</div>
+            </div>
+            <div class="report-days">${headerDaysMarkup}</div>
+            <div class="report-sections">${sectionsMarkup}</div>
+          </div>
+          <script>
+            window.onload = function () {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `)
+    popup.document.close()
+  }
+
   const openAddRow = () => {
     if (!requireAdmin()) return
     setIsAddingRow(true)
@@ -3326,6 +3842,74 @@ function App() {
     )
   }
 
+  const renderWorkReportEditor = (row) => (
+    <div className="work-report-entry-card work-report-entry-editor">
+      <div className="work-report-entry-fields">
+        <input
+          className="table-search-input work-report-mini-input"
+          type="text"
+          placeholder="담당자"
+          value={row.assignee}
+          onChange={(e) => handleWorkReportCellChange(row.id, 'assignee', e.target.value)}
+        />
+        <input
+          className="table-search-input work-report-mini-input"
+          type="text"
+          placeholder="팀"
+          value={row.team}
+          onChange={(e) => handleWorkReportCellChange(row.id, 'team', e.target.value)}
+        />
+      </div>
+      <textarea
+        className="inline-row-editor cell-inline-editor work-report-entry-textarea"
+        rows={5}
+        placeholder="업무 내용을 입력하세요."
+        value={row.content}
+        onChange={(e) => handleWorkReportCellChange(row.id, 'content', e.target.value)}
+      />
+      <div className="work-report-entry-actions">
+        {!row.isDraft && (
+          <button className="mini-cancel-btn" type="button" onClick={() => deleteWorkReportRow(row.id)}>
+            삭제
+          </button>
+        )}
+        <button className="mini-cancel-btn" type="button" onClick={() => cancelWorkReportRow(row.id)}>
+          취소
+        </button>
+        <button
+          className="mini-save-btn"
+          type="button"
+          onClick={() => saveWorkReportRow(row.id)}
+          disabled={isSavingWorkReports}
+          style={isSavingWorkReports ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+        >
+          저장
+        </button>
+      </div>
+    </div>
+  )
+
+  const renderWorkReportEntry = (row) => {
+    const isEditing = row.isDraft || editingWorkReportIds.includes(row.id)
+    if (isEditing) {
+      return renderWorkReportEditor(row)
+    }
+
+    return (
+      <button
+        type="button"
+        className="work-report-entry-card work-report-entry-view"
+        onClick={() => startWorkReportEdit(row.id)}
+      >
+        <div className="work-report-entry-meta">
+          <span>{row.assignee || '담당자 미입력'}</span>
+          <span>{row.team || '팀 미입력'}</span>
+        </div>
+        <div className="work-report-entry-body">{row.content || '-'}</div>
+      </button>
+    )
+  }
+
   if (!isAppAuthenticated) {
     return (
       <div className="app-shell auth-screen">
@@ -3361,6 +3945,13 @@ function App() {
               onClick={() => setMenu('dashboard')}
             >
               대시보드
+            </button>
+
+            <button
+              className={menu === 'workReports' ? 'menu-btn active' : 'menu-btn'}
+              onClick={() => setMenu('workReports')}
+            >
+              일일/주간업무보고서
             </button>
 
             <button
@@ -3581,6 +4172,171 @@ function App() {
                   </section>
                 )
               })}
+            </div>
+          </section>
+        )}
+
+        {menu === 'workReports' && (
+          <section className="stat-card">
+            <div className="contracts-header-actions work-report-toolbar">
+              <button className="primary-btn" type="button" onClick={handleCreateCurrentWorkWeek}>
+                새 주차 생성
+              </button>
+              <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
+                이전 주
+              </button>
+              <select
+                className="contract-filter-select work-report-week-select"
+                value={selectedWorkWeek}
+                onChange={(e) => trackWorkWeek(e.target.value)}
+              >
+                {workReportWeekOptions.map((option) => (
+                  <option key={option.weekStartDate} value={option.weekStartDate}>
+                    {getWorkReportWeekLabel(option.weekStartDate)}
+                  </option>
+                ))}
+              </select>
+              <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(1)}>
+                다음 주
+              </button>
+              <input
+                className="table-search-input work-report-filter-input"
+                type="text"
+                placeholder="담당자"
+                value={workReportFilters.assignee}
+                onChange={(e) =>
+                  setWorkReportFilters((prev) => ({ ...prev, assignee: e.target.value }))
+                }
+              />
+              <input
+                className="table-search-input work-report-filter-input"
+                type="text"
+                placeholder="팀"
+                value={workReportFilters.team}
+                onChange={(e) => setWorkReportFilters((prev) => ({ ...prev, team: e.target.value }))}
+              />
+              <button className="secondary-btn" type="button" onClick={handleWorkReportPdfDownload}>
+                PDF 다운로드
+              </button>
+            </div>
+
+            <div className="work-report-summary-card">
+              <div className="work-report-summary-title">
+                {getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)}
+              </div>
+              <div className="work-report-summary-meta">
+                <span>연도 {selectedWorkWeekMeta.year}</span>
+                <span>월 {selectedWorkWeekMeta.month}</span>
+                <span>주차 {selectedWorkWeekMeta.weekNumber}주차</span>
+                <span>시작일 {selectedWorkWeekMeta.weekStartDate}</span>
+              </div>
+            </div>
+
+            <div className="work-report-board">
+              <div className="work-report-calendar-strip">
+                {selectedWorkWeekDays.map((day) => (
+                  <div
+                    key={day.date}
+                    className={`work-report-calendar-day ${day.isToday ? 'is-today' : ''}`}
+                  >
+                    <div className="work-report-calendar-weekday">{day.label}</div>
+                    <div className="work-report-calendar-date">{day.date}</div>
+                    <div className="work-report-calendar-short">{day.monthDay}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="work-report-section-stack">
+                <div className="work-report-section-group">
+                  {WORK_REPORT_TOP_SECTIONS.map((section) => (
+                    <div
+                      key={section.category}
+                      className={`work-report-section-row ${section.className}`}
+                    >
+                      <div className="work-report-section-title">{section.label}</div>
+                      <div className="work-report-section-grid">
+                        {selectedWorkWeekDays.map((day) => {
+                          const entries = getWorkReportCellEntries(day.date, section.category)
+                          return (
+                            <div key={`${section.category}-${day.date}`} className="work-report-day-cell">
+                              <div className="work-report-cell-toolbar">
+                                <span>{day.label}</span>
+                                <button
+                                  className="work-report-cell-add"
+                                  type="button"
+                                  onClick={() => handleCreateWorkReportEntry(day.date, section.category)}
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <div className="work-report-cell-list">
+                                {entries.length > 0 ? (
+                                  entries.map((entry) => (
+                                    <div key={entry.id}>{renderWorkReportEntry(entry)}</div>
+                                  ))
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="work-report-empty-button"
+                                    onClick={() => handleCreateWorkReportEntry(day.date, section.category)}
+                                  >
+                                    내용 입력
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="work-report-section-group work-report-section-group-bottom">
+                  {WORK_REPORT_BOTTOM_SECTIONS.map((section) => (
+                    <div
+                      key={section.category}
+                      className={`work-report-section-row ${section.className}`}
+                    >
+                      <div className="work-report-section-title">{section.label}</div>
+                      <div className="work-report-section-grid">
+                        {selectedWorkWeekDays.map((day) => {
+                          const entries = getWorkReportCellEntries(day.date, section.category)
+                          return (
+                            <div key={`${section.category}-${day.date}`} className="work-report-day-cell">
+                              <div className="work-report-cell-toolbar">
+                                <span>{day.label}</span>
+                                <button
+                                  className="work-report-cell-add"
+                                  type="button"
+                                  onClick={() => handleCreateWorkReportEntry(day.date, section.category)}
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <div className="work-report-cell-list">
+                                {entries.length > 0 ? (
+                                  entries.map((entry) => (
+                                    <div key={entry.id}>{renderWorkReportEntry(entry)}</div>
+                                  ))
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="work-report-empty-button"
+                                    onClick={() => handleCreateWorkReportEntry(day.date, section.category)}
+                                  >
+                                    내용 입력
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </section>
         )}
