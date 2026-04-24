@@ -24,10 +24,10 @@ const CONTRACT_COLUMNS = [
 const DOCUMENT_COLUMNS = [
   { key: 'docDate', label: '일자', align: 'center', type: 'date', width: 120 },
   { key: 'docNo', label: '문서번호', align: 'center', type: 'text', width: 210 },
-  { key: 'senderReceiver', label: '수신처 발신처', align: 'center', type: 'textarea', width: 190 },
+  { key: 'senderReceiver', label: '수신처 또는 발신처', align: 'center', type: 'textarea', width: 190 },
   { key: 'title', label: '문서명 또는 제목', align: 'left', type: 'textarea', width: 280 },
-  { key: 'method', label: '접수형태 발송형태', align: 'center', type: 'text', width: 170 },
-  { key: 'writer', label: '수신자 작성자', align: 'center', type: 'text', width: 160 },
+  { key: 'method', label: '접수 또는 발송형태', align: 'center', type: 'text', width: 170 },
+  { key: 'writer', label: '수신자 또는 작성자', align: 'center', type: 'text', width: 160 },
   { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 240 },
 ]
 
@@ -78,17 +78,17 @@ const BUDGET_COLUMNS = [
 ]
 
 const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
+const DISCOVERY_SALES_TARGET_OPTIONS = SALES_MANAGER_OPTIONS
 const DISCOVERY_COLUMNS = [
-  { key: 'permitDate', label: '건축허가일자', align: 'center', type: 'date', width: 132 },
+  { key: 'permitDate', label: '건축정보일자', align: 'center', type: 'date', width: 132 },
   { key: 'checkStatus', label: '확인', align: 'center', type: 'text', width: 96 },
-  { key: 'salesTarget', label: '영업처', align: 'center', type: 'text', width: 140 },
+  { key: 'salesTarget', label: '영업자', align: 'center', type: 'select', options: DISCOVERY_SALES_TARGET_OPTIONS, width: 150 },
   { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: DISCOVERY_CATEGORY_OPTIONS, width: 118 },
-  { key: 'localGov', label: '지자체명', align: 'center', type: 'text', width: 160 },
   { key: 'client', label: '발주처', align: 'center', type: 'text', width: 170 },
   { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 220 },
   { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 140 },
   { key: 'completionPeriod', label: '준공시기', align: 'center', type: 'text', width: 140 },
-  { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_MANAGER_OPTIONS, width: 132 },
+  { key: 'manager', label: '담당자', align: 'center', type: 'text', width: 132 },
   { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 240 },
 ]
 
@@ -159,9 +159,21 @@ const CONTRACT_SHARED_EXPIRES_AT_KEY = 'CONTRACT_SHARED_EXPIRES_AT'
 const CONTRACT_SHARED_SESSION_DURATION_MS = 20 * 60 * 1000
 const CONTRACT_SHARED_WARNING_MS = 5 * 60 * 1000
 const ADMIN_PASSWORD = 'admin'
-const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'SMARTDI2026!'
+const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'smartdi2026!'
 const ALL_OPTION = '전체'
 const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
+const PAGE_TITLE_MAP = {
+  dashboard: '대시보드',
+  contracts: '계약현황',
+  calendar: '캘린더',
+  sales: '영업관리대장',
+  budget: '본예산 진행정보',
+  discovery: '건축정보',
+  excluded: '사업검색이력',
+  documents: '문서수발신대장',
+}
+const TOP_SYSTEM_SUBTITLE =
+  '계약현황 · 일정관리 · 영업관리대장 · 본예산 진행정보 · 건축정보 · 사업검색이력 · 문서수발신대장'
 
 const emptyContract = {
   year: '',
@@ -287,6 +299,12 @@ function createExcludedDraftRow() {
 function safeString(value) {
   if (value === null || value === undefined) return ''
   return String(value)
+}
+
+function removeObjectKey(object, key) {
+  const next = { ...object }
+  delete next[key]
+  return next
 }
 
 function normalizeHeader(text) {
@@ -851,22 +869,27 @@ function App() {
   const [openContractYears, setOpenContractYears] = useState({})
   const [selectedDocumentIds, setSelectedDocumentIds] = useState([])
   const [editingDocumentIds, setEditingDocumentIds] = useState([])
+  const [documentEditSnapshots, setDocumentEditSnapshots] = useState({})
   const [isSavingDocuments, setIsSavingDocuments] = useState(false)
   const [selectedSalesIds, setSelectedSalesIds] = useState([])
   const [editingSalesIds, setEditingSalesIds] = useState([])
+  const [salesEditSnapshots, setSalesEditSnapshots] = useState({})
   const [isSavingSales, setIsSavingSales] = useState(false)
   const [salesFilters, setSalesFilters] = useState({
     projectCategory: '',
     manager: '',
+    projectStage: '',
   })
   const [selectedBudgetIds, setSelectedBudgetIds] = useState([])
   const [editingBudgetIds, setEditingBudgetIds] = useState([])
   const [isSavingBudget, setIsSavingBudget] = useState(false)
   const [budgetFilters, setBudgetFilters] = useState({
+    manager: '',
     projectStage: '',
   })
   const [selectedDiscoveryIds, setSelectedDiscoveryIds] = useState([])
   const [editingDiscoveryIds, setEditingDiscoveryIds] = useState([])
+  const [discoveryEditSnapshots, setDiscoveryEditSnapshots] = useState({})
   const [isSavingDiscovery, setIsSavingDiscovery] = useState(false)
   const [discoveryFilters, setDiscoveryFilters] = useState({
     manager: '',
@@ -874,9 +897,11 @@ function App() {
   })
   const [selectedExcludedIds, setSelectedExcludedIds] = useState([])
   const [editingExcludedIds, setEditingExcludedIds] = useState([])
+  const [excludedEditSnapshots, setExcludedEditSnapshots] = useState({})
   const [isSavingExcluded, setIsSavingExcluded] = useState(false)
   const [excludedFilters, setExcludedFilters] = useState({
     category: '',
+    keyword: '',
     writer: '',
   })
   const [manualEvents, setManualEvents] = useState(() => {
@@ -931,6 +956,9 @@ function App() {
   )
   const [appPasswordInput, setAppPasswordInput] = useState('')
   const [appLoginError, setAppLoginError] = useState('')
+  const [showAdminLoginModal, setShowAdminLoginModal] = useState(false)
+  const [adminPasswordInput, setAdminPasswordInput] = useState('')
+  const [adminLoginError, setAdminLoginError] = useState('')
 
   const fileInputRef = useRef(null)
 
@@ -1213,21 +1241,27 @@ function App() {
 
   const filteredSalesRows = useMemo(() => {
     return salesRows.filter((row) => {
+      if (row.isDraft) return true
       const categoryMatch =
         !salesFilters.projectCategory || row.projectCategory === salesFilters.projectCategory
       const managerMatch = !salesFilters.manager || row.manager === salesFilters.manager
-      return categoryMatch && managerMatch
+      const stageMatch = !salesFilters.projectStage || row.projectStage === salesFilters.projectStage
+      return categoryMatch && managerMatch && stageMatch
     })
-  }, [salesFilters.manager, salesFilters.projectCategory, salesRows])
+  }, [salesFilters.manager, salesFilters.projectCategory, salesFilters.projectStage, salesRows])
 
   const filteredBudgetRows = useMemo(() => {
     return budgetRows.filter((row) => {
-      return !budgetFilters.projectStage || row.projectStage === budgetFilters.projectStage
+      if (row.isDraft) return true
+      const managerMatch = !budgetFilters.manager || row.manager === budgetFilters.manager
+      const stageMatch = !budgetFilters.projectStage || row.projectStage === budgetFilters.projectStage
+      return managerMatch && stageMatch
     })
-  }, [budgetFilters.projectStage, budgetRows])
+  }, [budgetFilters.manager, budgetFilters.projectStage, budgetRows])
 
   const filteredDiscoveryRows = useMemo(() => {
     return discoveryRows.filter((row) => {
+      if (row.isDraft) return true
       const managerMatch = !discoveryFilters.manager || row.manager === discoveryFilters.manager
       const categoryMatch =
         !discoveryFilters.projectCategory ||
@@ -1238,11 +1272,13 @@ function App() {
 
   const filteredExcludedRows = useMemo(() => {
     return excludedRows.filter((row) => {
+      if (row.isDraft) return true
       const categoryMatch = !excludedFilters.category || row.category === excludedFilters.category
+      const keywordMatch = !excludedFilters.keyword || row.keyword === excludedFilters.keyword
       const writerMatch = !excludedFilters.writer || row.writer === excludedFilters.writer
-      return categoryMatch && writerMatch
+      return categoryMatch && keywordMatch && writerMatch
     })
-  }, [excludedFilters.category, excludedFilters.writer, excludedRows])
+  }, [excludedFilters.category, excludedFilters.keyword, excludedFilters.writer, excludedRows])
 
   const dashboardSummary = useMemo(() => buildDashboardSummary(contracts), [contracts])
   const defaultDashboardYear = dashboardSummary.years[0]?.year
@@ -1351,6 +1387,9 @@ function App() {
     setAppPasswordInput('')
     setAppLoginError('')
     setIsAdmin(false)
+    setShowAdminLoginModal(false)
+    setAdminPasswordInput('')
+    setAdminLoginError('')
     localStorage.removeItem(ADMIN_SESSION_KEY)
     setEditingCell(null)
     setEditingValue('')
@@ -1367,22 +1406,37 @@ function App() {
     if (isAdmin) {
       setIsAdmin(false)
       localStorage.removeItem(ADMIN_SESSION_KEY)
+      setShowAdminLoginModal(false)
+      setAdminPasswordInput('')
+      setAdminLoginError('')
       setEditingCell(null)
       setEditingValue('')
       setIsAddingRow(false)
       return
     }
 
-    const password = window.prompt('관리자 비밀번호를 입력하세요.')
-    if (password === null) return
+    setAdminPasswordInput('')
+    setAdminLoginError('')
+    setShowAdminLoginModal(true)
+  }
 
-    if (password !== ADMIN_PASSWORD) {
-      alert('비밀번호가 올바르지 않습니다.')
+  const closeAdminLoginModal = () => {
+    setShowAdminLoginModal(false)
+    setAdminPasswordInput('')
+    setAdminLoginError('')
+  }
+
+  const handleAdminLoginSubmit = (e) => {
+    e.preventDefault()
+
+    if (adminPasswordInput !== ADMIN_PASSWORD) {
+      setAdminLoginError('관리자 비밀번호가 올바르지 않습니다.')
       return
     }
 
     setIsAdmin(true)
     localStorage.setItem(ADMIN_SESSION_KEY, 'true')
+    closeAdminLoginModal()
   }
 
   const handleAppLogin = (e) => {
@@ -1607,6 +1661,10 @@ function App() {
   }
 
   const handleAddDocumentRow = () => {
+    if (documents.some((row) => row.isDraft) || editingDocumentIds.length > 0) {
+      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+      return
+    }
     setDocuments((prev) => [createDocumentDraftRow(), ...prev])
     setSelectedDocumentIds([])
   }
@@ -1625,7 +1683,109 @@ function App() {
   }
 
   const startDocumentEdit = (rowId) => {
-    setEditingDocumentIds((prev) => (prev.includes(rowId) ? prev : [...prev, rowId]))
+    const targetRow = documents.find((row) => row.id === rowId)
+    if (!targetRow || targetRow.isDraft) return
+    if (documents.some((row) => row.isDraft) || (editingDocumentIds.length > 0 && !editingDocumentIds.includes(rowId))) {
+      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+      return
+    }
+
+    setDocumentEditSnapshots((prev) =>
+      prev[rowId]
+        ? prev
+        : {
+            ...prev,
+            [rowId]: { ...targetRow },
+          }
+    )
+    setEditingDocumentIds([rowId])
+  }
+
+  const cancelDocumentRow = (rowId) => {
+    const targetRow = documents.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (targetRow.isDraft) {
+      setDocuments((prev) => prev.filter((row) => row.id !== rowId))
+      return
+    }
+
+    setDocuments((prev) =>
+      prev.map((row) => (row.id === rowId ? documentEditSnapshots[rowId] ?? row : row))
+    )
+    setEditingDocumentIds((prev) => prev.filter((id) => id !== rowId))
+    setDocumentEditSnapshots((prev) => removeObjectKey(prev, rowId))
+  }
+
+  const deleteDocumentRow = async (rowId) => {
+    const targetRow = documents.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (targetRow.isDraft) {
+      setDocuments((prev) => prev.filter((row) => row.id !== rowId))
+      return
+    }
+
+    const ok = window.confirm('이 문서수발신 항목을 삭제하시겠습니까?')
+    if (!ok) return
+
+    const { error } = await supabase.from('document_register').delete().eq('id', rowId)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setEditingDocumentIds((prev) => prev.filter((id) => id !== rowId))
+    setDocumentEditSnapshots((prev) => removeObjectKey(prev, rowId))
+    await fetchDocuments(false)
+  }
+
+  const saveDocumentRow = async (rowId) => {
+    const targetRow = documents.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (isDocumentRowEmpty(targetRow)) {
+      alert('입력 내용을 확인해주세요.')
+      return
+    }
+
+    setIsSavingDocuments(true)
+
+    try {
+      const timestamp = new Date().toISOString()
+
+      if (targetRow.isDraft) {
+        const { error } = await supabase.from('document_register').insert([
+          {
+            ...toDocumentPayload(targetRow, timestamp),
+            createdAt: timestamp,
+          },
+        ])
+
+        if (error) {
+          alert(error.message)
+          return
+        }
+      } else {
+        const { error } = await supabase
+          .from('document_register')
+          .update(toDocumentPayload(targetRow, timestamp))
+          .eq('id', rowId)
+
+        if (error) {
+          alert(error.message)
+          return
+        }
+      }
+
+      await fetchDocuments(false)
+      setEditingDocumentIds((prev) => prev.filter((id) => id !== rowId))
+      setDocumentEditSnapshots((prev) => removeObjectKey(prev, rowId))
+      alert('저장되었습니다.')
+    } finally {
+      setIsSavingDocuments(false)
+    }
   }
 
   const toggleDocumentSelection = (rowId) => {
@@ -1734,6 +1894,10 @@ function App() {
   }
 
   const handleAddSalesRow = () => {
+    if (salesRows.some((row) => row.isDraft) || editingSalesIds.length > 0) {
+      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+      return
+    }
     setSalesRows((prev) => [createSalesDraftRow(), ...prev])
     setSelectedSalesIds([])
   }
@@ -1752,7 +1916,109 @@ function App() {
   }
 
   const startSalesEdit = (rowId) => {
-    setEditingSalesIds((prev) => (prev.includes(rowId) ? prev : [...prev, rowId]))
+    const targetRow = salesRows.find((row) => row.id === rowId)
+    if (!targetRow || targetRow.isDraft) return
+    if (salesRows.some((row) => row.isDraft) || (editingSalesIds.length > 0 && !editingSalesIds.includes(rowId))) {
+      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+      return
+    }
+
+    setSalesEditSnapshots((prev) =>
+      prev[rowId]
+        ? prev
+        : {
+            ...prev,
+            [rowId]: { ...targetRow },
+          }
+    )
+    setEditingSalesIds([rowId])
+  }
+
+  const cancelSalesRow = (rowId) => {
+    const targetRow = salesRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (targetRow.isDraft) {
+      setSalesRows((prev) => prev.filter((row) => row.id !== rowId))
+      return
+    }
+
+    setSalesRows((prev) =>
+      prev.map((row) => (row.id === rowId ? salesEditSnapshots[rowId] ?? row : row))
+    )
+    setEditingSalesIds((prev) => prev.filter((id) => id !== rowId))
+    setSalesEditSnapshots((prev) => removeObjectKey(prev, rowId))
+  }
+
+  const deleteSalesRow = async (rowId) => {
+    const targetRow = salesRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (targetRow.isDraft) {
+      setSalesRows((prev) => prev.filter((row) => row.id !== rowId))
+      return
+    }
+
+    const ok = window.confirm('이 영업관리대장 항목을 삭제하시겠습니까?')
+    if (!ok) return
+
+    const { error } = await supabase.from('sales_register').delete().eq('id', rowId)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setEditingSalesIds((prev) => prev.filter((id) => id !== rowId))
+    setSalesEditSnapshots((prev) => removeObjectKey(prev, rowId))
+    await fetchSalesRows(false)
+  }
+
+  const saveSalesRow = async (rowId) => {
+    const targetRow = salesRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (isSalesRowEmpty(targetRow)) {
+      alert('입력 내용을 확인해주세요.')
+      return
+    }
+
+    setIsSavingSales(true)
+
+    try {
+      const timestamp = new Date().toISOString()
+
+      if (targetRow.isDraft) {
+        const { error } = await supabase.from('sales_register').insert([
+          {
+            ...toSalesPayload(targetRow, timestamp),
+            createdAt: timestamp,
+          },
+        ])
+
+        if (error) {
+          alert(error.message)
+          return
+        }
+      } else {
+        const { error } = await supabase
+          .from('sales_register')
+          .update(toSalesPayload(targetRow, timestamp))
+          .eq('id', rowId)
+
+        if (error) {
+          alert(error.message)
+          return
+        }
+      }
+
+      await fetchSalesRows(false)
+      setEditingSalesIds((prev) => prev.filter((id) => id !== rowId))
+      setSalesEditSnapshots((prev) => removeObjectKey(prev, rowId))
+      alert('저장되었습니다.')
+    } finally {
+      setIsSavingSales(false)
+    }
   }
 
   const toggleSalesSelection = (rowId) => {
@@ -1859,7 +2125,7 @@ function App() {
   }
 
   const handleSalesExcelDownload = () => {
-    const rows = filteredSalesRows.map((row) => ({
+    const rows = filteredSalesRows.filter((row) => !row.isDraft).map((row) => ({
       등록일: row.registerDate,
       발주처: row.client,
       프로젝트: row.projectName,
@@ -2011,7 +2277,7 @@ function App() {
   }
 
   const handleBudgetExcelDownload = () => {
-    const rows = filteredBudgetRows.map((row) => ({
+    const rows = filteredBudgetRows.filter((row) => !row.isDraft).map((row) => ({
       등록일: row.registerDate,
       지자체: row.localGov,
       프로젝트: row.projectName,
@@ -2034,6 +2300,10 @@ function App() {
   }
 
   const handleAddDiscoveryRow = () => {
+    if (discoveryRows.some((row) => row.isDraft) || editingDiscoveryIds.length > 0) {
+      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+      return
+    }
     setDiscoveryRows((prev) => [createDiscoveryDraftRow(), ...prev])
     setSelectedDiscoveryIds([])
   }
@@ -2052,7 +2322,112 @@ function App() {
   }
 
   const startDiscoveryEdit = (rowId) => {
-    setEditingDiscoveryIds((prev) => (prev.includes(rowId) ? prev : [...prev, rowId]))
+    const targetRow = discoveryRows.find((row) => row.id === rowId)
+    if (!targetRow || targetRow.isDraft) return
+    if (
+      discoveryRows.some((row) => row.isDraft) ||
+      (editingDiscoveryIds.length > 0 && !editingDiscoveryIds.includes(rowId))
+    ) {
+      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+      return
+    }
+
+    setDiscoveryEditSnapshots((prev) =>
+      prev[rowId]
+        ? prev
+        : {
+            ...prev,
+            [rowId]: { ...targetRow },
+          }
+    )
+    setEditingDiscoveryIds([rowId])
+  }
+
+  const cancelDiscoveryRow = (rowId) => {
+    const targetRow = discoveryRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (targetRow.isDraft) {
+      setDiscoveryRows((prev) => prev.filter((row) => row.id !== rowId))
+      return
+    }
+
+    setDiscoveryRows((prev) =>
+      prev.map((row) => (row.id === rowId ? discoveryEditSnapshots[rowId] ?? row : row))
+    )
+    setEditingDiscoveryIds((prev) => prev.filter((id) => id !== rowId))
+    setDiscoveryEditSnapshots((prev) => removeObjectKey(prev, rowId))
+  }
+
+  const deleteDiscoveryRow = async (rowId) => {
+    const targetRow = discoveryRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (targetRow.isDraft) {
+      setDiscoveryRows((prev) => prev.filter((row) => row.id !== rowId))
+      return
+    }
+
+    const ok = window.confirm('이 건축정보 항목을 삭제하시겠습니까?')
+    if (!ok) return
+
+    const { error } = await supabase.from('project_discovery').delete().eq('id', rowId)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setEditingDiscoveryIds((prev) => prev.filter((id) => id !== rowId))
+    setDiscoveryEditSnapshots((prev) => removeObjectKey(prev, rowId))
+    await fetchDiscoveryRows(false)
+  }
+
+  const saveDiscoveryRow = async (rowId) => {
+    const targetRow = discoveryRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (isDiscoveryRowEmpty(targetRow)) {
+      alert('입력 내용을 확인해주세요.')
+      return
+    }
+
+    setIsSavingDiscovery(true)
+
+    try {
+      const timestamp = new Date().toISOString()
+
+      if (targetRow.isDraft) {
+        const { error } = await supabase.from('project_discovery').insert([
+          {
+            ...toDiscoveryPayload(targetRow, timestamp),
+            createdAt: timestamp,
+          },
+        ])
+
+        if (error) {
+          alert(error.message)
+          return
+        }
+      } else {
+        const { error } = await supabase
+          .from('project_discovery')
+          .update(toDiscoveryPayload(targetRow, timestamp))
+          .eq('id', rowId)
+
+        if (error) {
+          alert(error.message)
+          return
+        }
+      }
+
+      await fetchDiscoveryRows(false)
+      setEditingDiscoveryIds((prev) => prev.filter((id) => id !== rowId))
+      setDiscoveryEditSnapshots((prev) => removeObjectKey(prev, rowId))
+      alert('저장되었습니다.')
+    } finally {
+      setIsSavingDiscovery(false)
+    }
   }
 
   const toggleDiscoverySelection = (rowId) => {
@@ -2161,12 +2536,11 @@ function App() {
   }
 
   const handleDiscoveryExcelDownload = () => {
-    const rows = filteredDiscoveryRows.map((row) => ({
-      건축허가일자: row.permitDate,
+    const rows = filteredDiscoveryRows.filter((row) => !row.isDraft).map((row) => ({
+      건축정보일자: row.permitDate,
       확인: row.checkStatus,
-      영업처: row.salesTarget,
+      영업자: row.salesTarget,
       사업구분: row.projectCategory,
-      지자체명: row.localGov,
       발주처: row.client,
       사업명: row.projectName,
       사업금액: formatAmountDisplay(row.projectAmount),
@@ -2177,14 +2551,18 @@ function App() {
 
     const worksheet = XLSX.utils.json_to_sheet(rows)
     const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, '사업 발굴정보')
+    XLSX.utils.book_append_sheet(workbook, worksheet, '건축정보')
 
     const now = new Date()
-    const filename = `사업_발굴정보_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
+    const filename = `건축정보_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
     XLSX.writeFile(workbook, filename)
   }
 
   const handleAddExcludedRow = () => {
+    if (excludedRows.some((row) => row.isDraft) || editingExcludedIds.length > 0) {
+      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+      return
+    }
     setExcludedRows((prev) => [createExcludedDraftRow(), ...prev])
     setSelectedExcludedIds([])
   }
@@ -2203,7 +2581,112 @@ function App() {
   }
 
   const startExcludedEdit = (rowId) => {
-    setEditingExcludedIds((prev) => (prev.includes(rowId) ? prev : [...prev, rowId]))
+    const targetRow = excludedRows.find((row) => row.id === rowId)
+    if (!targetRow || targetRow.isDraft) return
+    if (
+      excludedRows.some((row) => row.isDraft) ||
+      (editingExcludedIds.length > 0 && !editingExcludedIds.includes(rowId))
+    ) {
+      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+      return
+    }
+
+    setExcludedEditSnapshots((prev) =>
+      prev[rowId]
+        ? prev
+        : {
+            ...prev,
+            [rowId]: { ...targetRow },
+          }
+    )
+    setEditingExcludedIds([rowId])
+  }
+
+  const cancelExcludedRow = (rowId) => {
+    const targetRow = excludedRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (targetRow.isDraft) {
+      setExcludedRows((prev) => prev.filter((row) => row.id !== rowId))
+      return
+    }
+
+    setExcludedRows((prev) =>
+      prev.map((row) => (row.id === rowId ? excludedEditSnapshots[rowId] ?? row : row))
+    )
+    setEditingExcludedIds((prev) => prev.filter((id) => id !== rowId))
+    setExcludedEditSnapshots((prev) => removeObjectKey(prev, rowId))
+  }
+
+  const deleteExcludedRow = async (rowId) => {
+    const targetRow = excludedRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (targetRow.isDraft) {
+      setExcludedRows((prev) => prev.filter((row) => row.id !== rowId))
+      return
+    }
+
+    const ok = window.confirm('이 사업검색이력 항목을 삭제하시겠습니까?')
+    if (!ok) return
+
+    const { error } = await supabase.from('excluded_projects').delete().eq('id', rowId)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setEditingExcludedIds((prev) => prev.filter((id) => id !== rowId))
+    setExcludedEditSnapshots((prev) => removeObjectKey(prev, rowId))
+    await fetchExcludedRows(false)
+  }
+
+  const saveExcludedRow = async (rowId) => {
+    const targetRow = excludedRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (isExcludedRowEmpty(targetRow)) {
+      alert('입력 내용을 확인해주세요.')
+      return
+    }
+
+    setIsSavingExcluded(true)
+
+    try {
+      const timestamp = new Date().toISOString()
+
+      if (targetRow.isDraft) {
+        const { error } = await supabase.from('excluded_projects').insert([
+          {
+            ...toExcludedPayload(targetRow, timestamp),
+            createdAt: timestamp,
+          },
+        ])
+
+        if (error) {
+          alert(error.message)
+          return
+        }
+      } else {
+        const { error } = await supabase
+          .from('excluded_projects')
+          .update(toExcludedPayload(targetRow, timestamp))
+          .eq('id', rowId)
+
+        if (error) {
+          alert(error.message)
+          return
+        }
+      }
+
+      await fetchExcludedRows(false)
+      setEditingExcludedIds((prev) => prev.filter((id) => id !== rowId))
+      setExcludedEditSnapshots((prev) => removeObjectKey(prev, rowId))
+      alert('저장되었습니다.')
+    } finally {
+      setIsSavingExcluded(false)
+    }
   }
 
   const toggleExcludedSelection = (rowId) => {
@@ -2312,7 +2795,7 @@ function App() {
   }
 
   const handleExcludedExcelDownload = () => {
-    const rows = filteredExcludedRows.map((row) => ({
+    const rows = filteredExcludedRows.filter((row) => !row.isDraft).map((row) => ({
       순번: row.orderNo,
       작성일: row.writeDate,
       공개일시: row.openDate,
@@ -2327,10 +2810,10 @@ function App() {
 
     const worksheet = XLSX.utils.json_to_sheet(rows)
     const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, '제외사업 관리대장')
+    XLSX.utils.book_append_sheet(workbook, worksheet, '사업검색이력')
 
     const now = new Date()
-    const filename = `제외사업_관리대장_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
+    const filename = `사업검색이력_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
     XLSX.writeFile(workbook, filename)
   }
 
@@ -2569,106 +3052,156 @@ function App() {
     })
   }
 
+  const renderAuthCard = ({
+    title,
+    subtitle,
+    passwordValue,
+    onPasswordChange,
+    onSubmit,
+    error,
+    submitLabel,
+    onCancel,
+  }) => (
+    <div className="auth-card">
+      <div className="auth-card-header">
+        <div className="company-logo-box auth-logo-box">
+          <img className="company-logo-img" src="/logo.png" alt="스마트DI" />
+        </div>
+        <div className="auth-card-title">{title}</div>
+        <div className="auth-card-subtitle">{subtitle}</div>
+      </div>
+
+      <form onSubmit={onSubmit}>
+        <input
+          type="password"
+          className="table-search-input auth-input"
+          value={passwordValue}
+          onChange={onPasswordChange}
+          placeholder="비밀번호 입력"
+          autoFocus
+        />
+
+        {error && <div className="auth-error-box">{error}</div>}
+
+        <div className="auth-actions">
+          {onCancel && (
+            <button className="secondary-btn auth-secondary-btn" type="button" onClick={onCancel}>
+              취소
+            </button>
+          )}
+          <button className="primary-btn auth-primary-btn" type="submit">
+            {submitLabel}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+
+  const renderRegistryRowActions = ({
+    row,
+    isEditing,
+    onEdit,
+    onDelete,
+    onSave,
+    onCancel,
+    isSaving,
+  }) => (
+    <div className="inline-row-actions">
+      {row.isDraft || isEditing ? (
+        <>
+          <button
+            className="mini-save-btn"
+            type="button"
+            onClick={onSave}
+            disabled={isSaving}
+            style={isSaving ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+          >
+            저장
+          </button>
+          <button className="mini-cancel-btn" type="button" onClick={onCancel}>
+            취소
+          </button>
+        </>
+      ) : (
+        <div className="row-action-group">
+          <button className="row-icon-btn edit" type="button" title="수정" aria-label="수정" onClick={onEdit}>
+            ✎
+          </button>
+          <button className="row-icon-btn delete" type="button" title="삭제" aria-label="삭제" onClick={onDelete}>
+            ×
+          </button>
+        </div>
+      )}
+    </div>
+  )
+
+  const renderRegistryEditor = (row, column, onChange) => {
+    if (column.type === 'textarea') {
+      return (
+        <textarea
+          className={`inline-row-editor cell-inline-editor ${column.align === 'right' ? 'align-right' : ''}`}
+          rows={1}
+          value={row[column.key] ?? ''}
+          onChange={(e) => onChange(row.id, column.key, e.target.value)}
+        />
+      )
+    }
+
+    if (column.type === 'date') {
+      return (
+        <input
+          className="inline-row-editor cell-inline-editor"
+          type="date"
+          value={row[column.key] ?? ''}
+          onChange={(e) => onChange(row.id, column.key, e.target.value)}
+        />
+      )
+    }
+
+    if (column.type === 'select') {
+      return (
+        <select
+          className="inline-row-editor cell-inline-editor"
+          value={row[column.key] ?? ''}
+          onChange={(e) => onChange(row.id, column.key, e.target.value)}
+        >
+          <option value="">선택</option>
+          {column.options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      )
+    }
+
+    return (
+      <input
+        className={`inline-row-editor cell-inline-editor ${column.align === 'right' ? 'align-right' : ''}`}
+        type="text"
+        value={row[column.key] ?? ''}
+        onChange={(e) => onChange(row.id, column.key, e.target.value)}
+      />
+    )
+  }
+
   if (!isAppAuthenticated) {
     return (
-      <div
-        className="app-shell"
-        style={{
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 24,
-        }}
-      >
-        <div
-          style={{
-            width: 'min(420px, 100%)',
-            background: 'rgba(255, 255, 255, 0.96)',
-            border: '1px solid rgba(220, 227, 237, 0.92)',
-            borderRadius: 12,
-            boxShadow: '0 16px 40px rgba(15, 23, 42, 0.12)',
-            padding: 28,
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 12,
-              marginBottom: 20,
-            }}
-          >
-            <div className="company-logo-box" style={{ width: '100%', marginBottom: 0 }}>
-              <img className="company-logo-img" src="/logo.png" alt="스마트DI" />
-            </div>
-            <div
-              style={{
-                fontFamily: 'SUIT, Pretendard, sans-serif',
-                fontSize: 22,
-                fontWeight: 800,
-                color: '#1f2937',
-                textAlign: 'center',
-              }}
-            >
-              스마트DI사업부 통합관리
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: '#64748b',
-                textAlign: 'center',
-                lineHeight: 1.5,
-              }}
-            >
-              공용 비밀번호를 입력한 뒤 시스템에 접속하세요.
-            </div>
-          </div>
-
-          <form onSubmit={handleAppLogin}>
-            <input
-              type="password"
-              className="table-search-input"
-              value={appPasswordInput}
-              onChange={(e) => {
-                setAppPasswordInput(e.target.value)
-                if (appLoginError) {
-                  setAppLoginError('')
-                }
-              }}
-              placeholder="공용 비밀번호 입력"
-              autoFocus
-            />
-
-            {appLoginError && (
-              <div
-                style={{
-                  marginTop: 10,
-                  padding: '10px 12px',
-                  borderRadius: 8,
-                  background: '#fef2f2',
-                  border: '1px solid #fecaca',
-                  color: '#b91c1c',
-                  fontSize: 13,
-                  fontWeight: 700,
-                }}
-              >
-                {appLoginError}
-              </div>
-            )}
-
-            <button
-              className="primary-btn"
-              type="submit"
-              style={{
-                width: '100%',
-                marginTop: 14,
-                minHeight: 44,
-              }}
-            >
-              로그인
-            </button>
-          </form>
-        </div>
+      <div className="app-shell auth-screen">
+        {renderAuthCard({
+          title: '스마트DI사업부 통합관리',
+          subtitle: '공용 비밀번호를 입력한 뒤 시스템에 접속하세요.',
+          passwordValue: appPasswordInput,
+          onPasswordChange: (e) => {
+            setAppPasswordInput(e.target.value)
+            if (appLoginError) {
+              setAppLoginError('')
+            }
+          },
+          onSubmit: handleAppLogin,
+          error: appLoginError,
+          submitLabel: '로그인',
+        })}
       </div>
     )
   }
@@ -2721,14 +3254,14 @@ function App() {
               className={menu === 'discovery' ? 'menu-btn active' : 'menu-btn'}
               onClick={() => setMenu('discovery')}
             >
-              사업 발굴정보
+              건축정보
             </button>
 
             <button
               className={menu === 'excluded' ? 'menu-btn active' : 'menu-btn'}
               onClick={() => setMenu('excluded')}
             >
-              제외사업 관리대장
+              사업검색이력
             </button>
 
             <button
@@ -2770,7 +3303,7 @@ function App() {
                 justifyContent: 'flex-end',
               }}
             >
-              <span className="top-system-subtitle">계약현황 · 일정관리 · 영업관리대장 · 본예산 진행정보 · 사업 발굴정보 · 제외사업 관리대장 · 문서수발신대장</span>
+              <span className="top-system-subtitle">{TOP_SYSTEM_SUBTITLE}</span>
               <span
                 style={{
                   display: 'inline-flex',
@@ -2800,16 +3333,7 @@ function App() {
         </div>
 
         <div className="page-title-bar unified-title-bar">
-          <h1>
-            {menu === 'dashboard' && '대시보드'}
-            {menu === 'contracts' && '계약현황'}
-            {menu === 'calendar' && '캘린더'}
-            {menu === 'sales' && '영업관리대장'}
-            {menu === 'budget' && '본예산 진행정보'}
-            {menu === 'discovery' && '사업 발굴정보'}
-            {menu === 'excluded' && '제외사업 관리대장'}
-            {menu === 'documents' && '문서수발신대장'}
-          </h1>
+          <h1>{PAGE_TITLE_MAP[menu]}</h1>
         </div>
 
         {showSessionWarning && (
@@ -2924,7 +3448,7 @@ function App() {
               {isAdmin && (
                 <>
                   <button className="primary-btn" type="button" onClick={openAddRow}>
-                    계약현황 추가
+                    추가
                   </button>
 
                   <button className="secondary-btn" type="button" onClick={handleExcelImportClick}>
@@ -3279,30 +3803,6 @@ function App() {
                 추가
               </button>
 
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={saveSalesRows}
-                disabled={isSavingSales}
-                style={isSavingSales ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
-              >
-                {isSavingSales ? '저장 중...' : '저장'}
-              </button>
-
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={deleteSelectedSalesRows}
-                disabled={selectedSalesIds.length === 0}
-                style={
-                  selectedSalesIds.length === 0
-                    ? { opacity: 0.55, cursor: 'not-allowed' }
-                    : undefined
-                }
-              >
-                삭제
-              </button>
-
               <select
                 className="contract-filter-select"
                 value={salesFilters.projectCategory}
@@ -3335,6 +3835,22 @@ function App() {
                 ))}
               </select>
 
+              <select
+                className="contract-filter-select"
+                value={salesFilters.projectStage}
+                onChange={(e) =>
+                  setSalesFilters((prev) => ({ ...prev, projectStage: e.target.value }))
+                }
+                style={{ width: 132 }}
+              >
+                <option value="">상태</option>
+                {SALES_STAGE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+
               <button className="secondary-btn" type="button" onClick={handleSalesExcelDownload}>
                 엑셀 다운로드
               </button>
@@ -3347,9 +3863,9 @@ function App() {
                     <tr>
                       <th
                         className="th-align-center"
-                        style={{ width: 64, position: 'sticky', top: 0, zIndex: 6 }}
+                        style={{ width: 88, position: 'sticky', top: 0, zIndex: 6 }}
                       >
-                        선택
+                        작업
                       </th>
                       {SALES_COLUMNS.map((column) => (
                         <th
@@ -3383,109 +3899,64 @@ function App() {
                         </td>
                       </tr>
                     ) : (
-                      filteredSalesRows.map((row, index) => (
-                        <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
-                          <td className="td-align-center">
-                            <input
-                              type="checkbox"
-                              checked={selectedSalesIds.includes(row.id)}
-                              onChange={() => toggleSalesSelection(row.id)}
-                              style={{ width: 16, height: 16 }}
-                            />
-                          </td>
+                      filteredSalesRows.map((row, index) => {
+                        const isEditing = row.isDraft || editingSalesIds.includes(row.id)
 
-                          {SALES_COLUMNS.map((column) => (
-                            <td
-                              key={column.key}
-                              className={`${
-                                column.align === 'right'
-                                  ? 'td-align-right'
-                                  : column.align === 'left'
-                                  ? 'td-align-left'
-                                  : 'td-align-center'
-                              } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
-                              style={{ width: column.width }}
-                              onClick={() => {
-                                if (!row.isDraft && !editingSalesIds.includes(row.id)) {
-                                  startSalesEdit(row.id)
-                                }
-                              }}
-                            >
-                              {row.isDraft || editingSalesIds.includes(row.id) ? (
-                                column.type === 'textarea' ? (
-                                  <textarea
-                                    className={`inline-row-editor cell-inline-editor ${
-                                      column.align === 'right' ? 'align-right' : ''
-                                    }`}
-                                    rows={1}
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleSalesCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                ) : column.type === 'date' ? (
-                                  <input
-                                    className="inline-row-editor cell-inline-editor"
-                                    type="date"
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleSalesCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                ) : column.type === 'select' ? (
-                                  <select
-                                    className="inline-row-editor cell-inline-editor"
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleSalesCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  >
-                                    <option value="">선택</option>
-                                    {column.options.map((option) => (
-                                      <option key={option} value={option}>
-                                        {option}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    className={`inline-row-editor cell-inline-editor ${
-                                      column.align === 'right' ? 'align-right' : ''
-                                    }`}
-                                    type="text"
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleSalesCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                )
-                              ) : (
-                                <div
-                                  className="cell-display"
-                                  style={{
-                                    whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
-                                    cursor: 'text',
-                                  }}
-                                >
-                                  {column.key === 'projectAmount' ? (
-                                    formatAmountDisplay(row[column.key]) || '-'
-                                  ) : column.key === 'projectStage' ? (
-                                    safeString(row[column.key]).trim() ? (
-                                      <span className={getSalesStageClassName(row[column.key])}>
-                                        {row[column.key]}
-                                      </span>
-                                    ) : (
-                                      '-'
-                                    )
-                                  ) : (
-                                    safeString(row[column.key]).trim() || '-'
-                                  )}
-                                </div>
-                              )}
+                        return (
+                          <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                            <td className="td-align-center">
+                              {renderRegistryRowActions({
+                                row,
+                                isEditing,
+                                onEdit: () => startSalesEdit(row.id),
+                                onDelete: () => deleteSalesRow(row.id),
+                                onSave: () => saveSalesRow(row.id),
+                                onCancel: () => cancelSalesRow(row.id),
+                                isSaving: isSavingSales,
+                              })}
                             </td>
-                          ))}
-                        </tr>
-                      ))
+
+                            {SALES_COLUMNS.map((column) => (
+                              <td
+                                key={column.key}
+                                className={`${
+                                  column.align === 'right'
+                                    ? 'td-align-right'
+                                    : column.align === 'left'
+                                    ? 'td-align-left'
+                                    : 'td-align-center'
+                                } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
+                                style={{ width: column.width }}
+                              >
+                                {isEditing ? (
+                                  renderRegistryEditor(row, column, handleSalesCellChange)
+                                ) : (
+                                  <div
+                                    className="cell-display"
+                                    style={{
+                                      whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
+                                    }}
+                                  >
+                                    {column.key === 'projectAmount' ? (
+                                      formatAmountDisplay(row[column.key]) || '-'
+                                    ) : column.key === 'projectStage' ? (
+                                      safeString(row[column.key]).trim() ? (
+                                        <span className={getSalesStageClassName(row[column.key])}>
+                                          {row[column.key]}
+                                        </span>
+                                      ) : (
+                                        '-'
+                                      )
+                                    ) : (
+                                      safeString(row[column.key]).trim() || '-'
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        )
+                      })
                     )}
                   </tbody>
                 </table>
@@ -3524,6 +3995,22 @@ function App() {
               >
                 삭제
               </button>
+
+              <select
+                className="contract-filter-select"
+                value={budgetFilters.manager}
+                onChange={(e) =>
+                  setBudgetFilters((prev) => ({ ...prev, manager: e.target.value }))
+                }
+                style={{ width: 150 }}
+              >
+                <option value="">담당자</option>
+                {SALES_MANAGER_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
 
               <select
                 className="contract-filter-select"
@@ -3707,29 +4194,21 @@ function App() {
                 추가
               </button>
 
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={saveDiscoveryRows}
-                disabled={isSavingDiscovery}
-                style={isSavingDiscovery ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
-              >
-                {isSavingDiscovery ? '저장 중...' : '저장'}
-              </button>
-
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={deleteSelectedDiscoveryRows}
-                disabled={selectedDiscoveryIds.length === 0}
-                style={
-                  selectedDiscoveryIds.length === 0
-                    ? { opacity: 0.55, cursor: 'not-allowed' }
-                    : undefined
+              <select
+                className="contract-filter-select"
+                value={discoveryFilters.projectCategory}
+                onChange={(e) =>
+                  setDiscoveryFilters((prev) => ({ ...prev, projectCategory: e.target.value }))
                 }
+                style={{ width: 132 }}
               >
-                삭제
-              </button>
+                <option value="">사업구분</option>
+                {DISCOVERY_CATEGORY_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
 
               <select
                 className="contract-filter-select"
@@ -3741,22 +4220,6 @@ function App() {
               >
                 <option value="">담당자</option>
                 {SALES_MANAGER_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                className="contract-filter-select"
-                value={discoveryFilters.projectCategory}
-                onChange={(e) =>
-                  setDiscoveryFilters((prev) => ({ ...prev, projectCategory: e.target.value }))
-                }
-                style={{ width: 132 }}
-              >
-                <option value="">사업구분</option>
-                {DISCOVERY_CATEGORY_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
@@ -3775,9 +4238,9 @@ function App() {
                     <tr>
                       <th
                         className="th-align-center"
-                        style={{ width: 64, position: 'sticky', top: 0, zIndex: 6 }}
+                        style={{ width: 88, position: 'sticky', top: 0, zIndex: 6 }}
                       >
-                        선택
+                        작업
                       </th>
                       {DISCOVERY_COLUMNS.map((column) => (
                         <th
@@ -3807,113 +4270,68 @@ function App() {
                     {filteredDiscoveryRows.length === 0 ? (
                       <tr>
                         <td colSpan={DISCOVERY_COLUMNS.length + 1} className="empty-cell">
-                          등록된 사업 발굴정보가 없습니다.
+                          등록된 건축정보가 없습니다.
                         </td>
                       </tr>
                     ) : (
-                      filteredDiscoveryRows.map((row, index) => (
-                        <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
-                          <td className="td-align-center">
-                            <input
-                              type="checkbox"
-                              checked={selectedDiscoveryIds.includes(row.id)}
-                              onChange={() => toggleDiscoverySelection(row.id)}
-                              style={{ width: 16, height: 16 }}
-                            />
-                          </td>
+                      filteredDiscoveryRows.map((row, index) => {
+                        const isEditing = row.isDraft || editingDiscoveryIds.includes(row.id)
 
-                          {DISCOVERY_COLUMNS.map((column) => (
-                            <td
-                              key={column.key}
-                              className={`${
-                                column.align === 'right'
-                                  ? 'td-align-right'
-                                  : column.align === 'left'
-                                  ? 'td-align-left'
-                                  : 'td-align-center'
-                              } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
-                              style={{ width: column.width }}
-                              onClick={() => {
-                                if (!row.isDraft && !editingDiscoveryIds.includes(row.id)) {
-                                  startDiscoveryEdit(row.id)
-                                }
-                              }}
-                            >
-                              {row.isDraft || editingDiscoveryIds.includes(row.id) ? (
-                                column.type === 'textarea' ? (
-                                  <textarea
-                                    className={`inline-row-editor cell-inline-editor ${
-                                      column.align === 'right' ? 'align-right' : ''
-                                    }`}
-                                    rows={1}
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleDiscoveryCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                ) : column.type === 'date' ? (
-                                  <input
-                                    className="inline-row-editor cell-inline-editor"
-                                    type="date"
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleDiscoveryCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                ) : column.type === 'select' ? (
-                                  <select
-                                    className="inline-row-editor cell-inline-editor"
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleDiscoveryCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  >
-                                    <option value="">선택</option>
-                                    {column.options.map((option) => (
-                                      <option key={option} value={option}>
-                                        {option}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    className={`inline-row-editor cell-inline-editor ${
-                                      column.align === 'right' ? 'align-right' : ''
-                                    }`}
-                                    type="text"
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleDiscoveryCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                )
-                              ) : (
-                                <div
-                                  className="cell-display"
-                                  style={{
-                                    whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
-                                    cursor: 'text',
-                                  }}
-                                >
-                                  {column.key === 'projectAmount' ? (
-                                    formatAmountDisplay(row[column.key]) || '-'
-                                  ) : column.key === 'projectCategory' ? (
-                                    safeString(row[column.key]).trim() ? (
-                                      <span className={getDiscoveryCategoryClassName(row[column.key])}>
-                                        {row[column.key]}
-                                      </span>
-                                    ) : (
-                                      '-'
-                                    )
-                                  ) : (
-                                    safeString(row[column.key]).trim() || '-'
-                                  )}
-                                </div>
-                              )}
+                        return (
+                          <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                            <td className="td-align-center">
+                              {renderRegistryRowActions({
+                                row,
+                                isEditing,
+                                onEdit: () => startDiscoveryEdit(row.id),
+                                onDelete: () => deleteDiscoveryRow(row.id),
+                                onSave: () => saveDiscoveryRow(row.id),
+                                onCancel: () => cancelDiscoveryRow(row.id),
+                                isSaving: isSavingDiscovery,
+                              })}
                             </td>
-                          ))}
-                        </tr>
-                      ))
+
+                            {DISCOVERY_COLUMNS.map((column) => (
+                              <td
+                                key={column.key}
+                                className={`${
+                                  column.align === 'right'
+                                    ? 'td-align-right'
+                                    : column.align === 'left'
+                                    ? 'td-align-left'
+                                    : 'td-align-center'
+                                } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
+                                style={{ width: column.width }}
+                              >
+                                {isEditing ? (
+                                  renderRegistryEditor(row, column, handleDiscoveryCellChange)
+                                ) : (
+                                  <div
+                                    className="cell-display"
+                                    style={{
+                                      whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
+                                    }}
+                                  >
+                                    {column.key === 'projectAmount' ? (
+                                      formatAmountDisplay(row[column.key]) || '-'
+                                    ) : column.key === 'projectCategory' ? (
+                                      safeString(row[column.key]).trim() ? (
+                                        <span className={getDiscoveryCategoryClassName(row[column.key])}>
+                                          {row[column.key]}
+                                        </span>
+                                      ) : (
+                                        '-'
+                                      )
+                                    ) : (
+                                      safeString(row[column.key]).trim() || '-'
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        )
+                      })
                     )}
                   </tbody>
                 </table>
@@ -3929,30 +4347,6 @@ function App() {
                 추가
               </button>
 
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={saveExcludedRows}
-                disabled={isSavingExcluded}
-                style={isSavingExcluded ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
-              >
-                {isSavingExcluded ? '저장 중...' : '저장'}
-              </button>
-
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={deleteSelectedExcludedRows}
-                disabled={selectedExcludedIds.length === 0}
-                style={
-                  selectedExcludedIds.length === 0
-                    ? { opacity: 0.55, cursor: 'not-allowed' }
-                    : undefined
-                }
-              >
-                삭제
-              </button>
-
               <select
                 className="contract-filter-select"
                 value={excludedFilters.category}
@@ -3963,6 +4357,22 @@ function App() {
               >
                 <option value="">구분</option>
                 {EXCLUDED_CATEGORY_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="contract-filter-select"
+                value={excludedFilters.keyword}
+                onChange={(e) =>
+                  setExcludedFilters((prev) => ({ ...prev, keyword: e.target.value }))
+                }
+                style={{ width: 180 }}
+              >
+                <option value="">검색어</option>
+                {EXCLUDED_KEYWORD_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
@@ -3997,9 +4407,9 @@ function App() {
                     <tr>
                       <th
                         className="th-align-center"
-                        style={{ width: 64, position: 'sticky', top: 0, zIndex: 6 }}
+                        style={{ width: 88, position: 'sticky', top: 0, zIndex: 6 }}
                       >
-                        선택
+                        작업
                       </th>
                       {EXCLUDED_COLUMNS.map((column) => (
                         <th
@@ -4029,129 +4439,84 @@ function App() {
                     {filteredExcludedRows.length === 0 ? (
                       <tr>
                         <td colSpan={EXCLUDED_COLUMNS.length + 1} className="empty-cell">
-                          등록된 제외사업 관리대장 데이터가 없습니다.
+                          등록된 사업검색이력 데이터가 없습니다.
                         </td>
                       </tr>
                     ) : (
-                      filteredExcludedRows.map((row, index) => (
-                        <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
-                          <td className="td-align-center">
-                            <input
-                              type="checkbox"
-                              checked={selectedExcludedIds.includes(row.id)}
-                              onChange={() => toggleExcludedSelection(row.id)}
-                              style={{ width: 16, height: 16 }}
-                            />
-                          </td>
+                      filteredExcludedRows.map((row, index) => {
+                        const isEditing = row.isDraft || editingExcludedIds.includes(row.id)
 
-                          {EXCLUDED_COLUMNS.map((column) => (
-                            <td
-                              key={column.key}
-                              className={`${
-                                column.align === 'right'
-                                  ? 'td-align-right'
-                                  : column.align === 'left'
-                                  ? 'td-align-left'
-                                  : 'td-align-center'
-                              } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
-                              style={{ width: column.width }}
-                              onClick={() => {
-                                if (!row.isDraft && !editingExcludedIds.includes(row.id)) {
-                                  startExcludedEdit(row.id)
-                                }
-                              }}
-                            >
-                              {row.isDraft || editingExcludedIds.includes(row.id) ? (
-                                column.type === 'textarea' ? (
-                                  <textarea
-                                    className={`inline-row-editor cell-inline-editor ${
-                                      column.align === 'right' ? 'align-right' : ''
-                                    }`}
-                                    rows={1}
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleExcludedCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                ) : column.type === 'date' ? (
-                                  <input
-                                    className="inline-row-editor cell-inline-editor"
-                                    type="date"
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleExcludedCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                ) : column.type === 'select' ? (
-                                  <select
-                                    className="inline-row-editor cell-inline-editor"
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleExcludedCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  >
-                                    <option value="">선택</option>
-                                    {column.options.map((option) => (
-                                      <option key={option} value={option}>
-                                        {option}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    className={`inline-row-editor cell-inline-editor ${
-                                      column.align === 'right' ? 'align-right' : ''
-                                    }`}
-                                    type="text"
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleExcludedCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                )
-                              ) : (
-                                <div
-                                  className="cell-display"
-                                  style={{
-                                    whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
-                                    cursor: 'text',
-                                  }}
-                                >
-                                  {column.key === 'projectAmount' ? (
-                                    formatAmountDisplay(row[column.key]) || '-'
-                                  ) : column.key === 'category' ? (
-                                    safeString(row[column.key]).trim() ? (
-                                      <span style={getExcludedBadgeStyle(EXCLUDED_CATEGORY_TONE_MAP, row[column.key])}>
-                                        {row[column.key]}
-                                      </span>
-                                    ) : (
-                                      '-'
-                                    )
-                                  ) : column.key === 'keyword' ? (
-                                    safeString(row[column.key]).trim() ? (
-                                      <span style={getExcludedBadgeStyle(EXCLUDED_KEYWORD_TONE_MAP, row[column.key])}>
-                                        {row[column.key]}
-                                      </span>
-                                    ) : (
-                                      '-'
-                                    )
-                                  ) : column.key === 'writer' ? (
-                                    safeString(row[column.key]).trim() ? (
-                                      <span style={getExcludedBadgeStyle(EXCLUDED_WRITER_TONE_MAP, row[column.key])}>
-                                        {row[column.key]}
-                                      </span>
-                                    ) : (
-                                      '-'
-                                    )
-                                  ) : (
-                                    safeString(row[column.key]).trim() || '-'
-                                  )}
-                                </div>
-                              )}
+                        return (
+                          <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                            <td className="td-align-center">
+                              {renderRegistryRowActions({
+                                row,
+                                isEditing,
+                                onEdit: () => startExcludedEdit(row.id),
+                                onDelete: () => deleteExcludedRow(row.id),
+                                onSave: () => saveExcludedRow(row.id),
+                                onCancel: () => cancelExcludedRow(row.id),
+                                isSaving: isSavingExcluded,
+                              })}
                             </td>
-                          ))}
-                        </tr>
-                      ))
+
+                            {EXCLUDED_COLUMNS.map((column) => (
+                              <td
+                                key={column.key}
+                                className={`${
+                                  column.align === 'right'
+                                    ? 'td-align-right'
+                                    : column.align === 'left'
+                                    ? 'td-align-left'
+                                    : 'td-align-center'
+                                } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
+                                style={{ width: column.width }}
+                              >
+                                {isEditing ? (
+                                  renderRegistryEditor(row, column, handleExcludedCellChange)
+                                ) : (
+                                  <div
+                                    className="cell-display"
+                                    style={{
+                                      whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
+                                    }}
+                                  >
+                                    {column.key === 'projectAmount' ? (
+                                      formatAmountDisplay(row[column.key]) || '-'
+                                    ) : column.key === 'category' ? (
+                                      safeString(row[column.key]).trim() ? (
+                                        <span style={getExcludedBadgeStyle(EXCLUDED_CATEGORY_TONE_MAP, row[column.key])}>
+                                          {row[column.key]}
+                                        </span>
+                                      ) : (
+                                        '-'
+                                      )
+                                    ) : column.key === 'keyword' ? (
+                                      safeString(row[column.key]).trim() ? (
+                                        <span style={getExcludedBadgeStyle(EXCLUDED_KEYWORD_TONE_MAP, row[column.key])}>
+                                          {row[column.key]}
+                                        </span>
+                                      ) : (
+                                        '-'
+                                      )
+                                    ) : column.key === 'writer' ? (
+                                      safeString(row[column.key]).trim() ? (
+                                        <span style={getExcludedBadgeStyle(EXCLUDED_WRITER_TONE_MAP, row[column.key])}>
+                                          {row[column.key]}
+                                        </span>
+                                      ) : (
+                                        '-'
+                                      )
+                                    ) : (
+                                      safeString(row[column.key]).trim() || '-'
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        )
+                      })
                     )}
                   </tbody>
                 </table>
@@ -4213,36 +4578,8 @@ function App() {
             </div>
 
             <div className="contracts-header-actions">
-              <button
-                className="primary-btn"
-                type="button"
-                onClick={handleAddDocumentRow}
-              >
+              <button className="primary-btn" type="button" onClick={handleAddDocumentRow}>
                 추가
-              </button>
-
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={saveDocuments}
-                disabled={isSavingDocuments}
-                style={isSavingDocuments ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
-              >
-                {isSavingDocuments ? '저장 중...' : '저장'}
-              </button>
-
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={deleteSelectedDocuments}
-                disabled={selectedDocumentIds.length === 0}
-                style={
-                  selectedDocumentIds.length === 0
-                    ? { opacity: 0.55, cursor: 'not-allowed' }
-                    : undefined
-                }
-              >
-                삭제
               </button>
             </div>
 
@@ -4251,8 +4588,8 @@ function App() {
                 <table className="contract-table excel-table">
                   <thead>
                     <tr>
-                      <th className="th-align-center" style={{ width: 64 }}>
-                        선택
+                      <th className="th-align-center" style={{ width: 88 }}>
+                        작업
                       </th>
                       {DOCUMENT_COLUMNS.map((column) => (
                         <th
@@ -4280,82 +4617,52 @@ function App() {
                         </td>
                       </tr>
                     ) : (
-                      documents.map((row, index) => (
-                        <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
-                          <td className="td-align-center">
-                            <input
-                              type="checkbox"
-                              checked={selectedDocumentIds.includes(row.id)}
-                              onChange={() => toggleDocumentSelection(row.id)}
-                              style={{ width: 16, height: 16 }}
-                            />
-                          </td>
+                      documents.map((row, index) => {
+                        const isEditing = row.isDraft || editingDocumentIds.includes(row.id)
 
-                          {DOCUMENT_COLUMNS.map((column) => (
-                            <td
-                              key={column.key}
-                              className={`${
-                                column.align === 'right'
-                                  ? 'td-align-right'
-                                  : column.align === 'left'
-                                  ? 'td-align-left'
-                                  : 'td-align-center'
-                              } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
-                              style={column.width ? { width: column.width } : undefined}
-                              onClick={() => {
-                                if (!row.isDraft && !editingDocumentIds.includes(row.id)) {
-                                  startDocumentEdit(row.id)
-                                }
-                              }}
-                            >
-                              {row.isDraft || editingDocumentIds.includes(row.id) ? (
-                                column.type === 'textarea' ? (
-                                  <textarea
-                                    className={`inline-row-editor cell-inline-editor ${
-                                      column.align === 'right' ? 'align-right' : ''
-                                    }`}
-                                    rows={1}
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleDocumentCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                ) : column.type === 'date' ? (
-                                  <input
-                                    className="inline-row-editor cell-inline-editor"
-                                    type="date"
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleDocumentCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                ) : (
-                                  <input
-                                    className={`inline-row-editor cell-inline-editor ${
-                                      column.align === 'right' ? 'align-right' : ''
-                                    }`}
-                                    type="text"
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleDocumentCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                )
-                              ) : (
-                                <div
-                                  className="cell-display"
-                                  style={{
-                                    whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
-                                    cursor: 'text',
-                                  }}
-                                >
-                                  {safeString(row[column.key]).trim() || '-'}
-                                </div>
-                              )}
+                        return (
+                          <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                            <td className="td-align-center">
+                              {renderRegistryRowActions({
+                                row,
+                                isEditing,
+                                onEdit: () => startDocumentEdit(row.id),
+                                onDelete: () => deleteDocumentRow(row.id),
+                                onSave: () => saveDocumentRow(row.id),
+                                onCancel: () => cancelDocumentRow(row.id),
+                                isSaving: isSavingDocuments,
+                              })}
                             </td>
-                          ))}
-                        </tr>
-                      ))
+
+                            {DOCUMENT_COLUMNS.map((column) => (
+                              <td
+                                key={column.key}
+                                className={`${
+                                  column.align === 'right'
+                                    ? 'td-align-right'
+                                    : column.align === 'left'
+                                    ? 'td-align-left'
+                                    : 'td-align-center'
+                                } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
+                                style={column.width ? { width: column.width } : undefined}
+                              >
+                                {isEditing ? (
+                                  renderRegistryEditor(row, column, handleDocumentCellChange)
+                                ) : (
+                                  <div
+                                    className="cell-display"
+                                    style={{
+                                      whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
+                                    }}
+                                  >
+                                    {safeString(row[column.key]).trim() || '-'}
+                                  </div>
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        )
+                      })
                     )}
                   </tbody>
                 </table>
@@ -4535,6 +4842,28 @@ function App() {
           </section>
         )}
       </main>
+
+      {showAdminLoginModal && (
+        <div className="auth-modal-backdrop" onClick={closeAdminLoginModal}>
+          <div className="auth-modal-shell" onClick={(e) => e.stopPropagation()}>
+            {renderAuthCard({
+              title: '관리자 로그인',
+              subtitle: '관리자 비밀번호를 입력한 뒤 편집 권한을 활성화하세요.',
+              passwordValue: adminPasswordInput,
+              onPasswordChange: (e) => {
+                setAdminPasswordInput(e.target.value)
+                if (adminLoginError) {
+                  setAdminLoginError('')
+                }
+              },
+              onSubmit: handleAdminLoginSubmit,
+              error: adminLoginError,
+              submitLabel: '로그인',
+              onCancel: closeAdminLoginModal,
+            })}
+          </div>
+        </div>
+      )}
 
       {detailModal && (
         <div className="modal-backdrop" onClick={() => setDetailModal(null)}>
