@@ -905,6 +905,8 @@ function App() {
     keyword: '',
     writer: '',
   })
+  const [isExcludedGuideCollapsed, setIsExcludedGuideCollapsed] = useState(true)
+  const [isDocumentGuideCollapsed, setIsDocumentGuideCollapsed] = useState(true)
   const [manualEvents, setManualEvents] = useState(() => {
     const saved = localStorage.getItem(CALENDAR_STORAGE_KEY)
     if (saved) {
@@ -4429,6 +4431,38 @@ function App() {
 
         {menu === 'excluded' && (
           <section className="stat-card">
+            <div className="guide-panel excluded-guide-panel">
+              <div className="guide-panel-header">
+                <div className="guide-panel-title">안내 문구</div>
+                <button
+                  className="guide-panel-toggle"
+                  type="button"
+                  aria-label={`사업검색이력 안내 ${isExcludedGuideCollapsed ? '펼치기' : '접기'}`}
+                  onClick={() => setIsExcludedGuideCollapsed((prev) => !prev)}
+                >
+                  {isExcludedGuideCollapsed ? '+' : '-'}
+                </button>
+              </div>
+
+              {!isExcludedGuideCollapsed && (
+                <div className="guide-panel-body excluded-guide-copy">
+                  <div>
+                    ※ 기본 제외사항 : 지역제한, 수의계약, 지명경쟁(전자조합추천) / 서울(1억~),
+                    타지역(3억~)
+                  </div>
+                  <div>
+                    ※ 검색 키워드 : 전광판, 미디어, 파사드, 사이니지, 디스플레이, LED, 앞에
+                    키워드+디지털, ITS, VMS
+                  </div>
+                  <div>
+                    ※ 검색 품명(분류번호) : 안내전광판(5512190301), 기상전광판(5512190302),
+                    교통정보전광판(5512190303), 융복합안내전광판(9955121901),
+                    영상정보디스플레이장치(4511189301)
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="contracts-header-actions">
               <button className="primary-btn" type="button" onClick={handleAddExcludedRow}>
                 추가
@@ -4595,54 +4629,54 @@ function App() {
 
         {menu === 'documents' && (
           <section className="stat-card">
-            <div
-              style={{
-                marginBottom: 14,
-                padding: '16px 18px',
-                borderRadius: 10,
-                border: '1px solid #d7e3ff',
-                background: '#f8fbff',
-                color: '#334155',
-                boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
-              }}
-            >
-              <div
-                className="doc-guide-layout"
-              >
-                <div
-                  className="doc-guide-pattern"
+            <div className="guide-panel">
+              <div className="guide-panel-header">
+                <div className="guide-panel-title">안내 문구</div>
+                <button
+                  className="guide-panel-toggle"
+                  type="button"
+                  aria-label={`문서수발신대장 안내 ${isDocumentGuideCollapsed ? '펼치기' : '접기'}`}
+                  onClick={() => setIsDocumentGuideCollapsed((prev) => !prev)}
                 >
-                  <div style={{ fontWeight: 800, marginBottom: 4 }}>문서번호 체계 안내</div>
-                  <div className="doc-guide-code">SIGN-DI-S-260000-01</div>
-                  <div className="doc-guide-code">SIGN-DI-R-260000-01</div>
-                  <div className="doc-guide-code">SIGN-DI-A-260000-01</div>
-                </div>
+                  {isDocumentGuideCollapsed ? '+' : '-'}
+                </button>
+              </div>
 
-                <div
-                  className="doc-guide-owners-wrap"
-                >
-                  <div style={{ fontWeight: 800, marginBottom: 6 }}>담당자 약어</div>
-                  <div className="doc-guide-owners-grid">
-                    <div className="doc-guide-owner-col">
-                      <div>S1 : 전기웅 이사</div>
-                      <div>S2 : 유영우 부장</div>
-                      <div>S3 : 김성수 과장</div>
-                      <div>S4 : 이재승 대리</div>
+              {!isDocumentGuideCollapsed && (
+                <div className="guide-panel-body">
+                  <div className="doc-guide-layout">
+                    <div className="doc-guide-pattern">
+                      <div style={{ fontWeight: 800, marginBottom: 4 }}>문서번호 체계 안내</div>
+                      <div className="doc-guide-code">SIGN-DI-S-260000-01</div>
+                      <div className="doc-guide-code">SIGN-DI-R-260000-01</div>
+                      <div className="doc-guide-code">SIGN-DI-A-260000-01</div>
                     </div>
-                    <div className="doc-guide-owner-col">
-                      <div>R1 : 이용자 부장</div>
-                      <div>R2 : 박재범 과장</div>
-                    </div>
-                    <div className="doc-guide-owner-col">
-                      <div>A1 : 전재우 차장</div>
-                      <div>A2 : 정화영 대리</div>
-                      <div>A3 : 정주희 대리</div>
-                      <div>A4 : 문병현 대리</div>
-                      <div>A5 : 전유찬 대리</div>
+
+                    <div className="doc-guide-owners-wrap">
+                      <div style={{ fontWeight: 800, marginBottom: 6 }}>담당자 약어</div>
+                      <div className="doc-guide-owners-grid">
+                        <div className="doc-guide-owner-col">
+                          <div>S1 : 전기웅 이사</div>
+                          <div>S2 : 유영우 부장</div>
+                          <div>S3 : 김성수 과장</div>
+                          <div>S4 : 이재승 대리</div>
+                        </div>
+                        <div className="doc-guide-owner-col">
+                          <div>R1 : 이용자 부장</div>
+                          <div>R2 : 박재범 과장</div>
+                        </div>
+                        <div className="doc-guide-owner-col">
+                          <div>A1 : 전재우 차장</div>
+                          <div>A2 : 정화영 대리</div>
+                          <div>A3 : 정주희 대리</div>
+                          <div>A4 : 문병현 대리</div>
+                          <div>A5 : 전유찬 대리</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="contracts-header-actions">

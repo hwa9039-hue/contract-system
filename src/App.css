@@ -2266,6 +2266,71 @@ textarea:focus-visible {
   min-width: max-content;
 }
 
+.guide-panel {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid #dbe2ea;
+  background: #f5f7fa;
+  color: #334155;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+.guide-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.guide-panel-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+}
+
+.guide-panel-toggle {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.guide-panel-toggle:hover {
+  background: #eef4ff;
+  border-color: #bfd1ef;
+  color: #1d4ed8;
+}
+
+.guide-panel-body {
+  margin-top: 12px;
+}
+
+.excluded-guide-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  white-space: normal;
+  word-break: keep-all;
+  line-height: 1.65;
+  font-size: 13px;
+}
+
+.excluded-guide-panel {
+  background: #f4f6f8;
+  border-color: #d8dee7;
+}
+
 .sales-stage-badge {
   display: inline-flex;
   align-items: center;
