@@ -176,6 +176,8 @@ const WORK_REPORT_MANAGER_OPTIONS = [
   '전유찬 대리',
 ]
 const WORK_REPORT_EXTERNAL_USER_OPTIONS = WORK_REPORT_MANAGER_OPTIONS
+const WORK_REPORT_DI_MANAGERS = ['전기웅 이사', '유영무 부장', '김성수 과장', '이재승 대리']
+const WORK_REPORT_ROAD_MANAGERS = ['이용자 부장', '박재범 과장']
 const WORK_REPORT_SECTION_KEYS = {
   checklist: '주요확인사항',
   external: '외부일정',
@@ -922,8 +924,23 @@ function serializeExternalScheduleContent(content, destination) {
   })
 }
 
+function getFixedWorkReportManager(section, orderIndex) {
+  const normalizedOrderIndex = Number(orderIndex || 1)
+
+  if (section === WORK_REPORT_SECTION_KEYS.di) {
+    return WORK_REPORT_DI_MANAGERS[normalizedOrderIndex - 1] || ''
+  }
+
+  if (section === WORK_REPORT_SECTION_KEYS.road) {
+    return WORK_REPORT_ROAD_MANAGERS[normalizedOrderIndex - 1] || ''
+  }
+
+  return ''
+}
+
 function normalizeWorkReportRow(item) {
   const section = safeString(item.section ?? item.category)
+  const orderIndex = Number(item.order_index ?? item.orderIndex ?? 1)
   const parsedExternalContent =
     section === WORK_REPORT_SECTION_KEYS.external
       ? parseExternalScheduleContent(item.content)
@@ -932,11 +949,11 @@ function normalizeWorkReportRow(item) {
   return {
     id: safeString(item.id),
     date: safeString(item.date ?? item.reportDate ?? item.reportdate ?? item.weekStartDate ?? item.weekstartdate),
-    user: safeString(item.user ?? item.assignee),
+    user: safeString(item.user ?? item.assignee).trim() || getFixedWorkReportManager(section, orderIndex),
     section,
     content: parsedExternalContent.content,
     destination: parsedExternalContent.destination,
-    orderIndex: Number(item.order_index ?? item.orderIndex ?? 1),
+    orderIndex,
     createdAt: safeString(item.createdAt ?? item.createdat),
     updatedAt: safeString(item.updatedAt ?? item.updatedat),
     isDraft: false,
@@ -945,25 +962,31 @@ function normalizeWorkReportRow(item) {
 
 function isWorkReportRowEmpty(row) {
   const normalizedSection = safeString(row.section).trim()
-  if (
-    normalizedSection === WORK_REPORT_SECTION_KEYS.external ||
-    normalizedSection === WORK_REPORT_SECTION_KEYS.di ||
-    normalizedSection === WORK_REPORT_SECTION_KEYS.road
-  ) {
+  if (normalizedSection === WORK_REPORT_SECTION_KEYS.external) {
     return (
       safeString(row.user).trim() === '' &&
       safeString(row.content).trim() === '' &&
       safeString(row.destination).trim() === ''
     )
   }
+
+  if (
+    normalizedSection === WORK_REPORT_SECTION_KEYS.di ||
+    normalizedSection === WORK_REPORT_SECTION_KEYS.road
+  ) {
+    return safeString(row.content).trim() === ''
+  }
+
   return safeString(row.content).trim() === ''
 }
 
 function toWorkReportPayload(row, timestamp, includeLegacyColumns = false) {
   const meta = buildWorkReportWeekMeta(row.date || new Date())
+  const resolvedUser =
+    safeString(row.user).trim() || getFixedWorkReportManager(safeString(row.section).trim(), row.orderIndex)
   const payload = {
     date: toDbDate(row.date),
-    user: safeString(row.user).trim(),
+    user: resolvedUser,
     section: safeString(row.section).trim(),
     content:
       safeString(row.section).trim() === WORK_REPORT_SECTION_KEYS.external
@@ -984,7 +1007,7 @@ function toWorkReportPayload(row, timestamp, includeLegacyColumns = false) {
     reportYear: meta.year,
     reportMonth: meta.month,
     weekNumber: meta.weekNumber,
-    assignee: safeString(row.user).trim(),
+    assignee: resolvedUser,
     category: safeString(row.section).trim(),
     team: '',
   }
@@ -4324,7 +4347,14 @@ function App() {
     </section>
   )
 
-  const renderWorkReportManagedSection = (date, title, section, rowCount, contentClassName) => (
+  const renderWorkReportManagedSection = (
+    date,
+    title,
+    section,
+    rowCount,
+    contentClassName,
+    fixedManagers = []
+  ) => (
     <section className="work-report-board-section">
       <div className="work-report-board-section-title">{title}</div>
       <div className="work-report-board-table">
@@ -4496,6 +4526,300 @@ function App() {
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+
+  const renderWorkReportChecklistSectionV2 = (date) => (
+    <section className="work-report-board-section">
+      <div className="work-report-board-section-title">주요 확인사항</div>
+      <div className="work-report-board-table">
+        {Array.from({ length: WORK_REPORT_MAIN_CHECK_COUNT }, (_, index) => {
+          const orderIndex = index + 1
+          const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex)
+
+          return (
+            <div
+              key={`check-v2-${date}-${orderIndex}`}
+              className="work-report-board-row work-report-board-row-simple"
+              onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex)}
+            >
+              <div className="work-report-board-index">{orderIndex}</div>
+              <textarea
+                className="work-report-board-textarea work-report-board-textarea-check"
+                value={entry.content}
+                placeholder="내용 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex, {
+                    content: e.target.value,
+                  })
+                }
+              />
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+
+  const renderWorkReportExternalSectionV2 = (date) => (
+    <section className="work-report-board-section">
+      <div className="work-report-board-section-title">외부일정</div>
+      <div className="work-report-board-table">
+        <div className="work-report-board-header-row work-report-board-header-row-external">
+          <div className="work-report-board-index">#</div>
+          <div className="work-report-board-manager-header">담당자</div>
+          <div className="work-report-board-content-header">내용</div>
+          <div className="work-report-board-destination-header">목적지</div>
+        </div>
+        {Array.from({ length: WORK_REPORT_EXTERNAL_ROW_COUNT }, (_, index) => {
+          const orderIndex = index + 1
+          const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
+
+          return (
+            <div
+              key={`external-v2-${date}-${orderIndex}`}
+              className="work-report-board-row work-report-board-row-external"
+              onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
+            >
+              <div className="work-report-board-index">{orderIndex}</div>
+              <select
+                className="work-report-board-select"
+                value={entry.user}
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                    user: e.target.value,
+                  })
+                }
+              >
+                <option value="">선택</option>
+                {WORK_REPORT_MANAGER_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <textarea
+                className="work-report-board-textarea work-report-board-textarea-external"
+                value={entry.content}
+                placeholder="내용 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                    content: e.target.value,
+                  })
+                }
+              />
+              <textarea
+                className="work-report-board-textarea work-report-board-textarea-destination"
+                value={entry.destination}
+                placeholder="목적지 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                    destination: e.target.value,
+                  })
+                }
+              />
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+
+  const renderWorkReportFixedManagerSectionV2 = (
+    date,
+    title,
+    section,
+    managers,
+    contentClassName
+  ) => (
+    <section className="work-report-board-section">
+      <div className="work-report-board-section-title">{title}</div>
+      <div className="work-report-board-table">
+        <div className="work-report-board-header-row">
+          <div className="work-report-board-index">#</div>
+          <div className="work-report-board-manager-header">담당자</div>
+          <div className="work-report-board-content-header">내용</div>
+        </div>
+        {managers.map((managerName, index) => {
+          const orderIndex = index + 1
+          const entry = getWorkReportBoardEntry(date, section, orderIndex)
+
+          return (
+            <div
+              key={`fixed-v2-${section}-${date}-${orderIndex}`}
+              className="work-report-board-row"
+              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
+            >
+              <div className="work-report-board-index">{orderIndex}</div>
+              <div className="work-report-board-fixed-manager">{managerName}</div>
+              <textarea
+                className={`work-report-board-textarea ${contentClassName}`}
+                value={entry.content}
+                placeholder="내용 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, {
+                    user: managerName,
+                    content: e.target.value,
+                  })
+                }
+              />
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+
+  const renderWorkReportSupportAreaListV2 = (date, title, section) => (
+    <div className="work-report-board-support-block">
+      <div className="work-report-board-support-title">{title}</div>
+      <div className="work-report-board-table">
+        {Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
+          const orderIndex = index + 1
+          const entry = getWorkReportBoardEntry(date, section, orderIndex)
+
+          return (
+            <div
+              key={`support-v2-${date}-${section}-${orderIndex}`}
+              className="work-report-board-row work-report-board-row-simple"
+              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
+            >
+              <div className="work-report-board-index">{orderIndex}</div>
+              <textarea
+                className="work-report-board-textarea work-report-board-textarea-support-line"
+                value={entry.content}
+                placeholder="내용 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
+                }
+              />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+
+  const renderWorkReportSupportSectionV2 = (date) => (
+    <section className="work-report-board-section">
+      <div className="work-report-board-section-title">영업지원</div>
+      <div className="work-report-board-support-wrap">
+        {renderWorkReportSupportAreaListV2(date, '진행업무', WORK_REPORT_SECTION_KEYS.supportProgress)}
+        {renderWorkReportSupportAreaListV2(date, '완료업무', WORK_REPORT_SECTION_KEYS.supportDone)}
+      </div>
+    </section>
+  )
+
+  const renderWorkReportFixedManagerSectionV3 = (
+    date,
+    title,
+    section,
+    managers,
+    contentClassName
+  ) => (
+    <section className="work-report-board-section">
+      <div className="work-report-board-section-title">{title}</div>
+      <div className="work-report-board-table">
+        <div className="work-report-board-header-row">
+          <div className="work-report-board-index">#</div>
+          <div className="work-report-board-manager-header">담당자</div>
+          <div className="work-report-board-content-header">내용</div>
+        </div>
+        {managers.map((managerName, index) => {
+          const orderIndex = index + 1
+          const entry = getWorkReportBoardEntry(date, section, orderIndex)
+
+          return (
+            <div
+              key={`fixed-v3-${section}-${date}-${orderIndex}`}
+              className="work-report-board-row"
+              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
+            >
+              <div className="work-report-board-index">{orderIndex}</div>
+              <div className="work-report-board-fixed-manager">{managerName}</div>
+              <textarea
+                className={`work-report-board-textarea ${contentClassName}`}
+                value={entry.content}
+                placeholder="내용 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, {
+                    user: managerName,
+                    content: e.target.value,
+                  })
+                }
+              />
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+
+  const renderWorkReportSupportAreaListV3 = (date, title, section) => (
+    <div className="work-report-board-support-block">
+      <div className="work-report-board-support-title">{title}</div>
+      <div className="work-report-board-table">
+        {Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
+          const orderIndex = index + 1
+          const entry = getWorkReportBoardEntry(date, section, orderIndex)
+
+          return (
+            <div
+              key={`support-v3-${date}-${section}-${orderIndex}`}
+              className="work-report-board-row work-report-board-row-simple"
+              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
+            >
+              <div className="work-report-board-index">{orderIndex}</div>
+              <textarea
+                className="work-report-board-textarea work-report-board-textarea-support-line"
+                value={entry.content}
+                placeholder="내용 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
+                }
+              />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+
+  const renderWorkReportSupportSectionV3 = (date) => (
+    <section className="work-report-board-section">
+      <div className="work-report-board-section-title">영업지원</div>
+      <div className="work-report-board-support-wrap">
+        {renderWorkReportSupportAreaListV3(date, '진행업무', WORK_REPORT_SECTION_KEYS.supportProgress)}
+        {renderWorkReportSupportAreaListV3(date, '완료업무', WORK_REPORT_SECTION_KEYS.supportDone)}
+      </div>
+    </section>
+  )
+
+  const renderWorkReportDayBoardV2 = (day) => (
+    <div key={day.date} className={`work-report-day-board work-report-day-board-dense ${day.isToday ? 'is-today' : ''}`}>
+      <div className="work-report-day-head">
+        <div className="work-report-day-weekday">{day.label}</div>
+        <div className="work-report-day-date">{day.date}</div>
+      </div>
+      <div className="work-report-day-sections work-report-day-sections-dense">
+        {renderWorkReportChecklistSectionV2(day.date)}
+        {renderWorkReportExternalSectionV2(day.date)}
+        {renderWorkReportFixedManagerSectionV3(
+          day.date,
+          'DI사업',
+          WORK_REPORT_SECTION_KEYS.di,
+          WORK_REPORT_DI_MANAGERS,
+          'work-report-board-textarea-di'
+        )}
+        {renderWorkReportFixedManagerSectionV3(
+          day.date,
+          '도로사업',
+          WORK_REPORT_SECTION_KEYS.road,
+          WORK_REPORT_ROAD_MANAGERS,
+          'work-report-board-textarea-road'
+        )}
+        {renderWorkReportSupportSectionV3(day.date)}
       </div>
     </div>
   )
@@ -4843,7 +5167,7 @@ function App() {
             </div>
 
             <div className="work-report-week-grid">
-              {selectedWorkWeekDays.map((day) => renderWorkReportDayBoard(day))}
+              {selectedWorkWeekDays.map((day) => renderWorkReportDayBoardV2(day))}
             </div>
 
             {isSavingWorkReports && (
