@@ -154,14 +154,32 @@ const EXCLUDED_COLUMNS = [
 const WORK_REPORT_TABLE = 'weekly_work_reports'
 const WORK_REPORT_WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
 const WORK_REPORT_MAIN_CHECK_COUNT = 5
-const WORK_REPORT_EXTERNAL_USER_OPTIONS = SALES_MANAGER_OPTIONS
-const WORK_REPORT_SECTIONS = [
-  { section: '주요확인사항', label: '주요 확인사항', type: 'checklist' },
-  { section: '외부업무', label: '외부업무', type: 'external' },
-  { section: '내부업무', label: '내부업무', type: 'text' },
-  { section: '도급사업', label: '도급사업', type: 'text' },
-  { section: '협력사현황', label: '협력사현황', type: 'text' },
+const WORK_REPORT_EXTERNAL_ROW_COUNT = 5
+const WORK_REPORT_DI_ROW_COUNT = 4
+const WORK_REPORT_ROAD_ROW_COUNT = 4
+const WORK_REPORT_SUPPORT_NUMBER_GUIDE = ['1', '2', '3', '4']
+const WORK_REPORT_MANAGER_OPTIONS = [
+  '전기웅 이사',
+  '유영무 부장',
+  '김성수 과장',
+  '이재승 대리',
+  '이용자 부장',
+  '박재범 과장',
+  '전재우 차장',
+  '정화영 대리',
+  '정주희 대리',
+  '문병현 대리',
+  '전유찬 대리',
 ]
+const WORK_REPORT_EXTERNAL_USER_OPTIONS = WORK_REPORT_MANAGER_OPTIONS
+const WORK_REPORT_SECTION_KEYS = {
+  checklist: '주요확인사항',
+  external: '외부일정',
+  di: 'DI사업',
+  road: '도로사업',
+  supportProgress: '영업지원_진행업무',
+  supportDone: '영업지원_완료업무',
+}
 
 const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
@@ -309,13 +327,21 @@ function createExcludedDraftRow() {
   }
 }
 
-function createWorkReportDraftRow({ reportDate, section, user = '', content = '', orderIndex = 1 }) {
+function createWorkReportDraftRow({
+  reportDate,
+  section,
+  user = '',
+  content = '',
+  destination = '',
+  orderIndex = 1,
+}) {
   return {
     id: `work-report-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     date: reportDate,
     user,
     section,
     content,
+    destination,
     orderIndex,
     createdAt: '',
     updatedAt: '',
@@ -853,13 +879,59 @@ function toExcludedPayload(row, timestamp) {
   }
 }
 
+function parseExternalScheduleContent(value) {
+  const raw = safeString(value).trim()
+  if (!raw) {
+    return {
+      content: '',
+      destination: '',
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object') {
+      return {
+        content: safeString(parsed.content).trim(),
+        destination: safeString(parsed.destination).trim(),
+      }
+    }
+  } catch {}
+
+  return {
+    content: raw,
+    destination: '',
+  }
+}
+
+function serializeExternalScheduleContent(content, destination) {
+  const normalizedContent = safeString(content).trim()
+  const normalizedDestination = safeString(destination).trim()
+
+  if (!normalizedContent && !normalizedDestination) {
+    return ''
+  }
+
+  return JSON.stringify({
+    content: normalizedContent,
+    destination: normalizedDestination,
+  })
+}
+
 function normalizeWorkReportRow(item) {
+  const section = safeString(item.section ?? item.category)
+  const parsedExternalContent =
+    section === WORK_REPORT_SECTION_KEYS.external
+      ? parseExternalScheduleContent(item.content)
+      : { content: safeString(item.content), destination: '' }
+
   return {
     id: safeString(item.id),
     date: safeString(item.date ?? item.reportDate ?? item.reportdate ?? item.weekStartDate ?? item.weekstartdate),
     user: safeString(item.user ?? item.assignee),
-    section: safeString(item.section ?? item.category),
-    content: safeString(item.content),
+    section,
+    content: parsedExternalContent.content,
+    destination: parsedExternalContent.destination,
     orderIndex: Number(item.order_index ?? item.orderIndex ?? 1),
     createdAt: safeString(item.createdAt ?? item.createdat),
     updatedAt: safeString(item.updatedAt ?? item.updatedat),
@@ -869,20 +941,48 @@ function normalizeWorkReportRow(item) {
 
 function isWorkReportRowEmpty(row) {
   const normalizedSection = safeString(row.section).trim()
-  if (normalizedSection === '외부업무') {
-    return safeString(row.user).trim() === '' && safeString(row.content).trim() === ''
+  if (
+    normalizedSection === WORK_REPORT_SECTION_KEYS.external ||
+    normalizedSection === WORK_REPORT_SECTION_KEYS.di ||
+    normalizedSection === WORK_REPORT_SECTION_KEYS.road
+  ) {
+    return (
+      safeString(row.user).trim() === '' &&
+      safeString(row.content).trim() === '' &&
+      safeString(row.destination).trim() === ''
+    )
   }
   return safeString(row.content).trim() === ''
 }
 
-function toWorkReportPayload(row, timestamp) {
-  return {
+function toWorkReportPayload(row, timestamp, includeLegacyColumns = false) {
+  const meta = buildWorkReportWeekMeta(row.date || new Date())
+  const payload = {
     date: toDbDate(row.date),
     user: safeString(row.user).trim(),
     section: safeString(row.section).trim(),
-    content: safeString(row.content).trim(),
+    content:
+      safeString(row.section).trim() === WORK_REPORT_SECTION_KEYS.external
+        ? serializeExternalScheduleContent(row.content, row.destination)
+        : safeString(row.content).trim(),
     order_index: Number(row.orderIndex || 1),
     updatedAt: timestamp,
+  }
+
+  if (!includeLegacyColumns) {
+    return payload
+  }
+
+  return {
+    ...payload,
+    reportDate: toDbDate(row.date),
+    weekStartDate: meta.weekStartDate,
+    reportYear: meta.year,
+    reportMonth: meta.month,
+    weekNumber: meta.weekNumber,
+    assignee: safeString(row.user).trim(),
+    category: safeString(row.section).trim(),
+    team: '',
   }
 }
 
@@ -1048,6 +1148,7 @@ function App() {
   })
   const [editingWorkCellKey, setEditingWorkCellKey] = useState('')
   const [editingWorkCellData, setEditingWorkCellData] = useState(null)
+  const [workReportDrafts, setWorkReportDrafts] = useState({})
   const [isSavingWorkReports, setIsSavingWorkReports] = useState(false)
   const [generatedWorkWeeks, setGeneratedWorkWeeks] = useState([])
   const [selectedWorkWeek, setSelectedWorkWeek] = useState(() =>
@@ -1507,9 +1608,9 @@ function App() {
     return workReportRows.filter((row) => {
       const rowWeekStartDate = buildWorkReportWeekMeta(row.date || new Date()).weekStartDate
       if (rowWeekStartDate !== selectedWorkWeekMeta.weekStartDate) return false
-      if (editingWorkCellData?.id === row.id) return true
       if (
         workReportFilters.assignee &&
+        safeString(row.user).trim() &&
         !safeString(row.user).toLowerCase().includes(workReportFilters.assignee.toLowerCase())
       ) {
         return false
@@ -1517,7 +1618,6 @@ function App() {
       return true
     })
   }, [
-    editingWorkCellData,
     selectedWorkWeekMeta.weekStartDate,
     workReportFilters.assignee,
     workReportRows,
@@ -3412,6 +3512,268 @@ function App() {
     popup.document.close()
   }
 
+  const getWorkReportBoardEntry = (date, section, orderIndex = 1) => {
+    const cellKey = getWorkReportCellKey(date, section, orderIndex)
+    const draftEntry = workReportDrafts[cellKey]
+    if (draftEntry) return draftEntry
+
+    const storedEntry = getStoredWorkReportEntry(date, section, orderIndex)
+    if (storedEntry) return storedEntry
+
+    return createWorkReportDraftRow({
+      reportDate: date,
+      section,
+      user:
+        [WORK_REPORT_SECTION_KEYS.external, WORK_REPORT_SECTION_KEYS.di, WORK_REPORT_SECTION_KEYS.road].includes(section) &&
+        WORK_REPORT_MANAGER_OPTIONS.includes(workReportFilters.assignee)
+          ? workReportFilters.assignee
+          : '',
+      orderIndex,
+    })
+  }
+
+  const updateWorkReportBoardEntry = (date, section, orderIndex, patch) => {
+    const cellKey = getWorkReportCellKey(date, section, orderIndex)
+    setWorkReportDrafts((prev) => ({
+      ...prev,
+      [cellKey]: {
+        ...getWorkReportBoardEntry(date, section, orderIndex),
+        ...prev[cellKey],
+        ...patch,
+        date,
+        section,
+        orderIndex,
+      },
+    }))
+  }
+
+  const isWorkReportLegacySchemaError = (error) => {
+    const message = safeString(error?.message).toLowerCase()
+    return [
+      'reportyear',
+      'reportmonth',
+      'weeknumber',
+      'weekstartdate',
+      'reportdate',
+      'assignee',
+      'category',
+      'team',
+    ].some((keyword) => message.includes(keyword))
+  }
+
+  const saveWorkReportBoardEntry = async (date, section, orderIndex = 1) => {
+    const cellKey = getWorkReportCellKey(date, section, orderIndex)
+    const targetRow = {
+      ...getWorkReportBoardEntry(date, section, orderIndex),
+      date,
+      section,
+      orderIndex,
+    }
+
+    if (isWorkReportRowEmpty(targetRow)) {
+      if (!targetRow.isDraft && targetRow.id) {
+        const { error } = await supabase.from(WORK_REPORT_TABLE).delete().eq('id', targetRow.id)
+        if (error) {
+          alert(error.message)
+          return
+        }
+        await fetchWorkReportRows(false)
+      }
+
+      setWorkReportDrafts((prev) => removeObjectKey(prev, cellKey))
+      return
+    }
+
+    setIsSavingWorkReports(true)
+
+    try {
+      const timestamp = new Date().toISOString()
+
+      if (targetRow.isDraft) {
+        let insertResult = await supabase.from(WORK_REPORT_TABLE).insert([
+          {
+            ...toWorkReportPayload(targetRow, timestamp, true),
+            createdAt: timestamp,
+          },
+        ])
+
+        if (insertResult.error && isWorkReportLegacySchemaError(insertResult.error)) {
+          insertResult = await supabase.from(WORK_REPORT_TABLE).insert([
+            {
+              ...toWorkReportPayload(targetRow, timestamp, false),
+              createdAt: timestamp,
+            },
+          ])
+        }
+
+        if (insertResult.error) {
+          alert(insertResult.error.message)
+          return
+        }
+      } else {
+        let updateResult = await supabase
+          .from(WORK_REPORT_TABLE)
+          .update(toWorkReportPayload(targetRow, timestamp, true))
+          .eq('id', targetRow.id)
+
+        if (updateResult.error && isWorkReportLegacySchemaError(updateResult.error)) {
+          updateResult = await supabase
+            .from(WORK_REPORT_TABLE)
+            .update(toWorkReportPayload(targetRow, timestamp, false))
+            .eq('id', targetRow.id)
+        }
+
+        if (updateResult.error) {
+          alert(updateResult.error.message)
+          return
+        }
+      }
+
+      await fetchWorkReportRows(false)
+      trackWorkWeek(targetRow.date)
+      setWorkReportDrafts((prev) => removeObjectKey(prev, cellKey))
+    } finally {
+      setIsSavingWorkReports(false)
+    }
+  }
+
+  const handleWorkReportBoardBlur = (date, section, orderIndex = 1) => async (e) => {
+    if (e.currentTarget.contains(e.relatedTarget)) return
+    await saveWorkReportBoardEntry(date, section, orderIndex)
+  }
+
+  const handleWorkReportBoardPdfDownload = () => {
+    const popup = window.open('', '_blank', 'width=1680,height=980')
+    if (!popup) {
+      alert('팝업을 허용한 뒤 다시 시도해주세요.')
+      return
+    }
+
+    const renderPdfText = (value) => escapeHtml(value || '-').replaceAll('\n', '<br />')
+    const renderPdfRows = (date, section, rowCount, includeDestination = false) =>
+      Array.from({ length: rowCount }, (_, index) => {
+        const entry = getWorkReportBoardEntry(date, section, index + 1)
+        return `
+          <tr>
+            <td class="pdf-index">${index + 1}</td>
+            <td class="pdf-manager">${escapeHtml(entry.user || '-')}</td>
+            <td>${renderPdfText(entry.content || '-')}</td>
+            ${includeDestination ? `<td class="pdf-destination">${renderPdfText(entry.destination || '-')}</td>` : ''}
+          </tr>
+        `
+      }).join('')
+
+    const cards = selectedWorkWeekDays
+      .map((day) => {
+        const checkItems = Array.from({ length: WORK_REPORT_MAIN_CHECK_COUNT }, (_, index) => {
+          const entry = getWorkReportBoardEntry(day.date, WORK_REPORT_SECTION_KEYS.checklist, index + 1)
+          return `<li>${escapeHtml(entry.content || '') || '&nbsp;'}</li>`
+        }).join('')
+
+        const supportProgress = getWorkReportBoardEntry(day.date, WORK_REPORT_SECTION_KEYS.supportProgress, 1)
+        const supportDone = getWorkReportBoardEntry(day.date, WORK_REPORT_SECTION_KEYS.supportDone, 1)
+
+        return `
+          <section class="pdf-day-card">
+            <header class="pdf-day-head">
+              <div class="pdf-day-weekday">${escapeHtml(day.label)}</div>
+              <div class="pdf-day-date">${escapeHtml(day.date)}</div>
+            </header>
+            <div class="pdf-section">
+              <div class="pdf-section-title">주요 확인사항</div>
+              <ol class="pdf-check-list">${checkItems}</ol>
+            </div>
+            <div class="pdf-section">
+              <div class="pdf-section-title">외부일정</div>
+              <table class="pdf-table">
+                <thead>
+                  <tr><th class="pdf-index">#</th><th class="pdf-manager">담당자</th><th>내용</th><th class="pdf-destination">목적지</th></tr>
+                </thead>
+                <tbody>${renderPdfRows(day.date, WORK_REPORT_SECTION_KEYS.external, WORK_REPORT_EXTERNAL_ROW_COUNT, true)}</tbody>
+              </table>
+            </div>
+            <div class="pdf-section">
+              <div class="pdf-section-title">DI사업</div>
+              <table class="pdf-table">
+                <thead>
+                  <tr><th class="pdf-index">#</th><th class="pdf-manager">담당자</th><th>내용</th></tr>
+                </thead>
+                <tbody>${renderPdfRows(day.date, WORK_REPORT_SECTION_KEYS.di, WORK_REPORT_DI_ROW_COUNT, false)}</tbody>
+              </table>
+            </div>
+            <div class="pdf-section">
+              <div class="pdf-section-title">도로사업</div>
+              <table class="pdf-table">
+                <thead>
+                  <tr><th class="pdf-index">#</th><th class="pdf-manager">담당자</th><th>내용</th></tr>
+                </thead>
+                <tbody>${renderPdfRows(day.date, WORK_REPORT_SECTION_KEYS.road, WORK_REPORT_ROAD_ROW_COUNT, false)}</tbody>
+              </table>
+            </div>
+            <div class="pdf-section">
+              <div class="pdf-section-title">영업지원</div>
+              <div class="pdf-support-title">진행업무</div>
+              <div class="pdf-support-body">${renderPdfText(supportProgress.content || '-')}</div>
+              <div class="pdf-support-title">완료업무</div>
+              <div class="pdf-support-body">${renderPdfText(supportDone.content || '-')}</div>
+            </div>
+          </section>
+        `
+      })
+      .join('')
+
+    popup.document.write(`
+      <!doctype html>
+      <html lang="ko">
+        <head>
+          <meta charset="UTF-8" />
+          <title>일일/주간업무보고서</title>
+          <style>
+            body { font-family: "Malgun Gothic", sans-serif; margin: 0; padding: 24px; color: #1f2937; background: #ffffff; }
+            .pdf-shell { border: 1px solid #d6dee8; border-radius: 16px; overflow: hidden; }
+            .pdf-header { padding: 18px 22px; border-bottom: 1px solid #dbe4ee; background: #f8fafc; }
+            .pdf-title { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+            .pdf-meta { font-size: 13px; color: #475569; }
+            .pdf-grid { display: grid; grid-template-columns: repeat(7, minmax(280px, 1fr)); gap: 12px; padding: 16px; }
+            .pdf-day-card { border: 1px solid #d8dee7; border-radius: 12px; background: #f9fbfd; overflow: hidden; }
+            .pdf-day-head { padding: 12px; border-bottom: 1px solid #dbe4ee; background: #ffffff; }
+            .pdf-day-weekday { font-size: 13px; font-weight: 800; color: #1d4f63; margin-bottom: 4px; }
+            .pdf-day-date { font-size: 12px; color: #64748b; }
+            .pdf-section { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
+            .pdf-section:last-child { border-bottom: none; }
+            .pdf-section-title { padding: 7px 10px; border-radius: 8px; background: #1f5f74; color: #ffffff; font-size: 12px; font-weight: 800; margin-bottom: 8px; }
+            .pdf-check-list { margin: 0; padding-left: 18px; }
+            .pdf-check-list li { min-height: 20px; font-size: 12px; line-height: 1.5; }
+            .pdf-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+            .pdf-table th, .pdf-table td { border: 1px solid #dbe4ee; padding: 6px; vertical-align: top; font-size: 11px; }
+            .pdf-table th { background: #f8fafc; font-weight: 800; }
+            .pdf-index { width: 28px; text-align: center; }
+            .pdf-manager { width: 78px; }
+            .pdf-destination { width: 88px; }
+            .pdf-support-title { margin: 10px 0 6px; font-size: 11px; font-weight: 800; color: #1f5f74; }
+            .pdf-support-body { min-height: 48px; font-size: 12px; line-height: 1.6; }
+            @media print { body { padding: 0; } .pdf-shell { border: none; border-radius: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="pdf-shell">
+            <div class="pdf-header">
+              <div class="pdf-title">일일/주간업무보고서</div>
+              <div class="pdf-meta">${escapeHtml(
+                `${getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)} · 담당자 ${
+                  workReportFilters.assignee || '전체'
+                }`
+              )}</div>
+            </div>
+            <div class="pdf-grid">${cards}</div>
+          </div>
+          <script>window.onload = function () { window.print(); };</script>
+        </body>
+      </html>
+    `)
+    popup.document.close()
+  }
+
   const openAddRow = () => {
     if (!requireAdmin()) return
     setIsAddingRow(true)
@@ -3906,6 +4268,212 @@ function App() {
     )
   }
 
+  const renderWorkReportChecklistSection = (date) => (
+    <section className="work-report-board-section">
+      <div className="work-report-board-section-title">주요 확인사항</div>
+      <div className="work-report-board-table">
+        {Array.from({ length: WORK_REPORT_MAIN_CHECK_COUNT }, (_, index) => {
+          const orderIndex = index + 1
+          const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex)
+
+          return (
+            <div
+              key={`${date}-check-${orderIndex}`}
+              className="work-report-board-row work-report-board-row-simple"
+              onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex)}
+            >
+              <div className="work-report-board-index">{orderIndex}</div>
+              <textarea
+                className="work-report-board-textarea work-report-board-textarea-check"
+                value={entry.content}
+                placeholder="내용 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex, {
+                    content: e.target.value,
+                  })
+                }
+              />
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+
+  const renderWorkReportManagedSection = (date, title, section, rowCount, contentClassName) => (
+    <section className="work-report-board-section">
+      <div className="work-report-board-section-title">{title}</div>
+      <div className="work-report-board-table">
+        <div className="work-report-board-header-row">
+          <div className="work-report-board-index">#</div>
+          <div className="work-report-board-manager-header">담당자</div>
+          <div className="work-report-board-content-header">내용</div>
+        </div>
+        {Array.from({ length: rowCount }, (_, index) => {
+          const orderIndex = index + 1
+          const entry = getWorkReportBoardEntry(date, section, orderIndex)
+
+          return (
+            <div
+              key={`${date}-${section}-${orderIndex}`}
+              className="work-report-board-row"
+              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
+            >
+              <div className="work-report-board-index">{orderIndex}</div>
+              <select
+                className="work-report-board-select"
+                value={entry.user}
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
+                }
+              >
+                <option value="">선택</option>
+                {WORK_REPORT_MANAGER_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <textarea
+                className={`work-report-board-textarea ${contentClassName}`}
+                value={entry.content}
+                placeholder="내용 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
+                }
+              />
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+
+  const renderWorkReportExternalSection = (date) => (
+    <section className="work-report-board-section">
+      <div className="work-report-board-section-title">외부일정</div>
+      <div className="work-report-board-table">
+        <div className="work-report-board-header-row work-report-board-header-row-external">
+          <div className="work-report-board-index">#</div>
+          <div className="work-report-board-manager-header">담당자</div>
+          <div className="work-report-board-content-header">내용</div>
+          <div className="work-report-board-destination-header">목적지</div>
+        </div>
+        {Array.from({ length: WORK_REPORT_EXTERNAL_ROW_COUNT }, (_, index) => {
+          const orderIndex = index + 1
+          const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
+
+          return (
+            <div
+              key={`${date}-external-${orderIndex}`}
+              className="work-report-board-row work-report-board-row-external"
+              onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
+            >
+              <div className="work-report-board-index">{orderIndex}</div>
+              <select
+                className="work-report-board-select"
+                value={entry.user}
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                    user: e.target.value,
+                  })
+                }
+              >
+                <option value="">선택</option>
+                {WORK_REPORT_MANAGER_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <textarea
+                className="work-report-board-textarea work-report-board-textarea-external"
+                value={entry.content}
+                placeholder="내용 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                    content: e.target.value,
+                  })
+                }
+              />
+              <textarea
+                className="work-report-board-textarea work-report-board-textarea-destination"
+                value={entry.destination}
+                placeholder="목적지 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                    destination: e.target.value,
+                  })
+                }
+              />
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+
+  const renderWorkReportSupportArea = (date, title, section) => {
+    const entry = getWorkReportBoardEntry(date, section, 1)
+
+    return (
+      <div className="work-report-board-support-block" onBlur={handleWorkReportBoardBlur(date, section, 1)}>
+        <div className="work-report-board-support-title">{title}</div>
+        <div className="work-report-board-support-row">
+          <div className="work-report-board-support-number">
+            {WORK_REPORT_SUPPORT_NUMBER_GUIDE.map((numberLabel) => (
+              <span key={`${section}-${numberLabel}`}>{numberLabel}</span>
+            ))}
+          </div>
+          <textarea
+            className="work-report-board-textarea work-report-board-textarea-support"
+            value={entry.content}
+            placeholder="내용 입력"
+            onChange={(e) => updateWorkReportBoardEntry(date, section, 1, { content: e.target.value })}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  const renderWorkReportSupportSection = (date) => (
+    <section className="work-report-board-section">
+      <div className="work-report-board-section-title">영업지원</div>
+      <div className="work-report-board-support-wrap">
+        {renderWorkReportSupportArea(date, '진행업무', WORK_REPORT_SECTION_KEYS.supportProgress)}
+        {renderWorkReportSupportArea(date, '완료업무', WORK_REPORT_SECTION_KEYS.supportDone)}
+      </div>
+    </section>
+  )
+
+  const renderWorkReportDayBoard = (day) => (
+    <div key={day.date} className={`work-report-day-board work-report-day-board-dense ${day.isToday ? 'is-today' : ''}`}>
+      <div className="work-report-day-head">
+        <div className="work-report-day-weekday">{day.label}</div>
+        <div className="work-report-day-date">{day.date}</div>
+      </div>
+      <div className="work-report-day-sections work-report-day-sections-dense">
+        {renderWorkReportChecklistSection(day.date)}
+        {renderWorkReportExternalSection(day.date)}
+        {renderWorkReportManagedSection(
+          day.date,
+          'DI사업',
+          WORK_REPORT_SECTION_KEYS.di,
+          WORK_REPORT_DI_ROW_COUNT,
+          'work-report-board-textarea-di'
+        )}
+        {renderWorkReportManagedSection(
+          day.date,
+          '도로사업',
+          WORK_REPORT_SECTION_KEYS.road,
+          WORK_REPORT_ROAD_ROW_COUNT,
+          'work-report-board-textarea-road'
+        )}
+        {renderWorkReportSupportSection(day.date)}
+      </div>
+    </div>
+  )
+
   if (!isAppAuthenticated) {
     return (
       <div className="app-shell auth-screen">
@@ -4204,7 +4772,7 @@ function App() {
                   setWorkReportFilters((prev) => ({ ...prev, assignee: e.target.value }))
                 }
               />
-              <button className="secondary-btn" type="button" onClick={handleWorkReportPdfDownload}>
+              <button className="secondary-btn" type="button" onClick={handleWorkReportBoardPdfDownload}>
                 PDF 다운로드
               </button>
             </div>
@@ -4221,21 +4789,7 @@ function App() {
             </div>
 
             <div className="work-report-week-grid">
-              {selectedWorkWeekDays.map((day) => (
-                <div key={day.date} className={`work-report-day-board ${day.isToday ? 'is-today' : ''}`}>
-                  <div className="work-report-day-head">
-                    <div className="work-report-day-weekday">{day.label}</div>
-                    <div className="work-report-day-date">{day.date}</div>
-                  </div>
-                  <div className="work-report-day-sections">
-                    {WORK_REPORT_SECTIONS.map((sectionConfig) => (
-                      <div key={`${day.date}-${sectionConfig.section}`}>
-                        {renderWorkReportSectionCard(day.date, sectionConfig)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+              {selectedWorkWeekDays.map((day) => renderWorkReportDayBoard(day))}
             </div>
 
             {isSavingWorkReports && (
