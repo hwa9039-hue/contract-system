@@ -60,6 +60,19 @@ const SALES_COLUMNS = [
   { key: 'actionRequest', label: '영업 요청사항', align: 'left', type: 'textarea', width: 240 },
 ]
 
+const BUDGET_COLUMNS = [
+  { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 128 },
+  { key: 'localGov', label: '지자체', align: 'center', type: 'text', width: 180 },
+  { key: 'projectName', label: '프로젝트', align: 'left', type: 'text', width: 240 },
+  { key: 'budgetAmount', label: '예산액', align: 'right', type: 'amount', width: 150 },
+  { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_MANAGER_OPTIONS, width: 132 },
+  { key: 'projectStage', label: '상태', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 128 },
+  { key: 'department', label: '담당부서', align: 'center', type: 'text', width: 128 },
+  { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 260 },
+  { key: 'salesMatch', label: '영업매칭', align: 'left', type: 'text', width: 180 },
+  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 240 },
+]
+
 const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
 const CONTRACT_BACKUP_LAST_DATE_KEY = 'CONTRACT_BACKUP_LAST_DATE'
@@ -129,6 +142,25 @@ function createSalesDraftRow() {
     source: '',
     salesNote: '',
     actionRequest: '',
+    createdAt: '',
+    updatedAt: '',
+    isDraft: true,
+  }
+}
+
+function createBudgetDraftRow() {
+  return {
+    id: `budget-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    registerDate: '',
+    localGov: '',
+    projectName: '',
+    budgetAmount: '',
+    manager: '',
+    projectStage: '',
+    department: '',
+    detail: '',
+    salesMatch: '',
+    note: '',
     createdAt: '',
     updatedAt: '',
     isDraft: true,
@@ -460,6 +492,45 @@ function toSalesPayload(row, timestamp) {
   }
 }
 
+function normalizeBudgetRow(item) {
+  return {
+    id: safeString(item.id),
+    registerDate: safeString(item.registerDate ?? item.registerdate),
+    localGov: safeString(item.localGov ?? item.localgov),
+    projectName: safeString(item.projectName ?? item.projectname),
+    budgetAmount: safeString(item.budgetAmount ?? item.budgetamount),
+    manager: safeString(item.manager),
+    projectStage: safeString(item.projectStage ?? item.projectstage),
+    department: safeString(item.department),
+    detail: safeString(item.detail),
+    salesMatch: safeString(item.salesMatch ?? item.salesmatch),
+    note: safeString(item.note),
+    createdAt: safeString(item.createdAt ?? item.createdat),
+    updatedAt: safeString(item.updatedAt ?? item.updatedat),
+    isDraft: false,
+  }
+}
+
+function isBudgetRowEmpty(row) {
+  return BUDGET_COLUMNS.every((column) => safeString(row[column.key]).trim() === '')
+}
+
+function toBudgetPayload(row, timestamp) {
+  return {
+    registerDate: toDbDate(row.registerDate),
+    localGov: safeString(row.localGov).trim(),
+    projectName: safeString(row.projectName).trim(),
+    budgetAmount: parseAmount(row.budgetAmount),
+    manager: safeString(row.manager).trim(),
+    projectStage: safeString(row.projectStage).trim(),
+    department: safeString(row.department).trim(),
+    detail: safeString(row.detail).trim(),
+    salesMatch: safeString(row.salesMatch).trim(),
+    note: safeString(row.note).trim(),
+    updatedAt: timestamp,
+  }
+}
+
 function getSalesStageClassName(stage) {
   return SALES_STAGE_TONE_MAP[safeString(stage).trim()]?.className || 'sales-stage-badge'
 }
@@ -547,6 +618,7 @@ function App() {
   const [contracts, setContracts] = useState([])
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
+  const [budgetRows, setBudgetRows] = useState([])
   const [menu, setMenu] = useState('dashboard')
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
@@ -560,6 +632,12 @@ function App() {
   const [salesFilters, setSalesFilters] = useState({
     projectCategory: '',
     manager: '',
+  })
+  const [selectedBudgetIds, setSelectedBudgetIds] = useState([])
+  const [editingBudgetIds, setEditingBudgetIds] = useState([])
+  const [isSavingBudget, setIsSavingBudget] = useState(false)
+  const [budgetFilters, setBudgetFilters] = useState({
+    projectStage: '',
   })
   const [manualEvents, setManualEvents] = useState(() => {
     const saved = localStorage.getItem(CALENDAR_STORAGE_KEY)
@@ -666,6 +744,24 @@ function App() {
     setSelectedSalesIds([])
   }
 
+  const fetchBudgetRows = async (preserveDrafts = true) => {
+    const { data, error } = await supabase
+      .from('budget_progress')
+      .select('*')
+      .order('createdAt', { ascending: false })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setBudgetRows((prev) => {
+      const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
+      return [...draftRows, ...(data ?? []).map(normalizeBudgetRow)]
+    })
+    setSelectedBudgetIds([])
+  }
+
   const saveContractToSupabase = async (formData) => {
     const payload = normalizeContractForSupabase(formData)
 
@@ -692,6 +788,12 @@ function App() {
   useEffect(() => {
     if (menu === 'sales') {
       fetchSalesRows(true)
+    }
+  }, [menu])
+
+  useEffect(() => {
+    if (menu === 'budget') {
+      fetchBudgetRows(true)
     }
   }, [menu])
 
@@ -829,6 +931,12 @@ function App() {
       return categoryMatch && managerMatch
     })
   }, [salesFilters.manager, salesFilters.projectCategory, salesRows])
+
+  const filteredBudgetRows = useMemo(() => {
+    return budgetRows.filter((row) => {
+      return !budgetFilters.projectStage || row.projectStage === budgetFilters.projectStage
+    })
+  }, [budgetFilters.projectStage, budgetRows])
 
   const dashboardSummary = useMemo(() => buildDashboardSummary(contracts), [contracts])
   const defaultDashboardYear = dashboardSummary.years[0]?.year
@@ -1469,6 +1577,156 @@ function App() {
     XLSX.writeFile(workbook, filename)
   }
 
+  const handleAddBudgetRow = () => {
+    setBudgetRows((prev) => [createBudgetDraftRow(), ...prev])
+    setSelectedBudgetIds([])
+  }
+
+  const handleBudgetCellChange = (rowId, key, value) => {
+    setBudgetRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              [key]: key === 'budgetAmount' ? formatAmount(value) : value,
+            }
+          : row
+      )
+    )
+  }
+
+  const startBudgetEdit = (rowId) => {
+    setEditingBudgetIds((prev) => (prev.includes(rowId) ? prev : [...prev, rowId]))
+  }
+
+  const toggleBudgetSelection = (rowId) => {
+    setSelectedBudgetIds((prev) =>
+      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
+    )
+  }
+
+  const deleteSelectedBudgetRows = async () => {
+    if (selectedBudgetIds.length === 0) {
+      alert('삭제할 행을 선택하세요.')
+      return
+    }
+
+    const ok = window.confirm('선택한 본예산 진행정보 행을 삭제하시겠습니까?')
+    if (!ok) return
+
+    const persistedIds = budgetRows
+      .filter((row) => selectedBudgetIds.includes(row.id) && !row.isDraft)
+      .map((row) => row.id)
+
+    if (persistedIds.length > 0) {
+      const remainingDrafts = budgetRows.filter(
+        (row) => row.isDraft && !selectedBudgetIds.includes(row.id)
+      )
+      const { error } = await supabase.from('budget_progress').delete().in('id', persistedIds)
+
+      if (error) {
+        alert(error.message)
+        return
+      }
+
+      setBudgetRows(remainingDrafts)
+      setEditingBudgetIds((prev) => prev.filter((id) => !selectedBudgetIds.includes(id)))
+      await fetchBudgetRows(true)
+      return
+    }
+
+    setBudgetRows((prev) => prev.filter((row) => !selectedBudgetIds.includes(row.id)))
+    setSelectedBudgetIds([])
+    setEditingBudgetIds((prev) => prev.filter((id) => !selectedBudgetIds.includes(id)))
+  }
+
+  const saveBudgetRows = async () => {
+    const rowsToInsert = budgetRows.filter((row) => row.isDraft && !isBudgetRowEmpty(row))
+    const rowsToUpdate = budgetRows.filter(
+      (row) => !row.isDraft && editingBudgetIds.includes(row.id)
+    )
+    const hasEmptyDraftRows = budgetRows.some((row) => row.isDraft && isBudgetRowEmpty(row))
+
+    if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && !hasEmptyDraftRows) {
+      alert('저장할 행이 없습니다.')
+      return
+    }
+
+    setIsSavingBudget(true)
+
+    try {
+      const timestamp = new Date().toISOString()
+
+      if (rowsToInsert.length > 0) {
+        const insertPayload = rowsToInsert.map((row) => ({
+          ...toBudgetPayload(row, timestamp),
+          createdAt: timestamp,
+        }))
+
+        const { error } = await supabase.from('budget_progress').insert(insertPayload)
+        if (error) {
+          alert(error.message)
+          return
+        }
+      }
+
+      if (rowsToUpdate.length > 0) {
+        const updateResults = await Promise.all(
+          rowsToUpdate.map((row) =>
+            supabase
+              .from('budget_progress')
+              .update(toBudgetPayload(row, timestamp))
+              .eq('id', row.id)
+          )
+        )
+
+        const failedUpdate = updateResults.find((result) => result.error)
+        if (failedUpdate?.error) {
+          alert(failedUpdate.error.message)
+          return
+        }
+      }
+
+      if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && hasEmptyDraftRows) {
+        setBudgetRows((prev) => prev.filter((row) => !(row.isDraft && isBudgetRowEmpty(row))))
+        setSelectedBudgetIds([])
+        setEditingBudgetIds([])
+        alert('저장되었습니다.')
+        return
+      }
+
+      await fetchBudgetRows(false)
+      setSelectedBudgetIds([])
+      setEditingBudgetIds([])
+      alert('저장되었습니다.')
+    } finally {
+      setIsSavingBudget(false)
+    }
+  }
+
+  const handleBudgetExcelDownload = () => {
+    const rows = filteredBudgetRows.map((row) => ({
+      등록일: row.registerDate,
+      지자체: row.localGov,
+      프로젝트: row.projectName,
+      예산액: formatAmountDisplay(row.budgetAmount),
+      담당자: row.manager,
+      상태: row.projectStage,
+      담당부서: row.department,
+      세부내용: row.detail,
+      영업매칭: row.salesMatch,
+      비고: row.note,
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, '본예산 진행정보')
+
+    const now = new Date()
+    const filename = `본예산_진행정보_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
+    XLSX.writeFile(workbook, filename)
+  }
+
   const openAddRow = () => {
     if (!requireAdmin()) return
     setIsAddingRow(true)
@@ -1846,6 +2104,13 @@ function App() {
             </button>
 
             <button
+              className={menu === 'budget' ? 'menu-btn active' : 'menu-btn'}
+              onClick={() => setMenu('budget')}
+            >
+              본예산 진행정보
+            </button>
+
+            <button
               className={menu === 'documents' ? 'menu-btn active' : 'menu-btn'}
               onClick={() => setMenu('documents')}
             >
@@ -1884,7 +2149,7 @@ function App() {
                 justifyContent: 'flex-end',
               }}
             >
-              <span className="top-system-subtitle">계약현황 · 일정관리 · 영업관리대장 · 문서수발신대장</span>
+              <span className="top-system-subtitle">계약현황 · 일정관리 · 영업관리대장 · 본예산 진행정보 · 문서수발신대장</span>
               <span
                 style={{
                   display: 'inline-flex',
@@ -1919,6 +2184,7 @@ function App() {
             {menu === 'contracts' && '계약현황'}
             {menu === 'calendar' && '캘린더'}
             {menu === 'sales' && '영업관리대장'}
+            {menu === 'budget' && '본예산 진행정보'}
             {menu === 'documents' && '문서수발신대장'}
           </h1>
         </div>
@@ -2579,6 +2845,212 @@ function App() {
                                   }}
                                 >
                                   {column.key === 'projectAmount' ? (
+                                    formatAmountDisplay(row[column.key]) || '-'
+                                  ) : column.key === 'projectStage' ? (
+                                    safeString(row[column.key]).trim() ? (
+                                      <span className={getSalesStageClassName(row[column.key])}>
+                                        {row[column.key]}
+                                      </span>
+                                    ) : (
+                                      '-'
+                                    )
+                                  ) : (
+                                    safeString(row[column.key]).trim() || '-'
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {menu === 'budget' && (
+          <section className="stat-card">
+            <div className="contracts-header-actions">
+              <button className="primary-btn" type="button" onClick={handleAddBudgetRow}>
+                추가
+              </button>
+
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={saveBudgetRows}
+                disabled={isSavingBudget}
+                style={isSavingBudget ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+              >
+                {isSavingBudget ? '저장 중...' : '저장'}
+              </button>
+
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={deleteSelectedBudgetRows}
+                disabled={selectedBudgetIds.length === 0}
+                style={
+                  selectedBudgetIds.length === 0
+                    ? { opacity: 0.55, cursor: 'not-allowed' }
+                    : undefined
+                }
+              >
+                삭제
+              </button>
+
+              <select
+                className="contract-filter-select"
+                value={budgetFilters.projectStage}
+                onChange={(e) =>
+                  setBudgetFilters((prev) => ({ ...prev, projectStage: e.target.value }))
+                }
+                style={{ width: 132 }}
+              >
+                <option value="">상태</option>
+                {SALES_STAGE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+
+              <button className="secondary-btn" type="button" onClick={handleBudgetExcelDownload}>
+                엑셀 다운로드
+              </button>
+            </div>
+
+            <div className="contract-table-panel">
+              <div className="table-wrap contracts-only-scroll">
+                <table className="contract-table excel-table">
+                  <thead>
+                    <tr>
+                      <th
+                        className="th-align-center"
+                        style={{ width: 64, position: 'sticky', top: 0, zIndex: 6 }}
+                      >
+                        선택
+                      </th>
+                      {BUDGET_COLUMNS.map((column) => (
+                        <th
+                          key={column.key}
+                          className={
+                            column.align === 'right'
+                              ? 'th-align-right'
+                              : column.align === 'left'
+                              ? 'th-align-left'
+                              : 'th-align-center'
+                          }
+                          style={{
+                            width: column.width,
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 6,
+                            background: '#f8fbff',
+                          }}
+                        >
+                          {column.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {filteredBudgetRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={BUDGET_COLUMNS.length + 1} className="empty-cell">
+                          등록된 본예산 진행정보가 없습니다.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredBudgetRows.map((row, index) => (
+                        <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                          <td className="td-align-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedBudgetIds.includes(row.id)}
+                              onChange={() => toggleBudgetSelection(row.id)}
+                              style={{ width: 16, height: 16 }}
+                            />
+                          </td>
+
+                          {BUDGET_COLUMNS.map((column) => (
+                            <td
+                              key={column.key}
+                              className={`${
+                                column.align === 'right'
+                                  ? 'td-align-right'
+                                  : column.align === 'left'
+                                  ? 'td-align-left'
+                                  : 'td-align-center'
+                              } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
+                              style={{ width: column.width }}
+                              onClick={() => {
+                                if (!row.isDraft && !editingBudgetIds.includes(row.id)) {
+                                  startBudgetEdit(row.id)
+                                }
+                              }}
+                            >
+                              {row.isDraft || editingBudgetIds.includes(row.id) ? (
+                                column.type === 'textarea' ? (
+                                  <textarea
+                                    className={`inline-row-editor cell-inline-editor ${
+                                      column.align === 'right' ? 'align-right' : ''
+                                    }`}
+                                    rows={1}
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleBudgetCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                ) : column.type === 'date' ? (
+                                  <input
+                                    className="inline-row-editor cell-inline-editor"
+                                    type="date"
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleBudgetCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                ) : column.type === 'select' ? (
+                                  <select
+                                    className="inline-row-editor cell-inline-editor"
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleBudgetCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  >
+                                    <option value="">선택</option>
+                                    {column.options.map((option) => (
+                                      <option key={option} value={option}>
+                                        {option}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    className={`inline-row-editor cell-inline-editor ${
+                                      column.align === 'right' ? 'align-right' : ''
+                                    }`}
+                                    type="text"
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleBudgetCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                )
+                              ) : (
+                                <div
+                                  className="cell-display"
+                                  style={{
+                                    whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
+                                    cursor: 'text',
+                                  }}
+                                >
+                                  {column.key === 'budgetAmount' ? (
                                     formatAmountDisplay(row[column.key]) || '-'
                                   ) : column.key === 'projectStage' ? (
                                     safeString(row[column.key]).trim() ? (
