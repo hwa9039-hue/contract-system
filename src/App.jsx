@@ -92,6 +92,65 @@ const DISCOVERY_COLUMNS = [
   { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 240 },
 ]
 
+const EXCLUDED_CATEGORY_OPTIONS = ['발주계획', '사전규격', '입찰공고', '정보공개']
+const EXCLUDED_KEYWORD_OPTIONS = [
+  '(N)안내전광판',
+  '(N)기상전광판',
+  '(N)교통정보전광판',
+  '(N)융복합안내전광판',
+  '(N)영상정보디스플레이장치',
+  '전광판',
+  '미디어',
+  '파사드',
+  '사이니지',
+  'LED',
+  '액정모니터',
+  '디스플레이',
+  '공사',
+]
+const EXCLUDED_WRITER_OPTIONS = ['이용자', '정화영', '문병현', '이재승', '정주희', '전유찬']
+const EXCLUDED_CATEGORY_TONE_MAP = {
+  발주계획: { background: '#fff1e8', color: '#c2410c', borderColor: '#fdba74' },
+  사전규격: { background: '#eaf1ff', color: '#1f4fd1', borderColor: '#bfd0ff' },
+  입찰공고: { background: '#ecfdf3', color: '#166534', borderColor: '#bbf7d0' },
+  정보공개: { background: '#f7fee7', color: '#4d7c0f', borderColor: '#d9f99d' },
+}
+const EXCLUDED_KEYWORD_TONE_MAP = {
+  '(N)안내전광판': { background: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca' },
+  '(N)기상전광판': { background: '#fff8db', color: '#a16207', borderColor: '#f6d56c' },
+  '(N)교통정보전광판': { background: '#ecfdf3', color: '#166534', borderColor: '#bbf7d0' },
+  '(N)융복합안내전광판': { background: '#eaf1ff', color: '#1f4fd1', borderColor: '#bfd0ff' },
+  '(N)영상정보디스플레이장치': { background: '#7f1d1d', color: '#ffffff', borderColor: '#7f1d1d' },
+  전광판: { background: '#f3f4f6', color: '#4b5563', borderColor: '#d1d5db' },
+  미디어: { background: '#374151', color: '#ffffff', borderColor: '#374151' },
+  파사드: { background: '#ede0d4', color: '#7c2d12', borderColor: '#d6ccc2' },
+  사이니지: { background: '#dcfce7', color: '#166534', borderColor: '#86efac' },
+  LED: { background: '#f3e8ff', color: '#7e22ce', borderColor: '#d8b4fe' },
+  액정모니터: { background: '#e0e7ff', color: '#3730a3', borderColor: '#c7d2fe' },
+  디스플레이: { background: '#ede0d4', color: '#7c2d12', borderColor: '#d6ccc2' },
+  공사: { background: '#dbeafe', color: '#1d4ed8', borderColor: '#93c5fd' },
+}
+const EXCLUDED_WRITER_TONE_MAP = {
+  이용자: { background: '#fff1e8', color: '#c2410c', borderColor: '#fdba74' },
+  정화영: { background: '#ecfdf3', color: '#166534', borderColor: '#bbf7d0' },
+  문병현: { background: '#fff8db', color: '#a16207', borderColor: '#f6d56c' },
+  이재승: { background: '#eaf1ff', color: '#1f4fd1', borderColor: '#bfd0ff' },
+  정주희: { background: '#f3e8ff', color: '#7e22ce', borderColor: '#d8b4fe' },
+  전유찬: { background: '#f3f4f6', color: '#4b5563', borderColor: '#d1d5db' },
+}
+const EXCLUDED_COLUMNS = [
+  { key: 'orderNo', label: '순번', align: 'center', type: 'text', width: 88 },
+  { key: 'writeDate', label: '작성일', align: 'center', type: 'date', width: 128 },
+  { key: 'openDate', label: '공개일시', align: 'center', type: 'text', width: 150 },
+  { key: 'category', label: '구분', align: 'center', type: 'select', options: EXCLUDED_CATEGORY_OPTIONS, width: 118 },
+  { key: 'keyword', label: '검색어', align: 'center', type: 'select', options: EXCLUDED_KEYWORD_OPTIONS, width: 190 },
+  { key: 'writer', label: '작성자', align: 'center', type: 'select', options: EXCLUDED_WRITER_OPTIONS, width: 120 },
+  { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 220 },
+  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 170 },
+  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 140 },
+  { key: 'exclusionReason', label: '제외 사유', align: 'left', type: 'textarea', width: 260 },
+]
+
 const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
 const CONTRACT_BACKUP_LAST_DATE_KEY = 'CONTRACT_BACKUP_LAST_DATE'
@@ -200,6 +259,25 @@ function createDiscoveryDraftRow() {
     completionPeriod: '',
     manager: '',
     note: '',
+    createdAt: '',
+    updatedAt: '',
+    isDraft: true,
+  }
+}
+
+function createExcludedDraftRow() {
+  return {
+    id: `excluded-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    orderNo: '',
+    writeDate: '',
+    openDate: '',
+    category: '',
+    keyword: '',
+    writer: '',
+    projectName: '',
+    client: '',
+    projectAmount: '',
+    exclusionReason: '',
     createdAt: '',
     updatedAt: '',
     isDraft: true,
@@ -611,6 +689,45 @@ function toDiscoveryPayload(row, timestamp) {
   }
 }
 
+function normalizeExcludedRow(item) {
+  return {
+    id: safeString(item.id),
+    orderNo: safeString(item.orderNo ?? item.orderno),
+    writeDate: safeString(item.writeDate ?? item.writedate),
+    openDate: safeString(item.openDate ?? item.opendate),
+    category: safeString(item.category),
+    keyword: safeString(item.keyword),
+    writer: safeString(item.writer),
+    projectName: safeString(item.projectName ?? item.projectname),
+    client: safeString(item.client),
+    projectAmount: safeString(item.projectAmount ?? item.projectamount),
+    exclusionReason: safeString(item.exclusionReason ?? item.exclusionreason),
+    createdAt: safeString(item.createdAt ?? item.createdat),
+    updatedAt: safeString(item.updatedAt ?? item.updatedat),
+    isDraft: false,
+  }
+}
+
+function isExcludedRowEmpty(row) {
+  return EXCLUDED_COLUMNS.every((column) => safeString(row[column.key]).trim() === '')
+}
+
+function toExcludedPayload(row, timestamp) {
+  return {
+    orderNo: safeString(row.orderNo).trim(),
+    writeDate: toDbDate(row.writeDate),
+    openDate: safeString(row.openDate).trim(),
+    category: safeString(row.category).trim(),
+    keyword: safeString(row.keyword).trim(),
+    writer: safeString(row.writer).trim(),
+    projectName: safeString(row.projectName).trim(),
+    client: safeString(row.client).trim(),
+    projectAmount: parseAmount(row.projectAmount),
+    exclusionReason: safeString(row.exclusionReason).trim(),
+    updatedAt: timestamp,
+  }
+}
+
 function getSalesStageClassName(stage) {
   return SALES_STAGE_TONE_MAP[safeString(stage).trim()]?.className || 'sales-stage-badge'
 }
@@ -623,6 +740,27 @@ function getDiscoveryCategoryClassName(category) {
   return (
     DISCOVERY_CATEGORY_TONE_MAP[safeString(category).trim()] || 'discovery-category-badge'
   )
+}
+
+function getExcludedBadgeStyle(toneMap, value) {
+  const tone = toneMap[safeString(value).trim()]
+  if (!tone) return null
+
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 28,
+    padding: '0 10px',
+    borderRadius: 999,
+    border: `1px solid ${tone.borderColor}`,
+    background: tone.background,
+    color: tone.color,
+    fontSize: 12,
+    fontWeight: 800,
+    lineHeight: 1,
+    whiteSpace: 'nowrap',
+  }
 }
 
 function getDdayText(dateString) {
@@ -706,6 +844,7 @@ function App() {
   const [salesRows, setSalesRows] = useState([])
   const [budgetRows, setBudgetRows] = useState([])
   const [discoveryRows, setDiscoveryRows] = useState([])
+  const [excludedRows, setExcludedRows] = useState([])
   const [menu, setMenu] = useState('dashboard')
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
@@ -732,6 +871,13 @@ function App() {
   const [discoveryFilters, setDiscoveryFilters] = useState({
     manager: '',
     projectCategory: '',
+  })
+  const [selectedExcludedIds, setSelectedExcludedIds] = useState([])
+  const [editingExcludedIds, setEditingExcludedIds] = useState([])
+  const [isSavingExcluded, setIsSavingExcluded] = useState(false)
+  const [excludedFilters, setExcludedFilters] = useState({
+    category: '',
+    writer: '',
   })
   const [manualEvents, setManualEvents] = useState(() => {
     const saved = localStorage.getItem(CALENDAR_STORAGE_KEY)
@@ -874,6 +1020,24 @@ function App() {
     setSelectedDiscoveryIds([])
   }
 
+  const fetchExcludedRows = async (preserveDrafts = true) => {
+    const { data, error } = await supabase
+      .from('excluded_projects')
+      .select('*')
+      .order('createdAt', { ascending: false })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setExcludedRows((prev) => {
+      const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
+      return [...draftRows, ...(data ?? []).map(normalizeExcludedRow)]
+    })
+    setSelectedExcludedIds([])
+  }
+
   const saveContractToSupabase = async (formData) => {
     const payload = normalizeContractForSupabase(formData)
 
@@ -912,6 +1076,12 @@ function App() {
   useEffect(() => {
     if (menu === 'discovery') {
       fetchDiscoveryRows(true)
+    }
+  }, [menu])
+
+  useEffect(() => {
+    if (menu === 'excluded') {
+      fetchExcludedRows(true)
     }
   }, [menu])
 
@@ -1065,6 +1235,14 @@ function App() {
       return managerMatch && categoryMatch
     })
   }, [discoveryFilters.manager, discoveryFilters.projectCategory, discoveryRows])
+
+  const filteredExcludedRows = useMemo(() => {
+    return excludedRows.filter((row) => {
+      const categoryMatch = !excludedFilters.category || row.category === excludedFilters.category
+      const writerMatch = !excludedFilters.writer || row.writer === excludedFilters.writer
+      return categoryMatch && writerMatch
+    })
+  }, [excludedFilters.category, excludedFilters.writer, excludedRows])
 
   const dashboardSummary = useMemo(() => buildDashboardSummary(contracts), [contracts])
   const defaultDashboardYear = dashboardSummary.years[0]?.year
@@ -2006,6 +2184,156 @@ function App() {
     XLSX.writeFile(workbook, filename)
   }
 
+  const handleAddExcludedRow = () => {
+    setExcludedRows((prev) => [createExcludedDraftRow(), ...prev])
+    setSelectedExcludedIds([])
+  }
+
+  const handleExcludedCellChange = (rowId, key, value) => {
+    setExcludedRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              [key]: key === 'projectAmount' ? formatAmount(value) : value,
+            }
+          : row
+      )
+    )
+  }
+
+  const startExcludedEdit = (rowId) => {
+    setEditingExcludedIds((prev) => (prev.includes(rowId) ? prev : [...prev, rowId]))
+  }
+
+  const toggleExcludedSelection = (rowId) => {
+    setSelectedExcludedIds((prev) =>
+      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
+    )
+  }
+
+  const deleteSelectedExcludedRows = async () => {
+    if (selectedExcludedIds.length === 0) {
+      alert('삭제할 행을 선택하세요.')
+      return
+    }
+
+    const ok = window.confirm('선택한 제외사업 관리대장 행을 삭제하시겠습니까?')
+    if (!ok) return
+
+    const persistedIds = excludedRows
+      .filter((row) => selectedExcludedIds.includes(row.id) && !row.isDraft)
+      .map((row) => row.id)
+
+    if (persistedIds.length > 0) {
+      const remainingDrafts = excludedRows.filter(
+        (row) => row.isDraft && !selectedExcludedIds.includes(row.id)
+      )
+      const { error } = await supabase.from('excluded_projects').delete().in('id', persistedIds)
+
+      if (error) {
+        alert(error.message)
+        return
+      }
+
+      setExcludedRows(remainingDrafts)
+      setEditingExcludedIds((prev) => prev.filter((id) => !selectedExcludedIds.includes(id)))
+      await fetchExcludedRows(true)
+      return
+    }
+
+    setExcludedRows((prev) => prev.filter((row) => !selectedExcludedIds.includes(row.id)))
+    setSelectedExcludedIds([])
+    setEditingExcludedIds((prev) => prev.filter((id) => !selectedExcludedIds.includes(id)))
+  }
+
+  const saveExcludedRows = async () => {
+    const rowsToInsert = excludedRows.filter((row) => row.isDraft && !isExcludedRowEmpty(row))
+    const rowsToUpdate = excludedRows.filter(
+      (row) => !row.isDraft && editingExcludedIds.includes(row.id)
+    )
+    const hasEmptyDraftRows = excludedRows.some((row) => row.isDraft && isExcludedRowEmpty(row))
+
+    if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && !hasEmptyDraftRows) {
+      alert('저장할 행이 없습니다.')
+      return
+    }
+
+    setIsSavingExcluded(true)
+
+    try {
+      const timestamp = new Date().toISOString()
+
+      if (rowsToInsert.length > 0) {
+        const insertPayload = rowsToInsert.map((row) => ({
+          ...toExcludedPayload(row, timestamp),
+          createdAt: timestamp,
+        }))
+
+        const { error } = await supabase.from('excluded_projects').insert(insertPayload)
+        if (error) {
+          alert(error.message)
+          return
+        }
+      }
+
+      if (rowsToUpdate.length > 0) {
+        const updateResults = await Promise.all(
+          rowsToUpdate.map((row) =>
+            supabase
+              .from('excluded_projects')
+              .update(toExcludedPayload(row, timestamp))
+              .eq('id', row.id)
+          )
+        )
+
+        const failedUpdate = updateResults.find((result) => result.error)
+        if (failedUpdate?.error) {
+          alert(failedUpdate.error.message)
+          return
+        }
+      }
+
+      if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && hasEmptyDraftRows) {
+        setExcludedRows((prev) => prev.filter((row) => !(row.isDraft && isExcludedRowEmpty(row))))
+        setSelectedExcludedIds([])
+        setEditingExcludedIds([])
+        alert('저장되었습니다.')
+        return
+      }
+
+      await fetchExcludedRows(false)
+      setSelectedExcludedIds([])
+      setEditingExcludedIds([])
+      alert('저장되었습니다.')
+    } finally {
+      setIsSavingExcluded(false)
+    }
+  }
+
+  const handleExcludedExcelDownload = () => {
+    const rows = filteredExcludedRows.map((row) => ({
+      순번: row.orderNo,
+      작성일: row.writeDate,
+      공개일시: row.openDate,
+      구분: row.category,
+      검색어: row.keyword,
+      작성자: row.writer,
+      사업명: row.projectName,
+      발주처: row.client,
+      사업금액: formatAmountDisplay(row.projectAmount),
+      '제외 사유': row.exclusionReason,
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, '제외사업 관리대장')
+
+    const now = new Date()
+    const filename = `제외사업_관리대장_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
+    XLSX.writeFile(workbook, filename)
+  }
+
   const openAddRow = () => {
     if (!requireAdmin()) return
     setIsAddingRow(true)
@@ -2397,6 +2725,13 @@ function App() {
             </button>
 
             <button
+              className={menu === 'excluded' ? 'menu-btn active' : 'menu-btn'}
+              onClick={() => setMenu('excluded')}
+            >
+              제외사업 관리대장
+            </button>
+
+            <button
               className={menu === 'documents' ? 'menu-btn active' : 'menu-btn'}
               onClick={() => setMenu('documents')}
             >
@@ -2435,7 +2770,7 @@ function App() {
                 justifyContent: 'flex-end',
               }}
             >
-              <span className="top-system-subtitle">계약현황 · 일정관리 · 영업관리대장 · 본예산 진행정보 · 사업 발굴정보 · 문서수발신대장</span>
+              <span className="top-system-subtitle">계약현황 · 일정관리 · 영업관리대장 · 본예산 진행정보 · 사업 발굴정보 · 제외사업 관리대장 · 문서수발신대장</span>
               <span
                 style={{
                   display: 'inline-flex',
@@ -2472,6 +2807,7 @@ function App() {
             {menu === 'sales' && '영업관리대장'}
             {menu === 'budget' && '본예산 진행정보'}
             {menu === 'discovery' && '사업 발굴정보'}
+            {menu === 'excluded' && '제외사업 관리대장'}
             {menu === 'documents' && '문서수발신대장'}
           </h1>
         </div>
@@ -3564,6 +3900,244 @@ function App() {
                                   ) : column.key === 'projectCategory' ? (
                                     safeString(row[column.key]).trim() ? (
                                       <span className={getDiscoveryCategoryClassName(row[column.key])}>
+                                        {row[column.key]}
+                                      </span>
+                                    ) : (
+                                      '-'
+                                    )
+                                  ) : (
+                                    safeString(row[column.key]).trim() || '-'
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {menu === 'excluded' && (
+          <section className="stat-card">
+            <div className="contracts-header-actions">
+              <button className="primary-btn" type="button" onClick={handleAddExcludedRow}>
+                추가
+              </button>
+
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={saveExcludedRows}
+                disabled={isSavingExcluded}
+                style={isSavingExcluded ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+              >
+                {isSavingExcluded ? '저장 중...' : '저장'}
+              </button>
+
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={deleteSelectedExcludedRows}
+                disabled={selectedExcludedIds.length === 0}
+                style={
+                  selectedExcludedIds.length === 0
+                    ? { opacity: 0.55, cursor: 'not-allowed' }
+                    : undefined
+                }
+              >
+                삭제
+              </button>
+
+              <select
+                className="contract-filter-select"
+                value={excludedFilters.category}
+                onChange={(e) =>
+                  setExcludedFilters((prev) => ({ ...prev, category: e.target.value }))
+                }
+                style={{ width: 132 }}
+              >
+                <option value="">구분</option>
+                {EXCLUDED_CATEGORY_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="contract-filter-select"
+                value={excludedFilters.writer}
+                onChange={(e) =>
+                  setExcludedFilters((prev) => ({ ...prev, writer: e.target.value }))
+                }
+                style={{ width: 132 }}
+              >
+                <option value="">작성자</option>
+                {EXCLUDED_WRITER_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+
+              <button className="secondary-btn" type="button" onClick={handleExcludedExcelDownload}>
+                엑셀 다운로드
+              </button>
+            </div>
+
+            <div className="contract-table-panel">
+              <div className="table-wrap contracts-only-scroll">
+                <table className="contract-table excel-table">
+                  <thead>
+                    <tr>
+                      <th
+                        className="th-align-center"
+                        style={{ width: 64, position: 'sticky', top: 0, zIndex: 6 }}
+                      >
+                        선택
+                      </th>
+                      {EXCLUDED_COLUMNS.map((column) => (
+                        <th
+                          key={column.key}
+                          className={
+                            column.align === 'right'
+                              ? 'th-align-right'
+                              : column.align === 'left'
+                              ? 'th-align-left'
+                              : 'th-align-center'
+                          }
+                          style={{
+                            width: column.width,
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 6,
+                            background: '#f8fbff',
+                          }}
+                        >
+                          {column.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {filteredExcludedRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={EXCLUDED_COLUMNS.length + 1} className="empty-cell">
+                          등록된 제외사업 관리대장 데이터가 없습니다.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredExcludedRows.map((row, index) => (
+                        <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                          <td className="td-align-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedExcludedIds.includes(row.id)}
+                              onChange={() => toggleExcludedSelection(row.id)}
+                              style={{ width: 16, height: 16 }}
+                            />
+                          </td>
+
+                          {EXCLUDED_COLUMNS.map((column) => (
+                            <td
+                              key={column.key}
+                              className={`${
+                                column.align === 'right'
+                                  ? 'td-align-right'
+                                  : column.align === 'left'
+                                  ? 'td-align-left'
+                                  : 'td-align-center'
+                              } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
+                              style={{ width: column.width }}
+                              onClick={() => {
+                                if (!row.isDraft && !editingExcludedIds.includes(row.id)) {
+                                  startExcludedEdit(row.id)
+                                }
+                              }}
+                            >
+                              {row.isDraft || editingExcludedIds.includes(row.id) ? (
+                                column.type === 'textarea' ? (
+                                  <textarea
+                                    className={`inline-row-editor cell-inline-editor ${
+                                      column.align === 'right' ? 'align-right' : ''
+                                    }`}
+                                    rows={1}
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleExcludedCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                ) : column.type === 'date' ? (
+                                  <input
+                                    className="inline-row-editor cell-inline-editor"
+                                    type="date"
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleExcludedCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                ) : column.type === 'select' ? (
+                                  <select
+                                    className="inline-row-editor cell-inline-editor"
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleExcludedCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  >
+                                    <option value="">선택</option>
+                                    {column.options.map((option) => (
+                                      <option key={option} value={option}>
+                                        {option}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    className={`inline-row-editor cell-inline-editor ${
+                                      column.align === 'right' ? 'align-right' : ''
+                                    }`}
+                                    type="text"
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleExcludedCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                )
+                              ) : (
+                                <div
+                                  className="cell-display"
+                                  style={{
+                                    whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
+                                    cursor: 'text',
+                                  }}
+                                >
+                                  {column.key === 'projectAmount' ? (
+                                    formatAmountDisplay(row[column.key]) || '-'
+                                  ) : column.key === 'category' ? (
+                                    safeString(row[column.key]).trim() ? (
+                                      <span style={getExcludedBadgeStyle(EXCLUDED_CATEGORY_TONE_MAP, row[column.key])}>
+                                        {row[column.key]}
+                                      </span>
+                                    ) : (
+                                      '-'
+                                    )
+                                  ) : column.key === 'keyword' ? (
+                                    safeString(row[column.key]).trim() ? (
+                                      <span style={getExcludedBadgeStyle(EXCLUDED_KEYWORD_TONE_MAP, row[column.key])}>
+                                        {row[column.key]}
+                                      </span>
+                                    ) : (
+                                      '-'
+                                    )
+                                  ) : column.key === 'writer' ? (
+                                    safeString(row[column.key]).trim() ? (
+                                      <span style={getExcludedBadgeStyle(EXCLUDED_WRITER_TONE_MAP, row[column.key])}>
                                         {row[column.key]}
                                       </span>
                                     ) : (
