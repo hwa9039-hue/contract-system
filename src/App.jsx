@@ -141,10 +141,10 @@ const EXCLUDED_WRITER_TONE_MAP = {
 const EXCLUDED_COLUMNS = [
   { key: 'orderNo', label: '순번', align: 'center', type: 'text', width: 88 },
   { key: 'writeDate', label: '작성일', align: 'center', type: 'date', width: 128 },
-  { key: 'openDate', label: '공개일시', align: 'center', type: 'text', width: 150 },
+  { key: 'openDate', label: '공개일', align: 'center', type: 'date', width: 150 },
   { key: 'category', label: '구분', align: 'center', type: 'select', options: EXCLUDED_CATEGORY_OPTIONS, width: 118 },
   { key: 'keyword', label: '검색어', align: 'center', type: 'select', options: EXCLUDED_KEYWORD_OPTIONS, width: 190 },
-  { key: 'writer', label: '작성자', align: 'center', type: 'select', options: EXCLUDED_WRITER_OPTIONS, width: 120 },
+  { key: 'writer', label: '작성자', align: 'center', type: 'text', width: 120 },
   { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 220 },
   { key: 'client', label: '발주처', align: 'center', type: 'text', width: 170 },
   { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 140 },
@@ -158,7 +158,7 @@ const CONTRACT_SHARED_AUTH_KEY = 'CONTRACT_SHARED_AUTH'
 const CONTRACT_SHARED_EXPIRES_AT_KEY = 'CONTRACT_SHARED_EXPIRES_AT'
 const CONTRACT_SHARED_SESSION_DURATION_MS = 20 * 60 * 1000
 const CONTRACT_SHARED_WARNING_MS = 5 * 60 * 1000
-const ADMIN_PASSWORD = 'admin'
+const ADMIN_PASSWORD = 'admin2026!'
 const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'smartdi2026!'
 const ALL_OPTION = '전체'
 const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
@@ -882,6 +882,7 @@ function App() {
   })
   const [selectedBudgetIds, setSelectedBudgetIds] = useState([])
   const [editingBudgetIds, setEditingBudgetIds] = useState([])
+  const [budgetEditSnapshots, setBudgetEditSnapshots] = useState({})
   const [isSavingBudget, setIsSavingBudget] = useState(false)
   const [budgetFilters, setBudgetFilters] = useState({
     manager: '',
@@ -959,6 +960,7 @@ function App() {
   const [showAdminLoginModal, setShowAdminLoginModal] = useState(false)
   const [adminPasswordInput, setAdminPasswordInput] = useState('')
   const [adminLoginError, setAdminLoginError] = useState('')
+  const [toastMessage, setToastMessage] = useState('')
 
   const fileInputRef = useRef(null)
 
@@ -1112,6 +1114,16 @@ function App() {
       fetchExcludedRows(true)
     }
   }, [menu])
+
+  useEffect(() => {
+    if (!toastMessage) return undefined
+
+    const timeoutId = window.setTimeout(() => {
+      setToastMessage('')
+    }, 2600)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [toastMessage])
 
   useEffect(() => {
     if (!isAppAuthenticated || !sharedSessionExpiresAt) return undefined
@@ -1275,10 +1287,9 @@ function App() {
       if (row.isDraft) return true
       const categoryMatch = !excludedFilters.category || row.category === excludedFilters.category
       const keywordMatch = !excludedFilters.keyword || row.keyword === excludedFilters.keyword
-      const writerMatch = !excludedFilters.writer || row.writer === excludedFilters.writer
-      return categoryMatch && keywordMatch && writerMatch
+      return categoryMatch && keywordMatch
     })
-  }, [excludedFilters.category, excludedFilters.keyword, excludedFilters.writer, excludedRows])
+  }, [excludedFilters.category, excludedFilters.keyword, excludedRows])
 
   const dashboardSummary = useMemo(() => buildDashboardSummary(contracts), [contracts])
   const defaultDashboardYear = dashboardSummary.years[0]?.year
@@ -1409,6 +1420,7 @@ function App() {
       setShowAdminLoginModal(false)
       setAdminPasswordInput('')
       setAdminLoginError('')
+      setToastMessage('일반 모드로 전환되었습니다.')
       setEditingCell(null)
       setEditingValue('')
       setIsAddingRow(false)
@@ -1437,6 +1449,7 @@ function App() {
     setIsAdmin(true)
     localStorage.setItem(ADMIN_SESSION_KEY, 'true')
     closeAdminLoginModal()
+    setToastMessage('관리자 모드로 전환되었습니다.')
   }
 
   const handleAppLogin = (e) => {
@@ -1893,6 +1906,26 @@ function App() {
     }
   }
 
+  const handleDocumentExcelDownload = () => {
+    const rows = documents.filter((row) => !row.isDraft).map((row) => ({
+      일자: row.docDate,
+      문서번호: row.docNo,
+      '수신처 또는 발신처': row.senderReceiver,
+      '문서명 또는 제목': row.title,
+      '접수 또는 발송형태': row.method,
+      '수신자 또는 작성자': row.writer,
+      비고: row.note,
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, '문서수발신대장')
+
+    const now = new Date()
+    const filename = `문서수발신대장_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
+    XLSX.writeFile(workbook, filename)
+  }
+
   const handleAddSalesRow = () => {
     if (salesRows.some((row) => row.isDraft) || editingSalesIds.length > 0) {
       alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
@@ -2150,6 +2183,10 @@ function App() {
   }
 
   const handleAddBudgetRow = () => {
+    if (budgetRows.some((row) => row.isDraft) || editingBudgetIds.length > 0) {
+      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+      return
+    }
     setBudgetRows((prev) => [createBudgetDraftRow(), ...prev])
     setSelectedBudgetIds([])
   }
@@ -2168,7 +2205,109 @@ function App() {
   }
 
   const startBudgetEdit = (rowId) => {
-    setEditingBudgetIds((prev) => (prev.includes(rowId) ? prev : [...prev, rowId]))
+    const targetRow = budgetRows.find((row) => row.id === rowId)
+    if (!targetRow || targetRow.isDraft) return
+    if (budgetRows.some((row) => row.isDraft) || (editingBudgetIds.length > 0 && !editingBudgetIds.includes(rowId))) {
+      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+      return
+    }
+
+    setBudgetEditSnapshots((prev) =>
+      prev[rowId]
+        ? prev
+        : {
+            ...prev,
+            [rowId]: { ...targetRow },
+          }
+    )
+    setEditingBudgetIds([rowId])
+  }
+
+  const cancelBudgetRow = (rowId) => {
+    const targetRow = budgetRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (targetRow.isDraft) {
+      setBudgetRows((prev) => prev.filter((row) => row.id !== rowId))
+      return
+    }
+
+    setBudgetRows((prev) =>
+      prev.map((row) => (row.id === rowId ? budgetEditSnapshots[rowId] ?? row : row))
+    )
+    setEditingBudgetIds((prev) => prev.filter((id) => id !== rowId))
+    setBudgetEditSnapshots((prev) => removeObjectKey(prev, rowId))
+  }
+
+  const deleteBudgetRow = async (rowId) => {
+    const targetRow = budgetRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (targetRow.isDraft) {
+      setBudgetRows((prev) => prev.filter((row) => row.id !== rowId))
+      return
+    }
+
+    const ok = window.confirm('이 본예산 진행정보 항목을 삭제하시겠습니까?')
+    if (!ok) return
+
+    const { error } = await supabase.from('budget_progress').delete().eq('id', rowId)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setEditingBudgetIds((prev) => prev.filter((id) => id !== rowId))
+    setBudgetEditSnapshots((prev) => removeObjectKey(prev, rowId))
+    await fetchBudgetRows(false)
+  }
+
+  const saveBudgetRow = async (rowId) => {
+    const targetRow = budgetRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (isBudgetRowEmpty(targetRow)) {
+      alert('입력 내용을 확인해주세요.')
+      return
+    }
+
+    setIsSavingBudget(true)
+
+    try {
+      const timestamp = new Date().toISOString()
+
+      if (targetRow.isDraft) {
+        const { error } = await supabase.from('budget_progress').insert([
+          {
+            ...toBudgetPayload(targetRow, timestamp),
+            createdAt: timestamp,
+          },
+        ])
+
+        if (error) {
+          alert(error.message)
+          return
+        }
+      } else {
+        const { error } = await supabase
+          .from('budget_progress')
+          .update(toBudgetPayload(targetRow, timestamp))
+          .eq('id', rowId)
+
+        if (error) {
+          alert(error.message)
+          return
+        }
+      }
+
+      await fetchBudgetRows(false)
+      setEditingBudgetIds((prev) => prev.filter((id) => id !== rowId))
+      setBudgetEditSnapshots((prev) => removeObjectKey(prev, rowId))
+      alert('저장되었습니다.')
+    } finally {
+      setIsSavingBudget(false)
+    }
   }
 
   const toggleBudgetSelection = (rowId) => {
@@ -2798,7 +2937,7 @@ function App() {
     const rows = filteredExcludedRows.filter((row) => !row.isDraft).map((row) => ({
       순번: row.orderNo,
       작성일: row.writeDate,
-      공개일시: row.openDate,
+      공개일: row.openDate,
       구분: row.category,
       검색어: row.keyword,
       작성자: row.writer,
@@ -3336,6 +3475,8 @@ function App() {
           <h1>{PAGE_TITLE_MAP[menu]}</h1>
         </div>
 
+        {toastMessage && <div className="mode-toast">{toastMessage}</div>}
+
         {showSessionWarning && (
           <div
             style={{
@@ -3581,7 +3722,7 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll">
-                <table className="contract-table excel-table">
+                <table className="contract-table excel-table registry-table">
                   <thead>
                     <tr>
                       <th className="col-action th-align-center">작업</th>
@@ -3904,7 +4045,7 @@ function App() {
 
                         return (
                           <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
-                            <td className="td-align-center">
+                            <td className="td-align-center registry-action-cell">
                               {renderRegistryRowActions({
                                 row,
                                 isEditing,
@@ -3927,6 +4068,11 @@ function App() {
                                     : 'td-align-center'
                                 } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
                                 style={{ width: column.width }}
+                                onClick={() => {
+                                  if (!isEditing && !row.isDraft) {
+                                    startSalesEdit(row.id)
+                                  }
+                                }}
                               >
                                 {isEditing ? (
                                   renderRegistryEditor(row, column, handleSalesCellChange)
@@ -3972,30 +4118,6 @@ function App() {
                 추가
               </button>
 
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={saveBudgetRows}
-                disabled={isSavingBudget}
-                style={isSavingBudget ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
-              >
-                {isSavingBudget ? '저장 중...' : '저장'}
-              </button>
-
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={deleteSelectedBudgetRows}
-                disabled={selectedBudgetIds.length === 0}
-                style={
-                  selectedBudgetIds.length === 0
-                    ? { opacity: 0.55, cursor: 'not-allowed' }
-                    : undefined
-                }
-              >
-                삭제
-              </button>
-
               <select
                 className="contract-filter-select"
                 value={budgetFilters.manager}
@@ -4035,14 +4157,14 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll">
-                <table className="contract-table excel-table">
+                <table className="contract-table excel-table registry-table">
                   <thead>
                     <tr>
                       <th
-                        className="th-align-center"
-                        style={{ width: 64, position: 'sticky', top: 0, zIndex: 6 }}
+                        className="th-align-center registry-action-header"
+                        style={{ width: 88, position: 'sticky', top: 0, zIndex: 6 }}
                       >
-                        선택
+                        작업
                       </th>
                       {BUDGET_COLUMNS.map((column) => (
                         <th
@@ -4076,109 +4198,69 @@ function App() {
                         </td>
                       </tr>
                     ) : (
-                      filteredBudgetRows.map((row, index) => (
-                        <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
-                          <td className="td-align-center">
-                            <input
-                              type="checkbox"
-                              checked={selectedBudgetIds.includes(row.id)}
-                              onChange={() => toggleBudgetSelection(row.id)}
-                              style={{ width: 16, height: 16 }}
-                            />
-                          </td>
+                      filteredBudgetRows.map((row, index) => {
+                        const isEditing = row.isDraft || editingBudgetIds.includes(row.id)
 
-                          {BUDGET_COLUMNS.map((column) => (
-                            <td
-                              key={column.key}
-                              className={`${
-                                column.align === 'right'
-                                  ? 'td-align-right'
-                                  : column.align === 'left'
-                                  ? 'td-align-left'
-                                  : 'td-align-center'
-                              } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
-                              style={{ width: column.width }}
-                              onClick={() => {
-                                if (!row.isDraft && !editingBudgetIds.includes(row.id)) {
-                                  startBudgetEdit(row.id)
-                                }
-                              }}
-                            >
-                              {row.isDraft || editingBudgetIds.includes(row.id) ? (
-                                column.type === 'textarea' ? (
-                                  <textarea
-                                    className={`inline-row-editor cell-inline-editor ${
-                                      column.align === 'right' ? 'align-right' : ''
-                                    }`}
-                                    rows={1}
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleBudgetCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                ) : column.type === 'date' ? (
-                                  <input
-                                    className="inline-row-editor cell-inline-editor"
-                                    type="date"
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleBudgetCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                ) : column.type === 'select' ? (
-                                  <select
-                                    className="inline-row-editor cell-inline-editor"
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleBudgetCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  >
-                                    <option value="">선택</option>
-                                    {column.options.map((option) => (
-                                      <option key={option} value={option}>
-                                        {option}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    className={`inline-row-editor cell-inline-editor ${
-                                      column.align === 'right' ? 'align-right' : ''
-                                    }`}
-                                    type="text"
-                                    value={row[column.key] ?? ''}
-                                    onChange={(e) =>
-                                      handleBudgetCellChange(row.id, column.key, e.target.value)
-                                    }
-                                  />
-                                )
-                              ) : (
-                                <div
-                                  className="cell-display"
-                                  style={{
-                                    whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
-                                    cursor: 'text',
-                                  }}
-                                >
-                                  {column.key === 'budgetAmount' ? (
-                                    formatAmountDisplay(row[column.key]) || '-'
-                                  ) : column.key === 'projectStage' ? (
-                                    safeString(row[column.key]).trim() ? (
-                                      <span className={getSalesStageClassName(row[column.key])}>
-                                        {row[column.key]}
-                                      </span>
-                                    ) : (
-                                      '-'
-                                    )
-                                  ) : (
-                                    safeString(row[column.key]).trim() || '-'
-                                  )}
-                                </div>
-                              )}
+                        return (
+                          <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                            <td className="td-align-center registry-action-cell">
+                              {renderRegistryRowActions({
+                                row,
+                                isEditing,
+                                onEdit: () => startBudgetEdit(row.id),
+                                onDelete: () => deleteBudgetRow(row.id),
+                                onSave: () => saveBudgetRow(row.id),
+                                onCancel: () => cancelBudgetRow(row.id),
+                                isSaving: isSavingBudget,
+                              })}
                             </td>
-                          ))}
-                        </tr>
-                      ))
+
+                            {BUDGET_COLUMNS.map((column) => (
+                              <td
+                                key={column.key}
+                                className={`${
+                                  column.align === 'right'
+                                    ? 'td-align-right'
+                                    : column.align === 'left'
+                                    ? 'td-align-left'
+                                    : 'td-align-center'
+                                } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
+                                style={{ width: column.width }}
+                                onClick={() => {
+                                  if (!isEditing && !row.isDraft) {
+                                    startBudgetEdit(row.id)
+                                  }
+                                }}
+                              >
+                                {isEditing ? (
+                                  renderRegistryEditor(row, column, handleBudgetCellChange)
+                                ) : (
+                                  <div
+                                    className="cell-display"
+                                    style={{
+                                      whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
+                                    }}
+                                  >
+                                    {column.key === 'budgetAmount' ? (
+                                      formatAmountDisplay(row[column.key]) || '-'
+                                    ) : column.key === 'projectStage' ? (
+                                      safeString(row[column.key]).trim() ? (
+                                        <span className={getSalesStageClassName(row[column.key])}>
+                                          {row[column.key]}
+                                        </span>
+                                      ) : (
+                                        '-'
+                                      )
+                                    ) : (
+                                      safeString(row[column.key]).trim() || '-'
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        )
+                      })
                     )}
                   </tbody>
                 </table>
@@ -4233,7 +4315,7 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll">
-                <table className="contract-table excel-table">
+                <table className="contract-table excel-table registry-table">
                   <thead>
                     <tr>
                       <th
@@ -4279,7 +4361,7 @@ function App() {
 
                         return (
                           <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
-                            <td className="td-align-center">
+                            <td className="td-align-center registry-action-cell">
                               {renderRegistryRowActions({
                                 row,
                                 isEditing,
@@ -4302,6 +4384,11 @@ function App() {
                                     : 'td-align-center'
                                 } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
                                 style={{ width: column.width }}
+                                onClick={() => {
+                                  if (!isEditing && !row.isDraft) {
+                                    startDiscoveryEdit(row.id)
+                                  }
+                                }}
                               >
                                 {isEditing ? (
                                   renderRegistryEditor(row, column, handleDiscoveryCellChange)
@@ -4379,22 +4466,6 @@ function App() {
                 ))}
               </select>
 
-              <select
-                className="contract-filter-select"
-                value={excludedFilters.writer}
-                onChange={(e) =>
-                  setExcludedFilters((prev) => ({ ...prev, writer: e.target.value }))
-                }
-                style={{ width: 132 }}
-              >
-                <option value="">작성자</option>
-                {EXCLUDED_WRITER_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-
               <button className="secondary-btn" type="button" onClick={handleExcludedExcelDownload}>
                 엑셀 다운로드
               </button>
@@ -4402,7 +4473,7 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll">
-                <table className="contract-table excel-table">
+                <table className="contract-table excel-table registry-table">
                   <thead>
                     <tr>
                       <th
@@ -4448,7 +4519,7 @@ function App() {
 
                         return (
                           <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
-                            <td className="td-align-center">
+                            <td className="td-align-center registry-action-cell">
                               {renderRegistryRowActions({
                                 row,
                                 isEditing,
@@ -4471,6 +4542,11 @@ function App() {
                                     : 'td-align-center'
                                 } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
                                 style={{ width: column.width }}
+                                onClick={() => {
+                                  if (!isEditing && !row.isDraft) {
+                                    startExcludedEdit(row.id)
+                                  }
+                                }}
                               >
                                 {isEditing ? (
                                   renderRegistryEditor(row, column, handleExcludedCellChange)
@@ -4494,14 +4570,6 @@ function App() {
                                     ) : column.key === 'keyword' ? (
                                       safeString(row[column.key]).trim() ? (
                                         <span style={getExcludedBadgeStyle(EXCLUDED_KEYWORD_TONE_MAP, row[column.key])}>
-                                          {row[column.key]}
-                                        </span>
-                                      ) : (
-                                        '-'
-                                      )
-                                    ) : column.key === 'writer' ? (
-                                      safeString(row[column.key]).trim() ? (
-                                        <span style={getExcludedBadgeStyle(EXCLUDED_WRITER_TONE_MAP, row[column.key])}>
                                           {row[column.key]}
                                         </span>
                                       ) : (
@@ -4581,6 +4649,9 @@ function App() {
               <button className="primary-btn" type="button" onClick={handleAddDocumentRow}>
                 추가
               </button>
+              <button className="secondary-btn" type="button" onClick={handleDocumentExcelDownload}>
+                엑셀 다운로드
+              </button>
             </div>
 
             <div className="contract-table-panel">
@@ -4622,7 +4693,7 @@ function App() {
 
                         return (
                           <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
-                            <td className="td-align-center">
+                            <td className="td-align-center registry-action-cell">
                               {renderRegistryRowActions({
                                 row,
                                 isEditing,
@@ -4645,6 +4716,11 @@ function App() {
                                     : 'td-align-center'
                                 } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
                                 style={column.width ? { width: column.width } : undefined}
+                                onClick={() => {
+                                  if (!isEditing && !row.isDraft) {
+                                    startDocumentEdit(row.id)
+                                  }
+                                }}
                               >
                                 {isEditing ? (
                                   renderRegistryEditor(row, column, handleDocumentCellChange)

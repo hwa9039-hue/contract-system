@@ -2464,3 +2464,41 @@ textarea:focus-visible {
   width: min(420px, 100%);
 }
 
+.registry-table thead th {
+  min-height: 44px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  background: #f8fbff !important;
+  color: #334155;
+  font-weight: 800;
+  border-bottom: 1px solid #dbe6f5;
+}
+
+.registry-action-header {
+  color: #334155;
+  font-weight: 800;
+}
+
+.registry-action-cell {
+  background: #fbfdff;
+}
+
+.mode-toast {
+  position: fixed;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  min-width: 240px;
+  max-width: min(88vw, 420px);
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid #cfe0ff;
+  background: rgba(248, 251, 255, 0.98);
+  color: #1f4fd1;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.16);
+}
+
