@@ -2322,3 +2322,29 @@ textarea:focus-visible {
   border-color: #bbf7d0;
 }
 
+.discovery-category-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.discovery-category-badge.discovery-long {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.discovery-category-badge.discovery-short {
+  background: #ecfdf3;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+

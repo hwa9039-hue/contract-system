@@ -44,6 +44,10 @@ const SALES_STAGE_TONE_MAP = {
   사전규격: { className: 'sales-stage-badge stage-green', optionStyle: { backgroundColor: '#ecfdf3', color: '#166534' } },
   입찰공고: { className: 'sales-stage-badge stage-green', optionStyle: { backgroundColor: '#ecfdf3', color: '#166534' } },
 }
+const DISCOVERY_CATEGORY_TONE_MAP = {
+  '장기 사업': 'discovery-category-badge discovery-long',
+  '단기 사업': 'discovery-category-badge discovery-short',
+}
 
 const SALES_COLUMNS = [
   { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 128 },
@@ -70,6 +74,21 @@ const BUDGET_COLUMNS = [
   { key: 'department', label: '담당부서', align: 'center', type: 'text', width: 128 },
   { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 260 },
   { key: 'salesMatch', label: '영업매칭', align: 'left', type: 'text', width: 180 },
+  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 240 },
+]
+
+const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
+const DISCOVERY_COLUMNS = [
+  { key: 'permitDate', label: '건축허가일자', align: 'center', type: 'date', width: 132 },
+  { key: 'checkStatus', label: '확인', align: 'center', type: 'text', width: 96 },
+  { key: 'salesTarget', label: '영업처', align: 'center', type: 'text', width: 140 },
+  { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: DISCOVERY_CATEGORY_OPTIONS, width: 118 },
+  { key: 'localGov', label: '지자체명', align: 'center', type: 'text', width: 160 },
+  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 170 },
+  { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 220 },
+  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 140 },
+  { key: 'completionPeriod', label: '준공시기', align: 'center', type: 'text', width: 140 },
+  { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_MANAGER_OPTIONS, width: 132 },
   { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 240 },
 ]
 
@@ -160,6 +179,26 @@ function createBudgetDraftRow() {
     department: '',
     detail: '',
     salesMatch: '',
+    note: '',
+    createdAt: '',
+    updatedAt: '',
+    isDraft: true,
+  }
+}
+
+function createDiscoveryDraftRow() {
+  return {
+    id: `discovery-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    permitDate: '',
+    checkStatus: '',
+    salesTarget: '',
+    projectCategory: '',
+    localGov: '',
+    client: '',
+    projectName: '',
+    projectAmount: '',
+    completionPeriod: '',
+    manager: '',
     note: '',
     createdAt: '',
     updatedAt: '',
@@ -531,12 +570,59 @@ function toBudgetPayload(row, timestamp) {
   }
 }
 
+function normalizeDiscoveryRow(item) {
+  return {
+    id: safeString(item.id),
+    permitDate: safeString(item.permitDate ?? item.permitdate),
+    checkStatus: safeString(item.checkStatus ?? item.checkstatus),
+    salesTarget: safeString(item.salesTarget ?? item.salestarget),
+    projectCategory: safeString(item.projectCategory ?? item.projectcategory),
+    localGov: safeString(item.localGov ?? item.localgov),
+    client: safeString(item.client),
+    projectName: safeString(item.projectName ?? item.projectname),
+    projectAmount: safeString(item.projectAmount ?? item.projectamount),
+    completionPeriod: safeString(item.completionPeriod ?? item.completionperiod),
+    manager: safeString(item.manager),
+    note: safeString(item.note),
+    createdAt: safeString(item.createdAt ?? item.createdat),
+    updatedAt: safeString(item.updatedAt ?? item.updatedat),
+    isDraft: false,
+  }
+}
+
+function isDiscoveryRowEmpty(row) {
+  return DISCOVERY_COLUMNS.every((column) => safeString(row[column.key]).trim() === '')
+}
+
+function toDiscoveryPayload(row, timestamp) {
+  return {
+    permitDate: toDbDate(row.permitDate),
+    checkStatus: safeString(row.checkStatus).trim(),
+    salesTarget: safeString(row.salesTarget).trim(),
+    projectCategory: safeString(row.projectCategory).trim(),
+    localGov: safeString(row.localGov).trim(),
+    client: safeString(row.client).trim(),
+    projectName: safeString(row.projectName).trim(),
+    projectAmount: parseAmount(row.projectAmount),
+    completionPeriod: safeString(row.completionPeriod).trim(),
+    manager: safeString(row.manager).trim(),
+    note: safeString(row.note).trim(),
+    updatedAt: timestamp,
+  }
+}
+
 function getSalesStageClassName(stage) {
   return SALES_STAGE_TONE_MAP[safeString(stage).trim()]?.className || 'sales-stage-badge'
 }
 
 function getSalesStageOptionStyle(stage) {
   return undefined
+}
+
+function getDiscoveryCategoryClassName(category) {
+  return (
+    DISCOVERY_CATEGORY_TONE_MAP[safeString(category).trim()] || 'discovery-category-badge'
+  )
 }
 
 function getDdayText(dateString) {
@@ -619,6 +705,7 @@ function App() {
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
   const [budgetRows, setBudgetRows] = useState([])
+  const [discoveryRows, setDiscoveryRows] = useState([])
   const [menu, setMenu] = useState('dashboard')
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
@@ -638,6 +725,13 @@ function App() {
   const [isSavingBudget, setIsSavingBudget] = useState(false)
   const [budgetFilters, setBudgetFilters] = useState({
     projectStage: '',
+  })
+  const [selectedDiscoveryIds, setSelectedDiscoveryIds] = useState([])
+  const [editingDiscoveryIds, setEditingDiscoveryIds] = useState([])
+  const [isSavingDiscovery, setIsSavingDiscovery] = useState(false)
+  const [discoveryFilters, setDiscoveryFilters] = useState({
+    manager: '',
+    projectCategory: '',
   })
   const [manualEvents, setManualEvents] = useState(() => {
     const saved = localStorage.getItem(CALENDAR_STORAGE_KEY)
@@ -762,6 +856,24 @@ function App() {
     setSelectedBudgetIds([])
   }
 
+  const fetchDiscoveryRows = async (preserveDrafts = true) => {
+    const { data, error } = await supabase
+      .from('project_discovery')
+      .select('*')
+      .order('createdAt', { ascending: false })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setDiscoveryRows((prev) => {
+      const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
+      return [...draftRows, ...(data ?? []).map(normalizeDiscoveryRow)]
+    })
+    setSelectedDiscoveryIds([])
+  }
+
   const saveContractToSupabase = async (formData) => {
     const payload = normalizeContractForSupabase(formData)
 
@@ -794,6 +906,12 @@ function App() {
   useEffect(() => {
     if (menu === 'budget') {
       fetchBudgetRows(true)
+    }
+  }, [menu])
+
+  useEffect(() => {
+    if (menu === 'discovery') {
+      fetchDiscoveryRows(true)
     }
   }, [menu])
 
@@ -937,6 +1055,16 @@ function App() {
       return !budgetFilters.projectStage || row.projectStage === budgetFilters.projectStage
     })
   }, [budgetFilters.projectStage, budgetRows])
+
+  const filteredDiscoveryRows = useMemo(() => {
+    return discoveryRows.filter((row) => {
+      const managerMatch = !discoveryFilters.manager || row.manager === discoveryFilters.manager
+      const categoryMatch =
+        !discoveryFilters.projectCategory ||
+        row.projectCategory === discoveryFilters.projectCategory
+      return managerMatch && categoryMatch
+    })
+  }, [discoveryFilters.manager, discoveryFilters.projectCategory, discoveryRows])
 
   const dashboardSummary = useMemo(() => buildDashboardSummary(contracts), [contracts])
   const defaultDashboardYear = dashboardSummary.years[0]?.year
@@ -1727,6 +1855,157 @@ function App() {
     XLSX.writeFile(workbook, filename)
   }
 
+  const handleAddDiscoveryRow = () => {
+    setDiscoveryRows((prev) => [createDiscoveryDraftRow(), ...prev])
+    setSelectedDiscoveryIds([])
+  }
+
+  const handleDiscoveryCellChange = (rowId, key, value) => {
+    setDiscoveryRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              [key]: key === 'projectAmount' ? formatAmount(value) : value,
+            }
+          : row
+      )
+    )
+  }
+
+  const startDiscoveryEdit = (rowId) => {
+    setEditingDiscoveryIds((prev) => (prev.includes(rowId) ? prev : [...prev, rowId]))
+  }
+
+  const toggleDiscoverySelection = (rowId) => {
+    setSelectedDiscoveryIds((prev) =>
+      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
+    )
+  }
+
+  const deleteSelectedDiscoveryRows = async () => {
+    if (selectedDiscoveryIds.length === 0) {
+      alert('삭제할 행을 선택하세요.')
+      return
+    }
+
+    const ok = window.confirm('선택한 사업 발굴정보 행을 삭제하시겠습니까?')
+    if (!ok) return
+
+    const persistedIds = discoveryRows
+      .filter((row) => selectedDiscoveryIds.includes(row.id) && !row.isDraft)
+      .map((row) => row.id)
+
+    if (persistedIds.length > 0) {
+      const remainingDrafts = discoveryRows.filter(
+        (row) => row.isDraft && !selectedDiscoveryIds.includes(row.id)
+      )
+      const { error } = await supabase.from('project_discovery').delete().in('id', persistedIds)
+
+      if (error) {
+        alert(error.message)
+        return
+      }
+
+      setDiscoveryRows(remainingDrafts)
+      setEditingDiscoveryIds((prev) => prev.filter((id) => !selectedDiscoveryIds.includes(id)))
+      await fetchDiscoveryRows(true)
+      return
+    }
+
+    setDiscoveryRows((prev) => prev.filter((row) => !selectedDiscoveryIds.includes(row.id)))
+    setSelectedDiscoveryIds([])
+    setEditingDiscoveryIds((prev) => prev.filter((id) => !selectedDiscoveryIds.includes(id)))
+  }
+
+  const saveDiscoveryRows = async () => {
+    const rowsToInsert = discoveryRows.filter((row) => row.isDraft && !isDiscoveryRowEmpty(row))
+    const rowsToUpdate = discoveryRows.filter(
+      (row) => !row.isDraft && editingDiscoveryIds.includes(row.id)
+    )
+    const hasEmptyDraftRows = discoveryRows.some((row) => row.isDraft && isDiscoveryRowEmpty(row))
+
+    if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && !hasEmptyDraftRows) {
+      alert('저장할 행이 없습니다.')
+      return
+    }
+
+    setIsSavingDiscovery(true)
+
+    try {
+      const timestamp = new Date().toISOString()
+
+      if (rowsToInsert.length > 0) {
+        const insertPayload = rowsToInsert.map((row) => ({
+          ...toDiscoveryPayload(row, timestamp),
+          createdAt: timestamp,
+        }))
+
+        const { error } = await supabase.from('project_discovery').insert(insertPayload)
+        if (error) {
+          alert(error.message)
+          return
+        }
+      }
+
+      if (rowsToUpdate.length > 0) {
+        const updateResults = await Promise.all(
+          rowsToUpdate.map((row) =>
+            supabase
+              .from('project_discovery')
+              .update(toDiscoveryPayload(row, timestamp))
+              .eq('id', row.id)
+          )
+        )
+
+        const failedUpdate = updateResults.find((result) => result.error)
+        if (failedUpdate?.error) {
+          alert(failedUpdate.error.message)
+          return
+        }
+      }
+
+      if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && hasEmptyDraftRows) {
+        setDiscoveryRows((prev) => prev.filter((row) => !(row.isDraft && isDiscoveryRowEmpty(row))))
+        setSelectedDiscoveryIds([])
+        setEditingDiscoveryIds([])
+        alert('저장되었습니다.')
+        return
+      }
+
+      await fetchDiscoveryRows(false)
+      setSelectedDiscoveryIds([])
+      setEditingDiscoveryIds([])
+      alert('저장되었습니다.')
+    } finally {
+      setIsSavingDiscovery(false)
+    }
+  }
+
+  const handleDiscoveryExcelDownload = () => {
+    const rows = filteredDiscoveryRows.map((row) => ({
+      건축허가일자: row.permitDate,
+      확인: row.checkStatus,
+      영업처: row.salesTarget,
+      사업구분: row.projectCategory,
+      지자체명: row.localGov,
+      발주처: row.client,
+      사업명: row.projectName,
+      사업금액: formatAmountDisplay(row.projectAmount),
+      준공시기: row.completionPeriod,
+      담당자: row.manager,
+      비고: row.note,
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, '사업 발굴정보')
+
+    const now = new Date()
+    const filename = `사업_발굴정보_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
+    XLSX.writeFile(workbook, filename)
+  }
+
   const openAddRow = () => {
     if (!requireAdmin()) return
     setIsAddingRow(true)
@@ -2111,6 +2390,13 @@ function App() {
             </button>
 
             <button
+              className={menu === 'discovery' ? 'menu-btn active' : 'menu-btn'}
+              onClick={() => setMenu('discovery')}
+            >
+              사업 발굴정보
+            </button>
+
+            <button
               className={menu === 'documents' ? 'menu-btn active' : 'menu-btn'}
               onClick={() => setMenu('documents')}
             >
@@ -2149,7 +2435,7 @@ function App() {
                 justifyContent: 'flex-end',
               }}
             >
-              <span className="top-system-subtitle">계약현황 · 일정관리 · 영업관리대장 · 본예산 진행정보 · 문서수발신대장</span>
+              <span className="top-system-subtitle">계약현황 · 일정관리 · 영업관리대장 · 본예산 진행정보 · 사업 발굴정보 · 문서수발신대장</span>
               <span
                 style={{
                   display: 'inline-flex',
@@ -2185,6 +2471,7 @@ function App() {
             {menu === 'calendar' && '캘린더'}
             {menu === 'sales' && '영업관리대장'}
             {menu === 'budget' && '본예산 진행정보'}
+            {menu === 'discovery' && '사업 발굴정보'}
             {menu === 'documents' && '문서수발신대장'}
           </h1>
         </div>
@@ -3055,6 +3342,228 @@ function App() {
                                   ) : column.key === 'projectStage' ? (
                                     safeString(row[column.key]).trim() ? (
                                       <span className={getSalesStageClassName(row[column.key])}>
+                                        {row[column.key]}
+                                      </span>
+                                    ) : (
+                                      '-'
+                                    )
+                                  ) : (
+                                    safeString(row[column.key]).trim() || '-'
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {menu === 'discovery' && (
+          <section className="stat-card">
+            <div className="contracts-header-actions">
+              <button className="primary-btn" type="button" onClick={handleAddDiscoveryRow}>
+                추가
+              </button>
+
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={saveDiscoveryRows}
+                disabled={isSavingDiscovery}
+                style={isSavingDiscovery ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+              >
+                {isSavingDiscovery ? '저장 중...' : '저장'}
+              </button>
+
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={deleteSelectedDiscoveryRows}
+                disabled={selectedDiscoveryIds.length === 0}
+                style={
+                  selectedDiscoveryIds.length === 0
+                    ? { opacity: 0.55, cursor: 'not-allowed' }
+                    : undefined
+                }
+              >
+                삭제
+              </button>
+
+              <select
+                className="contract-filter-select"
+                value={discoveryFilters.manager}
+                onChange={(e) =>
+                  setDiscoveryFilters((prev) => ({ ...prev, manager: e.target.value }))
+                }
+                style={{ width: 150 }}
+              >
+                <option value="">담당자</option>
+                {SALES_MANAGER_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="contract-filter-select"
+                value={discoveryFilters.projectCategory}
+                onChange={(e) =>
+                  setDiscoveryFilters((prev) => ({ ...prev, projectCategory: e.target.value }))
+                }
+                style={{ width: 132 }}
+              >
+                <option value="">사업구분</option>
+                {DISCOVERY_CATEGORY_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+
+              <button className="secondary-btn" type="button" onClick={handleDiscoveryExcelDownload}>
+                엑셀 다운로드
+              </button>
+            </div>
+
+            <div className="contract-table-panel">
+              <div className="table-wrap contracts-only-scroll">
+                <table className="contract-table excel-table">
+                  <thead>
+                    <tr>
+                      <th
+                        className="th-align-center"
+                        style={{ width: 64, position: 'sticky', top: 0, zIndex: 6 }}
+                      >
+                        선택
+                      </th>
+                      {DISCOVERY_COLUMNS.map((column) => (
+                        <th
+                          key={column.key}
+                          className={
+                            column.align === 'right'
+                              ? 'th-align-right'
+                              : column.align === 'left'
+                              ? 'th-align-left'
+                              : 'th-align-center'
+                          }
+                          style={{
+                            width: column.width,
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 6,
+                            background: '#f8fbff',
+                          }}
+                        >
+                          {column.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {filteredDiscoveryRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={DISCOVERY_COLUMNS.length + 1} className="empty-cell">
+                          등록된 사업 발굴정보가 없습니다.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredDiscoveryRows.map((row, index) => (
+                        <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                          <td className="td-align-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedDiscoveryIds.includes(row.id)}
+                              onChange={() => toggleDiscoverySelection(row.id)}
+                              style={{ width: 16, height: 16 }}
+                            />
+                          </td>
+
+                          {DISCOVERY_COLUMNS.map((column) => (
+                            <td
+                              key={column.key}
+                              className={`${
+                                column.align === 'right'
+                                  ? 'td-align-right'
+                                  : column.align === 'left'
+                                  ? 'td-align-left'
+                                  : 'td-align-center'
+                              } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
+                              style={{ width: column.width }}
+                              onClick={() => {
+                                if (!row.isDraft && !editingDiscoveryIds.includes(row.id)) {
+                                  startDiscoveryEdit(row.id)
+                                }
+                              }}
+                            >
+                              {row.isDraft || editingDiscoveryIds.includes(row.id) ? (
+                                column.type === 'textarea' ? (
+                                  <textarea
+                                    className={`inline-row-editor cell-inline-editor ${
+                                      column.align === 'right' ? 'align-right' : ''
+                                    }`}
+                                    rows={1}
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleDiscoveryCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                ) : column.type === 'date' ? (
+                                  <input
+                                    className="inline-row-editor cell-inline-editor"
+                                    type="date"
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleDiscoveryCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                ) : column.type === 'select' ? (
+                                  <select
+                                    className="inline-row-editor cell-inline-editor"
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleDiscoveryCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  >
+                                    <option value="">선택</option>
+                                    {column.options.map((option) => (
+                                      <option key={option} value={option}>
+                                        {option}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    className={`inline-row-editor cell-inline-editor ${
+                                      column.align === 'right' ? 'align-right' : ''
+                                    }`}
+                                    type="text"
+                                    value={row[column.key] ?? ''}
+                                    onChange={(e) =>
+                                      handleDiscoveryCellChange(row.id, column.key, e.target.value)
+                                    }
+                                  />
+                                )
+                              ) : (
+                                <div
+                                  className="cell-display"
+                                  style={{
+                                    whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
+                                    cursor: 'text',
+                                  }}
+                                >
+                                  {column.key === 'projectAmount' ? (
+                                    formatAmountDisplay(row[column.key]) || '-'
+                                  ) : column.key === 'projectCategory' ? (
+                                    safeString(row[column.key]).trim() ? (
+                                      <span className={getDiscoveryCategoryClassName(row[column.key])}>
                                         {row[column.key]}
                                       </span>
                                     ) : (
