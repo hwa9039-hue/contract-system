@@ -3086,14 +3086,14 @@ textarea:focus-visible {
 
 .work-report-week-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(300px, 1fr));
+  grid-template-columns: repeat(7, minmax(360px, 1fr));
   gap: 10px;
   overflow-x: auto;
   align-items: start;
 }
 
 .work-report-day-board-dense {
-  min-width: 300px;
+  min-width: 360px;
   background: #f8fafc;
 }
 
@@ -3118,6 +3118,10 @@ textarea:focus-visible {
   line-height: 1.2;
 }
 
+.work-report-board-section-blue .work-report-board-section-title {
+  background: #2c6cbf;
+}
+
 .work-report-board-table {
   display: flex;
   flex-direction: column;
@@ -3126,12 +3130,12 @@ textarea:focus-visible {
 .work-report-board-header-row,
 .work-report-board-row {
   display: grid;
-  grid-template-columns: 30px 96px minmax(0, 1fr);
+  grid-template-columns: 30px 110px minmax(220px, 1fr);
 }
 
 .work-report-board-header-row-external,
 .work-report-board-row-external {
-  grid-template-columns: 30px 96px minmax(0, 1fr) 94px;
+  grid-template-columns: 30px 110px minmax(220px, 1fr) 116px;
 }
 
 .work-report-board-header-row {
@@ -3185,7 +3189,7 @@ textarea:focus-visible {
 .work-report-board-select {
   width: 100%;
   min-height: 100%;
-  padding: 8px 6px;
+  padding: 8px 8px;
   border: 0;
   border-right: 1px solid #dbe4ee;
   border-radius: 0;
@@ -3249,36 +3253,8 @@ textarea:focus-visible {
   color: #334155;
 }
 
-.work-report-board-support-row {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-}
-
-.work-report-board-support-number {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  border-right: 1px solid #dbe4ee;
-  background: #f8fafc;
-}
-
-.work-report-board-support-number span {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 30px;
-  border-bottom: 1px solid #e5ebf2;
-  font-size: 11px;
-  font-weight: 700;
-  color: #64748b;
-}
-
-.work-report-board-support-number span:last-child {
-  border-bottom: none;
-}
-
-.work-report-board-textarea-support {
-  min-height: 120px;
+.work-report-board-textarea-support-line {
+  min-height: 44px;
   border-right: none;
 }
 

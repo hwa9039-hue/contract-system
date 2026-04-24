@@ -156,8 +156,12 @@ const WORK_REPORT_WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '�
 const WORK_REPORT_MAIN_CHECK_COUNT = 5
 const WORK_REPORT_EXTERNAL_ROW_COUNT = 5
 const WORK_REPORT_DI_ROW_COUNT = 4
-const WORK_REPORT_ROAD_ROW_COUNT = 4
-const WORK_REPORT_SUPPORT_NUMBER_GUIDE = ['1', '2', '3', '4']
+const WORK_REPORT_ROAD_ROW_COUNT = 2
+const WORK_REPORT_SUPPORT_ITEM_COUNT = 10
+const WORK_REPORT_SUPPORT_NUMBER_GUIDE = Array.from(
+  { length: WORK_REPORT_SUPPORT_ITEM_COUNT },
+  (_, index) => String(index + 1)
+)
 const WORK_REPORT_MANAGER_OPTIONS = [
   '전기웅 이사',
   '유영무 부장',
@@ -3670,8 +3674,28 @@ function App() {
           return `<li>${escapeHtml(entry.content || '') || '&nbsp;'}</li>`
         }).join('')
 
-        const supportProgress = getWorkReportBoardEntry(day.date, WORK_REPORT_SECTION_KEYS.supportProgress, 1)
-        const supportDone = getWorkReportBoardEntry(day.date, WORK_REPORT_SECTION_KEYS.supportDone, 1)
+        const supportProgressRows = Array.from(
+          { length: WORK_REPORT_SUPPORT_ITEM_COUNT },
+          (_, index) => `
+            <tr>
+              <td class="pdf-index">${index + 1}</td>
+              <td>${renderPdfText(
+                getWorkReportBoardEntry(day.date, WORK_REPORT_SECTION_KEYS.supportProgress, index + 1).content || '-'
+              )}</td>
+            </tr>
+          `
+        ).join('')
+        const supportDoneRows = Array.from(
+          { length: WORK_REPORT_SUPPORT_ITEM_COUNT },
+          (_, index) => `
+            <tr>
+              <td class="pdf-index">${index + 1}</td>
+              <td>${renderPdfText(
+                getWorkReportBoardEntry(day.date, WORK_REPORT_SECTION_KEYS.supportDone, index + 1).content || '-'
+              )}</td>
+            </tr>
+          `
+        ).join('')
 
         return `
           <section class="pdf-day-card">
@@ -3713,9 +3737,9 @@ function App() {
             <div class="pdf-section">
               <div class="pdf-section-title">영업지원</div>
               <div class="pdf-support-title">진행업무</div>
-              <div class="pdf-support-body">${renderPdfText(supportProgress.content || '-')}</div>
+              <table class="pdf-table pdf-support-table"><tbody>${supportProgressRows}</tbody></table>
               <div class="pdf-support-title">완료업무</div>
-              <div class="pdf-support-body">${renderPdfText(supportDone.content || '-')}</div>
+              <table class="pdf-table pdf-support-table"><tbody>${supportDoneRows}</tbody></table>
             </div>
           </section>
         `
@@ -4269,7 +4293,7 @@ function App() {
   }
 
   const renderWorkReportChecklistSection = (date) => (
-    <section className="work-report-board-section">
+    <section className="work-report-board-section work-report-board-section-blue">
       <div className="work-report-board-section-title">주요 확인사항</div>
       <div className="work-report-board-table">
         {Array.from({ length: WORK_REPORT_MAIN_CHECK_COUNT }, (_, index) => {
@@ -4350,7 +4374,7 @@ function App() {
   )
 
   const renderWorkReportExternalSection = (date) => (
-    <section className="work-report-board-section">
+    <section className="work-report-board-section work-report-board-section-blue">
       <div className="work-report-board-section-title">외부일정</div>
       <div className="work-report-board-table">
         <div className="work-report-board-header-row work-report-board-header-row-external">
@@ -4440,10 +4464,40 @@ function App() {
     <section className="work-report-board-section">
       <div className="work-report-board-section-title">영업지원</div>
       <div className="work-report-board-support-wrap">
-        {renderWorkReportSupportArea(date, '진행업무', WORK_REPORT_SECTION_KEYS.supportProgress)}
-        {renderWorkReportSupportArea(date, '완료업무', WORK_REPORT_SECTION_KEYS.supportDone)}
+        {renderWorkReportSupportAreaList(date, '진행업무', WORK_REPORT_SECTION_KEYS.supportProgress)}
+        {renderWorkReportSupportAreaList(date, '완료업무', WORK_REPORT_SECTION_KEYS.supportDone)}
       </div>
     </section>
+  )
+
+  const renderWorkReportSupportAreaList = (date, title, section) => (
+    <div className="work-report-board-support-block">
+      <div className="work-report-board-support-title">{title}</div>
+      <div className="work-report-board-table">
+        {Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
+          const orderIndex = index + 1
+          const entry = getWorkReportBoardEntry(date, section, orderIndex)
+
+          return (
+            <div
+              key={`${date}-${section}-${orderIndex}`}
+              className="work-report-board-row work-report-board-row-simple"
+              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
+            >
+              <div className="work-report-board-index">{orderIndex}</div>
+              <textarea
+                className="work-report-board-textarea work-report-board-textarea-support-line"
+                value={entry.content}
+                placeholder="?댁슜 ?낅젰"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
+                }
+              />
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 
   const renderWorkReportDayBoard = (day) => (
