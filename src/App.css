@@ -3361,14 +3361,14 @@ textarea:focus-visible {
 }
 
 .work-report-day-head.report-mode {
-  padding: 12px 14px 10px;
+  padding: 10px 12px 8px;
   border-bottom: 1px solid #e2e8f0;
   background: #f8fbff;
 }
 
 .work-report-day-sections.report-mode {
-  gap: 12px;
-  padding: 12px;
+  gap: 10px;
+  padding: 10px;
 }
 
 .work-report-report-section {
@@ -3380,10 +3380,10 @@ textarea:focus-visible {
 
 .work-report-report-section-title,
 .work-report-report-subtitle {
-  padding: 8px 12px;
+  padding: 7px 10px;
   background: #eff6ff;
   color: #1d4ed8;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   border-bottom: 1px solid #dbe5f0;
 }
@@ -3404,7 +3404,7 @@ textarea:focus-visible {
   align-items: start;
   gap: 8px;
   width: 100%;
-  padding: 6px 10px;
+  padding: 4px 8px;
   border: 0;
   border-bottom: 1px solid #eef2f7;
   background: #ffffff;
@@ -3423,17 +3423,18 @@ textarea:focus-visible {
 }
 
 .work-report-report-line-number {
-  padding-top: 3px;
-  font-size: 11px;
+  padding-top: 2px;
+  font-size: 10px;
   font-weight: 800;
   color: #64748b;
 }
 
 .work-report-report-line-text {
   display: block;
-  min-height: 22px;
-  line-height: 1.55;
+  min-height: 20px;
+  line-height: 1.45;
   color: #1f2937;
+  font-size: 12px;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -3470,31 +3471,31 @@ textarea:focus-visible {
 }
 
 .work-report-report-input {
-  min-height: 30px;
-  padding: 5px 8px;
-}
-
-.work-report-report-input.compact {
   min-height: 28px;
   padding: 4px 8px;
 }
 
+.work-report-report-input.compact {
+  min-height: 26px;
+  padding: 3px 8px;
+}
+
 .work-report-report-input.destination {
-  min-height: 36px;
+  min-height: 32px;
 }
 
 .work-report-report-textarea {
-  padding: 7px 8px;
+  padding: 5px 8px;
   resize: vertical;
 }
 
 .work-report-report-textarea.external {
-  min-height: 56px;
+  min-height: 48px;
 }
 
 .work-report-report-textarea.di,
 .work-report-report-textarea.road {
-  min-height: 96px;
+  min-height: 62px;
 }
 
 .work-report-report-multiselect {
@@ -3505,12 +3506,13 @@ textarea:focus-visible {
 .work-report-report-table {
   display: flex;
   flex-direction: column;
+  min-width: 640px;
 }
 
 .work-report-report-table-head,
 .work-report-report-table-row {
   display: grid;
-  grid-template-columns: 176px minmax(0, 1fr) 126px;
+  grid-template-columns: minmax(140px, 0.8fr) minmax(260px, 2fr) minmax(160px, 1fr);
 }
 
 .work-report-report-table-head {
@@ -3521,9 +3523,9 @@ textarea:focus-visible {
 .work-report-report-table-head > div,
 .work-report-report-table-row > div {
   min-width: 0;
-  padding: 8px 10px;
+  padding: 7px 8px;
   border-right: 1px solid #e5eaf1;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .work-report-report-table-head > div:last-child,
@@ -3554,7 +3556,7 @@ textarea:focus-visible {
 
 .work-report-report-table-row.editing > * {
   min-width: 0;
-  padding: 8px;
+  padding: 6px;
   border-right: 1px solid #e5eaf1;
 }
 
@@ -3566,18 +3568,18 @@ textarea:focus-visible {
   display: flex;
   flex-wrap: wrap;
   align-content: flex-start;
-  gap: 6px;
+  gap: 4px;
 }
 
 .work-report-report-manager-badge {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
-  padding: 0 9px;
+  min-height: 20px;
+  padding: 0 7px;
   border-radius: 999px;
   background: #eef4ff;
   color: #315ca8;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -3607,24 +3609,24 @@ textarea:focus-visible {
 .work-report-report-journal-wrap {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 10px;
+  gap: 10px;
+  padding: 8px;
 }
 
 .work-report-report-manager-list,
 .work-report-report-support-wrap {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 10px;
+  gap: 10px;
+  padding: 8px;
 }
 
 .work-report-report-manager-block {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px;
+  gap: 6px;
+  padding: 8px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #fcfdff;
@@ -3642,17 +3644,19 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
   background: #eef4ff;
   color: #1d4ed8;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
 }
 
 .work-report-report-block-content {
-  min-height: 82px;
+  min-height: 52px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .work-report-report-support-block {
@@ -3660,5 +3664,50 @@ textarea:focus-visible {
   border-radius: 10px;
   overflow: hidden;
   background: #ffffff;
+}
+
+.work-report-report-table-scroll {
+  overflow-x: auto;
+}
+
+.work-report-report-manager-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.work-report-report-manager-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 20px;
+}
+
+.work-report-report-manager-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 6px;
+  max-height: 106px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #dbe5f0;
+  border-radius: 6px;
+  background: #f8fbff;
+}
+
+.work-report-report-manager-option {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  font-size: 11px;
+  color: #334155;
+  line-height: 1.3;
+}
+
+.work-report-report-manager-option input {
+  width: 12px;
+  height: 12px;
+  margin: 0;
 }
 

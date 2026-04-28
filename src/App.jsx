@@ -5063,6 +5063,15 @@ function App() {
       .map((item) => item.trim())
       .filter(Boolean)
 
+  const toggleWorkReportManagerName = (currentValue, managerName) => {
+    const currentNames = getWorkReportManagerNames(currentValue)
+    const nextNames = currentNames.includes(managerName)
+      ? currentNames.filter((name) => name !== managerName)
+      : [...currentNames, managerName]
+
+    return WORK_REPORT_EXTERNAL_USER_OPTIONS.filter((option) => nextNames.includes(option)).join(', ')
+  }
+
   const handleWorkReportInlineKeyDown = (e, { multiline = false } = {}) => {
     if (e.key === 'Escape') {
       e.preventDefault()
@@ -5145,84 +5154,95 @@ function App() {
   const renderWorkReportExternalSectionV5 = (date) => (
     <section className="work-report-report-section">
       <div className="work-report-report-section-title">외부일정</div>
-      <div className="work-report-report-table">
-        <div className="work-report-report-table-head">
-          <div>담당자</div>
-          <div>내용</div>
-          <div>목적지</div>
-        </div>
-        {Array.from({ length: WORK_REPORT_EXTERNAL_ROW_COUNT }, (_, index) => {
-          const orderIndex = index + 1
-          const cellKey = getWorkReportCellKey(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
-          const isEditing = editingWorkCellKey === cellKey
-          const entry = getDisplayedWorkReportEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
+      <div className="work-report-report-table-scroll">
+        <div className="work-report-report-table">
+          <div className="work-report-report-table-head">
+            <div>담당자</div>
+            <div>내용</div>
+            <div>목적지</div>
+          </div>
+          {Array.from({ length: WORK_REPORT_EXTERNAL_ROW_COUNT }, (_, index) => {
+            const orderIndex = index + 1
+            const cellKey = getWorkReportCellKey(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
+            const isEditing = editingWorkCellKey === cellKey
+            const entry = getDisplayedWorkReportEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
 
-          if (isEditing && editingWorkCellData) {
-            const selectedManagers = getWorkReportManagerNames(editingWorkCellData.user)
-            return (
-              <div
-                key={`external-v5-${date}-${orderIndex}`}
-                className="work-report-report-table-row editing"
-                onBlur={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget)) {
-                    commitWorkReportEdit()
-                  }
-                }}
-              >
-                <select
-                  className="work-report-report-multiselect"
-                  multiple
-                  size={4}
-                  autoFocus
-                  value={selectedManagers}
-                  onChange={(e) => {
-                    const nextValue = Array.from(e.target.selectedOptions, (option) => option.value).join(', ')
-                    handleWorkReportEditorChange('user', nextValue)
+            if (isEditing && editingWorkCellData) {
+              const selectedManagers = getWorkReportManagerNames(editingWorkCellData.user)
+              return (
+                <div
+                  key={`external-v5-${date}-${orderIndex}`}
+                  className="work-report-report-table-row editing"
+                  onBlur={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget)) {
+                      commitWorkReportEdit()
+                    }
                   }}
                 >
-                  {WORK_REPORT_EXTERNAL_USER_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-                <textarea
-                  className="work-report-report-textarea external"
-                  rows={2}
-                  value={editingWorkCellData.content}
-                  placeholder="내용 입력"
-                  onChange={(e) => handleWorkReportEditorChange('content', e.target.value)}
-                  onKeyDown={(e) => handleWorkReportInlineKeyDown(e, { multiline: true })}
-                />
-                <input
-                  className="work-report-report-input destination"
-                  type="text"
-                  value={editingWorkCellData.destination}
-                  placeholder="목적지 입력"
-                  onChange={(e) => handleWorkReportEditorChange('destination', e.target.value)}
-                  onKeyDown={(e) => handleWorkReportInlineKeyDown(e)}
-                />
-              </div>
-            )
-          }
+                  <div className="work-report-report-manager-editor">
+                    <div className="work-report-report-manager-chip-row">
+                      {renderWorkReportManagerBadges(editingWorkCellData.user)}
+                    </div>
+                    <div className="work-report-report-manager-picker">
+                      {WORK_REPORT_EXTERNAL_USER_OPTIONS.map((option) => {
+                        const checked = selectedManagers.includes(option)
+                        return (
+                          <label key={option} className="work-report-report-manager-option">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                handleWorkReportEditorChange(
+                                  'user',
+                                  toggleWorkReportManagerName(editingWorkCellData.user, option)
+                                )
+                              }
+                            />
+                            <span>{option}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <textarea
+                    className="work-report-report-textarea external"
+                    rows={2}
+                    autoFocus
+                    value={editingWorkCellData.content}
+                    placeholder="내용 입력"
+                    onChange={(e) => handleWorkReportEditorChange('content', e.target.value)}
+                    onKeyDown={(e) => handleWorkReportInlineKeyDown(e, { multiline: true })}
+                  />
+                  <input
+                    className="work-report-report-input destination"
+                    type="text"
+                    value={editingWorkCellData.destination}
+                    placeholder="목적지 입력"
+                    onChange={(e) => handleWorkReportEditorChange('destination', e.target.value)}
+                    onKeyDown={(e) => handleWorkReportInlineKeyDown(e)}
+                  />
+                </div>
+              )
+            }
 
-          return (
-            <button
-              key={`external-v5-${date}-${orderIndex}`}
-              type="button"
-              className="work-report-report-table-row"
-              onClick={() => startWorkReportCellEdit(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
-            >
-              <div className="work-report-report-manager-cell">{renderWorkReportManagerBadges(entry?.user)}</div>
-              <div className={`work-report-report-content-cell ${entry?.content ? 'has-value' : 'is-empty'}`}>
-                {entry?.content || ' '}
-              </div>
-              <div className={`work-report-report-destination-cell ${entry?.destination ? 'has-value' : 'is-empty'}`}>
-                {entry?.destination || ' '}
-              </div>
-            </button>
-          )
-        })}
+            return (
+              <button
+                key={`external-v5-${date}-${orderIndex}`}
+                type="button"
+                className="work-report-report-table-row"
+                onClick={() => startWorkReportCellEdit(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
+              >
+                <div className="work-report-report-manager-cell">{renderWorkReportManagerBadges(entry?.user)}</div>
+                <div className={`work-report-report-content-cell ${entry?.content ? 'has-value' : 'is-empty'}`}>
+                  {entry?.content || ' '}
+                </div>
+                <div className={`work-report-report-destination-cell ${entry?.destination ? 'has-value' : 'is-empty'}`}>
+                  {entry?.destination || ' '}
+                </div>
+              </button>
+            )
+          })}
+        </div>
       </div>
     </section>
   )
