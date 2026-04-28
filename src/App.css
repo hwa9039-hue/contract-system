@@ -2424,6 +2424,12 @@ textarea:focus-visible {
   min-width: 88px;
 }
 
+.registry-check-header,
+.registry-check-cell {
+  width: 44px;
+  min-width: 44px;
+}
+
 .registry-table td .cell-display {
   width: 100%;
   overflow-wrap: anywhere;
@@ -2562,6 +2568,34 @@ textarea:focus-visible {
 
 .registry-action-cell {
   background: #fbfdff;
+}
+
+.registry-check-header,
+.registry-check-cell {
+  background: #fbfdff;
+}
+
+.registry-row-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.danger-btn {
+  border-color: #fecaca;
+  color: #b91c1c;
+  background: #fff5f5;
+}
+
+.danger-btn:hover {
+  background: #fee2e2;
+}
+
+.secondary-btn:disabled,
+.danger-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .mode-toast {
