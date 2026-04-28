@@ -22,13 +22,13 @@ const CONTRACT_COLUMNS = [
 ]
 
 const DOCUMENT_COLUMNS = [
-  { key: 'docDate', label: '일자', align: 'center', type: 'date', width: 120 },
-  { key: 'docNo', label: '문서번호', align: 'center', type: 'text', width: 210 },
-  { key: 'senderReceiver', label: '수신처 또는 발신처', align: 'center', type: 'textarea', width: 190 },
-  { key: 'title', label: '문서명 또는 제목', align: 'left', type: 'textarea', width: 280 },
+  { key: 'docDate', label: '일자', align: 'center', type: 'date', width: 110 },
+  { key: 'docNo', label: '문서번호', align: 'center', type: 'text', width: 220 },
+  { key: 'senderReceiver', label: '수신처 또는 발신처', align: 'center', type: 'textarea', width: 220 },
+  { key: 'title', label: '문서명 또는 제목', align: 'left', type: 'textarea', width: 320 },
   { key: 'method', label: '접수 또는 발송형태', align: 'center', type: 'text', width: 170 },
   { key: 'writer', label: '수신자 또는 작성자', align: 'center', type: 'text', width: 160 },
-  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 240 },
+  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 260 },
 ]
 
 const SALES_CATEGORY_OPTIONS = ['DI사업', '도로사업']
@@ -50,46 +50,46 @@ const DISCOVERY_CATEGORY_TONE_MAP = {
 }
 
 const SALES_COLUMNS = [
-  { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 128 },
-  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 180 },
-  { key: 'projectName', label: '프로젝트', align: 'left', type: 'textarea', width: 220 },
-  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 150 },
-  { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: SALES_CATEGORY_OPTIONS, width: 128 },
-  { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_MANAGER_OPTIONS, width: 132 },
-  { key: 'projectStage', label: '상태', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 128 },
-  { key: 'department', label: '담당부서', align: 'center', type: 'text', width: 128 },
-  { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 260 },
-  { key: 'source', label: '출처', align: 'center', type: 'text', width: 120 },
-  { key: 'salesNote', label: '영업매칭', align: 'left', type: 'textarea', width: 220 },
-  { key: 'actionRequest', label: '영업 요청사항', align: 'left', type: 'textarea', width: 240 },
+  { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 108 },
+  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 170 },
+  { key: 'projectName', label: '프로젝트', align: 'left', type: 'textarea', width: 250 },
+  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 138 },
+  { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: SALES_CATEGORY_OPTIONS, width: 102 },
+  { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_MANAGER_OPTIONS, width: 112 },
+  { key: 'projectStage', label: '상태', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 102 },
+  { key: 'department', label: '담당부서', align: 'center', type: 'text', width: 130 },
+  { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 310 },
+  { key: 'source', label: '출처', align: 'center', type: 'text', width: 140 },
+  { key: 'salesNote', label: '영업매칭', align: 'left', type: 'textarea', width: 250 },
+  { key: 'actionRequest', label: '영업 요청사항', align: 'left', type: 'textarea', width: 270 },
 ]
 
 const BUDGET_COLUMNS = [
-  { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 128 },
-  { key: 'localGov', label: '지자체', align: 'center', type: 'text', width: 180 },
-  { key: 'projectName', label: '프로젝트', align: 'left', type: 'text', width: 240 },
-  { key: 'budgetAmount', label: '예산액', align: 'right', type: 'amount', width: 150 },
-  { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_MANAGER_OPTIONS, width: 132 },
-  { key: 'projectStage', label: '상태', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 128 },
-  { key: 'department', label: '담당부서', align: 'center', type: 'text', width: 128 },
-  { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 260 },
-  { key: 'salesMatch', label: '영업매칭', align: 'left', type: 'text', width: 180 },
-  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 240 },
+  { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 108 },
+  { key: 'localGov', label: '지자체', align: 'center', type: 'text', width: 160 },
+  { key: 'projectName', label: '프로젝트', align: 'left', type: 'text', width: 260 },
+  { key: 'budgetAmount', label: '예산액', align: 'right', type: 'amount', width: 138 },
+  { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_MANAGER_OPTIONS, width: 112 },
+  { key: 'projectStage', label: '상태', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 102 },
+  { key: 'department', label: '담당부서', align: 'center', type: 'text', width: 130 },
+  { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 310 },
+  { key: 'salesMatch', label: '영업매칭', align: 'left', type: 'text', width: 190 },
+  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 260 },
 ]
 
 const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
 const DISCOVERY_SALES_TARGET_OPTIONS = SALES_MANAGER_OPTIONS
 const DISCOVERY_COLUMNS = [
-  { key: 'permitDate', label: '건축정보일자', align: 'center', type: 'date', width: 132 },
-  { key: 'checkStatus', label: '확인', align: 'center', type: 'text', width: 96 },
-  { key: 'salesTarget', label: '영업자', align: 'center', type: 'select', options: DISCOVERY_SALES_TARGET_OPTIONS, width: 150 },
-  { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: DISCOVERY_CATEGORY_OPTIONS, width: 118 },
-  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 170 },
-  { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 220 },
-  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 140 },
-  { key: 'completionPeriod', label: '준공시기', align: 'center', type: 'text', width: 140 },
-  { key: 'manager', label: '담당자', align: 'center', type: 'text', width: 132 },
-  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 240 },
+  { key: 'permitDate', label: '건축정보일자', align: 'center', type: 'date', width: 118 },
+  { key: 'checkStatus', label: '확인', align: 'center', type: 'text', width: 76 },
+  { key: 'salesTarget', label: '영업자', align: 'center', type: 'select', options: DISCOVERY_SALES_TARGET_OPTIONS, width: 118 },
+  { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: DISCOVERY_CATEGORY_OPTIONS, width: 104 },
+  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 160 },
+  { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 240 },
+  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 132 },
+  { key: 'completionPeriod', label: '준공시기', align: 'center', type: 'text', width: 120 },
+  { key: 'manager', label: '담당자', align: 'center', type: 'text', width: 110 },
+  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 280 },
 ]
 
 const EXCLUDED_CATEGORY_OPTIONS = ['발주계획', '사전규격', '입찰공고', '정보공개']
@@ -139,16 +139,16 @@ const EXCLUDED_WRITER_TONE_MAP = {
   전유찬: { background: '#f3f4f6', color: '#4b5563', borderColor: '#d1d5db' },
 }
 const EXCLUDED_COLUMNS = [
-  { key: 'orderNo', label: '순번', align: 'center', type: 'text', width: 88 },
-  { key: 'writeDate', label: '작성일', align: 'center', type: 'date', width: 128 },
-  { key: 'openDate', label: '공개일', align: 'center', type: 'date', width: 150 },
-  { key: 'category', label: '구분', align: 'center', type: 'select', options: EXCLUDED_CATEGORY_OPTIONS, width: 118 },
-  { key: 'keyword', label: '검색어', align: 'center', type: 'select', options: EXCLUDED_KEYWORD_OPTIONS, width: 190 },
-  { key: 'writer', label: '작성자', align: 'center', type: 'text', width: 120 },
+  { key: 'orderNo', label: '순번', align: 'center', type: 'text', width: 72 },
+  { key: 'writeDate', label: '작성일', align: 'center', type: 'date', width: 110 },
+  { key: 'openDate', label: '공개일', align: 'center', type: 'date', width: 110 },
+  { key: 'category', label: '구분', align: 'center', type: 'select', options: EXCLUDED_CATEGORY_OPTIONS, width: 100 },
+  { key: 'keyword', label: '검색어', align: 'center', type: 'select', options: EXCLUDED_KEYWORD_OPTIONS, width: 180 },
+  { key: 'writer', label: '작성자', align: 'center', type: 'text', width: 100 },
   { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 220 },
-  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 170 },
-  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 140 },
-  { key: 'exclusionReason', label: '제외 사유', align: 'left', type: 'textarea', width: 260 },
+  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 150 },
+  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 130 },
+  { key: 'exclusionReason', label: '제외 사유', align: 'left', type: 'textarea', width: 300 },
 ]
 
 const WORK_REPORT_TABLE = 'weekly_work_reports'
@@ -1242,8 +1242,10 @@ function App() {
   const [adminPasswordInput, setAdminPasswordInput] = useState('')
   const [adminLoginError, setAdminLoginError] = useState('')
   const [toastMessage, setToastMessage] = useState('')
+  const [registryUploadTarget, setRegistryUploadTarget] = useState('')
 
   const fileInputRef = useRef(null)
+  const registryUploadInputRef = useRef(null)
 
   const fetchContracts = async () => {
     const { data, error } = await supabase
@@ -1263,7 +1265,7 @@ function App() {
     const { data, error } = await supabase
       .from('document_register')
       .select('*')
-      .order('createdAt', { ascending: false })
+      .order('createdAt', { ascending: true })
 
     if (error) {
       alert(error.message)
@@ -1272,7 +1274,7 @@ function App() {
 
     setDocuments((prev) => {
       const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-      return [...draftRows, ...(data ?? []).map(normalizeDocumentRow)]
+      return [...(data ?? []).map(normalizeDocumentRow), ...draftRows]
     })
     setSelectedDocumentIds([])
   }
@@ -1281,7 +1283,7 @@ function App() {
     const { data, error } = await supabase
       .from('sales_register')
       .select('*')
-      .order('createdAt', { ascending: false })
+      .order('createdAt', { ascending: true })
 
     if (error) {
       alert(error.message)
@@ -1290,7 +1292,7 @@ function App() {
 
     setSalesRows((prev) => {
       const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-      return [...draftRows, ...(data ?? []).map(normalizeSalesRow)]
+      return [...(data ?? []).map(normalizeSalesRow), ...draftRows]
     })
     setSelectedSalesIds([])
   }
@@ -1299,7 +1301,7 @@ function App() {
     const { data, error } = await supabase
       .from('budget_progress')
       .select('*')
-      .order('createdAt', { ascending: false })
+      .order('createdAt', { ascending: true })
 
     if (error) {
       alert(error.message)
@@ -1308,7 +1310,7 @@ function App() {
 
     setBudgetRows((prev) => {
       const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-      return [...draftRows, ...(data ?? []).map(normalizeBudgetRow)]
+      return [...(data ?? []).map(normalizeBudgetRow), ...draftRows]
     })
     setSelectedBudgetIds([])
   }
@@ -1317,7 +1319,7 @@ function App() {
     const { data, error } = await supabase
       .from('project_discovery')
       .select('*')
-      .order('createdAt', { ascending: false })
+      .order('createdAt', { ascending: true })
 
     if (error) {
       alert(error.message)
@@ -1326,7 +1328,7 @@ function App() {
 
     setDiscoveryRows((prev) => {
       const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-      return [...draftRows, ...(data ?? []).map(normalizeDiscoveryRow)]
+      return [...(data ?? []).map(normalizeDiscoveryRow), ...draftRows]
     })
     setSelectedDiscoveryIds([])
   }
@@ -1335,7 +1337,7 @@ function App() {
     const { data, error } = await supabase
       .from('excluded_projects')
       .select('*')
-      .order('createdAt', { ascending: false })
+      .order('createdAt', { ascending: true })
 
     if (error) {
       alert(error.message)
@@ -1344,7 +1346,7 @@ function App() {
 
     setExcludedRows((prev) => {
       const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-      return [...draftRows, ...(data ?? []).map(normalizeExcludedRow)]
+      return [...(data ?? []).map(normalizeExcludedRow), ...draftRows]
     })
     setSelectedExcludedIds([])
   }
@@ -2037,7 +2039,7 @@ function App() {
       alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
       return
     }
-    setDocuments((prev) => [createDocumentDraftRow(), ...prev])
+    setDocuments((prev) => [...prev, createDocumentDraftRow()])
     setSelectedDocumentIds([])
   }
 
@@ -2290,7 +2292,7 @@ function App() {
       alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
       return
     }
-    setSalesRows((prev) => [createSalesDraftRow(), ...prev])
+    setSalesRows((prev) => [...prev, createSalesDraftRow()])
     setSelectedSalesIds([])
   }
 
@@ -2546,7 +2548,7 @@ function App() {
       alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
       return
     }
-    setBudgetRows((prev) => [createBudgetDraftRow(), ...prev])
+    setBudgetRows((prev) => [...prev, createBudgetDraftRow()])
     setSelectedBudgetIds([])
   }
 
@@ -2802,7 +2804,7 @@ function App() {
       alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
       return
     }
-    setDiscoveryRows((prev) => [createDiscoveryDraftRow(), ...prev])
+    setDiscoveryRows((prev) => [...prev, createDiscoveryDraftRow()])
     setSelectedDiscoveryIds([])
   }
 
@@ -3061,7 +3063,7 @@ function App() {
       alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
       return
     }
-    setExcludedRows((prev) => [createExcludedDraftRow(), ...prev])
+    setExcludedRows((prev) => [...prev, createExcludedDraftRow()])
     setSelectedExcludedIds([])
   }
 
@@ -3313,6 +3315,167 @@ function App() {
     const now = new Date()
     const filename = `사업검색이력_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
     XLSX.writeFile(workbook, filename)
+  }
+
+  const openRegistryUpload = (target) => {
+    setRegistryUploadTarget(target)
+    registryUploadInputRef.current?.click()
+  }
+
+  const getRegistryUploadConfig = (target) => {
+    switch (target) {
+      case 'documents':
+        return {
+          table: 'document_register',
+          columns: DOCUMENT_COLUMNS,
+          createDraftRow: createDocumentDraftRow,
+          isEmptyRow: isDocumentRowEmpty,
+          toPayload: toDocumentPayload,
+          fetchRows: fetchDocuments,
+        }
+      case 'sales':
+        return {
+          table: 'sales_register',
+          columns: SALES_COLUMNS,
+          createDraftRow: createSalesDraftRow,
+          isEmptyRow: isSalesRowEmpty,
+          toPayload: toSalesPayload,
+          fetchRows: fetchSalesRows,
+        }
+      case 'budget':
+        return {
+          table: 'budget_progress',
+          columns: BUDGET_COLUMNS,
+          createDraftRow: createBudgetDraftRow,
+          isEmptyRow: isBudgetRowEmpty,
+          toPayload: toBudgetPayload,
+          fetchRows: fetchBudgetRows,
+        }
+      case 'discovery':
+        return {
+          table: 'project_discovery',
+          columns: DISCOVERY_COLUMNS,
+          createDraftRow: createDiscoveryDraftRow,
+          isEmptyRow: isDiscoveryRowEmpty,
+          toPayload: toDiscoveryPayload,
+          fetchRows: fetchDiscoveryRows,
+        }
+      case 'excluded':
+        return {
+          table: 'excluded_projects',
+          columns: EXCLUDED_COLUMNS,
+          createDraftRow: createExcludedDraftRow,
+          isEmptyRow: isExcludedRowEmpty,
+          toPayload: toExcludedPayload,
+          fetchRows: fetchExcludedRows,
+        }
+      default:
+        return null
+    }
+  }
+
+  const buildRegistryImportRows = (rows, columns, createDraftRow, isEmptyRow) => {
+    const preparedRows = []
+
+    rows.forEach((sourceRow, index) => {
+      const nextRow = {
+        ...createDraftRow(),
+        isDraft: false,
+      }
+
+      columns.forEach((column) => {
+        const rawValue = getValueByHeader(sourceRow, [column.label, column.key], '')
+
+        if (column.type === 'date') {
+          nextRow[column.key] = excelDateToInput(rawValue)
+          return
+        }
+
+        if (column.type === 'amount') {
+          nextRow[column.key] = formatAmount(rawValue)
+          return
+        }
+
+        nextRow[column.key] = safeString(rawValue).trim()
+      })
+
+      if (!isEmptyRow(nextRow)) {
+        preparedRows.push({
+          row: nextRow,
+          sourceLine: index + 2,
+        })
+      }
+    })
+
+    return preparedRows
+  }
+
+  const handleRegistryUploadFileChange = async (e) => {
+    const file = e.target.files?.[0]
+    const target = registryUploadTarget
+    e.target.value = ''
+    setRegistryUploadTarget('')
+
+    if (!file || !target) return
+
+    const config = getRegistryUploadConfig(target)
+    if (!config) return
+
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const workbook = XLSX.read(arrayBuffer, { type: 'array', raw: true, cellDates: false })
+      const firstSheetName = workbook.SheetNames[0]
+
+      if (!firstSheetName) {
+        alert('업로드할 시트를 찾을 수 없습니다.')
+        return
+      }
+
+      const worksheet = workbook.Sheets[firstSheetName]
+      const rows = XLSX.utils.sheet_to_json(worksheet, {
+        defval: '',
+        raw: true,
+      })
+
+      if (!rows.length) {
+        alert('업로드할 데이터가 없습니다.')
+        return
+      }
+
+      const preparedRows = buildRegistryImportRows(
+        rows,
+        config.columns,
+        config.createDraftRow,
+        config.isEmptyRow
+      )
+
+      if (!preparedRows.length) {
+        alert('업로드할 유효한 행이 없습니다.')
+        return
+      }
+
+      const timestamp = new Date().toISOString()
+
+      for (const { row, sourceLine } of preparedRows) {
+        const { error } = await supabase.from(config.table).insert([
+          {
+            ...config.toPayload(row, timestamp),
+            createdAt: timestamp,
+          },
+        ])
+
+        if (error) {
+          alert(`${sourceLine}행 업로드 실패: ${error.message}`)
+          await config.fetchRows(false)
+          return
+        }
+      }
+
+      await config.fetchRows(false)
+      alert('업로드가 완료되었습니다.')
+    } catch (error) {
+      alert(`업로드 중 오류가 발생했습니다: ${safeString(error?.message || error)}`)
+    }
   }
 
   const trackWorkWeek = (weekStartDate) => {
@@ -4139,7 +4302,39 @@ function App() {
     </div>
   )
 
-  const renderRegistryEditor = (row, column, onChange) => {
+  const handleRegistryEditorKeyDown = async (e, column, onSave, onCancel) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      onCancel()
+      return
+    }
+
+    if (column.type === 'textarea') {
+      if (e.key === 'Enter' && e.ctrlKey) {
+        e.preventDefault()
+        await onSave()
+      }
+      return
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      await onSave()
+    }
+  }
+
+  const handleRegistryRowBlur = async (e, row, isSaving, onSave, onCancel, isEmptyRow) => {
+    if (e.currentTarget.contains(e.relatedTarget) || isSaving) return
+
+    if (row.isDraft && isEmptyRow(row)) {
+      onCancel()
+      return
+    }
+
+    await onSave()
+  }
+
+  const renderRegistryEditor = (row, column, onChange, { onSave, onCancel }) => {
     if (column.type === 'textarea') {
       return (
         <textarea
@@ -4147,6 +4342,7 @@ function App() {
           rows={1}
           value={row[column.key] ?? ''}
           onChange={(e) => onChange(row.id, column.key, e.target.value)}
+          onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
         />
       )
     }
@@ -4158,6 +4354,7 @@ function App() {
           type="date"
           value={row[column.key] ?? ''}
           onChange={(e) => onChange(row.id, column.key, e.target.value)}
+          onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
         />
       )
     }
@@ -4168,6 +4365,7 @@ function App() {
           className="inline-row-editor cell-inline-editor"
           value={row[column.key] ?? ''}
           onChange={(e) => onChange(row.id, column.key, e.target.value)}
+          onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
         >
           <option value="">선택</option>
           {column.options.map((option) => (
@@ -4185,6 +4383,7 @@ function App() {
         type="text"
         value={row[column.key] ?? ''}
         onChange={(e) => onChange(row.id, column.key, e.target.value)}
+        onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
       />
     )
   }
@@ -5563,6 +5762,14 @@ function App() {
           <h1>{PAGE_TITLE_MAP[menu]}</h1>
         </div>
 
+        <input
+          ref={registryUploadInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          onChange={handleRegistryUploadFileChange}
+          style={{ display: 'none' }}
+        />
+
         {toastMessage && <div className="mode-toast">{toastMessage}</div>}
 
         {showSessionWarning && (
@@ -6094,6 +6301,10 @@ function App() {
                 추가
               </button>
 
+              <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('sales')}>
+                엑셀 업로드
+              </button>
+
               <select
                 className="contract-filter-select"
                 value={salesFilters.projectCategory}
@@ -6149,7 +6360,7 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll">
-                <table className="contract-table excel-table">
+                <table className="contract-table excel-table registry-table">
                   <thead>
                     <tr>
                       <th
@@ -6194,7 +6405,22 @@ function App() {
                         const isEditing = row.isDraft || editingSalesIds.includes(row.id)
 
                         return (
-                          <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                          <tr
+                            key={row.id}
+                            className={index % 2 === 0 ? 'row-even' : 'row-odd'}
+                            onBlur={(e) =>
+                              isEditing
+                                ? handleRegistryRowBlur(
+                                    e,
+                                    row,
+                                    isSavingSales,
+                                    () => saveSalesRow(row.id),
+                                    () => cancelSalesRow(row.id),
+                                    isSalesRowEmpty
+                                  )
+                                : undefined
+                            }
+                          >
                             <td className="td-align-center registry-action-cell">
                               {renderRegistryRowActions({
                                 row,
@@ -6225,7 +6451,10 @@ function App() {
                                 }}
                               >
                                 {isEditing ? (
-                                  renderRegistryEditor(row, column, handleSalesCellChange)
+                                  renderRegistryEditor(row, column, handleSalesCellChange, {
+                                    onSave: () => saveSalesRow(row.id),
+                                    onCancel: () => cancelSalesRow(row.id),
+                                  })
                                 ) : (
                                   <div
                                     className="cell-display"
@@ -6266,6 +6495,10 @@ function App() {
             <div className="contracts-header-actions">
               <button className="primary-btn" type="button" onClick={handleAddBudgetRow}>
                 추가
+              </button>
+
+              <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('budget')}>
+                엑셀 업로드
               </button>
 
               <select
@@ -6352,7 +6585,22 @@ function App() {
                         const isEditing = row.isDraft || editingBudgetIds.includes(row.id)
 
                         return (
-                          <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                          <tr
+                            key={row.id}
+                            className={index % 2 === 0 ? 'row-even' : 'row-odd'}
+                            onBlur={(e) =>
+                              isEditing
+                                ? handleRegistryRowBlur(
+                                    e,
+                                    row,
+                                    isSavingBudget,
+                                    () => saveBudgetRow(row.id),
+                                    () => cancelBudgetRow(row.id),
+                                    isBudgetRowEmpty
+                                  )
+                                : undefined
+                            }
+                          >
                             <td className="td-align-center registry-action-cell">
                               {renderRegistryRowActions({
                                 row,
@@ -6383,7 +6631,10 @@ function App() {
                                 }}
                               >
                                 {isEditing ? (
-                                  renderRegistryEditor(row, column, handleBudgetCellChange)
+                                  renderRegistryEditor(row, column, handleBudgetCellChange, {
+                                    onSave: () => saveBudgetRow(row.id),
+                                    onCancel: () => cancelBudgetRow(row.id),
+                                  })
                                 ) : (
                                   <div
                                     className="cell-display"
@@ -6424,6 +6675,10 @@ function App() {
             <div className="contracts-header-actions">
               <button className="primary-btn" type="button" onClick={handleAddDiscoveryRow}>
                 추가
+              </button>
+
+              <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('discovery')}>
+                엑셀 업로드
               </button>
 
               <select
@@ -6510,7 +6765,22 @@ function App() {
                         const isEditing = row.isDraft || editingDiscoveryIds.includes(row.id)
 
                         return (
-                          <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                          <tr
+                            key={row.id}
+                            className={index % 2 === 0 ? 'row-even' : 'row-odd'}
+                            onBlur={(e) =>
+                              isEditing
+                                ? handleRegistryRowBlur(
+                                    e,
+                                    row,
+                                    isSavingDiscovery,
+                                    () => saveDiscoveryRow(row.id),
+                                    () => cancelDiscoveryRow(row.id),
+                                    isDiscoveryRowEmpty
+                                  )
+                                : undefined
+                            }
+                          >
                             <td className="td-align-center registry-action-cell">
                               {renderRegistryRowActions({
                                 row,
@@ -6541,7 +6811,10 @@ function App() {
                                 }}
                               >
                                 {isEditing ? (
-                                  renderRegistryEditor(row, column, handleDiscoveryCellChange)
+                                  renderRegistryEditor(row, column, handleDiscoveryCellChange, {
+                                    onSave: () => saveDiscoveryRow(row.id),
+                                    onCancel: () => cancelDiscoveryRow(row.id),
+                                  })
                                 ) : (
                                   <div
                                     className="cell-display"
@@ -6614,6 +6887,10 @@ function App() {
             <div className="contracts-header-actions">
               <button className="primary-btn" type="button" onClick={handleAddExcludedRow}>
                 추가
+              </button>
+
+              <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('excluded')}>
+                엑셀 업로드
               </button>
 
               <select
@@ -6700,7 +6977,22 @@ function App() {
                         const isEditing = row.isDraft || editingExcludedIds.includes(row.id)
 
                         return (
-                          <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                          <tr
+                            key={row.id}
+                            className={index % 2 === 0 ? 'row-even' : 'row-odd'}
+                            onBlur={(e) =>
+                              isEditing
+                                ? handleRegistryRowBlur(
+                                    e,
+                                    row,
+                                    isSavingExcluded,
+                                    () => saveExcludedRow(row.id),
+                                    () => cancelExcludedRow(row.id),
+                                    isExcludedRowEmpty
+                                  )
+                                : undefined
+                            }
+                          >
                             <td className="td-align-center registry-action-cell">
                               {renderRegistryRowActions({
                                 row,
@@ -6731,7 +7023,10 @@ function App() {
                                 }}
                               >
                                 {isEditing ? (
-                                  renderRegistryEditor(row, column, handleExcludedCellChange)
+                                  renderRegistryEditor(row, column, handleExcludedCellChange, {
+                                    onSave: () => saveExcludedRow(row.id),
+                                    onCancel: () => cancelExcludedRow(row.id),
+                                  })
                                 ) : (
                                   <div
                                     className="cell-display"
@@ -6831,6 +7126,9 @@ function App() {
               <button className="primary-btn" type="button" onClick={handleAddDocumentRow}>
                 추가
               </button>
+              <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('documents')}>
+                엑셀 업로드
+              </button>
               <button className="secondary-btn" type="button" onClick={handleDocumentExcelDownload}>
                 엑셀 다운로드
               </button>
@@ -6874,7 +7172,22 @@ function App() {
                         const isEditing = row.isDraft || editingDocumentIds.includes(row.id)
 
                         return (
-                          <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                          <tr
+                            key={row.id}
+                            className={index % 2 === 0 ? 'row-even' : 'row-odd'}
+                            onBlur={(e) =>
+                              isEditing
+                                ? handleRegistryRowBlur(
+                                    e,
+                                    row,
+                                    isSavingDocuments,
+                                    () => saveDocumentRow(row.id),
+                                    () => cancelDocumentRow(row.id),
+                                    isDocumentRowEmpty
+                                  )
+                                : undefined
+                            }
+                          >
                             <td className="td-align-center registry-action-cell">
                               {renderRegistryRowActions({
                                 row,
@@ -6905,7 +7218,10 @@ function App() {
                                 }}
                               >
                                 {isEditing ? (
-                                  renderRegistryEditor(row, column, handleDocumentCellChange)
+                                  renderRegistryEditor(row, column, handleDocumentCellChange, {
+                                    onSave: () => saveDocumentRow(row.id),
+                                    onCancel: () => cancelDocumentRow(row.id),
+                                  })
                                 ) : (
                                   <div
                                     className="cell-display"

@@ -2413,6 +2413,22 @@ textarea:focus-visible {
   border-color: #bbf7d0;
 }
 
+.registry-table {
+  table-layout: fixed;
+  min-width: max-content;
+}
+
+.registry-action-header,
+.registry-action-cell {
+  width: 88px;
+  min-width: 88px;
+}
+
+.registry-table td .cell-display {
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .page-title-bar {
   margin-bottom: 12px;
   padding: 12px 16px;
