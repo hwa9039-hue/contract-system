@@ -22,7 +22,7 @@ const CONTRACT_COLUMNS = [
 ]
 
 const DOCUMENT_COLUMNS = [
-  { key: 'docDate', label: '일자', align: 'center', type: 'date', width: 110 },
+  { key: 'docDate', label: '등록일', align: 'center', type: 'date', width: 110 },
   { key: 'docNo', label: '문서번호', align: 'center', type: 'text', width: 220 },
   { key: 'senderReceiver', label: '수신처 또는 발신처', align: 'center', type: 'textarea', width: 220 },
   { key: 'title', label: '문서명 또는 제목', align: 'left', type: 'textarea', width: 320 },
@@ -108,7 +108,7 @@ const EXCLUDED_KEYWORD_OPTIONS = [
   '디스플레이',
   '공사',
 ]
-const EXCLUDED_WRITER_OPTIONS = ['이용자', '정화영', '문병현', '이재승', '정주희', '전유찬']
+const EXCLUDED_WRITER_OPTIONS = ['이용자', '정화영', '문병현', '이재승', '정주희']
 const EXCLUDED_CATEGORY_TONE_MAP = {
   발주계획: { background: '#fff1e8', color: '#c2410c', borderColor: '#fdba74' },
   사전규격: { background: '#eaf1ff', color: '#1f4fd1', borderColor: '#bfd0ff' },
@@ -136,13 +136,11 @@ const EXCLUDED_WRITER_TONE_MAP = {
   문병현: { background: '#fff8db', color: '#a16207', borderColor: '#f6d56c' },
   이재승: { background: '#eaf1ff', color: '#1f4fd1', borderColor: '#bfd0ff' },
   정주희: { background: '#f3e8ff', color: '#7e22ce', borderColor: '#d8b4fe' },
-  전유찬: { background: '#f3f4f6', color: '#4b5563', borderColor: '#d1d5db' },
 }
 const EXCLUDED_COLUMNS = [
-  { key: 'orderNo', label: '순번', align: 'center', type: 'text', width: 72 },
-  { key: 'writeDate', label: '작성일', align: 'center', type: 'date', width: 110 },
+  { key: 'writeDate', label: '등록일', align: 'center', type: 'date', width: 110 },
   { key: 'openDate', label: '공개일', align: 'center', type: 'date', width: 110 },
-  { key: 'category', label: '구분', align: 'center', type: 'select', options: EXCLUDED_CATEGORY_OPTIONS, width: 100 },
+  { key: 'category', label: '상태', align: 'center', type: 'select', options: EXCLUDED_CATEGORY_OPTIONS, width: 100 },
   { key: 'keyword', label: '검색어', align: 'center', type: 'select', options: EXCLUDED_KEYWORD_OPTIONS, width: 180 },
   { key: 'writer', label: '작성자', align: 'center', type: 'text', width: 100 },
   { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 220 },
@@ -173,7 +171,6 @@ const WORK_REPORT_MANAGER_OPTIONS = [
   '정화영 대리',
   '정주희 대리',
   '문병현 대리',
-  '전유찬 대리',
 ]
 const WORK_REPORT_EXTERNAL_USER_OPTIONS = WORK_REPORT_MANAGER_OPTIONS
 const WORK_REPORT_DI_MANAGERS = ['전기웅 이사', '유영무 부장', '김성수 과장', '이재승 대리']
@@ -211,6 +208,7 @@ const PAGE_TITLE_MAP = {
 }
 const TOP_SYSTEM_SUBTITLE =
   '일일/주간업무보고서 · 계약현황 · 일정관리 · 영업관리대장 · 본예산 진행정보 · 건축정보 · 사업검색이력 · 문서수발신대장'
+const HIDDEN_MANAGER_VALUES = ['전유찬', '전유찬 대리']
 
 const emptyContract = {
   year: '',
@@ -589,7 +587,15 @@ function compareKoreanText(a, b) {
 }
 
 function getOptions(items, key) {
-  return [ALL_OPTION, ...new Set(items.map((item) => safeString(item[key]).trim()).filter(Boolean))]
+  return [
+    ALL_OPTION,
+    ...new Set(
+      items
+        .map((item) => safeString(item[key]).trim())
+        .filter(Boolean)
+        .filter((value) => !HIDDEN_MANAGER_VALUES.includes(value))
+    ),
+  ]
 }
 
 function getYearLabel(value) {
@@ -948,7 +954,18 @@ function groupRegistryRowsByYear(rows, dateKey) {
     groupMap.get(year).items.push(row)
   })
 
-  return orderedGroups
+  return orderedGroups.sort((a, b) => {
+    const aNumeric = /^\d{4}$/.test(a.year)
+    const bNumeric = /^\d{4}$/.test(b.year)
+
+    if (aNumeric && bNumeric) {
+      return Number(b.year) - Number(a.year)
+    }
+
+    if (aNumeric) return -1
+    if (bNumeric) return 1
+    return compareKoreanText(a.year, b.year)
+  })
 }
 
 function getLatestRegistryYear(groups) {
@@ -1229,6 +1246,7 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
+  const [selectedContractIds, setSelectedContractIds] = useState([])
   const [openBudgetYears, setOpenBudgetYears] = useState({})
   const [openDiscoveryYears, setOpenDiscoveryYears] = useState({})
   const [openExcludedYears, setOpenExcludedYears] = useState({})
@@ -1785,11 +1803,12 @@ function App() {
 
   const dashboardSummary = useMemo(() => buildDashboardSummary(contracts), [contracts])
   const defaultDashboardYear = dashboardSummary.years[0]?.year
-  const defaultContractYear = groupedContracts[0]?.year
-  const defaultBudgetYear = getLatestRegistryYear(groupedBudgetRows)
-  const defaultDiscoveryYear = getLatestRegistryYear(groupedDiscoveryRows)
-  const defaultExcludedYear = getLatestRegistryYear(groupedExcludedRows)
-  const defaultDocumentYear = getLatestRegistryYear(groupedDocumentRows)
+  const currentRegistryYear = String(new Date().getFullYear())
+  const defaultContractYear = groupedContracts.find((group) => group.year === currentRegistryYear)?.year ?? groupedContracts[0]?.year
+  const defaultBudgetYear = groupedBudgetRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedBudgetRows)
+  const defaultDiscoveryYear = groupedDiscoveryRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedDiscoveryRows)
+  const defaultExcludedYear = groupedExcludedRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedExcludedRows)
+  const defaultDocumentYear = groupedDocumentRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedDocumentRows)
 
   const isDashboardYearOpen = (year) =>
     Object.prototype.hasOwnProperty.call(openDashboardYears, year)
@@ -1813,6 +1832,7 @@ function App() {
   const isDocumentYearOpen = (year) =>
     isRegistryYearOpen(openDocumentYears, year, defaultDocumentYear)
 
+  const allContractsSelected = isAllVisibleRegistryRowsSelected(filteredContracts, selectedContractIds)
   const allSalesSelected = isAllVisibleRegistryRowsSelected(filteredSalesRows, selectedSalesIds)
   const allBudgetSelected = isAllVisibleRegistryRowsSelected(filteredBudgetRows, selectedBudgetIds)
   const allDiscoverySelected = isAllVisibleRegistryRowsSelected(
@@ -2460,7 +2480,7 @@ function App() {
 
   const handleDocumentExcelDownload = () => {
     const rows = filteredDocuments.filter((row) => !row.isDraft).map((row) => ({
-      일자: row.docDate,
+      등록일: row.docDate,
       문서번호: row.docNo,
       '수신처 또는 발신처': row.senderReceiver,
       '문서명 또는 제목': row.title,
@@ -3503,10 +3523,9 @@ function App() {
 
   const handleExcludedExcelDownload = () => {
     const rows = filteredExcludedRows.filter((row) => !row.isDraft).map((row) => ({
-      순번: row.orderNo,
-      작성일: row.writeDate,
+      등록일: row.writeDate,
       공개일: row.openDate,
-      구분: row.category,
+      상태: row.category,
       검색어: row.keyword,
       작성자: row.writer,
       사업명: row.projectName,
@@ -4279,6 +4298,7 @@ function App() {
     if (!requireAdmin()) return
     setIsAddingRow(true)
     setNewRow({ ...emptyContract })
+    setSelectedContractIds([])
   }
 
   const cancelAddRow = () => {
@@ -4316,6 +4336,40 @@ function App() {
       return
     }
 
+    await fetchContracts()
+  }
+
+  const toggleContractSelection = (rowId) => {
+    setSelectedContractIds((prev) =>
+      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
+    )
+  }
+
+  const deleteSelectedContracts = async () => {
+    if (!requireAdmin()) return
+
+    const validSelectedIds = selectedContractIds.filter((id) => safeString(id).trim() !== '')
+
+    if (validSelectedIds.length === 0) {
+      alert('삭제할 데이터를 선택해주세요.')
+      return
+    }
+
+    const ok = window.confirm('선택한 데이터를 삭제하시겠습니까?')
+    if (!ok) return
+
+    const { error } = await deleteRegistryIdsInChunks('contracts', validSelectedIds)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    if (editingCell && validSelectedIds.includes(editingCell.rowId)) {
+      cancelEdit()
+    }
+
+    setSelectedContractIds([])
     await fetchContracts()
   }
 
@@ -4555,44 +4609,6 @@ function App() {
     </div>
   )
 
-  const renderRegistryRowActions = ({
-    row,
-    isEditing,
-    onEdit,
-    onDelete,
-    onSave,
-    onCancel,
-    isSaving,
-  }) => (
-    <div className="inline-row-actions">
-      {row.isDraft || isEditing ? (
-        <>
-          <button
-            className="mini-save-btn"
-            type="button"
-            onClick={onSave}
-            disabled={isSaving}
-            style={isSaving ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
-          >
-            저장
-          </button>
-          <button className="mini-cancel-btn" type="button" onClick={onCancel}>
-            취소
-          </button>
-        </>
-      ) : (
-        <div className="row-action-group">
-          <button className="row-icon-btn edit" type="button" title="수정" aria-label="수정" onClick={onEdit}>
-            ✎
-          </button>
-          <button className="row-icon-btn delete" type="button" title="삭제" aria-label="삭제" onClick={onDelete}>
-            ×
-          </button>
-        </div>
-      )}
-    </div>
-  )
-
   const handleRegistryEditorKeyDown = async (e, column, onSave, onCancel) => {
     if (e.key === 'Escape') {
       e.preventDefault()
@@ -4686,7 +4702,6 @@ function App() {
     editingIds,
     isSaving,
     onStartEdit,
-    onDelete,
     onSaveRow,
     onCancelRow,
     onChange,
@@ -4713,18 +4728,6 @@ function App() {
             checked={selectedIds.includes(row.id)}
             onChange={() => onToggleSelection(row.id)}
           />
-        </td>
-
-        <td className="td-align-center registry-action-cell">
-          {renderRegistryRowActions({
-            row,
-            isEditing,
-            onEdit: onStartEdit,
-            onDelete,
-            onSave: onSaveRow,
-            onCancel: onCancelRow,
-            isSaving,
-          })}
         </td>
 
         {columns.map((column) => (
@@ -4774,7 +4777,6 @@ function App() {
     editingIds,
     isSaving,
     onStartEdit,
-    onDelete,
     onSaveRow,
     onCancelRow,
     onChange,
@@ -4783,7 +4785,7 @@ function App() {
     if (rows.length === 0) {
       return (
         <tr>
-          <td colSpan={columns.length + 2} className="empty-cell">
+          <td colSpan={columns.length + 1} className="empty-cell">
             {emptyMessage}
           </td>
         </tr>
@@ -4798,7 +4800,6 @@ function App() {
         editingIds,
         isSaving,
         onStartEdit: () => onStartEdit(row.id),
-        onDelete: () => onDelete(row.id),
         onSaveRow: () => onSaveRow(row.id),
         onCancelRow: () => onCancelRow(row.id),
         onChange,
@@ -4818,7 +4819,6 @@ function App() {
     editingIds,
     isSaving,
     onStartEdit,
-    onDelete,
     onSaveRow,
     onCancelRow,
     onChange,
@@ -4829,7 +4829,7 @@ function App() {
     if (groups.length === 0) {
       return (
         <tr>
-          <td colSpan={columns.length + 2} className="empty-cell">
+          <td colSpan={columns.length + 1} className="empty-cell">
             {emptyMessage}
           </td>
         </tr>
@@ -4840,7 +4840,7 @@ function App() {
       const collapsed = !isYearOpen(yearBlock.year)
       const yearRow = (
         <tr className="contract-year-row" key={`year-${yearBlock.year}`}>
-          <td colSpan={columns.length + 2}>
+          <td colSpan={columns.length + 1}>
             <button
               className="contract-year-toggle"
               type="button"
@@ -4868,7 +4868,6 @@ function App() {
             editingIds,
             isSaving,
             onStartEdit: () => onStartEdit(row.id),
-            onDelete: () => onDelete(row.id),
             onSaveRow: () => onSaveRow(row.id),
             onCancelRow: () => onCancelRow(row.id),
             onChange,
@@ -6445,6 +6444,15 @@ function App() {
                   <button className="secondary-btn" type="button" onClick={handleExcelImportClick}>
                     엑셀 불러오기
                   </button>
+
+                  <button
+                    className="secondary-btn"
+                    type="button"
+                    onClick={deleteSelectedContracts}
+                    disabled={selectedContractIds.length === 0}
+                  >
+                    선택 삭제
+                  </button>
                 </>
               )}
 
@@ -6575,7 +6583,20 @@ function App() {
                 <table className="contract-table excel-table registry-table">
                   <thead>
                     <tr>
-                      <th className="col-action th-align-center">작업</th>
+                      <th className="th-align-center registry-check-header">
+                        <input
+                          className="registry-row-checkbox"
+                          type="checkbox"
+                          checked={allContractsSelected}
+                          onChange={() =>
+                            setSelectedContractIds((prev) =>
+                              allContractsSelected
+                                ? prev.filter((id) => !filteredContracts.some((row) => row.id === id))
+                                : [...new Set([...prev, ...filteredContracts.map((row) => row.id)])]
+                            )
+                          }
+                        />
+                      </th>
                       <th className="col-dday th-align-center">D-Day</th>
                       {CONTRACT_COLUMNS.map((column) => (
                         <th
@@ -6598,7 +6619,7 @@ function App() {
                   <tbody>
                     {isAddingRow && (
                       <tr className="inline-add-row">
-                        <td className="col-action td-align-center">
+                        <td className="td-align-center registry-check-cell">
                           <div className="inline-row-actions">
                             <button className="mini-save-btn" type="button" onClick={saveAddRow}>
                               저장
@@ -6680,7 +6701,7 @@ function App() {
                     {filteredContracts.length === 0 && !isAddingRow ? (
                       <tr>
                         <td colSpan={CONTRACT_COLUMNS.length + 2} className="empty-cell">
-                          등록된 계약이 없습니다.
+                          등록된 데이터가 없습니다.
                         </td>
                       </tr>
                     ) : (
@@ -6712,31 +6733,13 @@ function App() {
                           ...yearBlock.items.map((item, index) => {
                             return (
                               <tr key={item.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
-                                <td className="col-action td-align-center">
-                                  {isAdmin ? (
-                                    <div className="row-action-group">
-                                      <button
-                                        className="row-icon-btn edit"
-                                        type="button"
-                                        title="수정"
-                                        aria-label="수정"
-                                        onClick={() => startEdit(item.id, 'projectName', item.projectName)}
-                                      >
-                                        ✎
-                                      </button>
-                                      <button
-                                        className="row-icon-btn delete"
-                                        type="button"
-                                        title="삭제"
-                                        aria-label="삭제"
-                                        onClick={() => deleteRow(item.id)}
-                                      >
-                                        ×
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <span className="viewer-action-mark">보기</span>
-                                  )}
+                                <td className="td-align-center registry-check-cell">
+                                  <input
+                                    className="registry-row-checkbox"
+                                    type="checkbox"
+                                    checked={selectedContractIds.includes(item.id)}
+                                    onChange={() => toggleContractSelection(item.id)}
+                                  />
                                 </td>
 
                                 <td className="col-dday td-align-center">
@@ -6898,7 +6901,6 @@ function App() {
                           }
                         />
                       </th>
-                      <th className="th-align-center registry-action-header">작업</th>
                       {SALES_COLUMNS.map((column) => (
                         <th
                           key={column.key}
@@ -6920,13 +6922,12 @@ function App() {
                     {renderFlatRegistryRows({
                       rows: filteredSalesRows,
                       columns: SALES_COLUMNS,
-                      emptyMessage: '등록된 영업관리 데이터가 없습니다.',
+                      emptyMessage: '등록된 데이터가 없습니다.',
                       selectedIds: selectedSalesIds,
                       onToggleSelection: toggleSalesSelection,
                       editingIds: editingSalesIds,
                       isSaving: isSavingSales,
                       onStartEdit: startSalesEdit,
-                      onDelete: deleteSalesRow,
                       onSaveRow: saveSalesRow,
                       onCancelRow: cancelSalesRow,
                       onChange: handleSalesCellChange,
@@ -7035,7 +7036,6 @@ function App() {
                           }
                         />
                       </th>
-                      <th className="th-align-center registry-action-header">작업</th>
                       {BUDGET_COLUMNS.map((column) => (
                         <th
                           key={column.key}
@@ -7057,13 +7057,12 @@ function App() {
                     {renderGroupedRegistryRows({
                       groups: groupedBudgetRows,
                       columns: BUDGET_COLUMNS,
-                      emptyMessage: '등록된 본예산 진행정보가 없습니다.',
+                      emptyMessage: '등록된 데이터가 없습니다.',
                       selectedIds: selectedBudgetIds,
                       onToggleSelection: toggleBudgetSelection,
                       editingIds: editingBudgetIds,
                       isSaving: isSavingBudget,
                       onStartEdit: startBudgetEdit,
-                      onDelete: deleteBudgetRow,
                       onSaveRow: saveBudgetRow,
                       onCancelRow: cancelBudgetRow,
                       onChange: handleBudgetCellChange,
@@ -7176,7 +7175,6 @@ function App() {
                           }
                         />
                       </th>
-                      <th className="th-align-center registry-action-header">작업</th>
                       {DISCOVERY_COLUMNS.map((column) => (
                         <th
                           key={column.key}
@@ -7198,13 +7196,12 @@ function App() {
                     {renderGroupedRegistryRows({
                       groups: groupedDiscoveryRows,
                       columns: DISCOVERY_COLUMNS,
-                      emptyMessage: '등록된 건축정보가 없습니다.',
+                      emptyMessage: '등록된 데이터가 없습니다.',
                       selectedIds: selectedDiscoveryIds,
                       onToggleSelection: toggleDiscoverySelection,
                       editingIds: editingDiscoveryIds,
                       isSaving: isSavingDiscovery,
                       onStartEdit: startDiscoveryEdit,
-                      onDelete: deleteDiscoveryRow,
                       onSaveRow: saveDiscoveryRow,
                       onCancelRow: cancelDiscoveryRow,
                       onChange: handleDiscoveryCellChange,
@@ -7288,7 +7285,7 @@ function App() {
                 onChange={(e) => setExcludedFilters((prev) => ({ ...prev, category: e.target.value }))}
                 style={{ width: 132 }}
               >
-                <option value="">구분</option>
+                <option value="">상태</option>
                 {EXCLUDED_CATEGORY_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -7341,7 +7338,6 @@ function App() {
                           }
                         />
                       </th>
-                      <th className="th-align-center registry-action-header">작업</th>
                       {EXCLUDED_COLUMNS.map((column) => (
                         <th
                           key={column.key}
@@ -7363,13 +7359,12 @@ function App() {
                     {renderGroupedRegistryRows({
                       groups: groupedExcludedRows,
                       columns: EXCLUDED_COLUMNS,
-                      emptyMessage: '등록된 사업검색이력 데이터가 없습니다.',
+                      emptyMessage: '등록된 데이터가 없습니다.',
                       selectedIds: selectedExcludedIds,
                       onToggleSelection: toggleExcludedSelection,
                       editingIds: editingExcludedIds,
                       isSaving: isSavingExcluded,
                       onStartEdit: startExcludedEdit,
-                      onDelete: deleteExcludedRow,
                       onSaveRow: saveExcludedRow,
                       onCancelRow: cancelExcludedRow,
                       onChange: handleExcludedCellChange,
@@ -7427,7 +7422,6 @@ function App() {
                           <div>A2 : 정화영 대리</div>
                           <div>A3 : 정주희 대리</div>
                           <div>A4 : 문병현 대리</div>
-                          <div>A5 : 전유찬 대리</div>
                         </div>
                       </div>
                     </div>
@@ -7502,7 +7496,6 @@ function App() {
                           }
                         />
                       </th>
-                      <th className="th-align-center registry-action-header">작업</th>
                       {DOCUMENT_COLUMNS.map((column) => (
                         <th
                           key={column.key}
@@ -7524,13 +7517,12 @@ function App() {
                     {renderGroupedRegistryRows({
                       groups: groupedDocumentRows,
                       columns: DOCUMENT_COLUMNS,
-                      emptyMessage: '등록된 문서수발신대장 데이터가 없습니다.',
+                      emptyMessage: '등록된 데이터가 없습니다.',
                       selectedIds: selectedDocumentIds,
                       onToggleSelection: toggleDocumentSelection,
                       editingIds: editingDocumentIds,
                       isSaving: isSavingDocuments,
                       onStartEdit: startDocumentEdit,
-                      onDelete: deleteDocumentRow,
                       onSaveRow: saveDocumentRow,
                       onCancelRow: cancelDocumentRow,
                       onChange: handleDocumentCellChange,
