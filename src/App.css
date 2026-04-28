@@ -3353,3 +3353,312 @@ textarea:focus-visible {
   min-width: 136px;
 }
 
+.work-report-day-board.report-mode {
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
+.work-report-day-head.report-mode {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fbff;
+}
+
+.work-report-day-sections.report-mode {
+  gap: 12px;
+  padding: 12px;
+}
+
+.work-report-report-section {
+  border: 1px solid #dde5ef;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.work-report-report-section-title,
+.work-report-report-subtitle {
+  padding: 8px 12px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  border-bottom: 1px solid #dbe5f0;
+}
+
+.work-report-report-line-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.work-report-report-line-list.support {
+  background: #ffffff;
+}
+
+.work-report-report-line-button,
+.work-report-report-line-edit {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-bottom: 1px solid #eef2f7;
+  background: #ffffff;
+  text-align: left;
+}
+
+.work-report-report-line-button:last-child,
+.work-report-report-line-edit:last-child {
+  border-bottom: none;
+}
+
+.work-report-report-line-button:hover,
+.work-report-report-table-row:hover,
+.work-report-report-manager-block:hover {
+  background: #f8fbff;
+}
+
+.work-report-report-line-number {
+  padding-top: 3px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+}
+
+.work-report-report-line-text {
+  display: block;
+  min-height: 22px;
+  line-height: 1.55;
+  color: #1f2937;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.work-report-report-line-text.is-empty,
+.work-report-report-content-cell.is-empty,
+.work-report-report-destination-cell.is-empty,
+.work-report-report-block-content.is-empty {
+  color: #c0cad6;
+}
+
+.work-report-report-line-text.is-empty::after,
+.work-report-report-content-cell.is-empty::after,
+.work-report-report-destination-cell.is-empty::after,
+.work-report-report-block-content.is-empty::after {
+  content: '';
+  display: block;
+  width: 100%;
+  border-bottom: 1px solid #e5eaf1;
+  margin-top: 9px;
+}
+
+.work-report-report-input,
+.work-report-report-textarea,
+.work-report-report-multiselect {
+  width: 100%;
+  border: 1px solid #cfd8e3;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 12px;
+  line-height: 1.5;
+  outline: none;
+}
+
+.work-report-report-input {
+  min-height: 30px;
+  padding: 5px 8px;
+}
+
+.work-report-report-input.compact {
+  min-height: 28px;
+  padding: 4px 8px;
+}
+
+.work-report-report-input.destination {
+  min-height: 36px;
+}
+
+.work-report-report-textarea {
+  padding: 7px 8px;
+  resize: vertical;
+}
+
+.work-report-report-textarea.external {
+  min-height: 56px;
+}
+
+.work-report-report-textarea.di,
+.work-report-report-textarea.road {
+  min-height: 96px;
+}
+
+.work-report-report-multiselect {
+  min-height: 84px;
+  padding: 6px;
+}
+
+.work-report-report-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.work-report-report-table-head,
+.work-report-report-table-row {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr) 126px;
+}
+
+.work-report-report-table-head {
+  background: #eef4ff;
+  border-bottom: 1px solid #dde5ef;
+}
+
+.work-report-report-table-head > div,
+.work-report-report-table-row > div {
+  min-width: 0;
+  padding: 8px 10px;
+  border-right: 1px solid #e5eaf1;
+  font-size: 12px;
+}
+
+.work-report-report-table-head > div:last-child,
+.work-report-report-table-row > div:last-child {
+  border-right: none;
+}
+
+.work-report-report-table-head > div {
+  font-weight: 800;
+  color: #315ca8;
+}
+
+.work-report-report-table-row {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #eef2f7;
+  background: #ffffff;
+  text-align: left;
+}
+
+.work-report-report-table-row:last-child {
+  border-bottom: none;
+}
+
+.work-report-report-table-row.editing {
+  align-items: stretch;
+}
+
+.work-report-report-table-row.editing > * {
+  min-width: 0;
+  padding: 8px;
+  border-right: 1px solid #e5eaf1;
+}
+
+.work-report-report-table-row.editing > *:last-child {
+  border-right: none;
+}
+
+.work-report-report-manager-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px;
+}
+
+.work-report-report-manager-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #315ca8;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.work-report-report-manager-badge.fixed {
+  background: #edf2ff;
+  color: #1e40af;
+}
+
+.work-report-report-empty-inline {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.work-report-report-content-cell,
+.work-report-report-destination-cell,
+.work-report-report-block-content {
+  line-height: 1.6;
+  color: #1f2937;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.work-report-report-destination-cell {
+  color: #475569;
+}
+
+.work-report-report-journal-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px;
+}
+
+.work-report-report-manager-list,
+.work-report-report-support-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px;
+}
+
+.work-report-report-manager-block {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fcfdff;
+  text-align: left;
+}
+
+.work-report-report-manager-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.work-report-report-order-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.work-report-report-block-content {
+  min-height: 82px;
+}
+
+.work-report-report-support-block {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
