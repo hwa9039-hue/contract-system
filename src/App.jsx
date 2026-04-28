@@ -2356,23 +2356,26 @@ function App() {
   }
 
   const deleteSelectedDocuments = async () => {
-    if (selectedDocumentIds.length === 0) {
-      alert('삭제할 행을 선택하세요.')
+    const validSelectedIds = selectedDocumentIds.filter((id) => safeString(id).trim() !== '')
+
+    if (validSelectedIds.length === 0) {
+      alert('삭제할 행을 선택해주세요.')
       return
     }
 
-    const ok = window.confirm('선택한 문서 행을 삭제하시겠습니까?')
+    const ok = window.confirm('선택한 데이터를 삭제하시겠습니까?')
     if (!ok) return
 
     const persistedIds = documents
-      .filter((row) => selectedDocumentIds.includes(row.id) && !row.isDraft)
+      .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
       .map((row) => row.id)
+      .filter((id) => safeString(id).trim() !== '')
 
     if (persistedIds.length > 0) {
       const remainingDrafts = documents.filter(
-        (row) => row.isDraft && !selectedDocumentIds.includes(row.id)
+        (row) => row.isDraft && !validSelectedIds.includes(row.id)
       )
-      const { error } = await supabase.from('document_register').delete().in('id', persistedIds)
+      const { error } = await deleteRegistryIdsInChunks('document_register', persistedIds)
 
       if (error) {
         alert(error.message)
@@ -2380,14 +2383,15 @@ function App() {
       }
 
       setDocuments(remainingDrafts)
-      setEditingDocumentIds((prev) => prev.filter((id) => !selectedDocumentIds.includes(id)))
+      setSelectedDocumentIds([])
+      setEditingDocumentIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
       await fetchDocuments(true)
       return
     }
 
-    setDocuments((prev) => prev.filter((row) => !selectedDocumentIds.includes(row.id)))
+    setDocuments((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
     setSelectedDocumentIds([])
-    setEditingDocumentIds((prev) => prev.filter((id) => !selectedDocumentIds.includes(id)))
+    setEditingDocumentIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
   }
 
   const saveDocuments = async () => {
@@ -2609,23 +2613,26 @@ function App() {
   }
 
   const deleteSelectedSalesRows = async () => {
-    if (selectedSalesIds.length === 0) {
-      alert('삭제할 행을 선택하세요.')
+    const validSelectedIds = selectedSalesIds.filter((id) => safeString(id).trim() !== '')
+
+    if (validSelectedIds.length === 0) {
+      alert('삭제할 행을 선택해주세요.')
       return
     }
 
-    const ok = window.confirm('선택한 영업관리대장 행을 삭제하시겠습니까?')
+    const ok = window.confirm('선택한 데이터를 삭제하시겠습니까?')
     if (!ok) return
 
     const persistedIds = salesRows
-      .filter((row) => selectedSalesIds.includes(row.id) && !row.isDraft)
+      .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
       .map((row) => row.id)
+      .filter((id) => safeString(id).trim() !== '')
 
     if (persistedIds.length > 0) {
       const remainingDrafts = salesRows.filter(
-        (row) => row.isDraft && !selectedSalesIds.includes(row.id)
+        (row) => row.isDraft && !validSelectedIds.includes(row.id)
       )
-      const { error } = await supabase.from('sales_register').delete().in('id', persistedIds)
+      const { error } = await deleteRegistryIdsInChunks('sales_register', persistedIds)
 
       if (error) {
         alert(error.message)
@@ -2633,14 +2640,15 @@ function App() {
       }
 
       setSalesRows(remainingDrafts)
-      setEditingSalesIds((prev) => prev.filter((id) => !selectedSalesIds.includes(id)))
+      setSelectedSalesIds([])
+      setEditingSalesIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
       await fetchSalesRows(true)
       return
     }
 
-    setSalesRows((prev) => prev.filter((row) => !selectedSalesIds.includes(row.id)))
+    setSalesRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
     setSelectedSalesIds([])
-    setEditingSalesIds((prev) => prev.filter((id) => !selectedSalesIds.includes(id)))
+    setEditingSalesIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
   }
 
   const saveSalesRows = async () => {
@@ -2865,23 +2873,26 @@ function App() {
   }
 
   const deleteSelectedBudgetRows = async () => {
-    if (selectedBudgetIds.length === 0) {
-      alert('삭제할 행을 선택하세요.')
+    const validSelectedIds = selectedBudgetIds.filter((id) => safeString(id).trim() !== '')
+
+    if (validSelectedIds.length === 0) {
+      alert('삭제할 행을 선택해주세요.')
       return
     }
 
-    const ok = window.confirm('선택한 본예산 진행정보 행을 삭제하시겠습니까?')
+    const ok = window.confirm('선택한 데이터를 삭제하시겠습니까?')
     if (!ok) return
 
     const persistedIds = budgetRows
-      .filter((row) => selectedBudgetIds.includes(row.id) && !row.isDraft)
+      .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
       .map((row) => row.id)
+      .filter((id) => safeString(id).trim() !== '')
 
     if (persistedIds.length > 0) {
       const remainingDrafts = budgetRows.filter(
-        (row) => row.isDraft && !selectedBudgetIds.includes(row.id)
+        (row) => row.isDraft && !validSelectedIds.includes(row.id)
       )
-      const { error } = await supabase.from('budget_progress').delete().in('id', persistedIds)
+      const { error } = await deleteRegistryIdsInChunks('budget_progress', persistedIds)
 
       if (error) {
         alert(error.message)
@@ -2889,14 +2900,15 @@ function App() {
       }
 
       setBudgetRows(remainingDrafts)
-      setEditingBudgetIds((prev) => prev.filter((id) => !selectedBudgetIds.includes(id)))
+      setSelectedBudgetIds([])
+      setEditingBudgetIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
       await fetchBudgetRows(true)
       return
     }
 
-    setBudgetRows((prev) => prev.filter((row) => !selectedBudgetIds.includes(row.id)))
+    setBudgetRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
     setSelectedBudgetIds([])
-    setEditingBudgetIds((prev) => prev.filter((id) => !selectedBudgetIds.includes(id)))
+    setEditingBudgetIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
   }
 
   const saveBudgetRows = async () => {
@@ -3124,23 +3136,26 @@ function App() {
   }
 
   const deleteSelectedDiscoveryRows = async () => {
-    if (selectedDiscoveryIds.length === 0) {
-      alert('삭제할 행을 선택하세요.')
+    const validSelectedIds = selectedDiscoveryIds.filter((id) => safeString(id).trim() !== '')
+
+    if (validSelectedIds.length === 0) {
+      alert('삭제할 행을 선택해주세요.')
       return
     }
 
-    const ok = window.confirm('선택한 사업 발굴정보 행을 삭제하시겠습니까?')
+    const ok = window.confirm('선택한 데이터를 삭제하시겠습니까?')
     if (!ok) return
 
     const persistedIds = discoveryRows
-      .filter((row) => selectedDiscoveryIds.includes(row.id) && !row.isDraft)
+      .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
       .map((row) => row.id)
+      .filter((id) => safeString(id).trim() !== '')
 
     if (persistedIds.length > 0) {
       const remainingDrafts = discoveryRows.filter(
-        (row) => row.isDraft && !selectedDiscoveryIds.includes(row.id)
+        (row) => row.isDraft && !validSelectedIds.includes(row.id)
       )
-      const { error } = await supabase.from('project_discovery').delete().in('id', persistedIds)
+      const { error } = await deleteRegistryIdsInChunks('project_discovery', persistedIds)
 
       if (error) {
         alert(error.message)
@@ -3148,14 +3163,15 @@ function App() {
       }
 
       setDiscoveryRows(remainingDrafts)
-      setEditingDiscoveryIds((prev) => prev.filter((id) => !selectedDiscoveryIds.includes(id)))
+      setSelectedDiscoveryIds([])
+      setEditingDiscoveryIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
       await fetchDiscoveryRows(true)
       return
     }
 
-    setDiscoveryRows((prev) => prev.filter((row) => !selectedDiscoveryIds.includes(row.id)))
+    setDiscoveryRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
     setSelectedDiscoveryIds([])
-    setEditingDiscoveryIds((prev) => prev.filter((id) => !selectedDiscoveryIds.includes(id)))
+    setEditingDiscoveryIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
   }
 
   const saveDiscoveryRows = async () => {
@@ -3383,23 +3399,26 @@ function App() {
   }
 
   const deleteSelectedExcludedRows = async () => {
-    if (selectedExcludedIds.length === 0) {
-      alert('삭제할 행을 선택하세요.')
+    const validSelectedIds = selectedExcludedIds.filter((id) => safeString(id).trim() !== '')
+
+    if (validSelectedIds.length === 0) {
+      alert('삭제할 행을 선택해주세요.')
       return
     }
 
-    const ok = window.confirm('선택한 제외사업 관리대장 행을 삭제하시겠습니까?')
+    const ok = window.confirm('선택한 데이터를 삭제하시겠습니까?')
     if (!ok) return
 
     const persistedIds = excludedRows
-      .filter((row) => selectedExcludedIds.includes(row.id) && !row.isDraft)
+      .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
       .map((row) => row.id)
+      .filter((id) => safeString(id).trim() !== '')
 
     if (persistedIds.length > 0) {
       const remainingDrafts = excludedRows.filter(
-        (row) => row.isDraft && !selectedExcludedIds.includes(row.id)
+        (row) => row.isDraft && !validSelectedIds.includes(row.id)
       )
-      const { error } = await supabase.from('excluded_projects').delete().in('id', persistedIds)
+      const { error } = await deleteRegistryIdsInChunks('excluded_projects', persistedIds)
 
       if (error) {
         alert(error.message)
@@ -3407,14 +3426,15 @@ function App() {
       }
 
       setExcludedRows(remainingDrafts)
-      setEditingExcludedIds((prev) => prev.filter((id) => !selectedExcludedIds.includes(id)))
+      setSelectedExcludedIds([])
+      setEditingExcludedIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
       await fetchExcludedRows(true)
       return
     }
 
-    setExcludedRows((prev) => prev.filter((row) => !selectedExcludedIds.includes(row.id)))
+    setExcludedRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
     setSelectedExcludedIds([])
-    setEditingExcludedIds((prev) => prev.filter((id) => !selectedExcludedIds.includes(id)))
+    setEditingExcludedIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
   }
 
   const saveExcludedRows = async () => {
@@ -3726,6 +3746,27 @@ function App() {
     clearSelectedIds()
     await fetchRows(false)
     alert('전체 데이터가 삭제되었습니다.')
+  }
+
+  const deleteRegistryIdsInChunks = async (tableName, ids) => {
+    const validIds = ids.filter((id) => safeString(id).trim() !== '')
+    if (validIds.length === 0) {
+      return { error: null }
+    }
+
+    const chunkSize = 50
+
+    for (let index = 0; index < validIds.length; index += chunkSize) {
+      const chunk = validIds.slice(index, index + chunkSize)
+      const { error } = await supabase.from(tableName).delete().in('id', chunk)
+
+      if (error) {
+        console.error(error.message)
+        return { error }
+      }
+    }
+
+    return { error: null }
   }
 
   const trackWorkWeek = (weekStartDate) => {
