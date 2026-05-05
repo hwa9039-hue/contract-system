@@ -1238,6 +1238,17 @@ function getPersistedRows(rows) {
   return rows.filter((row) => !row.isDraft)
 }
 
+function logSupabaseFetchError(label, table, error) {
+  console.error(`[${label}] Supabase fetch failed`, {
+    table,
+    message: error?.message ?? safeString(error),
+    code: error?.code ?? '',
+    details: error?.details ?? '',
+    hint: error?.hint ?? '',
+    error,
+  })
+}
+
 function getDashboardStatusCounts(rows, statusKey) {
   return DASHBOARD_STATUS_LABELS.map((status) => ({
     status,
@@ -1406,123 +1417,210 @@ function App() {
   const registryUploadInputRef = useRef(null)
 
   const fetchContracts = async () => {
-    const { data, error } = await supabase
-      .from('contracts')
-      .select('*')
-      .order('year', { ascending: false })
+    const table = 'contracts'
 
-    if (error) {
-      alert(error.message)
-      return
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .order('year', { ascending: false })
+
+      if (error) {
+        logSupabaseFetchError('계약현황', table, error)
+        setContracts([])
+        return []
+      }
+
+      const rows = data ?? []
+      setContracts(rows)
+      return rows
+    } catch (error) {
+      logSupabaseFetchError('계약현황', table, error)
+      setContracts([])
+      return []
     }
-
-    setContracts(data ?? [])
   }
 
   const fetchDocuments = async (preserveDrafts = true) => {
-    const { data, error } = await supabase
-      .from('document_register')
-      .select('*')
-      .order('createdAt', { ascending: true })
+    const table = 'document_register'
 
-    if (error) {
-      alert(error.message)
-      return
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .order('createdAt', { ascending: true })
+
+      if (error) {
+        logSupabaseFetchError('문서수발신대장', table, error)
+        setDocuments([])
+        setSelectedDocumentIds([])
+        return []
+      }
+
+      const rows = data ?? []
+      setDocuments((prev) => {
+        const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
+        return [...rows.map(normalizeDocumentRow), ...draftRows]
+      })
+      setSelectedDocumentIds([])
+      return rows
+    } catch (error) {
+      logSupabaseFetchError('문서수발신대장', table, error)
+      setDocuments([])
+      setSelectedDocumentIds([])
+      return []
     }
-
-    setDocuments((prev) => {
-      const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-      return [...(data ?? []).map(normalizeDocumentRow), ...draftRows]
-    })
-    setSelectedDocumentIds([])
   }
 
   const fetchSalesRows = async (preserveDrafts = true) => {
-    const { data, error } = await supabase
-      .from('sales_register')
-      .select('*')
-      .order('createdAt', { ascending: true })
+    const table = 'sales_register'
 
-    if (error) {
-      alert(error.message)
-      return
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .order('createdAt', { ascending: true })
+
+      if (error) {
+        logSupabaseFetchError('영업관리대장', table, error)
+        setSalesRows([])
+        setSelectedSalesIds([])
+        return []
+      }
+
+      const rows = data ?? []
+      setSalesRows((prev) => {
+        const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
+        return [...rows.map(normalizeSalesRow), ...draftRows]
+      })
+      setSelectedSalesIds([])
+      return rows
+    } catch (error) {
+      logSupabaseFetchError('영업관리대장', table, error)
+      setSalesRows([])
+      setSelectedSalesIds([])
+      return []
     }
-
-    setSalesRows((prev) => {
-      const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-      return [...(data ?? []).map(normalizeSalesRow), ...draftRows]
-    })
-    setSelectedSalesIds([])
   }
 
   const fetchBudgetRows = async (preserveDrafts = true) => {
-    const { data, error } = await supabase
-      .from('budget_progress')
-      .select('*')
-      .order('createdAt', { ascending: true })
+    const table = 'budget_progress'
 
-    if (error) {
-      alert(error.message)
-      return
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .order('createdAt', { ascending: true })
+
+      if (error) {
+        logSupabaseFetchError('본예산 진행정보', table, error)
+        setBudgetRows([])
+        setSelectedBudgetIds([])
+        return []
+      }
+
+      const rows = data ?? []
+      setBudgetRows((prev) => {
+        const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
+        return [...rows.map(normalizeBudgetRow), ...draftRows]
+      })
+      setSelectedBudgetIds([])
+      return rows
+    } catch (error) {
+      logSupabaseFetchError('본예산 진행정보', table, error)
+      setBudgetRows([])
+      setSelectedBudgetIds([])
+      return []
     }
-
-    setBudgetRows((prev) => {
-      const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-      return [...(data ?? []).map(normalizeBudgetRow), ...draftRows]
-    })
-    setSelectedBudgetIds([])
   }
 
   const fetchDiscoveryRows = async (preserveDrafts = true) => {
-    const { data, error } = await supabase
-      .from('project_discovery')
-      .select('*')
-      .order('createdAt', { ascending: true })
+    const table = 'project_discovery'
 
-    if (error) {
-      alert(error.message)
-      return
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .order('createdAt', { ascending: true })
+
+      if (error) {
+        logSupabaseFetchError('건축정보', table, error)
+        setDiscoveryRows([])
+        setSelectedDiscoveryIds([])
+        return []
+      }
+
+      const rows = data ?? []
+      setDiscoveryRows((prev) => {
+        const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
+        return [...rows.map(normalizeDiscoveryRow), ...draftRows]
+      })
+      setSelectedDiscoveryIds([])
+      return rows
+    } catch (error) {
+      logSupabaseFetchError('건축정보', table, error)
+      setDiscoveryRows([])
+      setSelectedDiscoveryIds([])
+      return []
     }
-
-    setDiscoveryRows((prev) => {
-      const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-      return [...(data ?? []).map(normalizeDiscoveryRow), ...draftRows]
-    })
-    setSelectedDiscoveryIds([])
   }
 
   const fetchExcludedRows = async (preserveDrafts = true) => {
-    const { data, error } = await supabase
-      .from('excluded_projects')
-      .select('*')
-      .order('createdAt', { ascending: true })
+    const table = 'excluded_projects'
 
-    if (error) {
-      alert(error.message)
-      return
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .order('createdAt', { ascending: true })
+
+      if (error) {
+        logSupabaseFetchError('사업검색이력', table, error)
+        setExcludedRows([])
+        setSelectedExcludedIds([])
+        return []
+      }
+
+      const rows = data ?? []
+      setExcludedRows((prev) => {
+        const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
+        return [...rows.map(normalizeExcludedRow), ...draftRows]
+      })
+      setSelectedExcludedIds([])
+      return rows
+    } catch (error) {
+      logSupabaseFetchError('사업검색이력', table, error)
+      setExcludedRows([])
+      setSelectedExcludedIds([])
+      return []
     }
-
-    setExcludedRows((prev) => {
-      const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-      return [...(data ?? []).map(normalizeExcludedRow), ...draftRows]
-    })
-    setSelectedExcludedIds([])
   }
 
-  const fetchWorkReportRows = async (preserveDrafts = true) => {
-    const { data, error } = await supabase
-      .from(WORK_REPORT_TABLE)
-      .select('*')
-      .order('date', { ascending: false })
-      .order('order_index', { ascending: true })
-      .order('createdAt', { ascending: true })
+  const fetchWorkReportRows = async () => {
+    const table = WORK_REPORT_TABLE
 
-    if (error) {
-      alert(error.message)
-      return
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .order('date', { ascending: false })
+        .order('order_index', { ascending: true })
+        .order('createdAt', { ascending: true })
+
+      if (error) {
+        logSupabaseFetchError('일일/주간업무보고서', table, error)
+        setWorkReportRows([])
+        return []
+      }
+
+      const rows = data ?? []
+      setWorkReportRows(rows.map(normalizeWorkReportRow))
+      return rows
+    } catch (error) {
+      logSupabaseFetchError('일일/주간업무보고서', table, error)
+      setWorkReportRows([])
+      return []
     }
-
-    setWorkReportRows((data ?? []).map(normalizeWorkReportRow))
   }
 
   const saveContractToSupabase = async (formData) => {
