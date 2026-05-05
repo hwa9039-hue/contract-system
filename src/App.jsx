@@ -195,6 +195,7 @@ const ADMIN_PASSWORD = 'admin2026!'
 const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'smartdi2026!'
 const ALL_OPTION = '전체'
 const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
+const DASHBOARD_STATUS_LABELS = SALES_STAGE_OPTIONS
 const PAGE_TITLE_MAP = {
   dashboard: '대시보드',
   workReports: '일일/주간업무보고서',
@@ -1233,6 +1234,42 @@ function buildDashboardSummary(contracts) {
   return { years }
 }
 
+function getPersistedRows(rows) {
+  return rows.filter((row) => !row.isDraft)
+}
+
+function getDashboardStatusCounts(rows, statusKey) {
+  return DASHBOARD_STATUS_LABELS.map((status) => ({
+    status,
+    count: rows.filter((row) => safeString(row[statusKey]).trim() === status).length,
+  }))
+}
+
+function getDashboardDisplayDate(value) {
+  const raw = safeString(value).trim()
+  return raw ? raw.slice(0, 10) : '-'
+}
+
+function getDashboardSortTime(row, dateKey) {
+  const primaryDate = parseDateOnly(row[dateKey])
+  if (primaryDate) return primaryDate.getTime()
+
+  const createdDate = new Date(row.createdAt || row.updatedAt || 0)
+  return Number.isNaN(createdDate.getTime()) ? 0 : createdDate.getTime()
+}
+
+function getDashboardRecentItems(rows, config) {
+  return [...rows]
+    .sort((a, b) => getDashboardSortTime(b, config.dateKey) - getDashboardSortTime(a, config.dateKey))
+    .slice(0, 5)
+    .map((row) => ({
+      id: row.id,
+      date: getDashboardDisplayDate(row[config.dateKey] || row.createdAt),
+      title: config.getTitle(row),
+      meta: config.getMeta(row),
+    }))
+}
+
 function App() {
   const initialSharedAuth = readSharedAuthSession()
   const [contracts, setContracts] = useState([])
@@ -1542,6 +1579,18 @@ function App() {
   }, [menu])
 
   useEffect(() => {
+    if (menu === 'dashboard') {
+      fetchContracts()
+      fetchDocuments(false)
+      fetchSalesRows(false)
+      fetchBudgetRows(false)
+      fetchDiscoveryRows(false)
+      fetchExcludedRows(false)
+      fetchWorkReportRows(false)
+    }
+  }, [menu])
+
+  useEffect(() => {
     if (!toastMessage) return undefined
 
     const timeoutId = window.setTimeout(() => {
@@ -1776,6 +1825,14 @@ function App() {
       buildWorkReportWeekMeta(selectedWorkWeek),
     [selectedWorkWeek, workReportWeekOptions]
   )
+  const dashboardWorkReportWeekMeta = useMemo(() => {
+    const currentWeekStartDate = buildWorkReportWeekMeta(new Date()).weekStartDate
+    return (
+      workReportWeekOptions.find((item) => item.weekStartDate === currentWeekStartDate) ??
+      workReportWeekOptions[0] ??
+      buildWorkReportWeekMeta(currentWeekStartDate)
+    )
+  }, [workReportWeekOptions])
 
   const selectedWorkWeekDays = useMemo(
     () => getWorkReportWeekDays(selectedWorkWeekMeta.weekStartDate),
@@ -1802,6 +1859,102 @@ function App() {
   ])
 
   const dashboardSummary = useMemo(() => buildDashboardSummary(contracts), [contracts])
+  const dashboardData = useMemo(() => {
+    const persistedContracts = getPersistedRows(contracts)
+    const persistedSalesRows = getPersistedRows(salesRows)
+    const persistedBudgetRows = getPersistedRows(budgetRows)
+    const persistedDiscoveryRows = getPersistedRows(discoveryRows)
+    const persistedExcludedRows = getPersistedRows(excludedRows)
+    const persistedDocuments = getPersistedRows(documents)
+
+    return {
+      overview: [
+        { key: 'contracts', label: '계약현황', count: persistedContracts.length, menu: 'contracts' },
+        { key: 'sales', label: '영업관리대장', count: persistedSalesRows.length, menu: 'sales' },
+        { key: 'budget', label: '본예산 진행정보', count: persistedBudgetRows.length, menu: 'budget' },
+        { key: 'discovery', label: '건축정보', count: persistedDiscoveryRows.length, menu: 'discovery' },
+        { key: 'excluded', label: '사업검색이력', count: persistedExcludedRows.length, menu: 'excluded' },
+        { key: 'documents', label: '문서수발신대장', count: persistedDocuments.length, menu: 'documents' },
+      ],
+      statusGroups: [
+        {
+          key: 'sales',
+          label: '영업관리대장',
+          menu: 'sales',
+          items: getDashboardStatusCounts(persistedSalesRows, 'projectStage'),
+        },
+        {
+          key: 'budget',
+          label: '본예산 진행정보',
+          menu: 'budget',
+          items: getDashboardStatusCounts(persistedBudgetRows, 'projectStage'),
+        },
+        {
+          key: 'excluded',
+          label: '사업검색이력',
+          menu: 'excluded',
+          items: getDashboardStatusCounts(persistedExcludedRows, 'category'),
+        },
+      ],
+      recentGroups: [
+        {
+          key: 'sales',
+          label: '영업관리대장',
+          menu: 'sales',
+          items: getDashboardRecentItems(persistedSalesRows, {
+            dateKey: 'registerDate',
+            getTitle: (row) => safeString(row.projectName || row.client).trim() || '영업 항목',
+            getMeta: (row) =>
+              [row.client, row.manager || row.projectStage].filter(Boolean).join(' · ') || '-',
+          }),
+        },
+        {
+          key: 'budget',
+          label: '본예산 진행정보',
+          menu: 'budget',
+          items: getDashboardRecentItems(persistedBudgetRows, {
+            dateKey: 'registerDate',
+            getTitle: (row) => safeString(row.projectName || row.localGov).trim() || '본예산 항목',
+            getMeta: (row) =>
+              [row.localGov, row.manager || row.projectStage].filter(Boolean).join(' · ') || '-',
+          }),
+        },
+        {
+          key: 'discovery',
+          label: '건축정보',
+          menu: 'discovery',
+          items: getDashboardRecentItems(persistedDiscoveryRows, {
+            dateKey: 'permitDate',
+            getTitle: (row) => safeString(row.projectName || row.client).trim() || '건축정보 항목',
+            getMeta: (row) =>
+              [row.client, row.manager || row.salesTarget].filter(Boolean).join(' · ') || '-',
+          }),
+        },
+        {
+          key: 'excluded',
+          label: '사업검색이력',
+          menu: 'excluded',
+          items: getDashboardRecentItems(persistedExcludedRows, {
+            dateKey: 'writeDate',
+            getTitle: (row) => safeString(row.projectName || row.client).trim() || '검색이력 항목',
+            getMeta: (row) =>
+              [row.client, row.writer || row.category].filter(Boolean).join(' · ') || '-',
+          }),
+        },
+        {
+          key: 'documents',
+          label: '문서수발신대장',
+          menu: 'documents',
+          items: getDashboardRecentItems(persistedDocuments, {
+            dateKey: 'docDate',
+            getTitle: (row) => safeString(row.title || row.docNo).trim() || '문서 항목',
+            getMeta: (row) =>
+              [row.senderReceiver, row.writer || row.method].filter(Boolean).join(' · ') || '-',
+          }),
+        },
+      ],
+    }
+  }, [budgetRows, contracts, discoveryRows, documents, excludedRows, salesRows])
   const defaultDashboardYear = dashboardSummary.years[0]?.year
   const currentRegistryYear = String(new Date().getFullYear())
   const defaultContractYear = groupedContracts.find((group) => group.year === currentRegistryYear)?.year ?? groupedContracts[0]?.year
@@ -6303,7 +6456,126 @@ function App() {
 
         {menu === 'dashboard' && (
           <section className="stat-card">
+            <div className="integrated-dashboard">
+              <div className="dashboard-section-header">
+                <div>
+                  <p className="dashboard-section-eyebrow">전체 요약</p>
+                  <h2>통합 업무 현황</h2>
+                </div>
+                <span>각 카드를 클릭하면 해당 메뉴로 이동합니다.</span>
+              </div>
+
+              <div className="dashboard-overview-grid">
+                {dashboardData.overview.map((item) => (
+                  <button
+                    className="dashboard-overview-card"
+                    type="button"
+                    key={item.key}
+                    onClick={() => setMenu(item.menu)}
+                  >
+                    <span>{item.label}</span>
+                    <strong>{item.count.toLocaleString('ko-KR')}건</strong>
+                  </button>
+                ))}
+              </div>
+
+              <div className="dashboard-mid-grid">
+                <div className="dashboard-panel">
+                  <div className="dashboard-panel-header">
+                    <div>
+                      <p className="dashboard-section-eyebrow">상태별 요약</p>
+                      <h3>진행 상태</h3>
+                    </div>
+                  </div>
+
+                  <div className="dashboard-status-grid">
+                    {dashboardData.statusGroups.map((group) => (
+                      <button
+                        className="dashboard-status-card"
+                        type="button"
+                        key={group.key}
+                        onClick={() => setMenu(group.menu)}
+                      >
+                        <div className="dashboard-status-card-title">{group.label}</div>
+                        <div className="dashboard-status-list">
+                          {group.items.map((item) => (
+                            <div className="dashboard-status-item" key={`${group.key}-${item.status}`}>
+                              <span className={getSalesStageClassName(item.status)}>{item.status}</span>
+                              <strong>{item.count.toLocaleString('ko-KR')}</strong>
+                            </div>
+                          ))}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  className="dashboard-work-report-card"
+                  type="button"
+                  onClick={() => {
+                    trackWorkWeek(dashboardWorkReportWeekMeta.weekStartDate)
+                    setMenu('workReports')
+                  }}
+                >
+                  <span className="dashboard-section-eyebrow">바로가기</span>
+                  <strong>일일/주간업무보고서</strong>
+                  <span>{getWorkReportWeekLabel(dashboardWorkReportWeekMeta.weekStartDate)}</span>
+                  <small>현재 또는 최신 주차 업무보고서로 이동</small>
+                </button>
+              </div>
+
+              <div className="dashboard-panel">
+                <div className="dashboard-panel-header">
+                  <div>
+                    <p className="dashboard-section-eyebrow">최근 등록 내역</p>
+                    <h3>메뉴별 최신 5건</h3>
+                  </div>
+                </div>
+
+                <div className="dashboard-recent-grid">
+                  {dashboardData.recentGroups.map((group) => (
+                    <div className="dashboard-recent-card" key={group.key}>
+                      <button
+                        className="dashboard-recent-title"
+                        type="button"
+                        onClick={() => setMenu(group.menu)}
+                      >
+                        {group.label}
+                      </button>
+
+                      <div className="dashboard-recent-list">
+                        {group.items.length > 0 ? (
+                          group.items.map((item) => (
+                            <button
+                              className="dashboard-recent-item"
+                              type="button"
+                              key={`${group.key}-${item.id || item.title}-${item.date}`}
+                              onClick={() => setMenu(group.menu)}
+                            >
+                              <span className="dashboard-recent-date">{item.date}</span>
+                              <span className="dashboard-recent-main">{item.title}</span>
+                              <span className="dashboard-recent-meta">{item.meta}</span>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="dashboard-recent-empty">등록 내역이 없습니다.</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <div className="dashboard-year-list">
+              <div className="dashboard-section-header legacy-contract-dashboard-title">
+                <div>
+                  <p className="dashboard-section-eyebrow">계약현황 상세</p>
+                  <h2>연도별 계약금액 현황</h2>
+                </div>
+              </div>
+
               {dashboardSummary.years.map((yearBlock) => {
                 const isCollapsed = !isDashboardYearOpen(yearBlock.year)
 
