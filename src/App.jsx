@@ -1249,6 +1249,16 @@ function logSupabaseFetchError(label, table, error) {
   })
 }
 
+function logSupabaseOperationError(label, error) {
+  console.error(`[${label}] Supabase operation failed`, {
+    message: error?.message ?? safeString(error),
+    code: error?.code ?? '',
+    details: error?.details ?? '',
+    hint: error?.hint ?? '',
+    error,
+  })
+}
+
 function getDashboardStatusCounts(rows, statusKey) {
   return DASHBOARD_STATUS_LABELS.map((status) => ({
     status,
@@ -1629,7 +1639,7 @@ function App() {
     const { data, error } = await supabase.from('contracts').insert([payload]).select()
 
     if (error) {
-      alert(error.message)
+      logSupabaseOperationError('계약현황 저장', error)
       return null
     }
 
@@ -2414,14 +2424,14 @@ function App() {
       const { error } = await supabase.from('contracts').insert(payload)
 
       if (error) {
-        alert(error.message)
+        logSupabaseOperationError('계약현황 엑셀 업로드', error)
         return
       }
 
       await fetchContracts()
       alert(`엑셀 업로드 완료: 신규 ${uniqueImported.length}건 추가, 중복 ${imported.length - uniqueImported.length}건 제외`)
-    } catch {
-      alert('엑셀 업로드 중 오류가 발생했습니다.')
+    } catch (error) {
+      console.error('엑셀 업로드 중 오류가 발생했습니다.', error)
     } finally {
       e.target.value = ''
     }
@@ -2564,7 +2574,7 @@ function App() {
     const { error } = await supabase.from('document_register').delete().eq('id', rowId)
 
     if (error) {
-      alert(error.message)
+      logSupabaseOperationError('문서수발신대장 삭제', error)
       return
     }
 
@@ -2596,7 +2606,7 @@ function App() {
         ])
 
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('문서수발신대장 저장', error)
           return
         }
       } else {
@@ -2606,7 +2616,7 @@ function App() {
           .eq('id', rowId)
 
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('문서수발신대장 저장', error)
           return
         }
       }
@@ -2649,7 +2659,7 @@ function App() {
       const { error } = await deleteRegistryIdsInChunks('document_register', persistedIds)
 
       if (error) {
-        alert(error.message)
+        logSupabaseOperationError('문서수발신대장 선택 삭제', error)
         return
       }
 
@@ -2690,7 +2700,7 @@ function App() {
 
         const { error } = await supabase.from('document_register').insert(insertPayload)
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('문서수발신대장 일괄 저장', error)
           return
         }
       }
@@ -2707,7 +2717,7 @@ function App() {
 
         const failedUpdate = updateResults.find((result) => result.error)
         if (failedUpdate?.error) {
-          alert(failedUpdate.error.message)
+          logSupabaseOperationError('문서수발신대장 일괄 저장', failedUpdate.error)
           return
         }
       }
@@ -2821,7 +2831,7 @@ function App() {
     const { error } = await supabase.from('sales_register').delete().eq('id', rowId)
 
     if (error) {
-      alert(error.message)
+      logSupabaseOperationError('영업관리대장 삭제', error)
       return
     }
 
@@ -2853,7 +2863,7 @@ function App() {
         ])
 
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('영업관리대장 저장', error)
           return
         }
       } else {
@@ -2863,7 +2873,7 @@ function App() {
           .eq('id', rowId)
 
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('영업관리대장 저장', error)
           return
         }
       }
@@ -2906,7 +2916,7 @@ function App() {
       const { error } = await deleteRegistryIdsInChunks('sales_register', persistedIds)
 
       if (error) {
-        alert(error.message)
+        logSupabaseOperationError('영업관리대장 선택 삭제', error)
         return
       }
 
@@ -2945,7 +2955,7 @@ function App() {
 
         const { error } = await supabase.from('sales_register').insert(insertPayload)
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('영업관리대장 일괄 저장', error)
           return
         }
       }
@@ -2962,7 +2972,7 @@ function App() {
 
         const failedUpdate = updateResults.find((result) => result.error)
         if (failedUpdate?.error) {
-          alert(failedUpdate.error.message)
+          logSupabaseOperationError('영업관리대장 일괄 저장', failedUpdate.error)
           return
         }
       }
@@ -3081,7 +3091,7 @@ function App() {
     const { error } = await supabase.from('budget_progress').delete().eq('id', rowId)
 
     if (error) {
-      alert(error.message)
+      logSupabaseOperationError('본예산 진행정보 삭제', error)
       return
     }
 
@@ -3113,7 +3123,7 @@ function App() {
         ])
 
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('본예산 진행정보 저장', error)
           return
         }
       } else {
@@ -3123,7 +3133,7 @@ function App() {
           .eq('id', rowId)
 
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('본예산 진행정보 저장', error)
           return
         }
       }
@@ -3166,7 +3176,7 @@ function App() {
       const { error } = await deleteRegistryIdsInChunks('budget_progress', persistedIds)
 
       if (error) {
-        alert(error.message)
+        logSupabaseOperationError('본예산 진행정보 선택 삭제', error)
         return
       }
 
@@ -3207,7 +3217,7 @@ function App() {
 
         const { error } = await supabase.from('budget_progress').insert(insertPayload)
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('본예산 진행정보 일괄 저장', error)
           return
         }
       }
@@ -3224,7 +3234,7 @@ function App() {
 
         const failedUpdate = updateResults.find((result) => result.error)
         if (failedUpdate?.error) {
-          alert(failedUpdate.error.message)
+          logSupabaseOperationError('본예산 진행정보 일괄 저장', failedUpdate.error)
           return
         }
       }
@@ -3344,7 +3354,7 @@ function App() {
     const { error } = await supabase.from('project_discovery').delete().eq('id', rowId)
 
     if (error) {
-      alert(error.message)
+      logSupabaseOperationError('건축정보 삭제', error)
       return
     }
 
@@ -3376,7 +3386,7 @@ function App() {
         ])
 
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('건축정보 저장', error)
           return
         }
       } else {
@@ -3386,7 +3396,7 @@ function App() {
           .eq('id', rowId)
 
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('건축정보 저장', error)
           return
         }
       }
@@ -3429,7 +3439,7 @@ function App() {
       const { error } = await deleteRegistryIdsInChunks('project_discovery', persistedIds)
 
       if (error) {
-        alert(error.message)
+        logSupabaseOperationError('건축정보 선택 삭제', error)
         return
       }
 
@@ -3470,7 +3480,7 @@ function App() {
 
         const { error } = await supabase.from('project_discovery').insert(insertPayload)
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('건축정보 일괄 저장', error)
           return
         }
       }
@@ -3487,7 +3497,7 @@ function App() {
 
         const failedUpdate = updateResults.find((result) => result.error)
         if (failedUpdate?.error) {
-          alert(failedUpdate.error.message)
+          logSupabaseOperationError('건축정보 일괄 저장', failedUpdate.error)
           return
         }
       }
@@ -3607,7 +3617,7 @@ function App() {
     const { error } = await supabase.from('excluded_projects').delete().eq('id', rowId)
 
     if (error) {
-      alert(error.message)
+      logSupabaseOperationError('사업검색이력 삭제', error)
       return
     }
 
@@ -3639,7 +3649,7 @@ function App() {
         ])
 
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('사업검색이력 저장', error)
           return
         }
       } else {
@@ -3649,7 +3659,7 @@ function App() {
           .eq('id', rowId)
 
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('사업검색이력 저장', error)
           return
         }
       }
@@ -3692,7 +3702,7 @@ function App() {
       const { error } = await deleteRegistryIdsInChunks('excluded_projects', persistedIds)
 
       if (error) {
-        alert(error.message)
+        logSupabaseOperationError('사업검색이력 선택 삭제', error)
         return
       }
 
@@ -3733,7 +3743,7 @@ function App() {
 
         const { error } = await supabase.from('excluded_projects').insert(insertPayload)
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('사업검색이력 일괄 저장', error)
           return
         }
       }
@@ -3750,7 +3760,7 @@ function App() {
 
         const failedUpdate = updateResults.find((result) => result.error)
         if (failedUpdate?.error) {
-          alert(failedUpdate.error.message)
+          logSupabaseOperationError('사업검색이력 일괄 저장', failedUpdate.error)
           return
         }
       }
@@ -3973,7 +3983,7 @@ function App() {
         ])
 
         if (error) {
-          alert(`${sourceLine}행 업로드 실패: ${error.message}`)
+          logSupabaseOperationError(`${sourceLine}행 업로드 실패`, error)
           await config.fetchRows(false)
           return
         }
@@ -3982,7 +3992,7 @@ function App() {
       await config.fetchRows(false)
       alert(`신규 ${uniquePreparedRows.length}건 업로드, 중복 ${duplicateCount}건 제외되었습니다.`)
     } catch (error) {
-      alert(`업로드 중 오류가 발생했습니다: ${safeString(error?.message || error)}`)
+      console.error('업로드 중 오류가 발생했습니다.', error)
     }
   }
 
@@ -4006,7 +4016,7 @@ function App() {
 
     const { error } = await supabase.from(table).delete().not('id', 'is', null)
     if (error) {
-      alert(error.message)
+      logSupabaseOperationError('전체 데이터 삭제', error)
       return
     }
 
@@ -4116,7 +4126,7 @@ function App() {
       if (!targetRow.isDraft && targetRow.id) {
         const { error } = await supabase.from(WORK_REPORT_TABLE).delete().eq('id', targetRow.id)
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('일일/주간업무보고서 삭제', error)
           return
         }
         await fetchWorkReportRows(false)
@@ -4139,7 +4149,7 @@ function App() {
         ])
 
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('일일/주간업무보고서 저장', error)
           return
         }
       } else {
@@ -4149,7 +4159,7 @@ function App() {
           .eq('id', targetRow.id)
 
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('일일/주간업무보고서 저장', error)
           return
         }
       }
@@ -4325,7 +4335,7 @@ function App() {
       if (!targetRow.isDraft && targetRow.id) {
         const { error } = await supabase.from(WORK_REPORT_TABLE).delete().eq('id', targetRow.id)
         if (error) {
-          alert(error.message)
+          logSupabaseOperationError('일일/주간업무보고서 삭제', error)
           return
         }
         await fetchWorkReportRows(false)
@@ -4358,7 +4368,7 @@ function App() {
         }
 
         if (insertResult.error) {
-          alert(insertResult.error.message)
+          logSupabaseOperationError('일일/주간업무보고서 저장', insertResult.error)
           return
         }
       } else {
@@ -4375,7 +4385,7 @@ function App() {
         }
 
         if (updateResult.error) {
-          alert(updateResult.error.message)
+          logSupabaseOperationError('일일/주간업무보고서 저장', updateResult.error)
           return
         }
       }
@@ -4583,7 +4593,7 @@ function App() {
     const { error } = await supabase.from('contracts').delete().eq('id', id)
 
     if (error) {
-      alert(error.message)
+      logSupabaseOperationError('계약현황 삭제', error)
       return
     }
 
@@ -4612,7 +4622,7 @@ function App() {
     const { error } = await deleteRegistryIdsInChunks('contracts', validSelectedIds)
 
     if (error) {
-      alert(error.message)
+      logSupabaseOperationError('계약현황 선택 삭제', error)
       return
     }
 
@@ -4653,7 +4663,7 @@ function App() {
       .eq('id', editingCell.rowId)
 
     if (error) {
-      alert(error.message)
+      logSupabaseOperationError('계약현황 수정', error)
       return
     }
 
