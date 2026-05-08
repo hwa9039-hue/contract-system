@@ -15,8 +15,16 @@ from app.routers import (
 )
 
 
+DEFAULT_CORS_ORIGINS = (
+    "http://localhost:5173,"
+    "http://127.0.0.1:5173,"
+    "https://contract-system-2ev.pages.dev"
+)
+PAGES_DEV_ORIGIN_REGEX = r"https://.*\.pages\.dev"
+
+
 def get_cors_origins():
-    raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+    raw_origins = os.getenv("CORS_ORIGINS", DEFAULT_CORS_ORIGINS)
     return [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
 
 
@@ -25,6 +33,7 @@ app = FastAPI(title="Contract Management API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
+    allow_origin_regex=PAGES_DEV_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
