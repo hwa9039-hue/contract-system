@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import './App.css'
-import { supabase } from './supabase'
+import { budgetProgressApi } from './budgetProgressApi'
+import { contractsApi } from './contractsApi'
+import { documentRegisterApi } from './documentRegisterApi'
+import { excludedProjectsApi } from './excludedProjectsApi'
+import { projectDiscoveryApi } from './projectDiscoveryApi'
+import { salesRegisterApi } from './salesRegisterApi'
+import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 
 const CONTRACT_COLUMNS = [
   { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text' },
@@ -149,7 +155,6 @@ const EXCLUDED_COLUMNS = [
   { key: 'exclusionReason', label: '제외 사유', align: 'left', type: 'textarea', width: 300 },
 ]
 
-const WORK_REPORT_TABLE = 'weekly_work_reports'
 const WORK_REPORT_WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
 const WORK_REPORT_MAIN_CHECK_COUNT = 5
 const WORK_REPORT_EXTERNAL_ROW_COUNT = 5
@@ -539,7 +544,7 @@ function toDbDate(value) {
   return str || null
 }
 
-function normalizeContractForSupabase(item) {
+function normalizeContractPayload(item) {
   return {
     year: parseYearValue(item.year),
     segment: safeString(item.segment).trim(),
@@ -1238,8 +1243,8 @@ function getPersistedRows(rows) {
   return rows.filter((row) => !row.isDraft)
 }
 
-function logSupabaseFetchError(label, table, error) {
-  console.error(`[${label}] Supabase fetch failed`, {
+function logApiFetchError(label, table, error) {
+  console.error(`[${label}] API fetch failed`, {
     table,
     message: error?.message ?? safeString(error),
     code: error?.code ?? '',
@@ -1249,8 +1254,8 @@ function logSupabaseFetchError(label, table, error) {
   })
 }
 
-function logSupabaseOperationError(label, error) {
-  console.error(`[${label}] Supabase operation failed`, {
+function logApiOperationError(label, error) {
+  console.error(`[${label}] API operation failed`, {
     message: error?.message ?? safeString(error),
     code: error?.code ?? '',
     details: error?.details ?? '',
@@ -1425,49 +1430,24 @@ function App() {
 
   const fileInputRef = useRef(null)
   const registryUploadInputRef = useRef(null)
+  const registryUploadTargetRef = useRef('')
+  const registryUploadInProgressRef = useRef(false)
 
   const fetchContracts = async () => {
-    const table = 'contracts'
-
     try {
-      const { data, error } = await supabase
-        .from(table)
-        .select('*')
-        .order('year', { ascending: false })
-
-      if (error) {
-        logSupabaseFetchError('계약현황', table, error)
-        setContracts([])
-        return []
-      }
-
-      const rows = data ?? []
+      const rows = await contractsApi.list()
       setContracts(rows)
       return rows
     } catch (error) {
-      logSupabaseFetchError('계약현황', table, error)
+      console.error('[계약현황] API fetch failed', error)
       setContracts([])
       return []
     }
   }
 
   const fetchDocuments = async (preserveDrafts = true) => {
-    const table = 'document_register'
-
     try {
-      const { data, error } = await supabase
-        .from(table)
-        .select('*')
-        .order('createdAt', { ascending: true })
-
-      if (error) {
-        logSupabaseFetchError('문서수발신대장', table, error)
-        setDocuments([])
-        setSelectedDocumentIds([])
-        return []
-      }
-
-      const rows = data ?? []
+      const rows = await documentRegisterApi.list()
       setDocuments((prev) => {
         const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
         return [...rows.map(normalizeDocumentRow), ...draftRows]
@@ -1475,7 +1455,7 @@ function App() {
       setSelectedDocumentIds([])
       return rows
     } catch (error) {
-      logSupabaseFetchError('문서수발신대장', table, error)
+      console.error('[문서수발신대장] API fetch failed', error)
       setDocuments([])
       setSelectedDocumentIds([])
       return []
@@ -1483,22 +1463,8 @@ function App() {
   }
 
   const fetchSalesRows = async (preserveDrafts = true) => {
-    const table = 'sales_register'
-
     try {
-      const { data, error } = await supabase
-        .from(table)
-        .select('*')
-        .order('createdAt', { ascending: true })
-
-      if (error) {
-        logSupabaseFetchError('영업관리대장', table, error)
-        setSalesRows([])
-        setSelectedSalesIds([])
-        return []
-      }
-
-      const rows = data ?? []
+      const rows = await salesRegisterApi.list()
       setSalesRows((prev) => {
         const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
         return [...rows.map(normalizeSalesRow), ...draftRows]
@@ -1506,7 +1472,7 @@ function App() {
       setSelectedSalesIds([])
       return rows
     } catch (error) {
-      logSupabaseFetchError('영업관리대장', table, error)
+      console.error('[영업관리대장] API fetch failed', error)
       setSalesRows([])
       setSelectedSalesIds([])
       return []
@@ -1514,22 +1480,8 @@ function App() {
   }
 
   const fetchBudgetRows = async (preserveDrafts = true) => {
-    const table = 'budget_progress'
-
     try {
-      const { data, error } = await supabase
-        .from(table)
-        .select('*')
-        .order('createdAt', { ascending: true })
-
-      if (error) {
-        logSupabaseFetchError('본예산 진행정보', table, error)
-        setBudgetRows([])
-        setSelectedBudgetIds([])
-        return []
-      }
-
-      const rows = data ?? []
+      const rows = await budgetProgressApi.list()
       setBudgetRows((prev) => {
         const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
         return [...rows.map(normalizeBudgetRow), ...draftRows]
@@ -1537,7 +1489,7 @@ function App() {
       setSelectedBudgetIds([])
       return rows
     } catch (error) {
-      logSupabaseFetchError('본예산 진행정보', table, error)
+      console.error('[본예산 진행정보] API fetch failed', error)
       setBudgetRows([])
       setSelectedBudgetIds([])
       return []
@@ -1545,22 +1497,8 @@ function App() {
   }
 
   const fetchDiscoveryRows = async (preserveDrafts = true) => {
-    const table = 'project_discovery'
-
     try {
-      const { data, error } = await supabase
-        .from(table)
-        .select('*')
-        .order('createdAt', { ascending: true })
-
-      if (error) {
-        logSupabaseFetchError('건축정보', table, error)
-        setDiscoveryRows([])
-        setSelectedDiscoveryIds([])
-        return []
-      }
-
-      const rows = data ?? []
+      const rows = await projectDiscoveryApi.list()
       setDiscoveryRows((prev) => {
         const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
         return [...rows.map(normalizeDiscoveryRow), ...draftRows]
@@ -1568,7 +1506,7 @@ function App() {
       setSelectedDiscoveryIds([])
       return rows
     } catch (error) {
-      logSupabaseFetchError('건축정보', table, error)
+      console.error('[건축정보] API fetch failed', error)
       setDiscoveryRows([])
       setSelectedDiscoveryIds([])
       return []
@@ -1576,22 +1514,8 @@ function App() {
   }
 
   const fetchExcludedRows = async (preserveDrafts = true) => {
-    const table = 'excluded_projects'
-
     try {
-      const { data, error } = await supabase
-        .from(table)
-        .select('*')
-        .order('createdAt', { ascending: true })
-
-      if (error) {
-        logSupabaseFetchError('사업검색이력', table, error)
-        setExcludedRows([])
-        setSelectedExcludedIds([])
-        return []
-      }
-
-      const rows = data ?? []
+      const rows = await excludedProjectsApi.list()
       setExcludedRows((prev) => {
         const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
         return [...rows.map(normalizeExcludedRow), ...draftRows]
@@ -1599,7 +1523,7 @@ function App() {
       setSelectedExcludedIds([])
       return rows
     } catch (error) {
-      logSupabaseFetchError('사업검색이력', table, error)
+      console.error('[사업검색이력] API fetch failed', error)
       setExcludedRows([])
       setSelectedExcludedIds([])
       return []
@@ -1607,43 +1531,27 @@ function App() {
   }
 
   const fetchWorkReportRows = async () => {
-    const table = WORK_REPORT_TABLE
-
     try {
-      const { data, error } = await supabase
-        .from(table)
-        .select('*')
-        .order('date', { ascending: false })
-        .order('order_index', { ascending: true })
-        .order('createdAt', { ascending: true })
-
-      if (error) {
-        logSupabaseFetchError('일일/주간업무보고서', table, error)
-        setWorkReportRows([])
-        return []
-      }
-
-      const rows = data ?? []
+      const rows = await weeklyWorkReportsApi.list()
       setWorkReportRows(rows.map(normalizeWorkReportRow))
       return rows
     } catch (error) {
-      logSupabaseFetchError('일일/주간업무보고서', table, error)
+      console.error('[일일/주간업무보고서] API fetch failed', error)
       setWorkReportRows([])
       return []
     }
   }
 
-  const saveContractToSupabase = async (formData) => {
-    const payload = normalizeContractForSupabase(formData)
+  const saveContractToApi = async (formData) => {
+    const payload = normalizeContractPayload(formData)
 
-    const { data, error } = await supabase.from('contracts').insert([payload]).select()
-
-    if (error) {
-      logSupabaseOperationError('계약현황 저장', error)
+    try {
+      const data = await contractsApi.create(payload)
+      return data ? [data] : []
+    } catch (error) {
+      logApiOperationError('계약현황 저장', error)
       return null
     }
-
-    return data
   }
 
   useEffect(() => {
@@ -2419,19 +2327,14 @@ function App() {
         return
       }
 
-      const payload = uniqueImported.map(normalizeContractForSupabase)
-
-      const { error } = await supabase.from('contracts').insert(payload)
-
-      if (error) {
-        logSupabaseOperationError('계약현황 엑셀 업로드', error)
-        return
-      }
+      const payload = uniqueImported.map(normalizeContractPayload)
+      await Promise.all(payload.map((item) => contractsApi.create(item)))
 
       await fetchContracts()
       alert(`엑셀 업로드 완료: 신규 ${uniqueImported.length}건 추가, 중복 ${imported.length - uniqueImported.length}건 제외`)
     } catch (error) {
       console.error('엑셀 업로드 중 오류가 발생했습니다.', error)
+      alert(`엑셀 업로드 중 오류가 발생했습니다.\n${error?.message ?? error}`)
     } finally {
       e.target.value = ''
     }
@@ -2571,10 +2474,10 @@ function App() {
     const ok = window.confirm('이 문서수발신 항목을 삭제하시겠습니까?')
     if (!ok) return
 
-    const { error } = await supabase.from('document_register').delete().eq('id', rowId)
-
-    if (error) {
-      logSupabaseOperationError('문서수발신대장 삭제', error)
+    try {
+      await documentRegisterApi.remove(rowId)
+    } catch (error) {
+      logApiOperationError('문서수발신대장 삭제', error)
       return
     }
 
@@ -2598,33 +2501,20 @@ function App() {
       const timestamp = new Date().toISOString()
 
       if (targetRow.isDraft) {
-        const { error } = await supabase.from('document_register').insert([
-          {
-            ...toDocumentPayload(targetRow, timestamp),
-            createdAt: timestamp,
-          },
-        ])
-
-        if (error) {
-          logSupabaseOperationError('문서수발신대장 저장', error)
-          return
-        }
+        await documentRegisterApi.create({
+          ...toDocumentPayload(targetRow, timestamp),
+          createdAt: timestamp,
+        })
       } else {
-        const { error } = await supabase
-          .from('document_register')
-          .update(toDocumentPayload(targetRow, timestamp))
-          .eq('id', rowId)
-
-        if (error) {
-          logSupabaseOperationError('문서수발신대장 저장', error)
-          return
-        }
+        await documentRegisterApi.update(rowId, toDocumentPayload(targetRow, timestamp))
       }
 
       await fetchDocuments(false)
       setEditingDocumentIds((prev) => prev.filter((id) => id !== rowId))
       setDocumentEditSnapshots((prev) => removeObjectKey(prev, rowId))
       alert('저장되었습니다.')
+    } catch (error) {
+      logApiOperationError('문서수발신대장 저장', error)
     } finally {
       setIsSavingDocuments(false)
     }
@@ -2656,10 +2546,10 @@ function App() {
       const remainingDrafts = documents.filter(
         (row) => row.isDraft && !validSelectedIds.includes(row.id)
       )
-      const { error } = await deleteRegistryIdsInChunks('document_register', persistedIds)
-
-      if (error) {
-        logSupabaseOperationError('문서수발신대장 선택 삭제', error)
+      try {
+        await documentRegisterApi.bulkDelete(persistedIds)
+      } catch (error) {
+        logApiOperationError('문서수발신대장 선택 삭제', error)
         return
       }
 
@@ -2698,28 +2588,15 @@ function App() {
           createdAt: timestamp,
         }))
 
-        const { error } = await supabase.from('document_register').insert(insertPayload)
-        if (error) {
-          logSupabaseOperationError('문서수발신대장 일괄 저장', error)
-          return
-        }
+        await documentRegisterApi.importRows(insertPayload)
       }
 
       if (rowsToUpdate.length > 0) {
-        const updateResults = await Promise.all(
+        await Promise.all(
           rowsToUpdate.map((row) =>
-            supabase
-              .from('document_register')
-              .update(toDocumentPayload(row, timestamp))
-              .eq('id', row.id)
+            documentRegisterApi.update(row.id, toDocumentPayload(row, timestamp))
           )
         )
-
-        const failedUpdate = updateResults.find((result) => result.error)
-        if (failedUpdate?.error) {
-          logSupabaseOperationError('문서수발신대장 일괄 저장', failedUpdate.error)
-          return
-        }
       }
 
       if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && hasEmptyDraftRows) {
@@ -2734,6 +2611,8 @@ function App() {
       setSelectedDocumentIds([])
       setEditingDocumentIds([])
       alert('저장되었습니다.')
+    } catch (error) {
+      logApiOperationError('문서수발신대장 일괄 저장', error)
     } finally {
       setIsSavingDocuments(false)
     }
@@ -2828,10 +2707,10 @@ function App() {
     const ok = window.confirm('이 영업관리대장 항목을 삭제하시겠습니까?')
     if (!ok) return
 
-    const { error } = await supabase.from('sales_register').delete().eq('id', rowId)
-
-    if (error) {
-      logSupabaseOperationError('영업관리대장 삭제', error)
+    try {
+      await salesRegisterApi.remove(rowId)
+    } catch (error) {
+      logApiOperationError('영업관리대장 삭제', error)
       return
     }
 
@@ -2855,33 +2734,20 @@ function App() {
       const timestamp = new Date().toISOString()
 
       if (targetRow.isDraft) {
-        const { error } = await supabase.from('sales_register').insert([
-          {
-            ...toSalesPayload(targetRow, timestamp),
-            createdAt: timestamp,
-          },
-        ])
-
-        if (error) {
-          logSupabaseOperationError('영업관리대장 저장', error)
-          return
-        }
+        await salesRegisterApi.create({
+          ...toSalesPayload(targetRow, timestamp),
+          createdAt: timestamp,
+        })
       } else {
-        const { error } = await supabase
-          .from('sales_register')
-          .update(toSalesPayload(targetRow, timestamp))
-          .eq('id', rowId)
-
-        if (error) {
-          logSupabaseOperationError('영업관리대장 저장', error)
-          return
-        }
+        await salesRegisterApi.update(rowId, toSalesPayload(targetRow, timestamp))
       }
 
       await fetchSalesRows(false)
       setEditingSalesIds((prev) => prev.filter((id) => id !== rowId))
       setSalesEditSnapshots((prev) => removeObjectKey(prev, rowId))
       alert('저장되었습니다.')
+    } catch (error) {
+      logApiOperationError('영업관리대장 저장', error)
     } finally {
       setIsSavingSales(false)
     }
@@ -2913,10 +2779,10 @@ function App() {
       const remainingDrafts = salesRows.filter(
         (row) => row.isDraft && !validSelectedIds.includes(row.id)
       )
-      const { error } = await deleteRegistryIdsInChunks('sales_register', persistedIds)
-
-      if (error) {
-        logSupabaseOperationError('영업관리대장 선택 삭제', error)
+      try {
+        await salesRegisterApi.bulkDelete(persistedIds)
+      } catch (error) {
+        logApiOperationError('영업관리대장 선택 삭제', error)
         return
       }
 
@@ -2953,28 +2819,15 @@ function App() {
           createdAt: timestamp,
         }))
 
-        const { error } = await supabase.from('sales_register').insert(insertPayload)
-        if (error) {
-          logSupabaseOperationError('영업관리대장 일괄 저장', error)
-          return
-        }
+        await salesRegisterApi.importRows(insertPayload)
       }
 
       if (rowsToUpdate.length > 0) {
-        const updateResults = await Promise.all(
+        await Promise.all(
           rowsToUpdate.map((row) =>
-            supabase
-              .from('sales_register')
-              .update(toSalesPayload(row, timestamp))
-              .eq('id', row.id)
+            salesRegisterApi.update(row.id, toSalesPayload(row, timestamp))
           )
         )
-
-        const failedUpdate = updateResults.find((result) => result.error)
-        if (failedUpdate?.error) {
-          logSupabaseOperationError('영업관리대장 일괄 저장', failedUpdate.error)
-          return
-        }
       }
 
       if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && hasEmptyDraftRows) {
@@ -2989,6 +2842,8 @@ function App() {
       setSelectedSalesIds([])
       setEditingSalesIds([])
       alert('저장되었습니다.')
+    } catch (error) {
+      logApiOperationError('영업관리대장 일괄 저장', error)
     } finally {
       setIsSavingSales(false)
     }
@@ -3088,10 +2943,10 @@ function App() {
     const ok = window.confirm('이 본예산 진행정보 항목을 삭제하시겠습니까?')
     if (!ok) return
 
-    const { error } = await supabase.from('budget_progress').delete().eq('id', rowId)
-
-    if (error) {
-      logSupabaseOperationError('본예산 진행정보 삭제', error)
+    try {
+      await budgetProgressApi.remove(rowId)
+    } catch (error) {
+      logApiOperationError('본예산 진행정보 삭제', error)
       return
     }
 
@@ -3115,33 +2970,20 @@ function App() {
       const timestamp = new Date().toISOString()
 
       if (targetRow.isDraft) {
-        const { error } = await supabase.from('budget_progress').insert([
-          {
-            ...toBudgetPayload(targetRow, timestamp),
-            createdAt: timestamp,
-          },
-        ])
-
-        if (error) {
-          logSupabaseOperationError('본예산 진행정보 저장', error)
-          return
-        }
+        await budgetProgressApi.create({
+          ...toBudgetPayload(targetRow, timestamp),
+          createdAt: timestamp,
+        })
       } else {
-        const { error } = await supabase
-          .from('budget_progress')
-          .update(toBudgetPayload(targetRow, timestamp))
-          .eq('id', rowId)
-
-        if (error) {
-          logSupabaseOperationError('본예산 진행정보 저장', error)
-          return
-        }
+        await budgetProgressApi.update(rowId, toBudgetPayload(targetRow, timestamp))
       }
 
       await fetchBudgetRows(false)
       setEditingBudgetIds((prev) => prev.filter((id) => id !== rowId))
       setBudgetEditSnapshots((prev) => removeObjectKey(prev, rowId))
       alert('저장되었습니다.')
+    } catch (error) {
+      logApiOperationError('본예산 진행정보 저장', error)
     } finally {
       setIsSavingBudget(false)
     }
@@ -3173,10 +3015,10 @@ function App() {
       const remainingDrafts = budgetRows.filter(
         (row) => row.isDraft && !validSelectedIds.includes(row.id)
       )
-      const { error } = await deleteRegistryIdsInChunks('budget_progress', persistedIds)
-
-      if (error) {
-        logSupabaseOperationError('본예산 진행정보 선택 삭제', error)
+      try {
+        await budgetProgressApi.bulkDelete(persistedIds)
+      } catch (error) {
+        logApiOperationError('본예산 진행정보 선택 삭제', error)
         return
       }
 
@@ -3215,28 +3057,15 @@ function App() {
           createdAt: timestamp,
         }))
 
-        const { error } = await supabase.from('budget_progress').insert(insertPayload)
-        if (error) {
-          logSupabaseOperationError('본예산 진행정보 일괄 저장', error)
-          return
-        }
+        await budgetProgressApi.importRows(insertPayload)
       }
 
       if (rowsToUpdate.length > 0) {
-        const updateResults = await Promise.all(
+        await Promise.all(
           rowsToUpdate.map((row) =>
-            supabase
-              .from('budget_progress')
-              .update(toBudgetPayload(row, timestamp))
-              .eq('id', row.id)
+            budgetProgressApi.update(row.id, toBudgetPayload(row, timestamp))
           )
         )
-
-        const failedUpdate = updateResults.find((result) => result.error)
-        if (failedUpdate?.error) {
-          logSupabaseOperationError('본예산 진행정보 일괄 저장', failedUpdate.error)
-          return
-        }
       }
 
       if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && hasEmptyDraftRows) {
@@ -3251,6 +3080,8 @@ function App() {
       setSelectedBudgetIds([])
       setEditingBudgetIds([])
       alert('저장되었습니다.')
+    } catch (error) {
+      logApiOperationError('본예산 진행정보 일괄 저장', error)
     } finally {
       setIsSavingBudget(false)
     }
@@ -3351,10 +3182,10 @@ function App() {
     const ok = window.confirm('이 건축정보 항목을 삭제하시겠습니까?')
     if (!ok) return
 
-    const { error } = await supabase.from('project_discovery').delete().eq('id', rowId)
-
-    if (error) {
-      logSupabaseOperationError('건축정보 삭제', error)
+    try {
+      await projectDiscoveryApi.remove(rowId)
+    } catch (error) {
+      logApiOperationError('건축정보 삭제', error)
       return
     }
 
@@ -3378,33 +3209,20 @@ function App() {
       const timestamp = new Date().toISOString()
 
       if (targetRow.isDraft) {
-        const { error } = await supabase.from('project_discovery').insert([
-          {
-            ...toDiscoveryPayload(targetRow, timestamp),
-            createdAt: timestamp,
-          },
-        ])
-
-        if (error) {
-          logSupabaseOperationError('건축정보 저장', error)
-          return
-        }
+        await projectDiscoveryApi.create({
+          ...toDiscoveryPayload(targetRow, timestamp),
+          createdAt: timestamp,
+        })
       } else {
-        const { error } = await supabase
-          .from('project_discovery')
-          .update(toDiscoveryPayload(targetRow, timestamp))
-          .eq('id', rowId)
-
-        if (error) {
-          logSupabaseOperationError('건축정보 저장', error)
-          return
-        }
+        await projectDiscoveryApi.update(rowId, toDiscoveryPayload(targetRow, timestamp))
       }
 
       await fetchDiscoveryRows(false)
       setEditingDiscoveryIds((prev) => prev.filter((id) => id !== rowId))
       setDiscoveryEditSnapshots((prev) => removeObjectKey(prev, rowId))
       alert('저장되었습니다.')
+    } catch (error) {
+      logApiOperationError('건축정보 저장', error)
     } finally {
       setIsSavingDiscovery(false)
     }
@@ -3436,10 +3254,10 @@ function App() {
       const remainingDrafts = discoveryRows.filter(
         (row) => row.isDraft && !validSelectedIds.includes(row.id)
       )
-      const { error } = await deleteRegistryIdsInChunks('project_discovery', persistedIds)
-
-      if (error) {
-        logSupabaseOperationError('건축정보 선택 삭제', error)
+      try {
+        await projectDiscoveryApi.bulkDelete(persistedIds)
+      } catch (error) {
+        logApiOperationError('건축정보 선택 삭제', error)
         return
       }
 
@@ -3478,28 +3296,15 @@ function App() {
           createdAt: timestamp,
         }))
 
-        const { error } = await supabase.from('project_discovery').insert(insertPayload)
-        if (error) {
-          logSupabaseOperationError('건축정보 일괄 저장', error)
-          return
-        }
+        await projectDiscoveryApi.importRows(insertPayload)
       }
 
       if (rowsToUpdate.length > 0) {
-        const updateResults = await Promise.all(
+        await Promise.all(
           rowsToUpdate.map((row) =>
-            supabase
-              .from('project_discovery')
-              .update(toDiscoveryPayload(row, timestamp))
-              .eq('id', row.id)
+            projectDiscoveryApi.update(row.id, toDiscoveryPayload(row, timestamp))
           )
         )
-
-        const failedUpdate = updateResults.find((result) => result.error)
-        if (failedUpdate?.error) {
-          logSupabaseOperationError('건축정보 일괄 저장', failedUpdate.error)
-          return
-        }
       }
 
       if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && hasEmptyDraftRows) {
@@ -3514,6 +3319,8 @@ function App() {
       setSelectedDiscoveryIds([])
       setEditingDiscoveryIds([])
       alert('저장되었습니다.')
+    } catch (error) {
+      logApiOperationError('건축정보 일괄 저장', error)
     } finally {
       setIsSavingDiscovery(false)
     }
@@ -3614,10 +3421,10 @@ function App() {
     const ok = window.confirm('이 사업검색이력 항목을 삭제하시겠습니까?')
     if (!ok) return
 
-    const { error } = await supabase.from('excluded_projects').delete().eq('id', rowId)
-
-    if (error) {
-      logSupabaseOperationError('사업검색이력 삭제', error)
+    try {
+      await excludedProjectsApi.remove(rowId)
+    } catch (error) {
+      logApiOperationError('사업검색이력 삭제', error)
       return
     }
 
@@ -3641,33 +3448,20 @@ function App() {
       const timestamp = new Date().toISOString()
 
       if (targetRow.isDraft) {
-        const { error } = await supabase.from('excluded_projects').insert([
-          {
-            ...toExcludedPayload(targetRow, timestamp),
-            createdAt: timestamp,
-          },
-        ])
-
-        if (error) {
-          logSupabaseOperationError('사업검색이력 저장', error)
-          return
-        }
+        await excludedProjectsApi.create({
+          ...toExcludedPayload(targetRow, timestamp),
+          createdAt: timestamp,
+        })
       } else {
-        const { error } = await supabase
-          .from('excluded_projects')
-          .update(toExcludedPayload(targetRow, timestamp))
-          .eq('id', rowId)
-
-        if (error) {
-          logSupabaseOperationError('사업검색이력 저장', error)
-          return
-        }
+        await excludedProjectsApi.update(rowId, toExcludedPayload(targetRow, timestamp))
       }
 
       await fetchExcludedRows(false)
       setEditingExcludedIds((prev) => prev.filter((id) => id !== rowId))
       setExcludedEditSnapshots((prev) => removeObjectKey(prev, rowId))
       alert('저장되었습니다.')
+    } catch (error) {
+      logApiOperationError('사업검색이력 저장', error)
     } finally {
       setIsSavingExcluded(false)
     }
@@ -3699,10 +3493,10 @@ function App() {
       const remainingDrafts = excludedRows.filter(
         (row) => row.isDraft && !validSelectedIds.includes(row.id)
       )
-      const { error } = await deleteRegistryIdsInChunks('excluded_projects', persistedIds)
-
-      if (error) {
-        logSupabaseOperationError('사업검색이력 선택 삭제', error)
+      try {
+        await excludedProjectsApi.bulkDelete(persistedIds)
+      } catch (error) {
+        logApiOperationError('사업검색이력 선택 삭제', error)
         return
       }
 
@@ -3741,28 +3535,15 @@ function App() {
           createdAt: timestamp,
         }))
 
-        const { error } = await supabase.from('excluded_projects').insert(insertPayload)
-        if (error) {
-          logSupabaseOperationError('사업검색이력 일괄 저장', error)
-          return
-        }
+        await excludedProjectsApi.importRows(insertPayload)
       }
 
       if (rowsToUpdate.length > 0) {
-        const updateResults = await Promise.all(
+        await Promise.all(
           rowsToUpdate.map((row) =>
-            supabase
-              .from('excluded_projects')
-              .update(toExcludedPayload(row, timestamp))
-              .eq('id', row.id)
+            excludedProjectsApi.update(row.id, toExcludedPayload(row, timestamp))
           )
         )
-
-        const failedUpdate = updateResults.find((result) => result.error)
-        if (failedUpdate?.error) {
-          logSupabaseOperationError('사업검색이력 일괄 저장', failedUpdate.error)
-          return
-        }
       }
 
       if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && hasEmptyDraftRows) {
@@ -3777,6 +3558,8 @@ function App() {
       setSelectedExcludedIds([])
       setEditingExcludedIds([])
       alert('저장되었습니다.')
+    } catch (error) {
+      logApiOperationError('사업검색이력 일괄 저장', error)
     } finally {
       setIsSavingExcluded(false)
     }
@@ -3805,61 +3588,71 @@ function App() {
   }
 
   const openRegistryUpload = (target) => {
+    console.log('[excel-upload] open file dialog', { target })
+    registryUploadTargetRef.current = target
     setRegistryUploadTarget(target)
-    registryUploadInputRef.current?.click()
+    if (registryUploadInputRef.current) {
+      registryUploadInputRef.current.value = ''
+      registryUploadInputRef.current.click()
+    }
   }
 
   const getRegistryUploadConfig = (target) => {
     switch (target) {
       case 'documents':
         return {
-          table: 'document_register',
+          importEndpoint: '/api/document-register/import',
           columns: DOCUMENT_COLUMNS,
           rows: documents,
           createDraftRow: createDocumentDraftRow,
           isEmptyRow: isDocumentRowEmpty,
           toPayload: toDocumentPayload,
           fetchRows: fetchDocuments,
+          importRows: documentRegisterApi.importRows,
         }
       case 'sales':
         return {
-          table: 'sales_register',
+          importEndpoint: '/api/sales-register/import',
           columns: SALES_COLUMNS,
           rows: salesRows,
           createDraftRow: createSalesDraftRow,
           isEmptyRow: isSalesRowEmpty,
           toPayload: toSalesPayload,
           fetchRows: fetchSalesRows,
+          importRows: salesRegisterApi.importRows,
         }
       case 'budget':
         return {
-          table: 'budget_progress',
+          importEndpoint: '/api/budget-progress/import',
           columns: BUDGET_COLUMNS,
           rows: budgetRows,
           createDraftRow: createBudgetDraftRow,
           isEmptyRow: isBudgetRowEmpty,
           toPayload: toBudgetPayload,
           fetchRows: fetchBudgetRows,
+          importRows: budgetProgressApi.importRows,
         }
       case 'discovery':
         return {
-          table: 'project_discovery',
+          importEndpoint: '/api/project-discovery/import',
           columns: DISCOVERY_COLUMNS,
           rows: discoveryRows,
           createDraftRow: createDiscoveryDraftRow,
           isEmptyRow: isDiscoveryRowEmpty,
           toPayload: toDiscoveryPayload,
           fetchRows: fetchDiscoveryRows,
+          importRows: projectDiscoveryApi.importRows,
         }
       case 'excluded':
         return {
-          table: 'excluded_projects',
+          importEndpoint: '/api/excluded-projects/import',
           columns: EXCLUDED_COLUMNS,
           rows: excludedRows,
           createDraftRow: createExcludedDraftRow,
           isEmptyRow: isExcludedRowEmpty,
           toPayload: toExcludedPayload,
           fetchRows: fetchExcludedRows,
+          importRows: excludedProjectsApi.importRows,
         }
       default:
         return null
@@ -3903,17 +3696,50 @@ function App() {
   }
 
   const handleRegistryUploadFileChange = async (e) => {
+    if (registryUploadInProgressRef.current) {
+      console.log('[excel-upload] duplicate input event skipped')
+      return
+    }
+
+    registryUploadInProgressRef.current = true
     const file = e.target.files?.[0]
-    const target = registryUploadTarget
+    const target = registryUploadTargetRef.current || registryUploadTarget
+    console.log('[excel-upload] 시작', {
+      target,
+      file: file
+        ? {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+          }
+        : null,
+    })
     e.target.value = ''
+    registryUploadTargetRef.current = ''
     setRegistryUploadTarget('')
 
-    if (!file || !target) return
-
-    const config = getRegistryUploadConfig(target)
-    if (!config) return
-
     try {
+      if (!file) return
+
+      if (!target) {
+        console.error('엑셀 업로드 대상 메뉴를 확인할 수 없습니다.')
+        alert('엑셀 업로드 대상 메뉴를 확인할 수 없습니다. 다시 시도해주세요.')
+        return
+      }
+
+      const config = getRegistryUploadConfig(target)
+      if (!config?.importRows) {
+        console.error('엑셀 업로드 설정을 찾을 수 없습니다.', { target, config })
+        alert('엑셀 업로드 설정을 찾을 수 없습니다. 다시 시도해주세요.')
+        return
+      }
+
+      console.log('[excel-upload] config 확인', {
+        target,
+        endpoint: config.importEndpoint,
+        hasImportRows: typeof config.importRows === 'function',
+      })
+
       const arrayBuffer = await file.arrayBuffer()
       const workbook = XLSX.read(arrayBuffer, { type: 'array', raw: true, cellDates: false })
       const firstSheetName = workbook.SheetNames[0]
@@ -3972,37 +3798,69 @@ function App() {
       }
 
       const baseTime = Date.now()
-
-      for (const [index, { row, sourceLine }] of uniquePreparedRows.entries()) {
+      const payloadRows = uniquePreparedRows.map(({ row }, index) => {
         const timestamp = new Date(baseTime + index).toISOString()
-        const { error } = await supabase.from(config.table).insert([
-          {
-            ...config.toPayload(row, timestamp),
-            createdAt: timestamp,
-          },
-        ])
-
-        if (error) {
-          logSupabaseOperationError(`${sourceLine}행 업로드 실패`, error)
-          await config.fetchRows(false)
-          return
+        return {
+          ...config.toPayload(row, timestamp),
+          createdAt: timestamp,
         }
+      })
+
+      try {
+        console.log('[excel-upload] API 호출 전', {
+          target,
+          endpoint: config.importEndpoint,
+          rowCount: payloadRows.length,
+        })
+        await config.importRows(payloadRows)
+      } catch (error) {
+        console.error('[excel-upload] 업로드 실패', error)
+        logApiOperationError('엑셀 업로드 실패', error)
+        await config.fetchRows(false)
+        alert(error?.message ?? String(error))
+        return
       }
 
       await config.fetchRows(false)
-      alert(`신규 ${uniquePreparedRows.length}건 업로드, 중복 ${duplicateCount}건 제외되었습니다.`)
+      console.log('[excel-upload] 완료', {
+        target,
+        importedCount: uniquePreparedRows.length,
+        duplicateCount,
+      })
+      alert('엑셀 업로드가 완료되었습니다.')
     } catch (error) {
       console.error('업로드 중 오류가 발생했습니다.', error)
+      alert(error?.message ?? String(error))
+    } finally {
+      registryUploadInProgressRef.current = false
     }
   }
 
+  useEffect(() => {
+    const input = registryUploadInputRef.current
+    if (!input) return undefined
+
+    const handleNativeFileEvent = (event) => {
+      console.log('[excel-upload] native file input event', { type: event.type })
+      handleRegistryUploadFileChange(event)
+    }
+
+    input.addEventListener('change', handleNativeFileEvent)
+    input.addEventListener('input', handleNativeFileEvent)
+
+    return () => {
+      input.removeEventListener('change', handleNativeFileEvent)
+      input.removeEventListener('input', handleNativeFileEvent)
+    }
+  })
+
   const deleteAllRegistryRows = async ({
-    table,
     fetchRows,
     clearDraftRows,
     clearEditingIds,
     clearSnapshots,
     clearSelectedIds,
+    deleteAllRows,
   }) => {
     if (!isAdmin) return
 
@@ -4014,9 +3872,10 @@ function App() {
     const secondConfirm = window.confirm('정말 전체 삭제하시겠습니까?')
     if (!secondConfirm) return
 
-    const { error } = await supabase.from(table).delete().not('id', 'is', null)
-    if (error) {
-      logSupabaseOperationError('전체 데이터 삭제', error)
+    try {
+      await deleteAllRows()
+    } catch (error) {
+      logApiOperationError('전체 데이터 삭제', error)
       return
     }
 
@@ -4026,27 +3885,6 @@ function App() {
     clearSelectedIds()
     await fetchRows(false)
     alert('전체 데이터가 삭제되었습니다.')
-  }
-
-  const deleteRegistryIdsInChunks = async (tableName, ids) => {
-    const validIds = ids.filter((id) => safeString(id).trim() !== '')
-    if (validIds.length === 0) {
-      return { error: null }
-    }
-
-    const chunkSize = 50
-
-    for (let index = 0; index < validIds.length; index += chunkSize) {
-      const chunk = validIds.slice(index, index + chunkSize)
-      const { error } = await supabase.from(tableName).delete().in('id', chunk)
-
-      if (error) {
-        console.error(error.message)
-        return { error }
-      }
-    }
-
-    return { error: null }
   }
 
   const trackWorkWeek = (weekStartDate) => {
@@ -4124,9 +3962,10 @@ function App() {
 
     if (isWorkReportRowEmpty(targetRow)) {
       if (!targetRow.isDraft && targetRow.id) {
-        const { error } = await supabase.from(WORK_REPORT_TABLE).delete().eq('id', targetRow.id)
-        if (error) {
-          logSupabaseOperationError('일일/주간업무보고서 삭제', error)
+        try {
+          await weeklyWorkReportsApi.remove(targetRow.id)
+        } catch (error) {
+          logApiOperationError('일일/주간업무보고서 삭제', error)
           return
         }
         await fetchWorkReportRows(false)
@@ -4141,32 +3980,19 @@ function App() {
       const timestamp = new Date().toISOString()
 
       if (targetRow.isDraft) {
-        const { error } = await supabase.from(WORK_REPORT_TABLE).insert([
-          {
-            ...toWorkReportPayload(targetRow, timestamp),
-            createdAt: timestamp,
-          },
-        ])
-
-        if (error) {
-          logSupabaseOperationError('일일/주간업무보고서 저장', error)
-          return
-        }
+        await weeklyWorkReportsApi.create({
+          ...toWorkReportPayload(targetRow, timestamp),
+          createdAt: timestamp,
+        })
       } else {
-        const { error } = await supabase
-          .from(WORK_REPORT_TABLE)
-          .update(toWorkReportPayload(targetRow, timestamp))
-          .eq('id', targetRow.id)
-
-        if (error) {
-          logSupabaseOperationError('일일/주간업무보고서 저장', error)
-          return
-        }
+        await weeklyWorkReportsApi.update(targetRow.id, toWorkReportPayload(targetRow, timestamp))
       }
 
       await fetchWorkReportRows(false)
       trackWorkWeek(targetRow.date)
       cancelWorkReportEdit()
+    } catch (error) {
+      logApiOperationError('일일/주간업무보고서 저장', error)
     } finally {
       setIsSavingWorkReports(false)
     }
@@ -4308,20 +4134,6 @@ function App() {
     }))
   }
 
-  const isWorkReportLegacySchemaError = (error) => {
-    const message = safeString(error?.message).toLowerCase()
-    return [
-      'reportyear',
-      'reportmonth',
-      'weeknumber',
-      'weekstartdate',
-      'reportdate',
-      'assignee',
-      'category',
-      'team',
-    ].some((keyword) => message.includes(keyword))
-  }
-
   const saveWorkReportBoardEntry = async (date, section, orderIndex = 1) => {
     const cellKey = getWorkReportCellKey(date, section, orderIndex)
     const targetRow = {
@@ -4333,9 +4145,10 @@ function App() {
 
     if (isWorkReportRowEmpty(targetRow)) {
       if (!targetRow.isDraft && targetRow.id) {
-        const { error } = await supabase.from(WORK_REPORT_TABLE).delete().eq('id', targetRow.id)
-        if (error) {
-          logSupabaseOperationError('일일/주간업무보고서 삭제', error)
+        try {
+          await weeklyWorkReportsApi.remove(targetRow.id)
+        } catch (error) {
+          logApiOperationError('일일/주간업무보고서 삭제', error)
           return
         }
         await fetchWorkReportRows(false)
@@ -4351,48 +4164,19 @@ function App() {
       const timestamp = new Date().toISOString()
 
       if (targetRow.isDraft) {
-        let insertResult = await supabase.from(WORK_REPORT_TABLE).insert([
-          {
-            ...toWorkReportPayload(targetRow, timestamp, true),
-            createdAt: timestamp,
-          },
-        ])
-
-        if (insertResult.error && isWorkReportLegacySchemaError(insertResult.error)) {
-          insertResult = await supabase.from(WORK_REPORT_TABLE).insert([
-            {
-              ...toWorkReportPayload(targetRow, timestamp, false),
-              createdAt: timestamp,
-            },
-          ])
-        }
-
-        if (insertResult.error) {
-          logSupabaseOperationError('일일/주간업무보고서 저장', insertResult.error)
-          return
-        }
+        await weeklyWorkReportsApi.create({
+          ...toWorkReportPayload(targetRow, timestamp, true),
+          createdAt: timestamp,
+        })
       } else {
-        let updateResult = await supabase
-          .from(WORK_REPORT_TABLE)
-          .update(toWorkReportPayload(targetRow, timestamp, true))
-          .eq('id', targetRow.id)
-
-        if (updateResult.error && isWorkReportLegacySchemaError(updateResult.error)) {
-          updateResult = await supabase
-            .from(WORK_REPORT_TABLE)
-            .update(toWorkReportPayload(targetRow, timestamp, false))
-            .eq('id', targetRow.id)
-        }
-
-        if (updateResult.error) {
-          logSupabaseOperationError('일일/주간업무보고서 저장', updateResult.error)
-          return
-        }
+        await weeklyWorkReportsApi.update(targetRow.id, toWorkReportPayload(targetRow, timestamp, true))
       }
 
       await fetchWorkReportRows(false)
       trackWorkWeek(targetRow.date)
       setWorkReportDrafts((prev) => removeObjectKey(prev, cellKey))
+    } catch (error) {
+      logApiOperationError('일일/주간업무보고서 저장', error)
     } finally {
       setIsSavingWorkReports(false)
     }
@@ -4575,7 +4359,7 @@ function App() {
       return
     }
 
-    const savedRows = await saveContractToSupabase(newRow)
+    const savedRows = await saveContractToApi(newRow)
     if (!savedRows || savedRows.length === 0) return
 
     await fetchContracts()
@@ -4590,10 +4374,10 @@ function App() {
     const ok = window.confirm('이 계약현황을 삭제하시겠습니까?')
     if (!ok) return
 
-    const { error } = await supabase.from('contracts').delete().eq('id', id)
-
-    if (error) {
-      logSupabaseOperationError('계약현황 삭제', error)
+    try {
+      await contractsApi.remove(id)
+    } catch (error) {
+      logApiOperationError('계약현황 삭제', error)
       return
     }
 
@@ -4619,10 +4403,10 @@ function App() {
     const ok = window.confirm('선택한 데이터를 삭제하시겠습니까?')
     if (!ok) return
 
-    const { error } = await deleteRegistryIdsInChunks('contracts', validSelectedIds)
-
-    if (error) {
-      logSupabaseOperationError('계약현황 선택 삭제', error)
+    try {
+      await Promise.all(validSelectedIds.map((id) => contractsApi.remove(id)))
+    } catch (error) {
+      logApiOperationError('계약현황 선택 삭제', error)
       return
     }
 
@@ -4657,13 +4441,10 @@ function App() {
 
     const value = normalizeEditValue(editingCell.key, editingValue)
 
-    const { error } = await supabase
-      .from('contracts')
-      .update({ [editingCell.key]: value })
-      .eq('id', editingCell.rowId)
-
-    if (error) {
-      logSupabaseOperationError('계약현황 수정', error)
+    try {
+      await contractsApi.update(editingCell.rowId, { [editingCell.key]: value })
+    } catch (error) {
+      logApiOperationError('계약현황 수정', error)
       return
     }
 
@@ -6519,6 +6300,11 @@ function App() {
           ref={registryUploadInputRef}
           type="file"
           accept=".xlsx,.xls,.csv"
+          onClick={(e) => {
+            console.log('[excel-upload] file input click')
+            e.currentTarget.value = ''
+          }}
+          onInput={handleRegistryUploadFileChange}
           onChange={handleRegistryUploadFileChange}
           style={{ display: 'none' }}
         />
@@ -7193,12 +6979,12 @@ function App() {
                   type="button"
                   onClick={() =>
                     deleteAllRegistryRows({
-                      table: 'sales_register',
                       fetchRows: fetchSalesRows,
                       clearDraftRows: () => setSalesRows([]),
                       clearEditingIds: () => setEditingSalesIds([]),
                       clearSnapshots: () => setSalesEditSnapshots({}),
                       clearSelectedIds: () => setSelectedSalesIds([]),
+                      deleteAllRows: salesRegisterApi.removeAll,
                     })
                   }
                 >
@@ -7343,12 +7129,12 @@ function App() {
                   type="button"
                   onClick={() =>
                     deleteAllRegistryRows({
-                      table: 'budget_progress',
                       fetchRows: fetchBudgetRows,
                       clearDraftRows: () => setBudgetRows([]),
                       clearEditingIds: () => setEditingBudgetIds([]),
                       clearSnapshots: () => setBudgetEditSnapshots({}),
                       clearSelectedIds: () => setSelectedBudgetIds([]),
+                      deleteAllRows: budgetProgressApi.removeAll,
                     })
                   }
                 >
@@ -7480,12 +7266,12 @@ function App() {
                   type="button"
                   onClick={() =>
                     deleteAllRegistryRows({
-                      table: 'project_discovery',
                       fetchRows: fetchDiscoveryRows,
                       clearDraftRows: () => setDiscoveryRows([]),
                       clearEditingIds: () => setEditingDiscoveryIds([]),
                       clearSnapshots: () => setDiscoveryEditSnapshots({}),
                       clearSelectedIds: () => setSelectedDiscoveryIds([]),
+                      deleteAllRows: projectDiscoveryApi.removeAll,
                     })
                   }
                 >
@@ -7647,12 +7433,12 @@ function App() {
                   type="button"
                   onClick={() =>
                     deleteAllRegistryRows({
-                      table: 'excluded_projects',
                       fetchRows: fetchExcludedRows,
                       clearDraftRows: () => setExcludedRows([]),
                       clearEditingIds: () => setEditingExcludedIds([]),
                       clearSnapshots: () => setExcludedEditSnapshots({}),
                       clearSelectedIds: () => setSelectedExcludedIds([]),
+                      deleteAllRows: excludedProjectsApi.removeAll,
                     })
                   }
                 >
@@ -7831,12 +7617,12 @@ function App() {
                   type="button"
                   onClick={() =>
                     deleteAllRegistryRows({
-                      table: 'document_register',
                       fetchRows: fetchDocuments,
                       clearDraftRows: () => setDocuments([]),
                       clearEditingIds: () => setEditingDocumentIds([]),
                       clearSnapshots: () => setDocumentEditSnapshots({}),
                       clearSelectedIds: () => setSelectedDocumentIds([]),
+                      deleteAllRows: documentRegisterApi.removeAll,
                     })
                   }
                 >
