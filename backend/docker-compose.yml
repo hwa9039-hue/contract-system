@@ -1,0 +1,13 @@
+# NAS 또는 PC에서 backend 폴더 안에서 실행:
+#   docker compose build --no-cache
+# 이미지 이름은 Synology에서 쓰던 것과 맞춤: contract-backend-contract-backend:latest
+#
+# 환경 변수는 Synology 컨테이너 편집 화면에서 넣는 경우가 많아 여기서는 포트만 예시로 둠.
+
+services:
+  contract-backend:
+    build: .
+    image: contract-backend-contract-backend:latest
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

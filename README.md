@@ -61,3 +61,11 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,https://your-cloudflare
 ```
 
 주의: Cloudflare Pages는 HTTPS로 서비스되므로 브라우저에서 HTTP API 호출이 차단될 수 있습니다. 같은 내부망에서만 사용하는 구성이 아니라면 NAS API에 HTTPS 도메인 또는 리버스 프록시를 적용하는 것을 권장합니다.
+
+## 백업·인증·배포 경로
+
+자동 백업 스크립트, JWT 기반 API 인증, 프론트·API·DB가 어떻게 이어지는지는 [DEPLOYMENT.md](./DEPLOYMENT.md)를 참고하세요.
+
+백엔드 프로덕션에서는 `JWT_SECRET`, `AUTH_SHARED_PASSWORD`를 반드시 설정하고, 프론트의 `VITE_APP_SHARED_PASSWORD`는 같은 값으로 맞추는 것을 권장합니다. 로컬에서만 API 인증을 끄려면 백엔드에 `AUTH_DISABLED=true`를 사용합니다.
+
+NAS에서 코드 반영 후 이미지를 다시 빌드할 때는 [NAS_QUICK_START_KR.md](./NAS_QUICK_START_KR.md)를 보세요.
