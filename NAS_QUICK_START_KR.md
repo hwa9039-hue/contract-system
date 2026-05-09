@@ -83,3 +83,33 @@ docker compose build --no-cache
 | NAS에서 이미지 빌드·컨테이너 재시작 | **본인 (버튼 또는 SSH)** |
 
 문제가 계속되면 **어떤 방법(A/B)** 으로 했는지와 **컨테이너 이름·에러 한 줄**만 알려주시면 됩니다.
+
+---
+
+## 「Dockerfile 개 파일 형식이 유효하지 않습니다」가 계속 나올 때
+
+Synology **컨테이너 매니저 화면에서 Dockerfile 빌드**는 버전·설정에 따라 **정상 파일도 거절**하는 경우가 있습니다. 이 경우 **방법 B(GUI)는 포기하고 방법 A(SSH)만** 쓰는 걸 권장합니다.
+
+### SSH로 확실히 빌드하기 (경로만 본인 NAS에 맞게)
+
+프로젝트 경로가 예를 들어 `/volume1/docker/contract-backend/backend` 라면:
+
+```bash
+ssh 관리자@NAS_IP
+cd /volume1/docker/contract-backend/backend
+sudo docker build -t contract-backend-contract-backend:latest .
+```
+
+(`docker` 명령만 될 때는 `sudo` 생략 가능)
+
+빌드가 **Successfully** / **Successfully tagged** 까지 나오면 성공입니다. 그다음 **컨테이너** 탭에서 `contract-backend` → **다시 시작** 하거나, 프로젝트에서 같은 이미지를 쓰도록 재실행합니다.
+
+### 그래도 안 되면 NAS 안에서 확인
+
+같은 폴더에서:
+
+```bash
+head -n 3 Dockerfile
+```
+
+첫 줄이 **`FROM python:3.12-slim`** 이어야 합니다. 다르면 PC에서 `backend/Dockerfile`을 다시 복사해 덮어쓰세요.
