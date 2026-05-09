@@ -3,8 +3,10 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.auth_middleware import ApiJwtAuthMiddleware
 from app.database import init_db
 from app.routers import (
+    auth,
     budget_progress,
     contracts,
     document_register,
@@ -16,29 +18,39 @@ from app.routers import (
 
 
 DEFAULT_CORS_ORIGINS = (
-    "http://localhost:5173,"
-    "http://127.0.0.1:5173,"
-    "https://contract-system-2ev.pages.dev"
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://contract-system-2ev.pages.dev",
+    "https://contract.signtelecom-smartdi.com",
 )
-PAGES_DEV_ORIGIN_REGEX = r"https://.*\.pages\.dev"
+# 환경변수에 도메인을 빠뜨려도 회사 프론트(pages.dev·signtelecom-smartdi.com)가 허용되도록 정규식으로 보조합니다.
+ALLOW_ORIGIN_REGEX = (
+    r"https://(.*\.pages\.dev|([a-zA-Z0-9-]+\.)*signtelecom-smartdi\.com)$"
+)
 
 
 def get_cors_origins():
-    raw_origins = os.getenv("CORS_ORIGINS", DEFAULT_CORS_ORIGINS)
-    return [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+    raw_origins = os.getenv("CORS_ORIGINS")
+    if raw_origins:
+        return [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+    return list(DEFAULT_CORS_ORIGINS)
 
 
 app = FastAPI(title="Contract Management API")
 
+app.add_middleware(ApiJwtAuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
-    allow_origin_regex=PAGES_DEV_ORIGIN_REGEX,
+    allow_origin_regex=ALLOW_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+@app.get("/")
+def root():
+    return {"ok": True}
 
 @app.on_event("startup")
 def on_startup():
@@ -50,6 +62,7 @@ def health_check():
     return {"status": "ok"}
 
 
+app.include_router(auth.router)
 app.include_router(contracts.router)
 app.include_router(sales_register.router)
 app.include_router(budget_progress.router)
