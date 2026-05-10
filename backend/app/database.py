@@ -2,8 +2,11 @@ import os
 from contextlib import contextmanager
 
 import psycopg
+from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
+
+load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/contract_management")
 

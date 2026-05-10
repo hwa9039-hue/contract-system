@@ -8,6 +8,7 @@ import { excludedProjectsApi } from './excludedProjectsApi'
 import { projectDiscoveryApi } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
+import { API_BASE_URL, clearAuthToken, getAuthHeaders, setAuthToken } from './apiClient.js'
 
 const CONTRACT_COLUMNS = [
   { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text' },
@@ -695,6 +696,7 @@ function clearSharedAuthSession() {
   try {
     sessionStorage.removeItem(CONTRACT_SHARED_AUTH_KEY)
     sessionStorage.removeItem(CONTRACT_SHARED_EXPIRES_AT_KEY)
+    clearAuthToken()
   } catch {
     // no-op
   }
@@ -2161,24 +2163,84 @@ function App() {
     setToastMessage('관리자 모드로 전환되었습니다.')
   }
 
-  const handleAppLogin = (e) => {
+  const handleAppLogin = async (e) => {
     e.preventDefault()
-
-    if (appPasswordInput !== SHARED_APP_PASSWORD) {
-      setAppLoginError('공용 비밀번호가 올바르지 않습니다.')
-      return
-    }
-
-    const expiresAt = Date.now() + CONTRACT_SHARED_SESSION_DURATION_MS
-    writeSharedAuthSession(expiresAt)
-
-    setIsAppAuthenticated(true)
-    setSharedSessionExpiresAt(expiresAt)
-    setRemainingTime(CONTRACT_SHARED_SESSION_DURATION_MS)
-    setShowSessionWarning(false)
-    setAppPasswordInput('')
     setAppLoginError('')
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: appPasswordInput }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (data.auth_disabled) {
+        if (appPasswordInput !== SHARED_APP_PASSWORD) {
+          setAppLoginError('공용 비밀번호가 올바르지 않습니다.')
+          return
+        }
+        clearAuthToken()
+        const expiresAt = Date.now() + CONTRACT_SHARED_SESSION_DURATION_MS
+        writeSharedAuthSession(expiresAt)
+        setIsAppAuthenticated(true)
+        setSharedSessionExpiresAt(expiresAt)
+        setRemainingTime(CONTRACT_SHARED_SESSION_DURATION_MS)
+        setShowSessionWarning(false)
+        setAppPasswordInput('')
+        return
+      }
+
+      if (!response.ok) {
+        const detail = data.detail
+        const message =
+          typeof detail === 'string'
+            ? detail
+            : Array.isArray(detail)
+              ? detail.map((item) => item.msg || item).join(', ')
+              : '로그인에 실패했습니다.'
+        setAppLoginError(message)
+        return
+      }
+
+      if (data.access_token) {
+        setAuthToken(data.access_token)
+      }
+
+      const expiresAt = Date.now() + CONTRACT_SHARED_SESSION_DURATION_MS
+      writeSharedAuthSession(expiresAt)
+
+      setIsAppAuthenticated(true)
+      setSharedSessionExpiresAt(expiresAt)
+      setRemainingTime(CONTRACT_SHARED_SESSION_DURATION_MS)
+      setShowSessionWarning(false)
+      setAppPasswordInput('')
+    } catch {
+      setAppLoginError('서버에 연결할 수 없습니다. API 주소와 네트워크를 확인하세요.')
+    }
   }
+
+  useEffect(() => {
+    if (!isAppAuthenticated) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/me`, { headers: { ...getAuthHeaders() } })
+        const data = await res.json()
+        if (cancelled) return
+        if (data.auth_disabled) return
+        if (!data.valid) {
+          clearSharedAuthState()
+        }
+      } catch {
+        // 네트워크 오류 시 기존 세션 유지
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // 의도: 로그인 상태가 바뀔 때만 서버 토큰 유효성을 확인합니다.
+  }, [isAppAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleExtendLogin = () => {
     const expiresAt = Date.now() + CONTRACT_SHARED_SESSION_DURATION_MS
