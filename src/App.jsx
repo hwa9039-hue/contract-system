@@ -19,6 +19,7 @@ const CONTRACT_COLUMNS = [
   { key: 'department', label: '담당부서', className: 'col-dept', align: 'center', type: 'textarea' },
   { key: 'contractMethod', label: '계약방식', className: 'col-method', align: 'center', type: 'text' },
   { key: 'contractType', label: '계약분류', className: 'col-type', align: 'center', type: 'text' },
+  { key: 'identNo', label: '식별번호', className: 'col-ref', align: 'center', type: 'text' },
   { key: 'contractDate', label: '계약일자', className: 'col-date', align: 'center', type: 'date' },
   { key: 'dueDate', label: '준공일자', className: 'col-date', align: 'center', type: 'date' },
   { key: 'projectName', label: '사업명', className: 'col-project', align: 'left', type: 'textarea' },
@@ -40,7 +41,7 @@ const DOCUMENT_COLUMNS = [
 
 const SALES_CATEGORY_OPTIONS = ['DI사업', '도로사업']
 const SALES_STAGE_OPTIONS = ['대기', '대응중', '확인필요', '보류', '완료', '발주계획', '사전규격', '입찰공고']
-const SALES_MANAGER_OPTIONS = ['전기웅 이사', '유영무 부장', '김성수 과장', '이재승 대리', '이용자 부장', '박재범 과장']
+const SALES_MANAGER_OPTIONS = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범', '신상준']
 const SALES_STAGE_TONE_MAP = {
   대기: { className: 'sales-stage-badge stage-waiting', optionStyle: { backgroundColor: '#fff8db', color: '#a16207' } },
   대응중: { className: 'sales-stage-badge stage-working', optionStyle: { backgroundColor: '#eaf1ff', color: '#1f4fd1' } },
@@ -115,7 +116,7 @@ const EXCLUDED_KEYWORD_OPTIONS = [
   '디스플레이',
   '공사',
 ]
-const EXCLUDED_WRITER_OPTIONS = ['이용자', '정화영', '문병현', '이재승', '정주희']
+const EXCLUDED_WRITER_OPTIONS = ['이용자', '정화영', '이재승', '정주희', '신상준']
 const EXCLUDED_CATEGORY_TONE_MAP = {
   발주계획: { background: '#fff1e8', color: '#c2410c', borderColor: '#fdba74' },
   사전규격: { background: '#eaf1ff', color: '#1f4fd1', borderColor: '#bfd0ff' },
@@ -140,9 +141,9 @@ const EXCLUDED_KEYWORD_TONE_MAP = {
 const EXCLUDED_WRITER_TONE_MAP = {
   이용자: { background: '#fff1e8', color: '#c2410c', borderColor: '#fdba74' },
   정화영: { background: '#ecfdf3', color: '#166534', borderColor: '#bbf7d0' },
-  문병현: { background: '#fff8db', color: '#a16207', borderColor: '#f6d56c' },
   이재승: { background: '#eaf1ff', color: '#1f4fd1', borderColor: '#bfd0ff' },
   정주희: { background: '#f3e8ff', color: '#7e22ce', borderColor: '#d8b4fe' },
+  신상준: { background: '#dcfce7', color: '#166534', borderColor: '#86efac' },
 }
 const EXCLUDED_COLUMNS = [
   { key: 'writeDate', label: '등록일', align: 'center', type: 'date', width: 110 },
@@ -167,20 +168,20 @@ const WORK_REPORT_SUPPORT_NUMBER_GUIDE = Array.from(
   (_, index) => String(index + 1)
 )
 const WORK_REPORT_MANAGER_OPTIONS = [
-  '전기웅 이사',
-  '유영무 부장',
-  '김성수 과장',
-  '이재승 대리',
-  '이용자 부장',
-  '박재범 과장',
-  '전재우 차장',
-  '정화영 대리',
-  '정주희 대리',
-  '문병현 대리',
+  '전기웅',
+  '유영무',
+  '김성수',
+  '이재승',
+  '이용자',
+  '박재범',
+  '전재우',
+  '정화영',
+  '정주희',
+  '신상준',
 ]
 const WORK_REPORT_EXTERNAL_USER_OPTIONS = WORK_REPORT_MANAGER_OPTIONS
-const WORK_REPORT_DI_MANAGERS = ['전기웅 이사', '유영무 부장', '김성수 과장', '이재승 대리']
-const WORK_REPORT_ROAD_MANAGERS = ['이용자 부장', '박재범 과장']
+const WORK_REPORT_DI_MANAGERS = ['전기웅', '유영무', '김성수', '이재승']
+const WORK_REPORT_ROAD_MANAGERS = ['이용자', '박재범']
 const WORK_REPORT_SECTION_KEYS = {
   checklist: '주요확인사항',
   external: '외부일정',
@@ -226,6 +227,7 @@ const emptyContract = {
   department: '',
   contractMethod: '',
   contractType: '',
+  identNo: '',
   contractDate: '',
   dueDate: '',
   projectName: '',
@@ -555,6 +557,7 @@ function normalizeContractPayload(item) {
     department: safeString(item.department).trim(),
     contractMethod: safeString(item.contractMethod).trim(),
     contractType: safeString(item.contractType).trim(),
+    identNo: safeString(item.identNo).trim(),
     contractDate: toDbDate(item.contractDate),
     dueDate: toDbDate(item.dueDate),
     projectName: safeString(item.projectName).trim(),
@@ -1170,7 +1173,7 @@ function getExcludedBadgeStyle(toneMap, value) {
 function getDdayText(dateString) {
   const diff = getDateDiffFromToday(dateString)
   if (diff === null) return ''
-  if (diff < 0) return `D+${Math.abs(diff)}`
+  if (diff < 0) return '준공'
   if (diff === 0) return 'D-Day'
   return `D-${diff}`
 }
@@ -1316,6 +1319,7 @@ function App() {
   const [openDiscoveryYears, setOpenDiscoveryYears] = useState({})
   const [openExcludedYears, setOpenExcludedYears] = useState({})
   const [openDocumentYears, setOpenDocumentYears] = useState({})
+  const [openSalesYears, setOpenSalesYears] = useState({})
   const [selectedDocumentIds, setSelectedDocumentIds] = useState([])
   const [editingDocumentIds, setEditingDocumentIds] = useState([])
   const [documentEditSnapshots, setDocumentEditSnapshots] = useState({})
@@ -1792,6 +1796,11 @@ function App() {
     })
   }, [excludedFilters.category, excludedFilters.keyword, excludedRows, excludedSearch])
 
+  const groupedSalesRows = useMemo(
+    () => groupRegistryRowsByYear(filteredSalesRows, 'registerDate'),
+    [filteredSalesRows]
+  )
+
   const groupedBudgetRows = useMemo(
     () => groupRegistryRowsByYear(filteredBudgetRows, 'registerDate'),
     [filteredBudgetRows]
@@ -1976,6 +1985,7 @@ function App() {
   const defaultDashboardYear = dashboardSummary.years[0]?.year
   const currentRegistryYear = String(new Date().getFullYear())
   const defaultContractYear = groupedContracts.find((group) => group.year === currentRegistryYear)?.year ?? groupedContracts[0]?.year
+  const defaultSalesYear = groupedSalesRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedSalesRows)
   const defaultBudgetYear = groupedBudgetRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedBudgetRows)
   const defaultDiscoveryYear = groupedDiscoveryRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedDiscoveryRows)
   const defaultExcludedYear = groupedExcludedRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedExcludedRows)
@@ -1990,6 +2000,9 @@ function App() {
     Object.prototype.hasOwnProperty.call(openContractYears, year)
       ? openContractYears[year]
       : year === defaultContractYear
+
+  const isSalesYearOpen = (year) =>
+    isRegistryYearOpen(openSalesYears, year, defaultSalesYear)
 
   const isBudgetYearOpen = (year) =>
     isRegistryYearOpen(openBudgetYears, year, defaultBudgetYear)
@@ -2268,6 +2281,13 @@ function App() {
     }))
   }
 
+  const toggleSalesYear = (year) => {
+    setOpenSalesYears((prev) => ({
+      ...prev,
+      [year]: !isSalesYearOpen(year),
+    }))
+  }
+
   const toggleBudgetYear = (year) => {
     setOpenBudgetYears((prev) => ({
       ...prev,
@@ -2351,6 +2371,7 @@ function App() {
             department: safeString(getValueByHeader(row, ['담당부서', '담당 부서'])).trim(),
             contractMethod: safeString(getValueByHeader(row, ['계약방식', '계약 방식'])).trim(),
             contractType: safeString(getValueByHeader(row, ['계약분류', '계약 분류'])).trim(),
+            identNo: safeString(getValueByHeader(row, ['식별번호'])).trim(),
             contractDate,
             dueDate: excelDateToInput(
               getValueByHeader(row, ['준공일자', '납기일자', '납기일', '준공일'])
@@ -2412,6 +2433,7 @@ function App() {
       담당부서: item.department,
       계약방식: item.contractMethod,
       계약분류: item.contractType,
+      식별번호: item.identNo,
       계약일자: item.contractDate,
       준공일자: item.dueDate,
       사업명: item.projectName,
@@ -2441,6 +2463,7 @@ function App() {
       담당부서: item.department,
       계약방식: item.contractMethod,
       계약분류: item.contractType,
+      식별번호: item.identNo,
       계약일자: item.contractDate,
       준공일자: item.dueDate,
       사업명: item.projectName,
@@ -2468,8 +2491,8 @@ function App() {
   }
 
   const handleAddDocumentRow = () => {
-    if (documents.some((row) => row.isDraft) || editingDocumentIds.length > 0) {
-      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+    if (documents.some((row) => row.isDraft)) {
+      setToastMessage('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
       return
     }
     setDocuments((prev) => [...prev, createDocumentDraftRow()])
@@ -2574,7 +2597,7 @@ function App() {
       await fetchDocuments(false)
       setEditingDocumentIds((prev) => prev.filter((id) => id !== rowId))
       setDocumentEditSnapshots((prev) => removeObjectKey(prev, rowId))
-      alert('저장되었습니다.')
+      setToastMessage('저장되었습니다.')
     } catch (error) {
       logApiOperationError('문서수발신대장 저장', error)
     } finally {
@@ -2665,14 +2688,14 @@ function App() {
         setDocuments((prev) => prev.filter((row) => !(row.isDraft && isDocumentRowEmpty(row))))
         setSelectedDocumentIds([])
         setEditingDocumentIds([])
-        alert('저장되었습니다.')
+        setToastMessage('저장되었습니다.')
         return
       }
 
       await fetchDocuments(false)
       setSelectedDocumentIds([])
       setEditingDocumentIds([])
-      alert('저장되었습니다.')
+      setToastMessage('저장되었습니다.')
     } catch (error) {
       logApiOperationError('문서수발신대장 일괄 저장', error)
     } finally {
@@ -2701,8 +2724,8 @@ function App() {
   }
 
   const handleAddSalesRow = () => {
-    if (salesRows.some((row) => row.isDraft) || editingSalesIds.length > 0) {
-      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+    if (salesRows.some((row) => row.isDraft)) {
+      setToastMessage('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
       return
     }
     setSalesRows((prev) => [...prev, createSalesDraftRow()])
@@ -2807,7 +2830,7 @@ function App() {
       await fetchSalesRows(false)
       setEditingSalesIds((prev) => prev.filter((id) => id !== rowId))
       setSalesEditSnapshots((prev) => removeObjectKey(prev, rowId))
-      alert('저장되었습니다.')
+      setToastMessage('저장되었습니다.')
     } catch (error) {
       logApiOperationError('영업관리대장 저장', error)
     } finally {
@@ -2896,14 +2919,14 @@ function App() {
         setSalesRows((prev) => prev.filter((row) => !(row.isDraft && isSalesRowEmpty(row))))
         setSelectedSalesIds([])
         setEditingSalesIds([])
-        alert('저장되었습니다.')
+        setToastMessage('저장되었습니다.')
         return
       }
 
       await fetchSalesRows(false)
       setSelectedSalesIds([])
       setEditingSalesIds([])
-      alert('저장되었습니다.')
+      setToastMessage('저장되었습니다.')
     } catch (error) {
       logApiOperationError('영업관리대장 일괄 저장', error)
     } finally {
@@ -2937,8 +2960,8 @@ function App() {
   }
 
   const handleAddBudgetRow = () => {
-    if (budgetRows.some((row) => row.isDraft) || editingBudgetIds.length > 0) {
-      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+    if (budgetRows.some((row) => row.isDraft)) {
+      setToastMessage('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
       return
     }
     setBudgetRows((prev) => [...prev, createBudgetDraftRow()])
@@ -3043,7 +3066,7 @@ function App() {
       await fetchBudgetRows(false)
       setEditingBudgetIds((prev) => prev.filter((id) => id !== rowId))
       setBudgetEditSnapshots((prev) => removeObjectKey(prev, rowId))
-      alert('저장되었습니다.')
+      setToastMessage('저장되었습니다.')
     } catch (error) {
       logApiOperationError('본예산 진행정보 저장', error)
     } finally {
@@ -3134,14 +3157,14 @@ function App() {
         setBudgetRows((prev) => prev.filter((row) => !(row.isDraft && isBudgetRowEmpty(row))))
         setSelectedBudgetIds([])
         setEditingBudgetIds([])
-        alert('저장되었습니다.')
+        setToastMessage('저장되었습니다.')
         return
       }
 
       await fetchBudgetRows(false)
       setSelectedBudgetIds([])
       setEditingBudgetIds([])
-      alert('저장되었습니다.')
+      setToastMessage('저장되었습니다.')
     } catch (error) {
       logApiOperationError('본예산 진행정보 일괄 저장', error)
     } finally {
@@ -3173,8 +3196,8 @@ function App() {
   }
 
   const handleAddDiscoveryRow = () => {
-    if (discoveryRows.some((row) => row.isDraft) || editingDiscoveryIds.length > 0) {
-      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+    if (discoveryRows.some((row) => row.isDraft)) {
+      setToastMessage('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
       return
     }
     setDiscoveryRows((prev) => [...prev, createDiscoveryDraftRow()])
@@ -3282,7 +3305,7 @@ function App() {
       await fetchDiscoveryRows(false)
       setEditingDiscoveryIds((prev) => prev.filter((id) => id !== rowId))
       setDiscoveryEditSnapshots((prev) => removeObjectKey(prev, rowId))
-      alert('저장되었습니다.')
+      setToastMessage('저장되었습니다.')
     } catch (error) {
       logApiOperationError('건축정보 저장', error)
     } finally {
@@ -3373,14 +3396,14 @@ function App() {
         setDiscoveryRows((prev) => prev.filter((row) => !(row.isDraft && isDiscoveryRowEmpty(row))))
         setSelectedDiscoveryIds([])
         setEditingDiscoveryIds([])
-        alert('저장되었습니다.')
+        setToastMessage('저장되었습니다.')
         return
       }
 
       await fetchDiscoveryRows(false)
       setSelectedDiscoveryIds([])
       setEditingDiscoveryIds([])
-      alert('저장되었습니다.')
+      setToastMessage('저장되었습니다.')
     } catch (error) {
       logApiOperationError('건축정보 일괄 저장', error)
     } finally {
@@ -3412,8 +3435,8 @@ function App() {
   }
 
   const handleAddExcludedRow = () => {
-    if (excludedRows.some((row) => row.isDraft) || editingExcludedIds.length > 0) {
-      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
+    if (excludedRows.some((row) => row.isDraft)) {
+      setToastMessage('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
       return
     }
     setExcludedRows((prev) => [...prev, createExcludedDraftRow()])
@@ -3521,7 +3544,7 @@ function App() {
       await fetchExcludedRows(false)
       setEditingExcludedIds((prev) => prev.filter((id) => id !== rowId))
       setExcludedEditSnapshots((prev) => removeObjectKey(prev, rowId))
-      alert('저장되었습니다.')
+      setToastMessage('저장되었습니다.')
     } catch (error) {
       logApiOperationError('사업검색이력 저장', error)
     } finally {
@@ -3612,14 +3635,14 @@ function App() {
         setExcludedRows((prev) => prev.filter((row) => !(row.isDraft && isExcludedRowEmpty(row))))
         setSelectedExcludedIds([])
         setEditingExcludedIds([])
-        alert('저장되었습니다.')
+        setToastMessage('저장되었습니다.')
         return
       }
 
       await fetchExcludedRows(false)
       setSelectedExcludedIds([])
       setEditingExcludedIds([])
-      alert('저장되었습니다.')
+      setToastMessage('저장되었습니다.')
     } catch (error) {
       logApiOperationError('사업검색이력 일괄 저장', error)
     } finally {
@@ -4634,6 +4657,7 @@ function App() {
         department: '',
         contractMethod: '',
         contractType: '',
+        identNo: '',
         contractDate: '',
         dueDate: '',
         amount: '',
@@ -4657,6 +4681,7 @@ function App() {
       department: contract.department,
       contractMethod: contract.contractMethod,
       contractType: contract.contractType,
+      identNo: contract.identNo,
       contractDate: contract.contractDate,
       dueDate: contract.dueDate,
       amount: contract.amount,
@@ -6848,11 +6873,11 @@ function App() {
                     {isAddingRow && (
                       <tr className="inline-add-row">
                         <td className="td-align-center registry-check-cell">
-                          <div className="inline-row-actions">
-                            <button className="mini-save-btn" type="button" onClick={saveAddRow}>
+                          <div className="inline-row-actions" style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'stretch', minWidth: 52 }}>
+                            <button className="mini-save-btn" type="button" onClick={saveAddRow} style={{ width: '100%' }}>
                               저장
                             </button>
-                            <button className="mini-cancel-btn" type="button" onClick={cancelAddRow}>
+                            <button className="mini-cancel-btn" type="button" onClick={cancelAddRow} style={{ width: '100%' }}>
                               취소
                             </button>
                           </div>
@@ -7147,8 +7172,8 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {renderFlatRegistryRows({
-                      rows: filteredSalesRows,
+                    {renderGroupedRegistryRows({
+                      groups: groupedSalesRows,
                       columns: SALES_COLUMNS,
                       emptyMessage: '등록된 데이터가 없습니다.',
                       selectedIds: selectedSalesIds,
@@ -7160,6 +7185,8 @@ function App() {
                       onCancelRow: cancelSalesRow,
                       onChange: handleSalesCellChange,
                       isEmptyRow: isSalesRowEmpty,
+                      isYearOpen: isSalesYearOpen,
+                      onToggleYear: toggleSalesYear,
                     })}
                   </tbody>
                 </table>
@@ -7636,20 +7663,20 @@ function App() {
                       <div style={{ fontWeight: 800, marginBottom: 6 }}>담당자 약어</div>
                       <div className="doc-guide-owners-grid">
                         <div className="doc-guide-owner-col">
-                          <div>S1 : 전기웅 이사</div>
-                          <div>S2 : 유영우 부장</div>
-                          <div>S3 : 김성수 과장</div>
-                          <div>S4 : 이재승 대리</div>
+                          <div>S1 : 전기웅</div>
+                          <div>S2 : 유영무</div>
+                          <div>S3 : 김성수</div>
+                          <div>S4 : 이재승</div>
                         </div>
                         <div className="doc-guide-owner-col">
-                          <div>R1 : 이용자 부장</div>
-                          <div>R2 : 박재범 과장</div>
+                          <div>R1 : 이용자</div>
+                          <div>R2 : 박재범</div>
                         </div>
                         <div className="doc-guide-owner-col">
-                          <div>A1 : 전재우 차장</div>
-                          <div>A2 : 정화영 대리</div>
-                          <div>A3 : 정주희 대리</div>
-                          <div>A4 : 문병현 대리</div>
+                          <div>A1 : 전재우</div>
+                          <div>A2 : 정화영</div>
+                          <div>A3 : 정주희</div>
+                          <div>A4 : 신상준</div>
                         </div>
                       </div>
                     </div>

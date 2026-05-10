@@ -33,6 +33,7 @@ def init_db():
                   department text not null default '',
                   "contractMethod" text not null default '',
                   "contractType" text not null default '',
+                  "identNo" text not null default '',
                   "contractDate" date,
                   "dueDate" date,
                   "projectName" text not null default '',
@@ -151,6 +152,12 @@ def init_db():
                   "createdAt" timestamptz not null default now(),
                   "updatedAt" timestamptz not null default now()
                 )
+                """
+            )
+            cursor.execute(
+                """
+                alter table contracts_rows
+                  add column if not exists "identNo" text not null default ''
                 """
             )
             cursor.execute(

@@ -14,6 +14,7 @@ class ContractBase(BaseModel):
     department: str = ""
     contractMethod: str = ""
     contractType: str = ""
+    identNo: str = ""
     contractDate: Optional[date] = None
     dueDate: Optional[date] = None
     projectName: str = ""
@@ -36,6 +37,7 @@ class ContractPatch(BaseModel):
     department: Optional[str] = None
     contractMethod: Optional[str] = None
     contractType: Optional[str] = None
+    identNo: Optional[str] = None
     contractDate: Optional[date] = None
     dueDate: Optional[date] = None
     projectName: Optional[str] = None
@@ -55,6 +57,7 @@ class ContractOut(BaseModel):
     department: Optional[Any] = None
     contractMethod: Optional[Any] = None
     contractType: Optional[Any] = None
+    identNo: Optional[Any] = None
     contractDate: Optional[Any] = None
     dueDate: Optional[Any] = None
     projectName: Optional[Any] = None
@@ -391,6 +394,7 @@ def row_to_contract(row) -> dict:
         "department": to_response_value(row["department"]),
         "contractMethod": to_response_value(row["contractMethod"]),
         "contractType": to_response_value(row["contractType"]),
+        "identNo": to_response_value(row.get("identNo", "")),
         "contractDate": to_response_value(row["contractDate"]),
         "dueDate": to_response_value(row["dueDate"]),
         "projectName": to_response_value(row["projectName"]),
@@ -524,6 +528,7 @@ CONTRACT_DB_COLUMNS = {
     "department": "department",
     "contractMethod": "contractMethod",
     "contractType": "contractType",
+    "identNo": "identNo",
     "contractDate": "contractDate",
     "dueDate": "dueDate",
     "projectName": "projectName",

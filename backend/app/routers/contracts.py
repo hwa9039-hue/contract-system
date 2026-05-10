@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/contracts", tags=["contracts"])
 
 RETURNING_COLUMNS = """
   id, year, segment, "refNo", "contractNo", client, department,
-  "contractMethod", "contractType", "contractDate", "dueDate",
+  "contractMethod", "contractType", "identNo", "contractDate", "dueDate",
   "projectName", amount, "salesOwner", pm, note
 """
 
