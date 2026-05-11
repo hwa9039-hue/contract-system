@@ -94,8 +94,24 @@ def bulk_create_contracts(payload: ContractBulkCreate):
 
 @router.post("/import", status_code=status.HTTP_201_CREATED)
 def import_contracts(payload: ContractBulkCreate):
-    """Same as /bulk; path matches other registries (/api/*/import) for proxies/WAF compatibility."""
+    """Same as /bulk; path matches other registries (/api/*/import)."""
     return {"created": _insert_contract_rows(payload.rows)}
+
+
+@router.post("/bulk-delete")
+def bulk_delete_contracts(payload: ContractBulkDelete):
+    if not payload.ids:
+        return {"deleted": 0}
+
+    ids = [str(item) for item in payload.ids]
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("delete from contracts_rows where id::text = any(%s)", (ids,))
+            deleted_count = cursor.rowcount
+        connection.commit()
+
+    return {"deleted": deleted_count}
 
 
 @router.patch("/{contract_id}", response_model=ContractOut)
@@ -147,19 +163,3 @@ def delete_contract(contract_id: str):
 
     if deleted_count == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
-
-
-@router.post("/bulk-delete")
-def bulk_delete_contracts(payload: ContractBulkDelete):
-    if not payload.ids:
-        return {"deleted": 0}
-
-    ids = [str(item) for item in payload.ids]
-
-    with get_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute("delete from contracts_rows where id::text = any(%s)", (ids,))
-            deleted_count = cursor.rowcount
-        connection.commit()
-
-    return {"deleted": deleted_count}
