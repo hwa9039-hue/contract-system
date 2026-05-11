@@ -36,7 +36,7 @@ export const contractsApi = {
     })
   },
   bulkCreate(rows) {
-    return requestJson('/api/contracts/bulk', {
+    return requestJson('/api/contracts/import', {
       method: 'POST',
       body: JSON.stringify({ rows }),
     })

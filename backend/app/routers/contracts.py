@@ -26,6 +26,30 @@ def quote_identifier(identifier: str) -> str:
     return f'"{identifier}"'
 
 
+def _insert_contract_rows(rows: list[ContractCreate]) -> int:
+    if not rows:
+        return 0
+
+    created = 0
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            for contract in rows:
+                values = contract_to_db_values(contract)
+                columns = list(values.keys())
+                placeholders = [f"%({column})s" for column in columns]
+                quoted_columns = [quote_identifier(column) for column in columns]
+                cursor.execute(
+                    f"""
+                    insert into contracts_rows ({", ".join(quoted_columns)})
+                    values ({", ".join(placeholders)})
+                    """,
+                    values,
+                )
+                created += 1
+        connection.commit()
+    return created
+
+
 @router.get("", response_model=list[ContractOut])
 def list_contracts():
     with get_connection() as connection:
@@ -65,29 +89,13 @@ def create_contract(contract: ContractCreate):
 
 @router.post("/bulk", status_code=status.HTTP_201_CREATED)
 def bulk_create_contracts(payload: ContractBulkCreate):
-    if not payload.rows:
-        return {"created": 0}
+    return {"created": _insert_contract_rows(payload.rows)}
 
-    created = 0
 
-    with get_connection() as connection:
-        with connection.cursor() as cursor:
-            for contract in payload.rows:
-                values = contract_to_db_values(contract)
-                columns = list(values.keys())
-                placeholders = [f"%({column})s" for column in columns]
-                quoted_columns = [quote_identifier(column) for column in columns]
-                cursor.execute(
-                    f"""
-                    insert into contracts_rows ({", ".join(quoted_columns)})
-                    values ({", ".join(placeholders)})
-                    """,
-                    values,
-                )
-                created += 1
-        connection.commit()
-
-    return {"created": created}
+@router.post("/import", status_code=status.HTTP_201_CREATED)
+def import_contracts(payload: ContractBulkCreate):
+    """Same as /bulk; path matches other registries (/api/*/import) for proxies/WAF compatibility."""
+    return {"created": _insert_contract_rows(payload.rows)}
 
 
 @router.patch("/{contract_id}", response_model=ContractOut)
