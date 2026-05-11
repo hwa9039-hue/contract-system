@@ -2361,13 +2361,22 @@ function App() {
       }
 
       const payload = uniqueImported.map(normalizeContractPayload)
-      await contractsApi.bulkCreate(payload)
+      const chunkSize = 25
+      for (let i = 0; i < payload.length; i += chunkSize) {
+        const chunk = payload.slice(i, i + chunkSize)
+        await contractsApi.bulkCreate(chunk)
+      }
 
       await fetchContracts()
       alert(`엑셀 업로드 완료: 신규 ${uniqueImported.length}건 추가, 중복 ${imported.length - uniqueImported.length}건 제외`)
     } catch (error) {
       console.error('엑셀 업로드 중 오류가 발생했습니다.', error)
-      alert(`엑셀 업로드 중 오류가 발생했습니다.\n${error?.message ?? error}`)
+      const msg = safeString(error?.message)
+      const networkHint =
+        msg === 'Failed to fetch'
+          ? '\n\n· 인터넷/방화벽 또는 API 주소 문제일 수 있습니다.\n· Cloudflare Pages에 최신 프론트가 배포됐는지(강력 새로고침), NAS 백엔드가 최신인지 확인해 주세요.'
+          : ''
+      alert(`엑셀 업로드 중 오류가 발생했습니다.\n${msg || error}${networkHint}`)
     } finally {
       e.target.value = ''
     }

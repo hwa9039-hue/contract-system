@@ -63,12 +63,12 @@ def create_contract(contract: ContractCreate):
     return row_to_contract(row)
 
 
-@router.post("/bulk", response_model=list[ContractOut], status_code=status.HTTP_201_CREATED)
+@router.post("/bulk", status_code=status.HTTP_201_CREATED)
 def bulk_create_contracts(payload: ContractBulkCreate):
     if not payload.rows:
-        return []
+        return {"created": 0}
 
-    created_rows = []
+    created = 0
 
     with get_connection() as connection:
         with connection.cursor() as cursor:
@@ -81,14 +81,13 @@ def bulk_create_contracts(payload: ContractBulkCreate):
                     f"""
                     insert into contracts_rows ({", ".join(quoted_columns)})
                     values ({", ".join(placeholders)})
-                    returning {RETURNING_COLUMNS}
                     """,
                     values,
                 )
-                created_rows.append(row_to_contract(cursor.fetchone()))
+                created += 1
         connection.commit()
 
-    return created_rows
+    return {"created": created}
 
 
 @router.patch("/{contract_id}", response_model=ContractOut)
