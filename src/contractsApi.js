@@ -29,6 +29,12 @@ export const contractsApi = {
       body: JSON.stringify(payload),
     })
   },
+  bulkCreate(rows) {
+    return requestJson('/api/contracts/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ rows }),
+    })
+  },
   update(id, patch) {
     return requestJson(`/api/contracts/${id}`, {
       method: 'PATCH',

@@ -42,6 +42,7 @@ const DOCUMENT_COLUMNS = [
 const SALES_CATEGORY_OPTIONS = ['DI사업', '도로사업']
 const SALES_STAGE_OPTIONS = ['대기', '대응중', '확인필요', '보류', '완료', '발주계획', '사전규격', '입찰공고']
 const SALES_MANAGER_OPTIONS = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범', '신상준']
+const SALES_REGISTER_MANAGER_OPTIONS = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범']
 const SALES_STAGE_TONE_MAP = {
   대기: { className: 'sales-stage-badge stage-waiting', optionStyle: { backgroundColor: '#fff8db', color: '#a16207' } },
   대응중: { className: 'sales-stage-badge stage-working', optionStyle: { backgroundColor: '#eaf1ff', color: '#1f4fd1' } },
@@ -63,7 +64,7 @@ const SALES_COLUMNS = [
   { key: 'projectName', label: '프로젝트', align: 'left', type: 'textarea', width: 250 },
   { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 138 },
   { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: SALES_CATEGORY_OPTIONS, width: 102 },
-  { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_MANAGER_OPTIONS, width: 112 },
+  { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_REGISTER_MANAGER_OPTIONS, width: 112 },
   { key: 'projectStage', label: '상태', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 102 },
   { key: 'department', label: '담당부서', align: 'center', type: 'text', width: 130 },
   { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 310 },
@@ -193,7 +194,6 @@ const WORK_REPORT_SECTION_KEYS = {
 
 const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
-const CONTRACT_BACKUP_LAST_DATE_KEY = 'CONTRACT_BACKUP_LAST_DATE'
 const CONTRACT_SHARED_AUTH_KEY = 'CONTRACT_SHARED_AUTH'
 const CONTRACT_SHARED_EXPIRES_AT_KEY = 'CONTRACT_SHARED_EXPIRES_AT'
 const CONTRACT_SHARED_SESSION_DURATION_MS = 20 * 60 * 1000
@@ -629,24 +629,6 @@ function getDateDiffFromToday(dateString) {
   const today = new Date()
   const currentDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   return Math.round((targetDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24))
-}
-
-function formatTodayBackupKey() {
-  const today = new Date()
-  const yyyy = String(today.getFullYear())
-  const mm = String(today.getMonth() + 1).padStart(2, '0')
-  const dd = String(today.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
-
-function getElapsedDaysFromDate(dateString) {
-  const baseDate = parseDateOnly(dateString)
-  if (!baseDate) return null
-
-  const today = new Date()
-  const currentDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const diff = Math.floor((currentDate.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24))
-  return diff < 0 ? 0 : diff
 }
 
 function escapeHtml(text) {
@@ -1409,13 +1391,6 @@ function App() {
   const [isCalendarGridCollapsed, setIsCalendarGridCollapsed] = useState(false)
   const [isMonthListCollapsed, setIsMonthListCollapsed] = useState(false)
   const [detailModal, setDetailModal] = useState(null)
-  const [lastBackupDate, setLastBackupDate] = useState(() => {
-    try {
-      return localStorage.getItem(CONTRACT_BACKUP_LAST_DATE_KEY) || ''
-    } catch {
-      return ''
-    }
-  })
   const [isAppAuthenticated, setIsAppAuthenticated] = useState(initialSharedAuth.isAuthenticated)
   const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(initialSharedAuth.expiresAt)
   const [remainingTime, setRemainingTime] = useState(
@@ -1689,35 +1664,6 @@ function App() {
     () => filteredContracts.reduce((sum, item) => sum + parseAmount(item.amount), 0),
     [filteredContracts]
   )
-
-  const backupWarning = useMemo(() => {
-    if (!lastBackupDate) {
-      return {
-        show: true,
-        message: '⚠ 백업 이력이 없습니다. 지금 백업 다운로드를 진행하세요.',
-      }
-    }
-
-    const elapsedDays = getElapsedDaysFromDate(lastBackupDate)
-    if (elapsedDays === null) {
-      return {
-        show: true,
-        message: '⚠ 백업 이력이 없습니다. 지금 백업 다운로드를 진행하세요.',
-      }
-    }
-
-    if (elapsedDays >= 7) {
-      return {
-        show: true,
-        message: '⚠ 최근 7일 이상 백업이 없습니다. 백업 다운로드를 진행하세요.',
-      }
-    }
-
-    return {
-      show: false,
-      message: '',
-    }
-  }, [lastBackupDate])
 
   const remainingSessionMinutes = useMemo(() => {
     if (!isAppAuthenticated || !sharedSessionExpiresAt) return 0
@@ -2365,8 +2311,12 @@ function App() {
               .replace(/[^\d]/g, '')
               .slice(0, 4),
             segment: safeString(getValueByHeader(row, ['구분'])).trim(),
-            refNo: safeString(getValueByHeader(row, ['참고번호', '참고 번호'])).trim(),
-            contractNo: safeString(getValueByHeader(row, ['계약번호', '계약 번호'])).trim(),
+            refNo: safeString(
+              getValueByHeader(row, ['참고번호', '참고 번호', '공고번호', '공고 번호'])
+            ).trim(),
+            contractNo: safeString(
+              getValueByHeader(row, ['계약번호', '계약 번호', '사업번호', '사업 번호'])
+            ).trim(),
             client: safeString(getValueByHeader(row, ['발주처', '수요기관'])).trim(),
             department: safeString(getValueByHeader(row, ['담당부서', '담당 부서'])).trim(),
             contractMethod: safeString(getValueByHeader(row, ['계약방식', '계약 방식'])).trim(),
@@ -2411,7 +2361,7 @@ function App() {
       }
 
       const payload = uniqueImported.map(normalizeContractPayload)
-      await Promise.all(payload.map((item) => contractsApi.create(item)))
+      await contractsApi.bulkCreate(payload)
 
       await fetchContracts()
       alert(`엑셀 업로드 완료: 신규 ${uniqueImported.length}건 추가, 중복 ${imported.length - uniqueImported.length}건 제외`)
@@ -2450,44 +2400,6 @@ function App() {
     const now = new Date()
     const filename = `계약현황_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}.xlsx`
     XLSX.writeFile(workbook, filename)
-  }
-
-  const handleBackupDownload = () => {
-    const rows = sortContracts(contracts).map((item) => ({
-      ID: item.id,
-      사업년도: item.year,
-      구분: item.segment,
-      참고번호: item.refNo,
-      계약번호: item.contractNo,
-      발주처: item.client,
-      담당부서: item.department,
-      계약방식: item.contractMethod,
-      계약분류: item.contractType,
-      식별번호: item.identNo,
-      계약일자: item.contractDate,
-      준공일자: item.dueDate,
-      사업명: item.projectName,
-      계약금액: formatAmountDisplay(item.amount),
-      영업담당자: item.salesOwner,
-      '현장 PM': item.pm,
-      비고: item.note,
-    }))
-
-    const worksheet = XLSX.utils.json_to_sheet(rows)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, '백업')
-
-    const now = new Date()
-    const filename = `contract_backup_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}.xlsx`
-    XLSX.writeFile(workbook, filename)
-
-    const todayKey = formatTodayBackupKey()
-    try {
-      localStorage.setItem(CONTRACT_BACKUP_LAST_DATE_KEY, todayKey)
-    } catch {
-      // no-op
-    }
-    setLastBackupDate(todayKey)
   }
 
   const handleAddDocumentRow = () => {
@@ -6695,7 +6607,7 @@ function App() {
                   </button>
 
                   <button className="secondary-btn" type="button" onClick={handleExcelImportClick}>
-                    엑셀 불러오기
+                    엑셀 업로드
                   </button>
 
                   <button
@@ -6711,10 +6623,6 @@ function App() {
 
               <button className="secondary-btn" type="button" onClick={handleExcelDownload}>
                 엑셀로 내려받기
-              </button>
-
-              <button className="secondary-btn" type="button" onClick={handleBackupDownload}>
-                백업 다운로드
               </button>
 
               <input
@@ -6741,27 +6649,6 @@ function App() {
                 </div>
               </div>
             </div>
-
-            {backupWarning.show && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  minHeight: 42,
-                  marginBottom: 12,
-                  padding: '10px 12px',
-                  border: '1px solid #f5c77a',
-                  borderRadius: 8,
-                  background: '#fff8e8',
-                  color: '#9a5b00',
-                  fontSize: 13,
-                  fontWeight: 700,
-                  lineHeight: 1.4,
-                }}
-              >
-                {backupWarning.message}
-              </div>
-            )}
 
             <div className="contract-filter-row five-only">
               <select
@@ -7100,7 +6987,7 @@ function App() {
                 style={{ width: 150 }}
               >
                 <option value="">담당자</option>
-                {SALES_MANAGER_OPTIONS.map((option) => (
+                {SALES_REGISTER_MANAGER_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
