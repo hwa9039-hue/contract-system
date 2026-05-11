@@ -2372,11 +2372,7 @@ function App() {
     } catch (error) {
       console.error('엑셀 업로드 중 오류가 발생했습니다.', error)
       const msg = safeString(error?.message)
-      const networkHint =
-        msg === 'Failed to fetch'
-          ? '\n\n· 인터넷/방화벽 또는 API 주소 문제일 수 있습니다.\n· Cloudflare Pages에 최신 프론트가 배포됐는지(강력 새로고침), NAS 백엔드가 최신인지 확인해 주세요.'
-          : ''
-      alert(`엑셀 업로드 중 오류가 발생했습니다.\n${msg || error}${networkHint}`)
+      alert(`엑셀 업로드 중 오류가 발생했습니다.\n${msg || error}`)
     } finally {
       e.target.value = ''
     }
