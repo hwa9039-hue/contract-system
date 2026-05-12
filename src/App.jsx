@@ -8244,7 +8244,16 @@ function App() {
           className="modal-backdrop contract-confirm-backdrop"
           onClick={() => setContractConfirmDialog(null)}
         >
-          <div className="confirm-dialog-shell" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="confirm-dialog-shell"
+            style={{
+              maxWidth: 400,
+              width: 'min(400px, calc(100vw - 40px))',
+              boxSizing: 'border-box',
+              flex: '0 0 auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="confirm-dialog-title">{contractConfirmDialog.title}</h3>
             <p className="confirm-dialog-message">{contractConfirmDialog.message}</p>
             <div className="confirm-dialog-actions">

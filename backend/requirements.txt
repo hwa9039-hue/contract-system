@@ -1,5 +1,8 @@
-fastapi
-uvicorn[standard]
-psycopg[binary]
-python-dotenv
-PyJWT>=2.8.0
+# Pydantic v2만 사용 (v1과 동시 지정 시 pip / Docker에서 DependencyResolutionError 발생)
+# 아래 순서·하한으로 해석기가 먼저 Pydantic 2를 고정한 뒤 FastAPI를 맞춥니다.
+pydantic>=2.10.4,<3.0.0
+fastapi>=0.115.0,<0.137.0
+uvicorn[standard]>=0.30.0,<0.47.0
+psycopg[binary]>=3.2.0,<3.5.0
+python-dotenv>=1.0.0,<2.0.0
+PyJWT>=2.8.0,<3.0.0

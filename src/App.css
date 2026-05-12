@@ -2119,6 +2119,23 @@ textarea:focus-visible {
   backdrop-filter: blur(6px);
 }
 
+/* 파일 하단에서도 동일: 테마 구역만 덮어쓸 때 레이아웃 유지 */
+.modal-backdrop.contract-confirm-backdrop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.contract-confirm-backdrop .confirm-dialog-shell {
+  width: min(400px, calc(100vw - 40px));
+  max-width: 400px;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  margin: 0;
+}
+
 .detail-modal {
   width: min(920px, 100%);
   border: 1px solid rgba(255, 255, 255, 0.58);
