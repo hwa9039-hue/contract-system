@@ -376,18 +376,40 @@ function normalizeRegistryRowId(id) {
 /** API/직렬화마다 id 필드명이 달라질 수 있어 계약 행의 서버 PK를 한곳에서 추출 */
 function pickContractRowId(row) {
   if (!row || typeof row !== 'object') return ''
-  const candidates = [
+  const explicit = [
     row.id,
-    row.Id,
+    row._id,
     row.ID,
-    row.contractId,
+    row.Id,
     row.contract_id,
+    row.contractId,
+    row.contractID,
+    row.CONTRACT_ID,
+    row.ContractId,
     row.uuid,
     row.UUID,
+    row.pk,
+    row.PK,
+    row.record_id,
+    row.recordId,
   ]
-  for (const v of candidates) {
+  for (const v of explicit) {
     const s = normalizeRegistryRowId(v)
     if (s !== '') return s
+  }
+  for (const [k, v] of Object.entries(row)) {
+    if (v === null || v === undefined) continue
+    if (typeof v === 'object' && !Array.isArray(v)) continue
+    const keyNorm = String(k).replace(/\s+/g, '')
+    if (
+      /^_?id$/i.test(keyNorm) ||
+      /^contract[_-]?id$/i.test(keyNorm) ||
+      /^uuid$/i.test(keyNorm) ||
+      /^pk$/i.test(keyNorm)
+    ) {
+      const s = normalizeRegistryRowId(v)
+      if (s !== '') return s
+    }
   }
   return ''
 }
@@ -395,7 +417,7 @@ function pickContractRowId(row) {
 /** 행별 고유 선택 키에 사용 (id 값 안에 들어갈 가능성 낮게) */
 const CONTRACT_ROW_KEY_SEP = '|#|'
 
-/** 선택 키 → API용 id */
+/** 선택 키 → API용 id (복합키의 첫 구간만) */
 function contractSelectKeyToServerId(key) {
   if (!key || typeof key !== 'string') return ''
   if (key.startsWith('__MISSING__')) return ''
@@ -405,6 +427,19 @@ function contractSelectKeyToServerId(key) {
     return key.split(CONTRACT_ROW_KEY_SEP)[0]
   }
   return key
+}
+
+/**
+ * 체크박스로 쌓인 rowSelectKey(복합키)에서 실제 PATCH/DELETE용 서버 id를 뽑습니다.
+ * 키 파싱만으로 비면, 현재 테이블에서 행을 찾아 pickContractRowId로 보강합니다.
+ */
+function resolveContractServerIdFromSelectKey(rowKey, getRowBySelectKey) {
+  if (!rowKey || typeof rowKey !== 'string') return ''
+  const getRow = typeof getRowBySelectKey === 'function' ? getRowBySelectKey : null
+  const row = getRow ? getRow(rowKey) : null
+  const fromRow = row ? pickContractRowId(row) : ''
+  if (fromRow) return fromRow
+  return contractSelectKeyToServerId(rowKey)
 }
 
 function removeObjectKey(object, key) {
@@ -4563,12 +4598,18 @@ function App() {
 
     const validSelectedIds = [
       ...new Set(
-        [...selectedContractRowKeys].map((x) => contractSelectKeyToServerId(x)).filter((id) => id !== '')
+        [...selectedContractRowKeys]
+          .map((k) => resolveContractServerIdFromSelectKey(k, getContractRowBySelectKey))
+          .filter((id) => id !== '')
       ),
     ]
 
     if (validSelectedIds.length === 0) {
-      setToastMessage('삭제할 데이터를 선택해주세요.')
+      setToastMessage(
+        selectedContractRowKeys.size > 0
+          ? '선택한 행에서 삭제용 ID를 찾을 수 없습니다. 새로고침 후 다시 선택해 주세요.'
+          : '삭제할 데이터를 선택해주세요.'
+      )
       return
     }
 
@@ -4601,7 +4642,9 @@ function App() {
       return
     }
 
-    const editingServerId = contractEdit ? contractSelectKeyToServerId(contractEdit.rowKey) : ''
+    const editingServerId = contractEdit
+      ? resolveContractServerIdFromSelectKey(contractEdit.rowKey, getContractRowBySelectKey)
+      : ''
     if (editingServerId && ids.some((id) => normalizeRegistryRowId(id) === normalizeRegistryRowId(editingServerId))) {
       cancelEdit()
     }
@@ -4617,8 +4660,7 @@ function App() {
 
     const serverRowId =
       (row && pickContractRowId(row)) ||
-      pickContractRowId(getContractRowBySelectKey(rowKey) || {}) ||
-      contractSelectKeyToServerId(rowKey) ||
+      resolveContractServerIdFromSelectKey(rowKey, getContractRowBySelectKey) ||
       ''
 
     setContractEdit({ rowKey, key, serverRowId: serverRowId || null })
@@ -4642,10 +4684,18 @@ function App() {
     if (!snap) return
 
     const rowLookup = getContractRowBySelectKey(snap.rowKey)
-    const serverId =
-      normalizeRegistryRowId(snap.serverRowId) ||
-      (rowLookup ? pickContractRowId(rowLookup) : '') ||
-      contractSelectKeyToServerId(snap.rowKey)
+    const fromState = normalizeRegistryRowId(snap.serverRowId)
+    const fromResolve = resolveContractServerIdFromSelectKey(snap.rowKey, getContractRowBySelectKey)
+    const serverId = fromState || fromResolve
+
+    console.log('[계약현황 saveEdit]', {
+      rowKey: snap.rowKey,
+      serverRowIdState: snap.serverRowId,
+      pickFromRow: rowLookup ? pickContractRowId(rowLookup) : '',
+      fromKeyParse: contractSelectKeyToServerId(snap.rowKey),
+      resolvedId: serverId,
+      hasRowLookup: Boolean(rowLookup),
+    })
 
     if (!serverId) {
       setToastMessage('저장할 행 식별자가 없습니다. 새로고침 후 다시 시도해 주세요.')
