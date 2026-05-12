@@ -17,6 +17,23 @@ def get_connection():
         yield connection
 
 
+def repair_contract_row_ids(connection) -> int:
+    """contracts_rows 에서 id 가 NULL 인 행에 UUID 를 채웁니다. 반환: 갱신된 행 수.
+
+    API `id` 는 DB PK(UUID 문자열)이어야 PATCH/DELETE 가 동작합니다.
+    계약번호(contractNo)는 별도 필드로만 내려가며 `id`로 치환하지 않습니다(중복 가능·경로 불일치).
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            update contracts_rows
+            set id = gen_random_uuid()
+            where id is null
+            """
+        )
+        return int(cursor.rowcount or 0)
+
+
 def init_db():
     with get_connection() as connection:
         with connection.cursor() as cursor:
@@ -172,12 +189,5 @@ def init_db():
                   on contracts_rows ("contractDate" desc)
                 """
             )
-            # 예전 마이그레이션·수동 INSERT로 id가 비어 있는 행이 있으면 PK를 채워 목록/수정 API가 id를 내려줄 수 있게 합니다.
-            cursor.execute(
-                """
-                update contracts_rows
-                set id = gen_random_uuid()
-                where id is null
-                """
-            )
+        repair_contract_row_ids(connection)
         connection.commit()

@@ -73,8 +73,22 @@ class ContractPatch(BaseModel):
     note: Optional[str] = None
 
 
+def coerce_contract_api_id(value: Any) -> str:
+    """드라이버·Mongo 스타일까지 포함해 API `id` 문자열로 통일 (없으면 빈 문자열)."""
+    if value is None:
+        return ""
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, dict):
+        if "$oid" in value:
+            return coerce_contract_api_id(value.get("$oid"))
+        if "_id" in value:
+            return coerce_contract_api_id(value.get("_id"))
+    return str(value).strip()
+
+
 class ContractOut(BaseModel):
-    id: Optional[Any] = None
+    id: str
     year: Optional[Any] = None
     segment: Optional[Any] = None
     refNo: Optional[Any] = None
@@ -93,6 +107,11 @@ class ContractOut(BaseModel):
     note: Optional[Any] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def id_to_str(cls, value: Any) -> str:
+        return coerce_contract_api_id(value)
 
 
 class ContractBulkCreate(BaseModel):
@@ -413,9 +432,15 @@ def to_response_value(value):
 
 def row_to_contract(row) -> dict:
     raw_id = row.get("id")
-    id_str = to_response_value(raw_id) if raw_id is not None else None
-    if id_str is not None:
-        id_str = str(id_str).strip() or None
+    if raw_id is None:
+        raw_id = row.get("ID") or row.get("_id")
+    id_str: str | None = None
+    if raw_id is not None:
+        tv = to_response_value(raw_id)
+        if tv is not None:
+            id_str = str(tv).strip() or None
+    if id_str is None:
+        id_str = ""
     return {
         "id": id_str,
         "year": to_response_value(row["year"]),

@@ -1,3 +1,4 @@
+import logging
 import os
 
 from fastapi import FastAPI
@@ -36,6 +37,8 @@ def get_cors_origins():
     return list(DEFAULT_CORS_ORIGINS)
 
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="Contract Management API")
 
 app.add_middleware(ApiJwtAuthMiddleware)
@@ -55,6 +58,7 @@ def root():
 @app.on_event("startup")
 def on_startup():
     init_db()
+    logger.info("init_db completed (contracts_rows null id repair runs here and on GET /api/contracts)")
 
 
 @app.get("/api/health")

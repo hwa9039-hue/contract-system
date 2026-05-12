@@ -1,6 +1,8 @@
+import logging
+
 from fastapi import APIRouter, HTTPException, status
 
-from app.database import get_connection
+from app.database import get_connection, repair_contract_row_ids
 from app.schemas import (
     CONTRACT_DB_COLUMNS,
     ContractBulkCreate,
@@ -12,6 +14,7 @@ from app.schemas import (
     row_to_contract,
 )
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/contracts", tags=["contracts"])
 
@@ -54,6 +57,9 @@ def _insert_contract_rows(rows: list[ContractCreate]) -> int:
 @router.get("", response_model=list[ContractOut])
 def list_contracts():
     with get_connection() as connection:
+        filled = repair_contract_row_ids(connection)
+        if filled:
+            logger.warning("contracts_rows: backfilled id on %s row(s) that had null id", filled)
         with connection.cursor() as cursor:
             cursor.execute(
                 f"""
@@ -62,7 +68,8 @@ def list_contracts():
                 order by year desc nulls last, "contractDate" desc nulls last
                 """
             )
-            return [row_to_contract(row) for row in cursor.fetchall()]
+            rows = cursor.fetchall()
+    return [row_to_contract(row) for row in rows]
 
 
 @router.post("", response_model=ContractOut, status_code=status.HTTP_201_CREATED)
