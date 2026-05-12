@@ -9,6 +9,7 @@ import { projectDiscoveryApi } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import { API_BASE_URL, clearAuthToken, getAuthHeaders, setAuthToken } from './apiClient.js'
+import { logCmsApiLogin } from './cmsApiProbe.js'
 
 const CONTRACT_COLUMNS = [
   { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text' },
@@ -2228,6 +2229,11 @@ function App() {
     e.preventDefault()
     setAppLoginError('')
 
+    logCmsApiLogin('attempt', {
+      POST: `${API_BASE_URL}/api/auth/login`,
+      note: 'password is never logged',
+    })
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
@@ -2236,8 +2242,16 @@ function App() {
       })
       const data = await response.json().catch(() => ({}))
 
+      logCmsApiLogin('http response', {
+        status: response.status,
+        ok: response.ok,
+        auth_disabled: Boolean(data.auth_disabled),
+        has_access_token: Boolean(data.access_token),
+      })
+
       if (data.auth_disabled) {
         if (appPasswordInput !== SHARED_APP_PASSWORD) {
+          logCmsApiLogin('rejected', { reason: 'client shared password mismatch (auth_disabled mode)' })
           setAppLoginError('공용 비밀번호가 올바르지 않습니다.')
           return
         }
@@ -2249,6 +2263,7 @@ function App() {
         setRemainingTime(CONTRACT_SHARED_SESSION_DURATION_MS)
         setShowSessionWarning(false)
         setAppPasswordInput('')
+        logCmsApiLogin('success', { mode: 'auth_disabled', api: API_BASE_URL })
         return
       }
 
@@ -2260,6 +2275,7 @@ function App() {
             : Array.isArray(detail)
               ? detail.map((item) => item.msg || item).join(', ')
               : '로그인에 실패했습니다.'
+        logCmsApiLogin('rejected', { status: response.status, message })
         setAppLoginError(message)
         return
       }
@@ -2276,7 +2292,13 @@ function App() {
       setRemainingTime(CONTRACT_SHARED_SESSION_DURATION_MS)
       setShowSessionWarning(false)
       setAppPasswordInput('')
-    } catch {
+      logCmsApiLogin('success', {
+        mode: 'jwt',
+        api: API_BASE_URL,
+        token_stored: Boolean(data.access_token),
+      })
+    } catch (err) {
+      logCmsApiLogin('error', { message: err?.message || String(err) })
       setAppLoginError('서버에 연결할 수 없습니다. API 주소와 네트워크를 확인하세요.')
     }
   }
