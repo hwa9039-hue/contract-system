@@ -716,6 +716,23 @@ textarea {
   gap: 8px;
 }
 
+/* 계약 삭제 확인: 작은 대화상자만 (전체 화면을 덮는 큰 패널 방지) */
+.contract-confirm-backdrop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.contract-confirm-backdrop .confirm-dialog-shell {
+  width: min(400px, calc(100vw - 40px));
+  max-width: 400px;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  margin: 0;
+}
+
 .row-delete-btn:hover,
 .delete-btn:hover {
   background: #fecaca;

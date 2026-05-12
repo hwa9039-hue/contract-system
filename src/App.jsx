@@ -1358,6 +1358,9 @@ function logApiFetchError(label, table, error) {
 function logApiOperationError(label, error) {
   console.error(`[${label}] API operation failed`, {
     message: error?.message ?? safeString(error),
+    name: error?.name,
+    stack: error?.stack,
+    cause: error?.cause,
     code: error?.code ?? '',
     details: error?.details ?? '',
     hint: error?.hint ?? '',
@@ -4596,13 +4599,21 @@ function App() {
       return
     }
 
-    /** 선택 키 = 행의 `id` (getContractTableRowKey) */
+    /** 선택 키 = 행의 `id`; 서버 경로용 id는 문자열로 통일 (숫자 PK 대응) */
     const validSelectedIds = [
       ...new Set(
         [...selectedContractRowKeys]
           .map((selectedKey) => {
             const rec = getContractRowBySelectKey(selectedKey)
-            return firstUsableContractPathId(rec?.key, rec?.id, pickContractRowId(rec), selectedKey)
+            const fromRowId = normalizeRegistryRowId(rec?.id)
+            const merged =
+              fromRowId ||
+              firstUsableContractPathId(rec?.key, pickContractRowId(rec), selectedKey)
+            const s = normalizeRegistryRowId(merged)
+            if (import.meta.env.DEV && s && /^\d+$/.test(s)) {
+              console.info('[계약현황 삭제] 숫자형 id 사용:', s)
+            }
+            return s
           })
           .filter((id) => isUsableContractPathId(id))
       ),
@@ -4635,7 +4646,9 @@ function App() {
       setContractConfirmDialog(null)
       return
     }
-    const ids = dialog.payloadIds.filter((x) => isUsableContractPathId(x))
+    const ids = dialog.payloadIds
+      .map((x) => normalizeRegistryRowId(x))
+      .filter((id) => isUsableContractPathId(id))
     if (!ids.length) {
       setContractConfirmDialog(null)
       console.error('Failed to find ID for record:', { payloadIds: dialog.payloadIds })
@@ -4644,17 +4657,32 @@ function App() {
     }
     setContractConfirmDialog(null)
 
+    let deleteSucceeded = false
     try {
+      if (import.meta.env.DEV) {
+        console.info('[계약현황 삭제] 요청 URL id 목록:', ids)
+      }
       if (dialog.single) {
         await contractsApi.remove(ids[0])
       } else {
         await contractsApi.bulkRemove(ids)
       }
+      deleteSucceeded = true
     } catch (error) {
+      console.error('[계약현황 삭제] 요청 실패 (전문)', error)
+      console.error('[계약현황 삭제] stack:', error?.stack)
       logApiOperationError(dialog.single ? '계약현황 삭제' : '계약현황 선택 삭제', error)
       setToastMessage(`삭제 중 오류가 발생했습니다. ${safeString(error?.message)}`)
-      return
+    } finally {
+      try {
+        await fetchContracts()
+      } catch (reloadErr) {
+        console.error('[계약현황] 삭제 후 목록 갱신 실패 (전문)', reloadErr)
+        console.error('[계약현황] 삭제 후 목록 갱신 stack:', reloadErr?.stack)
+      }
     }
+
+    if (!deleteSucceeded) return
 
     const editingServerId =
       normalizeRegistryRowId(contractEdit?.serverRowId) ||
@@ -4666,7 +4694,6 @@ function App() {
     }
 
     setSelectedContractRowKeys(new Set())
-    await fetchContracts()
     setToastMessage(dialog.single ? '삭제되었습니다.' : '선택한 항목이 삭제되었습니다.')
   }
 
@@ -4698,13 +4725,10 @@ function App() {
 
     const rowLookup = getContractRowBySelectKey(snap.rowKey)
     const record = rowLookup
-    const id = firstUsableContractPathId(
-      record?.key,
-      record?.id,
-      pickContractRowId(record),
-      snap.serverRowId,
-      snap.rowKey
-    )
+    /** PATCH 주소 `/api/contracts/{id}` — 목록에서 강제한 `record.id` 우선 */
+    const id =
+      normalizeRegistryRowId(record?.id) ||
+      firstUsableContractPathId(record?.key, pickContractRowId(record), snap.serverRowId, snap.rowKey)
 
     console.log('[계약현황 saveEdit] editingRow (full row):', record ? { ...record } : null, {
       contractEdit: snap,
@@ -4713,7 +4737,10 @@ function App() {
       recordId: record?.id,
     })
 
-    console.log('Final ID for request:', id)
+    console.log('Final ID for PATCH /api/contracts/{id}:', id)
+    if (import.meta.env.DEV && id && /^\d+$/.test(String(id))) {
+      console.info('[계약현황 수정] 숫자형 id 사용:', id)
+    }
 
     if (!isUsableContractPathId(id)) {
       console.error('Failed to find ID for record:', record ?? { rowKey: snap.rowKey })
@@ -4726,6 +4753,8 @@ function App() {
     try {
       await contractsApi.update(id, { [snap.key]: value })
     } catch (error) {
+      console.error('[계약현황 PATCH] 요청 실패 (전문)', error)
+      console.error('[계약현황 PATCH] stack:', error?.stack)
       logApiOperationError('계약현황 수정', error)
       setToastMessage(`저장에 실패했습니다. ${safeString(error?.message)}`)
       return
@@ -8211,7 +8240,10 @@ function App() {
       </main>
 
       {contractConfirmDialog && (
-        <div className="modal-backdrop" onClick={() => setContractConfirmDialog(null)}>
+        <div
+          className="modal-backdrop contract-confirm-backdrop"
+          onClick={() => setContractConfirmDialog(null)}
+        >
           <div className="confirm-dialog-shell" onClick={(e) => e.stopPropagation()}>
             <h3 className="confirm-dialog-title">{contractConfirmDialog.title}</h3>
             <p className="confirm-dialog-message">{contractConfirmDialog.message}</p>

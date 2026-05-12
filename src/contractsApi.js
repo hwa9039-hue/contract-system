@@ -1,5 +1,14 @@
 import { API_BASE_URL, getAuthHeaders } from './apiClient.js'
 
+/** PATCH/DELETE 경로 세그먼트 (계약번호·UUID 등 특수문자 안전) */
+function encodeContractPathId(id) {
+  const s = String(id == null ? '' : id).trim()
+  if (!s) {
+    throw new Error('계약 id가 비어 있습니다.')
+  }
+  return encodeURIComponent(s)
+}
+
 async function parseResponseBody(response) {
   if (response.status === 204) return null
   const text = await response.text()
@@ -106,20 +115,25 @@ export const contractsApi = {
     return postContractRowsBulk(rows)
   },
   update(id, patch) {
-    return requestJson(`/api/contracts/${id}`, {
+    const pathId = encodeContractPathId(id)
+    return requestJson(`/api/contracts/${pathId}`, {
       method: 'PATCH',
       body: JSON.stringify(patch),
     })
   },
   remove(id) {
-    return requestJson(`/api/contracts/${id}`, {
+    const pathId = encodeContractPathId(id)
+    return requestJson(`/api/contracts/${pathId}`, {
       method: 'DELETE',
     })
   },
   bulkRemove(ids) {
+    const clean = (Array.isArray(ids) ? ids : [])
+      .map((x) => (x === null || x === undefined ? '' : String(x).trim()))
+      .filter((s) => s !== '')
     return requestJson('/api/contracts/bulk-delete', {
       method: 'POST',
-      body: JSON.stringify({ ids }),
+      body: JSON.stringify({ ids: clean }),
     })
   },
 }
