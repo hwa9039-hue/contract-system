@@ -477,14 +477,13 @@ function isUsableContractPathId(id) {
   return !/[\r\n]/.test(s)
 }
 
-/** 목록 API 한 행: pick 결과를 row.id에 고정 (선택·PATCH·DELETE 공통) */
+/** 목록 API 한 행: id 필드만 통일 (fetchContracts에서도 동일 적용) */
 function normalizeContractListRow(row) {
   try {
     if (!row || typeof row !== 'object') return row
     const canon = pickContractRowId(row)
-    const next = { ...row, id: canon }
-    if (canon === '' && import.meta?.env?.DEV) {
-      // 개발 중에만: 서버 응답에서 id가 누락되는 케이스를 빠르게 확인
+    const next = { ...row, id: normalizeRegistryRowId(canon) }
+    if (!next.id && import.meta?.env?.DEV) {
       console.warn('[계약현황] row id missing. keys=', Object.keys(row || {}), 'row=', row)
     }
     return next
@@ -496,25 +495,15 @@ function normalizeContractListRow(row) {
 /** 행별 고유 키 (같은 DB id·JSON 정밀도 붕괴로 id가 겹쳐도 한 행만 편집) */
 const CONTRACT_ROW_KEY_SEP = '|#|'
 
-/** 편집/행 React key용 복합키 → API용 id (첫 구간) */
-function contractSelectKeyToServerId(key) {
-  if (!key || typeof key !== 'string') return ''
-  if (key.startsWith('__MISSING__')) return ''
-  if (key.startsWith('__noid__')) return ''
-  if (key.includes('__dup__')) return key.split('__dup__')[0]
-  if (key.includes(CONTRACT_ROW_KEY_SEP)) {
-    return key.split(CONTRACT_ROW_KEY_SEP)[0]
-  }
-  return key
-}
-
 /**
- * Ant Design `<Table rowKey={(record) => pickContractRowId(record)} />` 와 동일 규칙.
- * (본 프로젝트는 네이티브 table이며, 행 식별·체크 상태에 이 값을 사용합니다.)
+ * Ant Design `<Table rowKey="id" />` 와 동일: 정규화된 `record.id`(문자열)가 행 키.
+ * id가 비어 있을 때만 연도·인덱스 임시 키.
  */
 function getContractTableRowKey(row, yearLabel, indexInYear) {
-  const id = pickContractRowId(row)
-  if (id) return id
+  const fromId = normalizeRegistryRowId(row?.id)
+  if (fromId) return fromId
+  const picked = pickContractRowId(row)
+  if (picked) return normalizeRegistryRowId(picked)
   return `__MISSING__${CONTRACT_ROW_KEY_SEP}${yearLabel}${CONTRACT_ROW_KEY_SEP}${indexInYear}`
 }
 
@@ -1620,7 +1609,13 @@ function App() {
   const fetchContracts = async () => {
     try {
       const rows = await contractsApi.list()
-      const normalized = Array.isArray(rows) ? rows.map((row) => normalizeContractListRow(row)) : []
+      const normalized = Array.isArray(rows)
+        ? rows.map((item) => {
+            const base = normalizeContractListRow(item)
+            const unifiedId = pickContractRowId(base)
+            return { ...base, id: normalizeRegistryRowId(unifiedId) }
+          })
+        : []
       setContracts(normalized)
       return normalized
     } catch (error) {
@@ -4660,11 +4655,7 @@ function App() {
     const validSelectedIds = [
       ...new Set(
         [...selectedContractRowKeys]
-          .map((rowKey) => {
-            const rec = getContractRowBySelectKey(rowKey)
-            const sid = rec ? pickContractRowId(rec) : contractSelectKeyToServerId(rowKey)
-            return normalizeRegistryRowId(sid)
-          })
+          .map((rowKey) => normalizeRegistryRowId(rowKey))
           .filter((id) => isUsableContractPathId(id))
       ),
     ]
@@ -4709,10 +4700,8 @@ function App() {
 
     const editingServerId =
       normalizeRegistryRowId(contractEdit?.serverRowId) ||
-      (contractEdit?.rowKey
-        ? pickContractRowId(getContractRowBySelectKey(contractEdit.rowKey) || {})
-        : '') ||
-      (contractEdit?.rowKey ? contractSelectKeyToServerId(contractEdit.rowKey) : '')
+      normalizeRegistryRowId(getContractRowBySelectKey(contractEdit?.rowKey || '')?.id) ||
+      normalizeRegistryRowId(contractEdit?.rowKey)
     if (editingServerId && ids.some((id) => normalizeRegistryRowId(id) === normalizeRegistryRowId(editingServerId))) {
       cancelEdit()
     }
@@ -4726,13 +4715,9 @@ function App() {
     if (!isAdmin) return
     if (!rowKey) return
 
-    const serverRowId =
-      (row && pickContractRowId(row)) ||
-      pickContractRowId(getContractRowBySelectKey(rowKey) || {}) ||
-      contractSelectKeyToServerId(rowKey) ||
-      ''
+    const serverRowId = normalizeRegistryRowId(row?.id) || normalizeRegistryRowId(rowKey) || null
 
-    setContractEdit({ rowKey, key, serverRowId: serverRowId || null })
+    setContractEdit({ rowKey, key, serverRowId })
 
     if (key === 'amount') {
       setContractEditDraft(normalizeAmountValue(value))
@@ -4754,15 +4739,16 @@ function App() {
 
     const rowLookup = getContractRowBySelectKey(snap.rowKey)
     const record = rowLookup
-    const idFromRecord = record ? pickContractRowId(record) : ''
+    const id =
+      normalizeRegistryRowId(record?.id) ||
+      normalizeRegistryRowId(snap.serverRowId) ||
+      normalizeRegistryRowId(snap.rowKey)
+
     console.log('[계약현황 saveEdit] editingRow (full row):', record ? { ...record } : null, {
       contractEdit: snap,
       draft: snapDraft,
+      recordId: record?.id,
     })
-
-    const fromState = normalizeRegistryRowId(snap.serverRowId)
-    const fromKey = contractSelectKeyToServerId(snap.rowKey)
-    const id = idFromRecord || fromState || fromKey
 
     console.log('Final ID for request:', id)
 
@@ -4809,11 +4795,8 @@ function App() {
 
     setContractEdit((prev) => {
       if (!prev || prev.rowKey !== rowKey) return prev
-      const nextSid =
-        normalizeRegistryRowId(prev.serverRowId) ||
-        pickContractRowId(targetRow) ||
-        null
-      return { ...prev, key: nextColumn.key, serverRowId: nextSid }
+      const nextSid = normalizeRegistryRowId(prev.serverRowId) || normalizeRegistryRowId(targetRow.id)
+      return { ...prev, key: nextColumn.key, serverRowId: nextSid || null }
     })
     if (nextColumn.key === 'amount') {
       setContractEditDraft(normalizeAmountValue(nextValue))
