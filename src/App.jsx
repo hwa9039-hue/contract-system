@@ -1476,6 +1476,16 @@ function App() {
   const registryUploadInputRef = useRef(null)
   const registryUploadTargetRef = useRef('')
   const registryUploadInProgressRef = useRef(false)
+  const contractEditRef = useRef(null)
+  const contractEditDraftRef = useRef('')
+
+  useEffect(() => {
+    contractEditRef.current = contractEdit
+  }, [contractEdit])
+
+  useEffect(() => {
+    contractEditDraftRef.current = contractEditDraft
+  }, [contractEditDraft])
 
   const fetchContracts = async () => {
     try {
@@ -1601,57 +1611,52 @@ function App() {
     }
   }
 
+  /** 로그인 전에는 JWT 없이 list가 비거나 401 → 빈 목록만 보임. 인증 성공 후에만 계약 목록을 불러옵니다. */
   useEffect(() => {
-    fetchContracts()
-  }, [])
+    if (!isAppAuthenticated) return
+    void fetchContracts()
+  }, [isAppAuthenticated])
 
   useEffect(() => {
-    if (menu === 'workReports') {
-      fetchWorkReportRows(true)
-    }
-  }, [menu])
+    if (!isAppAuthenticated || menu !== 'workReports') return
+    void fetchWorkReportRows(true)
+  }, [isAppAuthenticated, menu])
 
   useEffect(() => {
-    if (menu === 'documents') {
-      fetchDocuments(true)
-    }
-  }, [menu])
+    if (!isAppAuthenticated || menu !== 'documents') return
+    void fetchDocuments(true)
+  }, [isAppAuthenticated, menu])
 
   useEffect(() => {
-    if (menu === 'sales') {
-      fetchSalesRows(true)
-    }
-  }, [menu])
+    if (!isAppAuthenticated || menu !== 'sales') return
+    void fetchSalesRows(true)
+  }, [isAppAuthenticated, menu])
 
   useEffect(() => {
-    if (menu === 'budget') {
-      fetchBudgetRows(true)
-    }
-  }, [menu])
+    if (!isAppAuthenticated || menu !== 'budget') return
+    void fetchBudgetRows(true)
+  }, [isAppAuthenticated, menu])
 
   useEffect(() => {
-    if (menu === 'discovery') {
-      fetchDiscoveryRows(true)
-    }
-  }, [menu])
+    if (!isAppAuthenticated || menu !== 'discovery') return
+    void fetchDiscoveryRows(true)
+  }, [isAppAuthenticated, menu])
 
   useEffect(() => {
-    if (menu === 'excluded') {
-      fetchExcludedRows(true)
-    }
-  }, [menu])
+    if (!isAppAuthenticated || menu !== 'excluded') return
+    void fetchExcludedRows(true)
+  }, [isAppAuthenticated, menu])
 
   useEffect(() => {
-    if (menu === 'dashboard') {
-      fetchContracts()
-      fetchDocuments(false)
-      fetchSalesRows(false)
-      fetchBudgetRows(false)
-      fetchDiscoveryRows(false)
-      fetchExcludedRows(false)
-      fetchWorkReportRows(false)
-    }
-  }, [menu])
+    if (!isAppAuthenticated || menu !== 'dashboard') return
+    void fetchContracts()
+    void fetchDocuments(false)
+    void fetchSalesRows(false)
+    void fetchBudgetRows(false)
+    void fetchDiscoveryRows(false)
+    void fetchExcludedRows(false)
+    void fetchWorkReportRows(false)
+  }, [isAppAuthenticated, menu])
 
   useEffect(() => {
     if (!toastMessage) return undefined
@@ -2264,6 +2269,7 @@ function App() {
         setShowSessionWarning(false)
         setAppPasswordInput('')
         logCmsApiLogin('success', { mode: 'auth_disabled', api: API_BASE_URL })
+        void fetchContracts()
         return
       }
 
@@ -2297,6 +2303,7 @@ function App() {
         api: API_BASE_URL,
         token_stored: Boolean(data.access_token),
       })
+      void fetchContracts()
     } catch (err) {
       logCmsApiLogin('error', { message: err?.message || String(err) })
       setAppLoginError('서버에 연결할 수 없습니다. API 주소와 네트워크를 확인하세요.')
@@ -4524,19 +4531,13 @@ function App() {
     })
   }
 
-  const toggleContractSelection = (selectKey) => {
-    if (!selectKey) return
-
-    setSelectedContractRowKeys((prev) => {
-      const next = new Set(prev)
-      if (next.has(selectKey)) next.delete(selectKey)
-      else next.add(selectKey)
-      return next
-    })
-  }
-
   const deleteSelectedContracts = () => {
     if (!requireAdmin()) return
+
+    if (selectedContractRowKeys.size === 0) {
+      setToastMessage('삭제할 데이터를 선택해주세요.')
+      return
+    }
 
     const validSelectedIds = [
       ...new Set(
@@ -4608,23 +4609,35 @@ function App() {
   }
 
   const saveEdit = async () => {
-    if (!contractEdit) return
+    const snap = contractEditRef.current
+    const snapDraft = contractEditDraftRef.current
+    if (!snap) return
 
-    const serverId = contractSelectKeyToServerId(contractEdit.rowKey)
-    if (!serverId) return
+    const serverId = contractSelectKeyToServerId(snap.rowKey)
+    if (!serverId) {
+      setToastMessage('저장할 행 식별자가 없습니다. 새로고침 후 다시 시도해 주세요.')
+      return
+    }
 
-    const value = normalizeEditValue(contractEdit.key, contractEditDraft)
+    const value = normalizeEditValue(snap.key, snapDraft)
 
     try {
-      await contractsApi.update(serverId, { [contractEdit.key]: value })
+      await contractsApi.update(serverId, { [snap.key]: value })
     } catch (error) {
       logApiOperationError('계약현황 수정', error)
+      setToastMessage(`저장에 실패했습니다. ${safeString(error?.message)}`)
       return
     }
 
     await fetchContracts()
-    setContractEdit(null)
-    setContractEditDraft('')
+
+    if (
+      contractEditRef.current?.rowKey === snap.rowKey &&
+      contractEditRef.current?.key === snap.key
+    ) {
+      setContractEdit(null)
+      setContractEditDraft('')
+    }
   }
 
   const moveEdit = (rowKey, key, direction) => {
@@ -6912,14 +6925,15 @@ function App() {
                             className="registry-row-checkbox"
                             type="checkbox"
                             checked={allContractsSelected}
-                            onChange={() => {
+                            onChange={(e) => {
+                              const checked = e.target.checked
                               setSelectedContractRowKeys((prev) => {
                                 const next = new Set(prev)
                                 const keys = contractVisibleSelectKeys
-                                if (allContractsSelected) {
-                                  keys.forEach((k) => next.delete(k))
-                                } else {
+                                if (checked) {
                                   keys.forEach((k) => next.add(k))
+                                } else {
+                                  keys.forEach((k) => next.delete(k))
                                 }
                                 return next
                               })
@@ -7096,7 +7110,14 @@ function App() {
                                       onClick={(e) => e.stopPropagation()}
                                       onChange={(e) => {
                                         e.stopPropagation()
-                                        toggleContractSelection(rowSelectKey)
+                                        if (!normalizeRegistryRowId(item.id)) return
+                                        const checked = e.target.checked
+                                        setSelectedContractRowKeys((prev) => {
+                                          const next = new Set(prev)
+                                          if (checked) next.add(rowSelectKey)
+                                          else next.delete(rowSelectKey)
+                                          return next
+                                        })
                                       }}
                                     />
                                   </td>
