@@ -15,8 +15,9 @@ from app.schemas import (
 
 router = APIRouter(prefix="/api/contracts", tags=["contracts"])
 
+# id는 항상 문자열(UUID)로 직렬화되어 프론트 `id` 필드와 일치합니다.
 RETURNING_COLUMNS = """
-  id, year, segment, "refNo", "contractNo", client, department,
+  id::text as id, year, segment, "refNo", "contractNo", client, department,
   "contractMethod", "contractType", "identNo", "contractDate", "dueDate",
   "projectName", amount, "salesOwner", pm, note
 """
@@ -136,6 +137,7 @@ def bulk_delete_contracts(payload: ContractBulkDelete):
 
 @router.patch("/{contract_id}", response_model=ContractOut)
 def update_contract(contract_id: str, patch: ContractPatch):
+    """행 수정은 DB PK `id`(UUID 문자열)로만 조회합니다. 계약번호만으로 갱신하려면 별도 쿼리·제약(유일성)이 필요합니다."""
     patch_data = patch.model_dump(exclude_unset=True)
     if not patch_data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")

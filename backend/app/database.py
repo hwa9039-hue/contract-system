@@ -172,4 +172,12 @@ def init_db():
                   on contracts_rows ("contractDate" desc)
                 """
             )
+            # 예전 마이그레이션·수동 INSERT로 id가 비어 있는 행이 있으면 PK를 채워 목록/수정 API가 id를 내려줄 수 있게 합니다.
+            cursor.execute(
+                """
+                update contracts_rows
+                set id = gen_random_uuid()
+                where id is null
+                """
+            )
         connection.commit()

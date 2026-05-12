@@ -395,6 +395,60 @@ function normalizeRegistryRowId(id) {
   }
 }
 
+/** Mongo 확장 JSON 등 중첩 객체에서 OID 추출 (깊이 제한) */
+function extractNestedOidLike(obj, depth, maxDepth) {
+  if (obj == null || depth > maxDepth) return ''
+  if (typeof obj !== 'object') return ''
+  if (Array.isArray(obj)) {
+    for (const el of obj) {
+      const s = extractNestedOidLike(el, depth + 1, maxDepth)
+      if (s) return s
+    }
+    return ''
+  }
+  for (const [k, v] of Object.entries(obj)) {
+    if ((k === '$oid' || k === 'oid') && (typeof v === 'string' || typeof v === 'number' || typeof v === 'bigint')) {
+      const s = normalizeRegistryRowId(v)
+      if (s !== '' && s !== '[object Object]') return s
+    }
+    if (v && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Date)) {
+      const s = extractNestedOidLike(v, depth + 1, maxDepth)
+      if (s) return s
+    }
+  }
+  return ''
+}
+
+function contractRowKeyToken(fieldKey) {
+  return String(fieldKey).replace(/\s+/g, '').replace(/_/g, '').toLowerCase()
+}
+
+/** contractNo·identNo 등과 구분되는 "행 고유 PK"에 가까운 필드명만 허용 */
+const CONTRACT_ROW_UNIQUE_ID_KEY_TOKENS = new Set([
+  'id',
+  '_id',
+  'uuid',
+  'pk',
+  'idx',
+  'serial',
+  'seq',
+  'contractid',
+  'rowid',
+  'recordid',
+  'objectid',
+  'mongodbid',
+  'mongoid',
+  'bsonid',
+  'databaseid',
+  'gridrowid',
+  'serverid',
+  'remoteid',
+  'entityid',
+  'documentid',
+  'sourceid',
+  'tablerowid',
+])
+
 /** API/직렬화마다 id 필드명이 달라질 수 있어 계약 행의 서버 PK를 한곳에서 추출 */
 function pickContractRowId(row) {
   if (!row || typeof row !== 'object') return ''
@@ -402,6 +456,9 @@ function pickContractRowId(row) {
     typeof row.data === 'object' && row.data !== null && !Array.isArray(row.data)
       ? { ...row.data, ...row }
       : { ...row }
+
+  const nested = extractNestedOidLike(merged, 0, 4)
+  if (nested) return nested
 
   /** 요청 우선순위: record.id, record.contract_id, record.ID (원본 + merge) */
   const primaryTriple = [
@@ -433,17 +490,46 @@ function pickContractRowId(row) {
     merged.ROWID,
     merged.record_id,
     merged.recordId,
+    merged.idx,
+    merged._idx,
+    merged.rowIdx,
+    merged.database_id,
+    merged.databaseId,
+    merged.mongoId,
+    merged.MongoId,
+    merged.bsonId,
+    merged.objectId,
+    merged.ObjectId,
   ]
   for (const v of explicit) {
     const s = normalizeRegistryRowId(v)
     if (s !== '' && s !== '[object Object]') return s
   }
 
-  /** Ant Design row 등에서 오는 key 폴백 (식별자 없음 방지) */
+  /** Ant Design row 등에서 오는 key 폴백 (식별자 없음 방지) — 테이블 임시키는 제외 */
   const keyFallback = [merged.key, merged.Key, row.key, row.Key, merged.rowKey, row.rowKey]
   for (const v of keyFallback) {
     const s = normalizeRegistryRowId(v)
-    if (s !== '' && s !== '[object Object]') return s
+    if (s === '' || s === '[object Object]') continue
+    if (s.startsWith('__MISSING__')) continue
+    return s
+  }
+
+  try {
+    for (const [k, v] of Object.entries(merged)) {
+      if (v === null || v === undefined) continue
+      const token = contractRowKeyToken(k)
+      if (!CONTRACT_ROW_UNIQUE_ID_KEY_TOKENS.has(token)) continue
+      if (typeof v === 'object' && !Array.isArray(v)) {
+        const inner = extractNestedOidLike(v, 0, 3)
+        if (inner) return inner
+        continue
+      }
+      const s = normalizeRegistryRowId(v)
+      if (s !== '' && s !== '[object Object]') return s
+    }
+  } catch {
+    return ''
   }
 
   try {
@@ -477,6 +563,15 @@ function isUsableContractPathId(id) {
   return !/[\r\n]/.test(s)
 }
 
+/** 테이블 임시키(`__MISSING__`)를 건너뛰고 API용 id만 고름 */
+function firstUsableContractPathId(...parts) {
+  for (const p of parts) {
+    const s = normalizeRegistryRowId(p)
+    if (isUsableContractPathId(s)) return s
+  }
+  return ''
+}
+
 /** 목록 API 한 행: id 필드만 통일 (fetchContracts에서도 동일 적용) */
 function normalizeContractListRow(row) {
   try {
@@ -505,7 +600,11 @@ function getContractTableRowKey(row, yearLabel, indexInYear) {
   if (fromId) return fromId
   const picked = pickContractRowId(row)
   if (picked) return normalizeRegistryRowId(picked)
-  return `__MISSING__${CONTRACT_ROW_KEY_SEP}${yearLabel}${CONTRACT_ROW_KEY_SEP}${indexInYear}`
+  const suffix =
+    typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  return `__MISSING__${CONTRACT_ROW_KEY_SEP}${yearLabel}${CONTRACT_ROW_KEY_SEP}${indexInYear}${CONTRACT_ROW_KEY_SEP}${suffix}`
 }
 
 function removeObjectKey(object, key) {
@@ -1619,8 +1718,7 @@ function App() {
             const base = normalizeContractListRow(item)
             const unifiedId = pickContractRowId(base)
             const idStr = normalizeRegistryRowId(unifiedId)
-            /** 요청: item.key = item.id || item.contract_id || item.ID (문자열로 통일) */
-            const keyRaw = item.id || item.contract_id || item.ID
+            const keyRaw = pickContractRowId(item)
             const keyStr = normalizeRegistryRowId(keyRaw) || idStr
             return { ...base, id: idStr, key: keyStr }
           })
@@ -4643,7 +4741,10 @@ function App() {
     if (!requireAdmin()) return
 
     const nid = normalizeRegistryRowId(id)
-    if (!nid) return
+    if (!nid || !isUsableContractPathId(nid)) {
+      setToastMessage('유효한 ID가 없습니다')
+      return
+    }
 
     setContractConfirmDialog({
       title: '계약 삭제',
@@ -4667,7 +4768,7 @@ function App() {
         [...selectedContractRowKeys]
           .map((selectedKey) => {
             const rec = getContractRowBySelectKey(selectedKey)
-            return normalizeRegistryRowId(rec?.key || rec?.id || selectedKey)
+            return firstUsableContractPathId(rec?.key, rec?.id, pickContractRowId(rec), selectedKey)
           })
           .filter((id) => isUsableContractPathId(id))
       ),
@@ -4675,9 +4776,7 @@ function App() {
 
     if (validSelectedIds.length === 0) {
       setToastMessage(
-        selectedContractRowKeys.size > 0
-          ? '선택한 행에서 삭제용 ID를 찾을 수 없습니다. 새로고침 후 다시 선택해 주세요.'
-          : '삭제할 데이터를 선택해주세요.'
+        selectedContractRowKeys.size > 0 ? '유효한 ID가 없습니다' : '삭제할 데이터를 선택해주세요.'
       )
       return
     }
@@ -4696,7 +4795,12 @@ function App() {
       setContractConfirmDialog(null)
       return
     }
-    const ids = dialog.payloadIds
+    const ids = dialog.payloadIds.filter((x) => isUsableContractPathId(x))
+    if (!ids.length) {
+      setContractConfirmDialog(null)
+      setToastMessage('유효한 ID가 없습니다')
+      return
+    }
     setContractConfirmDialog(null)
 
     try {
@@ -4729,11 +4833,7 @@ function App() {
     if (!isAdmin) return
     if (!rowKey) return
 
-    const serverRowId =
-      normalizeRegistryRowId(row?.key) ||
-      normalizeRegistryRowId(row?.id) ||
-      normalizeRegistryRowId(rowKey) ||
-      null
+    const serverRowId = firstUsableContractPathId(row?.key, row?.id, pickContractRowId(row), rowKey) || null
 
     setContractEdit({ rowKey, key, serverRowId })
 
@@ -4757,11 +4857,13 @@ function App() {
 
     const rowLookup = getContractRowBySelectKey(snap.rowKey)
     const record = rowLookup
-    const id =
-      normalizeRegistryRowId(record?.key) ||
-      normalizeRegistryRowId(record?.id) ||
-      normalizeRegistryRowId(snap.serverRowId) ||
-      normalizeRegistryRowId(snap.rowKey)
+    const id = firstUsableContractPathId(
+      record?.key,
+      record?.id,
+      pickContractRowId(record),
+      snap.serverRowId,
+      snap.rowKey
+    )
 
     console.log('[계약현황 saveEdit] editingRow (full row):', record ? { ...record } : null, {
       contractEdit: snap,
@@ -4773,9 +4875,7 @@ function App() {
     console.log('Final ID for request:', id)
 
     if (!isUsableContractPathId(id)) {
-      setToastMessage(
-        '저장할 행 식별자가 없습니다. 콘솔의 editingRow·Final ID를 확인한 뒤 새로고침해 주세요.'
-      )
+      setToastMessage('유효한 ID가 없습니다')
       return
     }
 
@@ -4816,9 +4916,8 @@ function App() {
     setContractEdit((prev) => {
       if (!prev || prev.rowKey !== rowKey) return prev
       const nextSid =
-        normalizeRegistryRowId(prev.serverRowId) ||
-        normalizeRegistryRowId(targetRow.key) ||
-        normalizeRegistryRowId(targetRow.id)
+        firstUsableContractPathId(prev.serverRowId, targetRow.key, targetRow.id, pickContractRowId(targetRow)) ||
+        null
       return { ...prev, key: nextColumn.key, serverRowId: nextSid || null }
     })
     if (nextColumn.key === 'amount') {

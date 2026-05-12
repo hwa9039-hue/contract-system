@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -401,6 +402,8 @@ def decimal_to_int(value):
 def to_response_value(value):
     if value is None:
         return None
+    if isinstance(value, UUID):
+        return str(value)
     if isinstance(value, Decimal):
         return str(int(value))
     if isinstance(value, date):
@@ -409,8 +412,12 @@ def to_response_value(value):
 
 
 def row_to_contract(row) -> dict:
+    raw_id = row.get("id")
+    id_str = to_response_value(raw_id) if raw_id is not None else None
+    if id_str is not None:
+        id_str = str(id_str).strip() or None
     return {
-        "id": to_response_value(row["id"]),
+        "id": id_str,
         "year": to_response_value(row["year"]),
         "segment": to_response_value(row["segment"]),
         "refNo": to_response_value(row["refNo"]),
