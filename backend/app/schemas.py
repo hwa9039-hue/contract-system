@@ -1,8 +1,8 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class ContractBase(BaseModel):
@@ -22,6 +22,31 @@ class ContractBase(BaseModel):
     salesOwner: str = ""
     pm: str = ""
     note: str = ""
+
+    @field_validator("contractDate", "dueDate", mode="before")
+    @classmethod
+    def empty_string_dates_to_none(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("year", mode="before")
+    @classmethod
+    def year_normalize(cls, value):
+        if value is None or isinstance(value, bool):
+            return None
+        if isinstance(value, str):
+            digits = "".join(c for c in value if c.isdigit())[:4]
+            return int(digits, 10) if digits else None
+        if isinstance(value, float):
+            if value != value:  # NaN
+                return None
+            return int(value)
+        if isinstance(value, int):
+            return value
+        return None
 
 
 class ContractCreate(ContractBase):
@@ -693,6 +718,158 @@ def weekly_work_report_to_db_values(row: WeeklyWorkReportBase) -> dict:
     return values
 
 
+def _sanitize_excel_contract_text(val: Any) -> str:
+    """Strip Excel quirks: newlines, leading =, quotes, backslashes, smart quotes."""
+    if val is None:
+        return ""
+    s = str(val).replace("\r\n", "\n").replace("\r", "\n")
+    for line in ("\n", "\u2028", "\u2029"):
+        s = s.replace(line, "")
+    s = s.strip()
+    if not s:
+        return ""
+    if s.startswith("="):
+        s = s[1:].strip()
+    for ch in '"\'\\\u201c\u201d\u2018\u2019':
+        s = s.replace(ch, "")
+    return " ".join(s.split())
+
+
+def _normalize_excel_placeholder_text(val: str) -> str:
+    """엑셀에서 '-', 'W-W', '해당없음' 등만 넣은 칸을 빈 문자열로."""
+    if not val:
+        return ""
+    s = val.strip()
+    compact = "".join(s.split()).lower()
+    if compact in (
+        "",
+        "-",
+        "—",
+        "–",
+        "−",
+        "w-w",
+        "n/a",
+        "na",
+        "x",
+        "--",
+        "---",
+        "해당없음",
+        "없음",
+        "해당사항없음",
+    ):
+        return ""
+    return s
+
+
+def _coerce_sql_date(val) -> Optional[date]:
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val.date()
+    if isinstance(val, date):
+        return val
+    if isinstance(val, str):
+        raw = val.strip()
+        if not raw:
+            return None
+        try:
+            return date.fromisoformat(raw[:10])
+        except ValueError:
+            return None
+    return None
+
+
 def contract_to_db_values(contract: ContractBase) -> dict:
+    """Normalize types for PostgreSQL / psycopg (Excel payloads may yield datetimes, floats, etc.)."""
     data = contract.model_dump()
-    return {db_key: data[api_key] for api_key, db_key in CONTRACT_DB_COLUMNS.items()}
+    out: dict = {}
+
+    for api_key, db_key in CONTRACT_DB_COLUMNS.items():
+        val = data.get(api_key)
+
+        if api_key == "year":
+            if val is None:
+                out[db_key] = None
+            elif isinstance(val, bool):
+                out[db_key] = None
+            elif isinstance(val, (int, float)):
+                out[db_key] = int(val)
+            else:
+                digits = "".join(c for c in str(val) if c.isdigit())[:4]
+                out[db_key] = int(digits) if digits else None
+            continue
+
+        if api_key == "amount":
+            if val is None:
+                out[db_key] = 0
+            elif isinstance(val, bool):
+                out[db_key] = 0
+            elif isinstance(val, (int, float)):
+                v = int(val)
+                out[db_key] = v if v >= 0 else 0
+            elif isinstance(val, Decimal):
+                try:
+                    out[db_key] = int(val)
+                except Exception:
+                    out[db_key] = 0
+            else:
+                try:
+                    v = int(Decimal(str(val)))
+                    out[db_key] = v if v >= 0 else 0
+                except Exception:
+                    out[db_key] = 0
+            continue
+
+        if api_key in ("contractDate", "dueDate"):
+            out[db_key] = _coerce_sql_date(val)
+            continue
+
+        if val is None:
+            out[db_key] = ""
+        elif isinstance(val, str):
+            s = (
+                _sanitize_excel_contract_text(val)
+                if api_key in ("refNo", "contractNo", "identNo")
+                else val.strip()
+            )
+            if api_key in (
+                "segment",
+                "department",
+                "contractMethod",
+                "contractType",
+                "refNo",
+                "contractNo",
+                "identNo",
+                "client",
+                "projectName",
+                "note",
+                "pm",
+                "salesOwner",
+            ):
+                s = _normalize_excel_placeholder_text(s)
+            out[db_key] = s
+        else:
+            raw = str(val)
+            s = (
+                _sanitize_excel_contract_text(raw)
+                if api_key in ("refNo", "contractNo", "identNo")
+                else raw.strip()
+            )
+            if api_key in (
+                "segment",
+                "department",
+                "contractMethod",
+                "contractType",
+                "refNo",
+                "contractNo",
+                "identNo",
+                "client",
+                "projectName",
+                "note",
+                "pm",
+                "salesOwner",
+            ):
+                s = _normalize_excel_placeholder_text(s)
+            out[db_key] = s
+
+    return out

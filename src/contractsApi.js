@@ -11,6 +11,20 @@ async function parseResponseBody(response) {
   }
 }
 
+async function formatResponseError(response) {
+  const text = await response.text()
+  if (!text) return `Request failed with status ${response.status}`
+  try {
+    const data = JSON.parse(text)
+    const detail = data?.detail
+    if (typeof detail === 'string') return detail
+    if (detail != null) return JSON.stringify(detail)
+  } catch {
+    // use raw text
+  }
+  return text
+}
+
 async function requestJson(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
@@ -22,16 +36,15 @@ async function requestJson(path, options = {}) {
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || `Request failed with status ${response.status}`)
+    throw new Error(await formatResponseError(response))
   }
 
   return parseResponseBody(response)
 }
 
 /**
- * POST /import first (same as other menus). If the server has no /import route,
- * the segment "import" may match PATCH /{contract_id} and POST returns 405 — then retry /bulk.
+ * POST /import first (same as other menus). If /import is missing, POST may return 404/405;
+ * if the browser throws before a response (network), fall back to /bulk.
  */
 async function postContractRowsBulk(rows) {
   const body = JSON.stringify({ rows })
@@ -40,23 +53,40 @@ async function postContractRowsBulk(rows) {
     ...getAuthHeaders(),
   }
 
-  let response = await fetch(`${API_BASE_URL}/api/contracts/import`, {
-    method: 'POST',
-    headers,
-    body,
-  })
+  const importUrl = `${API_BASE_URL}/api/contracts/import`
+  const bulkUrl = `${API_BASE_URL}/api/contracts/bulk`
 
-  if (response.status === 405) {
-    response = await fetch(`${API_BASE_URL}/api/contracts/bulk`, {
+  let response
+  try {
+    response = await fetch(importUrl, {
       method: 'POST',
       headers,
       body,
     })
+  } catch {
+    response = null
+  }
+
+  const useBulk =
+    response == null ||
+    response.status === 405 ||
+    response.status === 404 ||
+    response.status >= 500
+
+  if (useBulk) {
+    try {
+      response = await fetch(bulkUrl, {
+        method: 'POST',
+        headers,
+        body,
+      })
+    } catch {
+      throw new Error('네트워크 오류로 엑셀 업로드를 완료하지 못했습니다.')
+    }
   }
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || `Request failed with status ${response.status}`)
+    throw new Error(await formatResponseError(response))
   }
 
   return parseResponseBody(response)
@@ -84,6 +114,12 @@ export const contractsApi = {
   remove(id) {
     return requestJson(`/api/contracts/${id}`, {
       method: 'DELETE',
+    })
+  },
+  bulkRemove(ids) {
+    return requestJson('/api/contracts/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
     })
   },
 }

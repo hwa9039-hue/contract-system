@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import './App.css'
 import { budgetProgressApi } from './budgetProgressApi'
@@ -367,6 +367,26 @@ function safeString(value) {
   return String(value)
 }
 
+function normalizeRegistryRowId(id) {
+  if (id === null || id === undefined) return ''
+  return String(id).trim()
+}
+
+/** 행별 고유 선택 키에 사용 (id 값 안에 들어갈 가능성 낮게) */
+const CONTRACT_ROW_KEY_SEP = '|#|'
+
+/** 선택 키 → API용 id */
+function contractSelectKeyToServerId(key) {
+  if (!key || typeof key !== 'string') return ''
+  if (key.startsWith('__MISSING__')) return ''
+  if (key.startsWith('__noid__')) return ''
+  if (key.includes('__dup__')) return key.split('__dup__')[0]
+  if (key.includes(CONTRACT_ROW_KEY_SEP)) {
+    return key.split(CONTRACT_ROW_KEY_SEP)[0]
+  }
+  return key
+}
+
 function removeObjectKey(object, key) {
   const next = { ...object }
   delete next[key]
@@ -534,7 +554,8 @@ function formatAmountWithWon(value) {
 
 function parseAmount(value) {
   const raw = normalizeAmountValue(value)
-  return raw ? Number(raw) : 0
+  const n = raw ? Number(raw) : 0
+  return Number.isFinite(n) ? n : 0
 }
 
 function parseYearValue(value) {
@@ -547,24 +568,60 @@ function toDbDate(value) {
   return str || null
 }
 
+function sanitizeExcelContractText(value) {
+  let s = safeString(value)
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '')
+    .replace(/\n/g, '')
+    .trim()
+  if (!s) return ''
+  if (s.startsWith('=')) s = s.slice(1).trim()
+  s = s.replace(/\\/g, '')
+  s = s.replace(/[\u201c\u201d\u2018\u2019"`']/g, '')
+  return s.replace(/\s+/g, ' ').trim()
+}
+
+function normalizeExcelPlaceholderText(value) {
+  const t = safeString(value).trim()
+  const compact = t.replace(/\s+/g, '').toLowerCase()
+  if (
+    compact === '' ||
+    compact === '-' ||
+    compact === '—' ||
+    compact === '–' ||
+    compact === 'w-w' ||
+    compact === 'n/a' ||
+    compact === 'na' ||
+    compact === 'x' ||
+    compact === '--' ||
+    compact === '---' ||
+    compact === '해당없음' ||
+    compact === '없음' ||
+    compact === '해당사항없음'
+  ) {
+    return ''
+  }
+  return t
+}
+
 function normalizeContractPayload(item) {
   return {
     year: parseYearValue(item.year),
-    segment: safeString(item.segment).trim(),
-    refNo: safeString(item.refNo).trim(),
-    contractNo: safeString(item.contractNo).trim(),
-    client: safeString(item.client).trim(),
-    department: safeString(item.department).trim(),
-    contractMethod: safeString(item.contractMethod).trim(),
-    contractType: safeString(item.contractType).trim(),
-    identNo: safeString(item.identNo).trim(),
+    segment: normalizeExcelPlaceholderText(safeString(item.segment).trim()),
+    refNo: normalizeExcelPlaceholderText(sanitizeExcelContractText(item.refNo)),
+    contractNo: normalizeExcelPlaceholderText(sanitizeExcelContractText(item.contractNo)),
+    client: normalizeExcelPlaceholderText(safeString(item.client).trim()),
+    department: normalizeExcelPlaceholderText(safeString(item.department).trim()),
+    contractMethod: normalizeExcelPlaceholderText(safeString(item.contractMethod).trim()),
+    contractType: normalizeExcelPlaceholderText(safeString(item.contractType).trim()),
+    identNo: normalizeExcelPlaceholderText(sanitizeExcelContractText(item.identNo)),
     contractDate: toDbDate(item.contractDate),
     dueDate: toDbDate(item.dueDate),
-    projectName: safeString(item.projectName).trim(),
+    projectName: normalizeExcelPlaceholderText(safeString(item.projectName).trim()),
     amount: parseAmount(item.amount),
-    salesOwner: safeString(item.salesOwner).trim(),
-    pm: safeString(item.pm).trim(),
-    note: safeString(item.note).trim(),
+    salesOwner: normalizeExcelPlaceholderText(safeString(item.salesOwner).trim()),
+    pm: normalizeExcelPlaceholderText(safeString(item.pm).trim()),
+    note: normalizeExcelPlaceholderText(safeString(item.note).trim()),
   }
 }
 
@@ -977,8 +1034,10 @@ function isRegistryYearOpen(openState, year, defaultYear) {
 }
 
 function isAllVisibleRegistryRowsSelected(rows, selectedIds) {
-  const visibleIds = rows.map((row) => row.id)
-  return visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id))
+  const visibleIds = rows.map((row) => normalizeRegistryRowId(row.id)).filter(Boolean)
+  if (visibleIds.length === 0) return false
+  const selectedSet = new Set(selectedIds.map((id) => normalizeRegistryRowId(id)).filter(Boolean))
+  return visibleIds.every((id) => selectedSet.has(id))
 }
 
 function getRegistryPlainDisplayValue(row, column) {
@@ -1296,7 +1355,7 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
-  const [selectedContractIds, setSelectedContractIds] = useState([])
+  const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
   const [openBudgetYears, setOpenBudgetYears] = useState({})
   const [openDiscoveryYears, setOpenDiscoveryYears] = useState({})
   const [openExcludedYears, setOpenExcludedYears] = useState({})
@@ -1379,8 +1438,11 @@ function App() {
   })
   const [isAddingRow, setIsAddingRow] = useState(false)
   const [newRow, setNewRow] = useState({ ...emptyContract })
-  const [editingCell, setEditingCell] = useState(null)
-  const [editingValue, setEditingValue] = useState('')
+  /** 계약 셀 편집: 행 고유 키(getContractSelectKey) + 컬럼 — DB id 중복 시에도 한 행만 편집 */
+  const [contractEdit, setContractEdit] = useState(null)
+  const [contractEditDraft, setContractEditDraft] = useState('')
+  /** { title, message, payloadIds?: string[], onConfirm?: () => void } */
+  const [contractConfirmDialog, setContractConfirmDialog] = useState(null)
   const [calendarCursor, setCalendarCursor] = useState(() => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
@@ -1417,8 +1479,11 @@ function App() {
   const fetchContracts = async () => {
     try {
       const rows = await contractsApi.list()
-      setContracts(rows)
-      return rows
+      const normalized = Array.isArray(rows)
+        ? rows.map((row) => ({ ...row, id: normalizeRegistryRowId(row.id) }))
+        : []
+      setContracts(normalized)
+      return normalized
     } catch (error) {
       console.error('[계약현황] API fetch failed', error)
       setContracts([])
@@ -1694,6 +1759,37 @@ function App() {
       }))
   }, [filteredContracts])
 
+  /** 매 행마다 고유 키 (같은 DB id·JSON 정밀도 붕괴로 id가 겹쳐도 체크박스가 따로 동작) */
+  const getContractSelectKey = useCallback((row, yearLabel, indexInYear) => {
+    const id = normalizeRegistryRowId(row.id)
+    if (!id) {
+      return `__MISSING__${CONTRACT_ROW_KEY_SEP}${yearLabel}${CONTRACT_ROW_KEY_SEP}${indexInYear}`
+    }
+    return `${id}${CONTRACT_ROW_KEY_SEP}${yearLabel}${CONTRACT_ROW_KEY_SEP}${indexInYear}`
+  }, [])
+
+  const contractVisibleSelectKeys = useMemo(() => {
+    return groupedContracts.flatMap((yb) =>
+      yb.items.map((item, index) => getContractSelectKey(item, yb.year, index))
+    )
+  }, [groupedContracts, getContractSelectKey])
+
+  const getContractRowBySelectKey = useCallback(
+    (rowKey) => {
+      for (const yb of groupedContracts) {
+        for (let i = 0; i < yb.items.length; i++) {
+          if (getContractSelectKey(yb.items[i], yb.year, i) === rowKey) {
+            return yb.items[i]
+          }
+        }
+      }
+      return null
+    },
+    [groupedContracts, getContractSelectKey]
+  )
+
+  const contractTableColSpan = isAdmin ? CONTRACT_COLUMNS.length + 2 : CONTRACT_COLUMNS.length + 1
+
   const filteredDocuments = useMemo(() => {
     return documents.filter((row) => matchesRegistrySearch(row, DOCUMENT_COLUMNS, documentSearch))
   }, [documentSearch, documents])
@@ -1962,7 +2058,9 @@ function App() {
   const isDocumentYearOpen = (year) =>
     isRegistryYearOpen(openDocumentYears, year, defaultDocumentYear)
 
-  const allContractsSelected = isAllVisibleRegistryRowsSelected(filteredContracts, selectedContractIds)
+  const allContractsSelected =
+    contractVisibleSelectKeys.length > 0 &&
+    contractVisibleSelectKeys.every((k) => selectedContractRowKeys.has(k))
   const allSalesSelected = isAllVisibleRegistryRowsSelected(filteredSalesRows, selectedSalesIds)
   const allBudgetSelected = isAllVisibleRegistryRowsSelected(filteredBudgetRows, selectedBudgetIds)
   const allDiscoverySelected = isAllVisibleRegistryRowsSelected(
@@ -2072,8 +2170,10 @@ function App() {
     setAdminPasswordInput('')
     setAdminLoginError('')
     localStorage.removeItem(ADMIN_SESSION_KEY)
-    setEditingCell(null)
-    setEditingValue('')
+    setContractEdit(null)
+    setContractEditDraft('')
+    setSelectedContractRowKeys(new Set())
+    setContractConfirmDialog(null)
     setIsAddingRow(false)
   }
 
@@ -2091,8 +2191,10 @@ function App() {
       setAdminPasswordInput('')
       setAdminLoginError('')
       setToastMessage('일반 모드로 전환되었습니다.')
-      setEditingCell(null)
-      setEditingValue('')
+      setContractEdit(null)
+      setContractEditDraft('')
+      setSelectedContractRowKeys(new Set())
+      setContractConfirmDialog(null)
       setIsAddingRow(false)
       return
     }
@@ -2310,18 +2412,34 @@ function App() {
             )
               .replace(/[^\d]/g, '')
               .slice(0, 4),
-            segment: safeString(getValueByHeader(row, ['구분'])).trim(),
-            refNo: safeString(
-              getValueByHeader(row, ['참고번호', '참고 번호', '공고번호', '공고 번호'])
-            ).trim(),
-            contractNo: safeString(
-              getValueByHeader(row, ['계약번호', '계약 번호', '사업번호', '사업 번호'])
-            ).trim(),
-            client: safeString(getValueByHeader(row, ['발주처', '수요기관'])).trim(),
-            department: safeString(getValueByHeader(row, ['담당부서', '담당 부서'])).trim(),
-            contractMethod: safeString(getValueByHeader(row, ['계약방식', '계약 방식'])).trim(),
-            contractType: safeString(getValueByHeader(row, ['계약분류', '계약 분류'])).trim(),
-            identNo: safeString(getValueByHeader(row, ['식별번호'])).trim(),
+            segment: normalizeExcelPlaceholderText(
+              safeString(getValueByHeader(row, ['구분'])).trim()
+            ),
+            refNo: normalizeExcelPlaceholderText(
+              sanitizeExcelContractText(
+                getValueByHeader(row, ['참고번호', '참고 번호', '공고번호', '공고 번호'])
+              )
+            ),
+            contractNo: normalizeExcelPlaceholderText(
+              sanitizeExcelContractText(
+                getValueByHeader(row, ['계약번호', '계약 번호', '사업번호', '사업 번호'])
+              )
+            ),
+            client: normalizeExcelPlaceholderText(
+              safeString(getValueByHeader(row, ['발주처', '수요기관'])).trim()
+            ),
+            department: normalizeExcelPlaceholderText(
+              safeString(getValueByHeader(row, ['담당부서', '담당 부서'])).trim()
+            ),
+            contractMethod: normalizeExcelPlaceholderText(
+              safeString(getValueByHeader(row, ['계약방식', '계약 방식'])).trim()
+            ),
+            contractType: normalizeExcelPlaceholderText(
+              safeString(getValueByHeader(row, ['계약분류', '계약 분류'])).trim()
+            ),
+            identNo: normalizeExcelPlaceholderText(
+              sanitizeExcelContractText(getValueByHeader(row, ['식별번호']))
+            ),
             contractDate,
             dueDate: excelDateToInput(
               getValueByHeader(row, ['준공일자', '납기일자', '납기일', '준공일'])
@@ -4345,7 +4463,7 @@ function App() {
     if (!requireAdmin()) return
     setIsAddingRow(true)
     setNewRow({ ...emptyContract })
-    setSelectedContractIds([])
+    setSelectedContractRowKeys(new Set())
   }
 
   const cancelAddRow = () => {
@@ -4357,7 +4475,7 @@ function App() {
     if (!requireAdmin()) return
 
     if (!newRow.projectName.trim()) {
-      alert('사업명은 필수입니다.')
+      setToastMessage('사업명은 필수입니다.')
       return
     }
 
@@ -4367,125 +4485,159 @@ function App() {
     await fetchContracts()
     setIsAddingRow(false)
     setNewRow({ ...emptyContract })
-    alert('저장되었습니다.')
+    setToastMessage('저장되었습니다.')
   }
 
   const deleteRow = async (id) => {
     if (!requireAdmin()) return
 
-    const ok = window.confirm('이 계약현황을 삭제하시겠습니까?')
-    if (!ok) return
+    const nid = normalizeRegistryRowId(id)
+    if (!nid) return
 
-    try {
-      await contractsApi.remove(id)
-    } catch (error) {
-      logApiOperationError('계약현황 삭제', error)
-      return
-    }
-
-    await fetchContracts()
+    setContractConfirmDialog({
+      title: '계약 삭제',
+      message: '이 계약현황을 삭제하시겠습니까?',
+      payloadIds: [nid],
+      single: true,
+    })
   }
 
-  const toggleContractSelection = (rowId) => {
-    setSelectedContractIds((prev) =>
-      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
-    )
+  const toggleContractSelection = (selectKey) => {
+    if (!selectKey) return
+
+    setSelectedContractRowKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(selectKey)) next.delete(selectKey)
+      else next.add(selectKey)
+      return next
+    })
   }
 
-  const deleteSelectedContracts = async () => {
+  const deleteSelectedContracts = () => {
     if (!requireAdmin()) return
 
-    const validSelectedIds = selectedContractIds.filter((id) => safeString(id).trim() !== '')
+    const validSelectedIds = [
+      ...new Set(
+        [...selectedContractRowKeys].map((x) => contractSelectKeyToServerId(x)).filter((id) => id !== '')
+      ),
+    ]
 
     if (validSelectedIds.length === 0) {
-      alert('삭제할 데이터를 선택해주세요.')
+      setToastMessage('삭제할 데이터를 선택해주세요.')
       return
     }
 
-    const ok = window.confirm('선택한 데이터를 삭제하시겠습니까?')
-    if (!ok) return
+    setContractConfirmDialog({
+      title: '선택 삭제',
+      message: `선택한 ${validSelectedIds.length}건을 삭제합니다. 계속하시겠습니까?`,
+      payloadIds: validSelectedIds,
+      single: false,
+    })
+  }
+
+  const runContractDeleteConfirmed = async () => {
+    const dialog = contractConfirmDialog
+    if (!dialog?.payloadIds?.length) {
+      setContractConfirmDialog(null)
+      return
+    }
+    const ids = dialog.payloadIds
+    setContractConfirmDialog(null)
 
     try {
-      await Promise.all(validSelectedIds.map((id) => contractsApi.remove(id)))
+      if (dialog.single) {
+        await contractsApi.remove(ids[0])
+      } else {
+        await contractsApi.bulkRemove(ids)
+      }
     } catch (error) {
-      logApiOperationError('계약현황 선택 삭제', error)
+      logApiOperationError(dialog.single ? '계약현황 삭제' : '계약현황 선택 삭제', error)
+      setToastMessage(`삭제 중 오류가 발생했습니다. ${safeString(error?.message)}`)
       return
     }
 
-    if (editingCell && validSelectedIds.includes(editingCell.rowId)) {
+    const editingServerId = contractEdit ? contractSelectKeyToServerId(contractEdit.rowKey) : ''
+    if (editingServerId && ids.some((id) => normalizeRegistryRowId(id) === normalizeRegistryRowId(editingServerId))) {
       cancelEdit()
     }
 
-    setSelectedContractIds([])
+    setSelectedContractRowKeys(new Set())
     await fetchContracts()
+    setToastMessage(dialog.single ? '삭제되었습니다.' : '선택한 항목이 삭제되었습니다.')
   }
 
-  const startEdit = (rowId, key, value) => {
+  const startEdit = (rowKey, key, value) => {
     if (!isAdmin) return
+    if (!rowKey) return
 
-    setEditingCell({ rowId, key })
+    setContractEdit({ rowKey, key })
 
     if (key === 'amount') {
-      setEditingValue(normalizeAmountValue(value))
+      setContractEditDraft(normalizeAmountValue(value))
       return
     }
 
-    setEditingValue(safeString(value))
+    setContractEditDraft(safeString(value))
   }
 
   const cancelEdit = () => {
-    setEditingCell(null)
-    setEditingValue('')
+    setContractEdit(null)
+    setContractEditDraft('')
   }
 
   const saveEdit = async () => {
-    if (!editingCell) return
+    if (!contractEdit) return
 
-    const value = normalizeEditValue(editingCell.key, editingValue)
+    const serverId = contractSelectKeyToServerId(contractEdit.rowKey)
+    if (!serverId) return
+
+    const value = normalizeEditValue(contractEdit.key, contractEditDraft)
 
     try {
-      await contractsApi.update(editingCell.rowId, { [editingCell.key]: value })
+      await contractsApi.update(serverId, { [contractEdit.key]: value })
     } catch (error) {
       logApiOperationError('계약현황 수정', error)
       return
     }
 
     await fetchContracts()
-    setEditingCell(null)
-    setEditingValue('')
+    setContractEdit(null)
+    setContractEditDraft('')
   }
 
-  const moveEdit = (rowId, key, direction) => {
+  const moveEdit = (rowKey, key, direction) => {
     const currentIndex = CONTRACT_COLUMNS.findIndex((column) => column.key === key)
     if (currentIndex < 0) return
 
     const nextIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1
     if (nextIndex < 0 || nextIndex >= CONTRACT_COLUMNS.length) return
 
-    const targetRow = contracts.find((item) => item.id === rowId)
-    const nextColumn = CONTRACT_COLUMNS[nextIndex]
-    const nextValue = targetRow?.[nextColumn.key]
+    const targetRow = getContractRowBySelectKey(rowKey)
+    if (!targetRow) return
 
-    setEditingCell({ rowId, key: nextColumn.key })
+    const nextColumn = CONTRACT_COLUMNS[nextIndex]
+    const nextValue = targetRow[nextColumn.key]
+
+    setContractEdit({ rowKey, key: nextColumn.key })
     if (nextColumn.key === 'amount') {
-      setEditingValue(normalizeAmountValue(nextValue))
+      setContractEditDraft(normalizeAmountValue(nextValue))
       return
     }
 
-    setEditingValue(safeString(nextValue ?? ''))
+    setContractEditDraft(safeString(nextValue ?? ''))
   }
 
-  const renderEditor = (row, column) => {
-    const isEditing = editingCell?.rowId === row.id && editingCell?.key === column.key
+  const renderEditor = (row, column, rowKey) => {
+    const isEditing = contractEdit?.rowKey === rowKey && contractEdit?.key === column.key
     if (!isEditing) return null
 
     const commonProps = {
       className: `cell-inline-editor ${column.align === 'right' ? 'align-right' : ''}`,
-      value: editingValue,
+      value: contractEditDraft,
       autoFocus: true,
       onChange: (e) => {
         const value = column.key === 'amount' ? normalizeAmountValue(e.target.value) : e.target.value
-        setEditingValue(value)
+        setContractEditDraft(value)
       },
       onBlur: saveEdit,
       onKeyDown: (e) => {
@@ -4497,7 +4649,7 @@ function App() {
 
         if (e.key === 'Tab') {
           e.preventDefault()
-          moveEdit(row.id, column.key, e.shiftKey ? 'prev' : 'next')
+          moveEdit(rowKey, column.key, e.shiftKey ? 'prev' : 'next')
           return
         }
 
@@ -6619,7 +6771,7 @@ function App() {
                     className="secondary-btn"
                     type="button"
                     onClick={deleteSelectedContracts}
-                    disabled={selectedContractIds.length === 0}
+                    disabled={selectedContractRowKeys.size === 0}
                   >
                     선택 삭제
                   </button>
@@ -6725,23 +6877,34 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll">
-                <table className="contract-table excel-table registry-table">
+                <table
+                  className={`contract-table excel-table registry-table${
+                    isAdmin ? ' contract-table-admin' : ' contract-table-readonly'
+                  }`}
+                >
                   <thead>
                     <tr>
-                      <th className="th-align-center registry-check-header">
-                        <input
-                          className="registry-row-checkbox"
-                          type="checkbox"
-                          checked={allContractsSelected}
-                          onChange={() =>
-                            setSelectedContractIds((prev) =>
-                              allContractsSelected
-                                ? prev.filter((id) => !filteredContracts.some((row) => row.id === id))
-                                : [...new Set([...prev, ...filteredContracts.map((row) => row.id)])]
-                            )
-                          }
-                        />
-                      </th>
+                      {isAdmin && (
+                        <th className="th-align-center registry-check-header">
+                          <input
+                            className="registry-row-checkbox"
+                            type="checkbox"
+                            checked={allContractsSelected}
+                            onChange={() => {
+                              setSelectedContractRowKeys((prev) => {
+                                const next = new Set(prev)
+                                const keys = contractVisibleSelectKeys
+                                if (allContractsSelected) {
+                                  keys.forEach((k) => next.delete(k))
+                                } else {
+                                  keys.forEach((k) => next.add(k))
+                                }
+                                return next
+                              })
+                            }}
+                          />
+                        </th>
+                      )}
                       <th className="col-dday th-align-center">D-Day</th>
                       {CONTRACT_COLUMNS.map((column) => (
                         <th
@@ -6762,14 +6925,33 @@ function App() {
                   </thead>
 
                   <tbody>
-                    {isAddingRow && (
+                    {isAdmin && isAddingRow && (
                       <tr className="inline-add-row">
                         <td className="td-align-center registry-check-cell">
-                          <div className="inline-row-actions" style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'stretch', minWidth: 52 }}>
-                            <button className="mini-save-btn" type="button" onClick={saveAddRow} style={{ width: '100%' }}>
+                          <div
+                            className="inline-row-actions"
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 4,
+                              alignItems: 'stretch',
+                              minWidth: 52,
+                            }}
+                          >
+                            <button
+                              className="mini-save-btn"
+                              type="button"
+                              onClick={saveAddRow}
+                              style={{ width: '100%' }}
+                            >
                               저장
                             </button>
-                            <button className="mini-cancel-btn" type="button" onClick={cancelAddRow} style={{ width: '100%' }}>
+                            <button
+                              className="mini-cancel-btn"
+                              type="button"
+                              onClick={cancelAddRow}
+                              style={{ width: '100%' }}
+                            >
                               취소
                             </button>
                           </div>
@@ -6843,9 +7025,9 @@ function App() {
                       </tr>
                     )}
 
-                    {filteredContracts.length === 0 && !isAddingRow ? (
+                    {filteredContracts.length === 0 && !(isAdmin && isAddingRow) ? (
                       <tr>
-                        <td colSpan={CONTRACT_COLUMNS.length + 2} className="empty-cell">
+                        <td colSpan={contractTableColSpan} className="empty-cell">
                           등록된 데이터가 없습니다.
                         </td>
                       </tr>
@@ -6855,7 +7037,7 @@ function App() {
 
                         const yearRow = (
                           <tr className="contract-year-row" key={`year-${yearBlock.year}`}>
-                            <td colSpan={CONTRACT_COLUMNS.length + 2}>
+                            <td colSpan={contractTableColSpan}>
                               <button
                                 className="contract-year-toggle"
                                 type="button"
@@ -6876,16 +7058,27 @@ function App() {
                         return [
                           yearRow,
                           ...yearBlock.items.map((item, index) => {
+                            const rowSelectKey = getContractSelectKey(item, yearBlock.year, index)
                             return (
-                              <tr key={item.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
-                                <td className="td-align-center registry-check-cell">
-                                  <input
-                                    className="registry-row-checkbox"
-                                    type="checkbox"
-                                    checked={selectedContractIds.includes(item.id)}
-                                    onChange={() => toggleContractSelection(item.id)}
-                                  />
-                                </td>
+                              <tr
+                                key={rowSelectKey}
+                                className={index % 2 === 0 ? 'row-even' : 'row-odd'}
+                              >
+                                {isAdmin && (
+                                  <td className="td-align-center registry-check-cell">
+                                    <input
+                                      className="registry-row-checkbox"
+                                      type="checkbox"
+                                      checked={selectedContractRowKeys.has(rowSelectKey)}
+                                      disabled={!normalizeRegistryRowId(item.id)}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) => {
+                                        e.stopPropagation()
+                                        toggleContractSelection(rowSelectKey)
+                                      }}
+                                    />
+                                  </td>
+                                )}
 
                                 <td className="col-dday td-align-center">
                                   <div className="cell-display dday-cell">{getDdayText(item.dueDate)}</div>
@@ -6893,7 +7086,7 @@ function App() {
 
                                 {CONTRACT_COLUMNS.map((column) => {
                                   const isEditing =
-                                    editingCell?.rowId === item.id && editingCell?.key === column.key
+                                    contractEdit?.rowKey === rowSelectKey && contractEdit?.key === column.key
 
                                   return (
                                     <td
@@ -6908,10 +7101,14 @@ function App() {
                                         column.key === 'note' ? 'note-cell' : ''
                                       } ${isAdmin ? 'editable-cell' : ''}`}
                                       style={column.width ? { width: column.width } : undefined}
-                                      onClick={() => startEdit(item.id, column.key, item[column.key])}
+                                      onClick={
+                                        isAdmin
+                                          ? () => startEdit(rowSelectKey, column.key, item[column.key])
+                                          : undefined
+                                      }
                                     >
                                       {isEditing ? (
-                                        renderEditor(item, column)
+                                        renderEditor(item, column, rowSelectKey)
                                       ) : (
                                         <div className="cell-display">
                                           {column.key === 'amount'
@@ -7855,6 +8052,31 @@ function App() {
           </section>
         )}
       </main>
+
+      {contractConfirmDialog && (
+        <div className="modal-backdrop" onClick={() => setContractConfirmDialog(null)}>
+          <div className="confirm-dialog-shell" onClick={(e) => e.stopPropagation()}>
+            <h3 className="confirm-dialog-title">{contractConfirmDialog.title}</h3>
+            <p className="confirm-dialog-message">{contractConfirmDialog.message}</p>
+            <div className="confirm-dialog-actions">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setContractConfirmDialog(null)}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="primary-btn danger-btn"
+                onClick={() => void runContractDeleteConfirmed()}
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdminLoginModal && (
         <div className="auth-modal-backdrop" onClick={closeAdminLoginModal}>

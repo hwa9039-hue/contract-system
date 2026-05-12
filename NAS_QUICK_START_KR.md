@@ -113,3 +113,17 @@ head -n 3 Dockerfile
 ```
 
 첫 줄이 **`FROM python:3.12-slim`** 이어야 합니다. 다르면 PC에서 `backend/Dockerfile`을 다시 복사해 덮어쓰세요.
+
+---
+
+## HTTPS 사이트에서 엑셀 업로드가 `Failed to fetch` / Mixed Content 일 때
+
+브라우저는 **`https://contract....`** 페이지가 **`http://192.168.0.100:8000`** 같은 **HTTP(특히 사설 IP)** 로 API를 호출하는 것을 막습니다.
+
+1. PC 프로젝트 루트의 **`.env`** 에 `VITE_API_BASE_URL=http://192.168...` 가 있으면 **삭제하거나 비운 뒤** `npm run build` → `dist` 다시 NAS `contract-www`에 올리기.  
+2. **제어판 → 로그인 포털 → 고급 → 리버스 프록시 → 만들기**
+   - **소스:** HTTPS, 호스트 `contract.signtelecom-smartdi.com`, 포트 443, **경로 `/api`**
+   - **대상:** HTTP, `127.0.0.1`, 포트 **8000** (경로는 보통 `/api` 유지 또는 DSM 안내에 따름)
+3. 브라우저에서 `https://contract.signtelecom-smartdi.com/api/health` 가 `{"status":"ok"}` 로 열리는지 확인.
+
+최신 프론트 번들은 **HTTPS 화면 + HTTP API 설정**이 있어도 같은 도메인으로 자동 보정하지만, **2번 리버스 프록시 없이는** 여전히 Web Station만 응답해 API가 안 됩니다.

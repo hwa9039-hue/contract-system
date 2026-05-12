@@ -89,13 +89,25 @@ def create_contract(contract: ContractCreate):
 
 @router.post("/bulk", status_code=status.HTTP_201_CREATED)
 def bulk_create_contracts(payload: ContractBulkCreate):
-    return {"created": _insert_contract_rows(payload.rows)}
+    try:
+        return {"created": _insert_contract_rows(payload.rows)}
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"contracts bulk insert failed: {exc}",
+        ) from exc
 
 
 @router.post("/import", status_code=status.HTTP_201_CREATED)
 def import_contracts(payload: ContractBulkCreate):
     """Same as /bulk; path matches other registries (/api/*/import)."""
-    return {"created": _insert_contract_rows(payload.rows)}
+    try:
+        return {"created": _insert_contract_rows(payload.rows)}
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"contracts import failed: {exc}",
+        ) from exc
 
 
 @router.post("/bulk-delete")
@@ -103,15 +115,23 @@ def bulk_delete_contracts(payload: ContractBulkDelete):
     if not payload.ids:
         return {"deleted": 0}
 
-    ids = [str(item) for item in payload.ids]
+    ids = [str(item).strip() for item in payload.ids if item is not None and str(item).strip() != ""]
+    if not ids:
+        return {"deleted": 0}
 
-    with get_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute("delete from contracts_rows where id::text = any(%s)", (ids,))
-            deleted_count = cursor.rowcount
-        connection.commit()
+    try:
+        with get_connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("delete from contracts_rows where id::text = any(%s)", (ids,))
+                deleted_count = cursor.rowcount
+            connection.commit()
 
-    return {"deleted": deleted_count}
+        return {"deleted": deleted_count}
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"contracts bulk delete failed: {exc}",
+        ) from exc
 
 
 @router.patch("/{contract_id}", response_model=ContractOut)
