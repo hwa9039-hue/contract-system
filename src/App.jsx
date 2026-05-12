@@ -496,10 +496,11 @@ function normalizeContractListRow(row) {
 const CONTRACT_ROW_KEY_SEP = '|#|'
 
 /**
- * Ant Design `<Table rowKey="id" />` 와 동일: 정규화된 `record.id`(문자열)가 행 키.
- * id가 비어 있을 때만 연도·인덱스 임시 키.
+ * Ant Design `<Table rowKey="key" />` 와 동일: `record.key`(fetch 시 주입) → 없으면 `record.id` → 임시키.
  */
 function getContractTableRowKey(row, yearLabel, indexInYear) {
+  const fromKey = normalizeRegistryRowId(row?.key)
+  if (fromKey) return fromKey
   const fromId = normalizeRegistryRowId(row?.id)
   if (fromId) return fromId
   const picked = pickContractRowId(row)
@@ -1608,12 +1609,20 @@ function App() {
 
   const fetchContracts = async () => {
     try {
-      const rows = await contractsApi.list()
-      const normalized = Array.isArray(rows)
-        ? rows.map((item) => {
+      const data = await contractsApi.list()
+      if (Array.isArray(data) && data.length > 0) {
+        console.log('Raw Data sample:', data[0])
+      }
+
+      const normalized = Array.isArray(data)
+        ? data.map((item) => {
             const base = normalizeContractListRow(item)
             const unifiedId = pickContractRowId(base)
-            return { ...base, id: normalizeRegistryRowId(unifiedId) }
+            const idStr = normalizeRegistryRowId(unifiedId)
+            /** 요청: item.key = item.id || item.contract_id || item.ID (문자열로 통일) */
+            const keyRaw = item.id || item.contract_id || item.ID
+            const keyStr = normalizeRegistryRowId(keyRaw) || idStr
+            return { ...base, id: idStr, key: keyStr }
           })
         : []
       setContracts(normalized)
@@ -1902,7 +1911,7 @@ function App() {
     [groupedContracts]
   )
 
-  /** rowSelection.selectedRowKeys: 화면에 보이는 모든 행의 rowKey (Ant Design Table과 동일 개념) */
+  /** Ant Design `rowSelection.selectedRowKeys` — 각 값은 `rowKey="key"`와 동일(getContractTableRowKey) */
   const contractVisibleRowKeysFlat = useMemo(() => {
     return groupedContracts.flatMap((yb) => yb.items.map((item, i) => getContractTableRowKey(item, yb.year, i)))
   }, [groupedContracts])
@@ -4644,7 +4653,7 @@ function App() {
     })
   }
 
-  const deleteSelectedContracts = () => {
+  const handleDeleteSelected = () => {
     if (!requireAdmin()) return
 
     if (selectedContractRowKeys.size === 0) {
@@ -4652,10 +4661,14 @@ function App() {
       return
     }
 
+    /** rowSelection.onChange와 동일: 저장된 키 = Table rowKey("key") → API id는 record.key / record.id */
     const validSelectedIds = [
       ...new Set(
         [...selectedContractRowKeys]
-          .map((rowKey) => normalizeRegistryRowId(rowKey))
+          .map((selectedKey) => {
+            const rec = getContractRowBySelectKey(selectedKey)
+            return normalizeRegistryRowId(rec?.key || rec?.id || selectedKey)
+          })
           .filter((id) => isUsableContractPathId(id))
       ),
     ]
@@ -4700,6 +4713,7 @@ function App() {
 
     const editingServerId =
       normalizeRegistryRowId(contractEdit?.serverRowId) ||
+      normalizeRegistryRowId(getContractRowBySelectKey(contractEdit?.rowKey || '')?.key) ||
       normalizeRegistryRowId(getContractRowBySelectKey(contractEdit?.rowKey || '')?.id) ||
       normalizeRegistryRowId(contractEdit?.rowKey)
     if (editingServerId && ids.some((id) => normalizeRegistryRowId(id) === normalizeRegistryRowId(editingServerId))) {
@@ -4715,7 +4729,11 @@ function App() {
     if (!isAdmin) return
     if (!rowKey) return
 
-    const serverRowId = normalizeRegistryRowId(row?.id) || normalizeRegistryRowId(rowKey) || null
+    const serverRowId =
+      normalizeRegistryRowId(row?.key) ||
+      normalizeRegistryRowId(row?.id) ||
+      normalizeRegistryRowId(rowKey) ||
+      null
 
     setContractEdit({ rowKey, key, serverRowId })
 
@@ -4740,6 +4758,7 @@ function App() {
     const rowLookup = getContractRowBySelectKey(snap.rowKey)
     const record = rowLookup
     const id =
+      normalizeRegistryRowId(record?.key) ||
       normalizeRegistryRowId(record?.id) ||
       normalizeRegistryRowId(snap.serverRowId) ||
       normalizeRegistryRowId(snap.rowKey)
@@ -4747,6 +4766,7 @@ function App() {
     console.log('[계약현황 saveEdit] editingRow (full row):', record ? { ...record } : null, {
       contractEdit: snap,
       draft: snapDraft,
+      recordKey: record?.key,
       recordId: record?.id,
     })
 
@@ -4795,7 +4815,10 @@ function App() {
 
     setContractEdit((prev) => {
       if (!prev || prev.rowKey !== rowKey) return prev
-      const nextSid = normalizeRegistryRowId(prev.serverRowId) || normalizeRegistryRowId(targetRow.id)
+      const nextSid =
+        normalizeRegistryRowId(prev.serverRowId) ||
+        normalizeRegistryRowId(targetRow.key) ||
+        normalizeRegistryRowId(targetRow.id)
       return { ...prev, key: nextColumn.key, serverRowId: nextSid || null }
     })
     if (nextColumn.key === 'amount') {
@@ -6949,7 +6972,7 @@ function App() {
                   <button
                     className="secondary-btn"
                     type="button"
-                    onClick={deleteSelectedContracts}
+                    onClick={handleDeleteSelected}
                     disabled={selectedContractRowKeys.size === 0}
                   >
                     선택 삭제
@@ -7060,6 +7083,7 @@ function App() {
                   className={`contract-table excel-table registry-table${
                     isAdmin ? ' contract-table-admin' : ' contract-table-readonly'
                   }`}
+                  data-contract-table-row-key="key"
                 >
                   <thead>
                     <tr>
