@@ -370,7 +370,29 @@ function safeString(value) {
 
 function normalizeRegistryRowId(id) {
   if (id === null || id === undefined) return ''
-  return String(id).trim()
+  if (typeof id === 'string') return id.trim()
+  if (typeof id === 'number' || typeof id === 'bigint') return String(id).trim()
+  if (typeof id === 'object') {
+    // Common shapes from some backends/DB drivers
+    const candidates = [
+      id.$oid,
+      id.oid,
+      id.value,
+      id.id,
+      id.uuid,
+      id.UUID,
+      id._id,
+    ]
+    for (const v of candidates) {
+      if (typeof v === 'string' && v.trim() !== '') return v.trim()
+      if (typeof v === 'number' || typeof v === 'bigint') return String(v).trim()
+    }
+  }
+  try {
+    return String(id).trim()
+  } catch {
+    return ''
+  }
 }
 
 /** API/직렬화마다 id 필드명이 달라질 수 있어 계약 행의 서버 PK를 한곳에서 추출 */
@@ -427,7 +449,12 @@ function normalizeContractListRow(row) {
   try {
     if (!row || typeof row !== 'object') return row
     const canon = pickContractRowId(row)
-    return { ...row, id: canon }
+    const next = { ...row, id: canon }
+    if (canon === '' && import.meta?.env?.DEV) {
+      // 개발 중에만: 서버 응답에서 id가 누락되는 케이스를 빠르게 확인
+      console.warn('[계약현황] row id missing. keys=', Object.keys(row || {}), 'row=', row)
+    }
+    return next
   } catch {
     return { ...row, id: '' }
   }
@@ -1823,35 +1850,33 @@ function App() {
       }))
   }, [filteredContracts])
 
-  /** 매 행마다 고유 키 (같은 DB id·JSON 정밀도 붕괴로 id가 겹쳐도 체크박스가 따로 동작) */
-  /** 체크박스·전체선택: 서버 id만 사용 (Set 요소 === PATCH/DELETE 경로 id) */
-  const contractSelectableServerIdsFlat = useMemo(() => {
-    return groupedContracts.flatMap((yb) =>
-      yb.items.map((item) => pickContractRowId(item)).filter((sid) => sid !== '')
-    )
-  }, [groupedContracts])
-
-  const getContractSelectKey = useCallback((row, yearLabel, indexInYear) => {
-    const id = pickContractRowId(row)
-    if (!id) {
-      return `__MISSING__${CONTRACT_ROW_KEY_SEP}${yearLabel}${CONTRACT_ROW_KEY_SEP}${indexInYear}`
-    }
-    return `${id}${CONTRACT_ROW_KEY_SEP}${yearLabel}${CONTRACT_ROW_KEY_SEP}${indexInYear}`
+  /** 테이블·편집 state용 행 키: 서버 PK(pick)가 있으면 그 값만, 없으면 연도·인덱스로 임시 키 */
+  const getContractTableRowKey = useCallback((row, yearLabel, indexInYear) => {
+    const pid = pickContractRowId(row)
+    if (pid) return pid
+    return `__MISSING__${CONTRACT_ROW_KEY_SEP}${yearLabel}${CONTRACT_ROW_KEY_SEP}${indexInYear}`
   }, [])
 
   const getContractRowBySelectKey = useCallback(
     (rowKey) => {
       for (const yb of groupedContracts) {
         for (let i = 0; i < yb.items.length; i++) {
-          if (getContractSelectKey(yb.items[i], yb.year, i) === rowKey) {
+          if (getContractTableRowKey(yb.items[i], yb.year, i) === rowKey) {
             return yb.items[i]
           }
         }
       }
       return null
     },
-    [groupedContracts, getContractSelectKey]
+    [groupedContracts, getContractTableRowKey]
   )
+
+  /** 체크박스·전체선택: 서버 id만 Set에 저장 */
+  const contractSelectableServerIdsFlat = useMemo(() => {
+    return groupedContracts.flatMap((yb) =>
+      yb.items.map((item) => pickContractRowId(item)).filter((sid) => sid !== '')
+    )
+  }, [groupedContracts])
 
   const contractTableColSpan = isAdmin ? CONTRACT_COLUMNS.length + 2 : CONTRACT_COLUMNS.length + 1
 
@@ -4690,6 +4715,11 @@ function App() {
     if (!snap) return
 
     const rowLookup = getContractRowBySelectKey(snap.rowKey)
+    console.log('[계약현황 saveEdit] editingRow (full row):', rowLookup ? { ...rowLookup } : null, {
+      contractEdit: snap,
+      draft: snapDraft,
+    })
+
     const fromState = normalizeRegistryRowId(snap.serverRowId)
     const fromRow = rowLookup ? pickContractRowId(rowLookup) : ''
     const fromKey = contractSelectKeyToServerId(snap.rowKey)
@@ -7180,11 +7210,12 @@ function App() {
                         return [
                           yearRow,
                           ...yearBlock.items.map((item, index) => {
-                            const rowSelectKey = getContractSelectKey(item, yearBlock.year, index)
+                            const rowSelectKey = getContractTableRowKey(item, yearBlock.year, index)
                             const serverId = pickContractRowId(item)
+                            const domRowKey = `${rowSelectKey}::${yearBlock.year}::${index}`
                             return (
                               <tr
-                                key={rowSelectKey}
+                                key={domRowKey}
                                 className={index % 2 === 0 ? 'row-even' : 'row-odd'}
                               >
                                 {isAdmin && (
@@ -7193,7 +7224,7 @@ function App() {
                                       className="registry-row-checkbox"
                                       type="checkbox"
                                       checked={Boolean(serverId) && selectedContractServerIds.has(serverId)}
-                                      disabled={!serverId}
+                                      disabled={!isAdmin}
                                       onClick={(e) => e.stopPropagation()}
                                       onChange={(e) => {
                                         e.stopPropagation()
