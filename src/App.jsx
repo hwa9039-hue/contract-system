@@ -416,6 +416,9 @@ function pickContractRowId(row) {
     merged.UUID,
     merged.pk,
     merged.PK,
+    merged.rowid,
+    merged.row_id,
+    merged.ROWID,
     merged.record_id,
     merged.recordId,
   ]
@@ -473,6 +476,27 @@ function contractSelectKeyToServerId(key) {
     return key.split(CONTRACT_ROW_KEY_SEP)[0]
   }
   return key
+}
+
+/**
+ * PATCH/DELETE URL의 id 형식 검증 (숫자 / UUID / Mongo ObjectId 24hex).
+ */
+function isValidContractApiServerId(id) {
+  const s = normalizeRegistryRowId(id)
+  if (!s) return false
+  if (/^\d+$/.test(s)) return true
+  if (/^[0-9a-fA-F]{24}$/i.test(s)) return true
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i.test(s)
+}
+
+/**
+ * Ant Design Table의 `rowKey={(record) => pickContractRowId(record)}` 와 동일.
+ * id가 없을 때만 연도·인덱스로 임시 키(선택 UI용, API에는 사용 안 함).
+ */
+function getContractTableRowKey(row, yearLabel, indexInYear) {
+  const id = pickContractRowId(row)
+  if (id) return id
+  return `__MISSING__${CONTRACT_ROW_KEY_SEP}${yearLabel}${CONTRACT_ROW_KEY_SEP}${indexInYear}`
 }
 
 function removeObjectKey(object, key) {
@@ -1443,7 +1467,7 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
-  const [selectedContractServerIds, setSelectedContractServerIds] = useState(() => new Set())
+  const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
   const [openBudgetYears, setOpenBudgetYears] = useState({})
   const [openDiscoveryYears, setOpenDiscoveryYears] = useState({})
   const [openExcludedYears, setOpenExcludedYears] = useState({})
@@ -1850,13 +1874,6 @@ function App() {
       }))
   }, [filteredContracts])
 
-  /** 테이블·편집 state용 행 키: 서버 PK(pick)가 있으면 그 값만, 없으면 연도·인덱스로 임시 키 */
-  const getContractTableRowKey = useCallback((row, yearLabel, indexInYear) => {
-    const pid = pickContractRowId(row)
-    if (pid) return pid
-    return `__MISSING__${CONTRACT_ROW_KEY_SEP}${yearLabel}${CONTRACT_ROW_KEY_SEP}${indexInYear}`
-  }, [])
-
   const getContractRowBySelectKey = useCallback(
     (rowKey) => {
       for (const yb of groupedContracts) {
@@ -1868,14 +1885,12 @@ function App() {
       }
       return null
     },
-    [groupedContracts, getContractTableRowKey]
+    [groupedContracts]
   )
 
-  /** 체크박스·전체선택: 서버 id만 Set에 저장 */
-  const contractSelectableServerIdsFlat = useMemo(() => {
-    return groupedContracts.flatMap((yb) =>
-      yb.items.map((item) => pickContractRowId(item)).filter((sid) => sid !== '')
-    )
+  /** rowSelection.selectedRowKeys: 화면에 보이는 모든 행의 rowKey (Ant Design Table과 동일 개념) */
+  const contractVisibleRowKeysFlat = useMemo(() => {
+    return groupedContracts.flatMap((yb) => yb.items.map((item, i) => getContractTableRowKey(item, yb.year, i)))
   }, [groupedContracts])
 
   const contractTableColSpan = isAdmin ? CONTRACT_COLUMNS.length + 2 : CONTRACT_COLUMNS.length + 1
@@ -2149,8 +2164,8 @@ function App() {
     isRegistryYearOpen(openDocumentYears, year, defaultDocumentYear)
 
   const allContractsSelected =
-    contractSelectableServerIdsFlat.length > 0 &&
-    contractSelectableServerIdsFlat.every((sid) => selectedContractServerIds.has(sid))
+    contractVisibleRowKeysFlat.length > 0 &&
+    contractVisibleRowKeysFlat.every((rk) => selectedContractRowKeys.has(rk))
   const allSalesSelected = isAllVisibleRegistryRowsSelected(filteredSalesRows, selectedSalesIds)
   const allBudgetSelected = isAllVisibleRegistryRowsSelected(filteredBudgetRows, selectedBudgetIds)
   const allDiscoverySelected = isAllVisibleRegistryRowsSelected(
@@ -2262,7 +2277,7 @@ function App() {
     localStorage.removeItem(ADMIN_SESSION_KEY)
     setContractEdit(null)
     setContractEditDraft('')
-    setSelectedContractServerIds(new Set())
+    setSelectedContractRowKeys(new Set())
     setContractConfirmDialog(null)
     setIsAddingRow(false)
   }
@@ -2283,7 +2298,7 @@ function App() {
       setToastMessage('일반 모드로 전환되었습니다.')
       setContractEdit(null)
       setContractEditDraft('')
-      setSelectedContractServerIds(new Set())
+      setSelectedContractRowKeys(new Set())
       setContractConfirmDialog(null)
       setIsAddingRow(false)
       return
@@ -4576,7 +4591,7 @@ function App() {
     if (!requireAdmin()) return
     setIsAddingRow(true)
     setNewRow({ ...emptyContract })
-    setSelectedContractServerIds(new Set())
+    setSelectedContractRowKeys(new Set())
   }
 
   const cancelAddRow = () => {
@@ -4618,23 +4633,27 @@ function App() {
   const deleteSelectedContracts = () => {
     if (!requireAdmin()) return
 
-    if (selectedContractServerIds.size === 0) {
+    if (selectedContractRowKeys.size === 0) {
       setToastMessage('삭제할 데이터를 선택해주세요.')
       return
     }
 
     const validSelectedIds = [
       ...new Set(
-        [...selectedContractServerIds]
-          .map((id) => normalizeRegistryRowId(id))
-          .filter((id) => id !== '')
+        [...selectedContractRowKeys]
+          .map((rowKey) => {
+            const rec = getContractRowBySelectKey(rowKey)
+            const sid = rec ? pickContractRowId(rec) : contractSelectKeyToServerId(rowKey)
+            return normalizeRegistryRowId(sid)
+          })
+          .filter((id) => id !== '' && isValidContractApiServerId(id))
       ),
     ]
 
     if (validSelectedIds.length === 0) {
       setToastMessage(
-        selectedContractServerIds.size > 0
-          ? '선택한 ID가 올바르지 않습니다. 새로고침 후 다시 선택해 주세요.'
+        selectedContractRowKeys.size > 0
+          ? '선택한 행에서 삭제 가능한 ID(UUID/숫자)를 찾을 수 없습니다. 새로고침 후 다시 선택해 주세요.'
           : '삭제할 데이터를 선택해주세요.'
       )
       return
@@ -4679,7 +4698,7 @@ function App() {
       cancelEdit()
     }
 
-    setSelectedContractServerIds(new Set())
+    setSelectedContractRowKeys(new Set())
     await fetchContracts()
     setToastMessage(dialog.single ? '삭제되었습니다.' : '선택한 항목이 삭제되었습니다.')
   }
@@ -4715,27 +4734,30 @@ function App() {
     if (!snap) return
 
     const rowLookup = getContractRowBySelectKey(snap.rowKey)
-    console.log('[계약현황 saveEdit] editingRow (full row):', rowLookup ? { ...rowLookup } : null, {
+    const record = rowLookup
+    const idFromRecord = record ? pickContractRowId(record) : ''
+    console.log('[계약현황 saveEdit] editingRow (full row):', record ? { ...record } : null, {
       contractEdit: snap,
       draft: snapDraft,
     })
 
     const fromState = normalizeRegistryRowId(snap.serverRowId)
-    const fromRow = rowLookup ? pickContractRowId(rowLookup) : ''
     const fromKey = contractSelectKeyToServerId(snap.rowKey)
-    const serverId = fromState || fromRow || fromKey
+    const id = idFromRecord || fromState || fromKey
 
-    console.log('Final ID for request:', serverId)
+    console.log('Final ID for request:', id)
 
-    if (!serverId) {
-      setToastMessage('저장할 행 식별자가 없습니다. 새로고침 후 다시 시도해 주세요.')
+    if (!isValidContractApiServerId(id)) {
+      setToastMessage(
+        '저장할 행 식별자가 없거나 서버 형식(숫자·UUID)이 아닙니다. 콘솔의 editingRow를 확인한 뒤 새로고침해 주세요.'
+      )
       return
     }
 
     const value = normalizeEditValue(snap.key, snapDraft)
 
     try {
-      await contractsApi.update(serverId, { [snap.key]: value })
+      await contractsApi.update(id, { [snap.key]: value })
     } catch (error) {
       logApiOperationError('계약현황 수정', error)
       setToastMessage(`저장에 실패했습니다. ${safeString(error?.message)}`)
@@ -4768,7 +4790,11 @@ function App() {
 
     setContractEdit((prev) => {
       if (!prev || prev.rowKey !== rowKey) return prev
-      return { ...prev, key: nextColumn.key }
+      const nextSid =
+        normalizeRegistryRowId(prev.serverRowId) ||
+        pickContractRowId(targetRow) ||
+        null
+      return { ...prev, key: nextColumn.key, serverRowId: nextSid }
     })
     if (nextColumn.key === 'amount') {
       setContractEditDraft(normalizeAmountValue(nextValue))
@@ -6922,7 +6948,7 @@ function App() {
                     className="secondary-btn"
                     type="button"
                     onClick={deleteSelectedContracts}
-                    disabled={selectedContractServerIds.size === 0}
+                    disabled={selectedContractRowKeys.size === 0}
                   >
                     선택 삭제
                   </button>
@@ -7043,9 +7069,9 @@ function App() {
                             checked={allContractsSelected}
                             onChange={(e) => {
                               const checked = e.target.checked
-                              setSelectedContractServerIds((prev) => {
+                              setSelectedContractRowKeys((prev) => {
                                 const next = new Set(prev)
-                                const keys = contractSelectableServerIdsFlat
+                                const keys = contractVisibleRowKeysFlat
                                 if (checked) {
                                   keys.forEach((k) => next.add(k))
                                 } else {
@@ -7211,7 +7237,6 @@ function App() {
                           yearRow,
                           ...yearBlock.items.map((item, index) => {
                             const rowSelectKey = getContractTableRowKey(item, yearBlock.year, index)
-                            const serverId = pickContractRowId(item)
                             const domRowKey = `${rowSelectKey}::${yearBlock.year}::${index}`
                             return (
                               <tr
@@ -7223,17 +7248,16 @@ function App() {
                                     <input
                                       className="registry-row-checkbox"
                                       type="checkbox"
-                                      checked={Boolean(serverId) && selectedContractServerIds.has(serverId)}
-                                      disabled={!isAdmin}
+                                      checked={selectedContractRowKeys.has(rowSelectKey)}
+                                      disabled={false}
                                       onClick={(e) => e.stopPropagation()}
                                       onChange={(e) => {
                                         e.stopPropagation()
-                                        if (!serverId) return
                                         const checked = e.target.checked
-                                        setSelectedContractServerIds((prev) => {
+                                        setSelectedContractRowKeys((prev) => {
                                           const next = new Set(prev)
-                                          if (checked) next.add(serverId)
-                                          else next.delete(serverId)
+                                          if (checked) next.add(rowSelectKey)
+                                          else next.delete(rowSelectKey)
                                           return next
                                         })
                                       }}
