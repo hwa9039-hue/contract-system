@@ -373,6 +373,25 @@ function normalizeRegistryRowId(id) {
   return String(id).trim()
 }
 
+/** API/직렬화마다 id 필드명이 달라질 수 있어 계약 행의 서버 PK를 한곳에서 추출 */
+function pickContractRowId(row) {
+  if (!row || typeof row !== 'object') return ''
+  const candidates = [
+    row.id,
+    row.Id,
+    row.ID,
+    row.contractId,
+    row.contract_id,
+    row.uuid,
+    row.UUID,
+  ]
+  for (const v of candidates) {
+    const s = normalizeRegistryRowId(v)
+    if (s !== '') return s
+  }
+  return ''
+}
+
 /** 행별 고유 선택 키에 사용 (id 값 안에 들어갈 가능성 낮게) */
 const CONTRACT_ROW_KEY_SEP = '|#|'
 
@@ -1491,7 +1510,10 @@ function App() {
     try {
       const rows = await contractsApi.list()
       const normalized = Array.isArray(rows)
-        ? rows.map((row) => ({ ...row, id: normalizeRegistryRowId(row.id) }))
+        ? rows.map((row) => {
+            const id = pickContractRowId(row)
+            return { ...row, id }
+          })
         : []
       setContracts(normalized)
       return normalized
@@ -1767,7 +1789,7 @@ function App() {
 
   /** 매 행마다 고유 키 (같은 DB id·JSON 정밀도 붕괴로 id가 겹쳐도 체크박스가 따로 동작) */
   const getContractSelectKey = useCallback((row, yearLabel, indexInYear) => {
-    const id = normalizeRegistryRowId(row.id)
+    const id = pickContractRowId(row)
     if (!id) {
       return `__MISSING__${CONTRACT_ROW_KEY_SEP}${yearLabel}${CONTRACT_ROW_KEY_SEP}${indexInYear}`
     }
@@ -4589,11 +4611,17 @@ function App() {
     setToastMessage(dialog.single ? '삭제되었습니다.' : '선택한 항목이 삭제되었습니다.')
   }
 
-  const startEdit = (rowKey, key, value) => {
+  const startEdit = (rowKey, key, value, row) => {
     if (!isAdmin) return
     if (!rowKey) return
 
-    setContractEdit({ rowKey, key })
+    const serverRowId =
+      (row && pickContractRowId(row)) ||
+      pickContractRowId(getContractRowBySelectKey(rowKey) || {}) ||
+      contractSelectKeyToServerId(rowKey) ||
+      ''
+
+    setContractEdit({ rowKey, key, serverRowId: serverRowId || null })
 
     if (key === 'amount') {
       setContractEditDraft(normalizeAmountValue(value))
@@ -4613,7 +4641,12 @@ function App() {
     const snapDraft = contractEditDraftRef.current
     if (!snap) return
 
-    const serverId = contractSelectKeyToServerId(snap.rowKey)
+    const rowLookup = getContractRowBySelectKey(snap.rowKey)
+    const serverId =
+      normalizeRegistryRowId(snap.serverRowId) ||
+      (rowLookup ? pickContractRowId(rowLookup) : '') ||
+      contractSelectKeyToServerId(snap.rowKey)
+
     if (!serverId) {
       setToastMessage('저장할 행 식별자가 없습니다. 새로고침 후 다시 시도해 주세요.')
       return
@@ -4653,7 +4686,10 @@ function App() {
     const nextColumn = CONTRACT_COLUMNS[nextIndex]
     const nextValue = targetRow[nextColumn.key]
 
-    setContractEdit({ rowKey, key: nextColumn.key })
+    setContractEdit((prev) => {
+      if (!prev || prev.rowKey !== rowKey) return prev
+      return { ...prev, key: nextColumn.key }
+    })
     if (nextColumn.key === 'amount') {
       setContractEditDraft(normalizeAmountValue(nextValue))
       return
@@ -7106,11 +7142,10 @@ function App() {
                                       className="registry-row-checkbox"
                                       type="checkbox"
                                       checked={selectedContractRowKeys.has(rowSelectKey)}
-                                      disabled={!normalizeRegistryRowId(item.id)}
+                                      disabled={false}
                                       onClick={(e) => e.stopPropagation()}
                                       onChange={(e) => {
                                         e.stopPropagation()
-                                        if (!normalizeRegistryRowId(item.id)) return
                                         const checked = e.target.checked
                                         setSelectedContractRowKeys((prev) => {
                                           const next = new Set(prev)
@@ -7146,7 +7181,7 @@ function App() {
                                       style={column.width ? { width: column.width } : undefined}
                                       onClick={
                                         isAdmin
-                                          ? () => startEdit(rowSelectKey, column.key, item[column.key])
+                                          ? () => startEdit(rowSelectKey, column.key, item[column.key], item)
                                           : undefined
                                       }
                                     >
