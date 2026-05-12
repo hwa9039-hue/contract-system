@@ -402,12 +402,24 @@ function pickContractRowId(row) {
     typeof row.data === 'object' && row.data !== null && !Array.isArray(row.data)
       ? { ...row.data, ...row }
       : { ...row }
-  const explicit = [
+
+  /** 요청 우선순위: record.id, record.contract_id, record.ID (원본 + merge) */
+  const primaryTriple = [
+    row.id,
+    row.contract_id,
+    row.ID,
     merged.id,
-    merged._id,
-    merged.ID,
-    merged.Id,
     merged.contract_id,
+    merged.ID,
+  ]
+  for (const v of primaryTriple) {
+    const s = normalizeRegistryRowId(v)
+    if (s !== '' && s !== '[object Object]') return s
+  }
+
+  const explicit = [
+    merged._id,
+    merged.Id,
     merged.contractId,
     merged.contractID,
     merged.CONTRACT_ID,
@@ -424,8 +436,16 @@ function pickContractRowId(row) {
   ]
   for (const v of explicit) {
     const s = normalizeRegistryRowId(v)
-    if (s !== '') return s
+    if (s !== '' && s !== '[object Object]') return s
   }
+
+  /** Ant Design row 등에서 오는 key 폴백 (식별자 없음 방지) */
+  const keyFallback = [merged.key, merged.Key, row.key, row.Key, merged.rowKey, row.rowKey]
+  for (const v of keyFallback) {
+    const s = normalizeRegistryRowId(v)
+    if (s !== '' && s !== '[object Object]') return s
+  }
+
   try {
     for (const [k, v] of Object.entries(merged)) {
       if (v === null || v === undefined) continue
@@ -438,13 +458,23 @@ function pickContractRowId(row) {
         /^pk$/i.test(keyNorm)
       ) {
         const s = normalizeRegistryRowId(v)
-        if (s !== '') return s
+        if (s !== '' && s !== '[object Object]') return s
       }
     }
   } catch {
     return ''
   }
   return ''
+}
+
+/** PATCH/DELETE URL에 넣을 수 있는지(비어 있지 않고 임시 행 키가 아닌지) */
+function isUsableContractPathId(id) {
+  const s = normalizeRegistryRowId(id)
+  if (!s) return false
+  if (s.startsWith('__MISSING__')) return false
+  if (s === '[object Object]') return false
+  if (s.length > 256) return false
+  return !/[\r\n]/.test(s)
 }
 
 /** 목록 API 한 행: pick 결과를 row.id에 고정 (선택·PATCH·DELETE 공통) */
@@ -479,19 +509,8 @@ function contractSelectKeyToServerId(key) {
 }
 
 /**
- * PATCH/DELETE URL의 id 형식 검증 (숫자 / UUID / Mongo ObjectId 24hex).
- */
-function isValidContractApiServerId(id) {
-  const s = normalizeRegistryRowId(id)
-  if (!s) return false
-  if (/^\d+$/.test(s)) return true
-  if (/^[0-9a-fA-F]{24}$/i.test(s)) return true
-  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i.test(s)
-}
-
-/**
- * Ant Design Table의 `rowKey={(record) => pickContractRowId(record)}` 와 동일.
- * id가 없을 때만 연도·인덱스로 임시 키(선택 UI용, API에는 사용 안 함).
+ * Ant Design `<Table rowKey={(record) => pickContractRowId(record)} />` 와 동일 규칙.
+ * (본 프로젝트는 네이티브 table이며, 행 식별·체크 상태에 이 값을 사용합니다.)
  */
 function getContractTableRowKey(row, yearLabel, indexInYear) {
   const id = pickContractRowId(row)
@@ -4646,14 +4665,14 @@ function App() {
             const sid = rec ? pickContractRowId(rec) : contractSelectKeyToServerId(rowKey)
             return normalizeRegistryRowId(sid)
           })
-          .filter((id) => id !== '' && isValidContractApiServerId(id))
+          .filter((id) => isUsableContractPathId(id))
       ),
     ]
 
     if (validSelectedIds.length === 0) {
       setToastMessage(
         selectedContractRowKeys.size > 0
-          ? '선택한 행에서 삭제 가능한 ID(UUID/숫자)를 찾을 수 없습니다. 새로고침 후 다시 선택해 주세요.'
+          ? '선택한 행에서 삭제용 ID를 찾을 수 없습니다. 새로고침 후 다시 선택해 주세요.'
           : '삭제할 데이터를 선택해주세요.'
       )
       return
@@ -4747,9 +4766,9 @@ function App() {
 
     console.log('Final ID for request:', id)
 
-    if (!isValidContractApiServerId(id)) {
+    if (!isUsableContractPathId(id)) {
       setToastMessage(
-        '저장할 행 식별자가 없거나 서버 형식(숫자·UUID)이 아닙니다. 콘솔의 editingRow를 확인한 뒤 새로고침해 주세요.'
+        '저장할 행 식별자가 없습니다. 콘솔의 editingRow·Final ID를 확인한 뒤 새로고침해 주세요.'
       )
       return
     }
@@ -7066,7 +7085,10 @@ function App() {
                           <input
                             className="registry-row-checkbox"
                             type="checkbox"
+                            role="checkbox"
+                            aria-disabled={false}
                             checked={allContractsSelected}
+                            style={{ cursor: 'pointer', pointerEvents: 'auto', opacity: 1 }}
                             onChange={(e) => {
                               const checked = e.target.checked
                               setSelectedContractRowKeys((prev) => {
@@ -7248,8 +7270,10 @@ function App() {
                                     <input
                                       className="registry-row-checkbox"
                                       type="checkbox"
+                                      role="checkbox"
+                                      aria-disabled={false}
                                       checked={selectedContractRowKeys.has(rowSelectKey)}
-                                      disabled={false}
+                                      style={{ cursor: 'pointer', pointerEvents: 'auto', opacity: 1 }}
                                       onClick={(e) => e.stopPropagation()}
                                       onChange={(e) => {
                                         e.stopPropagation()
