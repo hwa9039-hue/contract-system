@@ -8381,33 +8381,35 @@ function App() {
                       </div>
 
                       <div className="month-list-tools">
-                        <select
-                          className="calendar-filter-select"
-                          value={monthTypeFilter}
-                          onChange={(e) => setMonthTypeFilter(e.target.value)}
-                        >
-                          <option value="전체">전체</option>
-                          <option value="contract">계약</option>
-                          <option value="due">준공</option>
-                          <option value="manual">기타</option>
-                        </select>
+                        <div className="calendar-month-list-controls">
+                          <select
+                            className="calendar-filter-select"
+                            value={monthTypeFilter}
+                            onChange={(e) => setMonthTypeFilter(e.target.value)}
+                          >
+                            <option value="전체">전체</option>
+                            <option value="contract">계약</option>
+                            <option value="due">준공</option>
+                            <option value="manual">기타</option>
+                          </select>
 
-                        <input
-                          className="calendar-search-input"
-                          type="text"
-                          placeholder="계약 / 준공 / 기타 일정 검색"
-                          value={monthSearch}
-                          onChange={(e) => setMonthSearch(e.target.value)}
-                        />
+                          <input
+                            className="calendar-search-input"
+                            type="text"
+                            placeholder="계약 / 준공 / 기타 일정 검색"
+                            value={monthSearch}
+                            onChange={(e) => setMonthSearch(e.target.value)}
+                          />
 
-                        <button
-                          className="panel-toggle-btn"
-                          type="button"
-                          aria-label={`이 달의 일정 ${isMonthListCollapsed ? '펼치기' : '접기'}`}
-                          onClick={() => setIsMonthListCollapsed((prev) => !prev)}
-                        >
-                          {isMonthListCollapsed ? '+' : '-'}
-                        </button>
+                          <button
+                            className="panel-toggle-btn"
+                            type="button"
+                            aria-label={`이 달의 일정 ${isMonthListCollapsed ? '펼치기' : '접기'}`}
+                            onClick={() => setIsMonthListCollapsed((prev) => !prev)}
+                          >
+                            {isMonthListCollapsed ? '+' : '-'}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
