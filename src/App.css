@@ -61,27 +61,43 @@ textarea {
 
 .app-shell {
   display: flex;
+  flex-direction: row;
+  align-items: stretch;
   width: 100%;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
-  height: 100%;
+  height: calc(100vh / var(--app-ui-zoom));
+  height: calc(100dvh / var(--app-ui-zoom));
+  max-height: calc(100vh / var(--app-ui-zoom));
+  max-height: calc(100dvh / var(--app-ui-zoom));
   overflow: hidden;
 }
 
 .sidebar {
+  flex: 0 0 auto;
   width: 180px;
   min-width: 180px;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
   background: linear-gradient(180deg, #1f2f58 0%, #1c2745 100%);
   color: #ffffff;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
-  overflow-y: auto;
-  min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar-top {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.sidebar-bottom {
+  flex-shrink: 0;
   padding: 8px;
 }
 
@@ -150,10 +166,6 @@ textarea {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15) inset;
 }
 
-.sidebar-bottom {
-  padding: 8px;
-}
-
 .logout-btn {
   width: 100%;
   height: 36px;
@@ -180,7 +192,8 @@ textarea {
 }
 
 .main-area {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -1253,16 +1266,25 @@ textarea:focus-visible {
 }
 
 .sidebar {
+  flex: 0 0 auto;
   width: 212px;
   min-width: 212px;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
   background: linear-gradient(180deg, var(--sidebar) 0%, var(--sidebar-2) 100%);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 10px 0 26px rgba(15, 23, 42, 0.12);
-  overflow-y: auto;
-  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .sidebar-top {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 16px 14px;
 }
 
@@ -1324,6 +1346,7 @@ textarea:focus-visible {
 }
 
 .sidebar-bottom {
+  flex-shrink: 0;
   padding: 14px;
 }
 
@@ -1350,7 +1373,8 @@ textarea:focus-visible {
 }
 
 .main-area {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
