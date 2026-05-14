@@ -1281,6 +1281,25 @@ function groupRegistryRowsByYear(rows, dateKey) {
   })
 }
 
+/** 영업: 상태 '완료' 여부 (그룹핑용) */
+function isSalesStageCompletedForGrouping(row) {
+  return safeString(row.projectStage).trim() === '완료'
+}
+
+/** 연도별 1차 그룹 안에서 진행 / 완료 2분할 */
+function groupSalesRowsByYearWithCompletion(rows, dateKey) {
+  const baseGroups = groupRegistryRowsByYear(rows, dateKey)
+  return baseGroups.map((group) => {
+    const activeItems = []
+    const completedItems = []
+    for (const row of group.items) {
+      if (isSalesStageCompletedForGrouping(row)) completedItems.push(row)
+      else activeItems.push(row)
+    }
+    return { ...group, activeItems, completedItems }
+  })
+}
+
 function getLatestRegistryYear(groups) {
   const numericYears = groups
     .map((group) => group.year)
@@ -1697,6 +1716,7 @@ function App() {
   const [openExcludedYears, setOpenExcludedYears] = useState({})
   const [openDocumentYears, setOpenDocumentYears] = useState({})
   const [openSalesYears, setOpenSalesYears] = useState({})
+  const [salesCompletedSectionOpenByYear, setSalesCompletedSectionOpenByYear] = useState({})
   const [selectedDocumentIds, setSelectedDocumentIds] = useState([])
   const [editingDocumentIds, setEditingDocumentIds] = useState([])
   const [documentEditSnapshots, setDocumentEditSnapshots] = useState({})
@@ -2236,7 +2256,7 @@ function App() {
   }, [excludedFilters.category, excludedFilters.keyword, excludedRows, excludedSearch])
 
   const groupedSalesRows = useMemo(
-    () => groupRegistryRowsByYear(filteredSalesRows, 'registerDate'),
+    () => groupSalesRowsByYearWithCompletion(filteredSalesRows, 'registerDate'),
     [filteredSalesRows]
   )
 
@@ -2748,6 +2768,18 @@ function App() {
     setOpenSalesYears((prev) => ({
       ...prev,
       [year]: !isSalesYearOpen(year),
+    }))
+  }
+
+  const isSalesCompletedSectionOpen = (year) =>
+    Object.prototype.hasOwnProperty.call(salesCompletedSectionOpenByYear, year)
+      ? salesCompletedSectionOpenByYear[year]
+      : false
+
+  const toggleSalesCompletedSection = (year) => {
+    setSalesCompletedSectionOpenByYear((prev) => ({
+      ...prev,
+      [year]: !isSalesCompletedSectionOpen(year),
     }))
   }
 
@@ -5666,6 +5698,130 @@ function App() {
     })
   }
 
+  const renderSalesGroupedRegistryRows = ({
+    groups,
+    columns,
+    emptyMessage,
+    selectedIds,
+    onToggleSelection,
+    editingIds,
+    isSaving,
+    onStartEdit,
+    onSaveRow,
+    onCancelRow,
+    onChange,
+    isEmptyRow,
+    isYearOpen,
+    onToggleYear,
+    cellEditScope = null,
+    isAdminForRegistry = false,
+    registryCellEdit: registryCellEditGrouped = null,
+    onRegistryCellStart = null,
+  }) => {
+    if (groups.length === 0) {
+      return (
+        <tr>
+          <td colSpan={columns.length + 1} className="empty-cell">
+            {emptyMessage}
+          </td>
+        </tr>
+      )
+    }
+
+    return groups.flatMap((yearBlock) => {
+      const activeItems = yearBlock.activeItems ?? yearBlock.items
+      const completedItems = yearBlock.completedItems ?? []
+      const collapsed = !isYearOpen(yearBlock.year)
+
+      const yearRow = (
+        <tr className="contract-year-row" key={`year-${yearBlock.year}`}>
+          <td colSpan={columns.length + 1}>
+            <button
+              className="contract-year-toggle"
+              type="button"
+              onClick={() => onToggleYear(yearBlock.year)}
+            >
+              <span className="contract-year-sign">{collapsed ? '+' : '-'}</span>
+              <span>{yearBlock.year}</span>
+              <span className="contract-year-count">
+                {yearBlock.items.length.toLocaleString('ko-KR')}건
+              </span>
+            </button>
+          </td>
+        </tr>
+      )
+
+      if (collapsed) return [yearRow]
+
+      const activeRows = activeItems.map((row, index) =>
+        renderRegistryDataRow({
+          row,
+          index,
+          columns,
+          editingIds,
+          isSaving,
+          onStartEdit: () => onStartEdit(row.id),
+          onSaveRow: () => onSaveRow(row.id),
+          onCancelRow: () => onCancelRow(row.id),
+          onChange,
+          isEmptyRow,
+          selectedIds,
+          onToggleSelection,
+          cellEditScope,
+          isAdminForRegistry,
+          registryCellEdit: registryCellEditGrouped,
+          onRegistryCellStart,
+        })
+      )
+
+      const completedCount = completedItems.length
+      if (completedCount === 0) {
+        return [yearRow, ...activeRows]
+      }
+
+      const completedOpen = isSalesCompletedSectionOpen(yearBlock.year)
+      const completedToggleRow = (
+        <tr className="contract-year-row sales-completed-toggle-row" key={`sales-done-${yearBlock.year}`}>
+          <td colSpan={columns.length + 1}>
+            <button
+              className="contract-year-toggle sales-completed-toggle"
+              type="button"
+              onClick={() => toggleSalesCompletedSection(yearBlock.year)}
+            >
+              <span className="contract-year-sign">{completedOpen ? '-' : '+'}</span>
+              <span>완료된 건 ({completedCount.toLocaleString('ko-KR')}건)</span>
+            </button>
+          </td>
+        </tr>
+      )
+
+      const completedRows = completedOpen
+        ? completedItems.map((row, index) =>
+            renderRegistryDataRow({
+              row,
+              index,
+              columns,
+              editingIds,
+              isSaving,
+              onStartEdit: () => onStartEdit(row.id),
+              onSaveRow: () => onSaveRow(row.id),
+              onCancelRow: () => onCancelRow(row.id),
+              onChange,
+              isEmptyRow,
+              selectedIds,
+              onToggleSelection,
+              cellEditScope,
+              isAdminForRegistry,
+              registryCellEdit: registryCellEditGrouped,
+              onRegistryCellStart,
+            })
+          )
+        : []
+
+      return [yearRow, ...activeRows, completedToggleRow, ...completedRows]
+    })
+  }
+
   const renderWorkReportSectionCard = (date, sectionConfig) => {
     const { section, label, type } = sectionConfig
     const cellKey = getWorkReportCellKey(date, section, 1)
@@ -7746,7 +7902,7 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {renderGroupedRegistryRows({
+                    {renderSalesGroupedRegistryRows({
                       groups: groupedSalesRows,
                       columns: SALES_COLUMNS,
                       emptyMessage: '등록된 데이터가 없습니다.',

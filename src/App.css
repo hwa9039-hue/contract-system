@@ -642,6 +642,22 @@ textarea {
   font-weight: 800;
 }
 
+.sales-completed-toggle-row td {
+  background: #f1f5f9;
+  border-top: 1px solid #e2e8f0;
+}
+
+.sales-completed-toggle {
+  padding-left: 40px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #475569;
+}
+
+.sales-completed-toggle .contract-year-sign {
+  font-size: 16px;
+}
+
 .contract-category-group-row td {
   height: 40px;
   background: #e8f0fc;
