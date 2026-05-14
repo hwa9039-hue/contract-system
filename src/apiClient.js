@@ -32,7 +32,20 @@ function sanitizeApiBaseUrlForBrowser(candidate) {
 export const API_BASE_URL = (() => {
   let candidate
 
-  /** 운영에서 contract 도메인만 쓰고 Nginx가 `/api` → 백엔드로 넘기면 브라우저 CORS 없음. `public/api-config.js`에서 설정. */
+  /**
+   * 운영(PROD): `public/api-config.js`의 `__CMS_API_BASE_URL__`을 최우선.
+   * 정적 호스팅만 있고 동일 출처 `/api` 프록시가 없으면 FORCE_SAME_ORIGIN만 켜면 405가 나므로,
+   * 명시 URL이 있으면 `__CMS_FORCE_SAME_ORIGIN_API__`보다 먼저 적용한다.
+   */
+  if (import.meta.env.PROD && typeof window !== 'undefined') {
+    const runtimeProd = window.__CMS_API_BASE_URL__
+    if (runtimeProd != null && String(runtimeProd).trim() !== '') {
+      candidate = trimTrailingSlash(String(runtimeProd))
+      return sanitizeApiBaseUrlForBrowser(candidate)
+    }
+  }
+
+  /** 운영에서 contract 도메인 + Nginx가 `/api` → 백엔드로 넘길 때만. `public/api-config.js` */
   if (
     typeof window !== 'undefined' &&
     window.__CMS_FORCE_SAME_ORIGIN_API__ === true &&
@@ -42,18 +55,18 @@ export const API_BASE_URL = (() => {
     return trimTrailingSlash(window.location.origin)
   }
 
-  if (typeof window !== 'undefined') {
-    const runtime = window.__CMS_API_BASE_URL__
-    if (runtime != null && String(runtime).trim() !== '') {
-      candidate = trimTrailingSlash(String(runtime))
-      return sanitizeApiBaseUrlForBrowser(candidate)
-    }
-  }
-
   const fromEnv = import.meta.env.VITE_API_BASE_URL
   if (fromEnv != null && String(fromEnv).trim() !== '') {
     candidate = trimTrailingSlash(fromEnv)
     return sanitizeApiBaseUrlForBrowser(candidate)
+  }
+
+  /** 로컬 dev: `.env`가 비었을 때만 api-config의 런타임 URL 사용 */
+  if (!import.meta.env.PROD && typeof window !== 'undefined') {
+    const runtimeDev = window.__CMS_API_BASE_URL__
+    if (runtimeDev != null && String(runtimeDev).trim() !== '') {
+      return trimTrailingSlash(String(runtimeDev))
+    }
   }
 
   if (import.meta.env.PROD && typeof window !== 'undefined' && window.location?.origin) {
