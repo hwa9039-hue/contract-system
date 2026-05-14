@@ -8326,52 +8326,6 @@ function App() {
         {menu === 'calendar' && (
           <section className="stat-card stat-card--calendar">
             <div className="calendar-page">
-              <div className="calendar-toolbar">
-                <div className="calendar-toolbar-nav">
-                  <button className="month-nav-btn" type="button" onClick={prevMonth}>
-                    ◀
-                  </button>
-                  <div className="calendar-month-title">{getMonthLabel(calendarCursor)}</div>
-                  <button className="month-nav-btn" type="button" onClick={nextMonth}>
-                    ▶
-                  </button>
-                  <button
-                    className="panel-toggle-btn calendar-grid-toggle"
-                    type="button"
-                    aria-label={`달력 본문 ${isCalendarGridCollapsed ? '펼치기' : '접기'}`}
-                    onClick={() => setIsCalendarGridCollapsed((prev) => !prev)}
-                  >
-                    {isCalendarGridCollapsed ? '+' : '-'}
-                  </button>
-                </div>
-
-                <div className="calendar-toolbar-form">
-                  <input
-                    type="date"
-                    className="calendar-input calendar-input-date"
-                    value={eventForm.date}
-                    onChange={(e) => setEventForm((prev) => ({ ...prev, date: e.target.value }))}
-                  />
-                  <input
-                    type="text"
-                    className="calendar-input calendar-input-title"
-                    placeholder="일정 내용"
-                    value={eventForm.title}
-                    onChange={(e) => setEventForm((prev) => ({ ...prev, title: e.target.value }))}
-                  />
-                  <input
-                    type="text"
-                    className="calendar-input calendar-input-owner"
-                    placeholder="담당자"
-                    value={eventForm.owner}
-                    onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
-                  />
-                  <button className="primary-btn calendar-add-btn" type="button" onClick={addManualEvent}>
-                    일정 추가
-                  </button>
-                </div>
-              </div>
-
               <div className="calendar-page-body">
                 <aside className="calendar-page-sidebar">
                   <div className="selected-events-wrap calendar-month-list-panel">
@@ -8463,6 +8417,52 @@ function App() {
                 </aside>
 
                 <div className="calendar-page-main">
+                  <div className="calendar-main-header">
+                    <div className="calendar-toolbar-nav">
+                      <button className="month-nav-btn" type="button" onClick={prevMonth}>
+                        ◀
+                      </button>
+                      <div className="calendar-month-title">{getMonthLabel(calendarCursor)}</div>
+                      <button className="month-nav-btn" type="button" onClick={nextMonth}>
+                        ▶
+                      </button>
+                      <button
+                        className="panel-toggle-btn calendar-grid-toggle"
+                        type="button"
+                        aria-label={`달력 본문 ${isCalendarGridCollapsed ? '펼치기' : '접기'}`}
+                        onClick={() => setIsCalendarGridCollapsed((prev) => !prev)}
+                      >
+                        {isCalendarGridCollapsed ? '+' : '-'}
+                      </button>
+                    </div>
+
+                    <div className="calendar-toolbar-form">
+                      <input
+                        type="date"
+                        className="calendar-input calendar-input-date"
+                        value={eventForm.date}
+                        onChange={(e) => setEventForm((prev) => ({ ...prev, date: e.target.value }))}
+                      />
+                      <input
+                        type="text"
+                        className="calendar-input calendar-input-title"
+                        placeholder="일정 내용"
+                        value={eventForm.title}
+                        onChange={(e) => setEventForm((prev) => ({ ...prev, title: e.target.value }))}
+                      />
+                      <input
+                        type="text"
+                        className="calendar-input calendar-input-owner"
+                        placeholder="담당자"
+                        value={eventForm.owner}
+                        onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
+                      />
+                      <button className="primary-btn calendar-add-btn" type="button" onClick={addManualEvent}>
+                        일정 추가
+                      </button>
+                    </div>
+                  </div>
+
                   {!isCalendarGridCollapsed ? (
                     <div className="calendar-body">
                       <div className="calendar-grid">
@@ -8499,7 +8499,7 @@ function App() {
                     </div>
                   ) : (
                     <div className="calendar-main-collapsed-placeholder">
-                      달력이 접혀 있습니다. 상단 월 네비게이션 옆 <strong>+</strong>를 눌러 펼칠 수 있습니다.
+                      달력이 접혀 있습니다. 오른쪽 상단 헤더의 <strong>+</strong>를 눌러 펼칠 수 있습니다.
                     </div>
                   )}
                 </div>
