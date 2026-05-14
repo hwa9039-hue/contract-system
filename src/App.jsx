@@ -321,7 +321,7 @@ const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보
 const DASHBOARD_STATUS_LABELS = SALES_STAGE_OPTIONS
 const PAGE_TITLE_MAP = {
   dashboard: '대시보드',
-  workReports: '일일/주간업무보고서',
+  workReports: '주간업무보고서',
   contracts: '계약현황',
   calendar: '캘린더',
   sales: '영업관리대장',
@@ -330,7 +330,7 @@ const PAGE_TITLE_MAP = {
   documents: '문서수발신대장',
 }
 const TOP_SYSTEM_SUBTITLE =
-  '일일/주간업무보고서 · 계약현황 · 일정관리 · 영업관리대장 · 건축정보 · 사업검색이력 · 문서수발신대장'
+  '주간업무보고서 · 계약현황 · 일정관리 · 영업관리대장 · 건축정보 · 사업검색이력 · 문서수발신대장'
 const HIDDEN_MANAGER_VALUES = ['전유찬', '전유찬 대리']
 
 const emptyContract = {
@@ -492,6 +492,84 @@ function getWorkReportPrimaryChecklistStoredRow(date, sectionKey, workReportRows
 function safeString(value) {
   if (value === null || value === undefined) return ''
   return String(value)
+}
+
+function toggleExternalManagerCsv(currentCsv, managerName, optionList) {
+  const parts = safeString(currentCsv)
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+  const set = new Set(parts)
+  if (set.has(managerName)) set.delete(managerName)
+  else set.add(managerName)
+  return optionList.filter((o) => set.has(o)).join(', ')
+}
+
+function WorkReportExternalManagerMultiSelect({ value, onChange, options }) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
+  const selected = useMemo(
+    () => safeString(value).split(',').map((s) => s.trim()).filter(Boolean),
+    [value]
+  )
+
+  useEffect(() => {
+    if (!open) return
+    const onDocDown = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocDown)
+    return () => document.removeEventListener('mousedown', onDocDown)
+  }, [open])
+
+  return (
+    <div className="work-report-external-manager-multi" ref={rootRef}>
+      <button
+        type="button"
+        className="work-report-external-manager-multi-trigger"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="work-report-external-manager-multi-value">
+          {selected.length ? (
+            selected.map((n) => (
+              <span key={n} className="work-report-external-manager-multi-chip">
+                {n}
+              </span>
+            ))
+          ) : (
+            <span className="work-report-external-manager-multi-placeholder">담당자 선택</span>
+          )}
+        </span>
+        <span className="work-report-external-manager-multi-chevron" aria-hidden>
+          {open ? '▲' : '▼'}
+        </span>
+      </button>
+      {open ? (
+        <div className="work-report-external-manager-multi-menu" role="listbox" aria-multiselectable="true">
+          {options.map((option) => {
+            const isOn = selected.includes(option)
+            return (
+              <button
+                key={option}
+                type="button"
+                role="option"
+                aria-selected={isOn}
+                className={`work-report-external-manager-multi-item${isOn ? ' is-selected' : ''}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onChange(toggleExternalManagerCsv(value, option, options))}
+              >
+                <span className="work-report-external-manager-multi-tick" aria-hidden>
+                  {isOn ? '✓' : ''}
+                </span>
+                {option}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 function normalizeRegistryRowId(id) {
@@ -1800,7 +1878,7 @@ function App() {
       setWorkReportRows(rows.map(normalizeWorkReportRow))
       return rows
     } catch (error) {
-      console.error('[일일/주간업무보고서] API fetch failed', error)
+      console.error('[주간업무보고서] API fetch failed', error)
       setWorkReportRows([])
       return []
     }
@@ -4047,7 +4125,7 @@ function App() {
         try {
           await weeklyWorkReportsApi.remove(targetRow.id)
         } catch (error) {
-          logApiOperationError('일일/주간업무보고서 삭제', error)
+          logApiOperationError('주간업무보고서 삭제', error)
           return
         }
         await fetchWorkReportRows()
@@ -4074,7 +4152,7 @@ function App() {
       trackWorkWeek(targetRow.date)
       cancelWorkReportEdit()
     } catch (error) {
-      logApiOperationError('일일/주간업무보고서 저장', error)
+      logApiOperationError('주간업무보고서 저장', error)
     } finally {
       setIsSavingWorkReports(false)
     }
@@ -4145,7 +4223,7 @@ function App() {
       <html lang="ko">
         <head>
           <meta charset="UTF-8" />
-          <title>일일/주간업무보고서</title>
+          <title>주간업무보고서</title>
           <style>
             body { font-family: "Malgun Gothic", sans-serif; margin: 0; padding: 24px; color: #1f2937; background: #fff; }
             .report-shell { border: 1px solid #d6dee8; border-radius: 16px; overflow: hidden; }
@@ -4170,7 +4248,7 @@ function App() {
         <body>
           <div class="report-shell">
             <div class="report-header">
-              <div class="report-title">일일/주간업무보고서</div>
+              <div class="report-title">주간업무보고서</div>
               <div class="report-subtitle">${escapeHtml(
                 `${getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)} · 담당자 ${
                   workReportFilters.assignee || '전체'
@@ -4318,7 +4396,7 @@ function App() {
           try {
             await weeklyWorkReportsApi.remove(id)
           } catch (error) {
-            logApiOperationError('일일/주간업무보고서 삭제', error)
+            logApiOperationError('주간업무보고서 삭제', error)
             return
           }
         }
@@ -4337,7 +4415,7 @@ function App() {
         try {
           await weeklyWorkReportsApi.remove(targetRow.id)
         } catch (error) {
-          logApiOperationError('일일/주간업무보고서 삭제', error)
+          logApiOperationError('주간업무보고서 삭제', error)
           return
         }
         await fetchWorkReportRows()
@@ -4373,7 +4451,7 @@ function App() {
         try {
           await weeklyWorkReportsApi.remove(rid)
         } catch (error) {
-          logApiOperationError('일일/주간업무보고서(주요확인사항 정리) 삭제', error)
+          logApiOperationError('주간업무보고서(주요확인사항 정리) 삭제', error)
         }
       }
 
@@ -4391,7 +4469,7 @@ function App() {
         return next
       })
     } catch (error) {
-      logApiOperationError('일일/주간업무보고서 저장', error)
+      logApiOperationError('주간업무보고서 저장', error)
     } finally {
       setIsSavingWorkReports(false)
     }
@@ -4516,7 +4594,7 @@ function App() {
       <html lang="ko">
         <head>
           <meta charset="UTF-8" />
-          <title>일일/주간업무보고서</title>
+          <title>주간업무보고서</title>
           <style>
             body { font-family: "Malgun Gothic", sans-serif; margin: 0; padding: 24px; color: #1f2937; background: #ffffff; }
             .pdf-shell { border: 1px solid #d6dee8; border-radius: 16px; overflow: hidden; }
@@ -4547,7 +4625,7 @@ function App() {
         <body>
           <div class="pdf-shell">
             <div class="pdf-header">
-              <div class="pdf-title">일일/주간업무보고서</div>
+              <div class="pdf-title">주간업무보고서</div>
               <div class="pdf-meta">${escapeHtml(
                 `${getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)} · 담당자 ${
                   workReportFilters.assignee || '전체'
@@ -6326,15 +6404,6 @@ function App() {
       .map((item) => item.trim())
       .filter(Boolean)
 
-  const toggleWorkReportManagerName = (currentValue, managerName) => {
-    const currentNames = getWorkReportManagerNames(currentValue)
-    const nextNames = currentNames.includes(managerName)
-      ? currentNames.filter((name) => name !== managerName)
-      : [...currentNames, managerName]
-
-    return WORK_REPORT_EXTERNAL_USER_OPTIONS.filter((option) => nextNames.includes(option)).join(', ')
-  }
-
   const handleWorkReportInlineKeyDown = (e, { multiline = false } = {}) => {
     if (e.key === 'Escape') {
       e.preventDefault()
@@ -6399,7 +6468,6 @@ function App() {
             const entry = getDisplayedWorkReportEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
 
             if (isEditing && editingWorkCellData) {
-              const selectedManagers = getWorkReportManagerNames(editingWorkCellData.user)
               return (
                 <div
                   key={`external-v5-${date}-${orderIndex}`}
@@ -6411,29 +6479,11 @@ function App() {
                   }}
                 >
                   <div className="work-report-report-manager-editor">
-                    <div className="work-report-report-manager-chip-row">
-                      {renderWorkReportManagerBadges(editingWorkCellData.user)}
-                    </div>
-                    <div className="work-report-report-manager-picker">
-                      {WORK_REPORT_EXTERNAL_USER_OPTIONS.map((option) => {
-                        const checked = selectedManagers.includes(option)
-                        return (
-                          <label key={option} className="work-report-report-manager-option">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() =>
-                                handleWorkReportEditorChange(
-                                  'user',
-                                  toggleWorkReportManagerName(editingWorkCellData.user, option)
-                                )
-                              }
-                            />
-                            <span>{option}</span>
-                          </label>
-                        )
-                      })}
-                    </div>
+                    <WorkReportExternalManagerMultiSelect
+                      value={editingWorkCellData.user}
+                      onChange={(next) => handleWorkReportEditorChange('user', next)}
+                      options={WORK_REPORT_EXTERNAL_USER_OPTIONS}
+                    />
                   </div>
                   <textarea
                     className="work-report-report-textarea external"
@@ -6677,7 +6727,7 @@ function App() {
               className={menu === 'workReports' ? 'menu-btn active' : 'menu-btn'}
               onClick={() => setMenu('workReports')}
             >
-              일일/주간업무보고서
+              주간업무보고서
             </button>
 
             <button
@@ -6905,7 +6955,7 @@ function App() {
                   }}
                 >
                   <span className="dashboard-section-eyebrow">바로가기</span>
-                  <strong>일일/주간업무보고서</strong>
+                  <strong>주간업무보고서</strong>
                   <span>{getWorkReportWeekLabel(dashboardWorkReportWeekMeta.weekStartDate)}</span>
                   <small>현재 또는 최신 주차 업무보고서로 이동</small>
                 </button>

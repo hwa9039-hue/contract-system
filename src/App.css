@@ -4465,9 +4465,37 @@ textarea:focus-visible {
   min-height: 32px;
 }
 
-.work-report-board-textarea-external,
+.work-report-board-textarea-external {
+  width: 100%;
+  height: 100%;
+  min-height: 72px;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 8px;
+  resize: vertical;
+  outline: none;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.work-report-board-textarea-external:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22);
+}
+
 .work-report-board-textarea-destination {
   min-height: 40px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  outline: none;
+}
+
+.work-report-board-textarea-destination:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22);
 }
 
 .work-report-board-textarea-di,
@@ -4620,12 +4648,6 @@ textarea:focus-visible {
   border: 1px solid #cbd5e1;
 }
 
-.work-report-board-textarea-external,
-.work-report-board-textarea-destination {
-  min-height: 36px;
-  padding: 6px 8px;
-}
-
 .work-report-board-textarea-support-line {
   min-height: 30px;
   padding: 5px 8px;
@@ -4773,7 +4795,22 @@ textarea:focus-visible {
 }
 
 .work-report-report-textarea.external {
-  min-height: 48px;
+  width: 100%;
+  min-height: 72px;
+  height: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 8px;
+  resize: vertical;
+  outline: none;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.work-report-report-textarea.external:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22);
 }
 
 .work-report-report-textarea.di,
@@ -4957,6 +4994,119 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.work-report-external-manager-multi {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.work-report-external-manager-multi-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid #cfd8e3;
+  border-radius: 6px;
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+  color: #1f2937;
+}
+
+.work-report-external-manager-multi-trigger:hover {
+  border-color: #94a3b8;
+}
+
+.work-report-external-manager-multi-trigger:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.work-report-external-manager-multi-value {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.work-report-external-manager-multi-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1d4ed8;
+  max-width: 100%;
+}
+
+.work-report-external-manager-multi-placeholder {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.work-report-external-manager-multi-chevron {
+  flex-shrink: 0;
+  font-size: 9px;
+  color: #64748b;
+}
+
+.work-report-external-manager-multi-menu {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+.work-report-external-manager-multi-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+  color: #334155;
+}
+
+.work-report-external-manager-multi-item:hover {
+  background: #f1f5f9;
+}
+
+.work-report-external-manager-multi-item.is-selected {
+  background: #eff6ff;
+  color: #1e40af;
+  font-weight: 700;
+}
+
+.work-report-external-manager-multi-tick {
+  width: 14px;
+  font-size: 11px;
+  color: #2563eb;
+  flex-shrink: 0;
 }
 
 .work-report-report-manager-chip-row {
