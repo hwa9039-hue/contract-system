@@ -8329,54 +8329,58 @@ function App() {
         )}
 
         {menu === 'calendar' && (
-          <section className="stat-card">
-            <div className="calendar-month-bar">
-              <button className="month-nav-btn" type="button" onClick={prevMonth}>
-                ◀
-              </button>
-              <div className="calendar-month-title">{getMonthLabel(calendarCursor)}</div>
-              <button className="month-nav-btn" type="button" onClick={nextMonth}>
-                ▶
-              </button>
-              <button
-                className="panel-toggle-btn calendar-grid-toggle"
-                type="button"
-                aria-label={`달력 본문 ${isCalendarGridCollapsed ? '펼치기' : '접기'}`}
-                onClick={() => setIsCalendarGridCollapsed((prev) => !prev)}
-              >
-                {isCalendarGridCollapsed ? '+' : '-'}
-              </button>
-            </div>
-
-            {isAdmin ? (
-              <div className="calendar-top-bar">
-                <input
-                  type="date"
-                  className="calendar-input"
-                  value={eventForm.date}
-                  onChange={(e) => setEventForm((prev) => ({ ...prev, date: e.target.value }))}
-                />
-                <input
-                  type="text"
-                  className="calendar-input"
-                  placeholder="일정 내용"
-                  value={eventForm.title}
-                  onChange={(e) => setEventForm((prev) => ({ ...prev, title: e.target.value }))}
-                />
-                <input
-                  type="text"
-                  className="calendar-input"
-                  placeholder="담당자"
-                  value={eventForm.owner}
-                  onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
-                />
-                <button className="primary-btn" type="button" onClick={addManualEvent}>
-                  일정 추가
+          <section className="stat-card stat-card--calendar">
+            <div className="calendar-toolbar">
+              <div className="calendar-toolbar-nav">
+                <button className="month-nav-btn" type="button" onClick={prevMonth}>
+                  ◀
+                </button>
+                <div className="calendar-month-title">{getMonthLabel(calendarCursor)}</div>
+                <button className="month-nav-btn" type="button" onClick={nextMonth}>
+                  ▶
+                </button>
+                <button
+                  className="panel-toggle-btn calendar-grid-toggle"
+                  type="button"
+                  aria-label={`달력 본문 ${isCalendarGridCollapsed ? '펼치기' : '접기'}`}
+                  onClick={() => setIsCalendarGridCollapsed((prev) => !prev)}
+                >
+                  {isCalendarGridCollapsed ? '+' : '-'}
                 </button>
               </div>
-            ) : (
-              <div className="viewer-only-note">뷰어 모드에서는 일정을 조회할 수만 있습니다.</div>
-            )}
+
+              {isAdmin ? (
+                <div className="calendar-toolbar-form">
+                  <input
+                    type="date"
+                    className="calendar-input calendar-input-date"
+                    value={eventForm.date}
+                    onChange={(e) => setEventForm((prev) => ({ ...prev, date: e.target.value }))}
+                  />
+                  <input
+                    type="text"
+                    className="calendar-input calendar-input-title"
+                    placeholder="일정 내용"
+                    value={eventForm.title}
+                    onChange={(e) => setEventForm((prev) => ({ ...prev, title: e.target.value }))}
+                  />
+                  <input
+                    type="text"
+                    className="calendar-input calendar-input-owner"
+                    placeholder="담당자"
+                    value={eventForm.owner}
+                    onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
+                  />
+                  <button className="primary-btn calendar-add-btn" type="button" onClick={addManualEvent}>
+                    일정 추가
+                  </button>
+                </div>
+              ) : (
+                <div className="viewer-only-note calendar-toolbar-viewer">
+                  뷰어 모드에서는 일정을 조회할 수만 있습니다.
+                </div>
+              )}
+            </div>
 
             {!isCalendarGridCollapsed && (
               <div className="calendar-grid">
