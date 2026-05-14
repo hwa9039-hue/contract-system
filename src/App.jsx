@@ -328,9 +328,141 @@ const PAGE_TITLE_MAP = {
   discovery: '건축정보',
   excluded: '사업검색이력',
   documents: '문서수발신대장',
+  installCases: '설치사례',
 }
 const TOP_SYSTEM_SUBTITLE =
-  '주간업무보고서 · 계약현황 · 캘린더 · 영업관리대장 · 건축정보 · 사업검색이력 · 문서수발신대장'
+  '주간업무보고서 · 계약현황 · 캘린더 · 영업관리대장 · 건축정보 · 사업검색이력 · 문서수발신대장 · 설치사례'
+
+/** 설치사례 상세 모달 규격표 행 순서 (DB 연동 전 UI용) */
+const INSTALL_CASE_SPEC_ROWS = [
+  { key: 'displayArea', label: '표출면' },
+  { key: 'ledPitch', label: 'LED 간격' },
+  { key: 'color', label: '색상' },
+  { key: 'moduleSize', label: '모듈 SIZE' },
+  { key: 'moduleQty', label: '모듈 수량' },
+  { key: 'resolution', label: '해상도' },
+  { key: 'displayCapability', label: '표출능력' },
+  { key: 'installType', label: '설치유형' },
+]
+
+/** 설치사례 목업 (필터·갤러리·모달 프로토타입) */
+const INSTALL_CASE_MOCK_CASES = [
+  {
+    id: 'ic-1',
+    placeName: '대구경북첨단의료산업진흥재단',
+    modelName: '래닫 큐브',
+    thumbnail: 'https://picsum.photos/seed/smartdi-ic1/480/320',
+    heroImage: 'https://picsum.photos/seed/smartdi-ic1h/960/720',
+    environment: 'indoor',
+    audience: 'public',
+    year: '2024',
+    purpose: '로비·안내 복합 표출',
+    client: '대구경북첨단의료산업진흥재단',
+    location: '대구광역시 수성구 첨단로 80',
+    specs: {
+      displayArea: '4.8m × 2.7m',
+      ledPitch: 'P2.5',
+      color: '풀컬러',
+      moduleSize: '320×160mm',
+      moduleQty: '120매',
+      resolution: '1920×1080',
+      displayCapability: '16bit',
+      installType: '벽면 매립',
+    },
+  },
+  {
+    id: 'ic-2',
+    placeName: '○○대학교 중앙도서관',
+    modelName: '사이니지 프로 S',
+    thumbnail: 'https://picsum.photos/seed/smartdi-ic2/480/320',
+    heroImage: 'https://picsum.photos/seed/smartdi-ic2h/960/720',
+    environment: 'indoor',
+    audience: 'education',
+    year: '2023',
+    purpose: '학술 행사·안내',
+    client: '○○대학교',
+    location: '경기도 수원시 …',
+    specs: {
+      displayArea: '3.2m × 1.8m',
+      ledPitch: 'P3',
+      color: '풀컬러',
+      moduleSize: '256×128mm',
+      moduleQty: '72매',
+      resolution: '1280×720',
+      displayCapability: '14bit',
+      installType: '전면 거치',
+    },
+  },
+  {
+    id: 'ic-3',
+    placeName: '시민체육공원 주경기장',
+    modelName: '아웃도어 라이트닝 X',
+    thumbnail: 'https://picsum.photos/seed/smartdi-ic3/480/320',
+    heroImage: 'https://picsum.photos/seed/smartdi-ic3h/960/720',
+    environment: 'outdoor',
+    audience: 'culture',
+    year: '2025',
+    purpose: '경기 스코어·광고',
+    client: '○○광역시 시설관리공단',
+    location: '○○광역시 남구 …',
+    specs: {
+      displayArea: '12m × 7m',
+      ledPitch: 'P10',
+      color: '풀컬러',
+      moduleSize: '320×160mm',
+      moduleQty: '420매',
+      resolution: '3840×2160',
+      displayCapability: 'HDR 대응',
+      installType: '강관 주탑',
+    },
+  },
+  {
+    id: 'ic-4',
+    placeName: '복합문화센터 대공연장',
+    modelName: '스테이지 비전',
+    thumbnail: 'https://picsum.photos/seed/smartdi-ic4/480/320',
+    heroImage: 'https://picsum.photos/seed/smartdi-ic4h/960/720',
+    environment: 'indoor',
+    audience: 'culture',
+    year: '2024',
+    purpose: '무대 배경 영상',
+    client: '○○문화재단',
+    location: '서울특별시 …',
+    specs: {
+      displayArea: '14m × 5m',
+      ledPitch: 'P4',
+      color: '풀컬러',
+      moduleSize: '500×500mm',
+      moduleQty: '280매',
+      resolution: '7680×2160',
+      displayCapability: '12bit',
+      installType: '트러스 서스펜션',
+    },
+  },
+  {
+    id: 'ic-5',
+    placeName: '○○테크놀로지 사옥 로비',
+    modelName: '엣지 큐브 미니',
+    thumbnail: 'https://picsum.photos/seed/smartdi-ic5/480/320',
+    heroImage: 'https://picsum.photos/seed/smartdi-ic5h/960/720',
+    environment: 'indoor',
+    audience: 'private',
+    year: '2025',
+    purpose: '기업 홍보·방문 안내',
+    client: '○○테크놀로지㈜',
+    location: '성남시 분당구 …',
+    specs: {
+      displayArea: '2.4m × 1.35m',
+      ledPitch: 'P1.8',
+      color: '풀컬러',
+      moduleSize: '300×168.75mm',
+      moduleQty: '48매',
+      resolution: '1920×1080',
+      displayCapability: '16bit',
+      installType: '유리면 부착',
+    },
+  },
+]
 const HIDDEN_MANAGER_VALUES = ['전유찬', '전유찬 대리']
 
 const emptyContract = {
@@ -1795,6 +1927,9 @@ function App() {
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
   const [isContractPageYearSummaryOpen, setIsContractPageYearSummaryOpen] = useState(false)
+  const [installCaseEnvFilter, setInstallCaseEnvFilter] = useState('')
+  const [installCaseAudienceFilter, setInstallCaseAudienceFilter] = useState('')
+  const [installCaseDetailModal, setInstallCaseDetailModal] = useState(null)
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
   const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
@@ -2098,6 +2233,10 @@ function App() {
     setRegistryCellEditDraft('')
   }, [menu])
 
+  useEffect(() => {
+    setInstallCaseDetailModal(null)
+  }, [menu])
+
   /** 다른 메뉴로 나갈 때 빈 신규 행(isDraft)·편집 모드만 정리 — 업로드/추가가 막히는 유령 상태 방지 */
   useEffect(() => {
     if (menu === 'documents') return
@@ -2321,6 +2460,14 @@ function App() {
       return compareKoreanText(a, b)
     })
   }, [contracts])
+
+  const filteredInstallCases = useMemo(() => {
+    return INSTALL_CASE_MOCK_CASES.filter((row) => {
+      const envOk = !installCaseEnvFilter || row.environment === installCaseEnvFilter
+      const audOk = !installCaseAudienceFilter || row.audience === installCaseAudienceFilter
+      return envOk && audOk
+    })
+  }, [installCaseAudienceFilter, installCaseEnvFilter])
 
   const getContractRowBySelectKey = useCallback(
     (rowKey) => {
@@ -7121,6 +7268,13 @@ function App() {
             >
               문서수발신대장
             </button>
+
+            <button
+              className={menu === 'installCases' ? 'menu-btn active' : 'menu-btn'}
+              onClick={() => setMenu('installCases')}
+            >
+              설치사례
+            </button>
           </div>
         </div>
 
@@ -8494,6 +8648,63 @@ function App() {
           </section>
         )}
 
+        {menu === 'installCases' && (
+          <section className="stat-card stat-card--install-cases">
+            <div className="install-cases-toolbar">
+              <div className="install-cases-filters">
+                <select
+                  className="contract-filter-select install-cases-select"
+                  value={installCaseEnvFilter}
+                  onChange={(e) => setInstallCaseEnvFilter(e.target.value)}
+                  aria-label="설치환경 필터"
+                >
+                  <option value="">환경 (전체)</option>
+                  <option value="indoor">실내(Indoor)</option>
+                  <option value="outdoor">실외(Outdoor)</option>
+                </select>
+                <select
+                  className="contract-filter-select install-cases-select"
+                  value={installCaseAudienceFilter}
+                  onChange={(e) => setInstallCaseAudienceFilter(e.target.value)}
+                  aria-label="수요처 필터"
+                >
+                  <option value="">수요처 (전체)</option>
+                  <option value="public">공공·지자체</option>
+                  <option value="education">교육기관</option>
+                  <option value="culture">문화·체육시설</option>
+                  <option value="private">민간·기타</option>
+                </select>
+              </div>
+              <button className="primary-btn" type="button" onClick={() => {}}>
+                + 사례 등록
+              </button>
+            </div>
+
+            <div className="install-cases-gallery">
+              {filteredInstallCases.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  className="install-case-card"
+                  onClick={() => setInstallCaseDetailModal(row)}
+                >
+                  <div className="install-case-card-thumb">
+                    <img src={row.thumbnail} alt="" loading="lazy" />
+                  </div>
+                  <div className="install-case-card-body">
+                    <div className="install-case-card-place">{row.placeName}</div>
+                    <div className="install-case-card-model">{row.modelName}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {filteredInstallCases.length === 0 && (
+              <div className="install-cases-empty">조건에 맞는 설치사례가 없습니다.</div>
+            )}
+          </section>
+        )}
+
         {menu === 'calendar' && (
           <section className="stat-card stat-card--calendar">
             <div className="calendar-page">
@@ -8693,6 +8904,78 @@ function App() {
           </section>
         )}
       </main>
+
+      {installCaseDetailModal && (
+        <div className="modal-backdrop" onClick={() => setInstallCaseDetailModal(null)}>
+          <div
+            className="install-case-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="install-case-detail-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="install-case-detail-modal-header">
+              <h3 id="install-case-detail-title">{installCaseDetailModal.placeName}</h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setInstallCaseDetailModal(null)}
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="install-case-detail-modal-body">
+              <div className="install-case-detail-visual">
+                <img src={installCaseDetailModal.heroImage} alt="" />
+              </div>
+              <div className="install-case-detail-aside">
+                <dl className="install-case-detail-meta">
+                  <div className="install-case-meta-row">
+                    <dt>년도</dt>
+                    <dd>{installCaseDetailModal.year}</dd>
+                  </div>
+                  <div className="install-case-meta-row">
+                    <dt>용도</dt>
+                    <dd>{installCaseDetailModal.purpose}</dd>
+                  </div>
+                  <div className="install-case-meta-row">
+                    <dt>발주처</dt>
+                    <dd>{installCaseDetailModal.client}</dd>
+                  </div>
+                  <div className="install-case-meta-row">
+                    <dt>위치</dt>
+                    <dd>{installCaseDetailModal.location}</dd>
+                  </div>
+                  <div className="install-case-meta-row">
+                    <dt>모델명</dt>
+                    <dd>{installCaseDetailModal.modelName}</dd>
+                  </div>
+                </dl>
+                <div className="install-case-detail-specs">
+                  <div className="install-case-detail-specs-title">제품 규격</div>
+                  <table className="install-case-spec-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">구분</th>
+                        <th scope="col">사양</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {INSTALL_CASE_SPEC_ROWS.map(({ key, label }) => (
+                        <tr key={key}>
+                          <td>{label}</td>
+                          <td>{installCaseDetailModal.specs[key] ?? '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {contractConfirmDialog && (
         <div

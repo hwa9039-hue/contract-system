@@ -1896,6 +1896,7 @@ textarea:focus-visible {
 .main-area > section.stat-card .guide-panel,
 .main-area > section.stat-card .contracts-header-actions,
 .main-area > section.stat-card .contracts-year-summary-embed,
+.main-area > section.stat-card .install-cases-toolbar,
 .main-area > section.stat-card .table-toolbar,
 .main-area > section.stat-card .contract-filter-row {
   flex-shrink: 0;
@@ -5372,5 +5373,275 @@ textarea:focus-visible {
   width: 12px;
   height: 12px;
   margin: 0;
+}
+
+/* 설치사례 (목업 갤러리) */
+.stat-card--install-cases {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 16px;
+}
+
+.main-area > section.stat-card .install-cases-toolbar {
+  flex-shrink: 0;
+}
+
+.install-cases-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.install-cases-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.install-cases-select {
+  min-width: 200px;
+}
+
+.install-cases-gallery {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
+  align-content: start;
+}
+
+.install-case-card {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.install-case-card:hover {
+  border-color: rgba(47, 107, 255, 0.35);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+  transform: translateY(-2px);
+}
+
+.install-case-card:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.install-case-card-thumb {
+  aspect-ratio: 16 / 10;
+  background: #f1f5f9;
+  overflow: hidden;
+}
+
+.install-case-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.install-case-card-body {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.install-case-card-place {
+  font-family: 'SUIT', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.35;
+}
+
+.install-case-card-model {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.install-cases-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.install-case-detail-modal {
+  width: min(1100px, calc(100vw - 32px));
+  max-height: min(92vh, 900px);
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.install-case-detail-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(90deg, #ffffff, #f4f7ff);
+  flex-shrink: 0;
+}
+
+.install-case-detail-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--ink);
+  min-width: 0;
+}
+
+.install-case-detail-modal-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.install-case-detail-visual {
+  background: #0f172a;
+  min-height: 280px;
+  max-height: min(72vh, 640px);
+}
+
+.install-case-detail-visual img {
+  width: 100%;
+  height: 100%;
+  max-height: min(72vh, 640px);
+  object-fit: contain;
+  display: block;
+}
+
+.install-case-detail-aside {
+  padding: 18px 20px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.install-case-detail-meta {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.install-case-meta-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  font-size: 14px;
+}
+
+.install-case-meta-row dt {
+  margin: 0;
+  font-weight: 800;
+  color: #64748b;
+}
+
+.install-case-meta-row dd {
+  margin: 0;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.45;
+}
+
+.install-case-detail-specs-title {
+  font-size: 15px;
+  font-weight: 900;
+  color: #1e293b;
+  margin-bottom: 10px;
+}
+
+.install-case-spec-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.install-case-spec-table th,
+.install-case-spec-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #eef2f7;
+  text-align: left;
+  vertical-align: top;
+}
+
+.install-case-spec-table thead th {
+  background: #f1f5f9;
+  font-weight: 800;
+  color: #334155;
+}
+
+.install-case-spec-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.install-case-spec-table td:first-child {
+  width: 38%;
+  font-weight: 700;
+  color: #475569;
+  background: #fbfcfe;
+}
+
+@media (max-width: 1100px) {
+  .install-cases-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .install-case-detail-modal-body {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .install-case-detail-visual {
+    max-height: 42vh;
+  }
+
+  .install-case-detail-visual img {
+    max-height: 42vh;
+  }
+}
+
+@media (max-width: 640px) {
+  .install-cases-gallery {
+    grid-template-columns: 1fr;
+  }
+
+  .install-cases-select {
+    min-width: 0;
+    flex: 1 1 160px;
+  }
 }
 
