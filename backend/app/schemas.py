@@ -502,21 +502,22 @@ def row_to_budget_progress(row) -> dict:
 
 
 def row_to_project_discovery(row) -> dict:
+    """DB 컬럼명은 database.py 의 quoted camelCase 와 일치 (레거시 소문자 키도 허용)."""
     return {
         "id": to_response_value(row["id"]),
-        "permitDate": to_response_value(row["permitdate"]),
-        "checkStatus": to_response_value(row["checkstatus"]),
-        "salesTarget": to_response_value(row["salestarget"]),
-        "projectCategory": to_response_value(row["projectcategory"]),
-        "localGov": to_response_value(row["localgov"]),
+        "permitDate": to_response_value(row.get("permitDate") or row.get("permitdate")),
+        "checkStatus": to_response_value(row.get("checkStatus") or row.get("checkstatus")),
+        "salesTarget": to_response_value(row.get("salesTarget") or row.get("salestarget")),
+        "projectCategory": to_response_value(row.get("projectCategory") or row.get("projectcategory")),
+        "localGov": to_response_value(row.get("localGov") or row.get("localgov")),
         "client": to_response_value(row["client"]),
-        "projectName": to_response_value(row["projectname"]),
-        "projectAmount": to_response_value(row["projectamount"]),
-        "completionPeriod": to_response_value(row["completionperiod"]),
+        "projectName": to_response_value(row.get("projectName") or row.get("projectname")),
+        "projectAmount": to_response_value(row.get("projectAmount") or row.get("projectamount")),
+        "completionPeriod": to_response_value(row.get("completionPeriod") or row.get("completionperiod")),
         "manager": to_response_value(row["manager"]),
         "note": to_response_value(row["note"]),
-        "createdAt": to_response_value(row["createdat"]),
-        "updatedAt": to_response_value(row["updatedat"]),
+        "createdAt": to_response_value(row.get("createdAt") or row.get("createdat")),
+        "updatedAt": to_response_value(row.get("updatedAt") or row.get("updatedat")),
     }
 
 
@@ -640,19 +641,19 @@ TABLE_COLUMN_MAPPINGS = {
         "updatedAt": "updatedAt",
     },
     "project_discovery_rows": {
-        "permitDate": "permitdate",
-        "checkStatus": "checkstatus",
-        "salesTarget": "salestarget",
-        "projectCategory": "projectcategory",
-        "localGov": "localgov",
+        "permitDate": "permitDate",
+        "checkStatus": "checkStatus",
+        "salesTarget": "salesTarget",
+        "projectCategory": "projectCategory",
+        "localGov": "localGov",
         "client": "client",
-        "projectName": "projectname",
-        "projectAmount": "projectamount",
-        "completionPeriod": "completionperiod",
+        "projectName": "projectName",
+        "projectAmount": "projectAmount",
+        "completionPeriod": "completionPeriod",
         "manager": "manager",
         "note": "note",
-        "createdAt": "createdat",
-        "updatedAt": "updatedat",
+        "createdAt": "createdAt",
+        "updatedAt": "updatedAt",
     },
     "excluded_projects_rows": {
         "orderNo": "orderNo",

@@ -1499,6 +1499,9 @@ function App() {
   /** 계약 셀 편집: UI 행 키(rowKey) + 컬럼 + PATCH용 serverRowId(행의 서버 PK) */
   const [contractEdit, setContractEdit] = useState(null)
   const [contractEditDraft, setContractEditDraft] = useState('')
+  /** 영업·본예산·건축·사업검색이력·문서 — 계약현황과 동일한 셀 단위 인라인 편집 */
+  const [registryCellEdit, setRegistryCellEdit] = useState(null)
+  const [registryCellEditDraft, setRegistryCellEditDraft] = useState('')
   /** { title, message, payloadIds?: string[], onConfirm?: () => void } */
   const [contractConfirmDialog, setContractConfirmDialog] = useState(null)
   const [calendarCursor, setCalendarCursor] = useState(() => {
@@ -1535,6 +1538,8 @@ function App() {
   const registryUploadInProgressRef = useRef(false)
   const contractEditRef = useRef(null)
   const contractEditDraftRef = useRef('')
+  const registryCellEditRef = useRef(null)
+  const registryCellEditDraftRef = useRef('')
 
   useEffect(() => {
     contractEditRef.current = contractEdit
@@ -1543,6 +1548,14 @@ function App() {
   useEffect(() => {
     contractEditDraftRef.current = contractEditDraft
   }, [contractEditDraft])
+
+  useEffect(() => {
+    registryCellEditRef.current = registryCellEdit
+  }, [registryCellEdit])
+
+  useEffect(() => {
+    registryCellEditDraftRef.current = registryCellEditDraft
+  }, [registryCellEditDraft])
 
   const fetchContracts = async () => {
     try {
@@ -1685,7 +1698,7 @@ function App() {
 
   useEffect(() => {
     if (!isAppAuthenticated || menu !== 'workReports') return
-    void fetchWorkReportRows(true)
+    void fetchWorkReportRows()
   }, [isAppAuthenticated, menu])
 
   useEffect(() => {
@@ -1714,6 +1727,47 @@ function App() {
   }, [isAppAuthenticated, menu])
 
   useEffect(() => {
+    setRegistryCellEdit(null)
+    setRegistryCellEditDraft('')
+  }, [menu])
+
+  /** 다른 메뉴로 나갈 때 빈 신규 행(isDraft)·편집 모드만 정리 — 업로드/추가가 막히는 유령 상태 방지 */
+  useEffect(() => {
+    if (menu === 'documents') return
+    setEditingDocumentIds([])
+    setDocumentEditSnapshots({})
+    setDocuments((prev) => prev.filter((row) => !(row.isDraft && isDocumentRowEmpty(row))))
+  }, [menu])
+
+  useEffect(() => {
+    if (menu === 'sales') return
+    setEditingSalesIds([])
+    setSalesEditSnapshots({})
+    setSalesRows((prev) => prev.filter((row) => !(row.isDraft && isSalesRowEmpty(row))))
+  }, [menu])
+
+  useEffect(() => {
+    if (menu === 'budget') return
+    setEditingBudgetIds([])
+    setBudgetEditSnapshots({})
+    setBudgetRows((prev) => prev.filter((row) => !(row.isDraft && isBudgetRowEmpty(row))))
+  }, [menu])
+
+  useEffect(() => {
+    if (menu === 'discovery') return
+    setEditingDiscoveryIds([])
+    setDiscoveryEditSnapshots({})
+    setDiscoveryRows((prev) => prev.filter((row) => !(row.isDraft && isDiscoveryRowEmpty(row))))
+  }, [menu])
+
+  useEffect(() => {
+    if (menu === 'excluded') return
+    setEditingExcludedIds([])
+    setExcludedEditSnapshots({})
+    setExcludedRows((prev) => prev.filter((row) => !(row.isDraft && isExcludedRowEmpty(row))))
+  }, [menu])
+
+  useEffect(() => {
     if (!isAppAuthenticated || menu !== 'dashboard') return
     void fetchContracts()
     void fetchDocuments(false)
@@ -1721,7 +1775,7 @@ function App() {
     void fetchBudgetRows(false)
     void fetchDiscoveryRows(false)
     void fetchExcludedRows(false)
-    void fetchWorkReportRows(false)
+    void fetchWorkReportRows()
   }, [isAppAuthenticated, menu])
 
   useEffect(() => {
@@ -2611,10 +2665,6 @@ function App() {
   }
 
   const handleAddDocumentRow = () => {
-    if (documents.some((row) => row.isDraft)) {
-      setToastMessage('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
-      return
-    }
     setDocuments((prev) => [...prev, createDocumentDraftRow()])
     setSelectedDocumentIds([])
   }
@@ -2635,10 +2685,6 @@ function App() {
   const startDocumentEdit = (rowId) => {
     const targetRow = documents.find((row) => row.id === rowId)
     if (!targetRow || targetRow.isDraft) return
-    if (documents.some((row) => row.isDraft) || (editingDocumentIds.length > 0 && !editingDocumentIds.includes(rowId))) {
-      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
-      return
-    }
 
     setDocumentEditSnapshots((prev) =>
       prev[rowId]
@@ -2844,10 +2890,6 @@ function App() {
   }
 
   const handleAddSalesRow = () => {
-    if (salesRows.some((row) => row.isDraft)) {
-      setToastMessage('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
-      return
-    }
     setSalesRows((prev) => [...prev, createSalesDraftRow()])
     setSelectedSalesIds([])
   }
@@ -2868,10 +2910,6 @@ function App() {
   const startSalesEdit = (rowId) => {
     const targetRow = salesRows.find((row) => row.id === rowId)
     if (!targetRow || targetRow.isDraft) return
-    if (salesRows.some((row) => row.isDraft) || (editingSalesIds.length > 0 && !editingSalesIds.includes(rowId))) {
-      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
-      return
-    }
 
     setSalesEditSnapshots((prev) =>
       prev[rowId]
@@ -3080,10 +3118,6 @@ function App() {
   }
 
   const handleAddBudgetRow = () => {
-    if (budgetRows.some((row) => row.isDraft)) {
-      setToastMessage('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
-      return
-    }
     setBudgetRows((prev) => [...prev, createBudgetDraftRow()])
     setSelectedBudgetIds([])
   }
@@ -3104,10 +3138,6 @@ function App() {
   const startBudgetEdit = (rowId) => {
     const targetRow = budgetRows.find((row) => row.id === rowId)
     if (!targetRow || targetRow.isDraft) return
-    if (budgetRows.some((row) => row.isDraft) || (editingBudgetIds.length > 0 && !editingBudgetIds.includes(rowId))) {
-      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
-      return
-    }
 
     setBudgetEditSnapshots((prev) =>
       prev[rowId]
@@ -3316,10 +3346,6 @@ function App() {
   }
 
   const handleAddDiscoveryRow = () => {
-    if (discoveryRows.some((row) => row.isDraft)) {
-      setToastMessage('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
-      return
-    }
     setDiscoveryRows((prev) => [...prev, createDiscoveryDraftRow()])
     setSelectedDiscoveryIds([])
   }
@@ -3340,13 +3366,6 @@ function App() {
   const startDiscoveryEdit = (rowId) => {
     const targetRow = discoveryRows.find((row) => row.id === rowId)
     if (!targetRow || targetRow.isDraft) return
-    if (
-      discoveryRows.some((row) => row.isDraft) ||
-      (editingDiscoveryIds.length > 0 && !editingDiscoveryIds.includes(rowId))
-    ) {
-      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
-      return
-    }
 
     setDiscoveryEditSnapshots((prev) =>
       prev[rowId]
@@ -3555,10 +3574,6 @@ function App() {
   }
 
   const handleAddExcludedRow = () => {
-    if (excludedRows.some((row) => row.isDraft)) {
-      setToastMessage('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
-      return
-    }
     setExcludedRows((prev) => [...prev, createExcludedDraftRow()])
     setSelectedExcludedIds([])
   }
@@ -3579,13 +3594,6 @@ function App() {
   const startExcludedEdit = (rowId) => {
     const targetRow = excludedRows.find((row) => row.id === rowId)
     if (!targetRow || targetRow.isDraft) return
-    if (
-      excludedRows.some((row) => row.isDraft) ||
-      (editingExcludedIds.length > 0 && !editingExcludedIds.includes(rowId))
-    ) {
-      alert('현재 편집 중인 행을 먼저 저장하거나 취소해주세요.')
-      return
-    }
 
     setExcludedEditSnapshots((prev) =>
       prev[rowId]
@@ -4059,39 +4067,6 @@ function App() {
     }
   })
 
-  const deleteAllRegistryRows = async ({
-    fetchRows,
-    clearDraftRows,
-    clearEditingIds,
-    clearSnapshots,
-    clearSelectedIds,
-    deleteAllRows,
-  }) => {
-    if (!isAdmin) return
-
-    const firstConfirm = window.confirm(
-      '현재 메뉴의 모든 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.'
-    )
-    if (!firstConfirm) return
-
-    const secondConfirm = window.confirm('정말 전체 삭제하시겠습니까?')
-    if (!secondConfirm) return
-
-    try {
-      await deleteAllRows()
-    } catch (error) {
-      logApiOperationError('전체 데이터 삭제', error)
-      return
-    }
-
-    clearDraftRows()
-    clearEditingIds()
-    clearSnapshots()
-    clearSelectedIds()
-    await fetchRows(false)
-    alert('전체 데이터가 삭제되었습니다.')
-  }
-
   const trackWorkWeek = (weekStartDate) => {
     const normalized = buildWorkReportWeekMeta(weekStartDate).weekStartDate
     setGeneratedWorkWeeks((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]))
@@ -4173,7 +4148,7 @@ function App() {
           logApiOperationError('일일/주간업무보고서 삭제', error)
           return
         }
-        await fetchWorkReportRows(false)
+        await fetchWorkReportRows()
       }
       cancelWorkReportEdit()
       return
@@ -4193,7 +4168,7 @@ function App() {
         await weeklyWorkReportsApi.update(targetRow.id, toWorkReportPayload(targetRow, timestamp))
       }
 
-      await fetchWorkReportRows(false)
+      await fetchWorkReportRows()
       trackWorkWeek(targetRow.date)
       cancelWorkReportEdit()
     } catch (error) {
@@ -4356,7 +4331,7 @@ function App() {
           logApiOperationError('일일/주간업무보고서 삭제', error)
           return
         }
-        await fetchWorkReportRows(false)
+        await fetchWorkReportRows()
       }
 
       setWorkReportDrafts((prev) => removeObjectKey(prev, cellKey))
@@ -4377,7 +4352,7 @@ function App() {
         await weeklyWorkReportsApi.update(targetRow.id, toWorkReportPayload(targetRow, timestamp, true))
       }
 
-      await fetchWorkReportRows(false)
+      await fetchWorkReportRows()
       trackWorkWeek(targetRow.date)
       setWorkReportDrafts((prev) => removeObjectKey(prev, cellKey))
     } catch (error) {
@@ -4979,6 +4954,245 @@ function App() {
     </div>
   )
 
+  const getRegistryColumnsByScope = (scope) => {
+    switch (scope) {
+      case 'sales':
+        return SALES_COLUMNS
+      case 'budget':
+        return BUDGET_COLUMNS
+      case 'discovery':
+        return DISCOVERY_COLUMNS
+      case 'excluded':
+        return EXCLUDED_COLUMNS
+      case 'documents':
+        return DOCUMENT_COLUMNS
+      default:
+        return []
+    }
+  }
+
+  const buildRegistryCellApiPatch = (column, draftStr) => {
+    if (column.type === 'amount') {
+      return { [column.key]: parseAmount(draftStr) }
+    }
+    if (column.type === 'date') {
+      return { [column.key]: toDbDate(draftStr) }
+    }
+    return { [column.key]: safeString(draftStr ?? '').trim() }
+  }
+
+  const cancelRegistryCellEdit = () => {
+    setRegistryCellEdit(null)
+    setRegistryCellEditDraft('')
+  }
+
+  const startRegistryCellEdit = (scope, rowId, columnKey, value, row) => {
+    if (!isAdmin) return
+    if (!row || row.isDraft) return
+    const columns = getRegistryColumnsByScope(scope)
+    const col = columns.find((c) => c.key === columnKey)
+    if (!col) return
+
+    setRegistryCellEdit({ scope, rowId, columnKey })
+    if (col.type === 'amount') {
+      setRegistryCellEditDraft(normalizeAmountValue(value))
+      return
+    }
+    setRegistryCellEditDraft(safeString(value ?? ''))
+  }
+
+  const saveRegistryCellEdit = async () => {
+    const snap = registryCellEditRef.current
+    const draft = registryCellEditDraftRef.current
+    if (!snap?.scope || !snap.rowId || !snap.columnKey) return
+
+    const columns = getRegistryColumnsByScope(snap.scope)
+    const colDef = columns.find((c) => c.key === snap.columnKey)
+    if (!colDef) return
+
+    let rows
+    switch (snap.scope) {
+      case 'sales':
+        rows = salesRows
+        break
+      case 'budget':
+        rows = budgetRows
+        break
+      case 'discovery':
+        rows = discoveryRows
+        break
+      case 'excluded':
+        rows = excludedRows
+        break
+      case 'documents':
+        rows = documents
+        break
+      default:
+        return
+    }
+
+    const targetRow = rows.find((r) => r.id === snap.rowId)
+    if (!targetRow || targetRow.isDraft) {
+      cancelRegistryCellEdit()
+      return
+    }
+
+    const patch = buildRegistryCellApiPatch(colDef, draft)
+    const patchValue = patch[snap.columnKey]
+    const prevVal = targetRow[snap.columnKey]
+    const sameAmount =
+      colDef.type === 'amount' &&
+      parseAmount(String(prevVal ?? '')) === parseAmount(String(draft ?? ''))
+    const sameText =
+      colDef.type !== 'amount' &&
+      safeString(prevVal ?? '').trim() === safeString(patchValue ?? '').trim()
+    if (sameAmount || sameText) {
+      cancelRegistryCellEdit()
+      return
+    }
+
+    try {
+      switch (snap.scope) {
+        case 'sales':
+          await salesRegisterApi.update(snap.rowId, patch)
+          await fetchSalesRows(false)
+          break
+        case 'budget':
+          await budgetProgressApi.update(snap.rowId, patch)
+          await fetchBudgetRows(false)
+          break
+        case 'discovery':
+          await projectDiscoveryApi.update(snap.rowId, patch)
+          await fetchDiscoveryRows(false)
+          break
+        case 'excluded':
+          await excludedProjectsApi.update(snap.rowId, patch)
+          await fetchExcludedRows(false)
+          break
+        case 'documents':
+          await documentRegisterApi.update(snap.rowId, patch)
+          await fetchDocuments(false)
+          break
+        default:
+          return
+      }
+    } catch (error) {
+      const label =
+        snap.scope === 'sales'
+          ? '영업관리대장'
+          : snap.scope === 'budget'
+            ? '본예산 진행정보'
+            : snap.scope === 'discovery'
+              ? '건축정보'
+              : snap.scope === 'excluded'
+                ? '사업검색이력'
+                : '문서수발신대장'
+      logApiOperationError(`${label} 셀 저장`, error)
+      setToastMessage(`저장에 실패했습니다. ${safeString(error?.message)}`)
+      return
+    }
+
+    if (
+      registryCellEditRef.current?.scope === snap.scope &&
+      registryCellEditRef.current?.rowId === snap.rowId &&
+      registryCellEditRef.current?.columnKey === snap.columnKey
+    ) {
+      cancelRegistryCellEdit()
+    }
+  }
+
+  const moveRegistryCellEdit = (direction) => {
+    const snap = registryCellEditRef.current
+    if (!snap?.scope) return
+    const columns = getRegistryColumnsByScope(snap.scope)
+    const idx = columns.findIndex((c) => c.key === snap.columnKey)
+    const nextIdx = direction === 'prev' ? idx - 1 : idx + 1
+    if (nextIdx < 0 || nextIdx >= columns.length) return
+    const nextCol = columns[nextIdx]
+    let rows
+    switch (snap.scope) {
+      case 'sales':
+        rows = salesRows
+        break
+      case 'budget':
+        rows = budgetRows
+        break
+      case 'discovery':
+        rows = discoveryRows
+        break
+      case 'excluded':
+        rows = excludedRows
+        break
+      case 'documents':
+        rows = documents
+        break
+      default:
+        return
+    }
+    const row = rows.find((r) => r.id === snap.rowId)
+    if (!row) return
+    setRegistryCellEdit({ ...snap, columnKey: nextCol.key })
+    if (nextCol.type === 'amount') {
+      setRegistryCellEditDraft(normalizeAmountValue(row[nextCol.key]))
+    } else {
+      setRegistryCellEditDraft(safeString(row[nextCol.key] ?? ''))
+    }
+  }
+
+  const renderRegistryCellInlineEditor = (column) => {
+    const commonProps = {
+      className: `cell-inline-editor ${column.align === 'right' ? 'align-right' : ''}`,
+      value: registryCellEditDraft,
+      autoFocus: true,
+      onChange: (e) => {
+        const value = column.type === 'amount' ? normalizeAmountValue(e.target.value) : e.target.value
+        setRegistryCellEditDraft(value)
+      },
+      onBlur: () => {
+        void saveRegistryCellEdit()
+      },
+      onKeyDown: (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          cancelRegistryCellEdit()
+          return
+        }
+        if (e.key === 'Tab') {
+          e.preventDefault()
+          moveRegistryCellEdit(e.shiftKey ? 'prev' : 'next')
+          return
+        }
+        if (column.type === 'textarea' && e.shiftKey && e.key === 'Enter') {
+          return
+        }
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault()
+          void saveRegistryCellEdit()
+        }
+      },
+    }
+
+    if (column.type === 'date') {
+      return <input {...commonProps} type="date" />
+    }
+    if (column.type === 'textarea') {
+      return <textarea {...commonProps} rows={2} />
+    }
+    if (column.type === 'select') {
+      return (
+        <select {...commonProps}>
+          <option value="">선택</option>
+          {column.options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      )
+    }
+    return <input {...commonProps} type="text" />
+  }
+
   const handleRegistryEditorKeyDown = async (e, column, onSave, onCancel) => {
     if (e.key === 'Escape') {
       e.preventDefault()
@@ -5078,16 +5292,22 @@ function App() {
     isEmptyRow,
     selectedIds,
     onToggleSelection,
+    cellEditScope = null,
+    isAdminForRegistry = false,
+    registryCellEdit: registryCellEditProp = null,
+    onRegistryCellStart = null,
   }) => {
-    const isEditing = row.isDraft || editingIds.includes(row.id)
+    const useCellMode = Boolean(cellEditScope && onRegistryCellStart)
+    const isRowLegacyEditing = !useCellMode && (row.isDraft || editingIds.includes(row.id))
+    const showDraftOrLegacyRow = row.isDraft || isRowLegacyEditing
 
     return (
       <tr
         key={row.id}
         className={index % 2 === 0 ? 'row-even' : 'row-odd'}
-        onBlur={(e) =>
-          isEditing
-            ? handleRegistryRowBlur(e, row, isSaving, onSaveRow, onCancelRow, isEmptyRow)
+        onBlur={
+          row.isDraft && showDraftOrLegacyRow
+            ? (e) => handleRegistryRowBlur(e, row, isSaving, onSaveRow, onCancelRow, isEmptyRow)
             : undefined
         }
       >
@@ -5100,40 +5320,61 @@ function App() {
           />
         </td>
 
-        {columns.map((column) => (
-          <td
-            key={column.key}
-            className={`${
-              column.align === 'right'
-                ? 'td-align-right'
-                : column.align === 'left'
-                ? 'td-align-left'
-                : 'td-align-center'
-            } ${column.type === 'textarea' ? 'multiline-cell' : ''}`}
-            style={{ width: column.width }}
-            onClick={() => {
-              if (!isEditing && !row.isDraft) {
-                onStartEdit()
-              }
-            }}
-          >
-            {isEditing ? (
-              renderRegistryEditor(row, column, onChange, {
-                onSave: onSaveRow,
-                onCancel: onCancelRow,
-              })
-            ) : (
-              <div
-                className="cell-display"
-                style={{
-                  whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
-                }}
-              >
-                {getRegistryPlainDisplayValue(row, column)}
-              </div>
-            )}
-          </td>
-        ))}
+        {columns.map((column) => {
+          const isThisCell =
+            useCellMode &&
+            !row.isDraft &&
+            registryCellEditProp?.scope === cellEditScope &&
+            registryCellEditProp.rowId === row.id &&
+            registryCellEditProp.columnKey === column.key
+          const showInput = showDraftOrLegacyRow || isThisCell
+          return (
+            <td
+              key={column.key}
+              className={`${
+                column.align === 'right'
+                  ? 'td-align-right'
+                  : column.align === 'left'
+                    ? 'td-align-left'
+                    : 'td-align-center'
+              } ${column.type === 'textarea' ? 'multiline-cell' : ''} ${
+                isAdminForRegistry && !row.isDraft ? 'editable-cell' : ''
+              }`}
+              style={{ width: column.width }}
+              onClick={() => {
+                if (!isAdminForRegistry) return
+                if (row.isDraft) return
+                if (useCellMode && onRegistryCellStart) {
+                  onRegistryCellStart(row.id, column.key, row[column.key], row)
+                  return
+                }
+                if (!showInput) {
+                  onStartEdit()
+                }
+              }}
+            >
+              {showInput ? (
+                isThisCell ? (
+                  renderRegistryCellInlineEditor(column)
+                ) : (
+                  renderRegistryEditor(row, column, onChange, {
+                    onSave: onSaveRow,
+                    onCancel: onCancelRow,
+                  })
+                )
+              ) : (
+                <div
+                  className="cell-display"
+                  style={{
+                    whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
+                  }}
+                >
+                  {getRegistryPlainDisplayValue(row, column)}
+                </div>
+              )}
+            </td>
+          )
+        })}
       </tr>
     )
   }
@@ -5195,6 +5436,10 @@ function App() {
     isEmptyRow,
     isYearOpen,
     onToggleYear,
+    cellEditScope = null,
+    isAdminForRegistry = false,
+    registryCellEdit: registryCellEditGrouped = null,
+    onRegistryCellStart = null,
   }) => {
     if (groups.length === 0) {
       return (
@@ -5244,6 +5489,10 @@ function App() {
             isEmptyRow,
             selectedIds,
             onToggleSelection,
+            cellEditScope,
+            isAdminForRegistry,
+            registryCellEdit: registryCellEditGrouped,
+            onRegistryCellStart,
           })
         ),
       ]
@@ -7335,24 +7584,6 @@ function App() {
               >
                 선택 삭제
               </button>
-              {isAdmin && (
-                <button
-                  className="secondary-btn danger-btn"
-                  type="button"
-                  onClick={() =>
-                    deleteAllRegistryRows({
-                      fetchRows: fetchSalesRows,
-                      clearDraftRows: () => setSalesRows([]),
-                      clearEditingIds: () => setEditingSalesIds([]),
-                      clearSnapshots: () => setSalesEditSnapshots({}),
-                      clearSelectedIds: () => setSelectedSalesIds([]),
-                      deleteAllRows: salesRegisterApi.removeAll,
-                    })
-                  }
-                >
-                  전체 삭제
-                </button>
-              )}
               <select
                 className="contract-filter-select"
                 value={salesFilters.projectCategory}
@@ -7453,7 +7684,7 @@ function App() {
                       emptyMessage: '등록된 데이터가 없습니다.',
                       selectedIds: selectedSalesIds,
                       onToggleSelection: toggleSalesSelection,
-                      editingIds: editingSalesIds,
+                      editingIds: [],
                       isSaving: isSavingSales,
                       onStartEdit: startSalesEdit,
                       onSaveRow: saveSalesRow,
@@ -7462,6 +7693,11 @@ function App() {
                       isEmptyRow: isSalesRowEmpty,
                       isYearOpen: isSalesYearOpen,
                       onToggleYear: toggleSalesYear,
+                      cellEditScope: 'sales',
+                      isAdminForRegistry: isAdmin,
+                      registryCellEdit,
+                      onRegistryCellStart: (rowId, columnKey, value, row) =>
+                        startRegistryCellEdit('sales', rowId, columnKey, value, row),
                     })}
                   </tbody>
                 </table>
@@ -7487,24 +7723,6 @@ function App() {
               >
                 선택 삭제
               </button>
-              {isAdmin && (
-                <button
-                  className="secondary-btn danger-btn"
-                  type="button"
-                  onClick={() =>
-                    deleteAllRegistryRows({
-                      fetchRows: fetchBudgetRows,
-                      clearDraftRows: () => setBudgetRows([]),
-                      clearEditingIds: () => setEditingBudgetIds([]),
-                      clearSnapshots: () => setBudgetEditSnapshots({}),
-                      clearSelectedIds: () => setSelectedBudgetIds([]),
-                      deleteAllRows: budgetProgressApi.removeAll,
-                    })
-                  }
-                >
-                  전체 삭제
-                </button>
-              )}
               <select
                 className="contract-filter-select"
                 value={budgetFilters.manager}
@@ -7590,7 +7808,7 @@ function App() {
                       emptyMessage: '등록된 데이터가 없습니다.',
                       selectedIds: selectedBudgetIds,
                       onToggleSelection: toggleBudgetSelection,
-                      editingIds: editingBudgetIds,
+                      editingIds: [],
                       isSaving: isSavingBudget,
                       onStartEdit: startBudgetEdit,
                       onSaveRow: saveBudgetRow,
@@ -7599,6 +7817,11 @@ function App() {
                       isEmptyRow: isBudgetRowEmpty,
                       isYearOpen: isBudgetYearOpen,
                       onToggleYear: toggleBudgetYear,
+                      cellEditScope: 'budget',
+                      isAdminForRegistry: isAdmin,
+                      registryCellEdit,
+                      onRegistryCellStart: (rowId, columnKey, value, row) =>
+                        startRegistryCellEdit('budget', rowId, columnKey, value, row),
                     })}
                   </tbody>
                 </table>
@@ -7624,24 +7847,6 @@ function App() {
               >
                 선택 삭제
               </button>
-              {isAdmin && (
-                <button
-                  className="secondary-btn danger-btn"
-                  type="button"
-                  onClick={() =>
-                    deleteAllRegistryRows({
-                      fetchRows: fetchDiscoveryRows,
-                      clearDraftRows: () => setDiscoveryRows([]),
-                      clearEditingIds: () => setEditingDiscoveryIds([]),
-                      clearSnapshots: () => setDiscoveryEditSnapshots({}),
-                      clearSelectedIds: () => setSelectedDiscoveryIds([]),
-                      deleteAllRows: projectDiscoveryApi.removeAll,
-                    })
-                  }
-                >
-                  전체 삭제
-                </button>
-              )}
               <select
                 className="contract-filter-select"
                 value={discoveryFilters.projectCategory}
@@ -7729,7 +7934,7 @@ function App() {
                       emptyMessage: '등록된 데이터가 없습니다.',
                       selectedIds: selectedDiscoveryIds,
                       onToggleSelection: toggleDiscoverySelection,
-                      editingIds: editingDiscoveryIds,
+                      editingIds: [],
                       isSaving: isSavingDiscovery,
                       onStartEdit: startDiscoveryEdit,
                       onSaveRow: saveDiscoveryRow,
@@ -7738,6 +7943,11 @@ function App() {
                       isEmptyRow: isDiscoveryRowEmpty,
                       isYearOpen: isDiscoveryYearOpen,
                       onToggleYear: toggleDiscoveryYear,
+                      cellEditScope: 'discovery',
+                      isAdminForRegistry: isAdmin,
+                      registryCellEdit,
+                      onRegistryCellStart: (rowId, columnKey, value, row) =>
+                        startRegistryCellEdit('discovery', rowId, columnKey, value, row),
                     })}
                   </tbody>
                 </table>
@@ -7791,24 +8001,6 @@ function App() {
               >
                 선택 삭제
               </button>
-              {isAdmin && (
-                <button
-                  className="secondary-btn danger-btn"
-                  type="button"
-                  onClick={() =>
-                    deleteAllRegistryRows({
-                      fetchRows: fetchExcludedRows,
-                      clearDraftRows: () => setExcludedRows([]),
-                      clearEditingIds: () => setEditingExcludedIds([]),
-                      clearSnapshots: () => setExcludedEditSnapshots({}),
-                      clearSelectedIds: () => setSelectedExcludedIds([]),
-                      deleteAllRows: excludedProjectsApi.removeAll,
-                    })
-                  }
-                >
-                  전체 삭제
-                </button>
-              )}
               <select
                 className="contract-filter-select"
                 value={excludedFilters.category}
@@ -7892,7 +8084,7 @@ function App() {
                       emptyMessage: '등록된 데이터가 없습니다.',
                       selectedIds: selectedExcludedIds,
                       onToggleSelection: toggleExcludedSelection,
-                      editingIds: editingExcludedIds,
+                      editingIds: [],
                       isSaving: isSavingExcluded,
                       onStartEdit: startExcludedEdit,
                       onSaveRow: saveExcludedRow,
@@ -7901,6 +8093,11 @@ function App() {
                       isEmptyRow: isExcludedRowEmpty,
                       isYearOpen: isExcludedYearOpen,
                       onToggleYear: toggleExcludedYear,
+                      cellEditScope: 'excluded',
+                      isAdminForRegistry: isAdmin,
+                      registryCellEdit,
+                      onRegistryCellStart: (rowId, columnKey, value, row) =>
+                        startRegistryCellEdit('excluded', rowId, columnKey, value, row),
                     })}
                   </tbody>
                 </table>
@@ -7975,24 +8172,6 @@ function App() {
               >
                 선택 삭제
               </button>
-              {isAdmin && (
-                <button
-                  className="secondary-btn danger-btn"
-                  type="button"
-                  onClick={() =>
-                    deleteAllRegistryRows({
-                      fetchRows: fetchDocuments,
-                      clearDraftRows: () => setDocuments([]),
-                      clearEditingIds: () => setEditingDocumentIds([]),
-                      clearSnapshots: () => setDocumentEditSnapshots({}),
-                      clearSelectedIds: () => setSelectedDocumentIds([]),
-                      deleteAllRows: documentRegisterApi.removeAll,
-                    })
-                  }
-                >
-                  전체 삭제
-                </button>
-              )}
               <button className="secondary-btn" type="button" onClick={handleDocumentExcelDownload}>
                 엑셀 다운로드
               </button>
@@ -8050,7 +8229,7 @@ function App() {
                       emptyMessage: '등록된 데이터가 없습니다.',
                       selectedIds: selectedDocumentIds,
                       onToggleSelection: toggleDocumentSelection,
-                      editingIds: editingDocumentIds,
+                      editingIds: [],
                       isSaving: isSavingDocuments,
                       onStartEdit: startDocumentEdit,
                       onSaveRow: saveDocumentRow,
@@ -8059,6 +8238,11 @@ function App() {
                       isEmptyRow: isDocumentRowEmpty,
                       isYearOpen: isDocumentYearOpen,
                       onToggleYear: toggleDocumentYear,
+                      cellEditScope: 'documents',
+                      isAdminForRegistry: isAdmin,
+                      registryCellEdit,
+                      onRegistryCellStart: (rowId, columnKey, value, row) =>
+                        startRegistryCellEdit('documents', rowId, columnKey, value, row),
                     })}
                   </tbody>
                 </table>

@@ -32,6 +32,16 @@ function sanitizeApiBaseUrlForBrowser(candidate) {
 export const API_BASE_URL = (() => {
   let candidate
 
+  /** 운영에서 contract 도메인만 쓰고 Nginx가 `/api` → 백엔드로 넘기면 브라우저 CORS 없음. `public/api-config.js`에서 설정. */
+  if (
+    typeof window !== 'undefined' &&
+    window.__CMS_FORCE_SAME_ORIGIN_API__ === true &&
+    import.meta.env.PROD &&
+    window.location?.origin
+  ) {
+    return trimTrailingSlash(window.location.origin)
+  }
+
   if (typeof window !== 'undefined') {
     const runtime = window.__CMS_API_BASE_URL__
     if (runtime != null && String(runtime).trim() !== '') {

@@ -18,9 +18,9 @@ from app.schemas import (
 router = APIRouter(prefix="/api/project-discovery", tags=["project-discovery"])
 
 RETURNING_COLUMNS = """
-  id, permitdate, checkstatus, salestarget, projectcategory,
-  localgov, client, projectname, projectamount, completionperiod,
-  manager, note, createdat, updatedat
+  id, "permitDate", "checkStatus", "salesTarget", "projectCategory",
+  "localGov", client, "projectName", "projectAmount", "completionPeriod",
+  manager, note, "createdAt", "updatedAt"
 """
 
 
@@ -36,8 +36,8 @@ def prepare_insert_values(row: ProjectDiscoveryCreate) -> dict:
     values = project_discovery_to_db_values(row)
     timestamp = now_text()
     values["id"] = str(uuid4())
-    values.setdefault("createdat", timestamp)
-    values.setdefault("updatedat", timestamp)
+    values.setdefault("createdAt", timestamp)
+    values.setdefault("updatedAt", timestamp)
     return values
 
 
@@ -65,7 +65,7 @@ def list_project_discovery_rows():
                 f"""
                 select {RETURNING_COLUMNS}
                 from project_discovery_rows
-                order by createdat asc nulls last, id asc nulls last
+                order by "createdAt" asc nulls last, id asc nulls last
                 """
             )
             return [row_to_project_discovery(row) for row in cursor.fetchall()]
@@ -88,7 +88,7 @@ def update_project_discovery_row(row_id: str, patch: ProjectDiscoveryPatch):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
 
     values["id"] = row_id
-    values["updatedat"] = now_text()
+    values["updatedAt"] = now_text()
     assignments = [
         f"{quote_identifier(column)} = %({column})s"
         for column in values.keys()
