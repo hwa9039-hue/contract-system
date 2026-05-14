@@ -7224,7 +7224,7 @@ function App() {
         )}
 
         {menu === 'contracts' && (
-          <section className="stat-card contracts-layout-stat-card">
+          <section className="stat-card">
             <div className="contracts-header-actions">
               {isAdmin && (
                 <>
