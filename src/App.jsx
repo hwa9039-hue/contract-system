@@ -1671,6 +1671,13 @@ function countDocumentsInboundOutbound(rows) {
   return { inbound, outbound }
 }
 
+function splitDashboardRecentTitleLabel(fullLabel) {
+  const s = safeString(fullLabel).trim()
+  const idx = s.indexOf(' (')
+  if (idx === -1) return { base: s, counts: '' }
+  return { base: s.slice(0, idx).trim(), counts: s.slice(idx).trim() }
+}
+
 function App() {
   const initialSharedAuth = readSharedAuthSession()
   const [contracts, setContracts] = useState([])
@@ -2394,7 +2401,6 @@ function App() {
       ],
     }
   }, [discoveryRows, documents, excludedRows, salesRows])
-  const defaultDashboardYear = dashboardSummary.years[0]?.year
   const currentRegistryYear = String(new Date().getFullYear())
   const defaultContractYear = groupedContracts.find((group) => group.year === currentRegistryYear)?.year ?? groupedContracts[0]?.year
   const defaultSalesYear = groupedSalesRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedSalesRows)
@@ -2403,9 +2409,7 @@ function App() {
   const defaultDocumentYear = groupedDocumentRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedDocumentRows)
 
   const isDashboardYearOpen = (year) =>
-    Object.prototype.hasOwnProperty.call(openDashboardYears, year)
-      ? openDashboardYears[year]
-      : year === defaultDashboardYear
+    Object.prototype.hasOwnProperty.call(openDashboardYears, year) ? openDashboardYears[year] : false
 
   const isContractYearOpen = (year) =>
     Object.prototype.hasOwnProperty.call(openContractYears, year)
@@ -6952,186 +6956,199 @@ function App() {
         )}
 
         {menu === 'dashboard' && (
-          <section className="stat-card">
-            <div className="integrated-dashboard">
-              <div className="dashboard-work-report-briefing">
-                <div className="dashboard-work-report-briefing-top">
-                  <div>
-                    <p className="dashboard-section-eyebrow">주간업무보고서</p>
-                    <h2 className="dashboard-work-report-briefing-title">오늘 업무 브리핑</h2>
-                    <p className="dashboard-work-report-briefing-meta">
-                      {dashboardTodayWorkBrief.todayYmd} · {getWorkReportWeekLabel(dashboardWorkReportWeekMeta.weekStartDate)}
+          <section className="stat-card stat-card--dashboard">
+            <div className="dashboard-stack">
+              <div className="dashboard-surface-card">
+                <div className="dashboard-work-report-briefing">
+                  <div className="dashboard-work-report-briefing-top">
+                    <div>
+                      <p className="dashboard-section-eyebrow">주간업무보고서</p>
+                      <h2 className="dashboard-work-report-briefing-title">오늘 업무 브리핑</h2>
+                      <p className="dashboard-work-report-briefing-meta">
+                        {dashboardTodayWorkBrief.todayYmd} ·{' '}
+                        {getWorkReportWeekLabel(dashboardWorkReportWeekMeta.weekStartDate)}
+                      </p>
+                    </div>
+                    <button
+                      className="primary-btn dashboard-work-report-briefing-cta"
+                      type="button"
+                      onClick={() => {
+                        trackWorkWeek(dashboardWorkReportWeekMeta.weekStartDate)
+                        setMenu('workReports')
+                      }}
+                    >
+                      주간업무보고서 열기
+                    </button>
+                  </div>
+
+                  {!dashboardTodayWorkBrief.hasChecklist && !dashboardTodayWorkBrief.hasExternal ? (
+                    <p className="dashboard-work-report-briefing-empty">
+                      오늘 등록된 주요 확인사항/외부일정이 없습니다.
                     </p>
-                  </div>
-                  <button
-                    className="primary-btn dashboard-work-report-briefing-cta"
-                    type="button"
-                    onClick={() => {
-                      trackWorkWeek(dashboardWorkReportWeekMeta.weekStartDate)
-                      setMenu('workReports')
-                    }}
-                  >
-                    주간업무보고서 열기
-                  </button>
-                </div>
-
-                {!dashboardTodayWorkBrief.hasChecklist && !dashboardTodayWorkBrief.hasExternal ? (
-                  <p className="dashboard-work-report-briefing-empty">
-                    오늘 등록된 주요 확인사항/외부일정이 없습니다.
-                  </p>
-                ) : (
-                  <div className="dashboard-work-report-briefing-split">
-                    <div className="dashboard-work-report-briefing-col">
-                      <h3 className="dashboard-work-report-briefing-col-title">주요 확인사항</h3>
-                      {dashboardTodayWorkBrief.hasChecklist ? (
-                        <div className="dashboard-work-report-briefing-checklist">
-                          {dashboardTodayWorkBrief.checklistText}
-                        </div>
-                      ) : (
-                        <p className="dashboard-work-report-briefing-col-empty">등록된 주요 확인사항이 없습니다.</p>
-                      )}
-                    </div>
-                    <div className="dashboard-work-report-briefing-col">
-                      <h3 className="dashboard-work-report-briefing-col-title">외부일정</h3>
-                      {dashboardTodayWorkBrief.hasExternal ? (
-                        <ul className="dashboard-work-report-briefing-external-list">
-                          {dashboardTodayWorkBrief.externalRows.map((row, idx) => {
-                            const managers = safeString(row.user)
-                              .split(',')
-                              .map((s) => s.trim())
-                              .filter(Boolean)
-                            return (
-                              <li key={`ext-brief-${idx}`} className="dashboard-work-report-briefing-external-item">
-                                <div className="dashboard-work-report-briefing-external-managers">
-                                  {managers.length ? managers.join(', ') : '—'}
-                                </div>
-                                <div className="dashboard-work-report-briefing-external-content">
-                                  {row.content || '—'}
-                                </div>
-                              </li>
-                            )
-                          })}
-                        </ul>
-                      ) : (
-                        <p className="dashboard-work-report-briefing-col-empty">등록된 외부일정이 없습니다.</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="dashboard-panel">
-                <div className="dashboard-panel-header">
-                  <div>
-                    <p className="dashboard-section-eyebrow">최근 등록 내역</p>
-                  </div>
-                </div>
-
-                <div className="dashboard-recent-grid">
-                  {dashboardData.recentGroups.map((group) => (
-                    <div className="dashboard-recent-card" key={group.key}>
-                      <button
-                        className="dashboard-recent-title"
-                        type="button"
-                        onClick={() => setMenu(group.menu)}
-                      >
-                        {group.label}
-                      </button>
-
-                      <div className="dashboard-recent-list">
-                        {group.items.length > 0 ? (
-                          group.items.map((item) => (
-                            <button
-                              className="dashboard-recent-item"
-                              type="button"
-                              key={`${group.key}-${item.id || item.title}-${item.date}`}
-                              onClick={() => setMenu(group.menu)}
-                            >
-                              <span className="dashboard-recent-date">{item.date}</span>
-                              <span className="dashboard-recent-main">{item.title}</span>
-                              <span className="dashboard-recent-meta">{item.meta}</span>
-                            </button>
-                          ))
+                  ) : (
+                    <div className="dashboard-work-report-briefing-split">
+                      <div className="dashboard-work-report-briefing-col">
+                        <h3 className="dashboard-work-report-briefing-col-title">주요 확인사항</h3>
+                        {dashboardTodayWorkBrief.hasChecklist ? (
+                          <div className="dashboard-work-report-briefing-checklist">
+                            {dashboardTodayWorkBrief.checklistText}
+                          </div>
                         ) : (
-                          <div className="dashboard-recent-empty">등록 내역이 없습니다.</div>
+                          <p className="dashboard-work-report-briefing-col-empty">등록된 주요 확인사항이 없습니다.</p>
+                        )}
+                      </div>
+                      <div className="dashboard-work-report-briefing-col">
+                        <h3 className="dashboard-work-report-briefing-col-title">외부일정</h3>
+                        {dashboardTodayWorkBrief.hasExternal ? (
+                          <ul className="dashboard-work-report-briefing-external-list">
+                            {dashboardTodayWorkBrief.externalRows.map((row, idx) => {
+                              const managers = safeString(row.user)
+                                .split(',')
+                                .map((s) => s.trim())
+                                .filter(Boolean)
+                              return (
+                                <li key={`ext-brief-${idx}`} className="dashboard-work-report-briefing-external-item">
+                                  <div className="dashboard-work-report-briefing-external-managers">
+                                    {managers.length ? managers.join(', ') : '—'}
+                                  </div>
+                                  <div className="dashboard-work-report-briefing-external-content">
+                                    {row.content || '—'}
+                                  </div>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        ) : (
+                          <p className="dashboard-work-report-briefing-col-empty">등록된 외부일정이 없습니다.</p>
                         )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="dashboard-year-list">
-              <div className="dashboard-section-header legacy-contract-dashboard-title">
-                <div>
-                  <p className="dashboard-section-eyebrow">계약현황 상세</p>
-                  <h2>연도별 계약금액 현황</h2>
+                  )}
                 </div>
               </div>
 
-              {dashboardSummary.years.map((yearBlock) => {
-                const isCollapsed = !isDashboardYearOpen(yearBlock.year)
-
-                return (
-                  <section className="dashboard-year-accordion" key={yearBlock.year}>
-                    <div className="dashboard-year-summary">
-                      <div className="dashboard-year-title">
-                        <span>{yearBlock.year}년</span>
-                        <span className="dashboard-year-total">
-                          총 {yearBlock.totalAmount.toLocaleString('ko-KR')}원
-                        </span>
-                      </div>
-
-                      <button
-                        className="panel-toggle-btn"
-                        type="button"
-                        aria-label={`${yearBlock.year}년 ${isCollapsed ? '펼치기' : '접기'}`}
-                        onClick={() => toggleDashboardYear(yearBlock.year)}
-                      >
-                        {isCollapsed ? '+' : '-'}
-                      </button>
+              <div className="dashboard-surface-card">
+                <div className="dashboard-panel">
+                  <div className="dashboard-panel-header">
+                    <div>
+                      <p className="dashboard-section-eyebrow">최근 등록 내역</p>
                     </div>
+                  </div>
 
-                    {!isCollapsed && (
-                      <div className="dashboard-year-cards">
-                        {yearBlock.items.map((item) => (
-                          <div className="dashboard-year-card" key={`${yearBlock.year}-${item.name}`}>
-                            <div className="graph-card-title">{item.name}</div>
+                  <div className="dashboard-recent-grid">
+                    {dashboardData.recentGroups.map((group) => {
+                      const { base, counts } = splitDashboardRecentTitleLabel(group.label)
+                      return (
+                        <div className="dashboard-recent-card" key={group.key}>
+                          <button
+                            className="dashboard-recent-title"
+                            type="button"
+                            onClick={() => setMenu(group.menu)}
+                          >
+                            <span className="dashboard-recent-title-base">{base}</span>
+                            {counts ? (
+                              <span className="dashboard-recent-title-counts">{counts}</span>
+                            ) : null}
+                          </button>
 
-                            <div className="year-card-body">
-                              <div
-                                className="dashboard-donut"
-                                style={{ '--ratio': `${Math.min(item.ratio, 100)}%` }}
-                                aria-label={`${item.name} 비율 ${formatPercent(item.ratio)}`}
-                              >
-                                <span>{formatPercent(item.ratio)}</span>
-                              </div>
-
-                              <div className="year-card-metrics">
-                                <div className="year-card-metric">
-                                  <span className="year-card-label">계약</span>
-                                  <strong>{item.count.toLocaleString('ko-KR')}건</strong>
-                                </div>
-
-                                <div className="year-card-metric">
-                                  <span className="year-card-label">금액</span>
-                                  <strong>{item.amount.toLocaleString('ko-KR')}원</strong>
-                                </div>
-
-                                <div className="year-card-metric ratio">
-                                  <span className="year-card-label">비율</span>
-                                  <strong>{formatPercent(item.ratio)}</strong>
-                                </div>
-                              </div>
-                            </div>
+                          <div className="dashboard-recent-list">
+                            {group.items.length > 0 ? (
+                              group.items.map((item) => (
+                                <button
+                                  className="dashboard-recent-item"
+                                  type="button"
+                                  key={`${group.key}-${item.id || item.title}-${item.date}`}
+                                  onClick={() => setMenu(group.menu)}
+                                >
+                                  <span className="dashboard-recent-date">{item.date}</span>
+                                  <span className="dashboard-recent-main">{item.title}</span>
+                                  <span className="dashboard-recent-meta">{item.meta}</span>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="dashboard-recent-empty">등록 내역이 없습니다.</div>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </section>
-                )
-              })}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="dashboard-surface-card">
+                <div className="dashboard-year-list">
+                  <div className="dashboard-section-header legacy-contract-dashboard-title">
+                    <div>
+                      <p className="dashboard-section-eyebrow">계약현황 상세</p>
+                      <h2>연도별 계약금액 현황</h2>
+                    </div>
+                  </div>
+
+                  {dashboardSummary.years.map((yearBlock) => {
+                    const isCollapsed = !isDashboardYearOpen(yearBlock.year)
+
+                    return (
+                      <section className="dashboard-year-accordion" key={yearBlock.year}>
+                        <div className="dashboard-year-summary">
+                          <div className="dashboard-year-title">
+                            <span>{yearBlock.year}년</span>
+                            <span className="dashboard-year-total">
+                              총 {yearBlock.totalAmount.toLocaleString('ko-KR')}원
+                            </span>
+                          </div>
+
+                          <button
+                            className="panel-toggle-btn"
+                            type="button"
+                            aria-label={`${yearBlock.year}년 ${isCollapsed ? '펼치기' : '접기'}`}
+                            onClick={() => toggleDashboardYear(yearBlock.year)}
+                          >
+                            {isCollapsed ? '+' : '-'}
+                          </button>
+                        </div>
+
+                        {!isCollapsed && (
+                          <div className="dashboard-year-cards">
+                            {yearBlock.items.map((item) => (
+                              <div className="dashboard-year-card" key={`${yearBlock.year}-${item.name}`}>
+                                <div className="graph-card-title">{item.name}</div>
+
+                                <div className="year-card-body">
+                                  <div
+                                    className="dashboard-donut"
+                                    style={{ '--ratio': `${Math.min(item.ratio, 100)}%` }}
+                                    aria-label={`${item.name} 비율 ${formatPercent(item.ratio)}`}
+                                  >
+                                    <span>{formatPercent(item.ratio)}</span>
+                                  </div>
+
+                                  <div className="year-card-metrics">
+                                    <div className="year-card-metric">
+                                      <span className="year-card-label">계약</span>
+                                      <strong>{item.count.toLocaleString('ko-KR')}건</strong>
+                                    </div>
+
+                                    <div className="year-card-metric">
+                                      <span className="year-card-label">금액</span>
+                                      <strong>{item.amount.toLocaleString('ko-KR')}원</strong>
+                                    </div>
+
+                                    <div className="year-card-metric ratio">
+                                      <span className="year-card-label">비율</span>
+                                      <strong>{formatPercent(item.ratio)}</strong>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </section>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           </section>
         )}

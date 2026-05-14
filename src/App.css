@@ -1863,10 +1863,18 @@ textarea:focus-visible {
   overflow: auto;
 }
 
-.main-area > section.stat-card > .integrated-dashboard {
-  flex: 1 1 auto;
-  min-height: 0;
+.main-area > section.stat-card.stat-card--dashboard {
   overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+.main-area > section.stat-card.stat-card--dashboard > .dashboard-stack {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
 }
 
 .main-area > section.stat-card .work-report-summary-card,
@@ -1994,24 +2002,42 @@ textarea:focus-visible {
   overflow-y: auto;
 }
 
-.dashboard-year-list {
-  gap: 14px;
-}
-
-.integrated-dashboard {
+.dashboard-stack {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-bottom: 14px;
+}
+
+.dashboard-surface-card {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfcfe;
+  box-shadow: var(--shadow-sm);
+  box-sizing: border-box;
+  padding: 16px 18px;
+}
+
+.dashboard-surface-card > .dashboard-panel {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.dashboard-surface-card .dashboard-year-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .dashboard-work-report-briefing {
   width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: linear-gradient(180deg, #f8fbff 0%, #fbfcfe 100%);
-  box-shadow: var(--shadow-sm);
-  padding: 16px 18px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
   box-sizing: border-box;
 }
 
@@ -2343,13 +2369,27 @@ textarea:focus-visible {
   border-width: 0 0 1px;
   border-radius: 0;
   background: var(--accent-soft);
-  color: var(--accent-strong);
+  color: var(--ink);
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 700;
   text-align: left;
   padding: 8px 10px;
   line-height: 1.35;
   white-space: normal;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+}
+
+.dashboard-recent-title-base {
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.dashboard-recent-title-counts {
+  font-weight: 900;
+  color: #1d4ed8;
 }
 
 .dashboard-recent-list {
