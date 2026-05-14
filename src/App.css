@@ -2001,8 +2001,8 @@ textarea:focus-visible {
 .integrated-dashboard {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 14px;
 }
 
 .dashboard-work-report-briefing {
@@ -2339,13 +2339,17 @@ textarea:focus-visible {
 
 .dashboard-recent-title {
   width: 100%;
-  min-height: 40px;
+  min-height: 44px;
   border-width: 0 0 1px;
   border-radius: 0;
   background: var(--accent-soft);
   color: var(--accent-strong);
   font-size: 13px;
   font-weight: 900;
+  text-align: left;
+  padding: 8px 10px;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 .dashboard-recent-list {

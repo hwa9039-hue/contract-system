@@ -1643,6 +1643,34 @@ function getDashboardRecentItems(rows, config) {
     }))
 }
 
+/** 등록일이 이번 주(월요일~일요일, 로컬)에 포함되는 행 수 */
+function countRowsRegisteredInCurrentWeek(rows, dateKey) {
+  const monday = getWeekStartMonday(new Date())
+  const sunday = addDays(monday, 6)
+  const startYmd = formatDateInput(monday)
+  const endYmd = formatDateInput(sunday)
+  return rows.filter((row) => {
+    const parsed = parseDateOnly(row[dateKey])
+    if (!parsed) return false
+    const ymd = formatDateInput(parsed)
+    return ymd >= startYmd && ymd <= endYmd
+  }).length
+}
+
+/** 문서 접수·수신 vs 발송·발신 — 텍스트 필드에서 키워드 탐지(발신류 우선) */
+function countDocumentsInboundOutbound(rows) {
+  let inbound = 0
+  let outbound = 0
+  for (const row of rows) {
+    const hay = [row.method, row.title, row.note, row.senderReceiver, row.writer, row.docNo]
+      .map((v) => safeString(v))
+      .join('\n')
+    if (/(발신|발송)/.test(hay)) outbound += 1
+    else if (/(수신|접수)/.test(hay)) inbound += 1
+  }
+  return { inbound, outbound }
+}
+
 function App() {
   const initialSharedAuth = readSharedAuthSession()
   const [contracts, setContracts] = useState([])
@@ -2307,24 +2335,21 @@ function App() {
 
   const dashboardSummary = useMemo(() => buildDashboardSummary(contracts), [contracts])
   const dashboardData = useMemo(() => {
-    const persistedContracts = getPersistedRows(contracts)
     const persistedSalesRows = getPersistedRows(salesRows)
     const persistedDiscoveryRows = getPersistedRows(discoveryRows)
     const persistedExcludedRows = getPersistedRows(excludedRows)
     const persistedDocuments = getPersistedRows(documents)
+    const salesWeekCount = countRowsRegisteredInCurrentWeek(persistedSalesRows, 'registerDate')
+    const discoveryWeekCount = countRowsRegisteredInCurrentWeek(persistedDiscoveryRows, 'permitDate')
+    const excludedWeekCount = countRowsRegisteredInCurrentWeek(persistedExcludedRows, 'writeDate')
+    const { inbound: docInboundCount, outbound: docOutboundCount } =
+      countDocumentsInboundOutbound(persistedDocuments)
 
     return {
-      overview: [
-        { key: 'contracts', label: '계약현황', count: persistedContracts.length, menu: 'contracts' },
-        { key: 'sales', label: '영업관리대장', count: persistedSalesRows.length, menu: 'sales' },
-        { key: 'discovery', label: '건축정보', count: persistedDiscoveryRows.length, menu: 'discovery' },
-        { key: 'excluded', label: '사업검색이력', count: persistedExcludedRows.length, menu: 'excluded' },
-        { key: 'documents', label: '문서수발신대장', count: persistedDocuments.length, menu: 'documents' },
-      ],
       recentGroups: [
         {
           key: 'sales',
-          label: '영업관리대장',
+          label: `영업관리대장 (이번 주 ${salesWeekCount.toLocaleString('ko-KR')}건)`,
           menu: 'sales',
           items: getDashboardRecentItems(persistedSalesRows, {
             dateKey: 'registerDate',
@@ -2335,7 +2360,7 @@ function App() {
         },
         {
           key: 'discovery',
-          label: '건축정보',
+          label: `건축정보 (이번 주 ${discoveryWeekCount.toLocaleString('ko-KR')}건)`,
           menu: 'discovery',
           items: getDashboardRecentItems(persistedDiscoveryRows, {
             dateKey: 'permitDate',
@@ -2346,7 +2371,7 @@ function App() {
         },
         {
           key: 'excluded',
-          label: '사업검색이력',
+          label: `사업검색이력 (이번 주 ${excludedWeekCount.toLocaleString('ko-KR')}건)`,
           menu: 'excluded',
           items: getDashboardRecentItems(persistedExcludedRows, {
             dateKey: 'writeDate',
@@ -2357,7 +2382,7 @@ function App() {
         },
         {
           key: 'documents',
-          label: '문서수발신대장',
+          label: `문서수발신대장 (수신 ${docInboundCount.toLocaleString('ko-KR')}건 / 발신 ${docOutboundCount.toLocaleString('ko-KR')}건)`,
           menu: 'documents',
           items: getDashboardRecentItems(persistedDocuments, {
             dateKey: 'docDate',
@@ -2368,7 +2393,7 @@ function App() {
         },
       ],
     }
-  }, [contracts, discoveryRows, documents, excludedRows, salesRows])
+  }, [discoveryRows, documents, excludedRows, salesRows])
   const defaultDashboardYear = dashboardSummary.years[0]?.year
   const currentRegistryYear = String(new Date().getFullYear())
   const defaultContractYear = groupedContracts.find((group) => group.year === currentRegistryYear)?.year ?? groupedContracts[0]?.year
@@ -6993,20 +7018,6 @@ function App() {
                     </div>
                   </div>
                 )}
-              </div>
-
-              <div className="dashboard-overview-grid">
-                {dashboardData.overview.map((item) => (
-                  <button
-                    className="dashboard-overview-card"
-                    type="button"
-                    key={item.key}
-                    onClick={() => setMenu(item.menu)}
-                  >
-                    <span>{item.label}</span>
-                    <strong>{item.count.toLocaleString('ko-KR')}건</strong>
-                  </button>
-                ))}
               </div>
 
               <div className="dashboard-panel">
