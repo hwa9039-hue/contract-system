@@ -8476,9 +8476,19 @@ function App() {
                                   <div className="selected-event-title">
                                     {listDday ? `${listDday} | ` : ''}[{item.date}] {item.text}
                                   </div>
-                                  {item.owner && <div className="selected-event-memo">영업담당자: {item.owner}</div>}
-                                  {item.pm && <div className="selected-event-memo">현장 PM: {item.pm}</div>}
-                                  {item.note && <div className="selected-event-memo">{item.note}</div>}
+                                  <div className="selected-event-meta">
+                                    <div className="selected-event-memo-line">
+                                      영업담당자: {item.owner ? item.owner : '\u00a0'}
+                                    </div>
+                                    <div className="selected-event-memo-line">
+                                      현장 PM: {item.pm ? item.pm : '\u00a0'}
+                                    </div>
+                                  </div>
+                                  {item.note ? (
+                                    <div className="selected-event-note-snippet" title={item.note}>
+                                      {item.note}
+                                    </div>
+                                  ) : null}
                                 </div>
 
                                 {item.type === 'manual' && (
@@ -8652,7 +8662,7 @@ function App() {
               )}
 
               {detailModal.note && (
-                <div className="detail-item detail-item-full">
+                <div className="detail-item detail-item-full detail-item-note-row">
                   <span className="detail-label">비고</span>
                   <span className="detail-value prewrap">{detailModal.note}</span>
                 </div>
