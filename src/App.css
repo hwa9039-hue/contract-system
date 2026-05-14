@@ -5,7 +5,18 @@
   box-sizing: border-box;
 }
 
-html,
+/**
+ * 브라우저 배율 100%일 때 전체 UI를 약 85%로 보이게 함.
+ * (Chromium·Safari·Firefox 최근 버전에서 zoom 지원. 레이아웃·vh는 함께 축소됨.)
+ */
+html {
+  zoom: 0.85;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
 body,
 #root {
   margin: 0;
