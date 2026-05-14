@@ -4871,8 +4871,6 @@ function App() {
   }
 
   const addManualEvent = () => {
-    if (!requireAdmin()) return
-
     if (!eventForm.date || !eventForm.title.trim()) {
       alert('날짜와 일정 내용을 입력해주세요.')
       return
@@ -4891,8 +4889,6 @@ function App() {
   }
 
   const deleteManualEvent = (id) => {
-    if (!requireAdmin()) return
-
     const ok = window.confirm('이 일정을 삭제하시겠습니까?')
     if (!ok) return
 
@@ -5035,7 +5031,6 @@ function App() {
   }
 
   const startRegistryCellEdit = (scope, rowId, columnKey, value, row) => {
-    if (!isAdmin) return
     if (!row || row.isDraft) return
     const columns = getRegistryColumnsByScope(scope)
     const col = columns.find((c) => c.key === columnKey)
@@ -7771,7 +7766,7 @@ function App() {
                       isYearOpen: isSalesYearOpen,
                       onToggleYear: toggleSalesYear,
                       cellEditScope: 'sales',
-                      isAdminForRegistry: isAdmin,
+                      isAdminForRegistry: true,
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('sales', rowId, columnKey, value, row),
@@ -7895,7 +7890,7 @@ function App() {
                       isYearOpen: isBudgetYearOpen,
                       onToggleYear: toggleBudgetYear,
                       cellEditScope: 'budget',
-                      isAdminForRegistry: isAdmin,
+                      isAdminForRegistry: true,
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('budget', rowId, columnKey, value, row),
@@ -8021,7 +8016,7 @@ function App() {
                       isYearOpen: isDiscoveryYearOpen,
                       onToggleYear: toggleDiscoveryYear,
                       cellEditScope: 'discovery',
-                      isAdminForRegistry: isAdmin,
+                      isAdminForRegistry: true,
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('discovery', rowId, columnKey, value, row),
@@ -8171,7 +8166,7 @@ function App() {
                       isYearOpen: isExcludedYearOpen,
                       onToggleYear: toggleExcludedYear,
                       cellEditScope: 'excluded',
-                      isAdminForRegistry: isAdmin,
+                      isAdminForRegistry: true,
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('excluded', rowId, columnKey, value, row),
@@ -8316,7 +8311,7 @@ function App() {
                       isYearOpen: isDocumentYearOpen,
                       onToggleYear: toggleDocumentYear,
                       cellEditScope: 'documents',
-                      isAdminForRegistry: isAdmin,
+                      isAdminForRegistry: true,
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('documents', rowId, columnKey, value, row),
@@ -8349,37 +8344,31 @@ function App() {
                 </button>
               </div>
 
-              {isAdmin ? (
-                <div className="calendar-toolbar-form">
-                  <input
-                    type="date"
-                    className="calendar-input calendar-input-date"
-                    value={eventForm.date}
-                    onChange={(e) => setEventForm((prev) => ({ ...prev, date: e.target.value }))}
-                  />
-                  <input
-                    type="text"
-                    className="calendar-input calendar-input-title"
-                    placeholder="일정 내용"
-                    value={eventForm.title}
-                    onChange={(e) => setEventForm((prev) => ({ ...prev, title: e.target.value }))}
-                  />
-                  <input
-                    type="text"
-                    className="calendar-input calendar-input-owner"
-                    placeholder="담당자"
-                    value={eventForm.owner}
-                    onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
-                  />
-                  <button className="primary-btn calendar-add-btn" type="button" onClick={addManualEvent}>
-                    일정 추가
-                  </button>
-                </div>
-              ) : (
-                <div className="viewer-only-note calendar-toolbar-viewer">
-                  뷰어 모드에서는 일정을 조회할 수만 있습니다.
-                </div>
-              )}
+              <div className="calendar-toolbar-form">
+                <input
+                  type="date"
+                  className="calendar-input calendar-input-date"
+                  value={eventForm.date}
+                  onChange={(e) => setEventForm((prev) => ({ ...prev, date: e.target.value }))}
+                />
+                <input
+                  type="text"
+                  className="calendar-input calendar-input-title"
+                  placeholder="일정 내용"
+                  value={eventForm.title}
+                  onChange={(e) => setEventForm((prev) => ({ ...prev, title: e.target.value }))}
+                />
+                <input
+                  type="text"
+                  className="calendar-input calendar-input-owner"
+                  placeholder="담당자"
+                  value={eventForm.owner}
+                  onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
+                />
+                <button className="primary-btn calendar-add-btn" type="button" onClick={addManualEvent}>
+                  일정 추가
+                </button>
+              </div>
             </div>
 
             {!isCalendarGridCollapsed && (
@@ -8483,7 +8472,7 @@ function App() {
                             {item.note && <div className="selected-event-memo">{item.note}</div>}
                           </div>
 
-                          {isAdmin && item.type === 'manual' && (
+                          {item.type === 'manual' && (
                             <button
                               className="delete-btn"
                               type="button"
