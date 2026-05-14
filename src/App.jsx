@@ -7471,21 +7471,29 @@ function App() {
                     <div className="contracts-year-summary-compact-card" key={item.name}>
                       <div className="contracts-year-summary-compact-card-title">{item.name}</div>
                       <div className="contracts-year-summary-compact-card-body">
-                        <div
-                          className="contracts-year-summary-compact-donut"
-                          style={{ '--ratio': `${Math.min(item.ratio, 100)}%` }}
-                          aria-label={`${item.name} 비율 ${formatPercent(item.ratio)}`}
-                        >
-                          <span>{formatPercent(item.ratio)}</span>
+                        <div className="contracts-year-summary-compact-donut-wrap">
+                          <div
+                            className="contracts-year-summary-compact-donut"
+                            style={{ '--ratio': `${Math.min(item.ratio, 100)}%` }}
+                            aria-label={`${item.name} 비율 ${formatPercent(item.ratio)}`}
+                          >
+                            <span className="contracts-year-summary-compact-donut-pct">
+                              {formatPercent(item.ratio)}
+                            </span>
+                          </div>
                         </div>
                         <div className="contracts-year-summary-compact-metrics">
-                          <div>
+                          <div className="contracts-year-summary-compact-metric-row">
                             <span className="contracts-year-summary-metric-label">계약</span>
-                            <strong>{item.count.toLocaleString('ko-KR')}건</strong>
+                            <strong className="contracts-year-summary-metric-value">
+                              {item.count.toLocaleString('ko-KR')}건
+                            </strong>
                           </div>
-                          <div>
+                          <div className="contracts-year-summary-compact-metric-row">
                             <span className="contracts-year-summary-metric-label">금액</span>
-                            <strong>{item.amount.toLocaleString('ko-KR')}원</strong>
+                            <strong className="contracts-year-summary-metric-value">
+                              {item.amount.toLocaleString('ko-KR')}원
+                            </strong>
                           </div>
                         </div>
                       </div>
