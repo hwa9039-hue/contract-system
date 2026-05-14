@@ -1439,8 +1439,8 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
-  /** 계약현황: 사업년도 하위 [전광판] / [유지보수] 아코디언 열림 상태 — 키 `${year}__${groupId}` */
-  const [openContractCategoryGroups, setOpenContractCategoryGroups] = useState({})
+  /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
+  const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
   const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
   const [openBudgetYears, setOpenBudgetYears] = useState({})
   const [openDiscoveryYears, setOpenDiscoveryYears] = useState({})
@@ -2496,19 +2496,17 @@ function App() {
 
   const contractCategoryGroupKey = (year, groupId) => `${year}__${groupId}`
 
-  const isContractCategoryGroupOpen = (year, groupId) => {
-    const key = contractCategoryGroupKey(year, groupId)
-    return Object.prototype.hasOwnProperty.call(openContractCategoryGroups, key)
-      ? openContractCategoryGroups[key]
-      : true
-  }
+  const isContractCategoryGroupOpen = (year, groupId) =>
+    !collapsedContractCategoryGroups.has(contractCategoryGroupKey(year, groupId))
 
   const toggleContractCategoryGroup = (year, groupId) => {
     const key = contractCategoryGroupKey(year, groupId)
-    setOpenContractCategoryGroups((prev) => ({
-      ...prev,
-      [key]: !isContractCategoryGroupOpen(year, groupId),
-    }))
+    setCollapsedContractCategoryGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
   }
 
   const toggleDashboardYear = (year) => {
