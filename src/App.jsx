@@ -180,6 +180,119 @@ const WORK_REPORT_SECTION_KEYS = {
 }
 
 const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
+/** 달력 열 순서: 일요일(0) ~ 토요일(6) */
+const CALENDAR_WEEKDAY_LABELS_KO = ['일', '월', '화', '수', '목', '금', '토']
+
+/** 매년 반복되는 양력 법정 공휴일(월·일). 대체공휴일 등은 아래 LUNAR_AND_BRIDGE 목록에 포함 */
+const KOREA_FIXED_LEGAL_HOLIDAY_MD = [
+  [1, 1],
+  [3, 1],
+  [5, 5],
+  [6, 6],
+  [8, 15],
+  [10, 3],
+  [10, 9],
+  [12, 25],
+]
+
+/**
+ * 설·추석·석가탄신일 연휴 및 대체공휴일 등(ISO yyyy-mm-dd).
+ * 연도별 공표가 바뀌면 행정안전부 달력에 맞춰 갱신하세요.
+ */
+const KOREA_LUNAR_AND_BRIDGE_HOLIDAY_ISO = [
+  '2024-02-09',
+  '2024-02-10',
+  '2024-02-11',
+  '2024-02-12',
+  '2024-05-15',
+  '2024-09-16',
+  '2024-09-17',
+  '2024-09-18',
+  '2025-01-28',
+  '2025-01-29',
+  '2025-01-30',
+  '2025-03-03',
+  '2025-05-06',
+  '2025-10-05',
+  '2025-10-06',
+  '2025-10-07',
+  '2025-10-08',
+  '2026-02-16',
+  '2026-02-17',
+  '2026-02-18',
+  '2026-03-02',
+  '2026-05-24',
+  '2026-05-25',
+  '2026-09-24',
+  '2026-09-25',
+  '2026-09-26',
+  '2027-02-05',
+  '2027-02-06',
+  '2027-02-07',
+  '2027-02-08',
+  '2027-02-09',
+  '2027-05-03',
+  '2027-09-14',
+  '2027-09-15',
+  '2027-09-16',
+  '2028-01-26',
+  '2028-01-27',
+  '2028-01-28',
+  '2028-05-16',
+  '2028-10-01',
+  '2028-10-02',
+  '2028-10-03',
+  '2029-02-12',
+  '2029-02-13',
+  '2029-02-14',
+  '2029-05-21',
+  '2029-09-21',
+  '2029-09-22',
+  '2029-09-23',
+  '2030-02-02',
+  '2030-02-03',
+  '2030-02-04',
+  '2030-05-09',
+  '2030-09-10',
+  '2030-09-11',
+  '2030-09-12',
+  '2031-02-22',
+  '2031-02-23',
+  '2031-02-24',
+  '2031-05-28',
+  '2031-09-29',
+  '2031-09-30',
+  '2031-10-01',
+  '2032-02-10',
+  '2032-02-11',
+  '2032-02-12',
+  '2032-05-16',
+  '2032-09-17',
+  '2032-09-18',
+  '2032-09-19',
+]
+
+function buildKoreaPublicHolidaySet() {
+  const s = new Set(KOREA_LUNAR_AND_BRIDGE_HOLIDAY_ISO)
+  for (let y = 2018; y <= 2040; y += 1) {
+    for (const [m, d] of KOREA_FIXED_LEGAL_HOLIDAY_MD) {
+      s.add(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`)
+    }
+  }
+  return s
+}
+
+const KOREA_PUBLIC_HOLIDAY_SET = buildKoreaPublicHolidaySet()
+
+function isKoreanPublicHoliday(isoYmd) {
+  return Boolean(isoYmd && KOREA_PUBLIC_HOLIDAY_SET.has(isoYmd))
+}
+
+function getCalendarEventTypeClassName(type) {
+  if (type === 'contract') return 'selected-event-type--contract'
+  if (type === 'due') return 'selected-event-type--due'
+  return 'selected-event-type--manual'
+}
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
 const CONTRACT_SHARED_AUTH_KEY = 'CONTRACT_SHARED_AUTH'
 const CONTRACT_SHARED_EXPIRES_AT_KEY = 'CONTRACT_SHARED_EXPIRES_AT'
@@ -2158,11 +2271,12 @@ function App() {
   const monthDays = useMemo(() => {
     const year = calendarCursor.getFullYear()
     const month = calendarCursor.getMonth()
-    const firstDay = new Date(year, month, 1).getDay()
+    /** JS: 0=일요일 … 6=토요일 → 달력 첫 열은 일요일 */
+    const firstDaySundayBased = new Date(year, month, 1).getDay()
     const lastDay = new Date(year, month + 1, 0).getDate()
 
     const cells = []
-    for (let i = 0; i < firstDay; i += 1) cells.push(null)
+    for (let i = 0; i < firstDaySundayBased; i += 1) cells.push(null)
     for (let i = 1; i <= lastDay; i += 1) {
       cells.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`)
     }
@@ -7867,36 +7981,62 @@ function App() {
                   </div>
 
                   <div className="calendar-body">
-                    <div className="calendar-grid">
-                      {monthDays.map((day, index) => (
-                        <div key={index} className={day ? 'day-box' : 'day-box empty'}>
-                          {day && (
-                            <>
-                              <div className="day-number">{day.slice(-2)}</div>
-                              <div className="day-events">
-                                {calendarItems
-                                  .filter((item) => item.date === day)
-                                  .map((item) => (
-                                    <button
-                                      key={item.id}
-                                      type="button"
-                                      className={`event-pill event-pill-button ${
-                                        item.type === 'contract'
-                                          ? 'contract-event'
-                                          : item.type === 'due'
-                                          ? 'due-event'
-                                          : 'manual-event'
-                                      }`}
-                                      onClick={() => openCalendarDetail(item)}
-                                    >
-                                      {item.text}
-                                    </button>
-                                  ))}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      ))}
+                    <div className="calendar-surface">
+                      <div className="calendar-weekday-row" aria-hidden>
+                        {CALENDAR_WEEKDAY_LABELS_KO.map((label, wi) => (
+                          <div
+                            key={label}
+                            className={`calendar-weekday-cell${
+                              wi === 0 ? ' calendar-weekday-cell--sun' : wi === 6 ? ' calendar-weekday-cell--sat' : ''
+                            }`}
+                          >
+                            {label}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="calendar-grid calendar-grid--days">
+                        {monthDays.map((day, index) => {
+                          const dateObj = day ? parseDateOnly(day) : null
+                          const dow = dateObj ? dateObj.getDay() : null
+                          const isHoliday = day ? isKoreanPublicHoliday(day) : false
+                          const dayNum = day ? parseInt(day.slice(8, 10), 10) : null
+                          const dayNumberClass = [
+                            'day-number',
+                            isHoliday ? 'day-number--holiday' : dow === 0 ? 'day-number--sun' : dow === 6 ? 'day-number--sat' : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')
+                          return (
+                            <div key={index} className={day ? 'day-box' : 'day-box empty'}>
+                              {day && (
+                                <>
+                                  <div className={dayNumberClass}>{dayNum}</div>
+                                  <div className="day-events">
+                                    {calendarItems
+                                      .filter((item) => item.date === day)
+                                      .map((item) => (
+                                        <button
+                                          key={item.id}
+                                          type="button"
+                                          className={`event-pill event-pill-button ${
+                                            item.type === 'contract'
+                                              ? 'contract-event'
+                                              : item.type === 'due'
+                                              ? 'due-event'
+                                              : 'manual-event'
+                                          }`}
+                                          onClick={() => openCalendarDetail(item)}
+                                        >
+                                          {item.text}
+                                        </button>
+                                      ))}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -7943,7 +8083,9 @@ function App() {
                             return (
                               <div
                                 key={item.id}
-                                className="selected-event-card clickable"
+                                className={`selected-event-card clickable ${getCalendarEventTypeClassName(
+                                  item.type
+                                )}`}
                                 onClick={() => openCalendarDetail(item)}
                               >
                                 <div className="selected-event-click">
