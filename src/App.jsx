@@ -347,6 +347,7 @@ const INSTALL_CASE_SPEC_ROWS = [
 const INSTALL_CASE_SEED_CASES = [
   {
     id: 'ic-1',
+    projectName: '첨단의료진흥재단 로비 직접표출장치 구축',
     placeName: '대구경북첨단의료산업진흥재단',
     modelName: '래닫 큐브',
     thumbnail: 'https://picsum.photos/seed/smartdi-ic1/480/320',
@@ -368,6 +369,7 @@ const INSTALL_CASE_SEED_CASES = [
   },
   {
     id: 'ic-2',
+    projectName: '중앙도서관 안내용 실내 전자게시대 설치',
     placeName: '○○대학교 중앙도서관',
     modelName: '사이니지 프로 S',
     thumbnail: 'https://picsum.photos/seed/smartdi-ic2/480/320',
@@ -389,6 +391,7 @@ const INSTALL_CASE_SEED_CASES = [
   },
   {
     id: 'ic-3',
+    projectName: '시민체육공원 주경기장 전광판 교체공사',
     placeName: '시민체육공원 주경기장',
     modelName: '아웃도어 라이트닝 X',
     thumbnail: 'https://picsum.photos/seed/smartdi-ic3/480/320',
@@ -400,7 +403,7 @@ const INSTALL_CASE_SEED_CASES = [
     client: '○○광역시 시설관리공단',
     location: '○○광역시 남구 …',
     specs: {
-      displayArea: '12m × 7m',
+      displayArea: '15,360(W) × 6,720(H) mm',
       ledPitch: 'P10',
       moduleSize: '320×160mm',
       moduleQty: '420매',
@@ -410,6 +413,7 @@ const INSTALL_CASE_SEED_CASES = [
   },
   {
     id: 'ic-4',
+    projectName: '대공연장 무대 배경 LED 영상장치',
     placeName: '복합문화센터 대공연장',
     modelName: '스테이지 비전',
     thumbnail: 'https://picsum.photos/seed/smartdi-ic4/480/320',
@@ -431,6 +435,7 @@ const INSTALL_CASE_SEED_CASES = [
   },
   {
     id: 'ic-5',
+    projectName: '사옥 로비 디지털 사이니지 구축',
     placeName: '○○테크놀로지 사옥 로비',
     modelName: '엣지 큐브 미니',
     thumbnail: 'https://picsum.photos/seed/smartdi-ic5/480/320',
@@ -452,6 +457,9 @@ const INSTALL_CASE_SEED_CASES = [
   },
 ]
 
+const INSTALL_CASE_FALLBACK_THUMB = 'https://picsum.photos/seed/newinstall/480/320'
+const INSTALL_CASE_FALLBACK_HERO = 'https://picsum.photos/seed/newinstallh/960/720'
+
 function cloneInstallCaseSeed() {
   return INSTALL_CASE_SEED_CASES.map((row) => ({
     ...row,
@@ -459,8 +467,129 @@ function cloneInstallCaseSeed() {
   }))
 }
 
+function getInstallCaseProjectTitle(row) {
+  return safeString(row?.projectName).trim() || safeString(row?.placeName).trim() || '-'
+}
+
+function formatInstallCaseLedPitchDisplay(pitch) {
+  const s = safeString(pitch).trim()
+  if (!s) return '-'
+  const m = s.match(/^P\.?\s*(\d+(?:\.\d+)?)$/i)
+  if (m) return `P ${m[1]}`
+  return s
+}
+
+function formatInstallCaseCardSubline(row) {
+  const yRaw = safeString(row?.year).trim()
+  const yearPart = yRaw ? `${(yRaw.match(/^\d{4}/) ? yRaw.slice(0, 4) : yRaw)}년` : '-'
+  const area = safeString(row?.specs?.displayArea).trim() || '-'
+  const pitch = formatInstallCaseLedPitchDisplay(row?.specs?.ledPitch ?? '')
+  return `${yearPart} | ${area} | ${pitch}`
+}
+
+function readImageFileAsDataUrl(file) {
+  if (!file) return Promise.resolve('')
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(safeString(r.result))
+    r.onerror = () => reject(new Error('파일을 읽지 못했습니다.'))
+    r.readAsDataURL(file)
+  })
+}
+
+function InstallCaseImageDropzone({ inputId, label, previewUrl, fileName, onFile, onClear }) {
+  const [dragOver, setDragOver] = useState(false)
+  const inputRef = useRef(null)
+
+  const assignFile = (fileList) => {
+    const file = fileList?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      window.alert('이미지 파일만 업로드할 수 있습니다.')
+      return
+    }
+    onFile(file)
+  }
+
+  return (
+    <div className="install-case-dropzone-wrap">
+      <div className="install-case-dropzone-label">{label}</div>
+      <div
+        className={`install-case-dropzone${dragOver ? ' install-case-dropzone--active' : ''}`}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            inputRef.current?.click()
+          }
+        }}
+        onClick={() => inputRef.current?.click()}
+        onDragEnter={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setDragOver(true)
+        }}
+        onDragOver={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setDragOver(true)
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setDragOver(false)
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setDragOver(false)
+          assignFile(e.dataTransfer?.files)
+        }}
+      >
+        <input
+          ref={inputRef}
+          id={inputId}
+          type="file"
+          className="install-case-dropzone-input"
+          accept="image/*"
+          aria-label={label}
+          onChange={(e) => {
+            assignFile(e.target.files)
+            e.target.value = ''
+          }}
+        />
+        {previewUrl ? (
+          <div className="install-case-dropzone-preview">
+            <img src={previewUrl} alt="" />
+            <button
+              type="button"
+              className="install-case-dropzone-clear"
+              onClick={(e) => {
+                e.stopPropagation()
+                onClear()
+              }}
+            >
+              제거
+            </button>
+          </div>
+        ) : (
+          <div className="install-case-dropzone-placeholder">
+            <span className="install-case-dropzone-icon" aria-hidden>
+              ⬆
+            </span>
+            <span className="install-case-dropzone-hint">클릭하거나 파일을 드래그하여 업로드하세요</span>
+            {fileName ? <span className="install-case-dropzone-filename">{fileName}</span> : null}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function getDefaultInstallCaseForm() {
   return {
+    projectName: '',
     placeName: '',
     modelName: '',
     environment: 'indoor',
@@ -469,8 +598,6 @@ function getDefaultInstallCaseForm() {
     purpose: '',
     client: '',
     location: '',
-    thumbnail: 'https://picsum.photos/seed/newinstall/480/320',
-    heroImage: 'https://picsum.photos/seed/newinstallh/960/720',
     specs: {
       displayArea: '',
       ledPitch: '',
@@ -1951,6 +2078,12 @@ function App() {
   const [installCases, setInstallCases] = useState(() => cloneInstallCaseSeed())
   const [installCaseRegisterOpen, setInstallCaseRegisterOpen] = useState(false)
   const [installCaseFormDraft, setInstallCaseFormDraft] = useState(() => getDefaultInstallCaseForm())
+  const [installCaseEditingId, setInstallCaseEditingId] = useState(null)
+  const [icThumbFile, setIcThumbFile] = useState(null)
+  const [icThumbPreview, setIcThumbPreview] = useState('')
+  const [icHeroFile, setIcHeroFile] = useState(null)
+  const [icHeroPreview, setIcHeroPreview] = useState('')
+  const icImageRestoreRef = useRef({ thumb: '', hero: '' })
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
   const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
@@ -2257,6 +2390,12 @@ function App() {
   useEffect(() => {
     setInstallCaseDetailModal(null)
     setInstallCaseRegisterOpen(false)
+    setInstallCaseEditingId(null)
+    setIcThumbFile(null)
+    setIcHeroFile(null)
+    setIcThumbPreview('')
+    setIcHeroPreview('')
+    icImageRestoreRef.current = { thumb: '', hero: '' }
   }, [menu])
 
   /** 다른 메뉴로 나갈 때 빈 신규 행(isDraft)·편집 모드만 정리 — 업로드/추가가 막히는 유령 상태 방지 */
@@ -2491,6 +2630,20 @@ function App() {
     })
   }, [installCaseAudienceFilter, installCaseEnvFilter, installCases])
 
+  useEffect(() => {
+    if (!icThumbFile) return undefined
+    const u = URL.createObjectURL(icThumbFile)
+    setIcThumbPreview(u)
+    return () => URL.revokeObjectURL(u)
+  }, [icThumbFile])
+
+  useEffect(() => {
+    if (!icHeroFile) return undefined
+    const u = URL.createObjectURL(icHeroFile)
+    setIcHeroPreview(u)
+    return () => URL.revokeObjectURL(u)
+  }, [icHeroFile])
+
   const deleteInstallCaseById = useCallback((id) => {
     if (!window.confirm('이 설치사례를 삭제할까요?')) return
     setInstallCases((prev) => prev.filter((c) => c.id !== id))
@@ -2498,28 +2651,111 @@ function App() {
   }, [])
 
   const handleOpenInstallCaseRegister = useCallback(() => {
+    setInstallCaseEditingId(null)
+    setIcThumbFile(null)
+    setIcHeroFile(null)
+    setIcThumbPreview('')
+    setIcHeroPreview('')
+    icImageRestoreRef.current = { thumb: '', hero: '' }
     setInstallCaseFormDraft(getDefaultInstallCaseForm())
     setInstallCaseRegisterOpen(true)
   }, [])
 
-  const handleCloseInstallCaseRegister = useCallback(() => {
-    setInstallCaseRegisterOpen(false)
+  const handleOpenInstallCaseEdit = useCallback((row) => {
+    if (!row) return
+    setInstallCaseEditingId(row.id)
+    setInstallCaseFormDraft({
+      projectName: getInstallCaseProjectTitle(row),
+      placeName: safeString(row.placeName).trim(),
+      modelName: safeString(row.modelName).trim(),
+      environment: row.environment || 'indoor',
+      audience: row.audience || 'public',
+      year: safeString(row.year).trim() || String(new Date().getFullYear()),
+      purpose: safeString(row.purpose).trim(),
+      client: safeString(row.client).trim(),
+      location: safeString(row.location).trim(),
+      specs: {
+        displayArea: safeString(row.specs?.displayArea).trim(),
+        ledPitch: safeString(row.specs?.ledPitch).trim(),
+        moduleSize: safeString(row.specs?.moduleSize).trim(),
+        moduleQty: safeString(row.specs?.moduleQty).trim(),
+        resolution: safeString(row.specs?.resolution).trim(),
+        installType: safeString(row.specs?.installType).trim(),
+      },
+    })
+    icImageRestoreRef.current = {
+      thumb: safeString(row.thumbnail).trim() || INSTALL_CASE_FALLBACK_THUMB,
+      hero: safeString(row.heroImage).trim() || INSTALL_CASE_FALLBACK_HERO,
+    }
+    setIcThumbFile(null)
+    setIcHeroFile(null)
+    setIcThumbPreview(icImageRestoreRef.current.thumb)
+    setIcHeroPreview(icImageRestoreRef.current.hero)
+    setInstallCaseRegisterOpen(true)
   }, [])
 
-  const handleSaveInstallCaseRegister = () => {
+  const handleCloseInstallCaseRegister = useCallback(() => {
+    setIcThumbFile(null)
+    setIcHeroFile(null)
+    setIcThumbPreview('')
+    setIcHeroPreview('')
+    icImageRestoreRef.current = { thumb: '', hero: '' }
+    setInstallCaseEditingId(null)
+    setInstallCaseRegisterOpen(false)
+    setInstallCaseFormDraft(getDefaultInstallCaseForm())
+  }, [])
+
+  const clearInstallCaseThumb = useCallback(() => {
+    setIcThumbFile(null)
+    if (installCaseEditingId && safeString(icImageRestoreRef.current.thumb).trim()) {
+      setIcThumbPreview(icImageRestoreRef.current.thumb)
+    } else {
+      setIcThumbPreview('')
+    }
+  }, [installCaseEditingId])
+
+  const clearInstallCaseHero = useCallback(() => {
+    setIcHeroFile(null)
+    if (installCaseEditingId && safeString(icImageRestoreRef.current.hero).trim()) {
+      setIcHeroPreview(icImageRestoreRef.current.hero)
+    } else {
+      setIcHeroPreview('')
+    }
+  }, [installCaseEditingId])
+
+  const handleSaveInstallCaseRegister = async () => {
     const d = installCaseFormDraft
-    if (!safeString(d.placeName).trim()) {
-      window.alert('설치 장소명을 입력해 주세요.')
+    if (!safeString(d.projectName).trim()) {
+      window.alert('사업명을 입력해 주세요.')
       return
     }
-    const defaults = getDefaultInstallCaseForm()
-    const id = `ic-${Date.now()}`
-    const newRow = {
-      id,
-      placeName: safeString(d.placeName).trim(),
+    let thumbnail = INSTALL_CASE_FALLBACK_THUMB
+    let heroImage = INSTALL_CASE_FALLBACK_HERO
+    try {
+      if (icThumbFile) {
+        thumbnail = (await readImageFileAsDataUrl(icThumbFile)) || INSTALL_CASE_FALLBACK_THUMB
+      } else {
+        const prevT = safeString(icThumbPreview).trim()
+        if (prevT && !prevT.startsWith('blob:')) thumbnail = prevT
+      }
+      if (icHeroFile) {
+        heroImage = (await readImageFileAsDataUrl(icHeroFile)) || INSTALL_CASE_FALLBACK_HERO
+      } else {
+        const prevH = safeString(icHeroPreview).trim()
+        if (prevH && !prevH.startsWith('blob:')) heroImage = prevH
+      }
+    } catch (e) {
+      window.alert(e?.message || '이미지를 처리하지 못했습니다.')
+      return
+    }
+    const projectName = safeString(d.projectName).trim()
+    const placeName = safeString(d.placeName).trim() || projectName
+    const rowPayload = {
+      projectName,
+      placeName,
       modelName: safeString(d.modelName).trim() || '-',
-      thumbnail: safeString(d.thumbnail).trim() || defaults.thumbnail,
-      heroImage: safeString(d.heroImage).trim() || defaults.heroImage,
+      thumbnail,
+      heroImage,
       environment: d.environment || 'indoor',
       audience: d.audience || 'public',
       year: safeString(d.year).trim() || String(new Date().getFullYear()),
@@ -2535,9 +2771,18 @@ function App() {
         installType: safeString(d.specs.installType).trim() || '-',
       },
     }
-    setInstallCases((prev) => [newRow, ...prev])
-    setInstallCaseRegisterOpen(false)
-    setInstallCaseFormDraft(getDefaultInstallCaseForm())
+    if (installCaseEditingId) {
+      setInstallCases((prev) =>
+        prev.map((c) => (c.id === installCaseEditingId ? { ...c, ...rowPayload } : c))
+      )
+      setInstallCaseDetailModal((cur) =>
+        cur && cur.id === installCaseEditingId ? { ...cur, ...rowPayload, id: installCaseEditingId } : cur
+      )
+    } else {
+      const id = `ic-${Date.now()}`
+      setInstallCases((prev) => [{ id, ...rowPayload }, ...prev])
+    }
+    handleCloseInstallCaseRegister()
   }
 
   const getContractRowBySelectKey = useCallback(
@@ -8747,7 +8992,7 @@ function App() {
                 </select>
               </div>
               <button className="primary-btn" type="button" onClick={handleOpenInstallCaseRegister}>
-                + 사례 등록
+                등록
               </button>
             </div>
 
@@ -8763,8 +9008,8 @@ function App() {
                       <img src={row.thumbnail} alt="" loading="lazy" />
                     </div>
                     <div className="install-case-card-body">
-                      <div className="install-case-card-place">{row.placeName}</div>
-                      <div className="install-case-card-model">{row.modelName}</div>
+                      <div className="install-case-card-title">{getInstallCaseProjectTitle(row)}</div>
+                      <div className="install-case-card-meta">{formatInstallCaseCardSubline(row)}</div>
                     </div>
                   </button>
                   {isAdmin && (
@@ -8776,7 +9021,7 @@ function App() {
                         e.stopPropagation()
                         deleteInstallCaseById(row.id)
                       }}
-                      aria-label={`${row.placeName} 삭제`}
+                      aria-label={`${getInstallCaseProjectTitle(row)} 삭제`}
                     >
                       삭제
                     </button>
@@ -9001,16 +9246,29 @@ function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="install-case-detail-modal-header">
-              <h3 id="install-case-detail-title">{installCaseDetailModal.placeName}</h3>
+              <h3 id="install-case-detail-title">{getInstallCaseProjectTitle(installCaseDetailModal)}</h3>
               <div className="install-case-detail-modal-actions">
                 {isAdmin && (
-                  <button
-                    type="button"
-                    className="secondary-btn install-case-modal-delete-btn"
-                    onClick={() => deleteInstallCaseById(installCaseDetailModal.id)}
-                  >
-                    삭제
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="secondary-btn install-case-modal-edit-btn"
+                      onClick={() => {
+                        const row = installCaseDetailModal
+                        setInstallCaseDetailModal(null)
+                        handleOpenInstallCaseEdit(row)
+                      }}
+                    >
+                      수정
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-btn install-case-modal-delete-btn"
+                      onClick={() => deleteInstallCaseById(installCaseDetailModal.id)}
+                    >
+                      삭제
+                    </button>
+                  </>
                 )}
                 <button
                   type="button"
@@ -9080,7 +9338,7 @@ function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="install-case-form-modal-header">
-              <h3 id="install-case-form-title">사례 등록</h3>
+              <h3 id="install-case-form-title">{installCaseEditingId ? '수정' : '등록'}</h3>
               <button
                 type="button"
                 className="modal-close-btn"
@@ -9093,16 +9351,16 @@ function App() {
             <div className="install-case-form-modal-body">
               <div className="install-case-form-grid">
                 <label className="install-case-form-label">
-                  설치 장소명 <span className="install-case-form-required">*</span>
+                  사업명 <span className="install-case-form-required">*</span>
                 </label>
                 <input
                   className="table-search-input install-case-form-input"
                   type="text"
-                  value={installCaseFormDraft.placeName}
+                  value={installCaseFormDraft.projectName}
                   onChange={(e) =>
-                    setInstallCaseFormDraft((prev) => ({ ...prev, placeName: e.target.value }))
+                    setInstallCaseFormDraft((prev) => ({ ...prev, projectName: e.target.value }))
                   }
-                  placeholder="예: ○○시청 본관"
+                  placeholder="예: ○○시청 LED 전광판 구축"
                 />
 
                 <label className="install-case-form-label">모델명</label>
@@ -9181,25 +9439,26 @@ function App() {
                   }
                 />
 
-                <label className="install-case-form-label">썸네일 이미지 URL</label>
-                <input
-                  className="table-search-input install-case-form-input"
-                  type="url"
-                  value={installCaseFormDraft.thumbnail}
-                  onChange={(e) =>
-                    setInstallCaseFormDraft((prev) => ({ ...prev, thumbnail: e.target.value }))
-                  }
-                />
-
-                <label className="install-case-form-label">상세 이미지 URL</label>
-                <input
-                  className="table-search-input install-case-form-input"
-                  type="url"
-                  value={installCaseFormDraft.heroImage}
-                  onChange={(e) =>
-                    setInstallCaseFormDraft((prev) => ({ ...prev, heroImage: e.target.value }))
-                  }
-                />
+                <div className="install-case-form-dropzone-row">
+                  <InstallCaseImageDropzone
+                    inputId="install-case-thumb-file"
+                    label="썸네일 이미지"
+                    previewUrl={icThumbPreview}
+                    fileName={icThumbFile?.name}
+                    onFile={setIcThumbFile}
+                    onClear={clearInstallCaseThumb}
+                  />
+                </div>
+                <div className="install-case-form-dropzone-row">
+                  <InstallCaseImageDropzone
+                    inputId="install-case-hero-file"
+                    label="상세 이미지"
+                    previewUrl={icHeroPreview}
+                    fileName={icHeroFile?.name}
+                    onFile={setIcHeroFile}
+                    onClear={clearInstallCaseHero}
+                  />
+                </div>
 
                 <div className="install-case-form-specs-title">제품 규격</div>
                 <div className="install-case-form-specs-grid">
@@ -9227,7 +9486,7 @@ function App() {
                   취소
                 </button>
                 <button type="button" className="primary-btn" onClick={handleSaveInstallCaseRegister}>
-                  등록
+                  {installCaseEditingId ? '저장' : '등록'}
                 </button>
               </div>
             </div>

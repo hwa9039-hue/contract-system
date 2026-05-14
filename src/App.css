@@ -5486,7 +5486,7 @@ textarea:focus-visible {
   gap: 6px;
 }
 
-.install-case-card-place {
+.install-case-card-title {
   font-family: 'SUIT', sans-serif;
   font-size: 14px;
   font-weight: 800;
@@ -5494,10 +5494,12 @@ textarea:focus-visible {
   line-height: 1.35;
 }
 
-.install-case-card-model {
-  font-size: 13px;
+.install-case-card-meta {
+  font-size: 12px;
   font-weight: 600;
-  color: #475569;
+  color: #64748b;
+  line-height: 1.45;
+  word-break: break-word;
 }
 
 .install-cases-empty {
@@ -5559,6 +5561,130 @@ textarea:focus-visible {
 .install-case-modal-delete-btn:hover {
   background: #fecdd3;
   border-color: #f87171;
+}
+
+.install-case-modal-edit-btn {
+  font-weight: 800;
+}
+
+.install-case-form-dropzone-row {
+  grid-column: 1 / -1;
+  align-self: stretch;
+}
+
+.install-case-dropzone-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.install-case-dropzone-label {
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+}
+
+.install-case-dropzone {
+  position: relative;
+  min-height: 120px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.install-case-dropzone:hover,
+.install-case-dropzone:focus-visible {
+  border-color: rgba(47, 107, 255, 0.45);
+  background: #f1f5f9;
+  outline: none;
+}
+
+.install-case-dropzone--active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.install-case-dropzone-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.install-case-dropzone-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px;
+}
+
+.install-case-dropzone-icon {
+  font-size: 22px;
+  line-height: 1;
+  color: #94a3b8;
+}
+
+.install-case-dropzone-hint {
+  max-width: 280px;
+  line-height: 1.45;
+}
+
+.install-case-dropzone-filename {
+  font-size: 12px;
+  color: #475569;
+  word-break: break-all;
+}
+
+.install-case-dropzone-preview {
+  position: relative;
+  width: 100%;
+  max-height: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+
+.install-case-dropzone-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 200px;
+  object-fit: contain;
+}
+
+.install-case-dropzone-clear {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.95);
+  color: #334155;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+
+.install-case-dropzone-clear:hover {
+  background: #fff;
+  border-color: #cbd5e1;
 }
 
 .install-case-detail-modal-body {
