@@ -7510,13 +7510,10 @@ function App() {
             {contractPageYearSummaryBlock && (
               <div className="contracts-year-summary-embed" aria-label="연도별 계약금액 현황 요약">
                 <div className="contracts-year-summary-embed-head">
-                  <div className="contracts-year-summary-embed-head-main">
-                    <span className="contracts-year-summary-embed-eyebrow">연도별 계약금액 현황</span>
-                    <span className="contracts-year-summary-embed-total">
-                      {contractPageSummaryFocusYear}년 · 총{' '}
-                      {contractPageYearSummaryBlock.totalAmount.toLocaleString('ko-KR')}원
-                    </span>
-                  </div>
+                  <span className="contracts-year-summary-embed-total">
+                    {contractPageSummaryFocusYear}년 · 총{' '}
+                    {contractPageYearSummaryBlock.totalAmount.toLocaleString('ko-KR')}원
+                  </span>
                   <button
                     className="panel-toggle-btn"
                     type="button"

@@ -339,14 +339,6 @@ textarea {
   background: #f8fbff;
 }
 
-.contracts-year-summary-embed-head-main {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
-}
-
 .contracts-year-summary-embed-panel {
   display: block;
   width: 100%;
@@ -363,15 +355,9 @@ textarea {
   overflow: visible;
 }
 
-.contracts-year-summary-embed-eyebrow {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #64748b;
-}
-
 .contracts-year-summary-embed-total {
+  flex: 1;
+  min-width: 0;
   font-family: 'SUIT', sans-serif;
   font-size: 14px;
   font-weight: 800;
