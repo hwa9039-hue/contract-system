@@ -301,6 +301,21 @@ const CONTRACT_SHARED_WARNING_MS = 5 * 60 * 1000
 const ADMIN_PASSWORD = 'admin2026!'
 const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'smartdi2026!'
 const ALL_OPTION = '전체'
+
+/** 캘린더 우측「이 달의 일정」카테고리만 — 계약현황 `ALL_OPTION`('전체')과 값이 겹치지 않게 분리 */
+const CALENDAR_MONTH_LIST_TYPE_FILTER = Object.freeze({
+  ALL: 'all',
+  CONTRACT: 'contract',
+  DUE: 'due',
+  MANUAL: 'manual',
+})
+
+function calendarMonthListEventPassesTypeFilter(item, filter) {
+  if (!item) return false
+  if (filter === CALENDAR_MONTH_LIST_TYPE_FILTER.ALL) return true
+  return item.type === filter
+}
+
 const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
 const DASHBOARD_STATUS_LABELS = SALES_STAGE_OPTIONS
 const PAGE_TITLE_MAP = {
@@ -1567,7 +1582,7 @@ function App() {
   })
   const [eventForm, setEventForm] = useState({ ...emptyEvent })
   const [monthSearch, setMonthSearch] = useState('')
-  const [monthTypeFilter, setMonthTypeFilter] = useState(ALL_OPTION)
+  const [monthTypeFilter, setMonthTypeFilter] = useState(CALENDAR_MONTH_LIST_TYPE_FILTER.ALL)
   const [detailModal, setDetailModal] = useState(null)
   const [isAppAuthenticated, setIsAppAuthenticated] = useState(initialSharedAuth.isAuthenticated)
   const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(initialSharedAuth.expiresAt)
@@ -2291,12 +2306,13 @@ function App() {
       .filter((item) => {
         const d = parseDateOnly(item.date)
         const monthMatch = d ? d.getFullYear() === year && d.getMonth() + 1 === month : false
-        const typeMatch = monthTypeFilter === ALL_OPTION || item.type === monthTypeFilter
+        if (!monthMatch) return false
+        if (!calendarMonthListEventPassesTypeFilter(item, monthTypeFilter)) return false
         const searchMatch = `${item.text} ${item.owner || ''} ${item.pm || ''} ${item.note || ''}`
           .toLowerCase()
           .includes(monthSearch.toLowerCase())
 
-        return monthMatch && typeMatch && searchMatch
+        return searchMatch
       })
       .sort((a, b) => {
         const aDate = parseDateOnly(a.date)
@@ -8049,12 +8065,22 @@ function App() {
                           <select
                             className="calendar-filter-select"
                             value={monthTypeFilter}
-                            onChange={(e) => setMonthTypeFilter(e.target.value)}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              if (
+                                v === CALENDAR_MONTH_LIST_TYPE_FILTER.ALL ||
+                                v === CALENDAR_MONTH_LIST_TYPE_FILTER.CONTRACT ||
+                                v === CALENDAR_MONTH_LIST_TYPE_FILTER.DUE ||
+                                v === CALENDAR_MONTH_LIST_TYPE_FILTER.MANUAL
+                              ) {
+                                setMonthTypeFilter(v)
+                              }
+                            }}
                           >
-                            <option value="전체">전체</option>
-                            <option value="contract">계약</option>
-                            <option value="due">준공</option>
-                            <option value="manual">기타</option>
+                            <option value={CALENDAR_MONTH_LIST_TYPE_FILTER.ALL}>전체</option>
+                            <option value={CALENDAR_MONTH_LIST_TYPE_FILTER.CONTRACT}>계약</option>
+                            <option value={CALENDAR_MONTH_LIST_TYPE_FILTER.DUE}>준공</option>
+                            <option value={CALENDAR_MONTH_LIST_TYPE_FILTER.MANUAL}>기타</option>
                           </select>
 
                           <input
