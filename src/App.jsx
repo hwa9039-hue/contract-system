@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import './App.css'
-import { budgetProgressApi } from './budgetProgressApi'
 import { contractsApi } from './contractsApi'
 import { documentRegisterApi } from './documentRegisterApi'
 import { excludedProjectsApi } from './excludedProjectsApi'
@@ -72,19 +71,6 @@ const SALES_COLUMNS = [
   { key: 'source', label: '출처', align: 'center', type: 'text', width: 140 },
   { key: 'salesNote', label: '영업매칭', align: 'left', type: 'textarea', width: 250 },
   { key: 'actionRequest', label: '영업 요청사항', align: 'left', type: 'textarea', width: 270 },
-]
-
-const BUDGET_COLUMNS = [
-  { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 108 },
-  { key: 'localGov', label: '지자체', align: 'center', type: 'text', width: 160 },
-  { key: 'projectName', label: '프로젝트', align: 'left', type: 'text', width: 260 },
-  { key: 'budgetAmount', label: '예산액', align: 'right', type: 'amount', width: 138 },
-  { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_MANAGER_OPTIONS, width: 112 },
-  { key: 'projectStage', label: '상태', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 102 },
-  { key: 'department', label: '담당부서', align: 'center', type: 'text', width: 130 },
-  { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 310 },
-  { key: 'salesMatch', label: '영업매칭', align: 'left', type: 'text', width: 190 },
-  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 260 },
 ]
 
 const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
@@ -210,13 +196,12 @@ const PAGE_TITLE_MAP = {
   contracts: '계약현황',
   calendar: '캘린더',
   sales: '영업관리대장',
-  budget: '본예산 진행정보',
   discovery: '건축정보',
   excluded: '사업검색이력',
   documents: '문서수발신대장',
 }
 const TOP_SYSTEM_SUBTITLE =
-  '일일/주간업무보고서 · 계약현황 · 일정관리 · 영업관리대장 · 본예산 진행정보 · 건축정보 · 사업검색이력 · 문서수발신대장'
+  '일일/주간업무보고서 · 계약현황 · 일정관리 · 영업관리대장 · 건축정보 · 사업검색이력 · 문서수발신대장'
 const HIDDEN_MANAGER_VALUES = ['전유찬', '전유찬 대리']
 
 const emptyContract = {
@@ -277,25 +262,6 @@ function createSalesDraftRow() {
     source: '',
     salesNote: '',
     actionRequest: '',
-    createdAt: '',
-    updatedAt: '',
-    isDraft: true,
-  }
-}
-
-function createBudgetDraftRow() {
-  return {
-    id: `budget-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    registerDate: '',
-    localGov: '',
-    projectName: '',
-    budgetAmount: '',
-    manager: '',
-    projectStage: '',
-    department: '',
-    detail: '',
-    salesMatch: '',
-    note: '',
     createdAt: '',
     updatedAt: '',
     isDraft: true,
@@ -903,45 +869,6 @@ function toSalesPayload(row, timestamp) {
   }
 }
 
-function normalizeBudgetRow(item) {
-  return {
-    id: safeString(item.id),
-    registerDate: safeString(item.registerDate ?? item.registerdate),
-    localGov: safeString(item.localGov ?? item.localgov),
-    projectName: safeString(item.projectName ?? item.projectname),
-    budgetAmount: safeString(item.budgetAmount ?? item.budgetamount),
-    manager: safeString(item.manager),
-    projectStage: safeString(item.projectStage ?? item.projectstage),
-    department: safeString(item.department),
-    detail: safeString(item.detail),
-    salesMatch: safeString(item.salesMatch ?? item.salesmatch),
-    note: safeString(item.note),
-    createdAt: safeString(item.createdAt ?? item.createdat),
-    updatedAt: safeString(item.updatedAt ?? item.updatedat),
-    isDraft: false,
-  }
-}
-
-function isBudgetRowEmpty(row) {
-  return BUDGET_COLUMNS.every((column) => safeString(row[column.key]).trim() === '')
-}
-
-function toBudgetPayload(row, timestamp) {
-  return {
-    registerDate: toDbDate(row.registerDate),
-    localGov: safeString(row.localGov).trim(),
-    projectName: safeString(row.projectName).trim(),
-    budgetAmount: parseAmount(row.budgetAmount),
-    manager: safeString(row.manager).trim(),
-    projectStage: safeString(row.projectStage).trim(),
-    department: safeString(row.department).trim(),
-    detail: safeString(row.detail).trim(),
-    salesMatch: safeString(row.salesMatch).trim(),
-    note: safeString(row.note).trim(),
-    updatedAt: timestamp,
-  }
-}
-
 function normalizeDiscoveryRow(item) {
   return {
     id: safeString(item.id),
@@ -1431,7 +1358,6 @@ function App() {
   const [contracts, setContracts] = useState([])
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
-  const [budgetRows, setBudgetRows] = useState([])
   const [discoveryRows, setDiscoveryRows] = useState([])
   const [excludedRows, setExcludedRows] = useState([])
   const [workReportRows, setWorkReportRows] = useState([])
@@ -1442,7 +1368,6 @@ function App() {
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
   const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
-  const [openBudgetYears, setOpenBudgetYears] = useState({})
   const [openDiscoveryYears, setOpenDiscoveryYears] = useState({})
   const [openExcludedYears, setOpenExcludedYears] = useState({})
   const [openDocumentYears, setOpenDocumentYears] = useState({})
@@ -1459,15 +1384,6 @@ function App() {
   const [salesSearch, setSalesSearch] = useState('')
   const [salesFilters, setSalesFilters] = useState({
     projectCategory: '',
-    manager: '',
-    projectStage: '',
-  })
-  const [selectedBudgetIds, setSelectedBudgetIds] = useState([])
-  const [editingBudgetIds, setEditingBudgetIds] = useState([])
-  const [budgetEditSnapshots, setBudgetEditSnapshots] = useState({})
-  const [isSavingBudget, setIsSavingBudget] = useState(false)
-  const [budgetSearch, setBudgetSearch] = useState('')
-  const [budgetFilters, setBudgetFilters] = useState({
     manager: '',
     projectStage: '',
   })
@@ -1527,7 +1443,7 @@ function App() {
   /** 계약 셀 편집: UI 행 키(rowKey) + 컬럼 + PATCH용 serverRowId(행의 서버 PK) */
   const [contractEdit, setContractEdit] = useState(null)
   const [contractEditDraft, setContractEditDraft] = useState('')
-  /** 영업·본예산·건축·사업검색이력·문서 — 계약현황과 동일한 셀 단위 인라인 편집 */
+  /** 영업·건축·사업검색이력·문서 — 계약현황과 동일한 셀 단위 인라인 편집 */
   const [registryCellEdit, setRegistryCellEdit] = useState(null)
   const [registryCellEditDraft, setRegistryCellEditDraft] = useState('')
   /** { title, message, payloadIds?: string[], onConfirm?: () => void } */
@@ -1539,8 +1455,6 @@ function App() {
   const [eventForm, setEventForm] = useState({ ...emptyEvent })
   const [monthSearch, setMonthSearch] = useState('')
   const [monthTypeFilter, setMonthTypeFilter] = useState(ALL_OPTION)
-  const [isCalendarGridCollapsed, setIsCalendarGridCollapsed] = useState(false)
-  const [isMonthListCollapsed, setIsMonthListCollapsed] = useState(false)
   const [detailModal, setDetailModal] = useState(null)
   const [isAppAuthenticated, setIsAppAuthenticated] = useState(initialSharedAuth.isAuthenticated)
   const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(initialSharedAuth.expiresAt)
@@ -1643,23 +1557,6 @@ function App() {
     }
   }
 
-  const fetchBudgetRows = async (preserveDrafts = true) => {
-    try {
-      const rows = await budgetProgressApi.list()
-      setBudgetRows((prev) => {
-        const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-        return [...rows.map(normalizeBudgetRow), ...draftRows]
-      })
-      setSelectedBudgetIds([])
-      return rows
-    } catch (error) {
-      console.error('[본예산 진행정보] API fetch failed', error)
-      setBudgetRows([])
-      setSelectedBudgetIds([])
-      return []
-    }
-  }
-
   const fetchDiscoveryRows = async (preserveDrafts = true) => {
     try {
       const rows = await projectDiscoveryApi.list()
@@ -1740,11 +1637,6 @@ function App() {
   }, [isAppAuthenticated, menu])
 
   useEffect(() => {
-    if (!isAppAuthenticated || menu !== 'budget') return
-    void fetchBudgetRows(true)
-  }, [isAppAuthenticated, menu])
-
-  useEffect(() => {
     if (!isAppAuthenticated || menu !== 'discovery') return
     void fetchDiscoveryRows(true)
   }, [isAppAuthenticated, menu])
@@ -1775,13 +1667,6 @@ function App() {
   }, [menu])
 
   useEffect(() => {
-    if (menu === 'budget') return
-    setEditingBudgetIds([])
-    setBudgetEditSnapshots({})
-    setBudgetRows((prev) => prev.filter((row) => !(row.isDraft && isBudgetRowEmpty(row))))
-  }, [menu])
-
-  useEffect(() => {
     if (menu === 'discovery') return
     setEditingDiscoveryIds([])
     setDiscoveryEditSnapshots({})
@@ -1800,7 +1685,6 @@ function App() {
     void fetchContracts()
     void fetchDocuments(false)
     void fetchSalesRows(false)
-    void fetchBudgetRows(false)
     void fetchDiscoveryRows(false)
     void fetchExcludedRows(false)
     void fetchWorkReportRows()
@@ -1955,16 +1839,6 @@ function App() {
     })
   }, [salesFilters.manager, salesFilters.projectCategory, salesFilters.projectStage, salesRows, salesSearch])
 
-  const filteredBudgetRows = useMemo(() => {
-    return budgetRows.filter((row) => {
-      if (!matchesRegistrySearch(row, BUDGET_COLUMNS, budgetSearch)) return false
-      if (row.isDraft) return true
-      const managerMatch = !budgetFilters.manager || row.manager === budgetFilters.manager
-      const stageMatch = !budgetFilters.projectStage || row.projectStage === budgetFilters.projectStage
-      return managerMatch && stageMatch
-    })
-  }, [budgetFilters.manager, budgetFilters.projectStage, budgetRows, budgetSearch])
-
   const filteredDiscoveryRows = useMemo(() => {
     return discoveryRows.filter((row) => {
       if (!matchesRegistrySearch(row, DISCOVERY_COLUMNS, discoverySearch)) return false
@@ -1990,11 +1864,6 @@ function App() {
   const groupedSalesRows = useMemo(
     () => groupRegistryRowsByYear(filteredSalesRows, 'registerDate'),
     [filteredSalesRows]
-  )
-
-  const groupedBudgetRows = useMemo(
-    () => groupRegistryRowsByYear(filteredBudgetRows, 'registerDate'),
-    [filteredBudgetRows]
   )
 
   const groupedDiscoveryRows = useMemo(
@@ -2080,7 +1949,6 @@ function App() {
   const dashboardData = useMemo(() => {
     const persistedContracts = getPersistedRows(contracts)
     const persistedSalesRows = getPersistedRows(salesRows)
-    const persistedBudgetRows = getPersistedRows(budgetRows)
     const persistedDiscoveryRows = getPersistedRows(discoveryRows)
     const persistedExcludedRows = getPersistedRows(excludedRows)
     const persistedDocuments = getPersistedRows(documents)
@@ -2089,7 +1957,6 @@ function App() {
       overview: [
         { key: 'contracts', label: '계약현황', count: persistedContracts.length, menu: 'contracts' },
         { key: 'sales', label: '영업관리대장', count: persistedSalesRows.length, menu: 'sales' },
-        { key: 'budget', label: '본예산 진행정보', count: persistedBudgetRows.length, menu: 'budget' },
         { key: 'discovery', label: '건축정보', count: persistedDiscoveryRows.length, menu: 'discovery' },
         { key: 'excluded', label: '사업검색이력', count: persistedExcludedRows.length, menu: 'excluded' },
         { key: 'documents', label: '문서수발신대장', count: persistedDocuments.length, menu: 'documents' },
@@ -2100,12 +1967,6 @@ function App() {
           label: '영업관리대장',
           menu: 'sales',
           items: getDashboardStatusCounts(persistedSalesRows, 'projectStage'),
-        },
-        {
-          key: 'budget',
-          label: '본예산 진행정보',
-          menu: 'budget',
-          items: getDashboardStatusCounts(persistedBudgetRows, 'projectStage'),
         },
         {
           key: 'excluded',
@@ -2124,17 +1985,6 @@ function App() {
             getTitle: (row) => safeString(row.projectName || row.client).trim() || '영업 항목',
             getMeta: (row) =>
               [row.client, row.manager || row.projectStage].filter(Boolean).join(' · ') || '-',
-          }),
-        },
-        {
-          key: 'budget',
-          label: '본예산 진행정보',
-          menu: 'budget',
-          items: getDashboardRecentItems(persistedBudgetRows, {
-            dateKey: 'registerDate',
-            getTitle: (row) => safeString(row.projectName || row.localGov).trim() || '본예산 항목',
-            getMeta: (row) =>
-              [row.localGov, row.manager || row.projectStage].filter(Boolean).join(' · ') || '-',
           }),
         },
         {
@@ -2172,12 +2022,11 @@ function App() {
         },
       ],
     }
-  }, [budgetRows, contracts, discoveryRows, documents, excludedRows, salesRows])
+  }, [contracts, discoveryRows, documents, excludedRows, salesRows])
   const defaultDashboardYear = dashboardSummary.years[0]?.year
   const currentRegistryYear = String(new Date().getFullYear())
   const defaultContractYear = groupedContracts.find((group) => group.year === currentRegistryYear)?.year ?? groupedContracts[0]?.year
   const defaultSalesYear = groupedSalesRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedSalesRows)
-  const defaultBudgetYear = groupedBudgetRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedBudgetRows)
   const defaultDiscoveryYear = groupedDiscoveryRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedDiscoveryRows)
   const defaultExcludedYear = groupedExcludedRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedExcludedRows)
   const defaultDocumentYear = groupedDocumentRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedDocumentRows)
@@ -2195,9 +2044,6 @@ function App() {
   const isSalesYearOpen = (year) =>
     isRegistryYearOpen(openSalesYears, year, defaultSalesYear)
 
-  const isBudgetYearOpen = (year) =>
-    isRegistryYearOpen(openBudgetYears, year, defaultBudgetYear)
-
   const isDiscoveryYearOpen = (year) =>
     isRegistryYearOpen(openDiscoveryYears, year, defaultDiscoveryYear)
 
@@ -2211,7 +2057,6 @@ function App() {
     contractVisibleRowKeysFlat.length > 0 &&
     contractVisibleRowKeysFlat.every((rk) => selectedContractRowKeys.has(rk))
   const allSalesSelected = isAllVisibleRegistryRowsSelected(filteredSalesRows, selectedSalesIds)
-  const allBudgetSelected = isAllVisibleRegistryRowsSelected(filteredBudgetRows, selectedBudgetIds)
   const allDiscoverySelected = isAllVisibleRegistryRowsSelected(
     filteredDiscoveryRows,
     selectedDiscoveryIds
@@ -2520,13 +2365,6 @@ function App() {
     setOpenSalesYears((prev) => ({
       ...prev,
       [year]: !isSalesYearOpen(year),
-    }))
-  }
-
-  const toggleBudgetYear = (year) => {
-    setOpenBudgetYears((prev) => ({
-      ...prev,
-      [year]: !isBudgetYearOpen(year),
     }))
   }
 
@@ -3165,234 +3003,6 @@ function App() {
     XLSX.writeFile(workbook, filename)
   }
 
-  const handleAddBudgetRow = () => {
-    setBudgetRows((prev) => [...prev, createBudgetDraftRow()])
-    setSelectedBudgetIds([])
-  }
-
-  const handleBudgetCellChange = (rowId, key, value) => {
-    setBudgetRows((prev) =>
-      prev.map((row) =>
-        row.id === rowId
-          ? {
-              ...row,
-              [key]: key === 'budgetAmount' ? formatAmount(value) : value,
-            }
-          : row
-      )
-    )
-  }
-
-  const startBudgetEdit = (rowId) => {
-    const targetRow = budgetRows.find((row) => row.id === rowId)
-    if (!targetRow || targetRow.isDraft) return
-
-    setBudgetEditSnapshots((prev) =>
-      prev[rowId]
-        ? prev
-        : {
-            ...prev,
-            [rowId]: { ...targetRow },
-          }
-    )
-    setEditingBudgetIds([rowId])
-  }
-
-  const cancelBudgetRow = (rowId) => {
-    const targetRow = budgetRows.find((row) => row.id === rowId)
-    if (!targetRow) return
-
-    if (targetRow.isDraft) {
-      setBudgetRows((prev) => prev.filter((row) => row.id !== rowId))
-      return
-    }
-
-    setBudgetRows((prev) =>
-      prev.map((row) => (row.id === rowId ? budgetEditSnapshots[rowId] ?? row : row))
-    )
-    setEditingBudgetIds((prev) => prev.filter((id) => id !== rowId))
-    setBudgetEditSnapshots((prev) => removeObjectKey(prev, rowId))
-  }
-
-  const deleteBudgetRow = async (rowId) => {
-    const targetRow = budgetRows.find((row) => row.id === rowId)
-    if (!targetRow) return
-
-    if (targetRow.isDraft) {
-      setBudgetRows((prev) => prev.filter((row) => row.id !== rowId))
-      return
-    }
-
-    const ok = window.confirm('이 본예산 진행정보 항목을 삭제하시겠습니까?')
-    if (!ok) return
-
-    try {
-      await budgetProgressApi.remove(rowId)
-    } catch (error) {
-      logApiOperationError('본예산 진행정보 삭제', error)
-      return
-    }
-
-    setEditingBudgetIds((prev) => prev.filter((id) => id !== rowId))
-    setBudgetEditSnapshots((prev) => removeObjectKey(prev, rowId))
-    await fetchBudgetRows(false)
-  }
-
-  const saveBudgetRow = async (rowId) => {
-    const targetRow = budgetRows.find((row) => row.id === rowId)
-    if (!targetRow) return
-
-    if (isBudgetRowEmpty(targetRow)) {
-      alert('입력 내용을 확인해주세요.')
-      return
-    }
-
-    setIsSavingBudget(true)
-
-    try {
-      const timestamp = new Date().toISOString()
-
-      if (targetRow.isDraft) {
-        await budgetProgressApi.create({
-          ...toBudgetPayload(targetRow, timestamp),
-          createdAt: timestamp,
-        })
-      } else {
-        await budgetProgressApi.update(rowId, toBudgetPayload(targetRow, timestamp))
-      }
-
-      await fetchBudgetRows(false)
-      setEditingBudgetIds((prev) => prev.filter((id) => id !== rowId))
-      setBudgetEditSnapshots((prev) => removeObjectKey(prev, rowId))
-      setToastMessage('저장되었습니다.')
-    } catch (error) {
-      logApiOperationError('본예산 진행정보 저장', error)
-    } finally {
-      setIsSavingBudget(false)
-    }
-  }
-
-  const toggleBudgetSelection = (rowId) => {
-    setSelectedBudgetIds((prev) =>
-      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
-    )
-  }
-
-  const deleteSelectedBudgetRows = async () => {
-    const validSelectedIds = selectedBudgetIds.filter((id) => safeString(id).trim() !== '')
-
-    if (validSelectedIds.length === 0) {
-      alert('삭제할 행을 선택해주세요.')
-      return
-    }
-
-    const ok = window.confirm('선택한 데이터를 삭제하시겠습니까?')
-    if (!ok) return
-
-    const persistedIds = budgetRows
-      .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
-      .map((row) => row.id)
-      .filter((id) => safeString(id).trim() !== '')
-
-    if (persistedIds.length > 0) {
-      const remainingDrafts = budgetRows.filter(
-        (row) => row.isDraft && !validSelectedIds.includes(row.id)
-      )
-      try {
-        await budgetProgressApi.bulkDelete(persistedIds)
-      } catch (error) {
-        logApiOperationError('본예산 진행정보 선택 삭제', error)
-        return
-      }
-
-      setBudgetRows(remainingDrafts)
-      setSelectedBudgetIds([])
-      setEditingBudgetIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
-      await fetchBudgetRows(true)
-      return
-    }
-
-    setBudgetRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
-    setSelectedBudgetIds([])
-    setEditingBudgetIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
-  }
-
-  const saveBudgetRows = async () => {
-    const rowsToInsert = budgetRows.filter((row) => row.isDraft && !isBudgetRowEmpty(row))
-    const rowsToUpdate = budgetRows.filter(
-      (row) => !row.isDraft && editingBudgetIds.includes(row.id)
-    )
-    const hasEmptyDraftRows = budgetRows.some((row) => row.isDraft && isBudgetRowEmpty(row))
-
-    if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && !hasEmptyDraftRows) {
-      alert('저장할 행이 없습니다.')
-      return
-    }
-
-    setIsSavingBudget(true)
-
-    try {
-      const timestamp = new Date().toISOString()
-
-      if (rowsToInsert.length > 0) {
-        const insertPayload = rowsToInsert.map((row) => ({
-          ...toBudgetPayload(row, timestamp),
-          createdAt: timestamp,
-        }))
-
-        await budgetProgressApi.importRows(insertPayload)
-      }
-
-      if (rowsToUpdate.length > 0) {
-        await Promise.all(
-          rowsToUpdate.map((row) =>
-            budgetProgressApi.update(row.id, toBudgetPayload(row, timestamp))
-          )
-        )
-      }
-
-      if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && hasEmptyDraftRows) {
-        setBudgetRows((prev) => prev.filter((row) => !(row.isDraft && isBudgetRowEmpty(row))))
-        setSelectedBudgetIds([])
-        setEditingBudgetIds([])
-        setToastMessage('저장되었습니다.')
-        return
-      }
-
-      await fetchBudgetRows(false)
-      setSelectedBudgetIds([])
-      setEditingBudgetIds([])
-      setToastMessage('저장되었습니다.')
-    } catch (error) {
-      logApiOperationError('본예산 진행정보 일괄 저장', error)
-    } finally {
-      setIsSavingBudget(false)
-    }
-  }
-
-  const handleBudgetExcelDownload = () => {
-    const rows = filteredBudgetRows.filter((row) => !row.isDraft).map((row) => ({
-      등록일: row.registerDate,
-      지자체: row.localGov,
-      프로젝트: row.projectName,
-      예산액: formatAmountDisplay(row.budgetAmount),
-      담당자: row.manager,
-      상태: row.projectStage,
-      담당부서: row.department,
-      세부내용: row.detail,
-      영업매칭: row.salesMatch,
-      비고: row.note,
-    }))
-
-    const worksheet = XLSX.utils.json_to_sheet(rows)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, '본예산 진행정보')
-
-    const now = new Date()
-    const filename = `본예산_진행정보_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
-    XLSX.writeFile(workbook, filename)
-  }
-
   const handleAddDiscoveryRow = () => {
     setDiscoveryRows((prev) => [...prev, createDiscoveryDraftRow()])
     setSelectedDiscoveryIds([])
@@ -3881,17 +3491,6 @@ function App() {
           toPayload: toSalesPayload,
           fetchRows: fetchSalesRows,
           importRows: salesRegisterApi.importRows,
-        }
-      case 'budget':
-        return {
-          importEndpoint: '/api/budget-progress/import',
-          columns: BUDGET_COLUMNS,
-          rows: budgetRows,
-          createDraftRow: createBudgetDraftRow,
-          isEmptyRow: isBudgetRowEmpty,
-          toPayload: toBudgetPayload,
-          fetchRows: fetchBudgetRows,
-          importRows: budgetProgressApi.importRows,
         }
       case 'discovery':
         return {
@@ -5002,8 +4601,6 @@ function App() {
     switch (scope) {
       case 'sales':
         return SALES_COLUMNS
-      case 'budget':
-        return BUDGET_COLUMNS
       case 'discovery':
         return DISCOVERY_COLUMNS
       case 'excluded':
@@ -5058,9 +4655,6 @@ function App() {
       case 'sales':
         rows = salesRows
         break
-      case 'budget':
-        rows = budgetRows
-        break
       case 'discovery':
         rows = discoveryRows
         break
@@ -5100,10 +4694,6 @@ function App() {
           await salesRegisterApi.update(snap.rowId, patch)
           await fetchSalesRows(false)
           break
-        case 'budget':
-          await budgetProgressApi.update(snap.rowId, patch)
-          await fetchBudgetRows(false)
-          break
         case 'discovery':
           await projectDiscoveryApi.update(snap.rowId, patch)
           await fetchDiscoveryRows(false)
@@ -5120,16 +4710,13 @@ function App() {
           return
       }
     } catch (error) {
-      const label =
-        snap.scope === 'sales'
-          ? '영업관리대장'
-          : snap.scope === 'budget'
-            ? '본예산 진행정보'
-            : snap.scope === 'discovery'
-              ? '건축정보'
-              : snap.scope === 'excluded'
-                ? '사업검색이력'
-                : '문서수발신대장'
+      const labelMap = {
+        sales: '영업관리대장',
+        discovery: '건축정보',
+        excluded: '사업검색이력',
+        documents: '문서수발신대장',
+      }
+      const label = labelMap[snap.scope] || '등록'
       logApiOperationError(`${label} 셀 저장`, error)
       setToastMessage(`저장에 실패했습니다. ${safeString(error?.message)}`)
       return
@@ -5156,9 +4743,6 @@ function App() {
     switch (snap.scope) {
       case 'sales':
         rows = salesRows
-        break
-      case 'budget':
-        rows = budgetRows
         break
       case 'discovery':
         rows = discoveryRows
@@ -6824,13 +6408,6 @@ function App() {
             </button>
 
             <button
-              className={menu === 'budget' ? 'menu-btn active' : 'menu-btn'}
-              onClick={() => setMenu('budget')}
-            >
-              본예산 진행정보
-            </button>
-
-            <button
               className={menu === 'discovery' ? 'menu-btn active' : 'menu-btn'}
               onClick={() => setMenu('discovery')}
             >
@@ -7778,130 +7355,6 @@ function App() {
           </section>
         )}
 
-        {menu === 'budget' && (
-          <section className="stat-card">
-            <div className="contracts-header-actions">
-              <button className="primary-btn" type="button" onClick={handleAddBudgetRow}>
-                추가
-              </button>
-              <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('budget')}>
-                엑셀 업로드
-              </button>
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={deleteSelectedBudgetRows}
-                disabled={selectedBudgetIds.length === 0}
-              >
-                선택 삭제
-              </button>
-              <select
-                className="contract-filter-select"
-                value={budgetFilters.manager}
-                onChange={(e) => setBudgetFilters((prev) => ({ ...prev, manager: e.target.value }))}
-                style={{ width: 150 }}
-              >
-                <option value="">담당자</option>
-                {SALES_MANAGER_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="contract-filter-select"
-                value={budgetFilters.projectStage}
-                onChange={(e) =>
-                  setBudgetFilters((prev) => ({ ...prev, projectStage: e.target.value }))
-                }
-                style={{ width: 132 }}
-              >
-                <option value="">상태</option>
-                {SALES_STAGE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-              <button className="secondary-btn" type="button" onClick={handleBudgetExcelDownload}>
-                엑셀 다운로드
-              </button>
-            </div>
-
-            <div className="table-toolbar contract-toolbar-simple">
-              <input
-                className="table-search-input"
-                placeholder="검색어를 입력하세요"
-                value={budgetSearch}
-                onChange={(e) => setBudgetSearch(e.target.value)}
-              />
-            </div>
-
-            <div className="contract-table-panel">
-              <div className="table-wrap contracts-only-scroll">
-                <table className="contract-table excel-table registry-table">
-                  <thead>
-                    <tr>
-                      <th className="th-align-center registry-check-header">
-                        <input
-                          className="registry-row-checkbox"
-                          type="checkbox"
-                          checked={allBudgetSelected}
-                          onChange={() =>
-                            setSelectedBudgetIds((prev) =>
-                              allBudgetSelected
-                                ? prev.filter((id) => !filteredBudgetRows.some((row) => row.id === id))
-                                : [...new Set([...prev, ...filteredBudgetRows.map((row) => row.id)])]
-                            )
-                          }
-                        />
-                      </th>
-                      {BUDGET_COLUMNS.map((column) => (
-                        <th
-                          key={column.key}
-                          className={
-                            column.align === 'right'
-                              ? 'th-align-right'
-                              : column.align === 'left'
-                              ? 'th-align-left'
-                              : 'th-align-center'
-                          }
-                          style={{ width: column.width }}
-                        >
-                          {column.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {renderGroupedRegistryRows({
-                      groups: groupedBudgetRows,
-                      columns: BUDGET_COLUMNS,
-                      emptyMessage: '등록된 데이터가 없습니다.',
-                      selectedIds: selectedBudgetIds,
-                      onToggleSelection: toggleBudgetSelection,
-                      editingIds: [],
-                      isSaving: isSavingBudget,
-                      onStartEdit: startBudgetEdit,
-                      onSaveRow: saveBudgetRow,
-                      onCancelRow: cancelBudgetRow,
-                      onChange: handleBudgetCellChange,
-                      isEmptyRow: isBudgetRowEmpty,
-                      isYearOpen: isBudgetYearOpen,
-                      onToggleYear: toggleBudgetYear,
-                      cellEditScope: 'budget',
-                      isAdminForRegistry: true,
-                      registryCellEdit,
-                      onRegistryCellStart: (rowId, columnKey, value, row) =>
-                        startRegistryCellEdit('budget', rowId, columnKey, value, row),
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-        )}
-
         {menu === 'discovery' && (
           <section className="stat-card">
             <div className="contracts-header-actions">
@@ -8335,14 +7788,6 @@ function App() {
                   <button className="month-nav-btn" type="button" onClick={nextMonth}>
                     ▶
                   </button>
-                  <button
-                    className="panel-toggle-btn calendar-grid-toggle"
-                    type="button"
-                    aria-label={`달력 본문 ${isCalendarGridCollapsed ? '펼치기' : '접기'}`}
-                    onClick={() => setIsCalendarGridCollapsed((prev) => !prev)}
-                  >
-                    {isCalendarGridCollapsed ? '+' : '-'}
-                  </button>
                 </div>
               </div>
 
@@ -8376,45 +7821,39 @@ function App() {
                     </div>
                   </div>
 
-                  {!isCalendarGridCollapsed ? (
-                    <div className="calendar-body">
-                      <div className="calendar-grid">
-                        {monthDays.map((day, index) => (
-                          <div key={index} className={day ? 'day-box' : 'day-box empty'}>
-                            {day && (
-                              <>
-                                <div className="day-number">{day.slice(-2)}</div>
-                                <div className="day-events">
-                                  {calendarItems
-                                    .filter((item) => item.date === day)
-                                    .map((item) => (
-                                      <button
-                                        key={item.id}
-                                        type="button"
-                                        className={`event-pill event-pill-button ${
-                                          item.type === 'contract'
-                                            ? 'contract-event'
-                                            : item.type === 'due'
-                                            ? 'due-event'
-                                            : 'manual-event'
-                                        }`}
-                                        onClick={() => openCalendarDetail(item)}
-                                      >
-                                        {item.text}
-                                      </button>
-                                    ))}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                  <div className="calendar-body">
+                    <div className="calendar-grid">
+                      {monthDays.map((day, index) => (
+                        <div key={index} className={day ? 'day-box' : 'day-box empty'}>
+                          {day && (
+                            <>
+                              <div className="day-number">{day.slice(-2)}</div>
+                              <div className="day-events">
+                                {calendarItems
+                                  .filter((item) => item.date === day)
+                                  .map((item) => (
+                                    <button
+                                      key={item.id}
+                                      type="button"
+                                      className={`event-pill event-pill-button ${
+                                        item.type === 'contract'
+                                          ? 'contract-event'
+                                          : item.type === 'due'
+                                          ? 'due-event'
+                                          : 'manual-event'
+                                      }`}
+                                      onClick={() => openCalendarDetail(item)}
+                                    >
+                                      {item.text}
+                                    </button>
+                                  ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ) : (
-                    <div className="calendar-main-collapsed-placeholder">
-                      달력이 접혀 있습니다. 화면 최상단 월 이동 줄의 <strong>+</strong>를 눌러 펼칠 수 있습니다.
-                    </div>
-                  )}
+                  </div>
                 </div>
 
                 <aside className="calendar-page-sidebar">
@@ -8440,21 +7879,11 @@ function App() {
                             value={monthSearch}
                             onChange={(e) => setMonthSearch(e.target.value)}
                           />
-
-                          <button
-                            className="panel-toggle-btn"
-                            type="button"
-                            aria-label={`이 달의 일정 ${isMonthListCollapsed ? '펼치기' : '접기'}`}
-                            onClick={() => setIsMonthListCollapsed((prev) => !prev)}
-                          >
-                            {isMonthListCollapsed ? '+' : '-'}
-                          </button>
                         </div>
                       </div>
                     </div>
 
-                    {!isMonthListCollapsed && (
-                      <div className="month-event-list">
+                    <div className="month-event-list">
                         {monthEventList.length === 0 ? (
                           <div className="empty-text">이 달에 등록된 일정이 없습니다.</div>
                         ) : (
@@ -8507,8 +7936,7 @@ function App() {
                             )
                           })
                         )}
-                      </div>
-                    )}
+                    </div>
                   </div>
                 </aside>
               </div>

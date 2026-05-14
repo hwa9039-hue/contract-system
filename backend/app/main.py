@@ -8,7 +8,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.cors_preflight_middleware import ApiPreflightCorsMiddleware
 from app.database import init_db
 from app.routers import auth
-from app.routers import budget_progress
 from app.routers import contracts
 from app.routers import document_register
 from app.routers import excluded_projects
@@ -84,7 +83,6 @@ def health_check():
 app.include_router(auth.router)
 app.include_router(contracts.router)
 app.include_router(sales_register.router)
-app.include_router(budget_progress.router)
 app.include_router(project_discovery.router)
 app.include_router(excluded_projects.router)
 app.include_router(document_register.router)
