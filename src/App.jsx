@@ -95,7 +95,6 @@ const EXCLUDED_KEYWORD_OPTIONS = [
   '(N)교통정보전광판',
   '(N)융복합안내전광판',
   '(N)영상정보디스플레이장치',
-  '전광판',
   '미디어',
   '파사드',
   '사이니지',
@@ -117,7 +116,6 @@ const EXCLUDED_KEYWORD_TONE_MAP = {
   '(N)교통정보전광판': { background: '#ecfdf3', color: '#166534', borderColor: '#bbf7d0' },
   '(N)융복합안내전광판': { background: '#eaf1ff', color: '#1f4fd1', borderColor: '#bfd0ff' },
   '(N)영상정보디스플레이장치': { background: '#7f1d1d', color: '#ffffff', borderColor: '#7f1d1d' },
-  전광판: { background: '#f3f4f6', color: '#4b5563', borderColor: '#d1d5db' },
   미디어: { background: '#374151', color: '#ffffff', borderColor: '#374151' },
   파사드: { background: '#ede0d4', color: '#7c2d12', borderColor: '#d6ccc2' },
   사이니지: { background: '#dcfce7', color: '#166534', borderColor: '#86efac' },
@@ -318,7 +316,7 @@ function calendarMonthListEventPassesCategoryFilter(item, selectedCategory) {
   return item.category === selectedCategory
 }
 
-const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
+const DASHBOARD_CATEGORY_ORDER = ['디스플레이', 'BIT', '도로사업', '유지보수']
 const PAGE_TITLE_MAP = {
   dashboard: '대시보드',
   workReports: '주간업무보고서',
@@ -930,9 +928,9 @@ function compareKoreanText(a, b) {
   })
 }
 
-/** 계약현황 2차 그룹: `contractType`에 "유지보수" 포함 시 유지보수, 그 외·빈 값은 전광판 */
+/** 계약현황 2차 그룹: `contractType`에 "유지보수" 포함 시 유지보수, 그 외·빈 값은 디스플레이 */
 const CONTRACT_CATEGORY_SUBGROUPS = Object.freeze([
-  { groupId: 'signboard', label: '[전광판]' },
+  { groupId: 'signboard', label: '[디스플레이]' },
   { groupId: 'maintenance', label: '[유지보수]' },
 ])
 
@@ -1566,13 +1564,57 @@ function formatPercent(value) {
   return `${value.toFixed(1)}%`
 }
 
+/** 대시보드 「연도별 계약금액 현황」 카드 그리드와 동일한 마크업·클래스 */
+function YearContractAmountCategoryCards({ items, keyPrefix }) {
+  const prefix = keyPrefix != null && keyPrefix !== '' ? String(keyPrefix) : ''
+  return (
+    <div className="dashboard-year-cards">
+      {items.map((item) => (
+        <div
+          className="dashboard-year-card"
+          key={prefix ? `${prefix}-${item.name}` : item.name}
+        >
+          <div className="graph-card-title">{item.name}</div>
+
+          <div className="year-card-body">
+            <div
+              className="dashboard-donut"
+              style={{ '--ratio': `${Math.min(item.ratio, 100)}%` }}
+              aria-label={`${item.name} 비율 ${formatPercent(item.ratio)}`}
+            >
+              <span>{formatPercent(item.ratio)}</span>
+            </div>
+
+            <div className="year-card-metrics">
+              <div className="year-card-metric">
+                <span className="year-card-label">계약</span>
+                <strong>{item.count.toLocaleString('ko-KR')}건</strong>
+              </div>
+
+              <div className="year-card-metric">
+                <span className="year-card-label">금액</span>
+                <strong>{item.amount.toLocaleString('ko-KR')}원</strong>
+              </div>
+
+              <div className="year-card-metric ratio">
+                <span className="year-card-label">비율</span>
+                <strong>{formatPercent(item.ratio)}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function getMonthLabel(date) {
   return `${date.getFullYear()}년 ${date.getMonth() + 1}월`
 }
 
 function getCategory(contract) {
   const type = safeString(contract.contractType).trim()
-  if (type === '55121903') return '전광판'
+  if (type === '55121903') return '디스플레이'
   if (['43211514', '43211507', '43211902'].includes(type)) return 'BIT'
   if (type === '도로사업') return '도로사업'
   if (type === '유지보수') return '유지보수'
@@ -7314,40 +7356,10 @@ function App() {
                         </div>
 
                         {!isCollapsed && (
-                          <div className="dashboard-year-cards">
-                            {yearBlock.items.map((item) => (
-                              <div className="dashboard-year-card" key={`${yearBlock.year}-${item.name}`}>
-                                <div className="graph-card-title">{item.name}</div>
-
-                                <div className="year-card-body">
-                                  <div
-                                    className="dashboard-donut"
-                                    style={{ '--ratio': `${Math.min(item.ratio, 100)}%` }}
-                                    aria-label={`${item.name} 비율 ${formatPercent(item.ratio)}`}
-                                  >
-                                    <span>{formatPercent(item.ratio)}</span>
-                                  </div>
-
-                                  <div className="year-card-metrics">
-                                    <div className="year-card-metric">
-                                      <span className="year-card-label">계약</span>
-                                      <strong>{item.count.toLocaleString('ko-KR')}건</strong>
-                                    </div>
-
-                                    <div className="year-card-metric">
-                                      <span className="year-card-label">금액</span>
-                                      <strong>{item.amount.toLocaleString('ko-KR')}원</strong>
-                                    </div>
-
-                                    <div className="year-card-metric ratio">
-                                      <span className="year-card-label">비율</span>
-                                      <strong>{formatPercent(item.ratio)}</strong>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                          <YearContractAmountCategoryCards
+                            items={yearBlock.items}
+                            keyPrefix={yearBlock.year}
+                          />
                         )}
                       </section>
                     )
@@ -7458,48 +7470,18 @@ function App() {
             </div>
 
             {contractPageYearSummaryBlock && (
-              <div className="contracts-year-summary-compact" aria-label="연도별 계약금액 현황 요약">
-                <div className="contracts-year-summary-compact-head">
-                  <span className="contracts-year-summary-compact-eyebrow">연도별 계약금액 현황</span>
-                  <span className="contracts-year-summary-compact-total">
+              <div className="contracts-year-summary-embed" aria-label="연도별 계약금액 현황 요약">
+                <div className="contracts-year-summary-embed-head">
+                  <span className="contracts-year-summary-embed-eyebrow">연도별 계약금액 현황</span>
+                  <span className="contracts-year-summary-embed-total">
                     {contractPageSummaryFocusYear}년 · 총{' '}
                     {contractPageYearSummaryBlock.totalAmount.toLocaleString('ko-KR')}원
                   </span>
                 </div>
-                <div className="contracts-year-summary-compact-cards">
-                  {contractPageYearSummaryBlock.items.map((item) => (
-                    <div className="contracts-year-summary-compact-card" key={item.name}>
-                      <div className="contracts-year-summary-compact-card-title">{item.name}</div>
-                      <div className="contracts-year-summary-compact-card-body">
-                        <div className="contracts-year-summary-compact-donut-wrap">
-                          <div
-                            className="contracts-year-summary-compact-donut"
-                            style={{ '--ratio': `${Math.min(item.ratio, 100)}%` }}
-                            aria-label={`${item.name} 비율 ${formatPercent(item.ratio)}`}
-                          >
-                            <span className="contracts-year-summary-compact-donut-pct">
-                              {formatPercent(item.ratio)}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="contracts-year-summary-compact-metrics">
-                          <div className="contracts-year-summary-compact-metric-row">
-                            <span className="contracts-year-summary-metric-label">계약</span>
-                            <strong className="contracts-year-summary-metric-value">
-                              {item.count.toLocaleString('ko-KR')}건
-                            </strong>
-                          </div>
-                          <div className="contracts-year-summary-compact-metric-row">
-                            <span className="contracts-year-summary-metric-label">금액</span>
-                            <strong className="contracts-year-summary-metric-value">
-                              {item.amount.toLocaleString('ko-KR')}원
-                            </strong>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <YearContractAmountCategoryCards
+                  items={contractPageYearSummaryBlock.items}
+                  keyPrefix={`contracts-${contractPageSummaryFocusYear}`}
+                />
               </div>
             )}
 
@@ -8177,7 +8159,7 @@ function App() {
                     ※ 기본 제외사항 : 지역제한, 수의계약, 지명경쟁(전자조합추천) / 서울(1억~), 타지역(3억~)
                   </div>
                   <div>
-                    ※ 검색 키워드 : 전광판, 미디어, 파사드, 사이니지, 디스플레이, LED, 앞에 키워드+디지털, ITS, VMS
+                    ※ 검색 키워드 : 미디어, 파사드, 사이니지, 디스플레이, LED, 앞에 키워드+디지털, ITS, VMS
                   </div>
                   <div>
                     ※ 검색 품명(분류번호) : 안내전광판(5512190301), 기상전광판(5512190302), 교통정보전광판(5512190303), 융복합안내전광판(9955121901), 영상정보디스플레이장치(4511189301)

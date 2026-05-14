@@ -318,24 +318,27 @@ textarea {
   flex-wrap: wrap;
 }
 
-.contracts-year-summary-compact {
+/* contract — 계약현황 상단 요약: 대시보드와 동일 카드 클래스 사용, 래퍼만 구분 */
+.contracts-year-summary-embed {
   margin: 0 0 12px;
-  padding: 12px 14px 14px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #fcfdff;
+  overflow: hidden;
 }
 
-.contracts-year-summary-compact-head {
+.contracts-year-summary-embed-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fbff;
 }
 
-.contracts-year-summary-compact-eyebrow {
+.contracts-year-summary-embed-eyebrow {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -343,122 +346,15 @@ textarea {
   color: #64748b;
 }
 
-.contracts-year-summary-compact-total {
+.contracts-year-summary-embed-total {
   font-family: 'SUIT', sans-serif;
   font-size: 14px;
   font-weight: 800;
   color: #223b63;
 }
 
-.contracts-year-summary-compact-cards {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.contracts-year-summary-compact-card {
-  background: #ffffff;
-  border: 1px solid #e3e9f2;
-  border-radius: 10px;
-  padding: 12px 14px 14px;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.contracts-year-summary-compact-card-title {
-  font-family: 'SUIT', sans-serif;
-  font-size: clamp(15px, 1.35vw, 18px);
-  font-weight: 800;
-  text-align: center;
-  margin: 0 0 10px;
-  color: #0f172a;
-  letter-spacing: -0.02em;
-}
-
-.contracts-year-summary-compact-card-body {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 12px 14px;
-  flex: 1;
-  min-height: 0;
-}
-
-.contracts-year-summary-compact-donut-wrap {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.contracts-year-summary-compact-donut {
-  width: 76px;
-  height: 76px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  background:
-    radial-gradient(circle, #ffffff 0 54%, transparent 55%),
-    conic-gradient(var(--accent) 0 var(--ratio), #e7edf4 var(--ratio) 100%);
-  border: 1px solid #e4ebf3;
-  box-shadow:
-    inset 0 0 0 5px #ffffff,
-    0 6px 14px rgba(15, 23, 42, 0.07);
-}
-
-.contracts-year-summary-compact-donut-pct {
-  position: relative;
-  z-index: 1;
-  color: var(--accent-strong);
-  font-family: 'SUIT', sans-serif;
-  font-size: 14px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-}
-
-.contracts-year-summary-compact-metrics {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.contracts-year-summary-compact-metric-row {
-  display: grid;
-  grid-template-columns: minmax(2.5rem, 3rem) minmax(0, 1fr);
-  column-gap: 10px;
-  align-items: baseline;
-  row-gap: 2px;
-}
-
-.contracts-year-summary-metric-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #64748b;
-  text-align: right;
-  line-height: 1.3;
-  white-space: nowrap;
-}
-
-.contracts-year-summary-metric-value {
-  display: block;
-  font-family: 'SUIT', sans-serif;
-  font-size: clamp(15px, 2.1vw, 20px);
-  font-weight: 800;
-  color: #0f172a;
-  line-height: 1.25;
-  text-align: left;
-  word-break: break-all;
-  letter-spacing: -0.02em;
-}
-
 @media (max-width: 1100px) {
-  .contracts-year-summary-compact-cards {
+  .contracts-year-summary-embed .dashboard-year-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
