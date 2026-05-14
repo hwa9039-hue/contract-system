@@ -1794,7 +1794,7 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
-  const [isContractPageYearSummaryOpen, setIsContractPageYearSummaryOpen] = useState(true)
+  const [isContractPageYearSummaryOpen, setIsContractPageYearSummaryOpen] = useState(false)
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
   const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
