@@ -318,7 +318,6 @@ function calendarMonthListEventPassesCategoryFilter(item, selectedCategory) {
 }
 
 const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
-const DASHBOARD_STATUS_LABELS = SALES_STAGE_OPTIONS
 const PAGE_TITLE_MAP = {
   dashboard: '대시보드',
   workReports: '주간업무보고서',
@@ -487,6 +486,24 @@ function getWorkReportPrimaryChecklistStoredRow(date, sectionKey, workReportRows
     if (row?.id) return row
   }
   return row1 || null
+}
+
+/** 대시보드 브리핑: 오늘 날짜의 외부일정 슬롯(저장분 + draft) */
+function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDrafts) {
+  const section = WORK_REPORT_SECTION_KEYS.external
+  const list = []
+  for (let oi = 1; oi <= WORK_REPORT_EXTERNAL_ROW_COUNT; oi += 1) {
+    const cellKey = `${dateYmd}__${section}__${oi}`
+    const draftEntry = workReportDrafts?.[cellKey]
+    const stored = workReportRows.find(
+      (r) => r.date === dateYmd && r.section === section && Number(r.orderIndex || 1) === oi
+    )
+    const entry = draftEntry || stored
+    const user = safeString(entry?.user).trim()
+    const content = safeString(entry?.content).trim()
+    if (user || content) list.push({ user, content })
+  }
+  return list
 }
 
 function safeString(value) {
@@ -1601,39 +1618,6 @@ function logApiOperationError(label, error) {
   })
 }
 
-function getDashboardStatusCounts(rows, statusKey) {
-  return DASHBOARD_STATUS_LABELS.map((status) => ({
-    status,
-    count: rows.filter((row) => safeString(row[statusKey]).trim() === status).length,
-  }))
-}
-
-function getEnumStatusCounts(rows, statusKey, labels) {
-  return labels.map((status) => ({
-    status,
-    count: rows.filter((row) => safeString(row[statusKey]).trim() === status).length,
-  }))
-}
-
-/** ISO·YYYY-MM-DD 등 → YYYY-MM-DD (비교용) */
-function ymdFromAny(value) {
-  const parsed = parseDateOnly(value)
-  if (parsed && !Number.isNaN(parsed.getTime())) return formatDateInput(parsed)
-  const d = value ? new Date(value) : null
-  if (!d || Number.isNaN(d.getTime())) return ''
-  return formatDateInput(new Date(d.getFullYear(), d.getMonth(), d.getDate()))
-}
-
-/** 주간보고서 요일 컬럼: 해당 일자에 등록(registerKey) 또는 수정·생성일이 겹치는 행만 */
-function filterRegistryRowsForWorkReportDay(rows, dayYmd, registerKey) {
-  return rows.filter((row) => {
-    const reg = ymdFromAny(row[registerKey])
-    const upd = ymdFromAny(row.updatedAt ?? row.updated_at)
-    const crt = ymdFromAny(row.createdAt ?? row.created_at)
-    return reg === dayYmd || upd === dayYmd || crt === dayYmd
-  })
-}
-
 function getDashboardDisplayDate(value) {
   const raw = safeString(value).trim()
   return raw ? raw.slice(0, 10) : '-'
@@ -2300,21 +2284,26 @@ function App() {
     workReportRows,
   ])
 
-  const workReportDayRegistryStatusByDate = useMemo(() => {
-    const sales = getPersistedRows(salesRows)
-    const excluded = getPersistedRows(excludedRows)
-    const byDate = {}
-    for (const day of selectedWorkWeekDays) {
-      const d = day.date
-      const salesDay = filterRegistryRowsForWorkReportDay(sales, d, 'registerDate')
-      const excludedDay = filterRegistryRowsForWorkReportDay(excluded, d, 'writeDate')
-      byDate[d] = {
-        sales: getEnumStatusCounts(salesDay, 'projectStage', SALES_STAGE_OPTIONS),
-        excluded: getEnumStatusCounts(excludedDay, 'category', EXCLUDED_CATEGORY_OPTIONS),
-      }
+  const dashboardTodayWorkBrief = useMemo(() => {
+    const now = new Date()
+    const todayYmd = formatDateInput(new Date(now.getFullYear(), now.getMonth(), now.getDate()))
+    const checklistText = safeString(
+      getWorkReportChecklistCombinedText(
+        todayYmd,
+        WORK_REPORT_SECTION_KEYS.checklist,
+        workReportRows,
+        workReportDrafts
+      )
+    ).trim()
+    const externalRows = collectDashboardTodayExternalRows(todayYmd, workReportRows, workReportDrafts)
+    return {
+      todayYmd,
+      checklistText,
+      externalRows,
+      hasChecklist: Boolean(checklistText),
+      hasExternal: externalRows.length > 0,
     }
-    return byDate
-  }, [salesRows, excludedRows, selectedWorkWeekDays])
+  }, [workReportRows, workReportDrafts])
 
   const dashboardSummary = useMemo(() => buildDashboardSummary(contracts), [contracts])
   const dashboardData = useMemo(() => {
@@ -6700,67 +6689,12 @@ function App() {
     </section>
   )
 
-  const renderWorkReportDayRegistryStatusStrip = (day) => {
-    const pack = workReportDayRegistryStatusByDate[day.date] || { sales: [], excluded: [] }
-    const salesNonZero = pack.sales.filter((x) => x.count > 0)
-    const exNonZero = pack.excluded.filter((x) => x.count > 0)
-
-    return (
-      <div className="work-report-day-status-strip" aria-label={`${day.date} 영업·검색이력 요약`}>
-        <div className="work-report-day-status-strip-head">당일 등록·변경</div>
-        <div className="work-report-day-status-strip-cols">
-          <div className="work-report-day-status-strip-col">
-            <span className="work-report-day-status-strip-label">영업</span>
-            <div className="work-report-day-status-strip-badges">
-              {salesNonZero.length ? (
-                salesNonZero.map((item) => (
-                  <span
-                    key={item.status}
-                    className={`work-report-day-status-pill ${getSalesStageClassName(item.status)}`}
-                  >
-                    <span className="work-report-day-status-pill-name">{item.status}</span>
-                    <span className="work-report-day-status-pill-count">{item.count}</span>
-                  </span>
-                ))
-              ) : (
-                <span className="work-report-day-status-empty">—</span>
-              )}
-            </div>
-          </div>
-          <div className="work-report-day-status-strip-col">
-            <span className="work-report-day-status-strip-label">검색</span>
-            <div className="work-report-day-status-strip-badges">
-              {exNonZero.length ? (
-                exNonZero.map((item) => {
-                  const toneStyle = getExcludedBadgeStyle(EXCLUDED_CATEGORY_TONE_MAP, item.status)
-                  return (
-                    <span
-                      key={item.status}
-                      className="work-report-day-status-pill work-report-day-status-pill--excluded"
-                      style={toneStyle || undefined}
-                    >
-                      <span className="work-report-day-status-pill-name">{item.status}</span>
-                      <span className="work-report-day-status-pill-count">{item.count}</span>
-                    </span>
-                  )
-                })
-              ) : (
-                <span className="work-report-day-status-empty">—</span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   const renderWorkReportDayBoardV5 = (day) => (
     <div key={day.date} className={`work-report-day-board work-report-day-board-dense report-mode ${day.isToday ? 'is-today' : ''}`}>
       <div className="work-report-day-head report-mode">
         <div className="work-report-day-weekday">{day.label}</div>
         <div className="work-report-day-date">{day.date}</div>
       </div>
-      {renderWorkReportDayRegistryStatusStrip(day)}
       <div className="work-report-day-sections work-report-day-sections-dense report-mode">
         {renderWorkReportChecklistSectionV5(day.date)}
         {renderWorkReportExternalSectionV5(day.date)}
@@ -6995,6 +6929,72 @@ function App() {
         {menu === 'dashboard' && (
           <section className="stat-card">
             <div className="integrated-dashboard">
+              <div className="dashboard-work-report-briefing">
+                <div className="dashboard-work-report-briefing-top">
+                  <div>
+                    <p className="dashboard-section-eyebrow">주간업무보고서</p>
+                    <h2 className="dashboard-work-report-briefing-title">오늘 업무 브리핑</h2>
+                    <p className="dashboard-work-report-briefing-meta">
+                      {dashboardTodayWorkBrief.todayYmd} · {getWorkReportWeekLabel(dashboardWorkReportWeekMeta.weekStartDate)}
+                    </p>
+                  </div>
+                  <button
+                    className="primary-btn dashboard-work-report-briefing-cta"
+                    type="button"
+                    onClick={() => {
+                      trackWorkWeek(dashboardWorkReportWeekMeta.weekStartDate)
+                      setMenu('workReports')
+                    }}
+                  >
+                    주간업무보고서 열기
+                  </button>
+                </div>
+
+                {!dashboardTodayWorkBrief.hasChecklist && !dashboardTodayWorkBrief.hasExternal ? (
+                  <p className="dashboard-work-report-briefing-empty">
+                    오늘 등록된 주요 확인사항/외부일정이 없습니다.
+                  </p>
+                ) : (
+                  <div className="dashboard-work-report-briefing-split">
+                    <div className="dashboard-work-report-briefing-col">
+                      <h3 className="dashboard-work-report-briefing-col-title">주요 확인사항</h3>
+                      {dashboardTodayWorkBrief.hasChecklist ? (
+                        <div className="dashboard-work-report-briefing-checklist">
+                          {dashboardTodayWorkBrief.checklistText}
+                        </div>
+                      ) : (
+                        <p className="dashboard-work-report-briefing-col-empty">등록된 주요 확인사항이 없습니다.</p>
+                      )}
+                    </div>
+                    <div className="dashboard-work-report-briefing-col">
+                      <h3 className="dashboard-work-report-briefing-col-title">외부일정</h3>
+                      {dashboardTodayWorkBrief.hasExternal ? (
+                        <ul className="dashboard-work-report-briefing-external-list">
+                          {dashboardTodayWorkBrief.externalRows.map((row, idx) => {
+                            const managers = safeString(row.user)
+                              .split(',')
+                              .map((s) => s.trim())
+                              .filter(Boolean)
+                            return (
+                              <li key={`ext-brief-${idx}`} className="dashboard-work-report-briefing-external-item">
+                                <div className="dashboard-work-report-briefing-external-managers">
+                                  {managers.length ? managers.join(', ') : '—'}
+                                </div>
+                                <div className="dashboard-work-report-briefing-external-content">
+                                  {row.content || '—'}
+                                </div>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      ) : (
+                        <p className="dashboard-work-report-briefing-col-empty">등록된 외부일정이 없습니다.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="dashboard-section-header">
                 <div>
                   <p className="dashboard-section-eyebrow">전체 요약</p>
@@ -7015,22 +7015,6 @@ function App() {
                     <strong>{item.count.toLocaleString('ko-KR')}건</strong>
                   </button>
                 ))}
-              </div>
-
-              <div className="dashboard-mid-grid dashboard-mid-grid--report-only">
-                <button
-                  className="dashboard-work-report-card"
-                  type="button"
-                  onClick={() => {
-                    trackWorkWeek(dashboardWorkReportWeekMeta.weekStartDate)
-                    setMenu('workReports')
-                  }}
-                >
-                  <span className="dashboard-section-eyebrow">바로가기</span>
-                  <strong>주간업무보고서</strong>
-                  <span>{getWorkReportWeekLabel(dashboardWorkReportWeekMeta.weekStartDate)}</span>
-                  <small>현재 또는 최신 주차 업무보고서로 이동</small>
-                </button>
               </div>
 
               <div className="dashboard-panel">
