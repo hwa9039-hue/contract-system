@@ -708,6 +708,32 @@ function compareKoreanText(a, b) {
   })
 }
 
+/** 계약현황 2차 그룹: `contractType`에 "유지보수" 포함 시 유지보수, 그 외·빈 값은 전광판 */
+const CONTRACT_CATEGORY_SUBGROUPS = Object.freeze([
+  { groupId: 'signboard', label: '[전광판]' },
+  { groupId: 'maintenance', label: '[유지보수]' },
+])
+
+function getContractCategorySubgroupId(contractType) {
+  return safeString(contractType).includes('유지보수') ? 'maintenance' : 'signboard'
+}
+
+/** 그룹 내 기본 정렬: 계약일자 오름차순(빠른 날짜 먼저). 미입력·파싱 불가는 맨 뒤. */
+function compareContractsByContractDateAsc(a, b) {
+  const ts = (item) => {
+    const raw = safeString(item.contractDate ?? '').trim()
+    if (!raw) return Number.MAX_SAFE_INTEGER
+    const t = new Date(raw).getTime()
+    return Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t
+  }
+  const ta = ts(a)
+  const tb = ts(b)
+  if (ta !== tb) return ta - tb
+  const seg = compareKoreanText(a.segment, b.segment)
+  if (seg !== 0) return seg
+  return compareKoreanText(a.projectName, b.projectName)
+}
+
 function getOptions(items, key) {
   return [
     ALL_OPTION,
@@ -1413,6 +1439,8 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
+  /** 계약현황: 사업년도 하위 [전광판] / [유지보수] 아코디언 열림 상태 — 키 `${year}__${groupId}` */
+  const [openContractCategoryGroups, setOpenContractCategoryGroups] = useState({})
   const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
   const [openBudgetYears, setOpenBudgetYears] = useState({})
   const [openDiscoveryYears, setOpenDiscoveryYears] = useState({})
@@ -1872,17 +1900,22 @@ function App() {
 
     return [...groups.entries()]
       .sort(([a], [b]) => Number(b) - Number(a))
-      .map(([year, items]) => ({
-        year,
-        items: [...items].sort((a, b) => {
-          const segmentCompare = compareKoreanText(a.segment, b.segment)
-          if (segmentCompare !== 0) return segmentCompare
+      .map(([year, yearItems]) => {
+        const buckets = { signboard: [], maintenance: [] }
+        yearItems.forEach((item) => {
+          buckets[getContractCategorySubgroupId(item.contractType)].push(item)
+        })
 
-          const aDate = a.contractDate || a.dueDate || '1900-01-01'
-          const bDate = b.contractDate || b.dueDate || '1900-01-01'
-          return new Date(bDate).getTime() - new Date(aDate).getTime()
-        }),
-      }))
+        const subGroups = CONTRACT_CATEGORY_SUBGROUPS.map(({ groupId, label }) => ({
+          groupId,
+          label,
+          items: [...buckets[groupId]].sort(compareContractsByContractDateAsc),
+        }))
+
+        const items = subGroups.flatMap((g) => g.items)
+
+        return { year, subGroups, items }
+      })
   }, [filteredContracts])
 
   const getContractRowBySelectKey = useCallback(
@@ -2458,6 +2491,23 @@ function App() {
     setOpenContractYears((prev) => ({
       ...prev,
       [year]: !isContractYearOpen(year),
+    }))
+  }
+
+  const contractCategoryGroupKey = (year, groupId) => `${year}__${groupId}`
+
+  const isContractCategoryGroupOpen = (year, groupId) => {
+    const key = contractCategoryGroupKey(year, groupId)
+    return Object.prototype.hasOwnProperty.call(openContractCategoryGroups, key)
+      ? openContractCategoryGroups[key]
+      : true
+  }
+
+  const toggleContractCategoryGroup = (year, groupId) => {
+    const key = contractCategoryGroupKey(year, groupId)
+    setOpenContractCategoryGroups((prev) => ({
+      ...prev,
+      [key]: !isContractCategoryGroupOpen(year, groupId),
     }))
   }
 
@@ -7481,16 +7531,42 @@ function App() {
 
                         if (collapsed) return [yearRow]
 
-                        return [
-                          yearRow,
-                          ...yearBlock.items.map((item, index) => {
+                        const rows = [yearRow]
+                        let stripeIndex = 0
+
+                        yearBlock.subGroups.forEach((sub) => {
+                          const subCollapsed = !isContractCategoryGroupOpen(yearBlock.year, sub.groupId)
+                          rows.push(
+                            <tr
+                              className="contract-category-group-row"
+                              key={`cat-${yearBlock.year}-${sub.groupId}`}
+                            >
+                              <td colSpan={contractTableColSpan}>
+                                <button
+                                  className="contract-year-toggle"
+                                  type="button"
+                                  onClick={() => toggleContractCategoryGroup(yearBlock.year, sub.groupId)}
+                                >
+                                  <span className="contract-year-sign">{subCollapsed ? '+' : '-'}</span>
+                                  <span>{sub.label}</span>
+                                  <span className="contract-year-count">
+                                    {sub.items.length.toLocaleString('ko-KR')}건
+                                  </span>
+                                </button>
+                              </td>
+                            </tr>
+                          )
+
+                          if (subCollapsed) return
+
+                          sub.items.forEach((item, index) => {
                             const rowSelectKey = getContractTableRowKey(item)
-                            const domRowKey = `${rowSelectKey}::${yearBlock.year}::${index}`
-                            return (
-                              <tr
-                                key={domRowKey}
-                                className={index % 2 === 0 ? 'row-even' : 'row-odd'}
-                              >
+                            const domRowKey = `${rowSelectKey}::${yearBlock.year}::${sub.groupId}::${index}`
+                            const rowStripe = stripeIndex % 2 === 0 ? 'row-even' : 'row-odd'
+                            stripeIndex += 1
+
+                            rows.push(
+                              <tr key={domRowKey} className={rowStripe}>
                                 {isAdmin && (
                                   <td className="td-align-center registry-check-cell">
                                     <input
@@ -7556,8 +7632,10 @@ function App() {
                                 })}
                               </tr>
                             )
-                          }),
-                        ]
+                          })
+                        })
+
+                        return rows
                       })
                     )}
                   </tbody>

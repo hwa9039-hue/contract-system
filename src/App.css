@@ -598,6 +598,18 @@ textarea {
   font-weight: 800;
 }
 
+.contract-category-group-row td {
+  height: 40px;
+  background: #e8f0fc;
+  border-bottom: 1px solid #d5e3f7;
+}
+
+.contract-category-group-row .contract-year-toggle {
+  padding-left: 32px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .inline-row-actions {
   height: 100%;
   display: flex;
@@ -683,7 +695,7 @@ textarea {
   cursor: text;
 }
 
-.contract-table-admin tbody tr:not(.contract-year-row):not(.inline-add-row) td.editable-cell:hover {
+.contract-table-admin tbody tr:not(.contract-year-row):not(.contract-category-group-row):not(.inline-add-row) td.editable-cell:hover {
   background: rgba(59, 130, 246, 0.06);
   outline: 1px solid rgba(59, 130, 246, 0.22);
   outline-offset: -1px;
@@ -1851,7 +1863,7 @@ textarea:focus-visible {
   background: #fbfdff;
 }
 
-.excel-table tbody tr:not(.contract-year-row):hover {
+.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row):hover {
   background: #f4faf9;
 }
 
