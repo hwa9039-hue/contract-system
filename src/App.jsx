@@ -8325,171 +8325,183 @@ function App() {
 
         {menu === 'calendar' && (
           <section className="stat-card stat-card--calendar">
-            <div className="calendar-toolbar">
-              <div className="calendar-toolbar-nav">
-                <button className="month-nav-btn" type="button" onClick={prevMonth}>
-                  ◀
-                </button>
-                <div className="calendar-month-title">{getMonthLabel(calendarCursor)}</div>
-                <button className="month-nav-btn" type="button" onClick={nextMonth}>
-                  ▶
-                </button>
-                <button
-                  className="panel-toggle-btn calendar-grid-toggle"
-                  type="button"
-                  aria-label={`달력 본문 ${isCalendarGridCollapsed ? '펼치기' : '접기'}`}
-                  onClick={() => setIsCalendarGridCollapsed((prev) => !prev)}
-                >
-                  {isCalendarGridCollapsed ? '+' : '-'}
-                </button>
-              </div>
-
-              <div className="calendar-toolbar-form">
-                <input
-                  type="date"
-                  className="calendar-input calendar-input-date"
-                  value={eventForm.date}
-                  onChange={(e) => setEventForm((prev) => ({ ...prev, date: e.target.value }))}
-                />
-                <input
-                  type="text"
-                  className="calendar-input calendar-input-title"
-                  placeholder="일정 내용"
-                  value={eventForm.title}
-                  onChange={(e) => setEventForm((prev) => ({ ...prev, title: e.target.value }))}
-                />
-                <input
-                  type="text"
-                  className="calendar-input calendar-input-owner"
-                  placeholder="담당자"
-                  value={eventForm.owner}
-                  onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
-                />
-                <button className="primary-btn calendar-add-btn" type="button" onClick={addManualEvent}>
-                  일정 추가
-                </button>
-              </div>
-            </div>
-
-            {!isCalendarGridCollapsed && (
-              <div className="calendar-body">
-                <div className="calendar-grid">
-                  {monthDays.map((day, index) => (
-                    <div key={index} className={day ? 'day-box' : 'day-box empty'}>
-                      {day && (
-                        <>
-                          <div className="day-number">{day.slice(-2)}</div>
-                          <div className="day-events">
-                            {calendarItems
-                              .filter((item) => item.date === day)
-                              .map((item) => (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  className={`event-pill event-pill-button ${
-                                    item.type === 'contract'
-                                      ? 'contract-event'
-                                      : item.type === 'due'
-                                      ? 'due-event'
-                                      : 'manual-event'
-                                  }`}
-                                  onClick={() => openCalendarDetail(item)}
-                                >
-                                  {item.text}
-                                </button>
-                              ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="selected-events-wrap">
-              <div className="month-list-header">
-                <div className="month-list-title-row">
-                  <h3>이 달의 일정</h3>
-                </div>
-
-                <div className="month-list-tools">
-                  <select
-                    className="calendar-filter-select"
-                    value={monthTypeFilter}
-                    onChange={(e) => setMonthTypeFilter(e.target.value)}
-                  >
-                    <option value="전체">전체</option>
-                    <option value="contract">계약</option>
-                    <option value="due">준공</option>
-                    <option value="manual">기타</option>
-                  </select>
-
-                  <input
-                    className="calendar-search-input"
-                    type="text"
-                    placeholder="계약 / 준공 / 기타 일정 검색"
-                    value={monthSearch}
-                    onChange={(e) => setMonthSearch(e.target.value)}
-                  />
-
+            <div className="calendar-page">
+              <div className="calendar-toolbar">
+                <div className="calendar-toolbar-nav">
+                  <button className="month-nav-btn" type="button" onClick={prevMonth}>
+                    ◀
+                  </button>
+                  <div className="calendar-month-title">{getMonthLabel(calendarCursor)}</div>
+                  <button className="month-nav-btn" type="button" onClick={nextMonth}>
+                    ▶
+                  </button>
                   <button
-                    className="panel-toggle-btn"
+                    className="panel-toggle-btn calendar-grid-toggle"
                     type="button"
-                    aria-label={`이 달의 일정 ${isMonthListCollapsed ? '펼치기' : '접기'}`}
-                    onClick={() => setIsMonthListCollapsed((prev) => !prev)}
+                    aria-label={`달력 본문 ${isCalendarGridCollapsed ? '펼치기' : '접기'}`}
+                    onClick={() => setIsCalendarGridCollapsed((prev) => !prev)}
                   >
-                    {isMonthListCollapsed ? '+' : '-'}
+                    {isCalendarGridCollapsed ? '+' : '-'}
+                  </button>
+                </div>
+
+                <div className="calendar-toolbar-form">
+                  <input
+                    type="date"
+                    className="calendar-input calendar-input-date"
+                    value={eventForm.date}
+                    onChange={(e) => setEventForm((prev) => ({ ...prev, date: e.target.value }))}
+                  />
+                  <input
+                    type="text"
+                    className="calendar-input calendar-input-title"
+                    placeholder="일정 내용"
+                    value={eventForm.title}
+                    onChange={(e) => setEventForm((prev) => ({ ...prev, title: e.target.value }))}
+                  />
+                  <input
+                    type="text"
+                    className="calendar-input calendar-input-owner"
+                    placeholder="담당자"
+                    value={eventForm.owner}
+                    onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
+                  />
+                  <button className="primary-btn calendar-add-btn" type="button" onClick={addManualEvent}>
+                    일정 추가
                   </button>
                 </div>
               </div>
 
-              {!isMonthListCollapsed && (
-                <div className="month-event-list">
-                  {monthEventList.length === 0 ? (
-                    <div className="empty-text">이 달에 등록된 일정이 없습니다.</div>
-                  ) : (
-                    monthEventList.map((item) => {
-                      const listDday =
-                        item.type === 'contract' || item.type === 'due'
-                          ? safeString(item.dday).startsWith('D+')
-                            ? ''
-                            : item.dday || ''
-                          : item.dday || ''
+              <div className="calendar-page-body">
+                <aside className="calendar-page-sidebar">
+                  <div className="selected-events-wrap calendar-month-list-panel">
+                    <div className="month-list-header">
+                      <div className="month-list-title-row">
+                        <h3>이 달의 일정</h3>
+                      </div>
 
-                      return (
-                        <div
-                          key={item.id}
-                          className="selected-event-card clickable"
-                          onClick={() => openCalendarDetail(item)}
+                      <div className="month-list-tools">
+                        <select
+                          className="calendar-filter-select"
+                          value={monthTypeFilter}
+                          onChange={(e) => setMonthTypeFilter(e.target.value)}
                         >
-                          <div className="selected-event-click">
-                            <div className="selected-event-title">
-                              {listDday ? `${listDday} | ` : ''}[{item.date}] {item.text}
-                            </div>
-                            {item.owner && <div className="selected-event-memo">영업담당자: {item.owner}</div>}
-                            {item.pm && <div className="selected-event-memo">현장 PM: {item.pm}</div>}
-                            {item.note && <div className="selected-event-memo">{item.note}</div>}
-                          </div>
+                          <option value="전체">전체</option>
+                          <option value="contract">계약</option>
+                          <option value="due">준공</option>
+                          <option value="manual">기타</option>
+                        </select>
 
-                          {item.type === 'manual' && (
-                            <button
-                              className="delete-btn"
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                deleteManualEvent(item.originalId)
-                              }}
-                            >
-                              삭제
-                            </button>
-                          )}
-                        </div>
-                      )
-                    })
+                        <input
+                          className="calendar-search-input"
+                          type="text"
+                          placeholder="계약 / 준공 / 기타 일정 검색"
+                          value={monthSearch}
+                          onChange={(e) => setMonthSearch(e.target.value)}
+                        />
+
+                        <button
+                          className="panel-toggle-btn"
+                          type="button"
+                          aria-label={`이 달의 일정 ${isMonthListCollapsed ? '펼치기' : '접기'}`}
+                          onClick={() => setIsMonthListCollapsed((prev) => !prev)}
+                        >
+                          {isMonthListCollapsed ? '+' : '-'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {!isMonthListCollapsed && (
+                      <div className="month-event-list">
+                        {monthEventList.length === 0 ? (
+                          <div className="empty-text">이 달에 등록된 일정이 없습니다.</div>
+                        ) : (
+                          monthEventList.map((item) => {
+                            const listDday =
+                              item.type === 'contract' || item.type === 'due'
+                                ? safeString(item.dday).startsWith('D+')
+                                  ? ''
+                                  : item.dday || ''
+                                : item.dday || ''
+
+                            return (
+                              <div
+                                key={item.id}
+                                className="selected-event-card clickable"
+                                onClick={() => openCalendarDetail(item)}
+                              >
+                                <div className="selected-event-click">
+                                  <div className="selected-event-title">
+                                    {listDday ? `${listDday} | ` : ''}[{item.date}] {item.text}
+                                  </div>
+                                  {item.owner && <div className="selected-event-memo">영업담당자: {item.owner}</div>}
+                                  {item.pm && <div className="selected-event-memo">현장 PM: {item.pm}</div>}
+                                  {item.note && <div className="selected-event-memo">{item.note}</div>}
+                                </div>
+
+                                {item.type === 'manual' && (
+                                  <button
+                                    className="delete-btn"
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      deleteManualEvent(item.originalId)
+                                    }}
+                                  >
+                                    삭제
+                                  </button>
+                                )}
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </aside>
+
+                <div className="calendar-page-main">
+                  {!isCalendarGridCollapsed ? (
+                    <div className="calendar-body">
+                      <div className="calendar-grid">
+                        {monthDays.map((day, index) => (
+                          <div key={index} className={day ? 'day-box' : 'day-box empty'}>
+                            {day && (
+                              <>
+                                <div className="day-number">{day.slice(-2)}</div>
+                                <div className="day-events">
+                                  {calendarItems
+                                    .filter((item) => item.date === day)
+                                    .map((item) => (
+                                      <button
+                                        key={item.id}
+                                        type="button"
+                                        className={`event-pill event-pill-button ${
+                                          item.type === 'contract'
+                                            ? 'contract-event'
+                                            : item.type === 'due'
+                                            ? 'due-event'
+                                            : 'manual-event'
+                                        }`}
+                                        onClick={() => openCalendarDetail(item)}
+                                      >
+                                        {item.text}
+                                      </button>
+                                    ))}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="calendar-main-collapsed-placeholder">
+                      달력이 접혀 있습니다. 상단 월 네비게이션 옆 <strong>+</strong>를 눌러 펼칠 수 있습니다.
+                    </div>
                   )}
                 </div>
-              )}
+              </div>
             </div>
           </section>
         )}
