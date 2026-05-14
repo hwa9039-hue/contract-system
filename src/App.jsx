@@ -337,16 +337,14 @@ const TOP_SYSTEM_SUBTITLE =
 const INSTALL_CASE_SPEC_ROWS = [
   { key: 'displayArea', label: '표출면' },
   { key: 'ledPitch', label: 'LED 간격' },
-  { key: 'color', label: '색상' },
   { key: 'moduleSize', label: '모듈 SIZE' },
   { key: 'moduleQty', label: '모듈 수량' },
   { key: 'resolution', label: '해상도' },
-  { key: 'displayCapability', label: '표출능력' },
   { key: 'installType', label: '설치유형' },
 ]
 
-/** 설치사례 목업 (필터·갤러리·모달 프로토타입) */
-const INSTALL_CASE_MOCK_CASES = [
+/** 설치사례 초기 시드 (로컬 상태 초기값) */
+const INSTALL_CASE_SEED_CASES = [
   {
     id: 'ic-1',
     placeName: '대구경북첨단의료산업진흥재단',
@@ -362,11 +360,9 @@ const INSTALL_CASE_MOCK_CASES = [
     specs: {
       displayArea: '4.8m × 2.7m',
       ledPitch: 'P2.5',
-      color: '풀컬러',
       moduleSize: '320×160mm',
       moduleQty: '120매',
       resolution: '1920×1080',
-      displayCapability: '16bit',
       installType: '벽면 매립',
     },
   },
@@ -385,11 +381,9 @@ const INSTALL_CASE_MOCK_CASES = [
     specs: {
       displayArea: '3.2m × 1.8m',
       ledPitch: 'P3',
-      color: '풀컬러',
       moduleSize: '256×128mm',
       moduleQty: '72매',
       resolution: '1280×720',
-      displayCapability: '14bit',
       installType: '전면 거치',
     },
   },
@@ -408,11 +402,9 @@ const INSTALL_CASE_MOCK_CASES = [
     specs: {
       displayArea: '12m × 7m',
       ledPitch: 'P10',
-      color: '풀컬러',
       moduleSize: '320×160mm',
       moduleQty: '420매',
       resolution: '3840×2160',
-      displayCapability: 'HDR 대응',
       installType: '강관 주탑',
     },
   },
@@ -431,11 +423,9 @@ const INSTALL_CASE_MOCK_CASES = [
     specs: {
       displayArea: '14m × 5m',
       ledPitch: 'P4',
-      color: '풀컬러',
       moduleSize: '500×500mm',
       moduleQty: '280매',
       resolution: '7680×2160',
-      displayCapability: '12bit',
       installType: '트러스 서스펜션',
     },
   },
@@ -454,15 +444,43 @@ const INSTALL_CASE_MOCK_CASES = [
     specs: {
       displayArea: '2.4m × 1.35m',
       ledPitch: 'P1.8',
-      color: '풀컬러',
       moduleSize: '300×168.75mm',
       moduleQty: '48매',
       resolution: '1920×1080',
-      displayCapability: '16bit',
       installType: '유리면 부착',
     },
   },
 ]
+
+function cloneInstallCaseSeed() {
+  return INSTALL_CASE_SEED_CASES.map((row) => ({
+    ...row,
+    specs: { ...row.specs },
+  }))
+}
+
+function getDefaultInstallCaseForm() {
+  return {
+    placeName: '',
+    modelName: '',
+    environment: 'indoor',
+    audience: 'public',
+    year: String(new Date().getFullYear()),
+    purpose: '',
+    client: '',
+    location: '',
+    thumbnail: 'https://picsum.photos/seed/newinstall/480/320',
+    heroImage: 'https://picsum.photos/seed/newinstallh/960/720',
+    specs: {
+      displayArea: '',
+      ledPitch: '',
+      moduleSize: '',
+      moduleQty: '',
+      resolution: '',
+      installType: '',
+    },
+  }
+}
 const HIDDEN_MANAGER_VALUES = ['전유찬', '전유찬 대리']
 
 const emptyContract = {
@@ -1930,6 +1948,9 @@ function App() {
   const [installCaseEnvFilter, setInstallCaseEnvFilter] = useState('')
   const [installCaseAudienceFilter, setInstallCaseAudienceFilter] = useState('')
   const [installCaseDetailModal, setInstallCaseDetailModal] = useState(null)
+  const [installCases, setInstallCases] = useState(() => cloneInstallCaseSeed())
+  const [installCaseRegisterOpen, setInstallCaseRegisterOpen] = useState(false)
+  const [installCaseFormDraft, setInstallCaseFormDraft] = useState(() => getDefaultInstallCaseForm())
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
   const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
@@ -2235,6 +2256,7 @@ function App() {
 
   useEffect(() => {
     setInstallCaseDetailModal(null)
+    setInstallCaseRegisterOpen(false)
   }, [menu])
 
   /** 다른 메뉴로 나갈 때 빈 신규 행(isDraft)·편집 모드만 정리 — 업로드/추가가 막히는 유령 상태 방지 */
@@ -2462,12 +2484,61 @@ function App() {
   }, [contracts])
 
   const filteredInstallCases = useMemo(() => {
-    return INSTALL_CASE_MOCK_CASES.filter((row) => {
+    return installCases.filter((row) => {
       const envOk = !installCaseEnvFilter || row.environment === installCaseEnvFilter
       const audOk = !installCaseAudienceFilter || row.audience === installCaseAudienceFilter
       return envOk && audOk
     })
-  }, [installCaseAudienceFilter, installCaseEnvFilter])
+  }, [installCaseAudienceFilter, installCaseEnvFilter, installCases])
+
+  const deleteInstallCaseById = useCallback((id) => {
+    if (!window.confirm('이 설치사례를 삭제할까요?')) return
+    setInstallCases((prev) => prev.filter((c) => c.id !== id))
+    setInstallCaseDetailModal((cur) => (cur && cur.id === id ? null : cur))
+  }, [])
+
+  const handleOpenInstallCaseRegister = useCallback(() => {
+    setInstallCaseFormDraft(getDefaultInstallCaseForm())
+    setInstallCaseRegisterOpen(true)
+  }, [])
+
+  const handleCloseInstallCaseRegister = useCallback(() => {
+    setInstallCaseRegisterOpen(false)
+  }, [])
+
+  const handleSaveInstallCaseRegister = () => {
+    const d = installCaseFormDraft
+    if (!safeString(d.placeName).trim()) {
+      window.alert('설치 장소명을 입력해 주세요.')
+      return
+    }
+    const defaults = getDefaultInstallCaseForm()
+    const id = `ic-${Date.now()}`
+    const newRow = {
+      id,
+      placeName: safeString(d.placeName).trim(),
+      modelName: safeString(d.modelName).trim() || '-',
+      thumbnail: safeString(d.thumbnail).trim() || defaults.thumbnail,
+      heroImage: safeString(d.heroImage).trim() || defaults.heroImage,
+      environment: d.environment || 'indoor',
+      audience: d.audience || 'public',
+      year: safeString(d.year).trim() || String(new Date().getFullYear()),
+      purpose: safeString(d.purpose).trim() || '-',
+      client: safeString(d.client).trim() || '-',
+      location: safeString(d.location).trim() || '-',
+      specs: {
+        displayArea: safeString(d.specs.displayArea).trim() || '-',
+        ledPitch: safeString(d.specs.ledPitch).trim() || '-',
+        moduleSize: safeString(d.specs.moduleSize).trim() || '-',
+        moduleQty: safeString(d.specs.moduleQty).trim() || '-',
+        resolution: safeString(d.specs.resolution).trim() || '-',
+        installType: safeString(d.specs.installType).trim() || '-',
+      },
+    }
+    setInstallCases((prev) => [newRow, ...prev])
+    setInstallCaseRegisterOpen(false)
+    setInstallCaseFormDraft(getDefaultInstallCaseForm())
+  }
 
   const getContractRowBySelectKey = useCallback(
     (rowKey) => {
@@ -8656,9 +8727,9 @@ function App() {
                   className="contract-filter-select install-cases-select"
                   value={installCaseEnvFilter}
                   onChange={(e) => setInstallCaseEnvFilter(e.target.value)}
-                  aria-label="설치환경 필터"
+                  aria-label="설치장소 필터"
                 >
-                  <option value="">환경 (전체)</option>
+                  <option value="">설치장소</option>
                   <option value="indoor">실내(Indoor)</option>
                   <option value="outdoor">실외(Outdoor)</option>
                 </select>
@@ -8666,36 +8737,51 @@ function App() {
                   className="contract-filter-select install-cases-select"
                   value={installCaseAudienceFilter}
                   onChange={(e) => setInstallCaseAudienceFilter(e.target.value)}
-                  aria-label="수요처 필터"
+                  aria-label="발주처 필터"
                 >
-                  <option value="">수요처 (전체)</option>
+                  <option value="">발주처</option>
                   <option value="public">공공·지자체</option>
                   <option value="education">교육기관</option>
                   <option value="culture">문화·체육시설</option>
                   <option value="private">민간·기타</option>
                 </select>
               </div>
-              <button className="primary-btn" type="button" onClick={() => {}}>
+              <button className="primary-btn" type="button" onClick={handleOpenInstallCaseRegister}>
                 + 사례 등록
               </button>
             </div>
 
             <div className="install-cases-gallery">
               {filteredInstallCases.map((row) => (
-                <button
-                  key={row.id}
-                  type="button"
-                  className="install-case-card"
-                  onClick={() => setInstallCaseDetailModal(row)}
-                >
-                  <div className="install-case-card-thumb">
-                    <img src={row.thumbnail} alt="" loading="lazy" />
-                  </div>
-                  <div className="install-case-card-body">
-                    <div className="install-case-card-place">{row.placeName}</div>
-                    <div className="install-case-card-model">{row.modelName}</div>
-                  </div>
-                </button>
+                <div key={row.id} className="install-case-card-shell">
+                  <button
+                    type="button"
+                    className="install-case-card"
+                    onClick={() => setInstallCaseDetailModal(row)}
+                  >
+                    <div className="install-case-card-thumb">
+                      <img src={row.thumbnail} alt="" loading="lazy" />
+                    </div>
+                    <div className="install-case-card-body">
+                      <div className="install-case-card-place">{row.placeName}</div>
+                      <div className="install-case-card-model">{row.modelName}</div>
+                    </div>
+                  </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className="install-case-card-delete"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        deleteInstallCaseById(row.id)
+                      }}
+                      aria-label={`${row.placeName} 삭제`}
+                    >
+                      삭제
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
 
@@ -8916,14 +9002,25 @@ function App() {
           >
             <div className="install-case-detail-modal-header">
               <h3 id="install-case-detail-title">{installCaseDetailModal.placeName}</h3>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={() => setInstallCaseDetailModal(null)}
-                aria-label="닫기"
-              >
-                ✕
-              </button>
+              <div className="install-case-detail-modal-actions">
+                {isAdmin && (
+                  <button
+                    type="button"
+                    className="secondary-btn install-case-modal-delete-btn"
+                    onClick={() => deleteInstallCaseById(installCaseDetailModal.id)}
+                  >
+                    삭제
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="modal-close-btn"
+                  onClick={() => setInstallCaseDetailModal(null)}
+                  aria-label="닫기"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
             <div className="install-case-detail-modal-body">
               <div className="install-case-detail-visual">
@@ -8947,10 +9044,6 @@ function App() {
                     <dt>위치</dt>
                     <dd>{installCaseDetailModal.location}</dd>
                   </div>
-                  <div className="install-case-meta-row">
-                    <dt>모델명</dt>
-                    <dd>{installCaseDetailModal.modelName}</dd>
-                  </div>
                 </dl>
                 <div className="install-case-detail-specs">
                   <div className="install-case-detail-specs-title">제품 규격</div>
@@ -8971,6 +9064,171 @@ function App() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {installCaseRegisterOpen && (
+        <div className="modal-backdrop" onClick={handleCloseInstallCaseRegister}>
+          <div
+            className="install-case-form-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="install-case-form-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="install-case-form-modal-header">
+              <h3 id="install-case-form-title">사례 등록</h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={handleCloseInstallCaseRegister}
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="install-case-form-modal-body">
+              <div className="install-case-form-grid">
+                <label className="install-case-form-label">
+                  설치 장소명 <span className="install-case-form-required">*</span>
+                </label>
+                <input
+                  className="table-search-input install-case-form-input"
+                  type="text"
+                  value={installCaseFormDraft.placeName}
+                  onChange={(e) =>
+                    setInstallCaseFormDraft((prev) => ({ ...prev, placeName: e.target.value }))
+                  }
+                  placeholder="예: ○○시청 본관"
+                />
+
+                <label className="install-case-form-label">모델명</label>
+                <input
+                  className="table-search-input install-case-form-input"
+                  type="text"
+                  value={installCaseFormDraft.modelName}
+                  onChange={(e) =>
+                    setInstallCaseFormDraft((prev) => ({ ...prev, modelName: e.target.value }))
+                  }
+                />
+
+                <label className="install-case-form-label">설치장소</label>
+                <select
+                  className="contract-filter-select install-case-form-input"
+                  value={installCaseFormDraft.environment}
+                  onChange={(e) =>
+                    setInstallCaseFormDraft((prev) => ({ ...prev, environment: e.target.value }))
+                  }
+                >
+                  <option value="indoor">실내(Indoor)</option>
+                  <option value="outdoor">실외(Outdoor)</option>
+                </select>
+
+                <label className="install-case-form-label">발주처 구분</label>
+                <select
+                  className="contract-filter-select install-case-form-input"
+                  value={installCaseFormDraft.audience}
+                  onChange={(e) =>
+                    setInstallCaseFormDraft((prev) => ({ ...prev, audience: e.target.value }))
+                  }
+                >
+                  <option value="public">공공·지자체</option>
+                  <option value="education">교육기관</option>
+                  <option value="culture">문화·체육시설</option>
+                  <option value="private">민간·기타</option>
+                </select>
+
+                <label className="install-case-form-label">년도</label>
+                <input
+                  className="table-search-input install-case-form-input"
+                  type="text"
+                  value={installCaseFormDraft.year}
+                  onChange={(e) =>
+                    setInstallCaseFormDraft((prev) => ({ ...prev, year: e.target.value }))
+                  }
+                />
+
+                <label className="install-case-form-label">용도</label>
+                <input
+                  className="table-search-input install-case-form-input"
+                  type="text"
+                  value={installCaseFormDraft.purpose}
+                  onChange={(e) =>
+                    setInstallCaseFormDraft((prev) => ({ ...prev, purpose: e.target.value }))
+                  }
+                />
+
+                <label className="install-case-form-label">발주처</label>
+                <input
+                  className="table-search-input install-case-form-input"
+                  type="text"
+                  value={installCaseFormDraft.client}
+                  onChange={(e) =>
+                    setInstallCaseFormDraft((prev) => ({ ...prev, client: e.target.value }))
+                  }
+                />
+
+                <label className="install-case-form-label">위치</label>
+                <input
+                  className="table-search-input install-case-form-input"
+                  type="text"
+                  value={installCaseFormDraft.location}
+                  onChange={(e) =>
+                    setInstallCaseFormDraft((prev) => ({ ...prev, location: e.target.value }))
+                  }
+                />
+
+                <label className="install-case-form-label">썸네일 이미지 URL</label>
+                <input
+                  className="table-search-input install-case-form-input"
+                  type="url"
+                  value={installCaseFormDraft.thumbnail}
+                  onChange={(e) =>
+                    setInstallCaseFormDraft((prev) => ({ ...prev, thumbnail: e.target.value }))
+                  }
+                />
+
+                <label className="install-case-form-label">상세 이미지 URL</label>
+                <input
+                  className="table-search-input install-case-form-input"
+                  type="url"
+                  value={installCaseFormDraft.heroImage}
+                  onChange={(e) =>
+                    setInstallCaseFormDraft((prev) => ({ ...prev, heroImage: e.target.value }))
+                  }
+                />
+
+                <div className="install-case-form-specs-title">제품 규격</div>
+                <div className="install-case-form-specs-grid">
+                  {INSTALL_CASE_SPEC_ROWS.map(({ key, label }) => (
+                    <div key={key} className="install-case-form-spec-row">
+                      <span className="install-case-form-spec-label">{label}</span>
+                      <input
+                        className="table-search-input install-case-form-input"
+                        type="text"
+                        value={installCaseFormDraft.specs[key] ?? ''}
+                        onChange={(e) =>
+                          setInstallCaseFormDraft((prev) => ({
+                            ...prev,
+                            specs: { ...prev.specs, [key]: e.target.value },
+                          }))
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="install-case-form-actions">
+                <button type="button" className="secondary-btn" onClick={handleCloseInstallCaseRegister}>
+                  취소
+                </button>
+                <button type="button" className="primary-btn" onClick={handleSaveInstallCaseRegister}>
+                  등록
+                </button>
               </div>
             </div>
           </div>

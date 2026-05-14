@@ -5415,6 +5415,31 @@ textarea:focus-visible {
   align-content: start;
 }
 
+.install-case-card-shell {
+  position: relative;
+}
+
+.install-case-card-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  border-radius: 6px;
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #b91c1c;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+
+.install-case-card-delete:hover {
+  background: #fecdd3;
+  border-color: #f87171;
+}
+
 .install-case-card {
   display: flex;
   flex-direction: column;
@@ -5427,6 +5452,7 @@ textarea:focus-visible {
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  width: 100%;
 }
 
 .install-case-card:hover {
@@ -5509,10 +5535,30 @@ textarea:focus-visible {
 
 .install-case-detail-modal-header h3 {
   margin: 0;
+  flex: 1;
+  min-width: 0;
   font-size: 18px;
   font-weight: 900;
   color: var(--ink);
-  min-width: 0;
+}
+
+.install-case-detail-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.install-case-modal-delete-btn {
+  border-color: #fecaca;
+  color: #b91c1c;
+  background: #fff1f2;
+  font-weight: 800;
+}
+
+.install-case-modal-delete-btn:hover {
+  background: #fecdd3;
+  border-color: #f87171;
 }
 
 .install-case-detail-modal-body {
@@ -5642,6 +5688,120 @@ textarea:focus-visible {
   .install-cases-select {
     min-width: 0;
     flex: 1 1 160px;
+  }
+}
+
+.install-case-form-modal {
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(92vh, 880px);
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.install-case-form-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(90deg, #ffffff, #f4f7ff);
+  flex-shrink: 0;
+}
+
+.install-case-form-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.install-case-form-modal-body {
+  padding: 16px 18px 20px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.install-case-form-grid {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 10px 14px;
+  align-items: center;
+}
+
+.install-case-form-label {
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+}
+
+.install-case-form-required {
+  color: #b91c1c;
+  font-weight: 900;
+}
+
+.install-case-form-input {
+  width: 100%;
+  min-height: 38px;
+  box-sizing: border-box;
+}
+
+.install-case-form-specs-title {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+  margin-bottom: 2px;
+  font-size: 14px;
+  font-weight: 900;
+  color: #1e293b;
+}
+
+.install-case-form-specs-grid {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.install-case-form-spec-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.install-case-form-spec-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.install-case-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+}
+
+@media (max-width: 560px) {
+  .install-case-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .install-case-form-label {
+    margin-top: 4px;
+  }
+
+  .install-case-form-spec-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 }
 
