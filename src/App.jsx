@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import './App.css'
 import { contractsApi } from './contractsApi'
@@ -1689,6 +1689,10 @@ function App() {
   const [editingWorkCellKey, setEditingWorkCellKey] = useState('')
   const [editingWorkCellData, setEditingWorkCellData] = useState(null)
   const [workReportDrafts, setWorkReportDrafts] = useState({})
+  const workReportDraftsRef = useRef({})
+  useLayoutEffect(() => {
+    workReportDraftsRef.current = workReportDrafts
+  }, [workReportDrafts])
   const [isSavingWorkReports, setIsSavingWorkReports] = useState(false)
   const [generatedWorkWeeks, setGeneratedWorkWeeks] = useState([])
   const [selectedWorkWeek, setSelectedWorkWeek] = useState(() =>
@@ -4268,7 +4272,7 @@ function App() {
     popup.document.close()
   }
 
-  const getWorkReportBoardEntry = (date, section, orderIndex = 1) => {
+  const getWorkReportBoardEntry = (date, section, orderIndex = 1, draftsMap = workReportDrafts) => {
     const sectionNorm = safeString(section).trim()
     const oi = Number(orderIndex || 1)
 
@@ -4283,10 +4287,10 @@ function App() {
         })
       }
       const cellKey1 = getWorkReportCellKey(date, sectionNorm, WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX)
-      const draft1 = workReportDrafts[cellKey1]
+      const draft1 = draftsMap[cellKey1]
       const row1 = getStoredWorkReportEntry(date, sectionNorm, 1)
       const primary = getWorkReportPrimaryChecklistStoredRow(date, sectionNorm, workReportRows)
-      const mergedText = getWorkReportChecklistCombinedText(date, sectionNorm, workReportRows, workReportDrafts)
+      const mergedText = getWorkReportChecklistCombinedText(date, sectionNorm, workReportRows, draftsMap)
 
       if (draft1) {
         const base =
@@ -4332,7 +4336,7 @@ function App() {
     }
 
     const cellKey = getWorkReportCellKey(date, sectionNorm, oi)
-    const draftEntry = workReportDrafts[cellKey]
+    const draftEntry = draftsMap[cellKey]
     if (draftEntry) return draftEntry
 
     const storedEntry = getStoredWorkReportEntry(date, sectionNorm, oi)
@@ -4358,28 +4362,37 @@ function App() {
         ? WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX
         : Number(orderIndex || 1)
     const cellKey = getWorkReportCellKey(date, sectionNorm, oi)
-    setWorkReportDrafts((prev) => ({
-      ...prev,
-      [cellKey]: {
-        ...getWorkReportBoardEntry(date, sectionNorm, oi),
+    setWorkReportDrafts((prev) => {
+      const nextEntry = {
+        ...getWorkReportBoardEntry(date, sectionNorm, oi, prev),
         ...prev[cellKey],
         ...patch,
         date,
         section: sectionNorm,
         orderIndex: oi,
-      },
-    }))
+      }
+      const next = { ...prev, [cellKey]: nextEntry }
+      workReportDraftsRef.current = next
+      return next
+    })
   }
 
+  const yieldToReactStateFlush = () =>
+    new Promise((resolve) => {
+      queueMicrotask(() => queueMicrotask(resolve))
+    })
+
   const saveWorkReportBoardEntry = async (date, section, orderIndex = 1) => {
+    await yieldToReactStateFlush()
     const sectionNorm = safeString(section).trim()
     const oi =
       sectionNorm === WORK_REPORT_SECTION_KEYS.checklist
         ? WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX
         : Number(orderIndex || 1)
     const cellKey = getWorkReportCellKey(date, sectionNorm, oi)
+    const draftsSnapshot = workReportDraftsRef.current
     const targetRow = {
-      ...getWorkReportBoardEntry(date, sectionNorm, oi),
+      ...getWorkReportBoardEntry(date, sectionNorm, oi, draftsSnapshot),
       date,
       section: sectionNorm,
       orderIndex: oi,
@@ -4406,6 +4419,7 @@ function App() {
           for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
             delete next[getWorkReportCellKey(date, sectionNorm, idx)]
           }
+          workReportDraftsRef.current = next
           return next
         })
         return
@@ -4421,7 +4435,11 @@ function App() {
         await fetchWorkReportRows()
       }
 
-      setWorkReportDrafts((prev) => removeObjectKey(prev, cellKey))
+      setWorkReportDrafts((prev) => {
+        const next = removeObjectKey(prev, cellKey)
+        workReportDraftsRef.current = next
+        return next
+      })
       return
     }
 
@@ -4466,6 +4484,7 @@ function App() {
         } else {
           delete next[cellKey]
         }
+        workReportDraftsRef.current = next
         return next
       })
     } catch (error) {
