@@ -8383,36 +8383,38 @@ function App() {
             </div>
 
             {!isCalendarGridCollapsed && (
-              <div className="calendar-grid">
-                {monthDays.map((day, index) => (
-                  <div key={index} className={day ? 'day-box' : 'day-box empty'}>
-                    {day && (
-                      <>
-                        <div className="day-number">{day.slice(-2)}</div>
-                        <div className="day-events">
-                          {calendarItems
-                            .filter((item) => item.date === day)
-                            .map((item) => (
-                              <button
-                                key={item.id}
-                                type="button"
-                                className={`event-pill event-pill-button ${
-                                  item.type === 'contract'
-                                    ? 'contract-event'
-                                    : item.type === 'due'
-                                    ? 'due-event'
-                                    : 'manual-event'
-                                }`}
-                                onClick={() => openCalendarDetail(item)}
-                              >
-                                {item.text}
-                              </button>
-                            ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))}
+              <div className="calendar-body">
+                <div className="calendar-grid">
+                  {monthDays.map((day, index) => (
+                    <div key={index} className={day ? 'day-box' : 'day-box empty'}>
+                      {day && (
+                        <>
+                          <div className="day-number">{day.slice(-2)}</div>
+                          <div className="day-events">
+                            {calendarItems
+                              .filter((item) => item.date === day)
+                              .map((item) => (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  className={`event-pill event-pill-button ${
+                                    item.type === 'contract'
+                                      ? 'contract-event'
+                                      : item.type === 'due'
+                                      ? 'due-event'
+                                      : 'manual-event'
+                                  }`}
+                                  onClick={() => openCalendarDetail(item)}
+                                >
+                                  {item.text}
+                                </button>
+                              ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
