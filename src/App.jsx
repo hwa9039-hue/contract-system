@@ -1608,6 +1608,32 @@ function getDashboardStatusCounts(rows, statusKey) {
   }))
 }
 
+function getEnumStatusCounts(rows, statusKey, labels) {
+  return labels.map((status) => ({
+    status,
+    count: rows.filter((row) => safeString(row[statusKey]).trim() === status).length,
+  }))
+}
+
+/** ISO·YYYY-MM-DD 등 → YYYY-MM-DD (비교용) */
+function ymdFromAny(value) {
+  const parsed = parseDateOnly(value)
+  if (parsed && !Number.isNaN(parsed.getTime())) return formatDateInput(parsed)
+  const d = value ? new Date(value) : null
+  if (!d || Number.isNaN(d.getTime())) return ''
+  return formatDateInput(new Date(d.getFullYear(), d.getMonth(), d.getDate()))
+}
+
+/** 주간보고서 요일 컬럼: 해당 일자에 등록(registerKey) 또는 수정·생성일이 겹치는 행만 */
+function filterRegistryRowsForWorkReportDay(rows, dayYmd, registerKey) {
+  return rows.filter((row) => {
+    const reg = ymdFromAny(row[registerKey])
+    const upd = ymdFromAny(row.updatedAt ?? row.updated_at)
+    const crt = ymdFromAny(row.createdAt ?? row.created_at)
+    return reg === dayYmd || upd === dayYmd || crt === dayYmd
+  })
+}
+
 function getDashboardDisplayDate(value) {
   const raw = safeString(value).trim()
   return raw ? raw.slice(0, 10) : '-'
@@ -2274,6 +2300,22 @@ function App() {
     workReportRows,
   ])
 
+  const workReportDayRegistryStatusByDate = useMemo(() => {
+    const sales = getPersistedRows(salesRows)
+    const excluded = getPersistedRows(excludedRows)
+    const byDate = {}
+    for (const day of selectedWorkWeekDays) {
+      const d = day.date
+      const salesDay = filterRegistryRowsForWorkReportDay(sales, d, 'registerDate')
+      const excludedDay = filterRegistryRowsForWorkReportDay(excluded, d, 'writeDate')
+      byDate[d] = {
+        sales: getEnumStatusCounts(salesDay, 'projectStage', SALES_STAGE_OPTIONS),
+        excluded: getEnumStatusCounts(excludedDay, 'category', EXCLUDED_CATEGORY_OPTIONS),
+      }
+    }
+    return byDate
+  }, [salesRows, excludedRows, selectedWorkWeekDays])
+
   const dashboardSummary = useMemo(() => buildDashboardSummary(contracts), [contracts])
   const dashboardData = useMemo(() => {
     const persistedContracts = getPersistedRows(contracts)
@@ -2289,20 +2331,6 @@ function App() {
         { key: 'discovery', label: '건축정보', count: persistedDiscoveryRows.length, menu: 'discovery' },
         { key: 'excluded', label: '사업검색이력', count: persistedExcludedRows.length, menu: 'excluded' },
         { key: 'documents', label: '문서수발신대장', count: persistedDocuments.length, menu: 'documents' },
-      ],
-      statusGroups: [
-        {
-          key: 'sales',
-          label: '영업관리대장',
-          menu: 'sales',
-          items: getDashboardStatusCounts(persistedSalesRows, 'projectStage'),
-        },
-        {
-          key: 'excluded',
-          label: '사업검색이력',
-          menu: 'excluded',
-          items: getDashboardStatusCounts(persistedExcludedRows, 'category'),
-        },
       ],
       recentGroups: [
         {
@@ -6672,12 +6700,67 @@ function App() {
     </section>
   )
 
+  const renderWorkReportDayRegistryStatusStrip = (day) => {
+    const pack = workReportDayRegistryStatusByDate[day.date] || { sales: [], excluded: [] }
+    const salesNonZero = pack.sales.filter((x) => x.count > 0)
+    const exNonZero = pack.excluded.filter((x) => x.count > 0)
+
+    return (
+      <div className="work-report-day-status-strip" aria-label={`${day.date} 영업·검색이력 요약`}>
+        <div className="work-report-day-status-strip-head">당일 등록·변경</div>
+        <div className="work-report-day-status-strip-cols">
+          <div className="work-report-day-status-strip-col">
+            <span className="work-report-day-status-strip-label">영업</span>
+            <div className="work-report-day-status-strip-badges">
+              {salesNonZero.length ? (
+                salesNonZero.map((item) => (
+                  <span
+                    key={item.status}
+                    className={`work-report-day-status-pill ${getSalesStageClassName(item.status)}`}
+                  >
+                    <span className="work-report-day-status-pill-name">{item.status}</span>
+                    <span className="work-report-day-status-pill-count">{item.count}</span>
+                  </span>
+                ))
+              ) : (
+                <span className="work-report-day-status-empty">—</span>
+              )}
+            </div>
+          </div>
+          <div className="work-report-day-status-strip-col">
+            <span className="work-report-day-status-strip-label">검색</span>
+            <div className="work-report-day-status-strip-badges">
+              {exNonZero.length ? (
+                exNonZero.map((item) => {
+                  const toneStyle = getExcludedBadgeStyle(EXCLUDED_CATEGORY_TONE_MAP, item.status)
+                  return (
+                    <span
+                      key={item.status}
+                      className="work-report-day-status-pill work-report-day-status-pill--excluded"
+                      style={toneStyle || undefined}
+                    >
+                      <span className="work-report-day-status-pill-name">{item.status}</span>
+                      <span className="work-report-day-status-pill-count">{item.count}</span>
+                    </span>
+                  )
+                })
+              ) : (
+                <span className="work-report-day-status-empty">—</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const renderWorkReportDayBoardV5 = (day) => (
     <div key={day.date} className={`work-report-day-board work-report-day-board-dense report-mode ${day.isToday ? 'is-today' : ''}`}>
       <div className="work-report-day-head report-mode">
         <div className="work-report-day-weekday">{day.label}</div>
         <div className="work-report-day-date">{day.date}</div>
       </div>
+      {renderWorkReportDayRegistryStatusStrip(day)}
       <div className="work-report-day-sections work-report-day-sections-dense report-mode">
         {renderWorkReportChecklistSectionV5(day.date)}
         {renderWorkReportExternalSectionV5(day.date)}
@@ -6934,37 +7017,7 @@ function App() {
                 ))}
               </div>
 
-              <div className="dashboard-mid-grid">
-                <div className="dashboard-panel">
-                  <div className="dashboard-panel-header">
-                    <div>
-                      <p className="dashboard-section-eyebrow">상태별 요약</p>
-                      <h3>진행 상태</h3>
-                    </div>
-                  </div>
-
-                  <div className="dashboard-status-grid">
-                    {dashboardData.statusGroups.map((group) => (
-                      <button
-                        className="dashboard-status-card"
-                        type="button"
-                        key={group.key}
-                        onClick={() => setMenu(group.menu)}
-                      >
-                        <div className="dashboard-status-card-title">{group.label}</div>
-                        <div className="dashboard-status-list">
-                          {group.items.map((item) => (
-                            <div className="dashboard-status-item" key={`${group.key}-${item.status}`}>
-                              <span className={getSalesStageClassName(item.status)}>{item.status}</span>
-                              <strong>{item.count.toLocaleString('ko-KR')}</strong>
-                            </div>
-                          ))}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
+              <div className="dashboard-mid-grid dashboard-mid-grid--report-only">
                 <button
                   className="dashboard-work-report-card"
                   type="button"
