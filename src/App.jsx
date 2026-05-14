@@ -7024,7 +7024,6 @@ function App() {
                 <div className="dashboard-panel-header">
                   <div>
                     <p className="dashboard-section-eyebrow">최근 등록 내역</p>
-                    <h3>메뉴별 최신 5건</h3>
                   </div>
                 </div>
 
