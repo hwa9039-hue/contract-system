@@ -6938,6 +6938,7 @@ function App() {
 
         {showSessionWarning && (
           <div
+            className="main-area-session-banner"
             style={{
               display: 'flex',
               alignItems: 'center',

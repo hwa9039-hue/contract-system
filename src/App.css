@@ -12,38 +12,40 @@
 
 /**
  * 브라우저 배율 100%일 때 전체 UI를 약 90%로 보이게 함.
- * zoom 적용 시 문서 높이가 뷰포트보다 짧아져 배경이 끊겨 보이는 경우가 있어,
- * #root 등에 뷰포트/zoom 보정 min-height를 둡니다.
+ * 문서 전체 스크롤은 막고(html/body/#root overflow 고정), 각 페이지 표 영역만 내부 스크롤.
  */
 html {
   zoom: var(--app-ui-zoom);
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: calc(100vh / var(--app-ui-zoom));
+  height: calc(100dvh / var(--app-ui-zoom));
+  max-height: calc(100vh / var(--app-ui-zoom));
+  max-height: calc(100dvh / var(--app-ui-zoom));
+  overflow: hidden;
 }
 
-body,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Pretendard', sans-serif;
+  background: #f4f6fb;
+  color: #111827;
+}
+
 #root {
   margin: 0;
   padding: 0;
   width: 100%;
-  min-height: 100%;
-  min-height: calc(100vh / var(--app-ui-zoom));
-  min-height: calc(100dvh / var(--app-ui-zoom));
-}
-
-#root {
+  height: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-}
-
-body {
-  font-family: 'Pretendard', sans-serif;
-  background: #f4f6fb;
-  color: #111827;
+  min-height: 0;
 }
 
 button,
@@ -62,7 +64,7 @@ textarea {
   width: 100%;
   flex: 1;
   min-height: 0;
-  min-height: 100%;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -75,6 +77,8 @@ textarea {
   flex-direction: column;
   justify-content: space-between;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .sidebar-top {
@@ -181,8 +185,14 @@ textarea {
   display: flex;
   flex-direction: column;
   padding: 6px 10px 12px;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
+}
+
+.main-area > .top-system-bar,
+.main-area > .page-title-bar,
+.main-area > .mode-toast,
+.main-area > .main-area-session-banner {
+  flex-shrink: 0;
 }
 
 .top-system-bar,
@@ -1212,6 +1222,7 @@ textarea {
 }
 
 body {
+  overflow: hidden;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(243, 246, 250, 0.92) 36%),
     var(--page-bg);
@@ -1247,6 +1258,8 @@ textarea:focus-visible {
   background: linear-gradient(180deg, var(--sidebar) 0%, var(--sidebar-2) 100%);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 10px 0 26px rgba(15, 23, 42, 0.12);
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .sidebar-top {
@@ -1342,8 +1355,14 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   padding: 18px 20px 22px;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
+}
+
+.main-area > .top-system-bar,
+.main-area > .page-title-bar,
+.main-area > .mode-toast,
+.main-area > .main-area-session-banner {
+  flex-shrink: 0;
 }
 
 .top-system-bar,
@@ -1387,12 +1406,13 @@ textarea:focus-visible {
   box-shadow: var(--shadow-md);
 }
 
-/* 메인 영역 페이지 카드 전역: 하단까지 채움 + DataGrid(대장류) 스크롤 영역 확장 */
+/* 메인 영역 페이지 카드 전역: 하단까지 채움, 카드 밖으로는 넘치지 않음(내부 스크롤만) */
 .main-area > section.stat-card {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .main-area > section.stat-card .guide-panel,
@@ -1414,6 +1434,7 @@ textarea:focus-visible {
   min-height: 0;
   height: auto;
   max-height: none;
+  overflow: auto;
 }
 
 .main-area > section.stat-card > .integrated-dashboard {
@@ -1448,6 +1469,14 @@ textarea:focus-visible {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+}
+
+.main-area > section.stat-card .selected-events-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .main-area > section.stat-card .selected-events-wrap .month-list-header {
