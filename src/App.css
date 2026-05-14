@@ -2031,6 +2031,16 @@ textarea:focus-visible {
   gap: 12px;
 }
 
+.dashboard-surface-card .dashboard-section-eyebrow {
+  font-size: 13px;
+  letter-spacing: 0.03em;
+}
+
+.dashboard-surface-card .dashboard-section-header h2 {
+  font-size: 22px;
+  margin-top: 6px;
+}
+
 .dashboard-work-report-briefing {
   width: 100%;
   border: none;
@@ -2053,16 +2063,16 @@ textarea:focus-visible {
 }
 
 .dashboard-work-report-briefing-title {
-  margin: 4px 0 0;
-  font-size: 18px;
+  margin: 6px 0 0;
+  font-size: 22px;
   font-weight: 900;
   color: var(--ink);
   font-family: 'SUIT', sans-serif;
 }
 
 .dashboard-work-report-briefing-meta {
-  margin: 4px 0 0;
-  font-size: 12px;
+  margin: 6px 0 0;
+  font-size: 14px;
   font-weight: 700;
   color: var(--muted);
 }
@@ -2089,7 +2099,7 @@ textarea:focus-visible {
 
 .dashboard-work-report-briefing-col-title {
   margin: 0 0 8px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 900;
   color: #1e40af;
 }
@@ -2365,16 +2375,16 @@ textarea:focus-visible {
 
 .dashboard-recent-title {
   width: 100%;
-  min-height: 44px;
+  min-height: 52px;
   border-width: 0 0 1px;
   border-radius: 0;
   background: var(--accent-soft);
   color: var(--ink);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 800;
   text-align: left;
-  padding: 8px 10px;
-  line-height: 1.35;
+  padding: 10px 12px;
+  line-height: 1.4;
   white-space: normal;
   display: flex;
   flex-wrap: wrap;
@@ -2388,6 +2398,7 @@ textarea:focus-visible {
 }
 
 .dashboard-recent-title-counts {
+  font-size: 15px;
   font-weight: 900;
   color: #1d4ed8;
 }
