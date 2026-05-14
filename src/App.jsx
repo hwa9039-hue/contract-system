@@ -1355,18 +1355,46 @@ function getDdayText(dateString) {
   return `D-${diff}`
 }
 
-/** 캘린더 우측 리스트 제목: `getDdayText`는 계약표 **준공일** 셀 의미로 과거=「준공」— 계약일·기타에는 쓰지 않음 */
+/** 캘린더 우측 리스트·일정 객체: 준공일만 D-n / 그 외(당일·과거)=「준공」. 계약·기타는 기존 D+/D-Day/D-n */
 function getCalendarListRelativeDayLabel(eventType, dateString) {
   const diff = getDateDiffFromToday(dateString)
   if (diff === null) return ''
   if (eventType === 'due') {
-    if (diff < 0) return '준공'
-    if (diff === 0) return 'D-Day'
-    return `D-${diff}`
+    if (diff > 0) return `D-${diff}`
+    return '준공'
   }
   if (diff < 0) return `D+${-diff}`
   if (diff === 0) return 'D-Day'
   return `D-${diff}`
+}
+
+/** title에 이미 붙은「계약:」「준공:」「기타:」머리말 제거 (중복 표기 방지) */
+function stripRedundantCalendarTitlePrefix(title) {
+  let t = safeString(title).trim()
+  while (/^(계약|준공|기타)\s*:\s*/u.test(t)) {
+    t = t.replace(/^(계약|준공|기타)\s*:\s*/u, '').trim()
+  }
+  return t
+}
+
+/** 우측 리스트 한 줄 제목 — 카테고리별 포맷 분리 (중복 파이프 제거) */
+function formatCalendarMonthListTitleLine(item) {
+  if (!item) return ''
+  const date = safeString(item.date).trim()
+  const clean = stripRedundantCalendarTitlePrefix(item.title ?? item.text)
+  if (item.type === 'contract') {
+    return `${CALENDAR_MONTH_LIST_CATEGORY.CONTRACT} [${date}] ${clean}`
+  }
+  if (item.type === 'manual') {
+    return `${CALENDAR_MONTH_LIST_CATEGORY.MANUAL} [${date}] ${clean}`
+  }
+  if (item.type === 'due') {
+    const diff = getDateDiffFromToday(date)
+    if (diff === null) return `${CALENDAR_MONTH_LIST_CATEGORY.DUE} [${date}] ${clean}`
+    if (diff > 0) return `D-${diff} | ${CALENDAR_MONTH_LIST_CATEGORY.DUE} [${date}] ${clean}`
+    return `${CALENDAR_MONTH_LIST_CATEGORY.DUE} [${date}] ${clean}`
+  }
+  return `${safeString(item.category).trim() || '기타'} [${date}] ${clean}`
 }
 
 function formatPercent(value) {
@@ -8119,8 +8147,6 @@ function App() {
                           <div className="empty-text">이 달에 등록된 일정이 없습니다.</div>
                         ) : (
                           monthEventList.map((item) => {
-                            const relLabel = getCalendarListRelativeDayLabel(item.type, item.date)
-
                             return (
                               <div
                                 key={item.id}
@@ -8131,8 +8157,7 @@ function App() {
                               >
                                 <div className="selected-event-click">
                                   <div className="selected-event-title">
-                                    {item.category}
-                                    {relLabel ? ` | ${relLabel}` : ''} | [{item.date}] {item.title}
+                                    {formatCalendarMonthListTitleLine(item)}
                                   </div>
                                   <div className="selected-event-meta">
                                     <div className="selected-event-memo-line">

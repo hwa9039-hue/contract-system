@@ -1271,21 +1271,21 @@ textarea {
 }
 
 .contract-event {
-  background: #e0f2fe;
-  color: #075985;
-  border-color: #bae6fd;
+  background: #fff7d6;
+  color: #713f12;
+  border-color: #eab308;
 }
 
 .due-event {
-  background: #ecfdf5;
-  color: #1f4fd1;
-  border-color: #c8d8ff;
+  background: #eff6ff;
+  color: #1e40af;
+  border-color: #2563eb;
 }
 
 .manual-event {
-  background: #fef3c7;
-  color: #92400e;
-  border-color: #fde68a;
+  background: #ecfdf3;
+  color: #14532d;
+  border-color: #22c55e;
 }
 
 .selected-events-wrap {
@@ -1412,7 +1412,7 @@ textarea {
 }
 
 .stat-card--calendar .calendar-month-list-panel .selected-event-card.selected-event-type--contract {
-  border-left: 5px solid #0284c7;
+  border-left: 5px solid #eab308;
 }
 
 .stat-card--calendar .calendar-month-list-panel .selected-event-card.selected-event-type--due {
@@ -1420,7 +1420,7 @@ textarea {
 }
 
 .stat-card--calendar .calendar-month-list-panel .selected-event-card.selected-event-type--manual {
-  border-left: 5px solid #ca8a04;
+  border-left: 5px solid #22c55e;
 }
 
 .selected-event-card.clickable {
@@ -2813,25 +2813,25 @@ textarea:focus-visible {
 }
 
 .contract-event {
-  background: #eef7ff;
-  color: #1d4ed8;
-  border-color: #bfdbfe;
+  background: #fff7d6;
+  color: #713f12;
+  border-color: #eab308;
 }
 
 .due-event {
-  background: #EAF1FF;
-  color: #1f4fd1;
-  border-color: #c8d8ff;
+  background: #eff6ff;
+  color: #1e40af;
+  border-color: #2563eb;
 }
 
 .manual-event {
-  background: #fff7ed;
-  color: #c2410c;
-  border-color: #fed7aa;
+  background: #ecfdf3;
+  color: #14532d;
+  border-color: #22c55e;
 }
 
 .stat-card--calendar .calendar-month-list-panel .selected-event-card.selected-event-type--contract {
-  border-left: 5px solid #1d4ed8;
+  border-left: 5px solid #eab308;
 }
 
 .stat-card--calendar .calendar-month-list-panel .selected-event-card.selected-event-type--due {
@@ -2839,7 +2839,7 @@ textarea:focus-visible {
 }
 
 .stat-card--calendar .calendar-month-list-panel .selected-event-card.selected-event-type--manual {
-  border-left: 5px solid #ea580c;
+  border-left: 5px solid #22c55e;
 }
 
 .selected-events-wrap {
@@ -3269,35 +3269,35 @@ textarea:focus-visible {
 
 .contract-event {
   background: #fff7d6;
-  color: #8a5a00;
-  border-color: #f6d56c;
+  color: #713f12;
+  border-color: #eab308;
 }
 
 .contract-event.event-pill-button:hover {
   background: #ffefad;
-  border-color: #eab308;
+  border-color: #ca8a04;
 }
 
 .due-event {
-  background: #EAF1FF;
-  color: #1f4fd1;
-  border-color: #bfd0ff;
+  background: #eff6ff;
+  color: #1e40af;
+  border-color: #2563eb;
 }
 
 .due-event.event-pill-button:hover {
-  background: #dbe7ff;
-  border-color: #8fabff;
+  background: #dbeafe;
+  border-color: #1d4ed8;
 }
 
 .manual-event {
-  background: #eaf8ef;
-  color: #166534;
-  border-color: #b7e4c7;
+  background: #ecfdf3;
+  color: #14532d;
+  border-color: #22c55e;
 }
 
 .manual-event.event-pill-button:hover {
-  background: #d8f0e0;
-  border-color: #86cc9d;
+  background: #d1fae5;
+  border-color: #16a34a;
 }
 
 /* calendar spacing refinement */
