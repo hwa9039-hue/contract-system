@@ -302,18 +302,18 @@ const ADMIN_PASSWORD = 'admin2026!'
 const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'smartdi2026!'
 const ALL_OPTION = '전체'
 
-/** 캘린더 우측「이 달의 일정」카테고리만 — 계약현황 `ALL_OPTION`('전체')과 값이 겹치지 않게 분리 */
-const CALENDAR_MONTH_LIST_TYPE_FILTER = Object.freeze({
-  ALL: 'all',
-  CONTRACT: 'contract',
-  DUE: 'due',
-  MANUAL: 'manual',
+/** 캘린더 우측「이 달의 일정」: Select 값·`item.category`·표시 라벨을 동일 한글로 통일 (`type`은 달력 pill/CSS용 contract|due|manual 유지) */
+const CALENDAR_MONTH_LIST_CATEGORY = Object.freeze({
+  ALL: '전체',
+  CONTRACT: '계약',
+  DUE: '준공',
+  MANUAL: '기타',
 })
 
-function calendarMonthListEventPassesTypeFilter(item, filter) {
+function calendarMonthListEventPassesCategoryFilter(item, selectedCategory) {
   if (!item) return false
-  if (filter === CALENDAR_MONTH_LIST_TYPE_FILTER.ALL) return true
-  return item.type === filter
+  if (selectedCategory === CALENDAR_MONTH_LIST_CATEGORY.ALL) return true
+  return item.category === selectedCategory
 }
 
 const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
@@ -1355,6 +1355,20 @@ function getDdayText(dateString) {
   return `D-${diff}`
 }
 
+/** 캘린더 우측 리스트 제목: `getDdayText`는 계약표 **준공일** 셀 의미로 과거=「준공」— 계약일·기타에는 쓰지 않음 */
+function getCalendarListRelativeDayLabel(eventType, dateString) {
+  const diff = getDateDiffFromToday(dateString)
+  if (diff === null) return ''
+  if (eventType === 'due') {
+    if (diff < 0) return '준공'
+    if (diff === 0) return 'D-Day'
+    return `D-${diff}`
+  }
+  if (diff < 0) return `D+${-diff}`
+  if (diff === 0) return 'D-Day'
+  return `D-${diff}`
+}
+
 function formatPercent(value) {
   if (!Number.isFinite(value) || value <= 0) return '0%'
   if (value >= 99.95) return '100%'
@@ -1582,7 +1596,7 @@ function App() {
   })
   const [eventForm, setEventForm] = useState({ ...emptyEvent })
   const [monthSearch, setMonthSearch] = useState('')
-  const [monthTypeFilter, setMonthTypeFilter] = useState(CALENDAR_MONTH_LIST_TYPE_FILTER.ALL)
+  const [monthTypeFilter, setMonthTypeFilter] = useState(CALENDAR_MONTH_LIST_CATEGORY.ALL)
   const [detailModal, setDetailModal] = useState(null)
   const [isAppAuthenticated, setIsAppAuthenticated] = useState(initialSharedAuth.isAuthenticated)
   const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(initialSharedAuth.expiresAt)
@@ -2247,9 +2261,11 @@ function App() {
         id: `contract-${item.id}`,
         contractId: item.id,
         date: item.contractDate,
+        category: CALENDAR_MONTH_LIST_CATEGORY.CONTRACT,
+        title: `계약: ${item.projectName}`,
         text: `계약: ${item.projectName}`,
         type: 'contract',
-        dday: getDdayText(item.contractDate),
+        dday: getCalendarListRelativeDayLabel('contract', item.contractDate),
         owner: item.salesOwner,
         pm: item.pm,
         contract: item,
@@ -2261,9 +2277,11 @@ function App() {
         id: `due-${item.id}`,
         contractId: item.id,
         date: item.dueDate,
+        category: CALENDAR_MONTH_LIST_CATEGORY.DUE,
+        title: `준공: ${item.projectName}`,
         text: `준공: ${item.projectName}`,
         type: 'due',
-        dday: getDdayText(item.dueDate),
+        dday: getCalendarListRelativeDayLabel('due', item.dueDate),
         owner: item.salesOwner,
         pm: item.pm,
         contract: item,
@@ -2272,11 +2290,13 @@ function App() {
     const extraItems = manualEvents.map((item) => ({
       id: `manual-${item.id}`,
       date: item.date,
+      category: CALENDAR_MONTH_LIST_CATEGORY.MANUAL,
+      title: item.title,
       text: item.title,
       type: 'manual',
       owner: item.owner,
       note: item.note,
-      dday: getDdayText(item.date),
+      dday: getCalendarListRelativeDayLabel('manual', item.date),
       originalId: item.id,
     }))
 
@@ -2307,7 +2327,7 @@ function App() {
         const d = parseDateOnly(item.date)
         const monthMatch = d ? d.getFullYear() === year && d.getMonth() + 1 === month : false
         if (!monthMatch) return false
-        if (!calendarMonthListEventPassesTypeFilter(item, monthTypeFilter)) return false
+        if (!calendarMonthListEventPassesCategoryFilter(item, monthTypeFilter)) return false
         const searchMatch = `${item.text} ${item.owner || ''} ${item.pm || ''} ${item.note || ''}`
           .toLowerCase()
           .includes(monthSearch.toLowerCase())
@@ -8068,19 +8088,19 @@ function App() {
                             onChange={(e) => {
                               const v = e.target.value
                               if (
-                                v === CALENDAR_MONTH_LIST_TYPE_FILTER.ALL ||
-                                v === CALENDAR_MONTH_LIST_TYPE_FILTER.CONTRACT ||
-                                v === CALENDAR_MONTH_LIST_TYPE_FILTER.DUE ||
-                                v === CALENDAR_MONTH_LIST_TYPE_FILTER.MANUAL
+                                v === CALENDAR_MONTH_LIST_CATEGORY.ALL ||
+                                v === CALENDAR_MONTH_LIST_CATEGORY.CONTRACT ||
+                                v === CALENDAR_MONTH_LIST_CATEGORY.DUE ||
+                                v === CALENDAR_MONTH_LIST_CATEGORY.MANUAL
                               ) {
                                 setMonthTypeFilter(v)
                               }
                             }}
                           >
-                            <option value={CALENDAR_MONTH_LIST_TYPE_FILTER.ALL}>전체</option>
-                            <option value={CALENDAR_MONTH_LIST_TYPE_FILTER.CONTRACT}>계약</option>
-                            <option value={CALENDAR_MONTH_LIST_TYPE_FILTER.DUE}>준공</option>
-                            <option value={CALENDAR_MONTH_LIST_TYPE_FILTER.MANUAL}>기타</option>
+                            <option value={CALENDAR_MONTH_LIST_CATEGORY.ALL}>전체</option>
+                            <option value={CALENDAR_MONTH_LIST_CATEGORY.CONTRACT}>계약</option>
+                            <option value={CALENDAR_MONTH_LIST_CATEGORY.DUE}>준공</option>
+                            <option value={CALENDAR_MONTH_LIST_CATEGORY.MANUAL}>기타</option>
                           </select>
 
                           <input
@@ -8099,12 +8119,7 @@ function App() {
                           <div className="empty-text">이 달에 등록된 일정이 없습니다.</div>
                         ) : (
                           monthEventList.map((item) => {
-                            const listDday =
-                              item.type === 'contract' || item.type === 'due'
-                                ? safeString(item.dday).startsWith('D+')
-                                  ? ''
-                                  : item.dday || ''
-                                : item.dday || ''
+                            const relLabel = getCalendarListRelativeDayLabel(item.type, item.date)
 
                             return (
                               <div
@@ -8116,7 +8131,8 @@ function App() {
                               >
                                 <div className="selected-event-click">
                                   <div className="selected-event-title">
-                                    {listDday ? `${listDday} | ` : ''}[{item.date}] {item.text}
+                                    {item.category}
+                                    {relLabel ? ` | ${relLabel}` : ''} | [{item.date}] {item.title}
                                   </div>
                                   <div className="selected-event-meta">
                                     <div className="selected-event-memo-line">
