@@ -2001,8 +2001,8 @@ textarea:focus-visible {
 .integrated-dashboard {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-bottom: 18px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .dashboard-work-report-briefing {

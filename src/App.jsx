@@ -6995,14 +6995,6 @@ function App() {
                 )}
               </div>
 
-              <div className="dashboard-section-header">
-                <div>
-                  <p className="dashboard-section-eyebrow">전체 요약</p>
-                  <h2>통합 업무 현황</h2>
-                </div>
-                <span>각 카드를 클릭하면 해당 메뉴로 이동합니다.</span>
-              </div>
-
               <div className="dashboard-overview-grid">
                 {dashboardData.overview.map((item) => (
                   <button
