@@ -5818,7 +5818,7 @@ function App() {
           )
         : []
 
-      return [yearRow, ...activeRows, completedToggleRow, ...completedRows]
+      return [yearRow, completedToggleRow, ...completedRows, ...activeRows]
     })
   }
 

@@ -644,7 +644,7 @@ textarea {
 
 .sales-completed-toggle-row td {
   background: #f1f5f9;
-  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .sales-completed-toggle {
