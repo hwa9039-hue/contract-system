@@ -5424,20 +5424,27 @@ textarea:focus-visible {
   top: 8px;
   right: 8px;
   z-index: 2;
-  padding: 5px 10px;
-  font-size: 12px;
-  font-weight: 800;
-  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 999px;
   border: 1px solid #fecaca;
-  background: #fff1f2;
+  background: rgba(255, 255, 255, 0.95);
   color: #b91c1c;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
 }
 
 .install-case-card-delete:hover {
-  background: #fecdd3;
+  background: #fff1f2;
   border-color: #f87171;
+  color: #991b1b;
 }
 
 .install-case-card {

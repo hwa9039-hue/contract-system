@@ -8991,9 +8991,11 @@ function App() {
                   <option value="private">민간·기타</option>
                 </select>
               </div>
-              <button className="primary-btn" type="button" onClick={handleOpenInstallCaseRegister}>
-                등록
-              </button>
+              {isAdmin && (
+                <button className="primary-btn" type="button" onClick={handleOpenInstallCaseRegister}>
+                  등록
+                </button>
+              )}
             </div>
 
             <div className="install-cases-gallery">
@@ -9023,7 +9025,7 @@ function App() {
                       }}
                       aria-label={`${getInstallCaseProjectTitle(row)} 삭제`}
                     >
-                      삭제
+                      ✕
                     </button>
                   )}
                 </div>
