@@ -5789,7 +5789,10 @@ function App() {
               onClick={() => toggleSalesCompletedSection(yearBlock.year)}
             >
               <span className="contract-year-sign">{completedOpen ? '-' : '+'}</span>
-              <span>완료된 건 ({completedCount.toLocaleString('ko-KR')}건)</span>
+              <span>완료된 건</span>
+              <span className="contract-year-count">
+                {completedCount.toLocaleString('ko-KR')}건
+              </span>
             </button>
           </td>
         </tr>

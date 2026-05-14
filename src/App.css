@@ -647,14 +647,12 @@ textarea {
   border-bottom: 1px solid #e2e8f0;
 }
 
-.sales-completed-toggle {
+.sales-completed-toggle-row .contract-year-toggle.sales-completed-toggle {
+  padding: 0 16px 0 32px;
+  font-family: 'SUIT', sans-serif;
   font-size: 14px;
   font-weight: 800;
-  color: #475569;
-}
-
-.sales-completed-toggle .contract-year-sign {
-  font-size: 16px;
+  color: #183b84;
 }
 
 .contract-category-group-row td {
@@ -2752,11 +2750,6 @@ textarea:focus-visible {
 
 .contract-year-count {
   color: #4f6ea8;
-}
-
-/* excel-table 영역의 .contract-year-toggle padding(0 16px) 이후에도 유지: 완료 건 2-Depth 들여쓰기 */
-.sales-completed-toggle-row .contract-year-toggle.sales-completed-toggle {
-  padding: 0 16px 0 40px;
 }
 
 .row-icon-btn {
