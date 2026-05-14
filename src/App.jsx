@@ -147,6 +147,7 @@ const EXCLUDED_COLUMNS = [
 
 const WORK_REPORT_WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
 const WORK_REPORT_MAIN_CHECK_COUNT = 5
+const WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX = 1
 const WORK_REPORT_EXTERNAL_ROW_COUNT = 5
 const WORK_REPORT_DI_ROW_COUNT = 4
 const WORK_REPORT_ROAD_ROW_COUNT = 2
@@ -455,6 +456,37 @@ function createWorkReportDraftRow({
     updatedAt: '',
     isDraft: true,
   }
+}
+
+/** 구형 5칸 주요확인사항 → 단일 문자열(줄바꿈) 병합. draft `…__1`이 있으면 그 content 우선 */
+function getWorkReportChecklistCombinedText(date, sectionKey, workReportRows, workReportDrafts) {
+  const cellKey1 = `${date}__${sectionKey}__${WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX}`
+  if (workReportDrafts && Object.prototype.hasOwnProperty.call(workReportDrafts, cellKey1)) {
+    return safeString(workReportDrafts[cellKey1].content)
+  }
+  const parts = []
+  for (let oi = 1; oi <= WORK_REPORT_MAIN_CHECK_COUNT; oi += 1) {
+    const row = workReportRows.find(
+      (r) => r.date === date && r.section === sectionKey && Number(r.orderIndex || 1) === oi
+    )
+    const t = safeString(row?.content).trim()
+    if (t) parts.push(t)
+  }
+  return parts.join('\n')
+}
+
+function getWorkReportPrimaryChecklistStoredRow(date, sectionKey, workReportRows) {
+  const row1 = workReportRows.find(
+    (r) => r.date === date && r.section === sectionKey && Number(r.orderIndex || 1) === 1
+  )
+  if (row1?.id) return row1
+  for (let oi = 2; oi <= WORK_REPORT_MAIN_CHECK_COUNT; oi += 1) {
+    const row = workReportRows.find(
+      (r) => r.date === date && r.section === sectionKey && Number(r.orderIndex || 1) === oi
+    )
+    if (row?.id) return row
+  }
+  return row1 || null
 }
 
 function safeString(value) {
@@ -4057,10 +4089,19 @@ function App() {
 
     const cardMarkup = selectedWorkWeekDays
       .map((day) => {
-        const mainCheckItems = Array.from({ length: WORK_REPORT_MAIN_CHECK_COUNT }, (_, index) => {
-          const entry = getDisplayedWorkReportEntry(day.date, '주요확인사항', index + 1)
-          return `<li>${escapeHtml(entry?.content || '') || '&nbsp;'}</li>`
-        }).join('')
+        const checklistCombined = getWorkReportChecklistCombinedText(
+          day.date,
+          WORK_REPORT_SECTION_KEYS.checklist,
+          workReportRows,
+          workReportDrafts
+        )
+        const checklistLines = safeString(checklistCombined)
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean)
+        const mainCheckItems = (checklistLines.length ? checklistLines : [''])
+          .map((line) => `<li>${escapeHtml(line) || '&nbsp;'}</li>`)
+          .join('')
 
         const externalEntry = getDisplayedWorkReportEntry(day.date, '외부업무', 1)
         const internalEntry = getDisplayedWorkReportEntry(day.date, '내부업무', 1)
@@ -4150,50 +4191,148 @@ function App() {
   }
 
   const getWorkReportBoardEntry = (date, section, orderIndex = 1) => {
-    const cellKey = getWorkReportCellKey(date, section, orderIndex)
+    const sectionNorm = safeString(section).trim()
+    const oi = Number(orderIndex || 1)
+
+    if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist) {
+      if (oi !== WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
+        return createWorkReportDraftRow({
+          reportDate: date,
+          section: sectionNorm,
+          user: '',
+          content: '',
+          orderIndex: oi,
+        })
+      }
+      const cellKey1 = getWorkReportCellKey(date, sectionNorm, WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX)
+      const draft1 = workReportDrafts[cellKey1]
+      const row1 = getStoredWorkReportEntry(date, sectionNorm, 1)
+      const primary = getWorkReportPrimaryChecklistStoredRow(date, sectionNorm, workReportRows)
+      const mergedText = getWorkReportChecklistCombinedText(date, sectionNorm, workReportRows, workReportDrafts)
+
+      if (draft1) {
+        const base =
+          row1 ||
+          primary ||
+          createWorkReportDraftRow({ reportDate: date, section: sectionNorm, user: '', orderIndex: 1 })
+        return {
+          ...base,
+          ...draft1,
+          date,
+          section: sectionNorm,
+          orderIndex: WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX,
+          content: safeString(draft1.content),
+          id: draft1.id || row1?.id || primary?.id,
+          isDraft: !(draft1.id || row1?.id || primary?.id),
+        }
+      }
+
+      if (mergedText || row1 || primary) {
+        const base =
+          row1 ||
+          primary ||
+          createWorkReportDraftRow({ reportDate: date, section: sectionNorm, user: '', orderIndex: 1 })
+        return {
+          ...base,
+          id: row1?.id || primary?.id,
+          content: mergedText,
+          date,
+          section: sectionNorm,
+          orderIndex: WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX,
+          user: row1?.user || primary?.user || '',
+          isDraft: !(row1?.id || primary?.id),
+        }
+      }
+
+      return createWorkReportDraftRow({
+        reportDate: date,
+        section: sectionNorm,
+        user: '',
+        content: '',
+        orderIndex: WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX,
+      })
+    }
+
+    const cellKey = getWorkReportCellKey(date, sectionNorm, oi)
     const draftEntry = workReportDrafts[cellKey]
     if (draftEntry) return draftEntry
 
-    const storedEntry = getStoredWorkReportEntry(date, section, orderIndex)
+    const storedEntry = getStoredWorkReportEntry(date, sectionNorm, oi)
     if (storedEntry) return storedEntry
 
     return createWorkReportDraftRow({
       reportDate: date,
-      section,
+      section: sectionNorm,
       user:
-        [WORK_REPORT_SECTION_KEYS.external, WORK_REPORT_SECTION_KEYS.di, WORK_REPORT_SECTION_KEYS.road].includes(section) &&
-        WORK_REPORT_MANAGER_OPTIONS.includes(workReportFilters.assignee)
+        [WORK_REPORT_SECTION_KEYS.external, WORK_REPORT_SECTION_KEYS.di, WORK_REPORT_SECTION_KEYS.road].includes(
+          sectionNorm
+        ) && WORK_REPORT_MANAGER_OPTIONS.includes(workReportFilters.assignee)
           ? workReportFilters.assignee
           : '',
-      orderIndex,
+      orderIndex: oi,
     })
   }
 
   const updateWorkReportBoardEntry = (date, section, orderIndex, patch) => {
-    const cellKey = getWorkReportCellKey(date, section, orderIndex)
+    const sectionNorm = safeString(section).trim()
+    const oi =
+      sectionNorm === WORK_REPORT_SECTION_KEYS.checklist
+        ? WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX
+        : Number(orderIndex || 1)
+    const cellKey = getWorkReportCellKey(date, sectionNorm, oi)
     setWorkReportDrafts((prev) => ({
       ...prev,
       [cellKey]: {
-        ...getWorkReportBoardEntry(date, section, orderIndex),
+        ...getWorkReportBoardEntry(date, sectionNorm, oi),
         ...prev[cellKey],
         ...patch,
         date,
-        section,
-        orderIndex,
+        section: sectionNorm,
+        orderIndex: oi,
       },
     }))
   }
 
   const saveWorkReportBoardEntry = async (date, section, orderIndex = 1) => {
-    const cellKey = getWorkReportCellKey(date, section, orderIndex)
+    const sectionNorm = safeString(section).trim()
+    const oi =
+      sectionNorm === WORK_REPORT_SECTION_KEYS.checklist
+        ? WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX
+        : Number(orderIndex || 1)
+    const cellKey = getWorkReportCellKey(date, sectionNorm, oi)
     const targetRow = {
-      ...getWorkReportBoardEntry(date, section, orderIndex),
+      ...getWorkReportBoardEntry(date, sectionNorm, oi),
       date,
-      section,
-      orderIndex,
+      section: sectionNorm,
+      orderIndex: oi,
     }
 
     if (isWorkReportRowEmpty(targetRow)) {
+      if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
+        const idsToRemove = new Set()
+        for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
+          const ex = getStoredWorkReportEntry(date, sectionNorm, idx)
+          if (ex?.id) idsToRemove.add(ex.id)
+        }
+        for (const id of idsToRemove) {
+          try {
+            await weeklyWorkReportsApi.remove(id)
+          } catch (error) {
+            logApiOperationError('일일/주간업무보고서 삭제', error)
+            return
+          }
+        }
+        await fetchWorkReportRows()
+        setWorkReportDrafts((prev) => {
+          const next = { ...prev }
+          for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
+            delete next[getWorkReportCellKey(date, sectionNorm, idx)]
+          }
+          return next
+        })
+        return
+      }
+
       if (!targetRow.isDraft && targetRow.id) {
         try {
           await weeklyWorkReportsApi.remove(targetRow.id)
@@ -4206,6 +4345,14 @@ function App() {
 
       setWorkReportDrafts((prev) => removeObjectKey(prev, cellKey))
       return
+    }
+
+    const checklistExtraIdsToDelete = []
+    if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
+      for (let idx = 2; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
+        const ex = getStoredWorkReportEntry(date, sectionNorm, idx)
+        if (ex?.id && ex.id !== targetRow.id) checklistExtraIdsToDelete.push(ex.id)
+      }
     }
 
     setIsSavingWorkReports(true)
@@ -4222,9 +4369,27 @@ function App() {
         await weeklyWorkReportsApi.update(targetRow.id, toWorkReportPayload(targetRow, timestamp, true))
       }
 
+      for (const rid of checklistExtraIdsToDelete) {
+        try {
+          await weeklyWorkReportsApi.remove(rid)
+        } catch (error) {
+          logApiOperationError('일일/주간업무보고서(주요확인사항 정리) 삭제', error)
+        }
+      }
+
       await fetchWorkReportRows()
       trackWorkWeek(targetRow.date)
-      setWorkReportDrafts((prev) => removeObjectKey(prev, cellKey))
+      setWorkReportDrafts((prev) => {
+        const next = { ...prev }
+        if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
+          for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
+            delete next[getWorkReportCellKey(date, sectionNorm, idx)]
+          }
+        } else {
+          delete next[cellKey]
+        }
+        return next
+      })
     } catch (error) {
       logApiOperationError('일일/주간업무보고서 저장', error)
     } finally {
@@ -4260,10 +4425,19 @@ function App() {
 
     const cards = selectedWorkWeekDays
       .map((day) => {
-        const checkItems = Array.from({ length: WORK_REPORT_MAIN_CHECK_COUNT }, (_, index) => {
-          const entry = getWorkReportBoardEntry(day.date, WORK_REPORT_SECTION_KEYS.checklist, index + 1)
-          return `<li>${escapeHtml(entry.content || '') || '&nbsp;'}</li>`
-        }).join('')
+        const checklistCombined = getWorkReportChecklistCombinedText(
+          day.date,
+          WORK_REPORT_SECTION_KEYS.checklist,
+          workReportRows,
+          workReportDrafts
+        )
+        const checklistLines = safeString(checklistCombined)
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean)
+        const checkItems = (checklistLines.length ? checklistLines : [''])
+          .map((line) => `<li>${escapeHtml(line) || '&nbsp;'}</li>`)
+          .join('')
 
         const supportProgressRows = Array.from(
           { length: WORK_REPORT_SUPPORT_ITEM_COUNT },
@@ -5349,53 +5523,6 @@ function App() {
     })
   }
 
-  const renderWorkReportChecklistItem = (date, orderIndex) => {
-    const cellKey = getWorkReportCellKey(date, '주요확인사항', orderIndex)
-    const isEditing = editingWorkCellKey === cellKey
-    const entry = getDisplayedWorkReportEntry(date, '주요확인사항', orderIndex)
-
-    if (isEditing && editingWorkCellData) {
-      return (
-        <div
-          className="work-report-line-editor"
-          onBlur={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget)) {
-              commitWorkReportEdit()
-            }
-          }}
-        >
-          <input
-            className="work-report-line-input"
-            type="text"
-            value={editingWorkCellData.content}
-            autoFocus
-            onChange={(e) => handleWorkReportEditorChange('content', e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                e.preventDefault()
-                cancelWorkReportEdit()
-              }
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                e.currentTarget.blur()
-              }
-            }}
-          />
-        </div>
-      )
-    }
-
-    return (
-      <button
-        type="button"
-        className={`work-report-check-line ${entry?.content ? 'has-value' : ''}`}
-        onClick={() => startWorkReportCellEdit(date, '주요확인사항', orderIndex)}
-      >
-        {entry?.content || ''}
-      </button>
-    )
-  }
-
   const renderWorkReportSectionCard = (date, sectionConfig) => {
     const { section, label, type } = sectionConfig
     const cellKey = getWorkReportCellKey(date, section, 1)
@@ -5403,17 +5530,20 @@ function App() {
     const entry = getDisplayedWorkReportEntry(date, section, 1)
 
     if (type === 'checklist') {
+      const ckSection = WORK_REPORT_SECTION_KEYS.checklist
+      const ckEntry = getWorkReportBoardEntry(date, ckSection, 1)
       return (
-        <div className="work-report-section-card work-report-section-card-checklist">
+        <div
+          className="work-report-section-card work-report-section-card-checklist"
+          onBlur={handleWorkReportBoardBlur(date, ckSection, 1)}
+        >
           <div className="work-report-section-card-title">{label}</div>
-          <div className="work-report-check-list">
-            {Array.from({ length: WORK_REPORT_MAIN_CHECK_COUNT }, (_, index) => (
-              <div key={`${date}-${section}-${index + 1}`} className="work-report-check-item">
-                <span className="work-report-check-index">{index + 1}</span>
-                {renderWorkReportChecklistItem(date, index + 1)}
-              </div>
-            ))}
-          </div>
+          <textarea
+            className="work-report-section-textarea work-report-section-textarea-checklist-combined"
+            value={ckEntry.content}
+            placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
+            onChange={(e) => updateWorkReportBoardEntry(date, ckSection, 1, { content: e.target.value })}
+          />
         </div>
       )
     }
@@ -5478,31 +5608,22 @@ function App() {
   const renderWorkReportChecklistSection = (date) => (
     <section className="work-report-board-section work-report-board-section-blue">
       <div className="work-report-board-section-title">주요 확인사항</div>
-      <div className="work-report-board-table">
-        {Array.from({ length: WORK_REPORT_MAIN_CHECK_COUNT }, (_, index) => {
-          const orderIndex = index + 1
-          const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex)
-
-          return (
-            <div
-              key={`${date}-check-${orderIndex}`}
-              className="work-report-board-row work-report-board-row-simple"
-              onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex)}
-            >
-              <div className="work-report-board-index">{orderIndex}</div>
-              <textarea
-                className="work-report-board-textarea work-report-board-textarea-check"
-                value={entry.content}
-                placeholder="내용 입력"
-                onChange={(e) =>
-                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex, {
-                    content: e.target.value,
-                  })
-                }
-              />
-            </div>
-          )
-        })}
+      <div className="work-report-board-table work-report-board-checklist-single-wrap">
+        <div
+          className="work-report-board-row work-report-board-row-checklist-single"
+          onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.checklist, 1)}
+        >
+          <textarea
+            className="work-report-board-textarea work-report-board-textarea-checklist-combined"
+            value={getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content}
+            placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
+            onChange={(e) =>
+              updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
+                content: e.target.value,
+              })
+            }
+          />
+        </div>
       </div>
     </section>
   )
@@ -5693,31 +5814,22 @@ function App() {
   const renderWorkReportChecklistSectionV2 = (date) => (
     <section className="work-report-board-section">
       <div className="work-report-board-section-title">주요 확인사항</div>
-      <div className="work-report-board-table">
-        {Array.from({ length: WORK_REPORT_MAIN_CHECK_COUNT }, (_, index) => {
-          const orderIndex = index + 1
-          const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex)
-
-          return (
-            <div
-              key={`check-v2-${date}-${orderIndex}`}
-              className="work-report-board-row work-report-board-row-simple"
-              onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex)}
-            >
-              <div className="work-report-board-index">{orderIndex}</div>
-              <textarea
-                className="work-report-board-textarea work-report-board-textarea-check"
-                value={entry.content}
-                placeholder="내용 입력"
-                onChange={(e) =>
-                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex, {
-                    content: e.target.value,
-                  })
-                }
-              />
-            </div>
-          )
-        })}
+      <div className="work-report-board-table work-report-board-checklist-single-wrap">
+        <div
+          className="work-report-board-row work-report-board-row-checklist-single"
+          onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.checklist, 1)}
+        >
+          <textarea
+            className="work-report-board-textarea work-report-board-textarea-checklist-combined"
+            value={getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content}
+            placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
+            onChange={(e) =>
+              updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
+                content: e.target.value,
+              })
+            }
+          />
+        </div>
       </div>
     </section>
   )
@@ -6015,31 +6127,22 @@ function App() {
   const renderWorkReportChecklistSectionV4 = (date) => (
     <section className="work-report-board-section">
       <div className="work-report-board-section-title">주요 확인사항</div>
-      <div className="work-report-board-table">
-        {Array.from({ length: WORK_REPORT_MAIN_CHECK_COUNT }, (_, index) => {
-          const orderIndex = index + 1
-          const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex)
-
-          return (
-            <div
-              key={`check-v4-${date}-${orderIndex}`}
-              className="work-report-board-row work-report-board-row-simple"
-              onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex)}
-            >
-              <div className="work-report-board-index">{orderIndex}</div>
-              <textarea
-                className="work-report-board-textarea work-report-board-textarea-check"
-                value={entry.content}
-                placeholder="내용 입력"
-                onChange={(e) =>
-                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex, {
-                    content: e.target.value,
-                  })
-                }
-              />
-            </div>
-          )
-        })}
+      <div className="work-report-board-table work-report-board-checklist-single-wrap">
+        <div
+          className="work-report-board-row work-report-board-row-checklist-single"
+          onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.checklist, 1)}
+        >
+          <textarea
+            className="work-report-board-textarea work-report-board-textarea-checklist-combined"
+            value={getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content}
+            placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
+            onChange={(e) =>
+              updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
+                content: e.target.value,
+              })
+            }
+          />
+        </div>
       </div>
     </section>
   )
@@ -6261,52 +6364,20 @@ function App() {
   const renderWorkReportChecklistSectionV5 = (date) => (
     <section className="work-report-report-section">
       <div className="work-report-report-section-title">주요 확인사항</div>
-      <div className="work-report-report-line-list">
-        {Array.from({ length: WORK_REPORT_MAIN_CHECK_COUNT }, (_, index) => {
-          const orderIndex = index + 1
-          const cellKey = getWorkReportCellKey(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex)
-          const isEditing = editingWorkCellKey === cellKey
-          const entry = getDisplayedWorkReportEntry(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex)
-
-          if (isEditing && editingWorkCellData) {
-            return (
-              <div
-                key={`check-v5-${date}-${orderIndex}`}
-                className="work-report-report-line-edit"
-                onBlur={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget)) {
-                    commitWorkReportEdit()
-                  }
-                }}
-              >
-                <span className="work-report-report-line-number">{orderIndex}.</span>
-                <input
-                  className="work-report-report-input compact"
-                  type="text"
-                  value={editingWorkCellData.content}
-                  autoFocus
-                  placeholder="내용 입력"
-                  onChange={(e) => handleWorkReportEditorChange('content', e.target.value)}
-                  onKeyDown={(e) => handleWorkReportInlineKeyDown(e)}
-                />
-              </div>
-            )
+      <div
+        className="work-report-report-checklist-single-wrap"
+        onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.checklist, 1)}
+      >
+        <textarea
+          className="work-report-report-checklist-combined-textarea"
+          value={getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content}
+          placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
+          onChange={(e) =>
+            updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
+              content: e.target.value,
+            })
           }
-
-          return (
-            <button
-              key={`check-v5-${date}-${orderIndex}`}
-              type="button"
-              className="work-report-report-line-button"
-              onClick={() => startWorkReportCellEdit(date, WORK_REPORT_SECTION_KEYS.checklist, orderIndex)}
-            >
-              <span className="work-report-report-line-number">{orderIndex}.</span>
-              <span className={`work-report-report-line-text ${entry?.content ? 'has-value' : 'is-empty'}`}>
-                {entry?.content || ' '}
-              </span>
-            </button>
-          )
-        })}
+        />
       </div>
     </section>
   )

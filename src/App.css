@@ -4569,6 +4569,57 @@ textarea:focus-visible {
   padding: 5px 8px;
 }
 
+.work-report-board-checklist-single-wrap {
+  width: 100%;
+}
+
+.work-report-board-row-checklist-single {
+  display: block;
+  padding: 8px 10px;
+}
+
+.work-report-board-textarea-checklist-combined {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  font-size: 13px;
+  line-height: 1.45;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+}
+
+.work-report-section-textarea-checklist-combined {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  padding: 10px 12px;
+  margin-top: 6px;
+  box-sizing: border-box;
+  font-size: 13px;
+  line-height: 1.45;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+}
+
+.work-report-report-checklist-single-wrap {
+  padding: 10px;
+  background: #ffffff;
+}
+
+.work-report-report-checklist-combined-textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  font-size: 13px;
+  line-height: 1.45;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+}
+
 .work-report-board-textarea-external,
 .work-report-board-textarea-destination {
   min-height: 36px;
