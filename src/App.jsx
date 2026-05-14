@@ -5782,16 +5782,16 @@ function App() {
       const completedOpen = isSalesCompletedSectionOpen(yearBlock.year)
       const completedToggleRow = (
         <tr className="contract-year-row sales-completed-toggle-row" key={`sales-done-${yearBlock.year}`}>
-          <td colSpan={columns.length + 1}>
+          <td colSpan={columns.length + 1} className="sales-completed-toggle-cell">
             <button
-              className="contract-year-toggle sales-completed-toggle"
+              className="contract-year-toggle sales-completed-toggle-btn"
               type="button"
               onClick={() => toggleSalesCompletedSection(yearBlock.year)}
             >
               <span className="contract-year-sign">{completedOpen ? '-' : '+'}</span>
-              <span>완료된 건</span>
-              <span className="contract-year-count">
-                {completedCount.toLocaleString('ko-KR')}건
+              <span className="sales-completed-title">완료된 건</span>
+              <span className="sales-completed-count">
+                ({completedCount.toLocaleString('ko-KR')}건)
               </span>
             </button>
           </td>

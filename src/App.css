@@ -642,19 +642,6 @@ textarea {
   font-weight: 800;
 }
 
-.sales-completed-toggle-row td {
-  background: #f1f5f9;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.sales-completed-toggle-row .contract-year-toggle.sales-completed-toggle {
-  padding: 0 16px 0 32px;
-  font-family: 'SUIT', sans-serif;
-  font-size: 14px;
-  font-weight: 800;
-  color: #183b84;
-}
-
 .contract-category-group-row td {
   height: 40px;
   background: #e8f0fc;
@@ -2750,6 +2737,42 @@ textarea:focus-visible {
 
 .contract-year-count {
   color: #4f6ea8;
+}
+
+/* 영업관리대장: 완료 건 토글 — excel-table 규칙 이후 강제 (들여쓰기·타이틀·건수 분리) */
+.registry-table tr.sales-completed-toggle-row > td.sales-completed-toggle-cell {
+  padding-left: 2rem !important;
+  box-sizing: border-box;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.registry-table tr.sales-completed-toggle-row .sales-completed-toggle-btn {
+  width: 100%;
+  height: 46px;
+  margin: 0;
+  padding: 0 16px 0 0 !important;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  font-family: 'SUIT', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.registry-table tr.sales-completed-toggle-row .sales-completed-title {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  color: #17345f !important;
+}
+
+.registry-table tr.sales-completed-toggle-row .sales-completed-count {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: #64748b !important;
 }
 
 .row-icon-btn {
