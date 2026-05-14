@@ -329,7 +329,7 @@ const PAGE_TITLE_MAP = {
   documents: '문서수발신대장',
 }
 const TOP_SYSTEM_SUBTITLE =
-  '주간업무보고서 · 계약현황 · 일정관리 · 영업관리대장 · 건축정보 · 사업검색이력 · 문서수발신대장'
+  '주간업무보고서 · 계약현황 · 캘린더 · 영업관리대장 · 건축정보 · 사업검색이력 · 문서수발신대장'
 const HIDDEN_MANAGER_VALUES = ['전유찬', '전유찬 대리']
 
 const emptyContract = {
@@ -6755,7 +6755,7 @@ function App() {
     return (
       <div className="app-shell auth-screen">
         {renderAuthCard({
-          title: '스마트DI사업부 통합관리',
+          title: '스마트DI사업부 통합관리 시스템',
           subtitle: '공용 비밀번호를 입력한 뒤 시스템에 접속하세요.',
           passwordValue: appPasswordInput,
           onPasswordChange: (e) => {
@@ -6858,7 +6858,7 @@ function App() {
       <main className="main-area">
         <div className="top-system-bar">
           <div className="top-system-title">
-            <span>스마트DI사업부 통합관리</span>
+            <span>스마트DI사업부 통합관리 시스템</span>
             <div
               style={{
                 marginLeft: 'auto',
