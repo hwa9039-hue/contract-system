@@ -318,6 +318,124 @@ textarea {
   flex-wrap: wrap;
 }
 
+.contracts-year-summary-compact {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fcfdff;
+}
+
+.contracts-year-summary-compact-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.contracts-year-summary-compact-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.contracts-year-summary-compact-total {
+  font-family: 'SUIT', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  color: #223b63;
+}
+
+.contracts-year-summary-compact-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.contracts-year-summary-compact-card {
+  background: #ffffff;
+  border: 1px solid #e3e9f2;
+  border-radius: 8px;
+  padding: 8px 8px 10px;
+  min-height: 0;
+}
+
+.contracts-year-summary-compact-card-title {
+  font-family: 'SUIT', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 6px;
+  color: #1e293b;
+}
+
+.contracts-year-summary-compact-card-body {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.contracts-year-summary-compact-donut {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle, #ffffff 0 54%, transparent 55%),
+    conic-gradient(var(--accent) 0 var(--ratio), #e7edf4 var(--ratio) 100%);
+  border: 1px solid #e4ebf3;
+  box-shadow:
+    inset 0 0 0 4px #ffffff,
+    0 4px 10px rgba(15, 23, 42, 0.06);
+}
+
+.contracts-year-summary-compact-donut span {
+  position: relative;
+  z-index: 1;
+  color: var(--accent-strong);
+  font-family: 'SUIT', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.contracts-year-summary-compact-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 11px;
+}
+
+.contracts-year-summary-compact-metrics strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+  word-break: break-all;
+}
+
+.contracts-year-summary-metric-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 1px;
+}
+
+@media (max-width: 1100px) {
+  .contracts-year-summary-compact-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .primary-btn {
   padding: 9px 14px;
   background: #3b82f6;

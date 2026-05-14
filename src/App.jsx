@@ -301,7 +301,8 @@ const CONTRACT_SHARED_SESSION_DURATION_MS = 20 * 60 * 1000
 const CONTRACT_SHARED_WARNING_MS = 5 * 60 * 1000
 const ADMIN_PASSWORD = 'admin2026!'
 const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'smartdi2026!'
-const ALL_OPTION = '전체'
+/** 계약 필터: 값이 비어 있으면 해당 축으로는 필터하지 않음(기존 "전체"와 동일). */
+const ALL_OPTION = ''
 
 /** 캘린더 우측「이 달의 일정」: Select 값·`item.category`·표시 라벨을 동일 한글로 통일 (`type`은 달력 pill/CSS용 contract|due|manual 유지) */
 const CALENDAR_MONTH_LIST_CATEGORY = Object.freeze({
@@ -939,17 +940,22 @@ function getContractCategorySubgroupId(contractType) {
   return safeString(contractType).includes('유지보수') ? 'maintenance' : 'signboard'
 }
 
-/** 그룹 내 기본 정렬: 계약일자 오름차순(빠른 날짜 먼저). 미입력·파싱 불가는 맨 뒤. */
-function compareContractsByContractDateAsc(a, b) {
+/** 그룹 내 정렬: 계약일자 내림차순(최신 먼저). 미입력·파싱 불가는 맨 뒤. */
+function compareContractsByContractDateDesc(a, b) {
   const ts = (item) => {
     const raw = safeString(item.contractDate ?? '').trim()
-    if (!raw) return Number.MAX_SAFE_INTEGER
+    if (!raw) return null
     const t = new Date(raw).getTime()
-    return Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t
+    return Number.isNaN(t) ? null : t
   }
   const ta = ts(a)
   const tb = ts(b)
-  if (ta !== tb) return ta - tb
+  if (ta === null && tb === null) {
+    /* fall through to secondary */
+  } else if (ta === null) return 1
+  else if (tb === null) return -1
+  else if (ta !== tb) return tb - ta
+
   const seg = compareKoreanText(a.segment, b.segment)
   if (seg !== 0) return seg
   return compareKoreanText(a.projectName, b.projectName)
@@ -957,7 +963,6 @@ function compareContractsByContractDateAsc(a, b) {
 
 function getOptions(items, key) {
   return [
-    ALL_OPTION,
     ...new Set(
       items
         .map((item) => safeString(item[key]).trim())
@@ -968,9 +973,21 @@ function getOptions(items, key) {
 }
 
 function getYearLabel(value) {
-  if (value === ALL_OPTION) return value
-  const match = safeString(value).match(/\d{4}/)
-  return match ? match[0] : safeString(value)
+  const s = safeString(value).trim()
+  if (!s) return ''
+  const match = s.match(/\d{4}/)
+  return match ? match[0] : s
+}
+
+function getContractColumnLabel(key) {
+  return CONTRACT_COLUMNS.find((col) => col.key === key)?.label ?? key
+}
+
+/** `buildDashboardSummary`는 `item.year`를 그대로 키로 쓰므로, 한 화면 연도로 맞춰 집계한다. */
+function buildDashboardSummaryForFocusYear(rows, focusYearKey) {
+  const y = safeString(focusYearKey).trim() || '미분류'
+  const normalized = rows.map((item) => ({ ...item, year: y }))
+  return buildDashboardSummary(normalized)
 }
 
 function sortContracts(items) {
@@ -2143,14 +2160,14 @@ function App() {
 
         const searchMatch = text.includes(search.toLowerCase())
         const yearMatch =
-          filters.year === ALL_OPTION || getYearLabel(item.year) === getYearLabel(filters.year)
+          !filters.year || getYearLabel(item.year) === getYearLabel(filters.year)
         const methodMatch =
-          filters.contractMethod === ALL_OPTION || item.contractMethod === filters.contractMethod
+          !filters.contractMethod || item.contractMethod === filters.contractMethod
         const typeMatch =
-          filters.contractType === ALL_OPTION || item.contractType === filters.contractType
+          !filters.contractType || item.contractType === filters.contractType
         const ownerMatch =
-          filters.salesOwner === ALL_OPTION || item.salesOwner === filters.salesOwner
-        const pmMatch = filters.pm === ALL_OPTION || item.pm === filters.pm
+          !filters.salesOwner || item.salesOwner === filters.salesOwner
+        const pmMatch = !filters.pm || item.pm === filters.pm
 
         return searchMatch && yearMatch && methodMatch && typeMatch && ownerMatch && pmMatch
       })
@@ -2187,7 +2204,7 @@ function App() {
         const subGroups = CONTRACT_CATEGORY_SUBGROUPS.map(({ groupId, label }) => ({
           groupId,
           label,
-          items: [...buckets[groupId]].sort(compareContractsByContractDateAsc),
+          items: [...buckets[groupId]].sort(compareContractsByContractDateDesc),
         }))
 
         const items = subGroups.flatMap((g) => g.items)
@@ -2195,6 +2212,35 @@ function App() {
         return { year, subGroups, items }
       })
   }, [filteredContracts])
+
+  const contractPageSummaryFocusYear = useMemo(() => {
+    if (safeString(filters.year).trim()) return getYearLabel(filters.year)
+    return groupedContracts[0]?.year ?? ''
+  }, [filters.year, groupedContracts])
+
+  const contractPageSummaryRows = useMemo(() => {
+    const y = contractPageSummaryFocusYear
+    if (!y) return []
+    return filteredContracts.filter((item) => (getYearLabel(item.year) || '미분류') === y)
+  }, [filteredContracts, contractPageSummaryFocusYear])
+
+  const contractPageYearSummaryBlock = useMemo(() => {
+    if (!contractPageSummaryFocusYear) return null
+    const { years } = buildDashboardSummaryForFocusYear(
+      contractPageSummaryRows,
+      contractPageSummaryFocusYear
+    )
+    return years[0] ?? null
+  }, [contractPageSummaryRows, contractPageSummaryFocusYear])
+
+  const contractYearFilterOptions = useMemo(() => {
+    return [...getOptions(contracts, 'year')].sort((a, b) => {
+      const ya = Number(getYearLabel(a)) || 0
+      const yb = Number(getYearLabel(b)) || 0
+      if (ya !== yb) return yb - ya
+      return compareKoreanText(a, b)
+    })
+  }, [contracts])
 
   const getContractRowBySelectKey = useCallback(
     (rowKey) => {
@@ -7411,6 +7457,44 @@ function App() {
               />
             </div>
 
+            {contractPageYearSummaryBlock && (
+              <div className="contracts-year-summary-compact" aria-label="연도별 계약금액 현황 요약">
+                <div className="contracts-year-summary-compact-head">
+                  <span className="contracts-year-summary-compact-eyebrow">연도별 계약금액 현황</span>
+                  <span className="contracts-year-summary-compact-total">
+                    {contractPageSummaryFocusYear}년 · 총{' '}
+                    {contractPageYearSummaryBlock.totalAmount.toLocaleString('ko-KR')}원
+                  </span>
+                </div>
+                <div className="contracts-year-summary-compact-cards">
+                  {contractPageYearSummaryBlock.items.map((item) => (
+                    <div className="contracts-year-summary-compact-card" key={item.name}>
+                      <div className="contracts-year-summary-compact-card-title">{item.name}</div>
+                      <div className="contracts-year-summary-compact-card-body">
+                        <div
+                          className="contracts-year-summary-compact-donut"
+                          style={{ '--ratio': `${Math.min(item.ratio, 100)}%` }}
+                          aria-label={`${item.name} 비율 ${formatPercent(item.ratio)}`}
+                        >
+                          <span>{formatPercent(item.ratio)}</span>
+                        </div>
+                        <div className="contracts-year-summary-compact-metrics">
+                          <div>
+                            <span className="contracts-year-summary-metric-label">계약</span>
+                            <strong>{item.count.toLocaleString('ko-KR')}건</strong>
+                          </div>
+                          <div>
+                            <span className="contracts-year-summary-metric-label">금액</span>
+                            <strong>{item.amount.toLocaleString('ko-KR')}원</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="table-toolbar contract-toolbar-simple">
               <input
                 className="table-search-input"
@@ -7433,7 +7517,8 @@ function App() {
                 value={filters.year}
                 onChange={(e) => setFilters((prev) => ({ ...prev, year: e.target.value }))}
               >
-                {getOptions(contracts, 'year').map((option) => (
+                <option value="">{getContractColumnLabel('year')}</option>
+                {contractYearFilterOptions.map((option) => (
                   <option key={option} value={option}>
                     {getYearLabel(option)}
                   </option>
@@ -7447,6 +7532,7 @@ function App() {
                   setFilters((prev) => ({ ...prev, contractMethod: e.target.value }))
                 }
               >
+                <option value="">{getContractColumnLabel('contractMethod')}</option>
                 {getOptions(contracts, 'contractMethod').map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -7461,6 +7547,7 @@ function App() {
                   setFilters((prev) => ({ ...prev, contractType: e.target.value }))
                 }
               >
+                <option value="">{getContractColumnLabel('contractType')}</option>
                 {getOptions(contracts, 'contractType').map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -7475,6 +7562,7 @@ function App() {
                   setFilters((prev) => ({ ...prev, salesOwner: e.target.value }))
                 }
               >
+                <option value="">{getContractColumnLabel('salesOwner')}</option>
                 {getOptions(contracts, 'salesOwner').map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -7487,6 +7575,7 @@ function App() {
                 value={filters.pm}
                 onChange={(e) => setFilters((prev) => ({ ...prev, pm: e.target.value }))}
               >
+                <option value="">{getContractColumnLabel('pm')}</option>
                 {getOptions(contracts, 'pm').map((option) => (
                   <option key={option} value={option}>
                     {option}
