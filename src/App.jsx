@@ -7,7 +7,7 @@ import { excludedProjectsApi } from './excludedProjectsApi'
 import { projectDiscoveryApi } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
-import { API_BASE_URL, clearAuthToken, getAuthHeaders, setAuthToken } from './apiClient.js'
+import { API_BASE_URL, apiFetchInit, clearAuthToken, getAuthHeaders, setAuthToken } from './apiClient.js'
 import { logCmsApiLogin } from './cmsApiProbe.js'
 
 const CONTRACT_COLUMNS = [
@@ -1482,6 +1482,7 @@ function App() {
   const contractEditDraftRef = useRef('')
   const registryCellEditRef = useRef(null)
   const registryCellEditDraftRef = useRef('')
+  const remoteListsSyncRef = useRef(() => {})
 
   useEffect(() => {
     contractEditRef.current = contractEdit
@@ -1603,6 +1604,17 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    remoteListsSyncRef.current = () => {
+      void fetchContracts()
+      void fetchDocuments(true)
+      void fetchSalesRows(true)
+      void fetchDiscoveryRows(true)
+      void fetchExcludedRows(true)
+      void fetchWorkReportRows()
+    }
+  })
+
   const saveContractToApi = async (formData) => {
     const payload = normalizeContractPayload(formData)
 
@@ -1723,6 +1735,39 @@ function App() {
       window.clearInterval(timer)
     }
   }, [isAppAuthenticated, sharedSessionExpiresAt])
+
+  const REMOTE_LIST_POLL_MS = 10_000
+
+  useEffect(() => {
+    if (!isAppAuthenticated) return undefined
+
+    let debounceTimer = 0
+
+    const run = () => {
+      remoteListsSyncRef.current()
+    }
+
+    const scheduleRun = () => {
+      window.clearTimeout(debounceTimer)
+      debounceTimer = window.setTimeout(run, 200)
+    }
+
+    const intervalId = window.setInterval(run, REMOTE_LIST_POLL_MS)
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') scheduleRun()
+    }
+
+    window.addEventListener('focus', scheduleRun)
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.clearTimeout(debounceTimer)
+      window.removeEventListener('focus', scheduleRun)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [isAppAuthenticated])
 
   const filteredContracts = useMemo(() => {
     return sortContracts(
@@ -2228,11 +2273,11 @@ function App() {
     })
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, apiFetchInit({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: appPasswordInput }),
-      })
+      }))
       const data = await response.json().catch(() => ({}))
 
       logCmsApiLogin('http response', {
@@ -2303,7 +2348,7 @@ function App() {
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/auth/me`, { headers: { ...getAuthHeaders() } })
+        const res = await fetch(`${API_BASE_URL}/api/auth/me`, apiFetchInit({ headers: { ...getAuthHeaders() } }))
         const data = await res.json()
         if (cancelled) return
         if (data.auth_disabled) return

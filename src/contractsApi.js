@@ -1,4 +1,4 @@
-import { API_BASE_URL, getAuthHeaders } from './apiClient.js'
+import { API_BASE_URL, getAuthHeaders, apiFetchInit } from './apiClient.js'
 
 /** PATCH/DELETE 경로 세그먼트 (계약번호·UUID 등 특수문자 안전) */
 function encodeContractPathId(id) {
@@ -35,14 +35,15 @@ async function formatResponseError(response) {
 }
 
 async function requestJson(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const { headers: optHeaders, ...rest } = options
+  const response = await fetch(`${API_BASE_URL}${path}`, apiFetchInit({
+    ...rest,
     headers: {
       'Content-Type': 'application/json',
       ...getAuthHeaders(),
-      ...(options.headers || {}),
+      ...(optHeaders || {}),
     },
-    ...options,
-  })
+  }))
 
   if (!response.ok) {
     throw new Error(await formatResponseError(response))
@@ -57,21 +58,18 @@ async function requestJson(path, options = {}) {
  */
 async function postContractRowsBulk(rows) {
   const body = JSON.stringify({ rows })
-  const headers = {
-    'Content-Type': 'application/json',
-    ...getAuthHeaders(),
-  }
-
-  const importUrl = `${API_BASE_URL}/api/contracts/import`
-  const bulkUrl = `${API_BASE_URL}/api/contracts/bulk`
+  const postInit = apiFetchInit({
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body,
+  })
 
   let response
   try {
-    response = await fetch(importUrl, {
-      method: 'POST',
-      headers,
-      body,
-    })
+    response = await fetch(importUrl, postInit)
   } catch {
     response = null
   }
@@ -84,11 +82,7 @@ async function postContractRowsBulk(rows) {
 
   if (useBulk) {
     try {
-      response = await fetch(bulkUrl, {
-        method: 'POST',
-        headers,
-        body,
-      })
+      response = await fetch(bulkUrl, postInit)
     } catch {
       throw new Error('네트워크 오류로 엑셀 업로드를 완료하지 못했습니다.')
     }

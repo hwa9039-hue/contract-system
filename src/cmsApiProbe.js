@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './apiClient.js'
+import { API_BASE_URL, apiFetchInit } from './apiClient.js'
 
 /** 브라우저 콘솔에서 API 주소·헬스·로그인 흐름을 확인할 때 사용하는 접두사 */
 export const CMS_API_LOG_PREFIX = '[CMS/API]'
@@ -51,7 +51,7 @@ export async function runCmsApiHealthProbe() {
   console.info(CMS_API_LOG_PREFIX, 'GET', url)
 
   try {
-    const res = await fetch(url, { method: 'GET', cache: 'no-store' })
+    const res = await fetch(url, apiFetchInit({ method: 'GET' }))
     const ms =
       typeof performance !== 'undefined' ? Math.round(performance.now() - started) : undefined
     const text = await res.text()

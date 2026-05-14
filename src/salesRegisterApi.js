@@ -1,14 +1,15 @@
-import { API_BASE_URL, getAuthHeaders } from './apiClient.js'
+import { API_BASE_URL, getAuthHeaders, apiFetchInit } from './apiClient.js'
 
 async function requestJson(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const { headers: optHeaders, ...rest } = options
+  const response = await fetch(`${API_BASE_URL}${path}`, apiFetchInit({
+    ...rest,
     headers: {
       'Content-Type': 'application/json',
       ...getAuthHeaders(),
-      ...(options.headers || {}),
+      ...(optHeaders || {}),
     },
-    ...options,
-  })
+  }))
 
   if (!response.ok) {
     const message = await response.text()

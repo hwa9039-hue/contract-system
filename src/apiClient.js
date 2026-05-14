@@ -78,6 +78,30 @@ export const API_BASE_URL = (() => {
 
 export const AUTH_TOKEN_KEY = 'cms_api_token'
 
+/** 브라우저·프록시가 API 응답을 오래 캐시하지 않도록 요청마다 부여 */
+export const API_NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-cache',
+  Pragma: 'no-cache',
+}
+
+/**
+ * @param {RequestInit} init
+ * @returns {RequestInit}
+ */
+export function apiFetchInit(init = {}) {
+  const { headers: rawHeaders, ...rest } = init
+  const merged =
+    rawHeaders && typeof rawHeaders === 'object' && !(rawHeaders instanceof Headers)
+      ? { ...API_NO_CACHE_HEADERS, ...rawHeaders }
+      : { ...API_NO_CACHE_HEADERS }
+
+  return {
+    ...rest,
+    cache: 'no-store',
+    headers: merged,
+  }
+}
+
 export function getAuthHeaders() {
   try {
     const token = sessionStorage.getItem(AUTH_TOKEN_KEY)
