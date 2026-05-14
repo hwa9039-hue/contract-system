@@ -930,9 +930,9 @@ function compareKoreanText(a, b) {
   })
 }
 
-/** 계약현황 2차 그룹: `contractType`에 "유지보수" 포함 시 유지보수, 그 외·빈 값은 디스플레이(계약현황 화면 표기 전용) */
+/** 계약현황 2차 그룹: `contractType`에 "유지보수" 포함 시 유지보수, 그 외·빈 값은 전광판 */
 const CONTRACT_CATEGORY_SUBGROUPS = Object.freeze([
-  { groupId: 'signboard', label: '[디스플레이]' },
+  { groupId: 'signboard', label: '[전광판]' },
   { groupId: 'maintenance', label: '[유지보수]' },
 ])
 
@@ -981,6 +981,21 @@ function getYearLabel(value) {
 
 function getContractColumnLabel(key) {
   return CONTRACT_COLUMNS.find((col) => col.key === key)?.label ?? key
+}
+
+/** 집계 대상 계약이 없을 때도 요약 위젯이 비지 않도록 대시보드와 동일 4분류 0건 블록을 만든다. */
+function buildEmptyContractYearSummaryBlock(focusYearKey) {
+  const y = safeString(focusYearKey).trim() || '미분류'
+  return {
+    year: y,
+    totalAmount: 0,
+    items: DASHBOARD_CATEGORY_ORDER.map((name) => ({
+      name,
+      count: 0,
+      amount: 0,
+      ratio: 0,
+    })),
+  }
 }
 
 /** `buildDashboardSummary`는 `item.year`를 그대로 키로 쓰므로, 한 화면 연도로 맞춰 집계한다. */
@@ -1779,7 +1794,7 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
-  const [isContractPageYearSummaryOpen, setIsContractPageYearSummaryOpen] = useState(false)
+  const [isContractPageYearSummaryOpen, setIsContractPageYearSummaryOpen] = useState(true)
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
   const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
@@ -2233,6 +2248,17 @@ function App() {
     [filteredContracts]
   )
 
+  const isContractsTableDefaultFilterState = useMemo(
+    () =>
+      !safeString(search).trim() &&
+      !safeString(filters.year).trim() &&
+      !safeString(filters.contractMethod).trim() &&
+      !safeString(filters.contractType).trim() &&
+      !safeString(filters.salesOwner).trim() &&
+      !safeString(filters.pm).trim(),
+    [filters.contractMethod, filters.contractType, filters.pm, filters.salesOwner, filters.year, search]
+  )
+
   const remainingSessionMinutes = useMemo(() => {
     if (!isAppAuthenticated || !sharedSessionExpiresAt) return 0
     return Math.max(0, Math.ceil(remainingTime / (60 * 1000)))
@@ -2279,13 +2305,13 @@ function App() {
   }, [filteredContracts, contractPageSummaryFocusYear])
 
   const contractPageYearSummaryBlock = useMemo(() => {
-    if (!contractPageSummaryFocusYear) return null
-    const { years } = buildDashboardSummaryForFocusYear(
-      contractPageSummaryRows,
-      contractPageSummaryFocusYear
-    )
-    return years[0] ?? null
-  }, [contractPageSummaryRows, contractPageSummaryFocusYear])
+    const y = contractPageSummaryFocusYear
+    if (!y) return null
+    const { years } = buildDashboardSummaryForFocusYear(contractPageSummaryRows, y)
+    const fromData = years[0]
+    if (fromData) return fromData
+    return buildEmptyContractYearSummaryBlock(y)
+  }, [contractPageSummaryFocusYear, contractPageSummaryRows])
 
   const contractYearFilterOptions = useMemo(() => {
     return [...getOptions(contracts, 'year')].sort((a, b) => {
@@ -7532,7 +7558,9 @@ function App() {
               <div className="table-summary-box">
                 <div className="table-summary-label">필터 결과 합계 금액</div>
                 <div className="table-summary-value">
-                  {filteredTotalAmount.toLocaleString('ko-KR')}원
+                  {isContractsTableDefaultFilterState
+                    ? '-원'
+                    : `${filteredTotalAmount.toLocaleString('ko-KR')}원`}
                 </div>
               </div>
             </div>
