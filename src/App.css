@@ -329,13 +329,36 @@ textarea {
 
 .contracts-year-summary-embed-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
-  padding: 12px 14px 10px;
+  flex-wrap: nowrap;
+  padding: 12px 14px;
   border-bottom: 1px solid #e2e8f0;
   background: #f8fbff;
+}
+
+.contracts-year-summary-embed-head-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.contracts-year-summary-embed-panel {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.32s ease;
+}
+
+.contracts-year-summary-embed-panel.is-collapsed {
+  grid-template-rows: 0fr;
+}
+
+.contracts-year-summary-embed-panel-inner {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .contracts-year-summary-embed-eyebrow {

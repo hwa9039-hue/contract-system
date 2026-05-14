@@ -95,6 +95,7 @@ const EXCLUDED_KEYWORD_OPTIONS = [
   '(N)교통정보전광판',
   '(N)융복합안내전광판',
   '(N)영상정보디스플레이장치',
+  '전광판',
   '미디어',
   '파사드',
   '사이니지',
@@ -116,6 +117,7 @@ const EXCLUDED_KEYWORD_TONE_MAP = {
   '(N)교통정보전광판': { background: '#ecfdf3', color: '#166534', borderColor: '#bbf7d0' },
   '(N)융복합안내전광판': { background: '#eaf1ff', color: '#1f4fd1', borderColor: '#bfd0ff' },
   '(N)영상정보디스플레이장치': { background: '#7f1d1d', color: '#ffffff', borderColor: '#7f1d1d' },
+  전광판: { background: '#f3f4f6', color: '#4b5563', borderColor: '#d1d5db' },
   미디어: { background: '#374151', color: '#ffffff', borderColor: '#374151' },
   파사드: { background: '#ede0d4', color: '#7c2d12', borderColor: '#d6ccc2' },
   사이니지: { background: '#dcfce7', color: '#166534', borderColor: '#86efac' },
@@ -316,7 +318,7 @@ function calendarMonthListEventPassesCategoryFilter(item, selectedCategory) {
   return item.category === selectedCategory
 }
 
-const DASHBOARD_CATEGORY_ORDER = ['디스플레이', 'BIT', '도로사업', '유지보수']
+const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
 const PAGE_TITLE_MAP = {
   dashboard: '대시보드',
   workReports: '주간업무보고서',
@@ -928,7 +930,7 @@ function compareKoreanText(a, b) {
   })
 }
 
-/** 계약현황 2차 그룹: `contractType`에 "유지보수" 포함 시 유지보수, 그 외·빈 값은 디스플레이 */
+/** 계약현황 2차 그룹: `contractType`에 "유지보수" 포함 시 유지보수, 그 외·빈 값은 디스플레이(계약현황 화면 표기 전용) */
 const CONTRACT_CATEGORY_SUBGROUPS = Object.freeze([
   { groupId: 'signboard', label: '[디스플레이]' },
   { groupId: 'maintenance', label: '[유지보수]' },
@@ -1564,23 +1566,31 @@ function formatPercent(value) {
   return `${value.toFixed(1)}%`
 }
 
-/** 대시보드 「연도별 계약금액 현황」 카드 그리드와 동일한 마크업·클래스 */
-function YearContractAmountCategoryCards({ items, keyPrefix }) {
+/** 계약현황 상단 요약에서만 `전광판`을 `디스플레이`로 표시 (데이터·대시보드는 `전광판` 유지) */
+function getContractPageSummaryCategoryTitle(name) {
+  return name === '전광판' ? '디스플레이' : name
+}
+
+/** 대시보드 「연도별 계약금액 현황」 카드 그리드와 동일한 마크업·클래스. `formatCategoryTitle`은 계약현황 전용 표기에만 사용. */
+function YearContractAmountCategoryCards({ items, keyPrefix, formatCategoryTitle }) {
   const prefix = keyPrefix != null && keyPrefix !== '' ? String(keyPrefix) : ''
+  const titleFor = (name) => (typeof formatCategoryTitle === 'function' ? formatCategoryTitle(name) : name)
   return (
     <div className="dashboard-year-cards">
-      {items.map((item) => (
+      {items.map((item) => {
+        const displayName = titleFor(item.name)
+        return (
         <div
           className="dashboard-year-card"
           key={prefix ? `${prefix}-${item.name}` : item.name}
         >
-          <div className="graph-card-title">{item.name}</div>
+          <div className="graph-card-title">{displayName}</div>
 
           <div className="year-card-body">
             <div
               className="dashboard-donut"
               style={{ '--ratio': `${Math.min(item.ratio, 100)}%` }}
-              aria-label={`${item.name} 비율 ${formatPercent(item.ratio)}`}
+              aria-label={`${displayName} 비율 ${formatPercent(item.ratio)}`}
             >
               <span>{formatPercent(item.ratio)}</span>
             </div>
@@ -1603,7 +1613,8 @@ function YearContractAmountCategoryCards({ items, keyPrefix }) {
             </div>
           </div>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -1614,7 +1625,7 @@ function getMonthLabel(date) {
 
 function getCategory(contract) {
   const type = safeString(contract.contractType).trim()
-  if (type === '55121903') return '디스플레이'
+  if (type === '55121903') return '전광판'
   if (['43211514', '43211507', '43211902'].includes(type)) return 'BIT'
   if (type === '도로사업') return '도로사업'
   if (type === '유지보수') return '유지보수'
@@ -1768,6 +1779,7 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
+  const [isContractPageYearSummaryOpen, setIsContractPageYearSummaryOpen] = useState(false)
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
   const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
@@ -7472,16 +7484,40 @@ function App() {
             {contractPageYearSummaryBlock && (
               <div className="contracts-year-summary-embed" aria-label="연도별 계약금액 현황 요약">
                 <div className="contracts-year-summary-embed-head">
-                  <span className="contracts-year-summary-embed-eyebrow">연도별 계약금액 현황</span>
-                  <span className="contracts-year-summary-embed-total">
-                    {contractPageSummaryFocusYear}년 · 총{' '}
-                    {contractPageYearSummaryBlock.totalAmount.toLocaleString('ko-KR')}원
-                  </span>
+                  <div className="contracts-year-summary-embed-head-main">
+                    <span className="contracts-year-summary-embed-eyebrow">연도별 계약금액 현황</span>
+                    <span className="contracts-year-summary-embed-total">
+                      {contractPageSummaryFocusYear}년 · 총{' '}
+                      {contractPageYearSummaryBlock.totalAmount.toLocaleString('ko-KR')}원
+                    </span>
+                  </div>
+                  <button
+                    className="panel-toggle-btn"
+                    type="button"
+                    aria-expanded={isContractPageYearSummaryOpen}
+                    aria-label={
+                      isContractPageYearSummaryOpen
+                        ? '연도별 계약금액 요약 접기'
+                        : '연도별 계약금액 요약 펼치기'
+                    }
+                    onClick={() => setIsContractPageYearSummaryOpen((prev) => !prev)}
+                  >
+                    {isContractPageYearSummaryOpen ? '-' : '+'}
+                  </button>
                 </div>
-                <YearContractAmountCategoryCards
-                  items={contractPageYearSummaryBlock.items}
-                  keyPrefix={`contracts-${contractPageSummaryFocusYear}`}
-                />
+                <div
+                  className={`contracts-year-summary-embed-panel${
+                    isContractPageYearSummaryOpen ? '' : ' is-collapsed'
+                  }`}
+                >
+                  <div className="contracts-year-summary-embed-panel-inner">
+                    <YearContractAmountCategoryCards
+                      items={contractPageYearSummaryBlock.items}
+                      keyPrefix={`contracts-${contractPageSummaryFocusYear}`}
+                      formatCategoryTitle={getContractPageSummaryCategoryTitle}
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -8159,7 +8195,7 @@ function App() {
                     ※ 기본 제외사항 : 지역제한, 수의계약, 지명경쟁(전자조합추천) / 서울(1억~), 타지역(3억~)
                   </div>
                   <div>
-                    ※ 검색 키워드 : 미디어, 파사드, 사이니지, 디스플레이, LED, 앞에 키워드+디지털, ITS, VMS
+                    ※ 검색 키워드 : 전광판, 미디어, 파사드, 사이니지, 디스플레이, LED, 앞에 키워드+디지털, ITS, VMS
                   </div>
                   <div>
                     ※ 검색 품명(분류번호) : 안내전광판(5512190301), 기상전광판(5512190302), 교통정보전광판(5512190303), 융복합안내전광판(9955121901), 영상정보디스플레이장치(4511189301)
