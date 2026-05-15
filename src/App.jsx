@@ -335,13 +335,15 @@ const TOP_SYSTEM_SUBTITLE =
 
 /** 설치사례 상세 모달 규격표 행 순서 (DB 연동 전 UI용) */
 const INSTALL_CASE_SPEC_ROWS = [
-  { key: 'displayArea', label: '표출면' },
-  { key: 'ledPitch', label: 'LED 간격' },
-  { key: 'moduleSize', label: '모듈 SIZE' },
-  { key: 'moduleQty', label: '모듈 수량' },
+  { key: 'displayArea', label: '표출부 사이즈' },
+  { key: 'ledPitch', label: 'LED Pitch' },
+  { key: 'moduleSize', label: 'MODULE 크기' },
+  { key: 'moduleQty', label: 'MODULE 수량' },
   { key: 'resolution', label: '해상도' },
   { key: 'installType', label: '설치유형' },
 ]
+
+const INSTALL_CASE_FORM_TEXT_SPEC_KEYS = ['resolution', 'installType']
 
 /** 설치사례 초기 시드 (로컬 상태 초기값) */
 const INSTALL_CASE_SEED_CASES = [
@@ -359,10 +361,10 @@ const INSTALL_CASE_SEED_CASES = [
     client: '대구경북첨단의료산업진흥재단',
     location: '대구광역시 수성구 첨단로 80',
     specs: {
-      displayArea: '4.8m × 2.7m',
-      ledPitch: 'P2.5',
-      moduleSize: '320×160mm',
-      moduleQty: '120매',
+      displayArea: '(W)4,800 x (H)2,700mm',
+      ledPitch: 'P2.5mm',
+      moduleSize: '(W)320 x (H)160mm',
+      moduleQty: '(W)10 x (H)12 = 120EA',
       resolution: '1920×1080',
       installType: '벽면 매립',
     },
@@ -381,10 +383,10 @@ const INSTALL_CASE_SEED_CASES = [
     client: '○○대학교',
     location: '경기도 수원시 …',
     specs: {
-      displayArea: '3.2m × 1.8m',
-      ledPitch: 'P3',
-      moduleSize: '256×128mm',
-      moduleQty: '72매',
+      displayArea: '(W)3,200 x (H)1,800mm',
+      ledPitch: 'P3mm',
+      moduleSize: '(W)256 x (H)128mm',
+      moduleQty: '(W)8 x (H)9 = 72EA',
       resolution: '1280×720',
       installType: '전면 거치',
     },
@@ -403,10 +405,10 @@ const INSTALL_CASE_SEED_CASES = [
     client: '○○광역시 시설관리공단',
     location: '○○광역시 남구 …',
     specs: {
-      displayArea: '15,360(W) × 6,720(H) mm',
-      ledPitch: 'P10',
-      moduleSize: '320×160mm',
-      moduleQty: '420매',
+      displayArea: '(W)15,360 x (H)6,720mm',
+      ledPitch: 'P10mm',
+      moduleSize: '(W)320 x (H)160mm',
+      moduleQty: '(W)30 x (H)14 = 420EA',
       resolution: '3840×2160',
       installType: '강관 주탑',
     },
@@ -425,10 +427,10 @@ const INSTALL_CASE_SEED_CASES = [
     client: '○○문화재단',
     location: '서울특별시 …',
     specs: {
-      displayArea: '14m × 5m',
-      ledPitch: 'P4',
-      moduleSize: '500×500mm',
-      moduleQty: '280매',
+      displayArea: '(W)14,000 x (H)5,000mm',
+      ledPitch: 'P4mm',
+      moduleSize: '(W)500 x (H)500mm',
+      moduleQty: '(W)14 x (H)20 = 280EA',
       resolution: '7680×2160',
       installType: '트러스 서스펜션',
     },
@@ -447,17 +449,16 @@ const INSTALL_CASE_SEED_CASES = [
     client: '○○테크놀로지㈜',
     location: '성남시 분당구 …',
     specs: {
-      displayArea: '2.4m × 1.35m',
-      ledPitch: 'P1.8',
-      moduleSize: '300×168.75mm',
-      moduleQty: '48매',
+      displayArea: '(W)2,400 x (H)1,350mm',
+      ledPitch: 'P1.8mm',
+      moduleSize: '(W)300 x (H)169mm',
+      moduleQty: '(W)6 x (H)8 = 48EA',
       resolution: '1920×1080',
       installType: '유리면 부착',
     },
   },
 ]
 
-const INSTALL_CASE_FALLBACK_THUMB = 'https://picsum.photos/seed/newinstall/480/320'
 const INSTALL_CASE_FALLBACK_HERO = 'https://picsum.photos/seed/newinstallh/960/720'
 
 function cloneInstallCaseSeed() {
@@ -474,9 +475,182 @@ function getInstallCaseProjectTitle(row) {
 function formatInstallCaseLedPitchDisplay(pitch) {
   const s = safeString(pitch).trim()
   if (!s) return '-'
+  const mm = s.match(/^P\.?\s*([\d.]+)\s*mm$/i)
+  if (mm) return `P${mm[1]}`
   const m = s.match(/^P\.?\s*(\d+(?:\.\d+)?)$/i)
-  if (m) return `P ${m[1]}`
+  if (m) return `P${m[1]}`
   return s
+}
+
+function commaNumberEn(n) {
+  const v = Number(n)
+  if (!Number.isFinite(v)) return '0'
+  return Math.round(v).toLocaleString('en-US')
+}
+
+function formatInstallCaseWhMmFromDigits(rawDigits) {
+  const digits = safeString(rawDigits).replace(/\D/g, '')
+  if (!digits) return ''
+  const wLen = Math.ceil(digits.length / 2)
+  const w = parseInt(digits.slice(0, wLen), 10) || 0
+  const h = parseInt(digits.slice(wLen), 10) || 0
+  return `(W)${commaNumberEn(w)} x (H)${commaNumberEn(h)}mm`
+}
+
+function parseWhMmNumbers(formatted) {
+  const s = safeString(formatted).trim()
+  if (!s) return null
+  let m = s.match(/\(?W\)?\s*([\d,]+)\s*[x×]\s*\(?H\)?\s*([\d,]+)\s*mm/i)
+  if (m) {
+    return {
+      w: parseInt(m[1].replace(/,/g, ''), 10) || 0,
+      h: parseInt(m[2].replace(/,/g, ''), 10) || 0,
+    }
+  }
+  m = s.match(/([\d,]+)\s*\(\s*W\s*\)\s*[×x]\s*([\d,]+)\s*\(\s*H\s*\)/i)
+  if (m) {
+    return {
+      w: parseInt(m[1].replace(/,/g, ''), 10) || 0,
+      h: parseInt(m[2].replace(/,/g, ''), 10) || 0,
+    }
+  }
+  m = s.match(/([0-9.]+)\s*m\s*[×x]\s*([0-9.]+)\s*m/i)
+  if (m) {
+    return {
+      w: Math.round(parseFloat(m[1]) * 1000) || 0,
+      h: Math.round(parseFloat(m[2]) * 1000) || 0,
+    }
+  }
+  m = s.match(/([\d,]+)\s*mm\s*[×x]\s*([\d,]+)\s*mm/i)
+  if (m) {
+    return {
+      w: parseInt(m[1].replace(/,/g, ''), 10) || 0,
+      h: parseInt(m[2].replace(/,/g, ''), 10) || 0,
+    }
+  }
+  return null
+}
+
+function whPairToConcatDigits(w, h) {
+  const wi = Math.max(0, Math.floor(Number(w)) || 0)
+  const hi = Math.max(0, Math.floor(Number(h)) || 0)
+  const ws = String(wi)
+  const hs = String(hi)
+  const k = Math.max(ws.length, hs.length)
+  return `${ws.padStart(k, '0')}${hs.padStart(k, '0')}`
+}
+
+function parseInstallCaseWhMmToDigits(formatted) {
+  const pair = parseWhMmNumbers(formatted)
+  if (pair) return whPairToConcatDigits(pair.w, pair.h)
+  return safeString(formatted).replace(/\D/g, '')
+}
+
+function formatPitchNumForMm(v) {
+  if (!Number.isFinite(v)) return ''
+  if (Number.isInteger(v)) return String(v)
+  const t = String(Number(v.toFixed(4))).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '')
+  return t
+}
+
+function formatLedPitchFromDigits(rawDigits) {
+  const d = safeString(rawDigits).replace(/\D/g, '')
+  if (!d) return ''
+  const variants = []
+  const push = (key, valStr) => {
+    const v = parseFloat(valStr)
+    if (!Number.isFinite(v) || v < 0.15 || v > 200) return
+    variants.push({ key, v, out: `P${formatPitchNumForMm(v)}mm` })
+  }
+  push('int', d)
+  if (d.length >= 2) push('d1', `${d.slice(0, -1)}.${d.slice(-1)}`)
+  if (d.length >= 3) push('d2', `${d.slice(0, -2)}.${d.slice(-2)}`)
+  if (d.length >= 4) push('d3', `${d.slice(0, -3)}.${d.slice(-3)}`)
+
+  const score = (item) => {
+    let s = 0
+    const len = d.length
+    const last = d[len - 1]
+    const { key, v } = item
+    if (v >= 0.4 && v <= 80) s += 40
+    if (len === 1 && key === 'int') s += 30
+    if (len === 2) {
+      if (last === '0') {
+        if (key === 'int') s += 80
+        if (key === 'd1') s -= 50
+      } else {
+        if (key === 'd1') s += 75
+        if (key === 'int') s += 25
+      }
+    }
+    if (len === 3) {
+      if (key === 'd2') s += 70
+      if (key === 'd1') s += 35
+      if (key === 'int') s += 5
+    }
+    if (len >= 4) {
+      if (key === 'd2') s += 45
+      if (key === 'd3') s += 40
+      if (key === 'int') s -= 20
+    }
+    return s
+  }
+
+  variants.sort((a, b) => score(b) - score(a))
+  return variants[0]?.out || `P${d}mm`
+}
+
+function parseLedPitchToDigits(s) {
+  const t = safeString(s).trim()
+  const m =
+    t.match(/^P\.?\s*(\d+(?:\.\d+)?)\s*mm$/i) || t.match(/^P\.?\s*(\d+(?:\.\d+)?)$/i)
+  if (!m) return t.replace(/\D/g, '')
+  const num = m[1]
+  if (!num.includes('.')) return num.replace(/^0+(?=\d)/, '') || '0'
+  const [intPart, fracRaw] = num.split('.')
+  const fr = (fracRaw || '').replace(/0+$/, '')
+  if (!fr) return (intPart || '0').replace(/^0+(?=\d)/, '') || '0'
+  return `${intPart || '0'}${fr}`.replace(/^0+(?=\d)/, '') || '0'
+}
+
+function formatModuleQtyFromDigits(wRaw, hRaw) {
+  const wStr = safeString(wRaw).replace(/\D/g, '')
+  const hStr = safeString(hRaw).replace(/\D/g, '')
+  if (!wStr && !hStr) return ''
+  const w = parseInt(wStr, 10) || 0
+  const h = parseInt(hStr, 10) || 0
+  const ea = w * h
+  return `(W)${commaNumberEn(w)} x (H)${commaNumberEn(h)} = ${commaNumberEn(ea)}EA`
+}
+
+function parseModuleQtyToWH(formatted) {
+  const s = safeString(formatted).trim()
+  const m = s.match(/\(?W\)?\s*([\d,]+)\s*[x×]\s*\(?H\)?\s*([\d,]+)\s*=/i)
+  if (m) {
+    return {
+      w: m[1].replace(/\D/g, ''),
+      h: m[2].replace(/\D/g, ''),
+    }
+  }
+  return { w: '', h: '' }
+}
+
+function formatBusinessYearPreview(digits) {
+  const d = safeString(digits).replace(/\D/g, '').slice(0, 4)
+  if (!d) return ''
+  if (d.length === 4) return `${d}년`
+  return `${d}…`
+}
+
+function businessYearDigitsToStored(digits) {
+  const d = safeString(digits).replace(/\D/g, '').slice(0, 4)
+  if (d.length === 4) return d
+  if (!d) return String(new Date().getFullYear())
+  return String(new Date().getFullYear())
+}
+
+function parseYearToDigits(y) {
+  return safeString(y).replace(/\D/g, '').slice(0, 4) || String(new Date().getFullYear())
 }
 
 function formatInstallCaseCardSubline(row) {
@@ -591,18 +765,17 @@ function getDefaultInstallCaseForm() {
   return {
     projectName: '',
     placeName: '',
-    modelName: '',
     environment: 'indoor',
     audience: 'public',
-    year: String(new Date().getFullYear()),
+    businessYearDigits: String(new Date().getFullYear()),
     purpose: '',
     client: '',
-    location: '',
     specs: {
-      displayArea: '',
-      ledPitch: '',
-      moduleSize: '',
-      moduleQty: '',
+      displayAreaDigits: '',
+      ledPitchDigits: '',
+      moduleSizeDigits: '',
+      moduleQtyWDigits: '',
+      moduleQtyHDigits: '',
       resolution: '',
       installType: '',
     },
@@ -2079,11 +2252,9 @@ function App() {
   const [installCaseRegisterOpen, setInstallCaseRegisterOpen] = useState(false)
   const [installCaseFormDraft, setInstallCaseFormDraft] = useState(() => getDefaultInstallCaseForm())
   const [installCaseEditingId, setInstallCaseEditingId] = useState(null)
-  const [icThumbFile, setIcThumbFile] = useState(null)
-  const [icThumbPreview, setIcThumbPreview] = useState('')
-  const [icHeroFile, setIcHeroFile] = useState(null)
-  const [icHeroPreview, setIcHeroPreview] = useState('')
-  const icImageRestoreRef = useRef({ thumb: '', hero: '' })
+  const [icImageFile, setIcImageFile] = useState(null)
+  const [icImagePreview, setIcImagePreview] = useState('')
+  const icImageRestoreRef = useRef('')
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
   const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
@@ -2391,11 +2562,9 @@ function App() {
     setInstallCaseDetailModal(null)
     setInstallCaseRegisterOpen(false)
     setInstallCaseEditingId(null)
-    setIcThumbFile(null)
-    setIcHeroFile(null)
-    setIcThumbPreview('')
-    setIcHeroPreview('')
-    icImageRestoreRef.current = { thumb: '', hero: '' }
+    setIcImageFile(null)
+    setIcImagePreview('')
+    icImageRestoreRef.current = ''
   }, [menu])
 
   /** 다른 메뉴로 나갈 때 빈 신규 행(isDraft)·편집 모드만 정리 — 업로드/추가가 막히는 유령 상태 방지 */
@@ -2631,18 +2800,11 @@ function App() {
   }, [installCaseAudienceFilter, installCaseEnvFilter, installCases])
 
   useEffect(() => {
-    if (!icThumbFile) return undefined
-    const u = URL.createObjectURL(icThumbFile)
-    setIcThumbPreview(u)
+    if (!icImageFile) return undefined
+    const u = URL.createObjectURL(icImageFile)
+    setIcImagePreview(u)
     return () => URL.revokeObjectURL(u)
-  }, [icThumbFile])
-
-  useEffect(() => {
-    if (!icHeroFile) return undefined
-    const u = URL.createObjectURL(icHeroFile)
-    setIcHeroPreview(u)
-    return () => URL.revokeObjectURL(u)
-  }, [icHeroFile])
+  }, [icImageFile])
 
   const deleteInstallCaseById = useCallback((id) => {
     if (!window.confirm('이 설치사례를 삭제할까요?')) return
@@ -2652,11 +2814,9 @@ function App() {
 
   const handleOpenInstallCaseRegister = useCallback(() => {
     setInstallCaseEditingId(null)
-    setIcThumbFile(null)
-    setIcHeroFile(null)
-    setIcThumbPreview('')
-    setIcHeroPreview('')
-    icImageRestoreRef.current = { thumb: '', hero: '' }
+    setIcImageFile(null)
+    setIcImagePreview('')
+    icImageRestoreRef.current = ''
     setInstallCaseFormDraft(getDefaultInstallCaseForm())
     setInstallCaseRegisterOpen(true)
   }, [])
@@ -2664,62 +2824,49 @@ function App() {
   const handleOpenInstallCaseEdit = useCallback((row) => {
     if (!row) return
     setInstallCaseEditingId(row.id)
+    const mq = parseModuleQtyToWH(safeString(row.specs?.moduleQty))
     setInstallCaseFormDraft({
       projectName: getInstallCaseProjectTitle(row),
       placeName: safeString(row.placeName).trim(),
-      modelName: safeString(row.modelName).trim(),
       environment: row.environment || 'indoor',
       audience: row.audience || 'public',
-      year: safeString(row.year).trim() || String(new Date().getFullYear()),
+      businessYearDigits: parseYearToDigits(row.year),
       purpose: safeString(row.purpose).trim(),
       client: safeString(row.client).trim(),
-      location: safeString(row.location).trim(),
       specs: {
-        displayArea: safeString(row.specs?.displayArea).trim(),
-        ledPitch: safeString(row.specs?.ledPitch).trim(),
-        moduleSize: safeString(row.specs?.moduleSize).trim(),
-        moduleQty: safeString(row.specs?.moduleQty).trim(),
+        displayAreaDigits: parseInstallCaseWhMmToDigits(safeString(row.specs?.displayArea)),
+        ledPitchDigits: parseLedPitchToDigits(safeString(row.specs?.ledPitch)),
+        moduleSizeDigits: parseInstallCaseWhMmToDigits(safeString(row.specs?.moduleSize)),
+        moduleQtyWDigits: mq.w,
+        moduleQtyHDigits: mq.h,
         resolution: safeString(row.specs?.resolution).trim(),
         installType: safeString(row.specs?.installType).trim(),
       },
     })
-    icImageRestoreRef.current = {
-      thumb: safeString(row.thumbnail).trim() || INSTALL_CASE_FALLBACK_THUMB,
-      hero: safeString(row.heroImage).trim() || INSTALL_CASE_FALLBACK_HERO,
-    }
-    setIcThumbFile(null)
-    setIcHeroFile(null)
-    setIcThumbPreview(icImageRestoreRef.current.thumb)
-    setIcHeroPreview(icImageRestoreRef.current.hero)
+    icImageRestoreRef.current =
+      safeString(row.heroImage).trim() ||
+      safeString(row.thumbnail).trim() ||
+      INSTALL_CASE_FALLBACK_HERO
+    setIcImageFile(null)
+    setIcImagePreview(icImageRestoreRef.current)
     setInstallCaseRegisterOpen(true)
   }, [])
 
   const handleCloseInstallCaseRegister = useCallback(() => {
-    setIcThumbFile(null)
-    setIcHeroFile(null)
-    setIcThumbPreview('')
-    setIcHeroPreview('')
-    icImageRestoreRef.current = { thumb: '', hero: '' }
+    setIcImageFile(null)
+    setIcImagePreview('')
+    icImageRestoreRef.current = ''
     setInstallCaseEditingId(null)
     setInstallCaseRegisterOpen(false)
     setInstallCaseFormDraft(getDefaultInstallCaseForm())
   }, [])
 
-  const clearInstallCaseThumb = useCallback(() => {
-    setIcThumbFile(null)
-    if (installCaseEditingId && safeString(icImageRestoreRef.current.thumb).trim()) {
-      setIcThumbPreview(icImageRestoreRef.current.thumb)
+  const clearInstallCaseImage = useCallback(() => {
+    setIcImageFile(null)
+    if (installCaseEditingId && safeString(icImageRestoreRef.current).trim()) {
+      setIcImagePreview(icImageRestoreRef.current)
     } else {
-      setIcThumbPreview('')
-    }
-  }, [installCaseEditingId])
-
-  const clearInstallCaseHero = useCallback(() => {
-    setIcHeroFile(null)
-    if (installCaseEditingId && safeString(icImageRestoreRef.current.hero).trim()) {
-      setIcHeroPreview(icImageRestoreRef.current.hero)
-    } else {
-      setIcHeroPreview('')
+      setIcImagePreview('')
     }
   }, [installCaseEditingId])
 
@@ -2729,44 +2876,45 @@ function App() {
       window.alert('사업명을 입력해 주세요.')
       return
     }
-    let thumbnail = INSTALL_CASE_FALLBACK_THUMB
-    let heroImage = INSTALL_CASE_FALLBACK_HERO
+    let imageUrl = INSTALL_CASE_FALLBACK_HERO
     try {
-      if (icThumbFile) {
-        thumbnail = (await readImageFileAsDataUrl(icThumbFile)) || INSTALL_CASE_FALLBACK_THUMB
+      if (icImageFile) {
+        imageUrl = (await readImageFileAsDataUrl(icImageFile)) || INSTALL_CASE_FALLBACK_HERO
       } else {
-        const prevT = safeString(icThumbPreview).trim()
-        if (prevT && !prevT.startsWith('blob:')) thumbnail = prevT
-      }
-      if (icHeroFile) {
-        heroImage = (await readImageFileAsDataUrl(icHeroFile)) || INSTALL_CASE_FALLBACK_HERO
-      } else {
-        const prevH = safeString(icHeroPreview).trim()
-        if (prevH && !prevH.startsWith('blob:')) heroImage = prevH
+        const prev = safeString(icImagePreview).trim()
+        if (prev && !prev.startsWith('blob:')) imageUrl = prev
       }
     } catch (e) {
       window.alert(e?.message || '이미지를 처리하지 못했습니다.')
       return
     }
+    const prevRow = installCaseEditingId
+      ? installCases.find((c) => c.id === installCaseEditingId)
+      : null
     const projectName = safeString(d.projectName).trim()
     const placeName = safeString(d.placeName).trim() || projectName
+    const displayArea = formatInstallCaseWhMmFromDigits(d.specs.displayAreaDigits) || '-'
+    const moduleSize = formatInstallCaseWhMmFromDigits(d.specs.moduleSizeDigits) || '-'
+    const ledPitch = formatLedPitchFromDigits(d.specs.ledPitchDigits) || '-'
+    const moduleQty =
+      formatModuleQtyFromDigits(d.specs.moduleQtyWDigits, d.specs.moduleQtyHDigits) || '-'
     const rowPayload = {
       projectName,
       placeName,
-      modelName: safeString(d.modelName).trim() || '-',
-      thumbnail,
-      heroImage,
+      modelName: installCaseEditingId ? (prevRow?.modelName ?? '-') : '-',
+      thumbnail: imageUrl,
+      heroImage: imageUrl,
       environment: d.environment || 'indoor',
       audience: d.audience || 'public',
-      year: safeString(d.year).trim() || String(new Date().getFullYear()),
+      year: businessYearDigitsToStored(d.businessYearDigits),
       purpose: safeString(d.purpose).trim() || '-',
       client: safeString(d.client).trim() || '-',
-      location: safeString(d.location).trim() || '-',
+      location: installCaseEditingId ? (prevRow?.location ?? '-') : '-',
       specs: {
-        displayArea: safeString(d.specs.displayArea).trim() || '-',
-        ledPitch: safeString(d.specs.ledPitch).trim() || '-',
-        moduleSize: safeString(d.specs.moduleSize).trim() || '-',
-        moduleQty: safeString(d.specs.moduleQty).trim() || '-',
+        displayArea,
+        ledPitch,
+        moduleSize,
+        moduleQty,
         resolution: safeString(d.specs.resolution).trim() || '-',
         installType: safeString(d.specs.installType).trim() || '-',
       },
@@ -9289,7 +9437,7 @@ function App() {
               <div className="install-case-detail-aside">
                 <dl className="install-case-detail-meta">
                   <div className="install-case-meta-row">
-                    <dt>년도</dt>
+                    <dt>사업년도</dt>
                     <dd>{installCaseDetailModal.year}</dd>
                   </div>
                   <div className="install-case-meta-row">
@@ -9365,16 +9513,6 @@ function App() {
                   placeholder="예: ○○시청 LED 전광판 구축"
                 />
 
-                <label className="install-case-form-label">모델명</label>
-                <input
-                  className="table-search-input install-case-form-input"
-                  type="text"
-                  value={installCaseFormDraft.modelName}
-                  onChange={(e) =>
-                    setInstallCaseFormDraft((prev) => ({ ...prev, modelName: e.target.value }))
-                  }
-                />
-
                 <label className="install-case-form-label">설치장소</label>
                 <select
                   className="contract-filter-select install-case-form-input"
@@ -9401,15 +9539,26 @@ function App() {
                   <option value="private">민간·기타</option>
                 </select>
 
-                <label className="install-case-form-label">년도</label>
-                <input
-                  className="table-search-input install-case-form-input"
-                  type="text"
-                  value={installCaseFormDraft.year}
-                  onChange={(e) =>
-                    setInstallCaseFormDraft((prev) => ({ ...prev, year: e.target.value }))
-                  }
-                />
+                <label className="install-case-form-label">사업년도</label>
+                <div className="install-case-form-input-stack">
+                  <input
+                    className="table-search-input install-case-form-input"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={installCaseFormDraft.businessYearDigits}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, '').slice(0, 4)
+                      setInstallCaseFormDraft((prev) => ({ ...prev, businessYearDigits: v }))
+                    }}
+                    placeholder="숫자만 입력 (예: 2024)"
+                  />
+                  {formatBusinessYearPreview(installCaseFormDraft.businessYearDigits) ? (
+                    <div className="install-case-form-digit-preview">
+                      {formatBusinessYearPreview(installCaseFormDraft.businessYearDigits)}
+                    </div>
+                  ) : null}
+                </div>
 
                 <label className="install-case-form-label">용도</label>
                 <input
@@ -9431,41 +9580,155 @@ function App() {
                   }
                 />
 
-                <label className="install-case-form-label">위치</label>
-                <input
-                  className="table-search-input install-case-form-input"
-                  type="text"
-                  value={installCaseFormDraft.location}
-                  onChange={(e) =>
-                    setInstallCaseFormDraft((prev) => ({ ...prev, location: e.target.value }))
-                  }
-                />
-
                 <div className="install-case-form-dropzone-row">
                   <InstallCaseImageDropzone
-                    inputId="install-case-thumb-file"
-                    label="썸네일 이미지"
-                    previewUrl={icThumbPreview}
-                    fileName={icThumbFile?.name}
-                    onFile={setIcThumbFile}
-                    onClear={clearInstallCaseThumb}
-                  />
-                </div>
-                <div className="install-case-form-dropzone-row">
-                  <InstallCaseImageDropzone
-                    inputId="install-case-hero-file"
-                    label="상세 이미지"
-                    previewUrl={icHeroPreview}
-                    fileName={icHeroFile?.name}
-                    onFile={setIcHeroFile}
-                    onClear={clearInstallCaseHero}
+                    inputId="install-case-image-file"
+                    label="이미지"
+                    previewUrl={icImagePreview}
+                    fileName={icImageFile?.name}
+                    onFile={setIcImageFile}
+                    onClear={clearInstallCaseImage}
                   />
                 </div>
 
                 <div className="install-case-form-specs-title">제품 규격</div>
-                <div className="install-case-form-specs-grid">
-                  {INSTALL_CASE_SPEC_ROWS.map(({ key, label }) => (
-                    <div key={key} className="install-case-form-spec-row">
+
+                <span className="install-case-form-spec-label install-case-form-spec-label--grid">
+                  표출부 사이즈
+                </span>
+                <div className="install-case-form-input-stack">
+                  <input
+                    className="table-search-input install-case-form-input"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={installCaseFormDraft.specs.displayAreaDigits}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, '')
+                      setInstallCaseFormDraft((prev) => ({
+                        ...prev,
+                        specs: { ...prev.specs, displayAreaDigits: v },
+                      }))
+                    }}
+                    placeholder="숫자만 입력 (예: 150006000)"
+                  />
+                  {formatInstallCaseWhMmFromDigits(installCaseFormDraft.specs.displayAreaDigits) ? (
+                    <div className="install-case-form-digit-preview">
+                      {formatInstallCaseWhMmFromDigits(installCaseFormDraft.specs.displayAreaDigits)}
+                    </div>
+                  ) : null}
+                </div>
+
+                <span className="install-case-form-spec-label install-case-form-spec-label--grid">
+                  LED Pitch
+                </span>
+                <div className="install-case-form-input-stack">
+                  <input
+                    className="table-search-input install-case-form-input"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={installCaseFormDraft.specs.ledPitchDigits}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, '')
+                      setInstallCaseFormDraft((prev) => ({
+                        ...prev,
+                        specs: { ...prev.specs, ledPitchDigits: v },
+                      }))
+                    }}
+                    placeholder="숫자만 입력 (예: 25, 10, 125)"
+                  />
+                  {formatLedPitchFromDigits(installCaseFormDraft.specs.ledPitchDigits) ? (
+                    <div className="install-case-form-digit-preview">
+                      {formatLedPitchFromDigits(installCaseFormDraft.specs.ledPitchDigits)}
+                    </div>
+                  ) : null}
+                </div>
+
+                <span className="install-case-form-spec-label install-case-form-spec-label--grid">
+                  MODULE 크기
+                </span>
+                <div className="install-case-form-input-stack">
+                  <input
+                    className="table-search-input install-case-form-input"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={installCaseFormDraft.specs.moduleSizeDigits}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, '')
+                      setInstallCaseFormDraft((prev) => ({
+                        ...prev,
+                        specs: { ...prev.specs, moduleSizeDigits: v },
+                      }))
+                    }}
+                    placeholder="숫자만 입력"
+                  />
+                  {formatInstallCaseWhMmFromDigits(installCaseFormDraft.specs.moduleSizeDigits) ? (
+                    <div className="install-case-form-digit-preview">
+                      {formatInstallCaseWhMmFromDigits(installCaseFormDraft.specs.moduleSizeDigits)}
+                    </div>
+                  ) : null}
+                </div>
+
+                <span className="install-case-form-spec-label install-case-form-spec-label--grid">
+                  MODULE 수량
+                </span>
+                <div className="install-case-form-module-qty-block">
+                  <div className="install-case-form-module-qty-pair">
+                    <label className="install-case-form-sublabel">가로 (W)</label>
+                    <input
+                      className="table-search-input install-case-form-input"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={installCaseFormDraft.specs.moduleQtyWDigits}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/\D/g, '')
+                        setInstallCaseFormDraft((prev) => ({
+                          ...prev,
+                          specs: { ...prev.specs, moduleQtyWDigits: v },
+                        }))
+                      }}
+                    />
+                    <label className="install-case-form-sublabel">세로 (H)</label>
+                    <input
+                      className="table-search-input install-case-form-input"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={installCaseFormDraft.specs.moduleQtyHDigits}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/\D/g, '')
+                        setInstallCaseFormDraft((prev) => ({
+                          ...prev,
+                          specs: { ...prev.specs, moduleQtyHDigits: v },
+                        }))
+                      }}
+                    />
+                  </div>
+                  {formatModuleQtyFromDigits(
+                    installCaseFormDraft.specs.moduleQtyWDigits,
+                    installCaseFormDraft.specs.moduleQtyHDigits
+                  ) ? (
+                    <div className="install-case-form-digit-preview">
+                      {formatModuleQtyFromDigits(
+                        installCaseFormDraft.specs.moduleQtyWDigits,
+                        installCaseFormDraft.specs.moduleQtyHDigits
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+
+                {INSTALL_CASE_FORM_TEXT_SPEC_KEYS.map((key) => {
+                  const label =
+                    key === 'resolution'
+                      ? '해상도'
+                      : key === 'installType'
+                        ? '설치유형'
+                        : key
+                  return (
+                    <div key={key} className="install-case-form-spec-row install-case-form-spec-row--full">
                       <span className="install-case-form-spec-label">{label}</span>
                       <input
                         className="table-search-input install-case-form-input"
@@ -9479,8 +9742,8 @@ function App() {
                         }
                       />
                     </div>
-                  ))}
-                </div>
+                  )
+                })}
               </div>
 
               <div className="install-case-form-actions">

@@ -5914,6 +5914,55 @@ textarea:focus-visible {
   color: #64748b;
 }
 
+.install-case-form-spec-label--grid {
+  align-self: start;
+  padding-top: 10px;
+}
+
+.install-case-form-input-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.install-case-form-digit-preview {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.install-case-form-module-qty-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.install-case-form-module-qty-pair {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 10px;
+  align-items: center;
+}
+
+.install-case-form-sublabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.install-case-form-spec-row--full {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
 .install-case-form-actions {
   display: flex;
   justify-content: flex-end;
@@ -5936,5 +5985,9 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
     align-items: stretch;
   }
-}
+
+  .install-case-form-spec-row--full {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
 
