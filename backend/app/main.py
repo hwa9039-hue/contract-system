@@ -74,6 +74,7 @@ def on_startup():
     init_db()
     logger.info("init_db completed (contracts_rows null id repair runs here and on GET /api/contracts)")
     logger.info("CORS allow_origins count=%s (merged env + defaults)", len(_EFFECTIVE_CORS_ORIGINS))
+    logger.info("Install cases API registered at POST/GET /api/install-cases")
 
 
 @app.get("/api/health")

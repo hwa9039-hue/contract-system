@@ -13,6 +13,12 @@ async function requestJson(path, options = {}) {
 
   if (!response.ok) {
     const message = await response.text()
+    if (response.status === 404 && path.includes('/api/install-cases')) {
+      throw new Error(
+        '설치사례 API(/api/install-cases)가 서버에 없습니다. 백엔드 Docker 이미지를 최신 코드로 다시 빌드·재시작한 뒤 시도해 주세요. ' +
+          (message || '')
+      )
+    }
     throw new Error(message || `Request failed with status ${response.status}`)
   }
 

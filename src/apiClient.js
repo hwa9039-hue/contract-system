@@ -61,8 +61,15 @@ export const API_BASE_URL = (() => {
     return sanitizeApiBaseUrlForBrowser(candidate)
   }
 
-  /** 로컬 dev: `.env`가 비었을 때만 api-config의 런타임 URL 사용 */
+  /**
+   * 로컬 dev(Vite): api-config.js 의 운영 API(NAS)보다 로컬 백엔드(8000)를 기본 사용.
+   * 운영 API로 붙이려면 .env 에 VITE_API_BASE_URL=https://api.... 를 명시하세요.
+   */
   if (!import.meta.env.PROD && typeof window !== 'undefined') {
+    const host = window.location.hostname
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:8000'
+    }
     const runtimeDev = window.__CMS_API_BASE_URL__
     if (runtimeDev != null && String(runtimeDev).trim() !== '') {
       return trimTrailingSlash(String(runtimeDev))

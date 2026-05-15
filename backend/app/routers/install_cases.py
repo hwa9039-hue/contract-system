@@ -39,6 +39,7 @@ def prepare_insert_values(row: InstallCaseCreate) -> dict:
 
 
 @router.get("", response_model=list[InstallCaseOut])
+@router.get("/", response_model=list[InstallCaseOut], include_in_schema=False)
 def list_install_case_rows():
     with get_connection() as connection:
         with connection.cursor() as cursor:
@@ -53,6 +54,7 @@ def list_install_case_rows():
 
 
 @router.post("", response_model=InstallCaseOut, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=InstallCaseOut, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def create_install_case_row(row: InstallCaseCreate):
     values = prepare_insert_values(row)
     columns = list(values.keys())
