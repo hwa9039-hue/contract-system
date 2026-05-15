@@ -339,6 +339,20 @@ textarea {
   background: #f8fbff;
 }
 
+.contracts-year-summary-embed-head--toggle {
+  cursor: pointer;
+  user-select: none;
+}
+
+.contracts-year-summary-embed-head--toggle:hover {
+  background: #eef4ff;
+}
+
+.contracts-year-summary-embed-head--toggle:focus-visible {
+  outline: 2px solid rgba(47, 107, 255, 0.35);
+  outline-offset: -2px;
+}
+
 .contracts-year-summary-embed-panel {
   display: block;
   width: 100%;
@@ -670,8 +684,29 @@ textarea {
   text-align: left;
 }
 
-.contract-year-toggle:hover {
+.contract-year-row--toggle {
+  cursor: pointer;
+}
+
+.contract-year-row--toggle:focus-visible td {
+  outline: 2px solid rgba(47, 107, 255, 0.45);
+  outline-offset: -2px;
+}
+
+.contract-year-row--toggle:hover td {
   background: #e5efff;
+}
+
+.contract-category-group-row.contract-year-row--toggle:hover td {
+  background: #dce9fa;
+}
+
+.contract-year-row--toggle .contract-year-toggle {
+  pointer-events: none;
+}
+
+.contract-year-row--toggle:hover .contract-year-toggle {
+  background: transparent;
 }
 
 .contract-year-sign {
@@ -2906,8 +2941,29 @@ textarea:focus-visible {
   line-height: 1;
 }
 
-.dashboard-year-accordion[open] .dashboard-year-summary::before {
+.dashboard-year-accordion.is-expanded .dashboard-year-summary::before {
   content: '-';
+}
+
+.dashboard-year-summary--toggle {
+  cursor: pointer;
+  user-select: none;
+}
+
+.dashboard-year-summary--toggle:hover {
+  background:
+    linear-gradient(90deg, #eef4ff, #ffffff),
+    #ffffff;
+}
+
+.dashboard-year-summary--toggle:focus-visible {
+  outline: 2px solid rgba(47, 107, 255, 0.35);
+  outline-offset: -2px;
+}
+
+.panel-toggle-btn--decor {
+  pointer-events: none;
+  flex-shrink: 0;
 }
 
 .dashboard-year-cards {
@@ -3578,13 +3634,27 @@ textarea:focus-visible {
 
 /* dashboard and calendar detail restoration */
 .dashboard-year-summary {
-  cursor: default;
   justify-content: space-between;
 }
 
-.dashboard-year-summary::before,
-.dashboard-year-accordion[open] .dashboard-year-summary::before {
+.dashboard-year-summary::before {
   content: none;
+}
+
+.dashboard-year-summary--toggle {
+  cursor: pointer;
+  user-select: none;
+}
+
+.dashboard-year-summary--toggle:hover {
+  background:
+    linear-gradient(90deg, #eef4ff, #ffffff),
+    #ffffff;
+}
+
+.dashboard-year-summary--toggle:focus-visible {
+  outline: 2px solid rgba(47, 107, 255, 0.35);
+  outline-offset: -2px;
 }
 
 .dashboard-year-title {
@@ -4175,6 +4245,27 @@ textarea:focus-visible {
   background: #eef4ff;
   border-color: #bfd1ef;
   color: #1d4ed8;
+}
+
+.guide-panel-header--toggle {
+  cursor: pointer;
+  user-select: none;
+}
+
+.guide-panel-header--toggle:hover {
+  background: #f1f5f9;
+  border-radius: 8px;
+}
+
+.guide-panel-header--toggle:focus-visible {
+  outline: 2px solid rgba(47, 107, 255, 0.3);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.guide-panel-toggle--decor {
+  pointer-events: none;
+  flex-shrink: 0;
 }
 
 .guide-panel-body {

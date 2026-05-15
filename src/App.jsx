@@ -1999,6 +1999,22 @@ function toDbDate(value) {
   return str || null
 }
 
+/** 연도/그룹 아코디언 행·헤더: 전체 영역 클릭·키보드로 펼치기/접기 */
+function bindExpandCollapseRow(toggle, isExpanded) {
+  return {
+    role: 'button',
+    tabIndex: 0,
+    'aria-expanded': isExpanded,
+    onClick: toggle,
+    onKeyDown: (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        toggle()
+      }
+    },
+  }
+}
+
 function sanitizeExcelContractText(value) {
   let s = safeString(value)
     .replace(/\r\n/g, '\n')
@@ -7564,19 +7580,19 @@ function App() {
     return groups.flatMap((yearBlock) => {
       const collapsed = !isYearOpen(yearBlock.year)
       const yearRow = (
-        <tr className="contract-year-row" key={`year-${yearBlock.year}`}>
+        <tr
+          className="contract-year-row contract-year-row--toggle"
+          key={`year-${yearBlock.year}`}
+          {...bindExpandCollapseRow(() => onToggleYear(yearBlock.year), !collapsed)}
+        >
           <td colSpan={columns.length + 1}>
-            <button
-              className="contract-year-toggle"
-              type="button"
-              onClick={() => onToggleYear(yearBlock.year)}
-            >
+            <div className="contract-year-toggle" aria-hidden="true">
               <span className="contract-year-sign">{collapsed ? '+' : '-'}</span>
               <span>{yearBlock.year}</span>
               <span className="contract-year-count">
                 {yearBlock.items.length.toLocaleString('ko-KR')}건
               </span>
-            </button>
+            </div>
           </td>
         </tr>
       )
@@ -7645,19 +7661,19 @@ function App() {
       const collapsed = !isYearOpen(yearBlock.year)
 
       const yearRow = (
-        <tr className="contract-year-row" key={`year-${yearBlock.year}`}>
+        <tr
+          className="contract-year-row contract-year-row--toggle"
+          key={`year-${yearBlock.year}`}
+          {...bindExpandCollapseRow(() => onToggleYear(yearBlock.year), !collapsed)}
+        >
           <td colSpan={columns.length + 1}>
-            <button
-              className="contract-year-toggle"
-              type="button"
-              onClick={() => onToggleYear(yearBlock.year)}
-            >
+            <div className="contract-year-toggle" aria-hidden="true">
               <span className="contract-year-sign">{collapsed ? '+' : '-'}</span>
               <span>{yearBlock.year}</span>
               <span className="contract-year-count">
                 {yearBlock.items.length.toLocaleString('ko-KR')}건
               </span>
-            </button>
+            </div>
           </td>
         </tr>
       )
@@ -7692,19 +7708,22 @@ function App() {
 
       const completedOpen = isSalesCompletedSectionOpen(yearBlock.year)
       const completedToggleRow = (
-        <tr className="contract-category-group-row" key={`sales-done-${yearBlock.year}`}>
+        <tr
+          className="contract-category-group-row contract-year-row--toggle"
+          key={`sales-done-${yearBlock.year}`}
+          {...bindExpandCollapseRow(
+            () => toggleSalesCompletedSection(yearBlock.year),
+            completedOpen
+          )}
+        >
           <td colSpan={columns.length + 1}>
-            <button
-              className="contract-year-toggle"
-              type="button"
-              onClick={() => toggleSalesCompletedSection(yearBlock.year)}
-            >
+            <div className="contract-year-toggle" aria-hidden="true">
               <span className="contract-year-sign">{completedOpen ? '-' : '+'}</span>
               <span>완료된 건</span>
               <span className="contract-year-count">
                 {completedCount.toLocaleString('ko-KR')}건
               </span>
-            </button>
+            </div>
           </td>
         </tr>
       )
@@ -9141,8 +9160,20 @@ function App() {
                     const isCollapsed = !isDashboardYearOpen(yearBlock.year)
 
                     return (
-                      <section className="dashboard-year-accordion" key={yearBlock.year}>
-                        <div className="dashboard-year-summary">
+                      <section
+                        className={`dashboard-year-accordion${
+                          isCollapsed ? '' : ' is-expanded'
+                        }`}
+                        key={yearBlock.year}
+                      >
+                        <div
+                          className="dashboard-year-summary dashboard-year-summary--toggle"
+                          aria-label={`${yearBlock.year}년 ${isCollapsed ? '펼치기' : '접기'}`}
+                          {...bindExpandCollapseRow(
+                            () => toggleDashboardYear(yearBlock.year),
+                            !isCollapsed
+                          )}
+                        >
                           <div className="dashboard-year-title">
                             <span>{yearBlock.year}년</span>
                             <span className="dashboard-year-total">
@@ -9150,14 +9181,9 @@ function App() {
                             </span>
                           </div>
 
-                          <button
-                            className="panel-toggle-btn"
-                            type="button"
-                            aria-label={`${yearBlock.year}년 ${isCollapsed ? '펼치기' : '접기'}`}
-                            onClick={() => toggleDashboardYear(yearBlock.year)}
-                          >
+                          <span className="panel-toggle-btn panel-toggle-btn--decor" aria-hidden="true">
                             {isCollapsed ? '+' : '-'}
-                          </button>
+                          </span>
                         </div>
 
                         {!isCollapsed && (
@@ -9276,24 +9302,25 @@ function App() {
 
             {contractPageYearSummaryBlock && (
               <div className="contracts-year-summary-embed" aria-label="연도별 계약금액 현황 요약">
-                <div className="contracts-year-summary-embed-head">
+                <div
+                  className="contracts-year-summary-embed-head contracts-year-summary-embed-head--toggle"
+                  aria-label={
+                    isContractPageYearSummaryOpen
+                      ? '연도별 계약금액 요약 접기'
+                      : '연도별 계약금액 요약 펼치기'
+                  }
+                  {...bindExpandCollapseRow(
+                    () => setIsContractPageYearSummaryOpen((prev) => !prev),
+                    isContractPageYearSummaryOpen
+                  )}
+                >
                   <span className="contracts-year-summary-embed-total">
                     {contractPageSummaryFocusYear}년 · 총{' '}
                     {contractPageYearSummaryBlock.totalAmount.toLocaleString('ko-KR')}원
                   </span>
-                  <button
-                    className="panel-toggle-btn"
-                    type="button"
-                    aria-expanded={isContractPageYearSummaryOpen}
-                    aria-label={
-                      isContractPageYearSummaryOpen
-                        ? '연도별 계약금액 요약 접기'
-                        : '연도별 계약금액 요약 펼치기'
-                    }
-                    onClick={() => setIsContractPageYearSummaryOpen((prev) => !prev)}
-                  >
+                  <span className="panel-toggle-btn panel-toggle-btn--decor" aria-hidden="true">
                     {isContractPageYearSummaryOpen ? '-' : '+'}
-                  </button>
+                  </span>
                 </div>
                 <div
                   className={`contracts-year-summary-embed-panel${
@@ -9468,19 +9495,22 @@ function App() {
                         const collapsed = !isContractYearOpen(yearBlock.year)
 
                         const yearRow = (
-                          <tr className="contract-year-row" key={`year-${yearBlock.year}`}>
+                          <tr
+                            className="contract-year-row contract-year-row--toggle"
+                            key={`year-${yearBlock.year}`}
+                            {...bindExpandCollapseRow(
+                              () => toggleContractYear(yearBlock.year),
+                              !collapsed
+                            )}
+                          >
                             <td colSpan={contractTableColSpan}>
-                              <button
-                                className="contract-year-toggle"
-                                type="button"
-                                onClick={() => toggleContractYear(yearBlock.year)}
-                              >
+                              <div className="contract-year-toggle" aria-hidden="true">
                                 <span className="contract-year-sign">{collapsed ? '+' : '-'}</span>
                                 <span>{yearBlock.year}년</span>
                                 <span className="contract-year-count">
                                   {yearBlock.items.length.toLocaleString('ko-KR')}건
                                 </span>
-                              </button>
+                              </div>
                             </td>
                           </tr>
                         )
@@ -9494,21 +9524,21 @@ function App() {
                           const subCollapsed = !isContractCategoryGroupOpen(yearBlock.year, sub.groupId)
                           rows.push(
                             <tr
-                              className="contract-category-group-row"
+                              className="contract-category-group-row contract-year-row--toggle"
                               key={`cat-${yearBlock.year}-${sub.groupId}`}
+                              {...bindExpandCollapseRow(
+                                () => toggleContractCategoryGroup(yearBlock.year, sub.groupId),
+                                !subCollapsed
+                              )}
                             >
                               <td colSpan={contractTableColSpan}>
-                                <button
-                                  className="contract-year-toggle"
-                                  type="button"
-                                  onClick={() => toggleContractCategoryGroup(yearBlock.year, sub.groupId)}
-                                >
+                                <div className="contract-year-toggle" aria-hidden="true">
                                   <span className="contract-year-sign">{subCollapsed ? '+' : '-'}</span>
                                   <span>{sub.label}</span>
                                   <span className="contract-year-count">
                                     {sub.items.length.toLocaleString('ko-KR')}건
                                   </span>
-                                </button>
+                                </div>
                               </td>
                             </tr>
                           )
@@ -9869,16 +9899,18 @@ function App() {
         {menu === 'excluded' && (
           <section className="stat-card">
             <div className="guide-panel excluded-guide-panel">
-              <div className="guide-panel-header">
+              <div
+                className="guide-panel-header guide-panel-header--toggle"
+                aria-label={`사업검색이력 안내 ${isExcludedGuideCollapsed ? '펼치기' : '접기'}`}
+                {...bindExpandCollapseRow(
+                  () => setIsExcludedGuideCollapsed((prev) => !prev),
+                  !isExcludedGuideCollapsed
+                )}
+              >
                 <div className="guide-panel-title">안내 문구</div>
-                <button
-                  className="guide-panel-toggle"
-                  type="button"
-                  aria-label={`사업검색이력 안내 ${isExcludedGuideCollapsed ? '펼치기' : '접기'}`}
-                  onClick={() => setIsExcludedGuideCollapsed((prev) => !prev)}
-                >
+                <span className="guide-panel-toggle guide-panel-toggle--decor" aria-hidden="true">
                   {isExcludedGuideCollapsed ? '+' : '-'}
-                </button>
+                </span>
               </div>
 
               {!isExcludedGuideCollapsed && (
@@ -10019,16 +10051,18 @@ function App() {
         {menu === 'documents' && (
           <section className="stat-card">
             <div className="guide-panel">
-              <div className="guide-panel-header">
+              <div
+                className="guide-panel-header guide-panel-header--toggle"
+                aria-label={`문서수발신대장 안내 ${isDocumentGuideCollapsed ? '펼치기' : '접기'}`}
+                {...bindExpandCollapseRow(
+                  () => setIsDocumentGuideCollapsed((prev) => !prev),
+                  !isDocumentGuideCollapsed
+                )}
+              >
                 <div className="guide-panel-title">안내 문구</div>
-                <button
-                  className="guide-panel-toggle"
-                  type="button"
-                  aria-label={`문서수발신대장 안내 ${isDocumentGuideCollapsed ? '펼치기' : '접기'}`}
-                  onClick={() => setIsDocumentGuideCollapsed((prev) => !prev)}
-                >
+                <span className="guide-panel-toggle guide-panel-toggle--decor" aria-hidden="true">
                   {isDocumentGuideCollapsed ? '+' : '-'}
-                </button>
+                </span>
               </div>
 
               {!isDocumentGuideCollapsed && (
