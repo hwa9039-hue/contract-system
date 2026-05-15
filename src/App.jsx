@@ -13,7 +13,6 @@ import { logCmsApiLogin } from './cmsApiProbe.js'
 
 const CONTRACT_COLUMNS = [
   { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text' },
-  { key: 'segment', label: '구분', className: 'col-segment', align: 'center', type: 'text' },
   { key: 'refNo', label: '참고번호', className: 'col-ref', align: 'center', type: 'text' },
   { key: 'contractNo', label: '계약번호', className: 'col-contractno', align: 'center', type: 'text' },
   { key: 'client', label: '발주처', className: 'col-client', align: 'center', type: 'textarea' },
@@ -671,9 +670,65 @@ const INSTALL_CASE_REGISTER_BASIC_ROWS = [
     ],
   },
   { type: 'businessYear', key: 'businessYearDigits', label: '사업년도' },
-  { type: 'text', key: 'purpose', label: '용도', required: true, placeholder: '' },
-  { type: 'text', key: 'client', label: '발주처', required: true, placeholder: '' },
+  { type: 'text', key: 'purpose', label: '용도', required: true, placeholder: '예: 홍보·안내' },
+  { type: 'text', key: 'client', label: '발주처', required: true, placeholder: '예: OO시청' },
 ]
+
+const CONTRACT_FIELD_PLACEHOLDERS = {
+  year: '예: 2025',
+  refNo: '예: REF-001',
+  contractNo: '예: CT-2025-001',
+  client: '예: OO시청',
+  department: '예: 영업1팀',
+  contractMethod: '예: 수의계약',
+  contractType: '예: 구매',
+  identNo: '예: ID-001',
+  projectName: '예: OO시청 LED 전광판 구축',
+  amount: '예: 100000000',
+  salesOwner: '예: 홍길동',
+  pm: '예: 김철수',
+  note: '비고를 입력하세요',
+}
+
+const REGISTRY_FIELD_PLACEHOLDERS = {
+  sales: {
+    registerDate: '날짜 선택',
+    client: '예: OO시청',
+    projectName: '예: LED 전광판 구축',
+    projectAmount: '예: 100000000',
+    projectCategory: '선택',
+    manager: '선택',
+    stage: '선택',
+    note: '비고를 입력하세요',
+  },
+  discovery: {
+    registerDate: '날짜 선택',
+    client: '예: OO시청',
+    projectName: '예: OO아파트 신축',
+    projectCategory: '선택',
+    note: '비고를 입력하세요',
+  },
+  excluded: {
+    writeDate: '날짜 선택',
+    keyword: '선택',
+    projectName: '예: 검색 프로젝트명',
+    client: '예: OO시청',
+    note: '비고를 입력하세요',
+  },
+  documents: {
+    docDate: '날짜 선택',
+    docNo: '예: DOC-2025-001',
+    senderReceiver: '예: OO시청',
+    title: '예: 계약서 송부',
+    method: '예: 이메일',
+    writer: '예: 홍길동',
+    note: '비고를 입력하세요',
+  },
+}
+
+function getRegistryFieldPlaceholder(scope, column) {
+  return REGISTRY_FIELD_PLACEHOLDERS[scope]?.[column.key] ?? `예: ${column.label}`
+}
 
 const INSTALL_CASE_FALLBACK_HERO = 'https://picsum.photos/seed/newinstallh/960/720'
 
@@ -934,7 +989,6 @@ function InstallCaseImageDropzone({ inputId, label, previewUrl, fileName, onFile
     <div className="install-case-dropzone-wrap">
       <div className="install-case-dropzone-label">
         {safeString(label).trim() || '이미지'}
-        <span className="install-case-form-required">*</span>
       </div>
       <div
         className={`install-case-dropzone${dragOver ? ' install-case-dropzone--active' : ''}`}
@@ -1032,7 +1086,6 @@ function InstallCaseFormTwoColumn({
                 <div key={def.key} className="install-case-form-stack-field">
                   <label className="install-case-form-label">
                     {def.label}
-                    <span className="install-case-form-required">*</span>
                   </label>
                   <input
                     className="table-search-input install-case-form-input"
@@ -1054,7 +1107,6 @@ function InstallCaseFormTwoColumn({
                 <div key={def.key} className="install-case-form-stack-field">
                   <label className="install-case-form-label">
                     {def.label}
-                    <span className="install-case-form-required">*</span>
                   </label>
                   <select
                     className="contract-filter-select install-case-form-input"
@@ -1080,7 +1132,6 @@ function InstallCaseFormTwoColumn({
                 <div key={def.key} className="install-case-form-stack-field">
                   <label className="install-case-form-label">
                     {def.label}
-                    <span className="install-case-form-required">*</span>
                   </label>
                   <div className="install-case-form-input-stack">
                     <input
@@ -1095,11 +1146,6 @@ function InstallCaseFormTwoColumn({
                       }}
                       placeholder="숫자만 입력 (예: 202405)"
                     />
-                    {formatBusinessYearPreview(formDraft.businessYearDigits) ? (
-                      <div className="install-case-form-digit-preview">
-                        {formatBusinessYearPreview(formDraft.businessYearDigits)}
-                      </div>
-                    ) : null}
                   </div>
                 </div>
               )
@@ -1129,7 +1175,6 @@ function InstallCaseFormTwoColumn({
           <div className="install-case-form-stack-field">
             <label className="install-case-form-label">
               표출부 사이즈
-              <span className="install-case-form-required">*</span>
             </label>
             <div className="install-case-form-wh-pair">
               <input
@@ -1161,7 +1206,6 @@ function InstallCaseFormTwoColumn({
           <div className="install-case-form-stack-field">
             <label className="install-case-form-label">
               LED Pitch
-              <span className="install-case-form-required">*</span>
             </label>
             <input
               className="table-search-input install-case-form-input"
@@ -1177,7 +1221,6 @@ function InstallCaseFormTwoColumn({
           <div className="install-case-form-stack-field">
             <label className="install-case-form-label">
               MODULE 크기
-              <span className="install-case-form-required">*</span>
             </label>
             <div className="install-case-form-wh-pair">
               <input
@@ -1209,7 +1252,6 @@ function InstallCaseFormTwoColumn({
           <div className="install-case-form-stack-field">
             <label className="install-case-form-label">
               MODULE 수량
-              <span className="install-case-form-required">*</span>
             </label>
             <div className="install-case-form-wh-pair">
               <input
@@ -1241,7 +1283,6 @@ function InstallCaseFormTwoColumn({
           <div className="install-case-form-stack-field">
             <label className="install-case-form-label">
               해상도
-              <span className="install-case-form-required">*</span>
             </label>
             <div className="install-case-form-wh-pair">
               <input
@@ -1273,12 +1314,12 @@ function InstallCaseFormTwoColumn({
           <div className="install-case-form-stack-field">
             <label className="install-case-form-label">
               설치유형
-              <span className="install-case-form-required">*</span>
             </label>
             <input
               className="table-search-input install-case-form-input"
               type="text"
               value={formDraft.specs.installType ?? ''}
+              placeholder="예: 벽면 부착형"
               onChange={(e) =>
                 setFormDraft((prev) => ({
                   ...prev,
@@ -3724,10 +3765,17 @@ function App() {
   const handleDeleteMaterialsBoardPost = useCallback((row, e) => {
     e?.stopPropagation()
     if (!isAdmin || !row) return
-    if (!window.confirm(`「${row.title}」을(를) 삭제하시겠습니까?`)) return
-    revokeMaterialsBoardDownloadUrl(row)
-    setMaterialsBoardPosts((prev) => prev.filter((p) => p.id !== row.id))
-    setToastMessage('삭제되었습니다.')
+    setContractConfirmDialog({
+      title: '게시판 삭제',
+      message: `「${row.title}」을(를) 삭제하시겠습니까?`,
+      destructive: true,
+      confirmLabel: '삭제',
+      onConfirm: () => {
+        revokeMaterialsBoardDownloadUrl(row)
+        setMaterialsBoardPosts((prev) => prev.filter((p) => p.id !== row.id))
+        setToastMessage('삭제되었습니다.')
+      },
+    })
   }, [isAdmin])
 
   const handleSaveMaterialsBoardRegister = useCallback(() => {
@@ -10868,7 +10916,7 @@ function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="install-case-form-modal-header">
-              <h3 id="contract-register-title">계약현황 등록</h3>
+              <h3 id="contract-register-title">{PAGE_TITLE_MAP.contracts}</h3>
               <button
                 type="button"
                 className="modal-close-btn"
@@ -10881,7 +10929,7 @@ function App() {
             <div className="install-case-form-modal-body">
               <div className="global-register-form-grid">
                 <div className="global-register-field global-register-field--full">
-                  <span className="global-register-label">D-Day (준공일자 기준)</span>
+                  <span className="install-case-form-label">D-Day (준공일자 기준)</span>
                   <div className="global-register-dday">{getDdayText(newRow.dueDate)}</div>
                 </div>
                 {CONTRACT_COLUMNS.map((column) => (
@@ -10891,14 +10939,15 @@ function App() {
                       column.type === 'textarea' ? ' global-register-field--full' : ''
                     }`}
                   >
-                    <label className="global-register-label" htmlFor={`contract-reg-${column.key}`}>
+                    <label className="install-case-form-label" htmlFor={`contract-reg-${column.key}`}>
                       {column.label}
                     </label>
                     {column.type === 'textarea' ? (
                       <textarea
                         id={`contract-reg-${column.key}`}
-                        className="table-search-input global-register-control"
+                        className="table-search-input install-case-form-input global-register-control"
                         rows={column.key === 'note' ? 4 : 2}
+                        placeholder={CONTRACT_FIELD_PLACEHOLDERS[column.key] || ''}
                         value={newRow[column.key] ?? ''}
                         onChange={(e) =>
                           setNewRow((prev) => ({
@@ -10913,7 +10962,7 @@ function App() {
                     ) : column.type === 'date' ? (
                       <input
                         id={`contract-reg-${column.key}`}
-                        className="table-search-input global-register-control"
+                        className="table-search-input install-case-form-input global-register-control"
                         type="date"
                         value={newRow[column.key] ?? ''}
                         onChange={(e) =>
@@ -10923,10 +10972,11 @@ function App() {
                     ) : (
                       <input
                         id={`contract-reg-${column.key}`}
-                        className={`table-search-input global-register-control${
+                        className={`table-search-input install-case-form-input global-register-control${
                           column.align === 'right' ? ' align-right' : ''
                         }`}
                         type="text"
+                        placeholder={CONTRACT_FIELD_PLACEHOLDERS[column.key] || ''}
                         value={newRow[column.key] ?? ''}
                         onChange={(e) =>
                           setNewRow((prev) => ({
@@ -10960,10 +11010,10 @@ function App() {
           const { scope, draft } = registryCreateModal
           const columns = getRegistryColumnsByScope(scope)
           const titleMap = {
-            sales: '영업관리대장 등록',
-            discovery: '건축정보 등록',
-            excluded: '사업검색이력 등록',
-            documents: '문서수발신대장 등록',
+            sales: PAGE_TITLE_MAP.sales,
+            discovery: PAGE_TITLE_MAP.discovery,
+            excluded: PAGE_TITLE_MAP.excluded,
+            documents: PAGE_TITLE_MAP.documents,
           }
           const saving =
             scope === 'sales'
@@ -11002,21 +11052,22 @@ function App() {
                           column.type === 'textarea' ? ' global-register-field--full' : ''
                         }`}
                       >
-                        <label className="global-register-label" htmlFor={`registry-create-${scope}-${column.key}`}>
+                        <label className="install-case-form-label" htmlFor={`registry-create-${scope}-${column.key}`}>
                           {column.label}
                         </label>
                         {column.type === 'textarea' ? (
                           <textarea
                             id={`registry-create-${scope}-${column.key}`}
-                            className="table-search-input global-register-control"
+                            className="table-search-input install-case-form-input global-register-control"
                             rows={3}
+                            placeholder={getRegistryFieldPlaceholder(scope, column)}
                             value={draft[column.key] ?? ''}
                             onChange={(e) => patchRegistryCreateDraft(column.key, e.target.value)}
                           />
                         ) : column.type === 'date' ? (
                           <input
                             id={`registry-create-${scope}-${column.key}`}
-                            className="table-search-input global-register-control"
+                            className="table-search-input install-case-form-input global-register-control"
                             type="date"
                             value={draft[column.key] ?? ''}
                             onChange={(e) => patchRegistryCreateDraft(column.key, e.target.value)}
@@ -11024,7 +11075,7 @@ function App() {
                         ) : column.type === 'select' ? (
                           <select
                             id={`registry-create-${scope}-${column.key}`}
-                            className="contract-filter-select global-register-control-select"
+                            className="contract-filter-select install-case-form-input global-register-control-select"
                             value={draft[column.key] ?? ''}
                             onChange={(e) => patchRegistryCreateDraft(column.key, e.target.value)}
                           >
@@ -11038,10 +11089,11 @@ function App() {
                         ) : (
                           <input
                             id={`registry-create-${scope}-${column.key}`}
-                            className={`table-search-input global-register-control${
+                            className={`table-search-input install-case-form-input global-register-control${
                               column.align === 'right' ? ' align-right' : ''
                             }`}
                             type="text"
+                            placeholder={getRegistryFieldPlaceholder(scope, column)}
                             value={draft[column.key] ?? ''}
                             onChange={(e) => patchRegistryCreateDraft(column.key, e.target.value)}
                           />
@@ -11084,7 +11136,7 @@ function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="install-case-form-modal-header">
-              <h3 id="calendar-event-register-title">기타 일정 등록</h3>
+              <h3 id="calendar-event-register-title">{PAGE_TITLE_MAP.calendar}</h3>
               <button
                 type="button"
                 className="modal-close-btn"
@@ -11100,74 +11152,74 @@ function App() {
             <div className="install-case-form-modal-body">
               <div className="calendar-register-form">
                 <div className="calendar-register-section calendar-register-date-range" aria-label="일정 기간">
-                  <span className="calendar-date-range-label">시작일</span>
+                  <span className="install-case-form-label">시작일</span>
                   <input
                     type="date"
-                    className="calendar-input calendar-input-date"
+                    className="table-search-input install-case-form-input calendar-input-date"
                     value={eventForm.dateStart}
                     onChange={(e) => setEventForm((prev) => ({ ...prev, dateStart: e.target.value }))}
                   />
                   <span className="calendar-date-range-sep" aria-hidden>
                     ~
                   </span>
-                  <span className="calendar-date-range-label">종료일</span>
+                  <span className="install-case-form-label">종료일</span>
                   <input
                     type="date"
-                    className="calendar-input calendar-input-date"
+                    className="table-search-input install-case-form-input calendar-input-date"
                     value={eventForm.dateEnd}
                     onChange={(e) => setEventForm((prev) => ({ ...prev, dateEnd: e.target.value }))}
                   />
                 </div>
                 <div className="calendar-register-section">
-                  <label className="calendar-register-label" htmlFor="calendar-reg-title">
+                  <label className="install-case-form-label" htmlFor="calendar-reg-title">
                     일정 내용
                   </label>
                   <input
                     id="calendar-reg-title"
                     type="text"
-                    className="calendar-register-text"
-                    placeholder="일정 내용을 입력하세요"
+                    className="table-search-input install-case-form-input"
+                    placeholder="예: OO시청 현장 미팅"
                     value={eventForm.title}
                     onChange={(e) => setEventForm((prev) => ({ ...prev, title: e.target.value }))}
                   />
                 </div>
                 <div className="calendar-register-section calendar-register-assignees">
                   <div className="calendar-register-split-field">
-                    <label className="calendar-register-label" htmlFor="calendar-reg-owner">
+                    <label className="install-case-form-label" htmlFor="calendar-reg-owner">
                       영업담당자
                     </label>
                     <input
                       id="calendar-reg-owner"
                       type="text"
-                      className="calendar-register-text"
-                      placeholder="영업담당자"
+                      className="table-search-input install-case-form-input"
+                      placeholder="예: 홍길동"
                       value={eventForm.owner}
                       onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
                     />
                   </div>
                   <div className="calendar-register-split-field">
-                    <label className="calendar-register-label" htmlFor="calendar-reg-pm">
+                    <label className="install-case-form-label" htmlFor="calendar-reg-pm">
                       현장 PM
                     </label>
                     <input
                       id="calendar-reg-pm"
                       type="text"
-                      className="calendar-register-text"
-                      placeholder="현장 PM"
+                      className="table-search-input install-case-form-input"
+                      placeholder="예: 김철수"
                       value={eventForm.pm}
                       onChange={(e) => setEventForm((prev) => ({ ...prev, pm: e.target.value }))}
                     />
                   </div>
                 </div>
                 <div className="calendar-register-section">
-                  <label className="calendar-register-label" htmlFor="calendar-reg-note">
+                  <label className="install-case-form-label" htmlFor="calendar-reg-note">
                     비고
                   </label>
                   <textarea
                     id="calendar-reg-note"
-                    className="calendar-register-note"
+                    className="table-search-input install-case-form-input"
                     rows={4}
-                    placeholder="비고 (선택)"
+                    placeholder="비고를 입력하세요 (선택)"
                     value={eventForm.note}
                     onChange={(e) => setEventForm((prev) => ({ ...prev, note: e.target.value }))}
                   />
@@ -11197,14 +11249,14 @@ function App() {
       {isAdmin && materialsBoardRegisterOpen && (
         <div className="modal-backdrop" onClick={handleCloseMaterialsBoardRegister}>
           <div
-            className="materials-board-form-modal"
+            className="install-case-form-modal materials-board-register-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="materials-board-form-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="materials-board-form-modal-header">
-              <h3 id="materials-board-form-title">{materialsBoardEditingId ? '수정' : '등록'}</h3>
+            <div className="install-case-form-modal-header">
+              <h3 id="materials-board-form-title">{PAGE_TITLE_MAP.materialsBoard}</h3>
               <button
                 type="button"
                 className="modal-close-btn"
@@ -11214,12 +11266,26 @@ function App() {
                 ✕
               </button>
             </div>
-            <div className="materials-board-form-modal-body">
-              <label className="materials-board-form-label" htmlFor="materials-board-title">제목</label>
-              <input id="materials-board-title" className="table-search-input materials-board-form-input" type="text" value={materialsBoardFormDraft.title} onChange={(e) => setMaterialsBoardFormDraft((prev) => ({ ...prev, title: e.target.value }))} placeholder="제목을 입력하세요" />
-              <label className="materials-board-form-label" htmlFor="materials-board-content">내용</label>
-              <textarea id="materials-board-content" className="materials-board-form-textarea" rows={5} value={materialsBoardFormDraft.content} onChange={(e) => setMaterialsBoardFormDraft((prev) => ({ ...prev, content: e.target.value }))} placeholder="설명을 입력하세요 (선택)" />
-              <label className="materials-board-form-label">첨부 파일</label>
+            <div className="install-case-form-modal-body">
+              <label className="install-case-form-label" htmlFor="materials-board-title">제목</label>
+              <input
+                id="materials-board-title"
+                className="table-search-input install-case-form-input"
+                type="text"
+                value={materialsBoardFormDraft.title}
+                onChange={(e) => setMaterialsBoardFormDraft((prev) => ({ ...prev, title: e.target.value }))}
+                placeholder="예: LED 견적 가이드"
+              />
+              <label className="install-case-form-label" htmlFor="materials-board-content">내용</label>
+              <textarea
+                id="materials-board-content"
+                className="table-search-input install-case-form-input"
+                rows={5}
+                value={materialsBoardFormDraft.content}
+                onChange={(e) => setMaterialsBoardFormDraft((prev) => ({ ...prev, content: e.target.value }))}
+                placeholder="설명을 입력하세요 (선택)"
+              />
+              <label className="install-case-form-label">첨부 파일</label>
               <MaterialBoardFileDropzone
                 inputId="materials-board-file-input"
                 fileName={materialsBoardFile?.name || materialsBoardSavedFileName}
@@ -11229,7 +11295,7 @@ function App() {
                   setMaterialsBoardSavedFileName('')
                 }}
               />
-              <div className="materials-board-form-actions">
+              <div className="install-case-form-actions">
                 <button type="button" className="secondary-btn" onClick={handleCloseMaterialsBoardRegister}>취소</button>
                 <button type="button" className="primary-btn" onClick={handleSaveMaterialsBoardRegister}>
                   {materialsBoardEditingId ? '저장' : '등록'}
@@ -11250,7 +11316,7 @@ function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="install-case-form-modal-header">
-              <h3 id="install-case-form-title">{installCaseEditingId ? '수정' : '등록'}</h3>
+              <h3 id="install-case-form-title">{PAGE_TITLE_MAP.installCases}</h3>
               <button
                 type="button"
                 className="modal-close-btn"

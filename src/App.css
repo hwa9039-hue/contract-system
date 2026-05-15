@@ -1023,10 +1023,11 @@ textarea {
   grid-column: 1 / -1;
 }
 
-.global-register-label {
-  font-size: 12px;
+.global-register-label,
+.install-case-form-label {
+  font-size: 13px;
   font-weight: 800;
-  color: #475569;
+  color: #334155;
 }
 
 .global-register-dday {
@@ -1046,6 +1047,21 @@ textarea {
 .registry-create-modal,
 .calendar-event-register-modal {
   width: min(920px, calc(100vw - 24px));
+}
+
+.materials-board-register-modal {
+  width: min(560px, calc(100vw - 40px));
+}
+
+.calendar-event-register-modal .calendar-input-date {
+  width: auto;
+  min-width: 140px;
+  flex: 0 1 auto;
+}
+
+.calendar-event-register-modal textarea.install-case-form-input {
+  min-height: 96px;
+  resize: vertical;
 }
 
 /* 캘린더 기타 일정 등록 모달 — 툴바용 .calendar-input-title / .calendar-input-owner 와 분리 */
