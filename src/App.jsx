@@ -431,6 +431,11 @@ function loadManualEventsFromLocalStorage() {
   return []
 }
 
+const INSTALL_CASE_FORM_DRAFT_STORAGE_KEY = 'contract_manager_install_case_form_draft_v1'
+const INSTALL_CASE_FORM_DRAFT_DEBOUNCE_MS = 400
+/** localStorage 용량 보호: data URL 초과 시 이미지는 제외하고 폼 필드만 저장 */
+const INSTALL_CASE_FORM_DRAFT_MAX_IMAGE_LEN = 800_000
+
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
 const CONTRACT_SHARED_AUTH_KEY = 'CONTRACT_SHARED_AUTH'
 const CONTRACT_SHARED_EXPIRES_AT_KEY = 'CONTRACT_SHARED_EXPIRES_AT'
@@ -1192,6 +1197,63 @@ function getDefaultInstallCaseForm() {
     },
   }
 }
+
+function cloneInstallCaseFormDraft(form) {
+  return {
+    ...form,
+    specs: { ...form.specs },
+  }
+}
+
+function hasMeaningfulInstallCaseFormContent(form, imagePreview = '') {
+  if (!form) return false
+  if (safeString(form.projectName).trim()) return true
+  if (safeString(form.purpose).trim()) return true
+  if (safeString(form.client).trim()) return true
+  const specs = form.specs || {}
+  for (const key of Object.keys(specs)) {
+    if (safeString(specs[key]).trim()) return true
+  }
+  const img = safeString(imagePreview).trim()
+  if (img && img !== INSTALL_CASE_FALLBACK_HERO && !img.startsWith('blob:')) return true
+  return false
+}
+
+function loadInstallCaseFormDraftFromStorage() {
+  try {
+    const raw = localStorage.getItem(INSTALL_CASE_FORM_DRAFT_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed?.form?.specs) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function persistInstallCaseFormDraftToStorage(payload) {
+  try {
+    localStorage.setItem(INSTALL_CASE_FORM_DRAFT_STORAGE_KEY, JSON.stringify(payload))
+  } catch (error) {
+    console.warn('[설치사례] 임시 저장 실패', error)
+  }
+}
+
+function clearInstallCaseFormDraftStorage() {
+  try {
+    localStorage.removeItem(INSTALL_CASE_FORM_DRAFT_STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+function pickInstallCaseDraftImageForStorage(imagePreview) {
+  const prev = safeString(imagePreview).trim()
+  if (!prev || prev.startsWith('blob:') || prev === INSTALL_CASE_FALLBACK_HERO) return ''
+  if (prev.length > INSTALL_CASE_FORM_DRAFT_MAX_IMAGE_LEN) return ''
+  return prev
+}
+
 const HIDDEN_MANAGER_VALUES = ['전유찬', '전유찬 대리']
 
 const emptyContract = {
@@ -2670,6 +2732,8 @@ function App() {
   const [icImageFile, setIcImageFile] = useState(null)
   const [icImagePreview, setIcImagePreview] = useState('')
   const icImageRestoreRef = useRef('')
+  const installCaseFormDraftRef = useRef(installCaseFormDraft)
+  const icImagePreviewRef = useRef(icImagePreview)
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
   const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
@@ -2806,6 +2870,84 @@ function App() {
   useEffect(() => {
     registryCellEditDraftRef.current = registryCellEditDraft
   }, [registryCellEditDraft])
+
+  useEffect(() => {
+    installCaseFormDraftRef.current = installCaseFormDraft
+  }, [installCaseFormDraft])
+
+  useEffect(() => {
+    icImagePreviewRef.current = icImagePreview
+  }, [icImagePreview])
+
+  const applyInstallCaseFormDraftSnapshot = useCallback((snap) => {
+    if (!snap?.form) return
+    const editingId = snap.mode === 'edit' ? snap.editingId || null : null
+    setInstallCaseEditingId(editingId)
+    setInstallCaseFormDraft(cloneInstallCaseFormDraft(snap.form))
+    setIcImageFile(null)
+    const img = safeString(snap.imagePreview).trim()
+    if (editingId) {
+      icImageRestoreRef.current = img || INSTALL_CASE_FALLBACK_HERO
+    } else {
+      icImageRestoreRef.current = ''
+    }
+    setIcImagePreview(img)
+  }, [])
+
+  const flushInstallCaseFormDraftToStorage = useCallback(() => {
+    const form = installCaseFormDraftRef.current
+    const imagePreview = icImagePreviewRef.current
+    if (!hasMeaningfulInstallCaseFormContent(form, imagePreview)) return
+    persistInstallCaseFormDraftToStorage({
+      version: 1,
+      savedAt: Date.now(),
+      mode: installCaseEditingId ? 'edit' : 'create',
+      editingId: installCaseEditingId || null,
+      form: cloneInstallCaseFormDraft(form),
+      imagePreview: pickInstallCaseDraftImageForStorage(imagePreview),
+    })
+  }, [installCaseEditingId])
+
+  useEffect(() => {
+    if (!installCaseRegisterOpen) return undefined
+    const timer = window.setTimeout(() => {
+      flushInstallCaseFormDraftToStorage()
+    }, INSTALL_CASE_FORM_DRAFT_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [
+    installCaseRegisterOpen,
+    installCaseFormDraft,
+    icImagePreview,
+    installCaseEditingId,
+    icImageFile,
+    flushInstallCaseFormDraftToStorage,
+  ])
+
+  useEffect(() => {
+    if (!installCaseRegisterOpen || !icImageFile) return undefined
+    let cancelled = false
+    void (async () => {
+      try {
+        const dataUrl = await readImageFileAsDataUrl(icImageFile)
+        if (cancelled || !dataUrl || dataUrl.length > INSTALL_CASE_FORM_DRAFT_MAX_IMAGE_LEN) return
+        const form = installCaseFormDraftRef.current
+        if (!hasMeaningfulInstallCaseFormContent(form, dataUrl)) return
+        persistInstallCaseFormDraftToStorage({
+          version: 1,
+          savedAt: Date.now(),
+          mode: installCaseEditingId ? 'edit' : 'create',
+          editingId: installCaseEditingId || null,
+          form: cloneInstallCaseFormDraft(form),
+          imagePreview: dataUrl,
+        })
+      } catch {
+        /* ignore */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [icImageFile, installCaseRegisterOpen, installCaseEditingId])
 
   const fetchContracts = async () => {
     try {
@@ -3238,7 +3380,7 @@ function App() {
     })
   }, [])
 
-  const handleOpenInstallCaseRegister = useCallback(() => {
+  const openInstallCaseRegisterEmpty = useCallback(() => {
     setInstallCaseEditingId(null)
     setIcImageFile(null)
     setIcImagePreview('')
@@ -3246,50 +3388,106 @@ function App() {
     setInstallCaseFormDraft(getDefaultInstallCaseForm())
     setInstallCaseRegisterOpen(true)
   }, [])
+
+  const handleOpenInstallCaseRegister = useCallback(() => {
+    const stored = loadInstallCaseFormDraftFromStorage()
+    if (
+      stored?.mode === 'create' &&
+      hasMeaningfulInstallCaseFormContent(stored.form, stored.imagePreview)
+    ) {
+      setContractConfirmDialog({
+        title: '임시 저장',
+        message: '작성 중인 내용이 있습니다. 불러오시겠습니까?',
+        confirmLabel: '불러오기',
+        onConfirm: () => {
+          applyInstallCaseFormDraftSnapshot(stored)
+          setInstallCaseRegisterOpen(true)
+        },
+        onCancel: () => {
+          clearInstallCaseFormDraftStorage()
+          openInstallCaseRegisterEmpty()
+        },
+      })
+      return
+    }
+    openInstallCaseRegisterEmpty()
+  }, [applyInstallCaseFormDraftSnapshot, openInstallCaseRegisterEmpty])
 
   const handleOpenInstallCaseEdit = useCallback((row) => {
     if (!row) return
-    setInstallCaseEditingId(row.id)
-    const da = parseWhMmNumbers(safeString(row.specs?.displayArea))
-    const ms = parseWhMmNumbers(safeString(row.specs?.moduleSize))
-    const res = parseResolutionStoredToWH(safeString(row.specs?.resolution))
-    const mq = parseModuleQtyToWH(safeString(row.specs?.moduleQty))
-    setInstallCaseFormDraft({
-      projectName: safeString(row.projectName).trim(),
-      environment: row.environment || 'indoor',
-      audience: row.audience || 'public',
-      businessYearDigits: parseYearToDigits(row.year),
-      purpose: safeString(row.purpose).trim(),
-      client: safeString(row.client).trim(),
-      specs: {
-        displayAreaW: da ? String(da.w) : '',
-        displayAreaH: da ? String(da.h) : '',
-        moduleSizeW: ms ? String(ms.w) : '',
-        moduleSizeH: ms ? String(ms.h) : '',
-        ledPitch: installCaseLedPitchToFormValue(row.specs?.ledPitch),
-        moduleQtyW: mq.w,
-        moduleQtyH: mq.h,
-        resolutionW: res.w,
-        resolutionH: res.h,
-        installType: safeString(row.specs?.installType).trim(),
-      },
-    })
-    icImageRestoreRef.current =
-      safeString(row.heroImage).trim() ||
-      INSTALL_CASE_FALLBACK_HERO
-    setIcImageFile(null)
-    setIcImagePreview(icImageRestoreRef.current)
-    setInstallCaseRegisterOpen(true)
-  }, [])
 
-  const handleCloseInstallCaseRegister = useCallback(() => {
-    setIcImageFile(null)
-    setIcImagePreview('')
-    icImageRestoreRef.current = ''
-    setInstallCaseEditingId(null)
-    setInstallCaseRegisterOpen(false)
-    setInstallCaseFormDraft(getDefaultInstallCaseForm())
-  }, [])
+    const openEditFromRow = () => {
+      setInstallCaseEditingId(row.id)
+      const da = parseWhMmNumbers(safeString(row.specs?.displayArea))
+      const ms = parseWhMmNumbers(safeString(row.specs?.moduleSize))
+      const res = parseResolutionStoredToWH(safeString(row.specs?.resolution))
+      const mq = parseModuleQtyToWH(safeString(row.specs?.moduleQty))
+      setInstallCaseFormDraft({
+        projectName: safeString(row.projectName).trim(),
+        environment: row.environment || 'indoor',
+        audience: row.audience || 'public',
+        businessYearDigits: parseYearToDigits(row.year),
+        purpose: safeString(row.purpose).trim(),
+        client: safeString(row.client).trim(),
+        specs: {
+          displayAreaW: da ? String(da.w) : '',
+          displayAreaH: da ? String(da.h) : '',
+          moduleSizeW: ms ? String(ms.w) : '',
+          moduleSizeH: ms ? String(ms.h) : '',
+          ledPitch: installCaseLedPitchToFormValue(row.specs?.ledPitch),
+          moduleQtyW: mq.w,
+          moduleQtyH: mq.h,
+          resolutionW: res.w,
+          resolutionH: res.h,
+          installType: safeString(row.specs?.installType).trim(),
+        },
+      })
+      icImageRestoreRef.current =
+        safeString(row.heroImage).trim() ||
+        INSTALL_CASE_FALLBACK_HERO
+      setIcImageFile(null)
+      setIcImagePreview(icImageRestoreRef.current)
+      setInstallCaseRegisterOpen(true)
+    }
+
+    const stored = loadInstallCaseFormDraftFromStorage()
+    if (
+      stored?.mode === 'edit' &&
+      stored.editingId === row.id &&
+      hasMeaningfulInstallCaseFormContent(stored.form, stored.imagePreview)
+    ) {
+      setContractConfirmDialog({
+        title: '임시 저장',
+        message: '작성 중인 내용이 있습니다. 불러오시겠습니까?',
+        confirmLabel: '불러오기',
+        onConfirm: () => {
+          applyInstallCaseFormDraftSnapshot(stored)
+          setInstallCaseRegisterOpen(true)
+        },
+        onCancel: () => {
+          clearInstallCaseFormDraftStorage()
+          openEditFromRow()
+        },
+      })
+      return
+    }
+    openEditFromRow()
+  }, [applyInstallCaseFormDraftSnapshot])
+
+  const handleCloseInstallCaseRegister = useCallback(
+    ({ discardDraft = false } = {}) => {
+      if (!discardDraft) {
+        flushInstallCaseFormDraftToStorage()
+      }
+      setIcImageFile(null)
+      setIcImagePreview('')
+      icImageRestoreRef.current = ''
+      setInstallCaseEditingId(null)
+      setInstallCaseRegisterOpen(false)
+      setInstallCaseFormDraft(getDefaultInstallCaseForm())
+    },
+    [flushInstallCaseFormDraftToStorage]
+  )
 
   const clearInstallCaseImage = useCallback(() => {
     setIcImageFile(null)
@@ -3393,7 +3591,8 @@ function App() {
       const id = `ic-${Date.now()}`
       setInstallCases((prev) => [{ id, ...rowPayload }, ...prev])
     }
-    handleCloseInstallCaseRegister()
+    clearInstallCaseFormDraftStorage()
+    handleCloseInstallCaseRegister({ discardDraft: true })
   }
 
   const getContractRowBySelectKey = useCallback(
@@ -10649,7 +10848,10 @@ function App() {
           return (
             <div
               className="modal-backdrop contract-confirm-backdrop"
-              onClick={() => setContractConfirmDialog(null)}
+              onClick={() => {
+                if (typeof d.onCancel === 'function') d.onCancel()
+                setContractConfirmDialog(null)
+              }}
             >
               <div
                 className="confirm-dialog-shell"
@@ -10668,7 +10870,10 @@ function App() {
                     <button
                       type="button"
                       className="secondary-btn"
-                      onClick={() => setContractConfirmDialog(null)}
+                      onClick={() => {
+                        if (typeof d.onCancel === 'function') d.onCancel()
+                        setContractConfirmDialog(null)
+                      }}
                     >
                       취소
                     </button>
