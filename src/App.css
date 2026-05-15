@@ -6025,8 +6025,8 @@ textarea:focus-visible {
 .install-case-detail-modal-body {
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  padding: 20px 24px 24px;
+  gap: 32px;
+  padding: 28px 36px 36px;
   box-sizing: border-box;
   min-height: 0;
   flex: 1 1 auto;
@@ -6054,8 +6054,8 @@ textarea:focus-visible {
   box-shadow:
     0 14px 32px -10px rgba(15, 23, 42, 0.28),
     0 6px 14px -6px rgba(15, 23, 42, 0.18);
-  aspect-ratio: 16 / 9;
-  max-height: min(40vh, 440px);
+  aspect-ratio: 4 / 3;
+  max-height: min(48vh, 520px);
 }
 
 .install-case-detail-hero img {
@@ -6066,10 +6066,20 @@ textarea:focus-visible {
   object-position: center;
 }
 
+.install-case-detail-lower-shell {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 40px 40px 40px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+}
+
 .install-case-detail-lower {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px 32px;
+  gap: 28px 56px;
   align-items: start;
   min-width: 0;
 }
@@ -6163,17 +6173,21 @@ textarea:focus-visible {
   }
 
   .install-case-detail-modal-body {
-    padding: 18px 20px 22px;
-    gap: 18px;
+    padding: 22px 28px 28px;
+    gap: 24px;
+  }
+
+  .install-case-detail-lower-shell {
+    padding: 28px 28px 32px;
   }
 
   .install-case-detail-lower {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 24px 28px;
   }
 
   .install-case-detail-hero {
-    max-height: min(34vh, 360px);
+    max-height: min(38vh, 420px);
   }
 }
 

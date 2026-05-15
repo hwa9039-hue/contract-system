@@ -10194,55 +10194,57 @@ function App() {
                   alt=""
                 />
               </div>
-              <div className="install-case-detail-lower">
-                <div className="install-case-detail-info-col">
-                  <dl className="install-case-detail-meta">
-                    <div className="install-case-meta-row">
-                      <dt>사업년도</dt>
-                      <dd>{installCaseDetailModal.year ?? '-'}</dd>
-                    </div>
-                    <div className="install-case-meta-row">
-                      <dt>설치장소</dt>
-                      <dd>{getInstallCaseEnvironmentLabel(installCaseDetailModal.environment)}</dd>
-                    </div>
-                    <div className="install-case-meta-row">
-                      <dt>발주처 구분</dt>
-                      <dd>{getInstallCaseAudienceLabel(installCaseDetailModal.audience)}</dd>
-                    </div>
-                    <div className="install-case-meta-row">
-                      <dt>용도</dt>
-                      <dd>{installCaseDetailModal.purpose ?? '-'}</dd>
-                    </div>
-                    <div className="install-case-meta-row">
-                      <dt>발주처</dt>
-                      <dd>{installCaseDetailModal.client ?? '-'}</dd>
-                    </div>
-                  </dl>
-                </div>
-                <div className="install-case-detail-specs-col">
-                  <div className="install-case-detail-specs-title">제품 규격</div>
-                  <table className="install-case-spec-table">
-                    <thead>
-                      <tr>
-                        <th scope="col">구분</th>
-                        <th scope="col">사양</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {INSTALL_CASE_SPEC_ROWS.map(({ key, label }) => (
-                        <tr key={key}>
-                          <td>{label}</td>
-                          <td>
-                            {key === 'resolution'
-                              ? formatInstallCaseResolutionDetailDisplay(
-                                  installCaseDetailModal.specs[key]
-                                )
-                              : installCaseDetailModal.specs[key] ?? '-'}
-                          </td>
+              <div className="install-case-detail-lower-shell">
+                <div className="install-case-detail-lower">
+                  <div className="install-case-detail-info-col">
+                    <dl className="install-case-detail-meta">
+                      <div className="install-case-meta-row">
+                        <dt>사업년도</dt>
+                        <dd>{installCaseDetailModal.year ?? '-'}</dd>
+                      </div>
+                      <div className="install-case-meta-row">
+                        <dt>설치장소</dt>
+                        <dd>{getInstallCaseEnvironmentLabel(installCaseDetailModal.environment)}</dd>
+                      </div>
+                      <div className="install-case-meta-row">
+                        <dt>발주처 구분</dt>
+                        <dd>{getInstallCaseAudienceLabel(installCaseDetailModal.audience)}</dd>
+                      </div>
+                      <div className="install-case-meta-row">
+                        <dt>용도</dt>
+                        <dd>{installCaseDetailModal.purpose ?? '-'}</dd>
+                      </div>
+                      <div className="install-case-meta-row">
+                        <dt>발주처</dt>
+                        <dd>{installCaseDetailModal.client ?? '-'}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <div className="install-case-detail-specs-col">
+                    <div className="install-case-detail-specs-title">제품 규격</div>
+                    <table className="install-case-spec-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">구분</th>
+                          <th scope="col">사양</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {INSTALL_CASE_SPEC_ROWS.map(({ key, label }) => (
+                          <tr key={key}>
+                            <td>{label}</td>
+                            <td>
+                              {key === 'resolution'
+                                ? formatInstallCaseResolutionDetailDisplay(
+                                    installCaseDetailModal.specs[key]
+                                  )
+                                : installCaseDetailModal.specs[key] ?? '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
