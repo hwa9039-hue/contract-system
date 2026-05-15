@@ -13,7 +13,8 @@ from app.schemas import (
 )
 
 
-router = APIRouter(prefix="/api/install-cases", tags=["install-cases"])
+# 경로는 main.py 에서 prefix="/api" 와 합쳐져 POST/GET /api/install-cases 가 됩니다.
+router = APIRouter(prefix="/install-cases", tags=["install-cases"])
 
 RETURNING_COLUMNS = """
   id, "projectName", "heroImage", environment, audience, year,

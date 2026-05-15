@@ -74,14 +74,29 @@ def on_startup():
     init_db()
     logger.info("init_db completed (contracts_rows null id repair runs here and on GET /api/contracts)")
     logger.info("CORS allow_origins count=%s (merged env + defaults)", len(_EFFECTIVE_CORS_ORIGINS))
-    logger.info("Install cases API registered at POST/GET /api/install-cases")
+    logger.info(
+        "Install cases API: POST/GET /api/install-cases (router prefix=/install-cases, include prefix=/api)"
+    )
 
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok"}
+    """배포 후 installCases=true 이면 설치사례 라우트가 이 이미지에 포함된 것입니다."""
+    install_paths = sorted(
+        {
+            getattr(route, "path", "")
+            for route in app.routes
+            if getattr(route, "path", None) and "install-cases" in route.path
+        }
+    )
+    return {
+        "status": "ok",
+        "installCases": bool(install_paths),
+        "installCasesPaths": install_paths,
+    }
 
 
+# /api 프리픽스는 main 에서만 붙임 → /api/api/... 중복 방지
 app.include_router(auth.router)
 app.include_router(contracts.router)
 app.include_router(sales_register.router)
@@ -89,4 +104,4 @@ app.include_router(project_discovery.router)
 app.include_router(excluded_projects.router)
 app.include_router(document_register.router)
 app.include_router(weekly_work_reports.router)
-app.include_router(install_cases.router)
+app.include_router(install_cases.router, prefix="/api")
