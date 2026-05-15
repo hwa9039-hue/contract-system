@@ -1633,6 +1633,11 @@ textarea {
   background: rgba(15, 23, 42, 0.42);
 }
 
+/* 확인·삭제 커스텀 모달: DOM 순서와 무관하게 다른 modal-backdrop·auth 모달보다 항상 위 */
+.modal-backdrop.contract-confirm-backdrop {
+  z-index: 99999;
+}
+
 .detail-modal {
   width: min(860px, 100%);
   max-height: calc(100vh - 48px);
@@ -3335,6 +3340,7 @@ textarea:focus-visible {
   justify-content: center;
   padding: 20px;
   box-sizing: border-box;
+  z-index: 99999;
 }
 
 .contract-confirm-backdrop .confirm-dialog-shell {
