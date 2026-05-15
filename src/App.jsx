@@ -8,8 +8,9 @@ import { projectDiscoveryApi } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import { installCasesApi, INSTALL_CASES_API_PATH } from './installCasesApi'
-import { API_BASE_URL, apiFetchInit, clearAuthToken, getAuthHeaders, setAuthToken } from './apiClient.js'
-import { logCmsApiLogin } from './cmsApiProbe.js'
+import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
+import { useAuth } from './AuthContext.jsx'
+import { CONTRACT_SHARED_WARNING_MS } from './authSession.js'
 
 const CONTRACT_COLUMNS = [
   { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text' },
@@ -436,13 +437,6 @@ const INSTALL_CASE_FORM_DRAFT_DEBOUNCE_MS = 400
 /** localStorage 용량 보호: data URL 초과 시 이미지는 제외하고 폼 필드만 저장 */
 const INSTALL_CASE_FORM_DRAFT_MAX_IMAGE_LEN = 800_000
 
-const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
-const CONTRACT_SHARED_AUTH_KEY = 'CONTRACT_SHARED_AUTH'
-const CONTRACT_SHARED_EXPIRES_AT_KEY = 'CONTRACT_SHARED_EXPIRES_AT'
-const CONTRACT_SHARED_SESSION_DURATION_MS = 20 * 60 * 1000
-const CONTRACT_SHARED_WARNING_MS = 5 * 60 * 1000
-const ADMIN_PASSWORD = 'admin2026!'
-const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'smartdi2026!'
 /** 계약 필터: 값이 비어 있으면 해당 축으로는 필터하지 않음(기존 "전체"와 동일). */
 const ALL_OPTION = ''
 
@@ -2191,53 +2185,6 @@ function escapeHtml(text) {
     .replaceAll("'", '&#39;')
 }
 
-function readSharedAuthSession() {
-  try {
-    const isAuthenticated = sessionStorage.getItem(CONTRACT_SHARED_AUTH_KEY) === 'true'
-    const expiresAt = Number(sessionStorage.getItem(CONTRACT_SHARED_EXPIRES_AT_KEY) || 0)
-
-    if (isAuthenticated && Number.isFinite(expiresAt) && expiresAt > Date.now()) {
-      return {
-        isAuthenticated: true,
-        expiresAt,
-      }
-    }
-  } catch {
-    // no-op
-  }
-
-  try {
-    sessionStorage.removeItem(CONTRACT_SHARED_AUTH_KEY)
-    sessionStorage.removeItem(CONTRACT_SHARED_EXPIRES_AT_KEY)
-  } catch {
-    // no-op
-  }
-
-  return {
-    isAuthenticated: false,
-    expiresAt: 0,
-  }
-}
-
-function writeSharedAuthSession(expiresAt) {
-  try {
-    sessionStorage.setItem(CONTRACT_SHARED_AUTH_KEY, 'true')
-    sessionStorage.setItem(CONTRACT_SHARED_EXPIRES_AT_KEY, String(expiresAt))
-  } catch {
-    // no-op
-  }
-}
-
-function clearSharedAuthSession() {
-  try {
-    sessionStorage.removeItem(CONTRACT_SHARED_AUTH_KEY)
-    sessionStorage.removeItem(CONTRACT_SHARED_EXPIRES_AT_KEY)
-    clearAuthToken()
-  } catch {
-    // no-op
-  }
-}
-
 function normalizeDocumentRow(item) {
   return {
     id: safeString(item.id),
@@ -2945,7 +2892,7 @@ function splitDashboardRecentTitleLabel(fullLabel) {
 }
 
 function App() {
-  const initialSharedAuth = readSharedAuthSession()
+  const { isAdmin, sharedSessionExpiresAt, logout, extendLogin } = useAuth()
   const [contracts, setContracts] = useState([])
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
@@ -2957,7 +2904,6 @@ function App() {
   const [expandedMenuGroups, setExpandedMenuGroups] = useState(() =>
     loadExpandedMenuGroups(initialMenu)
   )
-  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
   const [isContractPageYearSummaryOpen, setIsContractPageYearSummaryOpen] = useState(false)
@@ -3077,21 +3023,14 @@ function App() {
   const [monthSearch, setMonthSearch] = useState('')
   const [monthTypeFilter, setMonthTypeFilter] = useState(CALENDAR_MONTH_LIST_CATEGORY.ALL)
   const [detailModal, setDetailModal] = useState(null)
-  const [isAppAuthenticated, setIsAppAuthenticated] = useState(initialSharedAuth.isAuthenticated)
-  const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(initialSharedAuth.expiresAt)
-  const [remainingTime, setRemainingTime] = useState(
-    initialSharedAuth.isAuthenticated ? Math.max(0, initialSharedAuth.expiresAt - Date.now()) : 0
+  const [remainingTime, setRemainingTime] = useState(() =>
+    sharedSessionExpiresAt ? Math.max(0, sharedSessionExpiresAt - Date.now()) : 0
   )
-  const [showSessionWarning, setShowSessionWarning] = useState(
-    initialSharedAuth.isAuthenticated &&
-      initialSharedAuth.expiresAt - Date.now() > 0 &&
-      initialSharedAuth.expiresAt - Date.now() <= CONTRACT_SHARED_WARNING_MS
-  )
-  const [appPasswordInput, setAppPasswordInput] = useState('')
-  const [appLoginError, setAppLoginError] = useState('')
-  const [showAdminLoginModal, setShowAdminLoginModal] = useState(false)
-  const [adminPasswordInput, setAdminPasswordInput] = useState('')
-  const [adminLoginError, setAdminLoginError] = useState('')
+  const [showSessionWarning, setShowSessionWarning] = useState(() => {
+    if (!sharedSessionExpiresAt) return false
+    const left = sharedSessionExpiresAt - Date.now()
+    return left > 0 && left <= CONTRACT_SHARED_WARNING_MS
+  })
   const [toastMessage, setToastMessage] = useState('')
   const [registryUploadTarget, setRegistryUploadTarget] = useState('')
 
@@ -3342,39 +3281,38 @@ function App() {
 
   /** 로그인 전에는 JWT 없이 list가 비거나 401 → 빈 목록만 보임. 인증 성공 후에만 계약 목록을 불러옵니다. */
   useEffect(() => {
-    if (!isAppAuthenticated) return
     void fetchContracts()
-  }, [isAppAuthenticated])
+  }, [])
 
   useEffect(() => {
-    if (!isAppAuthenticated || menu !== 'workReports') return
+    if (menu !== 'workReports') return
     void fetchWorkReportRows()
-  }, [isAppAuthenticated, menu])
+  }, [menu])
 
   useEffect(() => {
-    if (!isAppAuthenticated || menu !== 'documents') return
+    if (menu !== 'documents') return
     void fetchDocuments(true)
-  }, [isAppAuthenticated, menu])
+  }, [menu])
 
   useEffect(() => {
-    if (!isAppAuthenticated || menu !== 'sales') return
+    if (menu !== 'sales') return
     void fetchSalesRows(true)
-  }, [isAppAuthenticated, menu])
+  }, [menu])
 
   useEffect(() => {
-    if (!isAppAuthenticated || menu !== 'discovery') return
+    if (menu !== 'discovery') return
     void fetchDiscoveryRows(true)
-  }, [isAppAuthenticated, menu])
+  }, [menu])
 
   useEffect(() => {
-    if (!isAppAuthenticated || menu !== 'excluded') return
+    if (menu !== 'excluded') return
     void fetchExcludedRows(true)
-  }, [isAppAuthenticated, menu])
+  }, [menu])
 
   useEffect(() => {
-    if (!isAppAuthenticated || menu !== 'installCases') return
+    if (menu !== 'installCases') return
     void fetchInstallCases()
-  }, [isAppAuthenticated, menu])
+  }, [menu])
 
   useEffect(() => {
     setRegistryCellEdit(null)
@@ -3457,14 +3395,14 @@ function App() {
   }, [menu])
 
   useEffect(() => {
-    if (!isAppAuthenticated || menu !== 'dashboard') return
+    if (menu !== 'dashboard') return
     void fetchContracts()
     void fetchDocuments(false)
     void fetchSalesRows(false)
     void fetchDiscoveryRows(false)
     void fetchExcludedRows(false)
     void fetchWorkReportRows()
-  }, [isAppAuthenticated, menu])
+  }, [menu])
 
   useEffect(() => {
     if (!toastMessage) return undefined
@@ -3477,7 +3415,7 @@ function App() {
   }, [toastMessage])
 
   useEffect(() => {
-    if (!isAppAuthenticated || !sharedSessionExpiresAt) return undefined
+    if (!sharedSessionExpiresAt) return undefined
 
     const checkSession = () => {
       const now = Date.now()
@@ -3498,12 +3436,12 @@ function App() {
     return () => {
       window.clearInterval(timer)
     }
-  }, [isAppAuthenticated, sharedSessionExpiresAt])
+  }, [sharedSessionExpiresAt])
 
   const REMOTE_LIST_POLL_MS = 10_000
 
   useEffect(() => {
-    if (!isAppAuthenticated) return undefined
+    return undefined
 
     let debounceTimer = 0
 
@@ -3531,7 +3469,7 @@ function App() {
       window.removeEventListener('focus', scheduleRun)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [isAppAuthenticated])
+  }, [])
 
   const filteredContracts = useMemo(() => {
     return sortContracts(
@@ -3589,9 +3527,9 @@ function App() {
   )
 
   const remainingSessionMinutes = useMemo(() => {
-    if (!isAppAuthenticated || !sharedSessionExpiresAt) return 0
+    if (!sharedSessionExpiresAt) return 0
     return Math.max(0, Math.ceil(remainingTime / (60 * 1000)))
-  }, [isAppAuthenticated, remainingTime, sharedSessionExpiresAt])
+  }, [remainingTime, sharedSessionExpiresAt])
 
   const groupedContracts = useMemo(() => {
     const groups = new Map()
@@ -4399,19 +4337,7 @@ function App() {
     localStorage.setItem(CALENDAR_STORAGE_KEY, JSON.stringify(normalized))
   }
 
-  const clearSharedAuthState = () => {
-    clearSharedAuthSession()
-    setIsAppAuthenticated(false)
-    setSharedSessionExpiresAt(0)
-    setRemainingTime(0)
-    setShowSessionWarning(false)
-    setAppPasswordInput('')
-    setAppLoginError('')
-    setIsAdmin(false)
-    setShowAdminLoginModal(false)
-    setAdminPasswordInput('')
-    setAdminLoginError('')
-    localStorage.removeItem(ADMIN_SESSION_KEY)
+  const resetAppUiOnLogout = () => {
     setContractEdit(null)
     setContractEditDraft('')
     setSelectedContractRowKeys(new Set())
@@ -4422,163 +4348,22 @@ function App() {
     setNewRow({ ...emptyContract })
   }
 
+  const clearSharedAuthState = () => {
+    logout()
+    setRemainingTime(0)
+    setShowSessionWarning(false)
+    resetAppUiOnLogout()
+  }
+
   const requireAdmin = () => {
     if (isAdmin) return true
-    showAppAlert('관리자 로그인 후 편집할 수 있습니다.', '알림')
+    showAppAlert('관리자 권한으로 로그인해야 편집할 수 있습니다.', '알림')
     return false
   }
 
-  const handleAdminLogin = () => {
-    if (isAdmin) {
-      setIsAdmin(false)
-      localStorage.removeItem(ADMIN_SESSION_KEY)
-      setShowAdminLoginModal(false)
-      setAdminPasswordInput('')
-      setAdminLoginError('')
-      setToastMessage('일반 모드로 전환되었습니다.')
-      setContractEdit(null)
-      setContractEditDraft('')
-      setSelectedContractRowKeys(new Set())
-      setContractConfirmDialog(null)
-      setContractRegisterModalOpen(false)
-      setRegistryCreateModal(null)
-      setCalendarEventRegisterOpen(false)
-      setNewRow({ ...emptyContract })
-      return
-    }
-
-    setAdminPasswordInput('')
-    setAdminLoginError('')
-    setShowAdminLoginModal(true)
-  }
-
-  const closeAdminLoginModal = () => {
-    setShowAdminLoginModal(false)
-    setAdminPasswordInput('')
-    setAdminLoginError('')
-  }
-
-  const handleAdminLoginSubmit = (e) => {
-    e.preventDefault()
-
-    if (adminPasswordInput !== ADMIN_PASSWORD) {
-      setAdminLoginError('관리자 비밀번호가 올바르지 않습니다.')
-      return
-    }
-
-    setIsAdmin(true)
-    localStorage.setItem(ADMIN_SESSION_KEY, 'true')
-    closeAdminLoginModal()
-    setToastMessage('관리자 모드로 전환되었습니다.')
-  }
-
-  const handleAppLogin = async (e) => {
-    e.preventDefault()
-    setAppLoginError('')
-
-    logCmsApiLogin('attempt', {
-      POST: `${API_BASE_URL}/api/auth/login`,
-      note: 'password is never logged',
-    })
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, apiFetchInit({
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: appPasswordInput }),
-      }))
-      const data = await response.json().catch(() => ({}))
-
-      logCmsApiLogin('http response', {
-        status: response.status,
-        ok: response.ok,
-        auth_disabled: Boolean(data.auth_disabled),
-        has_access_token: Boolean(data.access_token),
-      })
-
-      if (data.auth_disabled) {
-        if (appPasswordInput !== SHARED_APP_PASSWORD) {
-          logCmsApiLogin('rejected', { reason: 'client shared password mismatch (auth_disabled mode)' })
-          setAppLoginError('공용 비밀번호가 올바르지 않습니다.')
-          return
-        }
-        clearAuthToken()
-        const expiresAt = Date.now() + CONTRACT_SHARED_SESSION_DURATION_MS
-        writeSharedAuthSession(expiresAt)
-        setIsAppAuthenticated(true)
-        setSharedSessionExpiresAt(expiresAt)
-        setRemainingTime(CONTRACT_SHARED_SESSION_DURATION_MS)
-        setShowSessionWarning(false)
-        setAppPasswordInput('')
-        logCmsApiLogin('success', { mode: 'auth_disabled', api: API_BASE_URL })
-        void fetchContracts()
-        return
-      }
-
-      if (!response.ok) {
-        const detail = data.detail
-        const message =
-          typeof detail === 'string'
-            ? detail
-            : Array.isArray(detail)
-              ? detail.map((item) => item.msg || item).join(', ')
-              : '로그인에 실패했습니다.'
-        logCmsApiLogin('rejected', { status: response.status, message })
-        setAppLoginError(message)
-        return
-      }
-
-      if (data.access_token) {
-        setAuthToken(data.access_token)
-      }
-
-      const expiresAt = Date.now() + CONTRACT_SHARED_SESSION_DURATION_MS
-      writeSharedAuthSession(expiresAt)
-
-      setIsAppAuthenticated(true)
-      setSharedSessionExpiresAt(expiresAt)
-      setRemainingTime(CONTRACT_SHARED_SESSION_DURATION_MS)
-      setShowSessionWarning(false)
-      setAppPasswordInput('')
-      logCmsApiLogin('success', {
-        mode: 'jwt',
-        api: API_BASE_URL,
-        token_stored: Boolean(data.access_token),
-      })
-      void fetchContracts()
-    } catch (err) {
-      logCmsApiLogin('error', { message: err?.message || String(err) })
-      setAppLoginError('서버에 연결할 수 없습니다. API 주소와 네트워크를 확인하세요.')
-    }
-  }
-
-  useEffect(() => {
-    if (!isAppAuthenticated) return
-    let cancelled = false
-    ;(async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/auth/me`, apiFetchInit({ headers: { ...getAuthHeaders() } }))
-        const data = await res.json()
-        if (cancelled) return
-        if (data.auth_disabled) return
-        if (!data.valid) {
-          clearSharedAuthState()
-        }
-      } catch {
-        // 네트워크 오류 시 기존 세션 유지
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-    // 의도: 로그인 상태가 바뀔 때만 서버 토큰 유효성을 확인합니다.
-  }, [isAppAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleExtendLogin = () => {
-    const expiresAt = Date.now() + CONTRACT_SHARED_SESSION_DURATION_MS
-    writeSharedAuthSession(expiresAt)
-    setSharedSessionExpiresAt(expiresAt)
-    setRemainingTime(CONTRACT_SHARED_SESSION_DURATION_MS)
+    const expiresAt = extendLogin()
+    setRemainingTime(Math.max(0, expiresAt - Date.now()))
     setShowSessionWarning(false)
   }
 
@@ -7295,51 +7080,6 @@ function App() {
     })
   }
 
-  const renderAuthCard = ({
-    title,
-    subtitle,
-    passwordValue,
-    onPasswordChange,
-    onSubmit,
-    error,
-    submitLabel,
-    onCancel,
-  }) => (
-    <div className="auth-card">
-      <div className="auth-card-header">
-        <div className="company-logo-box auth-logo-box">
-          <img className="company-logo-img" src="/logo.png" alt="스마트DI" />
-        </div>
-        <div className="auth-card-title">{title}</div>
-        <div className="auth-card-subtitle">{subtitle}</div>
-      </div>
-
-      <form onSubmit={onSubmit}>
-        <input
-          type="password"
-          className="table-search-input auth-input"
-          value={passwordValue}
-          onChange={onPasswordChange}
-          placeholder="비밀번호 입력"
-          autoFocus
-        />
-
-        {error && <div className="auth-error-box">{error}</div>}
-
-        <div className="auth-actions">
-          {onCancel && (
-            <button className="secondary-btn auth-secondary-btn" type="button" onClick={onCancel}>
-              취소
-            </button>
-          )}
-          <button className="primary-btn auth-primary-btn" type="submit">
-            {submitLabel}
-          </button>
-        </div>
-      </form>
-    </div>
-  )
-
   const getRegistryColumnsByScope = (scope) => {
     switch (scope) {
       case 'sales':
@@ -9081,27 +8821,6 @@ function App() {
     </div>
   )
 
-  if (!isAppAuthenticated) {
-    return (
-      <div className="app-shell auth-screen">
-        {renderAuthCard({
-          title: '스마트DI사업부 통합관리 시스템',
-          subtitle: '공용 비밀번호를 입력한 뒤 시스템에 접속하세요.',
-          passwordValue: appPasswordInput,
-          onPasswordChange: (e) => {
-            setAppPasswordInput(e.target.value)
-            if (appLoginError) {
-              setAppLoginError('')
-            }
-          },
-          onSubmit: handleAppLogin,
-          error: appLoginError,
-          submitLabel: '로그인',
-        })}
-      </div>
-    )
-  }
-
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -9177,16 +8896,13 @@ function App() {
 
         <div className="sidebar-bottom">
           <div className="viewer-badge">{isAdmin ? '관리자 모드' : '뷰어 모드'}</div>
-          <button className="logout-btn" type="button" onClick={handleAdminLogin}>
-            {isAdmin ? '관리자 로그아웃' : '관리자 로그인'}
-          </button>
           <button
-            className="secondary-btn"
+            className="logout-btn"
             type="button"
             onClick={handleAppLogout}
-            style={{ width: '100%', marginTop: 8 }}
+            style={{ width: '100%' }}
           >
-            앱 로그아웃
+            로그아웃
           </button>
         </div>
       </aside>
@@ -11502,28 +11218,6 @@ function App() {
             </div>
           )
         })()}
-
-      {showAdminLoginModal && (
-        <div className="auth-modal-backdrop" onClick={closeAdminLoginModal}>
-          <div className="auth-modal-shell" onClick={(e) => e.stopPropagation()}>
-            {renderAuthCard({
-              title: '관리자 로그인',
-              subtitle: '관리자 비밀번호를 입력한 뒤 편집 권한을 활성화하세요.',
-              passwordValue: adminPasswordInput,
-              onPasswordChange: (e) => {
-                setAdminPasswordInput(e.target.value)
-                if (adminLoginError) {
-                  setAdminLoginError('')
-                }
-              },
-              onSubmit: handleAdminLoginSubmit,
-              error: adminLoginError,
-              submitLabel: '로그인',
-              onCancel: closeAdminLoginModal,
-            })}
-          </div>
-        </div>
-      )}
 
       {detailModal &&
         (() => {
