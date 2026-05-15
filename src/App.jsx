@@ -10171,8 +10171,10 @@ function App() {
               </div>
             </div>
             <div className="install-case-detail-modal-body">
-              <div className="install-case-detail-visual">
-                <img src={installCaseDetailModal.heroImage} alt="" />
+              <div className="install-case-detail-visual-frame">
+                <div className="install-case-detail-visual">
+                  <img src={installCaseDetailModal.heroImage} alt="" />
+                </div>
               </div>
               <div className="install-case-detail-aside">
                 <dl className="install-case-detail-meta">
