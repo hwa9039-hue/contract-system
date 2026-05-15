@@ -526,14 +526,14 @@ function loadStoredMenu() {
 }
 
 function loadExpandedMenuGroups(menuKey) {
-  const expanded = { work: false, sales: false }
+  const expanded = { work: true, sales: true }
   try {
     const raw = localStorage.getItem(SIDEBAR_GROUPS_EXPANDED_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
       if (parsed && typeof parsed === 'object') {
-        expanded.work = Boolean(parsed.work)
-        expanded.sales = Boolean(parsed.sales)
+        if (typeof parsed.work === 'boolean') expanded.work = parsed.work
+        if (typeof parsed.sales === 'boolean') expanded.sales = parsed.sales
       }
     }
   } catch {
@@ -9129,6 +9129,7 @@ function App() {
                     className={`menu-group-btn${hasActiveChild ? ' menu-group-btn--has-active' : ''}`}
                     onClick={() => toggleMenuGroup(group.id)}
                     aria-expanded={isExpanded}
+                    aria-label={`${group.label} ${isExpanded ? '접기' : '펼치기'}`}
                   >
                     <span className="menu-group-label">{group.label}</span>
                     <span className="menu-group-chevron" aria-hidden>
@@ -9146,7 +9147,8 @@ function App() {
                           }
                           onClick={() => setMenu(item.key)}
                         >
-                          {item.label}
+                          <span className="menu-child-bullet" aria-hidden />
+                          <span className="menu-child-label">{item.label}</span>
                         </button>
                       ))}
                     </div>
