@@ -5575,7 +5575,7 @@ textarea:focus-visible {
 }
 
 .install-case-form-dropzone-row {
-  grid-column: 1 / -1;
+  width: 100%;
   align-self: stretch;
 }
 
@@ -5616,8 +5616,8 @@ textarea:focus-visible {
 }
 
 .install-case-dropzone--active {
-  border-color: #3b82f6;
-  background: #eff6ff;
+  border-color: #94a3b8;
+  background: #f1f5f9;
 }
 
 .install-case-dropzone-input {
@@ -5825,8 +5825,9 @@ textarea:focus-visible {
 }
 
 .install-case-form-modal {
-  width: min(720px, calc(100vw - 32px));
-  max-height: min(92vh, 880px);
+  width: min(1080px, calc(100vw - 24px));
+  max-width: none;
+  max-height: min(92vh, 900px);
   display: flex;
   flex-direction: column;
   background: #ffffff;
@@ -5855,10 +5856,54 @@ textarea:focus-visible {
 }
 
 .install-case-form-modal-body {
-  padding: 16px 18px 20px;
+  padding: 18px 22px 20px;
   overflow-y: auto;
   flex: 1 1 auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.install-case-form-two-col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.install-case-form-col {
+  min-width: 0;
+}
+
+.install-case-form-col-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.install-case-form-stack-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.install-case-form-wh-pair {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.install-case-form-wh-pair .install-case-form-input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.install-case-form-specs-title--right {
+  margin-top: 0;
+  margin-bottom: 4px;
 }
 
 .install-case-form-grid {
@@ -5970,6 +6015,12 @@ textarea:focus-visible {
   margin-top: 18px;
   padding-top: 14px;
   border-top: 1px solid #e2e8f0;
+}
+
+@media (max-width: 900px) {
+  .install-case-form-two-col {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 560px) {
