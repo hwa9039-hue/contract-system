@@ -472,12 +472,12 @@ const PAGE_TITLE_MAP = {
   excluded: '사업검색이력',
   documents: '문서수발신대장',
   installCases: '설치사례',
-  materialsBoard: '자료 게시판',
+  materialsBoard: '게시판',
 }
 const TOP_SYSTEM_SUBTITLE =
-  '주간업무보고서 · 계약현황 · 캘린더 · 영업관리대장 · 건축정보 · 사업검색이력 · 문서수발신대장 · 설치사례 · 자료 게시판'
+  '주간업무보고서 · 계약현황 · 캘린더 · 영업관리대장 · 건축정보 · 사업검색이력 · 문서수발신대장 · 설치사례 · 게시판'
 
-/** 자료 게시판 — 문서 업로드 허용 확장자 */
+/** 게시판 — 문서 업로드 허용 확장자 */
 const MATERIALS_BOARD_FILE_ACCEPT =
   '.pdf,.xls,.xlsx,.hwp,.doc,.docx,.zip,.ppt,.pptx,.txt,.csv,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/haansofthwp,application/x-hwp,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/zip'
 
@@ -486,6 +486,7 @@ const MATERIALS_BOARD_SEED = [
     id: 'mb-5',
     no: 5,
     title: '2025년 LED 전광판 견적 가이드',
+    content: 'LED 전광판 견적 산출 시 참고할 수 있는 가이드 문서입니다.',
     fileName: 'LED_견적_가이드_2025.pdf',
     registeredAt: '2025-05-12',
   },
@@ -493,6 +494,7 @@ const MATERIALS_BOARD_SEED = [
     id: 'mb-4',
     no: 4,
     title: '실내용 모듈 규격 비교표',
+    content: '실내용 모듈 주요 제품군별 크기·Pitch 비교표입니다.',
     fileName: '실내_모듈_규격비교.xlsx',
     registeredAt: '2025-05-08',
   },
@@ -500,6 +502,7 @@ const MATERIALS_BOARD_SEED = [
     id: 'mb-3',
     no: 3,
     title: '현장 시공 체크리스트 (양식)',
+    content: '현장 시공 전·중·후 점검 항목을 정리한 체크리스트 양식입니다.',
     fileName: '시공_체크리스트_v3.hwp',
     registeredAt: '2025-04-22',
   },
@@ -507,6 +510,7 @@ const MATERIALS_BOARD_SEED = [
     id: 'mb-2',
     no: 2,
     title: '유지보수 계약서 샘플',
+    content: '유지보수 계약 시 사용할 수 있는 표준 계약서 샘플입니다.',
     fileName: '유지보수_계약서_샘플.docx',
     registeredAt: '2025-04-10',
   },
@@ -514,6 +518,7 @@ const MATERIALS_BOARD_SEED = [
     id: 'mb-1',
     no: 1,
     title: '프로젝트 도면·시방서 압축본',
+    content: '프로젝트 관련 도면 및 시방서 파일 압축본입니다.',
     fileName: 'OO시청_도면패키지.zip',
     registeredAt: '2025-03-28',
   },
@@ -530,11 +535,12 @@ function isMaterialsBoardFileAllowed(file) {
   return allowed.some((ext) => name.endsWith(ext))
 }
 
-function MaterialBoardFileDropzone({ inputId, file, fileName, onFile, onClear }) {
+function MaterialBoardFileDropzone({ inputId, fileName, onFile, onClear }) {
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef(null)
 
-  const pickFile = (nextFile) => {
+  const assignFile = (fileList) => {
+    const nextFile = fileList?.[0]
     if (!nextFile) return
     if (!isMaterialsBoardFileAllowed(nextFile)) {
       window.alert('PDF, Excel, HWP, Word, ZIP 등 지원 형식의 파일만 업로드할 수 있습니다.')
@@ -544,9 +550,9 @@ function MaterialBoardFileDropzone({ inputId, file, fileName, onFile, onClear })
   }
 
   return (
-    <div className="materials-board-dropzone-wrap">
+    <div className="install-case-dropzone-wrap">
       <div
-        className={`materials-board-dropzone${dragOver ? ' materials-board-dropzone--active' : ''}`}
+        className={`install-case-dropzone${dragOver ? ' install-case-dropzone--active' : ''}`}
         role="button"
         tabIndex={0}
         onClick={() => inputRef.current?.click()}
@@ -575,30 +581,30 @@ function MaterialBoardFileDropzone({ inputId, file, fileName, onFile, onClear })
           e.preventDefault()
           e.stopPropagation()
           setDragOver(false)
-          const dropped = e.dataTransfer?.files?.[0]
-          pickFile(dropped)
+          assignFile(e.dataTransfer?.files)
         }}
       >
         <input
           ref={inputRef}
           id={inputId}
-          className="materials-board-dropzone-input"
+          className="install-case-dropzone-input"
           type="file"
           accept={MATERIALS_BOARD_FILE_ACCEPT}
+          aria-label="첨부 파일 업로드"
           onChange={(e) => {
-            pickFile(e.target.files?.[0])
+            assignFile(e.target.files)
             e.target.value = ''
           }}
         />
-        {fileName ? (
-          <div className="materials-board-dropzone-file">
-            <span className="materials-board-dropzone-file-icon" aria-hidden>
+        {safeString(fileName).trim() ? (
+          <div className="install-case-dropzone-placeholder">
+            <span className="install-case-dropzone-icon" aria-hidden>
               📎
             </span>
-            <span className="materials-board-dropzone-filename">{fileName}</span>
+            <span className="install-case-dropzone-filename">{fileName}</span>
             <button
               type="button"
-              className="materials-board-dropzone-clear"
+              className="install-case-dropzone-clear materials-board-dropzone-clear-inline"
               onClick={(e) => {
                 e.stopPropagation()
                 onClear()
@@ -608,17 +614,11 @@ function MaterialBoardFileDropzone({ inputId, file, fileName, onFile, onClear })
             </button>
           </div>
         ) : (
-          <div className="materials-board-dropzone-placeholder">
-            <span className="materials-board-dropzone-icon" aria-hidden>
+          <div className="install-case-dropzone-placeholder">
+            <span className="install-case-dropzone-icon" aria-hidden>
               ⬆
             </span>
-            <span className="materials-board-dropzone-title">Drag &amp; Drop</span>
-            <span className="materials-board-dropzone-hint">
-              파일을 끌어다 놓거나 클릭하여 선택하세요
-            </span>
-            <span className="materials-board-dropzone-formats">
-              PDF · Excel · HWP · Word · ZIP 등
-            </span>
+            <span className="install-case-dropzone-hint">클릭하거나 파일을 드래그하여 업로드하세요</span>
           </div>
         )}
       </div>
@@ -2855,6 +2855,8 @@ function App() {
     getDefaultMaterialsBoardForm()
   )
   const [materialsBoardFile, setMaterialsBoardFile] = useState(null)
+  const [materialsBoardEditingId, setMaterialsBoardEditingId] = useState(null)
+  const [materialsBoardSavedFileName, setMaterialsBoardSavedFileName] = useState('')
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
   const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
@@ -3260,8 +3262,10 @@ function App() {
     setIcImagePreview('')
     icImageRestoreRef.current = ''
     setMaterialsBoardRegisterOpen(false)
+    setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
     setMaterialsBoardFile(null)
+    setMaterialsBoardSavedFileName('')
   }, [menu])
 
   useEffect(() => {
@@ -3648,15 +3652,39 @@ function App() {
   }, [installCaseEditingId])
 
   const handleOpenMaterialsBoardRegister = useCallback(() => {
+    setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
     setMaterialsBoardFile(null)
+    setMaterialsBoardSavedFileName('')
+    setMaterialsBoardRegisterOpen(true)
+  }, [])
+
+  const handleOpenMaterialsBoardEdit = useCallback((row) => {
+    if (!row) return
+    setMaterialsBoardEditingId(row.id)
+    setMaterialsBoardFormDraft({
+      title: safeString(row.title).trim(),
+      content: safeString(row.content).trim(),
+    })
+    setMaterialsBoardFile(null)
+    setMaterialsBoardSavedFileName(safeString(row.fileName).trim())
     setMaterialsBoardRegisterOpen(true)
   }, [])
 
   const handleCloseMaterialsBoardRegister = useCallback(() => {
     setMaterialsBoardRegisterOpen(false)
+    setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
     setMaterialsBoardFile(null)
+    setMaterialsBoardSavedFileName('')
+  }, [])
+
+  const handleDeleteMaterialsBoardPost = useCallback((row, e) => {
+    e?.stopPropagation()
+    if (!row) return
+    if (!window.confirm(`「${row.title}」을(를) 삭제하시겠습니까?`)) return
+    setMaterialsBoardPosts((prev) => prev.filter((p) => p.id !== row.id))
+    setToastMessage('삭제되었습니다.')
   }, [])
 
   const handleSaveMaterialsBoardRegister = useCallback(() => {
@@ -3665,27 +3693,49 @@ function App() {
       showAppAlert('제목을 입력해 주세요.', '알림')
       return
     }
-    const nextNo =
-      materialsBoardPosts.length > 0
-        ? Math.max(...materialsBoardPosts.map((p) => p.no)) + 1
-        : 1
-    const now = new Date()
-    const registeredAt = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    setMaterialsBoardPosts((prev) => [
-      {
-        id: `mb-${Date.now()}`,
-        no: nextNo,
-        title,
-        fileName: materialsBoardFile?.name || '',
-        registeredAt,
-      },
-      ...prev,
-    ])
+    const content = safeString(materialsBoardFormDraft.content).trim()
+    const fileName =
+      materialsBoardFile?.name || safeString(materialsBoardSavedFileName).trim()
+
+    if (materialsBoardEditingId) {
+      setMaterialsBoardPosts((prev) =>
+        prev.map((p) =>
+          p.id === materialsBoardEditingId ? { ...p, title, content, fileName } : p
+        )
+      )
+      setToastMessage('수정되었습니다.')
+    } else {
+      const nextNo =
+        materialsBoardPosts.length > 0
+          ? Math.max(...materialsBoardPosts.map((p) => p.no)) + 1
+          : 1
+      const now = new Date()
+      const registeredAt = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+      setMaterialsBoardPosts((prev) => [
+        {
+          id: `mb-${Date.now()}`,
+          no: nextNo,
+          title,
+          content,
+          fileName,
+          registeredAt,
+        },
+        ...prev,
+      ])
+      setToastMessage('등록되었습니다.')
+    }
     setMaterialsBoardRegisterOpen(false)
+    setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
     setMaterialsBoardFile(null)
-    setToastMessage('자료가 등록되었습니다.')
-  }, [materialsBoardFormDraft, materialsBoardFile, materialsBoardPosts])
+    setMaterialsBoardSavedFileName('')
+  }, [
+    materialsBoardEditingId,
+    materialsBoardFormDraft,
+    materialsBoardFile,
+    materialsBoardPosts,
+    materialsBoardSavedFileName,
+  ])
 
   const handleInstallCasePairDigitChange = useCallback((pairId, axis) => (e) => {
     const v = e.target.value.replace(/[^0-9]/g, '')
@@ -8920,7 +8970,7 @@ function App() {
               className={menu === 'materialsBoard' ? 'menu-btn active' : 'menu-btn'}
               onClick={() => setMenu('materialsBoard')}
             >
-              자료 게시판
+              게시판
             </button>
           </div>
         </div>
@@ -10298,12 +10348,16 @@ function App() {
                   {materialsBoardPosts.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="materials-board-empty">
-                        등록된 자료가 없습니다.
+                        등록된 글이 없습니다.
                       </td>
                     </tr>
                   ) : (
                     materialsBoardPosts.map((row) => (
-                      <tr key={row.id} className="materials-board-row">
+                      <tr
+                        key={row.id}
+                        className="materials-board-row materials-board-row--clickable"
+                        onClick={() => handleOpenMaterialsBoardEdit(row)}
+                      >
                         <td className="materials-board-td materials-board-td--no">{row.no}</td>
                         <td className="materials-board-td materials-board-td--title">{row.title}</td>
                         <td className="materials-board-td materials-board-td--attach">
@@ -10321,7 +10375,30 @@ function App() {
                             <span className="materials-board-attach materials-board-attach--empty">—</span>
                           )}
                         </td>
-                        <td className="materials-board-td materials-board-td--date">{row.registeredAt}</td>
+                        <td className="materials-board-td materials-board-td--date">
+                          <div className="materials-board-date-cell">
+                            <span className="materials-board-date-text">{row.registeredAt}</span>
+                            <div className="materials-board-row-actions">
+                              <button
+                                type="button"
+                                className="materials-board-row-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleOpenMaterialsBoardEdit(row)
+                                }}
+                              >
+                                수정
+                              </button>
+                              <button
+                                type="button"
+                                className="materials-board-row-btn materials-board-row-btn--danger"
+                                onClick={(e) => handleDeleteMaterialsBoardPost(row, e)}
+                              >
+                                삭제
+                              </button>
+                            </div>
+                          </div>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -11048,7 +11125,7 @@ function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="materials-board-form-modal-header">
-              <h3 id="materials-board-form-title">자료 등록</h3>
+              <h3 id="materials-board-form-title">{materialsBoardEditingId ? '수정' : '등록'}</h3>
               <button
                 type="button"
                 className="modal-close-btn"
@@ -11060,14 +11137,24 @@ function App() {
             </div>
             <div className="materials-board-form-modal-body">
               <label className="materials-board-form-label" htmlFor="materials-board-title">제목</label>
-              <input id="materials-board-title" className="table-search-input materials-board-form-input" type="text" value={materialsBoardFormDraft.title} onChange={(e) => setMaterialsBoardFormDraft((prev) => ({ ...prev, title: e.target.value }))} placeholder="자료 제목을 입력하세요" />
+              <input id="materials-board-title" className="table-search-input materials-board-form-input" type="text" value={materialsBoardFormDraft.title} onChange={(e) => setMaterialsBoardFormDraft((prev) => ({ ...prev, title: e.target.value }))} placeholder="제목을 입력하세요" />
               <label className="materials-board-form-label" htmlFor="materials-board-content">내용</label>
-              <textarea id="materials-board-content" className="materials-board-form-textarea" rows={5} value={materialsBoardFormDraft.content} onChange={(e) => setMaterialsBoardFormDraft((prev) => ({ ...prev, content: e.target.value }))} placeholder="자료 설명을 입력하세요 (선택)" />
+              <textarea id="materials-board-content" className="materials-board-form-textarea" rows={5} value={materialsBoardFormDraft.content} onChange={(e) => setMaterialsBoardFormDraft((prev) => ({ ...prev, content: e.target.value }))} placeholder="설명을 입력하세요 (선택)" />
               <label className="materials-board-form-label">첨부 파일</label>
-              <MaterialBoardFileDropzone inputId="materials-board-file-input" file={materialsBoardFile} fileName={materialsBoardFile?.name || ''} onFile={setMaterialsBoardFile} onClear={() => setMaterialsBoardFile(null)} />
+              <MaterialBoardFileDropzone
+                inputId="materials-board-file-input"
+                fileName={materialsBoardFile?.name || materialsBoardSavedFileName}
+                onFile={setMaterialsBoardFile}
+                onClear={() => {
+                  setMaterialsBoardFile(null)
+                  setMaterialsBoardSavedFileName('')
+                }}
+              />
               <div className="materials-board-form-actions">
                 <button type="button" className="secondary-btn" onClick={handleCloseMaterialsBoardRegister}>취소</button>
-                <button type="button" className="primary-btn" onClick={handleSaveMaterialsBoardRegister}>등록</button>
+                <button type="button" className="primary-btn" onClick={handleSaveMaterialsBoardRegister}>
+                  {materialsBoardEditingId ? '저장' : '등록'}
+                </button>
               </div>
             </div>
           </div>
