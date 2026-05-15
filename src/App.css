@@ -5962,6 +5962,18 @@ textarea:focus-visible {
   align-items: start;
 }
 
+.install-case-form-two-col--unified {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+.install-case-form-specs-title--left {
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
 .install-case-form-col {
   min-width: 0;
 }
@@ -6108,7 +6120,8 @@ textarea:focus-visible {
 }
 
 @media (max-width: 900px) {
-  .install-case-form-two-col {
+  .install-case-form-two-col,
+  .install-case-form-two-col.install-case-form-two-col--unified {
     grid-template-columns: 1fr;
   }
 }
