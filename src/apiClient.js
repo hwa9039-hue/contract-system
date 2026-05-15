@@ -2,10 +2,12 @@ function trimTrailingSlash(url) {
   return String(url).replace(/\/$/, '')
 }
 
+/** npm run dev 에서만 사용 — 항상 로컬 FastAPI */
+export const FORCED_DEV_API_BASE_URL = 'http://localhost:8000'
+
 /**
- * HTTPS로 서비스되는 사이트에서 API를 http://192.168... 처럼 넣으면 브라우저가 Mixed Content로
- * 요청 자체를 막습니다. 운영(프로덕션) 빌드에서는 같은 도메인으로 보내고(리버스 프록시 /api),
- * 로컬 개발(PROD 아님)에서는 .env의 HTTP API 주소를 그대로 씁니다.
+ * HTTPS 운영 사이트에서 HTTP API 주소를 쓰면 Mixed Content 로 차단됩니다.
+ * 프로덕션 빌드에서만 적용합니다.
  */
 function sanitizeApiBaseUrlForBrowser(candidate) {
   if (!import.meta.env.PROD || typeof window === 'undefined') {
@@ -18,8 +20,7 @@ function sanitizeApiBaseUrlForBrowser(candidate) {
         '설정값:',
         candidate,
         '→',
-        window.location.origin,
-        '(DSM 로그인 포털 등에서 /api → 백엔드:8000 리버스 프록시 필요)'
+        window.location.origin
       )
       return trimTrailingSlash(window.location.origin)
     }
@@ -29,63 +30,50 @@ function sanitizeApiBaseUrlForBrowser(candidate) {
   return candidate
 }
 
-export const API_BASE_URL = (() => {
-  let candidate
-
-  /**
-   * 운영(PROD): `public/api-config.js`의 `__CMS_API_BASE_URL__`을 최우선.
-   * 정적 호스팅만 있고 동일 출처 `/api` 프록시가 없으면 FORCE_SAME_ORIGIN만 켜면 405가 나므로,
-   * 명시 URL이 있으면 `__CMS_FORCE_SAME_ORIGIN_API__`보다 먼저 적용한다.
-   */
-  if (import.meta.env.PROD && typeof window !== 'undefined') {
+function resolveProductionApiBaseUrl() {
+  if (typeof window !== 'undefined') {
     const runtimeProd = window.__CMS_API_BASE_URL__
     if (runtimeProd != null && String(runtimeProd).trim() !== '') {
-      candidate = trimTrailingSlash(String(runtimeProd))
-      return sanitizeApiBaseUrlForBrowser(candidate)
+      return sanitizeApiBaseUrlForBrowser(trimTrailingSlash(String(runtimeProd)))
+    }
+
+    if (window.__CMS_FORCE_SAME_ORIGIN_API__ === true && window.location?.origin) {
+      return trimTrailingSlash(window.location.origin)
+    }
+
+    const fromEnv = import.meta.env.VITE_API_BASE_URL
+    if (fromEnv != null && String(fromEnv).trim() !== '') {
+      return sanitizeApiBaseUrlForBrowser(trimTrailingSlash(fromEnv))
+    }
+
+    if (window.location?.origin) {
+      return trimTrailingSlash(window.location.origin)
     }
   }
 
-  /** 운영에서 contract 도메인 + Nginx가 `/api` → 백엔드로 넘길 때만. `public/api-config.js` */
-  if (
-    typeof window !== 'undefined' &&
-    window.__CMS_FORCE_SAME_ORIGIN_API__ === true &&
-    import.meta.env.PROD &&
-    window.location?.origin
-  ) {
-    return trimTrailingSlash(window.location.origin)
-  }
+  return FORCED_DEV_API_BASE_URL
+}
 
-  const fromEnv = import.meta.env.VITE_API_BASE_URL
-  if (fromEnv != null && String(fromEnv).trim() !== '') {
-    candidate = trimTrailingSlash(fromEnv)
-    return sanitizeApiBaseUrlForBrowser(candidate)
-  }
+/**
+ * npm run dev → 무조건 http://localhost:8000
+ * npm run build → api-config.js / 운영 설정
+ */
+export const API_BASE_URL = import.meta.env.DEV
+  ? FORCED_DEV_API_BASE_URL
+  : resolveProductionApiBaseUrl()
 
-  /**
-   * 로컬 dev(Vite): api-config.js 의 운영 API(NAS)보다 로컬 백엔드(8000)를 기본 사용.
-   * 운영 API로 붙이려면 .env 에 VITE_API_BASE_URL=https://api.... 를 명시하세요.
-   */
-  if (!import.meta.env.PROD && typeof window !== 'undefined') {
-    const host = window.location.hostname
-    if (host === 'localhost' || host === '127.0.0.1') {
-      return 'http://localhost:8000'
-    }
-    const runtimeDev = window.__CMS_API_BASE_URL__
-    if (runtimeDev != null && String(runtimeDev).trim() !== '') {
-      return trimTrailingSlash(String(runtimeDev))
-    }
+if (import.meta.env.DEV) {
+  console.info('[API] 개발 모드 강제 — 모든 요청:', API_BASE_URL)
+  if (typeof window !== 'undefined' && window.__CMS_API_BASE_URL__) {
+    console.warn(
+      '[API] api-config.js 운영 URL은 dev 에서 무시됩니다:',
+      window.__CMS_API_BASE_URL__
+    )
   }
-
-  if (import.meta.env.PROD && typeof window !== 'undefined' && window.location?.origin) {
-    return trimTrailingSlash(window.location.origin)
-  }
-
-  return 'http://localhost:8000'
-})()
+}
 
 export const AUTH_TOKEN_KEY = 'cms_api_token'
 
-/** 브라우저·프록시가 API 응답을 오래 캐시하지 않도록 요청마다 부여 */
 export const API_NO_CACHE_HEADERS = {
   'Cache-Control': 'no-cache',
   Pragma: 'no-cache',
