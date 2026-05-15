@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from './AuthContext.jsx'
 import './LoginPage.css'
+
+const LOGIN_PAGE_ACTIVE_CLASS = 'login-page-active'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -8,6 +10,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    document.documentElement.classList.add(LOGIN_PAGE_ACTIVE_CLASS)
+    document.body.classList.add(LOGIN_PAGE_ACTIVE_CLASS)
+    return () => {
+      document.documentElement.classList.remove(LOGIN_PAGE_ACTIVE_CLASS)
+      document.body.classList.remove(LOGIN_PAGE_ACTIVE_CLASS)
+    }
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -80,6 +91,28 @@ export default function LoginPage() {
             {submitting ? '로그인 중…' : '로그인'}
           </button>
         </form>
+
+        <div className="login-page-permissions">
+          <p className="login-page-permissions-title">💡 로그인 권한 안내</p>
+          <ul className="login-page-permissions-list">
+            <li>
+              <span className="login-page-permissions-label login-page-permissions-label--admin">
+                관리자:
+              </span>{' '}
+              모든 메뉴 등록, 수정, 삭제 가능
+            </li>
+            <li>
+              <span className="login-page-permissions-label login-page-permissions-label--user">
+                일반 사용자:
+              </span>{' '}
+              주간업무보고서, 영업관리대장, 건축정보, 사업검색이력, 문서수발신대장 (등록/수정/삭제 가능)
+              <br />
+              <span className="login-page-permissions-note">
+                * 그 외 메뉴는 조회(뷰어)만 가능
+              </span>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   )

@@ -1,19 +1,54 @@
+/* 로그인 화면: 앱 전역 html zoom/overflow와 분리해 뷰포트 전체를 채움 */
+html.login-page-active,
+body.login-page-active {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
+  height: 100%;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+html.login-page-active #root {
+  width: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
+  height: 100%;
+  overflow: hidden;
+  display: block;
+}
+
 .login-page {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  box-sizing: border-box;
   min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 48%, #0f172a 100%);
+  overflow-y: auto;
+  overflow-x: hidden;
+  background-color: #0f172a;
+  background-image: linear-gradient(160deg, #0f172a 0%, #1e3a5f 48%, #0f172a 100%);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-attachment: fixed;
 }
 
 .login-page-card {
-  width: min(420px, 100%);
+  width: min(440px, 100%);
   padding: 32px 28px 28px;
   border-radius: 16px;
   background: #ffffff;
   box-shadow: 0 24px 48px rgba(15, 23, 42, 0.28);
   border: 1px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
 }
 
 .login-page-brand {
@@ -133,4 +168,75 @@
 .login-page-submit:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.login-page-permissions {
+  margin-top: 24px;
+  padding: 16px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e8edf5;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.login-page-permissions-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+}
+
+.login-page-permissions-list {
+  margin: 0;
+  padding: 0 0 0 4px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-page-permissions-list li {
+  padding-left: 0;
+}
+
+.login-page-permissions-label {
+  font-weight: 700;
+}
+
+.login-page-permissions-label--admin {
+  color: #2563eb;
+}
+
+.login-page-permissions-label--user {
+  color: #059669;
+}
+
+.login-page-permissions-note {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+@media (max-width: 480px) {
+  .login-page {
+    padding: 16px;
+  }
+
+  .login-page-card {
+    padding: 24px 20px 20px;
+  }
+
+  .login-page-permissions {
+    margin-top: 20px;
+    padding: 14px;
+    font-size: 12px;
+  }
+
+  .login-page-permissions-title {
+    font-size: 12px;
+  }
 }
