@@ -93,23 +93,16 @@ export default function LoginPage() {
         </form>
 
         <div className="login-page-permissions">
-          <p className="login-page-permissions-title">로그인 권한 안내</p>
+          <div className="login-page-permissions-role">관리자</div>
+          <div className="login-page-permissions-item">- 모든 메뉴 편집 가능</div>
 
-          <div className="login-page-permissions-block">
-            <p className="login-page-permissions-role login-page-permissions-role--admin">관리자</p>
-            <ul className="login-page-permissions-list">
-              <li>모든 메뉴 등록 · 수정 · 삭제</li>
-            </ul>
+          <div className="login-page-permissions-role">일반 사용자</div>
+          <div className="login-page-permissions-item">
+            - 주간업무보고서, 영업관리대장, 건축정보, 사업검색이력, 문서수발신대장 편집 가능
           </div>
 
-          <div className="login-page-permissions-block">
-            <p className="login-page-permissions-role login-page-permissions-role--user">사용자</p>
-            <ul className="login-page-permissions-list">
-              <li>
-                등록 · 수정 · 삭제: 주간업무보고서, 영업관리대장, 건축정보, 사업검색이력, 문서수발신대장
-              </li>
-              <li className="login-page-permissions-list-note">그 외 메뉴는 조회만 가능</li>
-            </ul>
+          <div className="login-page-permissions-footnote">
+            * 그 외 메뉴(계약현황, 설치사례, 게시판)는 조회(뷰어)만 가능
           </div>
         </div>
       </div>
