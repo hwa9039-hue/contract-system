@@ -1203,6 +1203,7 @@ const emptyEvent = {
   dateEnd: '',
   title: '',
   owner: '',
+  pm: '',
   note: '',
 }
 
@@ -2722,8 +2723,10 @@ function App() {
     salesOwner: ALL_OPTION,
     pm: ALL_OPTION,
   })
-  const [isAddingRow, setIsAddingRow] = useState(false)
+  const [contractRegisterModalOpen, setContractRegisterModalOpen] = useState(false)
   const [newRow, setNewRow] = useState({ ...emptyContract })
+  const [registryCreateModal, setRegistryCreateModal] = useState(null)
+  const [calendarEventRegisterOpen, setCalendarEventRegisterOpen] = useState(false)
   /** 계약 셀 편집: UI 행 키(rowKey) + 컬럼 + PATCH용 serverRowId(행의 서버 PK) */
   const [contractEdit, setContractEdit] = useState(null)
   const [contractEditDraft, setContractEditDraft] = useState('')
@@ -2959,6 +2962,13 @@ function App() {
     setIcImageFile(null)
     setIcImagePreview('')
     icImageRestoreRef.current = ''
+  }, [menu])
+
+  useEffect(() => {
+    setContractRegisterModalOpen(false)
+    setRegistryCreateModal(null)
+    setCalendarEventRegisterOpen(false)
+    setNewRow({ ...emptyContract })
   }, [menu])
 
   /** 다른 메뉴로 나갈 때 빈 신규 행(isDraft)·편집 모드만 정리 — 업로드/추가가 막히는 유령 상태 방지 */
@@ -3755,7 +3765,10 @@ function App() {
     setContractEditDraft('')
     setSelectedContractRowKeys(new Set())
     setContractConfirmDialog(null)
-    setIsAddingRow(false)
+    setContractRegisterModalOpen(false)
+    setRegistryCreateModal(null)
+    setCalendarEventRegisterOpen(false)
+    setNewRow({ ...emptyContract })
   }
 
   const requireAdmin = () => {
@@ -3776,7 +3789,10 @@ function App() {
       setContractEditDraft('')
       setSelectedContractRowKeys(new Set())
       setContractConfirmDialog(null)
-      setIsAddingRow(false)
+      setContractRegisterModalOpen(false)
+      setRegistryCreateModal(null)
+      setCalendarEventRegisterOpen(false)
+      setNewRow({ ...emptyContract })
       return
     }
 
@@ -4149,8 +4165,113 @@ function App() {
     XLSX.writeFile(workbook, filename)
   }
 
+  const closeRegistryCreateModal = () => setRegistryCreateModal(null)
+
+  const patchRegistryCreateDraft = (key, value) => {
+    setRegistryCreateModal((prev) => {
+      if (!prev?.draft) return prev
+      const v =
+        (prev.scope === 'sales' || prev.scope === 'discovery' || prev.scope === 'excluded') &&
+        key === 'projectAmount'
+          ? formatAmount(value)
+          : value
+      return { ...prev, draft: { ...prev.draft, [key]: v } }
+    })
+  }
+
+  const saveRegistryCreateModal = async () => {
+    const snap = registryCreateModal
+    if (!snap?.draft) return
+    const { scope, draft } = snap
+    const timestamp = new Date().toISOString()
+
+    if (scope === 'sales') {
+      if (isSalesRowEmpty(draft)) {
+        showAppAlert('입력 내용을 확인해주세요.')
+        return
+      }
+      setIsSavingSales(true)
+      try {
+        await salesRegisterApi.create({ ...toSalesPayload(draft, timestamp), createdAt: timestamp })
+        await fetchSalesRows(false)
+        setToastMessage('저장되었습니다.')
+        closeRegistryCreateModal()
+      } catch (error) {
+        logApiOperationError('영업관리대장 등록', error)
+      } finally {
+        setIsSavingSales(false)
+      }
+      return
+    }
+
+    if (scope === 'discovery') {
+      if (isDiscoveryRowEmpty(draft)) {
+        showAppAlert('입력 내용을 확인해주세요.')
+        return
+      }
+      setIsSavingDiscovery(true)
+      try {
+        await projectDiscoveryApi.create({
+          ...toDiscoveryPayload(draft, timestamp),
+          createdAt: timestamp,
+        })
+        await fetchDiscoveryRows(false)
+        setToastMessage('저장되었습니다.')
+        closeRegistryCreateModal()
+      } catch (error) {
+        logApiOperationError('건축정보 등록', error)
+      } finally {
+        setIsSavingDiscovery(false)
+      }
+      return
+    }
+
+    if (scope === 'excluded') {
+      if (isExcludedRowEmpty(draft)) {
+        showAppAlert('입력 내용을 확인해주세요.')
+        return
+      }
+      setIsSavingExcluded(true)
+      try {
+        await excludedProjectsApi.create({
+          ...toExcludedPayload(draft, timestamp),
+          createdAt: timestamp,
+        })
+        await fetchExcludedRows(false)
+        setToastMessage('저장되었습니다.')
+        closeRegistryCreateModal()
+      } catch (error) {
+        logApiOperationError('사업검색이력 등록', error)
+      } finally {
+        setIsSavingExcluded(false)
+      }
+      return
+    }
+
+    if (scope === 'documents') {
+      if (isDocumentRowEmpty(draft)) {
+        showAppAlert('입력 내용을 확인해주세요.')
+        return
+      }
+      setIsSavingDocuments(true)
+      try {
+        await documentRegisterApi.create({
+          ...toDocumentPayload(draft, timestamp),
+          createdAt: timestamp,
+        })
+        await fetchDocuments(false)
+        setToastMessage('저장되었습니다.')
+        closeRegistryCreateModal()
+      } catch (error) {
+        logApiOperationError('문서수발신대장 등록', error)
+      } finally {
+        setIsSavingDocuments(false)
+      }
+    }
+  }
+
   const handleAddDocumentRow = () => {
-    setDocuments((prev) => [...prev, createDocumentDraftRow()])
+    setRegistryCreateModal({ scope: 'documents', draft: createDocumentDraftRow() })
     setSelectedDocumentIds([])
   }
 
@@ -4385,7 +4506,7 @@ function App() {
   }
 
   const handleAddSalesRow = () => {
-    setSalesRows((prev) => [...prev, createSalesDraftRow()])
+    setRegistryCreateModal({ scope: 'sales', draft: createSalesDraftRow() })
     setSelectedSalesIds([])
   }
 
@@ -4623,7 +4744,7 @@ function App() {
   }
 
   const handleAddDiscoveryRow = () => {
-    setDiscoveryRows((prev) => [...prev, createDiscoveryDraftRow()])
+    setRegistryCreateModal({ scope: 'discovery', draft: createDiscoveryDraftRow() })
     setSelectedDiscoveryIds([])
   }
 
@@ -4861,7 +4982,7 @@ function App() {
   }
 
   const handleAddExcludedRow = () => {
-    setExcludedRows((prev) => [...prev, createExcludedDraftRow()])
+    setRegistryCreateModal({ scope: 'excluded', draft: createExcludedDraftRow() })
     setSelectedExcludedIds([])
   }
 
@@ -5962,15 +6083,15 @@ function App() {
     popup.document.close()
   }
 
-  const openAddRow = () => {
+  const openContractRegisterModal = () => {
     if (!requireAdmin()) return
-    setIsAddingRow(true)
+    setContractRegisterModalOpen(true)
     setNewRow({ ...emptyContract })
     setSelectedContractRowKeys(new Set())
   }
 
-  const cancelAddRow = () => {
-    setIsAddingRow(false)
+  const closeContractRegisterModal = () => {
+    setContractRegisterModalOpen(false)
     setNewRow({ ...emptyContract })
   }
 
@@ -5986,8 +6107,7 @@ function App() {
     if (!savedRows || savedRows.length === 0) return
 
     await fetchContracts()
-    setIsAddingRow(false)
-    setNewRow({ ...emptyContract })
+    closeContractRegisterModal()
     setToastMessage('저장되었습니다.')
   }
 
@@ -6309,7 +6429,7 @@ function App() {
       date: startYmd,
       title,
       owner: safeString(eventForm.owner).trim(),
-      pm: '',
+      pm: safeString(eventForm.pm).trim(),
       note: safeString(eventForm.note).trim(),
     }
 
@@ -6317,6 +6437,12 @@ function App() {
 
     persistEvents(next)
     setEventForm({ ...emptyEvent })
+    setCalendarEventRegisterOpen(false)
+  }
+
+  const openCalendarEventRegisterModal = () => {
+    setEventForm({ ...emptyEvent })
+    setCalendarEventRegisterOpen(true)
   }
 
   const deleteManualEvent = (id, options = {}) => {
@@ -8687,7 +8813,7 @@ function App() {
           <section className="stat-card">
             <div className="contracts-header-actions work-report-toolbar">
               <button className="primary-btn" type="button" onClick={handleCreateCurrentWorkWeek}>
-                새 주차 생성
+                등록
               </button>
               <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
                 이전 주
@@ -8750,8 +8876,8 @@ function App() {
             <div className="contracts-header-actions">
               {isAdmin && (
                 <>
-                  <button className="primary-btn" type="button" onClick={openAddRow}>
-                    추가
+                  <button className="primary-btn" type="button" onClick={openContractRegisterModal}>
+                    등록
                   </button>
 
                   <button className="secondary-btn" type="button" onClick={handleExcelImportClick}>
@@ -8965,107 +9091,7 @@ function App() {
                   </thead>
 
                   <tbody>
-                    {isAdmin && isAddingRow && (
-                      <tr className="inline-add-row">
-                        <td className="td-align-center registry-check-cell">
-                          <div
-                            className="inline-row-actions"
-                            style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 4,
-                              alignItems: 'stretch',
-                              minWidth: 52,
-                            }}
-                          >
-                            <button
-                              className="mini-save-btn"
-                              type="button"
-                              onClick={saveAddRow}
-                              style={{ width: '100%' }}
-                            >
-                              저장
-                            </button>
-                            <button
-                              className="mini-cancel-btn"
-                              type="button"
-                              onClick={cancelAddRow}
-                              style={{ width: '100%' }}
-                            >
-                              취소
-                            </button>
-                          </div>
-                        </td>
-
-                        <td className="col-dday td-align-center">
-                          <div className="cell-display dday-cell">{getDdayText(newRow.dueDate)}</div>
-                        </td>
-
-                        {CONTRACT_COLUMNS.map((column) => (
-                          <td
-                            key={column.key}
-                            className={`${column.className} ${
-                              column.align === 'right'
-                                ? 'td-align-right'
-                                : column.align === 'left'
-                                ? 'td-align-left'
-                                : 'td-align-center'
-                            }`}
-                            style={column.width ? { width: column.width } : undefined}
-                          >
-                            {column.type === 'textarea' ? (
-                              <textarea
-                                className={`inline-row-editor cell-inline-editor ${
-                                  column.align === 'right' ? 'align-right' : ''
-                                }`}
-                                rows={1}
-                                value={newRow[column.key] ?? ''}
-                                onChange={(e) =>
-                                  setNewRow((prev) => ({
-                                    ...prev,
-                                    [column.key]:
-                                      column.key === 'amount'
-                                        ? formatAmount(e.target.value)
-                                        : e.target.value,
-                                  }))
-                                }
-                              />
-                            ) : column.type === 'date' ? (
-                              <input
-                                className="inline-row-editor cell-inline-editor"
-                                type="date"
-                                value={newRow[column.key] ?? ''}
-                                onChange={(e) =>
-                                  setNewRow((prev) => ({
-                                    ...prev,
-                                    [column.key]: e.target.value,
-                                  }))
-                                }
-                              />
-                            ) : (
-                              <input
-                                className={`inline-row-editor cell-inline-editor ${
-                                  column.align === 'right' ? 'align-right' : ''
-                                }`}
-                                type="text"
-                                value={newRow[column.key] ?? ''}
-                                onChange={(e) =>
-                                  setNewRow((prev) => ({
-                                    ...prev,
-                                    [column.key]:
-                                      column.key === 'amount'
-                                        ? formatAmount(e.target.value)
-                                        : e.target.value,
-                                  }))
-                                }
-                              />
-                            )}
-                          </td>
-                        ))}
-                      </tr>
-                    )}
-
-                    {filteredContracts.length === 0 && !(isAdmin && isAddingRow) ? (
+                    {filteredContracts.length === 0 ? (
                       <tr>
                         <td colSpan={contractTableColSpan} className="empty-cell">
                           등록된 데이터가 없습니다.
@@ -9213,7 +9239,7 @@ function App() {
           <section className="stat-card">
             <div className="contracts-header-actions">
               <button className="primary-btn" type="button" onClick={handleAddSalesRow}>
-                추가
+                등록
               </button>
               <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('sales')}>
                 엑셀 업로드
@@ -9352,7 +9378,7 @@ function App() {
           <section className="stat-card">
             <div className="contracts-header-actions">
               <button className="primary-btn" type="button" onClick={handleAddDiscoveryRow}>
-                추가
+                등록
               </button>
               <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('discovery')}>
                 엑셀 업로드
@@ -9506,7 +9532,7 @@ function App() {
 
             <div className="contracts-header-actions">
               <button className="primary-btn" type="button" onClick={handleAddExcludedRow}>
-                추가
+                등록
               </button>
               <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('excluded')}>
                 엑셀 업로드
@@ -9677,7 +9703,7 @@ function App() {
 
             <div className="contracts-header-actions">
               <button className="primary-btn" type="button" onClick={handleAddDocumentRow}>
-                추가
+                등록
               </button>
               <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('documents')}>
                 엑셀 업로드
@@ -9861,46 +9887,13 @@ function App() {
               <div className="calendar-page-body">
                 <div className="calendar-page-main">
                   <div className="calendar-add-form-bar">
-                    <div className="calendar-toolbar-form">
-                      <div className="calendar-date-range-group" aria-label="일정 기간">
-                        <span className="calendar-date-range-label">시작일</span>
-                        <input
-                          type="date"
-                          className="calendar-input calendar-input-date"
-                          value={eventForm.dateStart}
-                          onChange={(e) =>
-                            setEventForm((prev) => ({ ...prev, dateStart: e.target.value }))
-                          }
-                        />
-                        <span className="calendar-date-range-sep" aria-hidden>
-                          ~
-                        </span>
-                        <span className="calendar-date-range-label">종료일</span>
-                        <input
-                          type="date"
-                          className="calendar-input calendar-input-date"
-                          value={eventForm.dateEnd}
-                          onChange={(e) =>
-                            setEventForm((prev) => ({ ...prev, dateEnd: e.target.value }))
-                          }
-                        />
-                      </div>
-                      <input
-                        type="text"
-                        className="calendar-input calendar-input-title"
-                        placeholder="일정 내용"
-                        value={eventForm.title}
-                        onChange={(e) => setEventForm((prev) => ({ ...prev, title: e.target.value }))}
-                      />
-                      <input
-                        type="text"
-                        className="calendar-input calendar-input-owner"
-                        placeholder="담당자"
-                        value={eventForm.owner}
-                        onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
-                      />
-                      <button className="primary-btn calendar-add-btn" type="button" onClick={addManualEvent}>
-                        일정 추가
+                    <div className="calendar-toolbar-form calendar-toolbar-form--register-only">
+                      <button
+                        className="primary-btn calendar-add-btn"
+                        type="button"
+                        onClick={openCalendarEventRegisterModal}
+                      >
+                        등록
                       </button>
                     </div>
                   </div>
@@ -10221,6 +10214,315 @@ function App() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {contractRegisterModalOpen && (
+        <div className="modal-backdrop" onClick={closeContractRegisterModal}>
+          <div
+            className="install-case-form-modal contract-register-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contract-register-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="install-case-form-modal-header">
+              <h3 id="contract-register-title">계약현황 등록</h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={closeContractRegisterModal}
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="install-case-form-modal-body">
+              <div className="global-register-form-grid">
+                <div className="global-register-field global-register-field--full">
+                  <span className="global-register-label">D-Day (준공일자 기준)</span>
+                  <div className="global-register-dday">{getDdayText(newRow.dueDate)}</div>
+                </div>
+                {CONTRACT_COLUMNS.map((column) => (
+                  <div
+                    key={column.key}
+                    className={`global-register-field${
+                      column.type === 'textarea' ? ' global-register-field--full' : ''
+                    }`}
+                  >
+                    <label className="global-register-label" htmlFor={`contract-reg-${column.key}`}>
+                      {column.label}
+                    </label>
+                    {column.type === 'textarea' ? (
+                      <textarea
+                        id={`contract-reg-${column.key}`}
+                        className="table-search-input global-register-control"
+                        rows={column.key === 'note' ? 4 : 2}
+                        value={newRow[column.key] ?? ''}
+                        onChange={(e) =>
+                          setNewRow((prev) => ({
+                            ...prev,
+                            [column.key]:
+                              column.key === 'amount' || column.type === 'amount'
+                                ? formatAmount(e.target.value)
+                                : e.target.value,
+                          }))
+                        }
+                      />
+                    ) : column.type === 'date' ? (
+                      <input
+                        id={`contract-reg-${column.key}`}
+                        className="table-search-input global-register-control"
+                        type="date"
+                        value={newRow[column.key] ?? ''}
+                        onChange={(e) =>
+                          setNewRow((prev) => ({ ...prev, [column.key]: e.target.value }))
+                        }
+                      />
+                    ) : (
+                      <input
+                        id={`contract-reg-${column.key}`}
+                        className={`table-search-input global-register-control${
+                          column.align === 'right' ? ' align-right' : ''
+                        }`}
+                        type="text"
+                        value={newRow[column.key] ?? ''}
+                        onChange={(e) =>
+                          setNewRow((prev) => ({
+                            ...prev,
+                            [column.key]:
+                              column.key === 'amount' || column.type === 'amount'
+                                ? formatAmount(e.target.value)
+                                : e.target.value,
+                          }))
+                        }
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="install-case-form-actions">
+                <button type="button" className="secondary-btn" onClick={closeContractRegisterModal}>
+                  취소
+                </button>
+                <button type="button" className="primary-btn" onClick={() => void saveAddRow()}>
+                  등록
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {registryCreateModal &&
+        (() => {
+          const { scope, draft } = registryCreateModal
+          const columns = getRegistryColumnsByScope(scope)
+          const titleMap = {
+            sales: '영업관리대장 등록',
+            discovery: '건축정보 등록',
+            excluded: '사업검색이력 등록',
+            documents: '문서수발신대장 등록',
+          }
+          const saving =
+            scope === 'sales'
+              ? isSavingSales
+              : scope === 'discovery'
+                ? isSavingDiscovery
+                : scope === 'excluded'
+                  ? isSavingExcluded
+                  : isSavingDocuments
+          return (
+            <div className="modal-backdrop" onClick={closeRegistryCreateModal}>
+              <div
+                className="install-case-form-modal registry-create-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="registry-create-title"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="install-case-form-modal-header">
+                  <h3 id="registry-create-title">{titleMap[scope] || '등록'}</h3>
+                  <button
+                    type="button"
+                    className="modal-close-btn"
+                    onClick={closeRegistryCreateModal}
+                    aria-label="닫기"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="install-case-form-modal-body">
+                  <div className="global-register-form-grid">
+                    {columns.map((column) => (
+                      <div
+                        key={column.key}
+                        className={`global-register-field${
+                          column.type === 'textarea' ? ' global-register-field--full' : ''
+                        }`}
+                      >
+                        <label className="global-register-label" htmlFor={`registry-create-${scope}-${column.key}`}>
+                          {column.label}
+                        </label>
+                        {column.type === 'textarea' ? (
+                          <textarea
+                            id={`registry-create-${scope}-${column.key}`}
+                            className="table-search-input global-register-control"
+                            rows={3}
+                            value={draft[column.key] ?? ''}
+                            onChange={(e) => patchRegistryCreateDraft(column.key, e.target.value)}
+                          />
+                        ) : column.type === 'date' ? (
+                          <input
+                            id={`registry-create-${scope}-${column.key}`}
+                            className="table-search-input global-register-control"
+                            type="date"
+                            value={draft[column.key] ?? ''}
+                            onChange={(e) => patchRegistryCreateDraft(column.key, e.target.value)}
+                          />
+                        ) : column.type === 'select' ? (
+                          <select
+                            id={`registry-create-${scope}-${column.key}`}
+                            className="contract-filter-select global-register-control-select"
+                            value={draft[column.key] ?? ''}
+                            onChange={(e) => patchRegistryCreateDraft(column.key, e.target.value)}
+                          >
+                            <option value="">선택</option>
+                            {(column.options || []).map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            id={`registry-create-${scope}-${column.key}`}
+                            className={`table-search-input global-register-control${
+                              column.align === 'right' ? ' align-right' : ''
+                            }`}
+                            type="text"
+                            value={draft[column.key] ?? ''}
+                            onChange={(e) => patchRegistryCreateDraft(column.key, e.target.value)}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="install-case-form-actions">
+                    <button type="button" className="secondary-btn" onClick={closeRegistryCreateModal}>
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      disabled={saving}
+                      onClick={() => void saveRegistryCreateModal()}
+                    >
+                      등록
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
+      {calendarEventRegisterOpen && (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            setCalendarEventRegisterOpen(false)
+            setEventForm({ ...emptyEvent })
+          }}
+        >
+          <div
+            className="install-case-form-modal calendar-event-register-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="calendar-event-register-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="install-case-form-modal-header">
+              <h3 id="calendar-event-register-title">기타 일정 등록</h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => {
+                  setCalendarEventRegisterOpen(false)
+                  setEventForm({ ...emptyEvent })
+                }}
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="install-case-form-modal-body">
+              <div className="calendar-modal-register-fields">
+                <div className="calendar-date-range-group" aria-label="일정 기간">
+                  <span className="calendar-date-range-label">시작일</span>
+                  <input
+                    type="date"
+                    className="calendar-input calendar-input-date"
+                    value={eventForm.dateStart}
+                    onChange={(e) => setEventForm((prev) => ({ ...prev, dateStart: e.target.value }))}
+                  />
+                  <span className="calendar-date-range-sep" aria-hidden>
+                    ~
+                  </span>
+                  <span className="calendar-date-range-label">종료일</span>
+                  <input
+                    type="date"
+                    className="calendar-input calendar-input-date"
+                    value={eventForm.dateEnd}
+                    onChange={(e) => setEventForm((prev) => ({ ...prev, dateEnd: e.target.value }))}
+                  />
+                </div>
+                <input
+                  type="text"
+                  className="calendar-input calendar-input-title"
+                  placeholder="일정 내용"
+                  value={eventForm.title}
+                  onChange={(e) => setEventForm((prev) => ({ ...prev, title: e.target.value }))}
+                />
+                <input
+                  type="text"
+                  className="calendar-input calendar-input-owner"
+                  placeholder="영업담당자"
+                  value={eventForm.owner}
+                  onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
+                />
+                <input
+                  type="text"
+                  className="calendar-input calendar-input-owner"
+                  placeholder="현장 PM"
+                  value={eventForm.pm}
+                  onChange={(e) => setEventForm((prev) => ({ ...prev, pm: e.target.value }))}
+                />
+                <textarea
+                  className="table-search-input global-register-control"
+                  rows={3}
+                  placeholder="비고"
+                  value={eventForm.note}
+                  onChange={(e) => setEventForm((prev) => ({ ...prev, note: e.target.value }))}
+                />
+              </div>
+              <div className="install-case-form-actions">
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => {
+                    setCalendarEventRegisterOpen(false)
+                    setEventForm({ ...emptyEvent })
+                  }}
+                >
+                  취소
+                </button>
+                <button type="button" className="primary-btn" onClick={addManualEvent}>
+                  등록
+                </button>
               </div>
             </div>
           </div>

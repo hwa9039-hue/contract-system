@@ -1000,6 +1000,61 @@ textarea {
   min-width: 0;
 }
 
+.calendar-toolbar-form.calendar-toolbar-form--register-only {
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.global-register-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  width: 100%;
+}
+
+.global-register-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.global-register-field--full {
+  grid-column: 1 / -1;
+}
+
+.global-register-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #475569;
+}
+
+.global-register-dday {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.global-register-control,
+.global-register-control-select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.calendar-modal-register-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.contract-register-modal,
+.registry-create-modal,
+.calendar-event-register-modal {
+  width: min(920px, calc(100vw - 24px));
+}
+
 .calendar-toolbar-viewer {
   flex: 1 1 0%;
   min-width: 0;
