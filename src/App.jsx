@@ -476,6 +476,82 @@ const PAGE_TITLE_MAP = {
 const TOP_SYSTEM_SUBTITLE =
   '주간업무보고서 · 계약현황 · 캘린더 · 영업관리대장 · 건축정보 · 사업검색이력 · 문서수발신대장 · 설치사례 · 게시판'
 
+const ACTIVE_MENU_STORAGE_KEY = 'cms-active-menu'
+const SIDEBAR_GROUPS_EXPANDED_KEY = 'cms-sidebar-groups-expanded'
+
+const SIDEBAR_MENU_GROUPS = [
+  {
+    id: 'work',
+    label: '업무관리',
+    items: [
+      { key: 'workReports', label: '주간업무보고서' },
+      { key: 'calendar', label: '캘린더' },
+    ],
+  },
+  {
+    id: 'sales',
+    label: '영업관리',
+    items: [
+      { key: 'contracts', label: '계약현황' },
+      { key: 'sales', label: '영업관리대장' },
+      { key: 'discovery', label: '건축정보' },
+      { key: 'excluded', label: '사업검색이력' },
+      { key: 'documents', label: '문서수발신대장' },
+    ],
+  },
+]
+
+const ALL_MENU_KEYS = [
+  'dashboard',
+  ...SIDEBAR_MENU_GROUPS.flatMap((group) => group.items.map((item) => item.key)),
+  'materialsBoard',
+  'installCases',
+]
+
+function getMenuGroupIdForMenu(menuKey) {
+  for (const group of SIDEBAR_MENU_GROUPS) {
+    if (group.items.some((item) => item.key === menuKey)) return group.id
+  }
+  return null
+}
+
+function loadStoredMenu() {
+  try {
+    const saved = localStorage.getItem(ACTIVE_MENU_STORAGE_KEY)
+    if (saved && ALL_MENU_KEYS.includes(saved)) return saved
+  } catch {
+    /* ignore */
+  }
+  return 'dashboard'
+}
+
+function loadExpandedMenuGroups(menuKey) {
+  const expanded = { work: false, sales: false }
+  try {
+    const raw = localStorage.getItem(SIDEBAR_GROUPS_EXPANDED_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object') {
+        expanded.work = Boolean(parsed.work)
+        expanded.sales = Boolean(parsed.sales)
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  const activeGroupId = getMenuGroupIdForMenu(menuKey)
+  if (activeGroupId) expanded[activeGroupId] = true
+  return expanded
+}
+
+function persistExpandedMenuGroups(groups) {
+  try {
+    localStorage.setItem(SIDEBAR_GROUPS_EXPANDED_KEY, JSON.stringify(groups))
+  } catch {
+    /* ignore */
+  }
+}
+
 /** 게시판 — 문서 업로드 허용 확장자 */
 const MATERIALS_BOARD_FILE_ACCEPT =
   '.pdf,.xls,.xlsx,.hwp,.doc,.docx,.zip,.ppt,.pptx,.txt,.csv,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/haansofthwp,application/x-hwp,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/zip'
@@ -2876,7 +2952,11 @@ function App() {
   const [discoveryRows, setDiscoveryRows] = useState([])
   const [excludedRows, setExcludedRows] = useState([])
   const [workReportRows, setWorkReportRows] = useState([])
-  const [menu, setMenu] = useState('dashboard')
+  const initialMenu = loadStoredMenu()
+  const [menu, setMenu] = useState(initialMenu)
+  const [expandedMenuGroups, setExpandedMenuGroups] = useState(() =>
+    loadExpandedMenuGroups(initialMenu)
+  )
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true')
   const [openDashboardYears, setOpenDashboardYears] = useState({})
   const [openContractYears, setOpenContractYears] = useState({})
@@ -3300,6 +3380,30 @@ function App() {
     setRegistryCellEdit(null)
     setRegistryCellEditDraft('')
   }, [menu])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ACTIVE_MENU_STORAGE_KEY, menu)
+    } catch {
+      /* ignore */
+    }
+    const activeGroupId = getMenuGroupIdForMenu(menu)
+    if (!activeGroupId) return
+    setExpandedMenuGroups((prev) => {
+      if (prev[activeGroupId]) return prev
+      const next = { ...prev, [activeGroupId]: true }
+      persistExpandedMenuGroups(next)
+      return next
+    })
+  }, [menu])
+
+  const toggleMenuGroup = useCallback((groupId) => {
+    setExpandedMenuGroups((prev) => {
+      const next = { ...prev, [groupId]: !prev[groupId] }
+      persistExpandedMenuGroups(next)
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     setInstallCaseDetailModal(null)
@@ -9008,73 +9112,63 @@ function App() {
 
           <div className="menu">
             <button
+              type="button"
               className={menu === 'dashboard' ? 'menu-btn active' : 'menu-btn'}
               onClick={() => setMenu('dashboard')}
             >
               대시보드
             </button>
 
-            <button
-              className={menu === 'workReports' ? 'menu-btn active' : 'menu-btn'}
-              onClick={() => setMenu('workReports')}
-            >
-              주간업무보고서
-            </button>
+            {SIDEBAR_MENU_GROUPS.map((group) => {
+              const isExpanded = Boolean(expandedMenuGroups[group.id])
+              const hasActiveChild = group.items.some((item) => item.key === menu)
+              return (
+                <div key={group.id} className="menu-group">
+                  <button
+                    type="button"
+                    className={`menu-group-btn${hasActiveChild ? ' menu-group-btn--has-active' : ''}`}
+                    onClick={() => toggleMenuGroup(group.id)}
+                    aria-expanded={isExpanded}
+                  >
+                    <span className="menu-group-label">{group.label}</span>
+                    <span className="menu-group-chevron" aria-hidden>
+                      {isExpanded ? '▲' : '▼'}
+                    </span>
+                  </button>
+                  {isExpanded ? (
+                    <div className="menu-group-items">
+                      {group.items.map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          className={
+                            menu === item.key ? 'menu-btn menu-btn--child active' : 'menu-btn menu-btn--child'
+                          }
+                          onClick={() => setMenu(item.key)}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })}
 
             <button
-              className={menu === 'contracts' ? 'menu-btn active' : 'menu-btn'}
-              onClick={() => setMenu('contracts')}
-            >
-              계약현황
-            </button>
-
-            <button
-              className={menu === 'calendar' ? 'menu-btn active' : 'menu-btn'}
-              onClick={() => setMenu('calendar')}
-            >
-              <span className="menu-label-strong">캘린더</span>
-            </button>
-
-            <button
-              className={menu === 'sales' ? 'menu-btn active' : 'menu-btn'}
-              onClick={() => setMenu('sales')}
-            >
-              영업관리대장
-            </button>
-
-            <button
-              className={menu === 'discovery' ? 'menu-btn active' : 'menu-btn'}
-              onClick={() => setMenu('discovery')}
-            >
-              건축정보
-            </button>
-
-            <button
-              className={menu === 'excluded' ? 'menu-btn active' : 'menu-btn'}
-              onClick={() => setMenu('excluded')}
-            >
-              사업검색이력
-            </button>
-
-            <button
-              className={menu === 'documents' ? 'menu-btn active' : 'menu-btn'}
-              onClick={() => setMenu('documents')}
-            >
-              문서수발신대장
-            </button>
-
-            <button
-              className={menu === 'installCases' ? 'menu-btn active' : 'menu-btn'}
-              onClick={() => setMenu('installCases')}
-            >
-              설치사례
-            </button>
-
-            <button
+              type="button"
               className={menu === 'materialsBoard' ? 'menu-btn active' : 'menu-btn'}
               onClick={() => setMenu('materialsBoard')}
             >
               게시판
+            </button>
+
+            <button
+              type="button"
+              className={menu === 'installCases' ? 'menu-btn active' : 'menu-btn'}
+              onClick={() => setMenu('installCases')}
+            >
+              설치사례
             </button>
           </div>
         </div>
