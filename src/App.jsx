@@ -10460,8 +10460,8 @@ function App() {
               </button>
             </div>
             <div className="install-case-form-modal-body">
-              <div className="calendar-modal-register-fields">
-                <div className="calendar-date-range-group" aria-label="일정 기간">
+              <div className="calendar-register-form">
+                <div className="calendar-register-section calendar-register-date-range" aria-label="일정 기간">
                   <span className="calendar-date-range-label">시작일</span>
                   <input
                     type="date"
@@ -10480,34 +10480,60 @@ function App() {
                     onChange={(e) => setEventForm((prev) => ({ ...prev, dateEnd: e.target.value }))}
                   />
                 </div>
-                <input
-                  type="text"
-                  className="calendar-input calendar-input-title"
-                  placeholder="일정 내용"
-                  value={eventForm.title}
-                  onChange={(e) => setEventForm((prev) => ({ ...prev, title: e.target.value }))}
-                />
-                <input
-                  type="text"
-                  className="calendar-input calendar-input-owner"
-                  placeholder="영업담당자"
-                  value={eventForm.owner}
-                  onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
-                />
-                <input
-                  type="text"
-                  className="calendar-input calendar-input-owner"
-                  placeholder="현장 PM"
-                  value={eventForm.pm}
-                  onChange={(e) => setEventForm((prev) => ({ ...prev, pm: e.target.value }))}
-                />
-                <textarea
-                  className="table-search-input global-register-control"
-                  rows={3}
-                  placeholder="비고"
-                  value={eventForm.note}
-                  onChange={(e) => setEventForm((prev) => ({ ...prev, note: e.target.value }))}
-                />
+                <div className="calendar-register-section">
+                  <label className="calendar-register-label" htmlFor="calendar-reg-title">
+                    일정 내용
+                  </label>
+                  <input
+                    id="calendar-reg-title"
+                    type="text"
+                    className="calendar-register-text"
+                    placeholder="일정 내용을 입력하세요"
+                    value={eventForm.title}
+                    onChange={(e) => setEventForm((prev) => ({ ...prev, title: e.target.value }))}
+                  />
+                </div>
+                <div className="calendar-register-section calendar-register-assignees">
+                  <div className="calendar-register-split-field">
+                    <label className="calendar-register-label" htmlFor="calendar-reg-owner">
+                      영업담당자
+                    </label>
+                    <input
+                      id="calendar-reg-owner"
+                      type="text"
+                      className="calendar-register-text"
+                      placeholder="영업담당자"
+                      value={eventForm.owner}
+                      onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
+                    />
+                  </div>
+                  <div className="calendar-register-split-field">
+                    <label className="calendar-register-label" htmlFor="calendar-reg-pm">
+                      현장 PM
+                    </label>
+                    <input
+                      id="calendar-reg-pm"
+                      type="text"
+                      className="calendar-register-text"
+                      placeholder="현장 PM"
+                      value={eventForm.pm}
+                      onChange={(e) => setEventForm((prev) => ({ ...prev, pm: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="calendar-register-section">
+                  <label className="calendar-register-label" htmlFor="calendar-reg-note">
+                    비고
+                  </label>
+                  <textarea
+                    id="calendar-reg-note"
+                    className="calendar-register-note"
+                    rows={4}
+                    placeholder="비고 (선택)"
+                    value={eventForm.note}
+                    onChange={(e) => setEventForm((prev) => ({ ...prev, note: e.target.value }))}
+                  />
+                </div>
               </div>
               <div className="install-case-form-actions">
                 <button

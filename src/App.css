@@ -1042,17 +1042,104 @@ textarea {
   box-sizing: border-box;
 }
 
-.calendar-modal-register-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
-}
-
 .contract-register-modal,
 .registry-create-modal,
 .calendar-event-register-modal {
   width: min(920px, calc(100vw - 24px));
+}
+
+/* 캘린더 기타 일정 등록 모달 — 툴바용 .calendar-input-title / .calendar-input-owner 와 분리 */
+.calendar-event-register-modal .calendar-register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  min-width: 0;
+}
+
+.calendar-event-register-modal .calendar-register-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.calendar-event-register-modal .calendar-register-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #475569;
+}
+
+.calendar-event-register-modal .calendar-register-date-range {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.calendar-event-register-modal .calendar-register-text {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.calendar-event-register-modal .calendar-register-text:focus,
+.calendar-event-register-modal .calendar-register-note:focus {
+  outline: 2px solid #93c5fd;
+  outline-offset: 0;
+}
+
+.calendar-event-register-modal .calendar-register-assignees {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 520px) {
+  .calendar-event-register-modal .calendar-register-assignees {
+    grid-template-columns: 1fr;
+  }
+}
+
+.calendar-event-register-modal .calendar-register-split-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.calendar-event-register-modal .calendar-register-note {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 13px;
+  line-height: 1.45;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.calendar-event-register-modal .calendar-register-date-range .calendar-input-date {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 132px;
+  max-width: 100%;
 }
 
 .calendar-toolbar-viewer {
