@@ -2,11 +2,12 @@ from app.middleware import ApiJwtAuthMiddleware
 import logging
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.cors_preflight_middleware import ApiPreflightCorsMiddleware
 from app.database import init_db
+from app.schemas import InstallCaseCreate, InstallCaseOut, InstallCasePatch
 from app.routers import auth
 from app.routers import contracts
 from app.routers import document_register
@@ -14,7 +15,13 @@ from app.routers import excluded_projects
 from app.routers import project_discovery
 from app.routers import sales_register
 from app.routers import weekly_work_reports
-from app.routers import install_cases
+from app.routers.install_cases import (
+    INSTALL_CASES_API_PATH,
+    create_install_case_row,
+    delete_install_case_row,
+    list_install_case_rows,
+    update_install_case_row,
+)
 
 
 DEFAULT_CORS_ORIGINS = (
@@ -74,9 +81,7 @@ def on_startup():
     init_db()
     logger.info("init_db completed (contracts_rows null id repair runs here and on GET /api/contracts)")
     logger.info("CORS allow_origins count=%s (merged env + defaults)", len(_EFFECTIVE_CORS_ORIGINS))
-    logger.info(
-        "Install cases API: POST/GET /api/install-cases (router prefix=/install-cases, include prefix=/api)"
-    )
+    logger.info("Install cases API: POST/GET /api/install-cases (registered on app in main.py)")
 
 
 @app.get("/api/health")
@@ -104,4 +109,41 @@ app.include_router(project_discovery.router)
 app.include_router(excluded_projects.router)
 app.include_router(document_register.router)
 app.include_router(weekly_work_reports.router)
-app.include_router(install_cases.router, prefix="/api")
+
+
+# 설치사례 API — 경로 강제 고정: /api/install-cases (복수형 cases)
+@app.get(INSTALL_CASES_API_PATH, response_model=list[InstallCaseOut], tags=["install-cases"])
+def api_list_install_cases():
+    print("API Hit: /api/install-cases")
+    return list_install_case_rows()
+
+
+@app.post(
+    INSTALL_CASES_API_PATH,
+    response_model=InstallCaseOut,
+    status_code=status.HTTP_201_CREATED,
+    tags=["install-cases"],
+)
+def api_create_install_case(row: InstallCaseCreate):
+    print("API Hit: /api/install-cases")
+    return create_install_case_row(row)
+
+
+@app.patch(
+    f"{INSTALL_CASES_API_PATH}/{{row_id}}",
+    response_model=InstallCaseOut,
+    tags=["install-cases"],
+)
+def api_update_install_case(row_id: str, patch: InstallCasePatch):
+    print("API Hit: /api/install-cases")
+    return update_install_case_row(row_id, patch)
+
+
+@app.delete(
+    f"{INSTALL_CASES_API_PATH}/{{row_id}}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["install-cases"],
+)
+def api_delete_install_case(row_id: str):
+    print("API Hit: /api/install-cases")
+    delete_install_case_row(row_id)

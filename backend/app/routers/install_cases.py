@@ -1,20 +1,18 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import HTTPException, status
 
 from app.database import get_connection
 from app.schemas import (
     InstallCaseCreate,
-    InstallCaseOut,
     InstallCasePatch,
     install_case_to_db_values,
     row_to_install_case,
 )
 
-
-# 경로는 main.py 에서 prefix="/api" 와 합쳐져 POST/GET /api/install-cases 가 됩니다.
-router = APIRouter(prefix="/install-cases", tags=["install-cases"])
+# 백엔드·프론트 공통 경로 (복수형 cases)
+INSTALL_CASES_API_PATH = "/api/install-cases"
 
 RETURNING_COLUMNS = """
   id, "projectName", "heroImage", environment, audience, year,
@@ -39,9 +37,8 @@ def prepare_insert_values(row: InstallCaseCreate) -> dict:
     return values
 
 
-@router.get("", response_model=list[InstallCaseOut])
-@router.get("/", response_model=list[InstallCaseOut], include_in_schema=False)
 def list_install_case_rows():
+    print("API Hit: /api/install-cases")
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -54,9 +51,8 @@ def list_install_case_rows():
             return [row_to_install_case(row) for row in cursor.fetchall()]
 
 
-@router.post("", response_model=InstallCaseOut, status_code=status.HTTP_201_CREATED)
-@router.post("/", response_model=InstallCaseOut, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def create_install_case_row(row: InstallCaseCreate):
+    print("API Hit: /api/install-cases")
     values = prepare_insert_values(row)
     columns = list(values.keys())
     quoted_columns = [quote_identifier(column) for column in columns]
@@ -78,8 +74,8 @@ def create_install_case_row(row: InstallCaseCreate):
     return row_to_install_case(created)
 
 
-@router.patch("/{row_id}", response_model=InstallCaseOut)
 def update_install_case_row(row_id: str, patch: InstallCasePatch):
+    print("API Hit: /api/install-cases")
     values = install_case_to_db_values(patch)
     if not values:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
@@ -112,8 +108,8 @@ def update_install_case_row(row_id: str, patch: InstallCasePatch):
     return row_to_install_case(updated)
 
 
-@router.delete("/{row_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_install_case_row(row_id: str):
+    print("API Hit: /api/install-cases")
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute("delete from install_cases_rows where id::text = %s", (row_id,))

@@ -7,7 +7,7 @@ import { excludedProjectsApi } from './excludedProjectsApi'
 import { projectDiscoveryApi } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
-import { installCasesApi } from './installCasesApi'
+import { installCasesApi, INSTALL_CASES_API_PATH } from './installCasesApi'
 import { API_BASE_URL, apiFetchInit, clearAuthToken, getAuthHeaders, setAuthToken } from './apiClient.js'
 import { logCmsApiLogin } from './cmsApiProbe.js'
 
@@ -3018,6 +3018,7 @@ function App() {
 
   const fetchInstallCases = async () => {
     try {
+      console.log('[install-cases] fetch list', INSTALL_CASES_API_PATH)
       const rows = await installCasesApi.list()
       setInstallCases(rows.map(normalizeInstallCaseRow))
       return rows
