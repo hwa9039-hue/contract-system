@@ -535,6 +535,11 @@ function isMaterialsBoardFileAllowed(file) {
   return allowed.some((ext) => name.endsWith(ext))
 }
 
+function revokeMaterialsBoardDownloadUrl(row) {
+  const url = safeString(row?.downloadUrl).trim()
+  if (url) URL.revokeObjectURL(url)
+}
+
 function MaterialBoardFileDropzone({ inputId, fileName, onFile, onClear }) {
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef(null)
@@ -2857,6 +2862,7 @@ function App() {
   const [materialsBoardFile, setMaterialsBoardFile] = useState(null)
   const [materialsBoardEditingId, setMaterialsBoardEditingId] = useState(null)
   const [materialsBoardSavedFileName, setMaterialsBoardSavedFileName] = useState('')
+  const [materialsBoardSearch, setMaterialsBoardSearch] = useState('')
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
   const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
@@ -3266,6 +3272,7 @@ function App() {
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
     setMaterialsBoardFile(null)
     setMaterialsBoardSavedFileName('')
+    setMaterialsBoardSearch('')
   }, [menu])
 
   useEffect(() => {
@@ -3651,16 +3658,51 @@ function App() {
     }
   }, [installCaseEditingId])
 
+  const filteredMaterialsBoardPosts = useMemo(() => {
+    const query = safeString(materialsBoardSearch).trim().toLowerCase()
+    const rows = [...materialsBoardPosts].sort((a, b) => a.no - b.no)
+    if (!query) return rows
+    return rows.filter((row) => {
+      const title = safeString(row.title).toLowerCase()
+      const content = safeString(row.content).toLowerCase()
+      return title.includes(query) || content.includes(query)
+    })
+  }, [materialsBoardPosts, materialsBoardSearch])
+
+  const handleDownloadMaterialsBoardFile = useCallback(
+    (row) => {
+      const fileName = safeString(row?.fileName).trim()
+      if (!fileName) {
+        showAppAlert('첨부 파일이 없습니다.', '알림')
+        return
+      }
+      const downloadUrl = safeString(row?.downloadUrl).trim()
+      if (!downloadUrl) {
+        showAppAlert('다운로드할 수 있는 파일이 없습니다.', '알림')
+        return
+      }
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = fileName
+      link.rel = 'noopener'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    },
+    [showAppAlert]
+  )
+
   const handleOpenMaterialsBoardRegister = useCallback(() => {
+    if (!isAdmin) return
     setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
     setMaterialsBoardFile(null)
     setMaterialsBoardSavedFileName('')
     setMaterialsBoardRegisterOpen(true)
-  }, [])
+  }, [isAdmin])
 
   const handleOpenMaterialsBoardEdit = useCallback((row) => {
-    if (!row) return
+    if (!row || !isAdmin) return
     setMaterialsBoardEditingId(row.id)
     setMaterialsBoardFormDraft({
       title: safeString(row.title).trim(),
@@ -3669,7 +3711,7 @@ function App() {
     setMaterialsBoardFile(null)
     setMaterialsBoardSavedFileName(safeString(row.fileName).trim())
     setMaterialsBoardRegisterOpen(true)
-  }, [])
+  }, [isAdmin])
 
   const handleCloseMaterialsBoardRegister = useCallback(() => {
     setMaterialsBoardRegisterOpen(false)
@@ -3681,13 +3723,15 @@ function App() {
 
   const handleDeleteMaterialsBoardPost = useCallback((row, e) => {
     e?.stopPropagation()
-    if (!row) return
+    if (!isAdmin || !row) return
     if (!window.confirm(`「${row.title}」을(를) 삭제하시겠습니까?`)) return
+    revokeMaterialsBoardDownloadUrl(row)
     setMaterialsBoardPosts((prev) => prev.filter((p) => p.id !== row.id))
     setToastMessage('삭제되었습니다.')
-  }, [])
+  }, [isAdmin])
 
   const handleSaveMaterialsBoardRegister = useCallback(() => {
+    if (!isAdmin) return
     const title = safeString(materialsBoardFormDraft.title).trim()
     if (!title) {
       showAppAlert('제목을 입력해 주세요.', '알림')
@@ -3699,9 +3743,18 @@ function App() {
 
     if (materialsBoardEditingId) {
       setMaterialsBoardPosts((prev) =>
-        prev.map((p) =>
-          p.id === materialsBoardEditingId ? { ...p, title, content, fileName } : p
-        )
+        prev.map((p) => {
+          if (p.id !== materialsBoardEditingId) return p
+          let downloadUrl = safeString(p.downloadUrl).trim()
+          if (materialsBoardFile) {
+            revokeMaterialsBoardDownloadUrl(p)
+            downloadUrl = URL.createObjectURL(materialsBoardFile)
+          } else if (!fileName) {
+            revokeMaterialsBoardDownloadUrl(p)
+            downloadUrl = ''
+          }
+          return { ...p, title, content, fileName, downloadUrl }
+        })
       )
       setToastMessage('수정되었습니다.')
     } else {
@@ -3711,16 +3764,18 @@ function App() {
           : 1
       const now = new Date()
       const registeredAt = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+      const downloadUrl = materialsBoardFile ? URL.createObjectURL(materialsBoardFile) : ''
       setMaterialsBoardPosts((prev) => [
+        ...prev,
         {
           id: `mb-${Date.now()}`,
           no: nextNo,
           title,
           content,
           fileName,
+          downloadUrl,
           registeredAt,
         },
-        ...prev,
       ])
       setToastMessage('등록되었습니다.')
     }
@@ -3735,6 +3790,7 @@ function App() {
     materialsBoardFile,
     materialsBoardPosts,
     materialsBoardSavedFileName,
+    isAdmin,
   ])
 
   const handleInstallCasePairDigitChange = useCallback((pairId, axis) => (e) => {
@@ -10321,17 +10377,28 @@ function App() {
 
         {menu === 'materialsBoard' && (
           <section className="stat-card stat-card--materials-board">
-            <div className="materials-board-toolbar">
-              <p className="materials-board-lead">
-                사업부 공용 자료를 한곳에서 확인하고 등록할 수 있습니다.
-              </p>
-              <button
-                type="button"
-                className="primary-btn"
-                onClick={handleOpenMaterialsBoardRegister}
-              >
-                등록
-              </button>
+            <p className="materials-board-lead">
+              {isAdmin
+                ? '사업부 공용 자료를 한곳에서 확인하고 등록할 수 있습니다.'
+                : '사업부 공용 자료를 조회하고 첨부 파일을 다운로드할 수 있습니다.'}
+            </p>
+
+            <div className="table-toolbar contract-toolbar-simple materials-board-search-toolbar">
+              <input
+                className="table-search-input"
+                placeholder="제목, 내용 검색"
+                value={materialsBoardSearch}
+                onChange={(e) => setMaterialsBoardSearch(e.target.value)}
+              />
+              {isAdmin && (
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={handleOpenMaterialsBoardRegister}
+                >
+                  등록
+                </button>
+              )}
             </div>
 
             <div className="materials-board-table-panel">
@@ -10345,21 +10412,28 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {materialsBoardPosts.length === 0 ? (
+                  {filteredMaterialsBoardPosts.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="materials-board-empty">
-                        등록된 글이 없습니다.
+                        {materialsBoardPosts.length === 0
+                          ? '등록된 글이 없습니다.'
+                          : '검색 결과가 없습니다.'}
                       </td>
                     </tr>
                   ) : (
-                    materialsBoardPosts.map((row) => (
+                    filteredMaterialsBoardPosts.map((row) => (
                       <tr
                         key={row.id}
                         className="materials-board-row materials-board-row--clickable"
-                        onClick={() => handleOpenMaterialsBoardEdit(row)}
+                        onClick={() => handleDownloadMaterialsBoardFile(row)}
                       >
                         <td className="materials-board-td materials-board-td--no">{row.no}</td>
-                        <td className="materials-board-td materials-board-td--title">{row.title}</td>
+                        <td
+                          className="materials-board-td materials-board-td--title materials-board-td--download"
+                          onClick={() => handleDownloadMaterialsBoardFile(row)}
+                        >
+                          {row.title}
+                        </td>
                         <td className="materials-board-td materials-board-td--attach">
                           {row.fileName ? (
                             <span
@@ -10378,25 +10452,30 @@ function App() {
                         <td className="materials-board-td materials-board-td--date">
                           <div className="materials-board-date-cell">
                             <span className="materials-board-date-text">{row.registeredAt}</span>
-                            <div className="materials-board-row-actions">
-                              <button
-                                type="button"
-                                className="materials-board-row-btn"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleOpenMaterialsBoardEdit(row)
-                                }}
+                            {isAdmin && (
+                              <div
+                                className="materials-board-row-actions"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                수정
-                              </button>
-                              <button
-                                type="button"
-                                className="materials-board-row-btn materials-board-row-btn--danger"
-                                onClick={(e) => handleDeleteMaterialsBoardPost(row, e)}
-                              >
-                                삭제
-                              </button>
-                            </div>
+                                <button
+                                  type="button"
+                                  className="materials-board-row-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleOpenMaterialsBoardEdit(row)
+                                  }}
+                                >
+                                  수정
+                                </button>
+                                <button
+                                  type="button"
+                                  className="materials-board-row-btn materials-board-row-btn--danger"
+                                  onClick={(e) => handleDeleteMaterialsBoardPost(row, e)}
+                                >
+                                  삭제
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -11115,7 +11194,7 @@ function App() {
       )}
 
 
-      {materialsBoardRegisterOpen && (
+      {isAdmin && materialsBoardRegisterOpen && (
         <div className="modal-backdrop" onClick={handleCloseMaterialsBoardRegister}>
           <div
             className="materials-board-form-modal"
