@@ -1553,6 +1553,38 @@ textarea {
   flex-shrink: 0;
 }
 
+.stat-card--calendar .calendar-month-list-panel .selected-event-card .calendar-manual-event-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.stat-card--calendar .calendar-month-list-panel .calendar-manual-action-btn {
+  width: 52px;
+  min-width: 52px;
+  min-height: 26px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.stat-card--calendar .calendar-month-list-panel .calendar-manual-action-btn--edit {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.stat-card--calendar .calendar-month-list-panel .calendar-manual-action-btn--edit:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
 .stat-card--calendar .calendar-month-list-panel .selected-event-card.selected-event-type--contract {
   border-left: 5px solid #eab308;
 }

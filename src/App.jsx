@@ -2740,6 +2740,7 @@ function App() {
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
   const [eventForm, setEventForm] = useState({ ...emptyEvent })
+  const [manualEventEditingId, setManualEventEditingId] = useState(null)
   const [monthSearch, setMonthSearch] = useState('')
   const [monthTypeFilter, setMonthTypeFilter] = useState(CALENDAR_MONTH_LIST_CATEGORY.ALL)
   const [detailModal, setDetailModal] = useState(null)
@@ -6298,6 +6299,35 @@ function App() {
       startYmd = endYmd
       endYmd = t
     }
+
+    if (manualEventEditingId != null) {
+      const target = manualEvents.find((e) => e.id === manualEventEditingId)
+      if (!target) {
+        showAppAlert('수정 중인 일정을 찾을 수 없습니다.')
+        setManualEventEditingId(null)
+        setEventForm({ ...emptyEvent })
+        return
+      }
+      const next = manualEvents.map((e) =>
+        e.id === manualEventEditingId
+          ? {
+              ...e,
+              dateStart: startYmd,
+              dateEnd: endYmd,
+              date: startYmd,
+              title,
+              owner: safeString(eventForm.owner).trim(),
+              note: safeString(eventForm.note).trim(),
+            }
+          : e
+      )
+      persistEvents(next)
+      setManualEventEditingId(null)
+      setEventForm({ ...emptyEvent })
+      setToastMessage('일정이 수정되었습니다.')
+      return
+    }
+
     const row = {
       id: Date.now(),
       dateStart: startYmd,
@@ -6314,7 +6344,8 @@ function App() {
     setEventForm({ ...emptyEvent })
   }
 
-  const deleteManualEvent = (id) => {
+  const deleteManualEvent = (id, options = {}) => {
+    const { onDeleted } = options
     setContractConfirmDialog({
       title: '일정 삭제',
       message: '이 일정을 삭제하시겠습니까?',
@@ -6322,8 +6353,26 @@ function App() {
       confirmLabel: '삭제',
       onConfirm: () => {
         persistEvents(manualEvents.filter((item) => item.id !== id))
+        if (manualEventEditingId === id) {
+          setManualEventEditingId(null)
+          setEventForm({ ...emptyEvent })
+        }
+        onDeleted?.()
       },
     })
+  }
+
+  const startEditManualEventFromListItem = (item) => {
+    if (item.type !== 'manual') return
+    const r = normalizeManualEventRangeInPlace(item)
+    setEventForm({
+      dateStart: r.dateStart,
+      dateEnd: r.dateEnd,
+      title: safeString(item.text || item.title).trim(),
+      owner: safeString(item.owner).trim(),
+      note: safeString(item.note).trim(),
+    })
+    setManualEventEditingId(item.originalId)
   }
 
   const prevMonth = () => {
@@ -6344,7 +6393,7 @@ function App() {
         dday: item.dday || '',
         projectName: item.text,
         salesOwner: item.owner || '',
-        pm: '',
+        pm: item.pm || '',
         client: '',
         department: '',
         contractMethod: '',
@@ -6354,6 +6403,9 @@ function App() {
         dueDate: '',
         amount: '',
         note: item.note || '',
+        manualEventId: item.originalId,
+        manualDateStart: r.dateStart,
+        manualDateEnd: r.dateEnd,
       })
       return
     }
@@ -9767,7 +9819,7 @@ function App() {
                         onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
                       />
                       <button className="primary-btn calendar-add-btn" type="button" onClick={addManualEvent}>
-                        일정 추가
+                        {manualEventEditingId != null ? '일정 저장' : '일정 추가'}
                       </button>
                     </div>
                   </div>
@@ -9960,16 +10012,32 @@ function App() {
                                 </div>
 
                                 {item.type === 'manual' && (
-                                  <button
-                                    className="delete-btn"
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      deleteManualEvent(item.originalId)
-                                    }}
+                                  <div
+                                    className="calendar-manual-event-actions"
+                                    role="group"
+                                    aria-label="기타 일정 작업"
                                   >
-                                    삭제
-                                  </button>
+                                    <button
+                                      className="delete-btn"
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        deleteManualEvent(item.originalId)
+                                      }}
+                                    >
+                                      삭제
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="calendar-manual-action-btn calendar-manual-action-btn--edit"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        startEditManualEventFromListItem(item)
+                                      }}
+                                    >
+                                      수정
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             )
@@ -10207,6 +10275,39 @@ function App() {
             <div className="install-case-detail-modal-header">
               <h3 id="calendar-detail-modal-title">{detailModal.title}</h3>
               <div className="install-case-detail-modal-actions">
+                {detailModal.manualEventId != null && (
+                  <>
+                    <button
+                      type="button"
+                      className="secondary-btn install-case-modal-delete-btn"
+                      onClick={() => {
+                        deleteManualEvent(detailModal.manualEventId, {
+                          onDeleted: () => setDetailModal(null),
+                        })
+                      }}
+                    >
+                      삭제
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-btn install-case-modal-edit-btn"
+                      onClick={() => {
+                        const id = detailModal.manualEventId
+                        setEventForm({
+                          dateStart: detailModal.manualDateStart || '',
+                          dateEnd: detailModal.manualDateEnd || detailModal.manualDateStart || '',
+                          title: safeString(detailModal.projectName).trim(),
+                          owner: safeString(detailModal.salesOwner).trim(),
+                          note: safeString(detailModal.note).trim(),
+                        })
+                        setManualEventEditingId(id)
+                        setDetailModal(null)
+                      }}
+                    >
+                      수정
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   className="modal-close-btn"
@@ -10235,6 +10336,14 @@ function App() {
               <div className="detail-item detail-item-full">
                 <span className="detail-label">사업명</span>
                 <span className="detail-value">{detailModal.projectName || '-'}</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">영업담당자</span>
+                <span className="detail-value">{detailModal.salesOwner || '-'}</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">현장 PM</span>
+                <span className="detail-value">{detailModal.pm || '-'}</span>
               </div>
 
               {'contractNo' in detailModal && (
@@ -10282,14 +10391,6 @@ function App() {
                   <div className="detail-item">
                     <span className="detail-label">계약금액</span>
                     <span className="detail-value">{formatAmountWithWon(detailModal.amount)}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">영업담당자</span>
-                    <span className="detail-value">{detailModal.salesOwner || '-'}</span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="detail-label">현장 PM</span>
-                    <span className="detail-value">{detailModal.pm || '-'}</span>
                   </div>
                 </>
               )}
