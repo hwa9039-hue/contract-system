@@ -180,7 +180,8 @@ const WORK_REPORT_SECTION_KEYS = {
   supportDone: '영업지원_완료업무',
 }
 
-const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v3'
+const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v4'
+const CALENDAR_STORAGE_KEY_LEGACY_V3 = 'contract_manager_calendar_events_v3'
 /** 달력 열 순서: 일요일(0) ~ 토요일(6) */
 const CALENDAR_WEEKDAY_LABELS_KO = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -294,6 +295,142 @@ function getCalendarEventTypeClassName(type) {
   if (type === 'due') return 'selected-event-type--due'
   return 'selected-event-type--manual'
 }
+
+function chunkArray(arr, size) {
+  const out = []
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
+  return out
+}
+
+/** 기타 일정: 저장 행 → 정규화된 시작·종료(yyyy-mm-dd), 단일일은 동일 */
+function normalizeManualEventRangeInPlace(event) {
+  const ds0 = safeString(event?.dateStart ?? event?.date).trim()
+  const de0 = safeString(event?.dateEnd ?? event?.date ?? event?.dateStart).trim() || ds0
+  const pd = parseDateOnly(ds0)
+  const pe = parseDateOnly(de0)
+  if (!pd) return { dateStart: '', dateEnd: '', date: '' }
+  let s = formatDateInput(pd)
+  let e = formatDateInput(pe && !Number.isNaN(pe.getTime()) ? pe : pd)
+  if (parseDateOnly(s) > parseDateOnly(e)) {
+    const t = s
+    s = e
+    e = t
+  }
+  return { dateStart: s, dateEnd: e, date: s }
+}
+
+function formatCalendarManualRangeLabel(dateStart, dateEnd) {
+  const { dateStart: ds, dateEnd: de } = normalizeManualEventRangeInPlace({
+    dateStart: dateStart,
+    dateEnd: dateEnd,
+    date: dateStart,
+  })
+  if (!ds) return '-'
+  if (de && de !== ds) return `${ds} ~ ${de}`
+  return ds
+}
+
+function calendarItemOverlapsCalendarMonth(item, year, month) {
+  const monthStart = formatDateInput(new Date(year, month - 1, 1))
+  const monthEnd = formatDateInput(new Date(year, month, 0))
+  let rangeStart
+  let rangeEnd
+  if (item.type === 'manual') {
+    const r = normalizeManualEventRangeInPlace(item)
+    rangeStart = r.dateStart
+    rangeEnd = r.dateEnd
+  } else {
+    const d = safeString(item.date).trim()
+    rangeStart = d
+    rangeEnd = d
+  }
+  if (!rangeStart) return false
+  return rangeStart <= monthEnd && rangeEnd >= monthStart
+}
+
+function isConsecutiveCalendarYmd(prevYmd, nextYmd) {
+  const a = parseDateOnly(prevYmd)
+  const b = parseDateOnly(nextYmd)
+  if (!a || !b) return false
+  const n = new Date(a.getFullYear(), a.getMonth(), a.getDate())
+  n.setDate(n.getDate() + 1)
+  return formatDateInput(n) === nextYmd
+}
+
+function assignCalendarSpanLaneRows(segments) {
+  if (!segments.length) return { placed: [], laneCount: 0 }
+  const sorted = [...segments].sort((a, b) => {
+    const wa = a.endCol - a.startCol
+    const wb = b.endCol - b.startCol
+    if (wb !== wa) return wb - wa
+    return a.startCol - b.startCol
+  })
+  const laneRanges = []
+  const placed = []
+  for (const seg of sorted) {
+    let lane = 0
+    while (lane < 200) {
+      if (!laneRanges[lane]) laneRanges[lane] = []
+      const ranges = laneRanges[lane]
+      const clash = ranges.some((r) => !(r.end < seg.startCol || r.start > seg.endCol))
+      if (!clash) {
+        ranges.push({ start: seg.startCol, end: seg.endCol })
+        placed.push({ ...seg, lane })
+        break
+      }
+      lane += 1
+    }
+  }
+  return { placed, laneCount: laneRanges.length }
+}
+
+/** 주(7칸) 안에서 기타 일정 다중일 구간 → 스팬 바(그리드 열) */
+function buildWeekManualSpanBarPlacements(weekDays, calendarItems) {
+  const segments = []
+  for (const item of calendarItems) {
+    if (item.type !== 'manual') continue
+    const { dateStart: ds, dateEnd: de } = normalizeManualEventRangeInPlace(item)
+    if (!ds || !de || ds === de) continue
+    let i = 0
+    while (i < 7) {
+      const d = weekDays[i]
+      if (!d || d < ds || d > de) {
+        i += 1
+        continue
+      }
+      const startCol = i
+      let endCol = i
+      for (let j = i + 1; j < 7; j += 1) {
+        const d2 = weekDays[j]
+        if (!d2 || d2 < ds || d2 > de) break
+        const dPrev = weekDays[j - 1]
+        if (!dPrev || !isConsecutiveCalendarYmd(dPrev, d2)) break
+        endCol = j
+      }
+      segments.push({ item, startCol, endCol })
+      i = endCol + 1
+    }
+  }
+  return assignCalendarSpanLaneRows(segments)
+}
+
+function loadManualEventsFromLocalStorage() {
+  const tryParse = (raw) => {
+    if (!raw) return null
+    try {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : null
+    } catch {
+      return null
+    }
+  }
+  const fromV4 = tryParse(localStorage.getItem(CALENDAR_STORAGE_KEY))
+  if (fromV4) return fromV4.map((row) => ({ ...row, ...normalizeManualEventRangeInPlace(row) }))
+  const fromV3 = tryParse(localStorage.getItem(CALENDAR_STORAGE_KEY_LEGACY_V3))
+  if (fromV3) return fromV3.map((row) => ({ ...row, ...normalizeManualEventRangeInPlace(row) }))
+  return []
+}
+
 const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
 const CONTRACT_SHARED_AUTH_KEY = 'CONTRACT_SHARED_AUTH'
 const CONTRACT_SHARED_EXPIRES_AT_KEY = 'CONTRACT_SHARED_EXPIRES_AT'
@@ -382,9 +519,6 @@ const INSTALL_CASE_SEED_CASES = [
   {
     id: 'ic-1',
     projectName: '첨단의료진흥재단 로비 직접표출장치 구축',
-    placeName: '대구경북첨단의료산업진흥재단',
-    modelName: '래닫 큐브',
-    thumbnail: 'https://picsum.photos/seed/smartdi-ic1/480/320',
     heroImage: 'https://picsum.photos/seed/smartdi-ic1h/960/720',
     environment: 'indoor',
     audience: 'public',
@@ -403,9 +537,6 @@ const INSTALL_CASE_SEED_CASES = [
   {
     id: 'ic-2',
     projectName: '중앙도서관 안내용 실내 전자게시대 설치',
-    placeName: '○○대학교 중앙도서관',
-    modelName: '사이니지 프로 S',
-    thumbnail: 'https://picsum.photos/seed/smartdi-ic2/480/320',
     heroImage: 'https://picsum.photos/seed/smartdi-ic2h/960/720',
     environment: 'indoor',
     audience: 'education',
@@ -424,9 +555,6 @@ const INSTALL_CASE_SEED_CASES = [
   {
     id: 'ic-3',
     projectName: '시민체육공원 주경기장 전광판 교체공사',
-    placeName: '시민체육공원 주경기장',
-    modelName: '아웃도어 라이트닝 X',
-    thumbnail: 'https://picsum.photos/seed/smartdi-ic3/480/320',
     heroImage: 'https://picsum.photos/seed/smartdi-ic3h/960/720',
     environment: 'outdoor',
     audience: 'culture',
@@ -445,9 +573,6 @@ const INSTALL_CASE_SEED_CASES = [
   {
     id: 'ic-4',
     projectName: '대공연장 무대 배경 LED 영상장치',
-    placeName: '복합문화센터 대공연장',
-    modelName: '스테이지 비전',
-    thumbnail: 'https://picsum.photos/seed/smartdi-ic4/480/320',
     heroImage: 'https://picsum.photos/seed/smartdi-ic4h/960/720',
     environment: 'indoor',
     audience: 'culture',
@@ -466,9 +591,6 @@ const INSTALL_CASE_SEED_CASES = [
   {
     id: 'ic-5',
     projectName: '사옥 로비 디지털 사이니지 구축',
-    placeName: '○○테크놀로지 사옥 로비',
-    modelName: '엣지 큐브 미니',
-    thumbnail: 'https://picsum.photos/seed/smartdi-ic5/480/320',
     heroImage: 'https://picsum.photos/seed/smartdi-ic5h/960/720',
     environment: 'indoor',
     audience: 'private',
@@ -496,7 +618,7 @@ function cloneInstallCaseSeed() {
 }
 
 function getInstallCaseProjectTitle(row) {
-  return safeString(row?.projectName).trim() || safeString(row?.placeName).trim() || '-'
+  return safeString(row?.projectName).trim() || '-'
 }
 
 function formatInstallCaseLedPitchDisplay(pitch) {
@@ -750,7 +872,6 @@ function InstallCaseImageDropzone({ inputId, label, previewUrl, fileName, onFile
 function getDefaultInstallCaseForm() {
   return {
     projectName: '',
-    placeName: '',
     environment: 'indoor',
     audience: 'public',
     businessYearDigits: String(new Date().getFullYear()),
@@ -792,7 +913,8 @@ const emptyContract = {
 }
 
 const emptyEvent = {
-  date: '',
+  dateStart: '',
+  dateEnd: '',
   title: '',
   owner: '',
   note: '',
@@ -2003,7 +2125,9 @@ function formatCalendarMonthListTitleLine(item) {
     return `${CALENDAR_MONTH_LIST_CATEGORY.CONTRACT} [${date}] ${clean}`
   }
   if (item.type === 'manual') {
-    return `${CALENDAR_MONTH_LIST_CATEGORY.MANUAL} [${date}] ${clean}`
+    const r = normalizeManualEventRangeInPlace(item)
+    const rangeDate = formatCalendarManualRangeLabel(r.dateStart, r.dateEnd)
+    return `${CALENDAR_MONTH_LIST_CATEGORY.MANUAL} [${rangeDate}] ${clean}`
   }
   if (item.type === 'due') {
     const diff = getDateDiffFromToday(date)
@@ -2303,17 +2427,7 @@ function App() {
   })
   const [isExcludedGuideCollapsed, setIsExcludedGuideCollapsed] = useState(true)
   const [isDocumentGuideCollapsed, setIsDocumentGuideCollapsed] = useState(true)
-  const [manualEvents, setManualEvents] = useState(() => {
-    const saved = localStorage.getItem(CALENDAR_STORAGE_KEY)
-    if (saved) {
-      try {
-        return JSON.parse(saved)
-      } catch {
-        return []
-      }
-    }
-    return []
-  })
+  const [manualEvents, setManualEvents] = useState(() => loadManualEventsFromLocalStorage())
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({
     year: ALL_OPTION,
@@ -2818,8 +2932,7 @@ function App() {
     const res = parseResolutionStoredToWH(safeString(row.specs?.resolution))
     const mq = parseModuleQtyToWH(safeString(row.specs?.moduleQty))
     setInstallCaseFormDraft({
-      projectName: getInstallCaseProjectTitle(row),
-      placeName: safeString(row.placeName).trim(),
+      projectName: safeString(row.projectName).trim(),
       environment: row.environment || 'indoor',
       audience: row.audience || 'public',
       businessYearDigits: parseYearToDigits(row.year),
@@ -2840,7 +2953,6 @@ function App() {
     })
     icImageRestoreRef.current =
       safeString(row.heroImage).trim() ||
-      safeString(row.thumbnail).trim() ||
       INSTALL_CASE_FALLBACK_HERO
     setIcImageFile(null)
     setIcImagePreview(icImageRestoreRef.current)
@@ -2909,11 +3021,7 @@ function App() {
       window.alert(e?.message || '이미지를 처리하지 못했습니다.')
       return
     }
-    const prevRow = installCaseEditingId
-      ? installCases.find((c) => c.id === installCaseEditingId)
-      : null
     const projectName = safeString(d.projectName).trim()
-    const placeName = safeString(d.placeName).trim() || projectName
     const displayArea = formatInstallCaseWhMmFromWH(d.specs.displayAreaW, d.specs.displayAreaH) || '-'
     const moduleSize = formatInstallCaseWhMmFromWH(d.specs.moduleSizeW, d.specs.moduleSizeH) || '-'
     const ledPitch = safeString(d.specs.ledPitch).trim() || '-'
@@ -2922,9 +3030,6 @@ function App() {
       formatInstallCaseResolutionFromWH(d.specs.resolutionW, d.specs.resolutionH) || '-'
     const rowPayload = {
       projectName,
-      placeName,
-      modelName: installCaseEditingId ? (prevRow?.modelName ?? '-') : '-',
-      thumbnail: imageUrl,
       heroImage: imageUrl,
       environment: d.environment || 'indoor',
       audience: d.audience || 'public',
@@ -2946,6 +3051,9 @@ function App() {
           if (c.id !== installCaseEditingId) return c
           const merged = { ...c, ...rowPayload }
           delete merged.location
+          delete merged.placeName
+          delete merged.modelName
+          delete merged.thumbnail
           return merged
         })
       )
@@ -2953,6 +3061,9 @@ function App() {
         if (!cur || cur.id !== installCaseEditingId) return cur
         const merged = { ...cur, ...rowPayload, id: installCaseEditingId }
         delete merged.location
+        delete merged.placeName
+        delete merged.modelName
+        delete merged.thumbnail
         return merged
       })
     } else {
@@ -3261,18 +3372,23 @@ function App() {
         contract: item,
       }))
 
-    const extraItems = manualEvents.map((item) => ({
-      id: `manual-${item.id}`,
-      date: item.date,
-      category: CALENDAR_MONTH_LIST_CATEGORY.MANUAL,
-      title: item.title,
-      text: item.title,
-      type: 'manual',
-      owner: item.owner,
-      note: item.note,
-      dday: getCalendarListRelativeDayLabel('manual', item.date),
-      originalId: item.id,
-    }))
+    const extraItems = manualEvents.map((item) => {
+      const r = normalizeManualEventRangeInPlace(item)
+      return {
+        id: `manual-${item.id}`,
+        date: r.dateStart,
+        dateStart: r.dateStart,
+        dateEnd: r.dateEnd,
+        category: CALENDAR_MONTH_LIST_CATEGORY.MANUAL,
+        title: item.title,
+        text: item.title,
+        type: 'manual',
+        owner: item.owner,
+        note: item.note,
+        dday: getCalendarListRelativeDayLabel('manual', r.dateEnd),
+        originalId: item.id,
+      }
+    })
 
     return [...contractDateItems, ...dueDateItems, ...extraItems]
   }, [contracts, manualEvents])
@@ -3298,9 +3414,7 @@ function App() {
 
     return [...calendarItems]
       .filter((item) => {
-        const d = parseDateOnly(item.date)
-        const monthMatch = d ? d.getFullYear() === year && d.getMonth() + 1 === month : false
-        if (!monthMatch) return false
+        if (!calendarItemOverlapsCalendarMonth(item, year, month)) return false
         if (!calendarMonthListEventPassesCategoryFilter(item, monthTypeFilter)) return false
         const searchMatch = `${item.text} ${item.owner || ''} ${item.pm || ''} ${item.note || ''}`
           .toLowerCase()
@@ -3309,15 +3423,20 @@ function App() {
         return searchMatch
       })
       .sort((a, b) => {
-        const aDate = parseDateOnly(a.date)
-        const bDate = parseDateOnly(b.date)
+        const aKey = a.type === 'manual' ? normalizeManualEventRangeInPlace(a).dateStart : a.date
+        const bKey = b.type === 'manual' ? normalizeManualEventRangeInPlace(b).dateStart : b.date
+        const aDate = parseDateOnly(aKey)
+        const bDate = parseDateOnly(bKey)
         return (aDate?.getTime() ?? 0) - (bDate?.getTime() ?? 0)
       })
   }, [calendarCursor, calendarItems, monthSearch, monthTypeFilter])
 
+  const calendarTodayYmd = formatDateInput(new Date())
+
   const persistEvents = (next) => {
-    setManualEvents(next)
-    localStorage.setItem(CALENDAR_STORAGE_KEY, JSON.stringify(next))
+    const normalized = next.map((e) => ({ ...e, ...normalizeManualEventRangeInPlace(e) }))
+    setManualEvents(normalized)
+    localStorage.setItem(CALENDAR_STORAGE_KEY, JSON.stringify(normalized))
   }
 
   const clearSharedAuthState = () => {
@@ -5808,18 +5927,38 @@ function App() {
   }
 
   const addManualEvent = () => {
-    if (!eventForm.date || !eventForm.title.trim()) {
-      alert('날짜와 일정 내용을 입력해주세요.')
+    const title = eventForm.title.trim()
+    const ds = safeString(eventForm.dateStart).trim()
+    const deRaw = safeString(eventForm.dateEnd).trim()
+    const de = deRaw || ds
+    if (!ds || !title) {
+      alert('시작일과 일정 내용을 입력해주세요.')
       return
     }
+    const pds = parseDateOnly(ds)
+    const pde = parseDateOnly(de)
+    if (!pds) {
+      alert('시작일 형식을 확인해주세요.')
+      return
+    }
+    let startYmd = formatDateInput(pds)
+    let endYmd = formatDateInput(pde && !Number.isNaN(pde.getTime()) ? pde : pds)
+    if (parseDateOnly(startYmd) > parseDateOnly(endYmd)) {
+      const t = startYmd
+      startYmd = endYmd
+      endYmd = t
+    }
+    const row = {
+      id: Date.now(),
+      dateStart: startYmd,
+      dateEnd: endYmd,
+      date: startYmd,
+      title,
+      owner: safeString(eventForm.owner).trim(),
+      note: safeString(eventForm.note).trim(),
+    }
 
-    const next = [
-      {
-        id: Date.now(),
-        ...eventForm,
-      },
-      ...manualEvents,
-    ]
+    const next = [row, ...manualEvents]
 
     persistEvents(next)
     setEventForm({ ...emptyEvent })
@@ -5842,10 +5981,11 @@ function App() {
 
   const openCalendarDetail = (item) => {
     if (item.type === 'manual') {
+      const r = normalizeManualEventRangeInPlace(item)
       setDetailModal({
         title: '일정 상세',
         typeLabel: '기타 일정',
-        date: item.date,
+        date: formatCalendarManualRangeLabel(r.dateStart, r.dateEnd),
         dday: item.dday || '',
         projectName: item.text,
         salesOwner: item.owner || '',
@@ -9184,7 +9324,7 @@ function App() {
                     onClick={() => setInstallCaseDetailModal(row)}
                   >
                     <div className="install-case-card-thumb">
-                      <img src={row.thumbnail} alt="" loading="lazy" />
+                      <img src={row.heroImage || INSTALL_CASE_FALLBACK_HERO} alt="" loading="lazy" />
                     </div>
                     <div className="install-case-card-body">
                       <div className="install-case-card-title">{getInstallCaseProjectTitle(row)}</div>
@@ -9234,12 +9374,29 @@ function App() {
                 <div className="calendar-page-main">
                   <div className="calendar-add-form-bar">
                     <div className="calendar-toolbar-form">
-                      <input
-                        type="date"
-                        className="calendar-input calendar-input-date"
-                        value={eventForm.date}
-                        onChange={(e) => setEventForm((prev) => ({ ...prev, date: e.target.value }))}
-                      />
+                      <div className="calendar-date-range-group" aria-label="일정 기간">
+                        <span className="calendar-date-range-label">시작일</span>
+                        <input
+                          type="date"
+                          className="calendar-input calendar-input-date"
+                          value={eventForm.dateStart}
+                          onChange={(e) =>
+                            setEventForm((prev) => ({ ...prev, dateStart: e.target.value }))
+                          }
+                        />
+                        <span className="calendar-date-range-sep" aria-hidden>
+                          ~
+                        </span>
+                        <span className="calendar-date-range-label">종료일</span>
+                        <input
+                          type="date"
+                          className="calendar-input calendar-input-date"
+                          value={eventForm.dateEnd}
+                          onChange={(e) =>
+                            setEventForm((prev) => ({ ...prev, dateEnd: e.target.value }))
+                          }
+                        />
+                      </div>
                       <input
                         type="text"
                         className="calendar-input calendar-input-title"
@@ -9274,45 +9431,102 @@ function App() {
                           </div>
                         ))}
                       </div>
-                      <div className="calendar-grid calendar-grid--days">
-                        {monthDays.map((day, index) => {
-                          const dateObj = day ? parseDateOnly(day) : null
-                          const dow = dateObj ? dateObj.getDay() : null
-                          const isHoliday = day ? isKoreanPublicHoliday(day) : false
-                          const dayNum = day ? parseInt(day.slice(8, 10), 10) : null
-                          const dayNumberClass = [
-                            'day-number',
-                            isHoliday ? 'day-number--holiday' : dow === 0 ? 'day-number--sun' : dow === 6 ? 'day-number--sat' : '',
-                          ]
-                            .filter(Boolean)
-                            .join(' ')
+                      <div className="calendar-month-weeks">
+                        {chunkArray(monthDays, 7).map((weekDays, wi) => {
+                          const spanData = buildWeekManualSpanBarPlacements(weekDays, calendarItems)
                           return (
-                            <div key={index} className={day ? 'day-box' : 'day-box empty'}>
-                              {day && (
-                                <>
-                                  <div className={dayNumberClass}>{dayNum}</div>
-                                  <div className="day-events">
-                                    {calendarItems
-                                      .filter((item) => item.date === day)
-                                      .map((item) => (
-                                        <button
-                                          key={item.id}
-                                          type="button"
-                                          className={`event-pill event-pill-button ${
-                                            item.type === 'contract'
-                                              ? 'contract-event'
-                                              : item.type === 'due'
-                                              ? 'due-event'
-                                              : 'manual-event'
-                                          }`}
-                                          onClick={() => openCalendarDetail(item)}
-                                        >
-                                          {item.text}
-                                        </button>
-                                      ))}
-                                  </div>
-                                </>
-                              )}
+                            <div key={wi} className="calendar-week-stack">
+                              <div className="calendar-grid calendar-grid--days calendar-grid--week">
+                                {weekDays.map((day, di) => {
+                                  const index = wi * 7 + di
+                                  const dateObj = day ? parseDateOnly(day) : null
+                                  const dow = dateObj ? dateObj.getDay() : null
+                                  const isHoliday = day ? isKoreanPublicHoliday(day) : false
+                                  const dayNum = day ? parseInt(day.slice(8, 10), 10) : null
+                                  const dayNumberClass = [
+                                    'day-number',
+                                    isHoliday
+                                      ? 'day-number--holiday'
+                                      : dow === 0
+                                        ? 'day-number--sun'
+                                        : dow === 6
+                                          ? 'day-number--sat'
+                                          : '',
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' ')
+                                  const dayBoxClass = [
+                                    day ? 'day-box' : 'day-box empty',
+                                    day && day === calendarTodayYmd ? 'day-box--today' : '',
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' ')
+                                  return (
+                                    <div key={index} className={dayBoxClass}>
+                                      {day && (
+                                        <>
+                                          <div className={dayNumberClass}>{dayNum}</div>
+                                          <div className="day-events">
+                                            {calendarItems
+                                              .filter((item) => {
+                                                if (item.type === 'manual') {
+                                                  const r = normalizeManualEventRangeInPlace(item)
+                                                  if (
+                                                    r.dateStart &&
+                                                    r.dateEnd &&
+                                                    r.dateStart !== r.dateEnd
+                                                  ) {
+                                                    return false
+                                                  }
+                                                }
+                                                return item.date === day
+                                              })
+                                              .map((item) => (
+                                                <button
+                                                  key={item.id}
+                                                  type="button"
+                                                  className={`event-pill event-pill-button ${
+                                                    item.type === 'contract'
+                                                      ? 'contract-event'
+                                                      : item.type === 'due'
+                                                        ? 'due-event'
+                                                        : 'manual-event'
+                                                  }`}
+                                                  onClick={() => openCalendarDetail(item)}
+                                                >
+                                                  {item.text}
+                                                </button>
+                                              ))}
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                              {spanData.laneCount > 0 ? (
+                                <div
+                                  className="calendar-week-multi-lane"
+                                  style={{
+                                    gridTemplateRows: `repeat(${spanData.laneCount}, 22px)`,
+                                  }}
+                                >
+                                  {spanData.placed.map((seg) => (
+                                    <button
+                                      key={`${seg.item.id}-w${wi}-c${seg.startCol}-${seg.endCol}-L${seg.lane}`}
+                                      type="button"
+                                      className="calendar-span-bar manual-span-bar"
+                                      style={{
+                                        gridColumn: `${seg.startCol + 1} / ${seg.endCol + 2}`,
+                                        gridRow: seg.lane + 1,
+                                      }}
+                                      onClick={() => openCalendarDetail(seg.item)}
+                                    >
+                                      {seg.item.text}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : null}
                             </div>
                           )
                         })}
