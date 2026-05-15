@@ -93,6 +93,8 @@ export default function LoginPage() {
         </form>
 
         <div className="login-page-permissions">
+          <div className="login-page-permissions-heading">💡 로그인 권한 안내</div>
+
           <div className="login-page-permissions-role">관리자</div>
           <div className="login-page-permissions-item">- 모든 메뉴 편집 가능</div>
 
