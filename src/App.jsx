@@ -7,6 +7,7 @@ import { excludedProjectsApi } from './excludedProjectsApi'
 import { projectDiscoveryApi } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
+import { installCasesApi } from './installCasesApi'
 import { API_BASE_URL, apiFetchInit, clearAuthToken, getAuthHeaders, setAuthToken } from './apiClient.js'
 import { logCmsApiLogin } from './cmsApiProbe.js'
 
@@ -519,107 +520,28 @@ const INSTALL_CASE_REGISTER_BASIC_ROWS = [
   { type: 'text', key: 'client', label: '발주처', required: true, placeholder: '' },
 ]
 
-/** 설치사례 초기 시드 (로컬 상태 초기값) */
-const INSTALL_CASE_SEED_CASES = [
-  {
-    id: 'ic-1',
-    projectName: '첨단의료진흥재단 로비 직접표출장치 구축',
-    heroImage: 'https://picsum.photos/seed/smartdi-ic1h/960/720',
-    environment: 'indoor',
-    audience: 'public',
-    year: '2024',
-    purpose: '로비·안내 복합 표출',
-    client: '대구경북첨단의료산업진흥재단',
-    specs: {
-      displayArea: '(W)4,800 x (H)2,700mm',
-      ledPitch: 'P2.5mm',
-      moduleSize: '(W)320 x (H)160mm',
-      moduleQty: '(W)10 x (H)12 = 120EA',
-      resolution: '1920×1080',
-      installType: '벽면 매립',
-    },
-  },
-  {
-    id: 'ic-2',
-    projectName: '중앙도서관 안내용 실내 전자게시대 설치',
-    heroImage: 'https://picsum.photos/seed/smartdi-ic2h/960/720',
-    environment: 'indoor',
-    audience: 'education',
-    year: '2023',
-    purpose: '학술 행사·안내',
-    client: '○○대학교',
-    specs: {
-      displayArea: '(W)3,200 x (H)1,800mm',
-      ledPitch: 'P3mm',
-      moduleSize: '(W)256 x (H)128mm',
-      moduleQty: '(W)8 x (H)9 = 72EA',
-      resolution: '1280×720',
-      installType: '전면 거치',
-    },
-  },
-  {
-    id: 'ic-3',
-    projectName: '시민체육공원 주경기장 전광판 교체공사',
-    heroImage: 'https://picsum.photos/seed/smartdi-ic3h/960/720',
-    environment: 'outdoor',
-    audience: 'culture',
-    year: '2025',
-    purpose: '경기 스코어·광고',
-    client: '○○광역시 시설관리공단',
-    specs: {
-      displayArea: '(W)15,360 x (H)6,720mm',
-      ledPitch: 'P10mm',
-      moduleSize: '(W)320 x (H)160mm',
-      moduleQty: '(W)30 x (H)14 = 420EA',
-      resolution: '3840×2160',
-      installType: '강관 주탑',
-    },
-  },
-  {
-    id: 'ic-4',
-    projectName: '대공연장 무대 배경 LED 영상장치',
-    heroImage: 'https://picsum.photos/seed/smartdi-ic4h/960/720',
-    environment: 'indoor',
-    audience: 'culture',
-    year: '2024',
-    purpose: '무대 배경 영상',
-    client: '○○문화재단',
-    specs: {
-      displayArea: '(W)14,000 x (H)5,000mm',
-      ledPitch: 'P4mm',
-      moduleSize: '(W)500 x (H)500mm',
-      moduleQty: '(W)14 x (H)20 = 280EA',
-      resolution: '7680×2160',
-      installType: '트러스 서스펜션',
-    },
-  },
-  {
-    id: 'ic-5',
-    projectName: '사옥 로비 디지털 사이니지 구축',
-    heroImage: 'https://picsum.photos/seed/smartdi-ic5h/960/720',
-    environment: 'indoor',
-    audience: 'private',
-    year: '2025',
-    purpose: '기업 홍보·방문 안내',
-    client: '○○테크놀로지㈜',
-    specs: {
-      displayArea: '(W)2,400 x (H)1,350mm',
-      ledPitch: 'P1.8mm',
-      moduleSize: '(W)300 x (H)169mm',
-      moduleQty: '(W)6 x (H)8 = 48EA',
-      resolution: '1920×1080',
-      installType: '유리면 부착',
-    },
-  },
-]
-
 const INSTALL_CASE_FALLBACK_HERO = 'https://picsum.photos/seed/newinstallh/960/720'
 
-function cloneInstallCaseSeed() {
-  return INSTALL_CASE_SEED_CASES.map((row) => ({
-    ...row,
-    specs: { ...row.specs },
-  }))
+function normalizeInstallCaseRow(row) {
+  const specs = row?.specs && typeof row.specs === 'object' ? row.specs : {}
+  return {
+    id: safeString(row?.id),
+    projectName: safeString(row?.projectName),
+    heroImage: safeString(row?.heroImage).trim() || INSTALL_CASE_FALLBACK_HERO,
+    environment: row?.environment || 'indoor',
+    audience: row?.audience || 'public',
+    year: safeString(row?.year),
+    purpose: safeString(row?.purpose),
+    client: safeString(row?.client),
+    specs: {
+      displayArea: safeString(specs.displayArea),
+      ledPitch: safeString(specs.ledPitch),
+      moduleSize: safeString(specs.moduleSize),
+      moduleQty: safeString(specs.moduleQty),
+      resolution: safeString(specs.resolution),
+      installType: safeString(specs.installType),
+    },
+  }
 }
 
 function getInstallCaseProjectTitle(row) {
@@ -2766,7 +2688,7 @@ function App() {
   const [installCaseEnvFilter, setInstallCaseEnvFilter] = useState('')
   const [installCaseAudienceFilter, setInstallCaseAudienceFilter] = useState('')
   const [installCaseDetailModal, setInstallCaseDetailModal] = useState(null)
-  const [installCases, setInstallCases] = useState(() => cloneInstallCaseSeed())
+  const [installCases, setInstallCases] = useState([])
   const [installCaseRegisterOpen, setInstallCaseRegisterOpen] = useState(false)
   const [installCaseFormDraft, setInstallCaseFormDraft] = useState(() => getDefaultInstallCaseForm())
   const [installCaseEditingId, setInstallCaseEditingId] = useState(null)
@@ -3094,6 +3016,18 @@ function App() {
     }
   }
 
+  const fetchInstallCases = async () => {
+    try {
+      const rows = await installCasesApi.list()
+      setInstallCases(rows.map(normalizeInstallCaseRow))
+      return rows
+    } catch (error) {
+      console.error('[설치사례] API fetch failed', error)
+      setInstallCases([])
+      return []
+    }
+  }
+
   useEffect(() => {
     remoteListsSyncRef.current = () => {
       void fetchContracts()
@@ -3102,6 +3036,7 @@ function App() {
       void fetchDiscoveryRows(true)
       void fetchExcludedRows(true)
       void fetchWorkReportRows()
+      void fetchInstallCases()
     }
   })
 
@@ -3146,6 +3081,11 @@ function App() {
   useEffect(() => {
     if (!isAppAuthenticated || menu !== 'excluded') return
     void fetchExcludedRows(true)
+  }, [isAppAuthenticated, menu])
+
+  useEffect(() => {
+    if (!isAppAuthenticated || menu !== 'installCases') return
+    void fetchInstallCases()
   }, [isAppAuthenticated, menu])
 
   useEffect(() => {
@@ -3414,9 +3354,15 @@ function App() {
       message: '이 설치사례를 삭제할까요?',
       destructive: true,
       confirmLabel: '삭제',
-      onConfirm: () => {
-        setInstallCases((prev) => prev.filter((c) => c.id !== id))
-        setInstallCaseDetailModal((cur) => (cur && cur.id === id ? null : cur))
+      onConfirm: async () => {
+        try {
+          await installCasesApi.remove(id)
+          await fetchInstallCases()
+          setInstallCaseDetailModal((cur) => (cur && cur.id === id ? null : cur))
+        } catch (error) {
+          logApiOperationError('설치사례 삭제', error)
+          showAppAlert(error?.message || '삭제에 실패했습니다.', '알림')
+        }
       },
     })
   }, [])
@@ -3607,33 +3553,23 @@ function App() {
         installType: safeString(d.specs.installType).trim() || '-',
       },
     }
-    if (installCaseEditingId) {
-      setInstallCases((prev) =>
-        prev.map((c) => {
-          if (c.id !== installCaseEditingId) return c
-          const merged = { ...c, ...rowPayload }
-          delete merged.location
-          delete merged.placeName
-          delete merged.modelName
-          delete merged.thumbnail
-          return merged
-        })
-      )
-      setInstallCaseDetailModal((cur) => {
-        if (!cur || cur.id !== installCaseEditingId) return cur
-        const merged = { ...cur, ...rowPayload, id: installCaseEditingId }
-        delete merged.location
-        delete merged.placeName
-        delete merged.modelName
-        delete merged.thumbnail
-        return merged
-      })
-    } else {
-      const id = `ic-${Date.now()}`
-      setInstallCases((prev) => [{ id, ...rowPayload }, ...prev])
+    try {
+      if (installCaseEditingId) {
+        const updated = await installCasesApi.update(installCaseEditingId, rowPayload)
+        const normalized = normalizeInstallCaseRow(updated)
+        setInstallCaseDetailModal((cur) =>
+          cur && cur.id === installCaseEditingId ? normalized : cur
+        )
+      } else {
+        await installCasesApi.create(rowPayload)
+      }
+      clearInstallCaseFormDraftStorage()
+      handleCloseInstallCaseRegister({ discardDraft: true })
+      await fetchInstallCases()
+    } catch (error) {
+      logApiOperationError(installCaseEditingId ? '설치사례 수정' : '설치사례 등록', error)
+      showAppAlert(error?.message || '저장에 실패했습니다.', '알림')
     }
-    clearInstallCaseFormDraftStorage()
-    handleCloseInstallCaseRegister({ discardDraft: true })
   }
 
   const getContractRowBySelectKey = useCallback(

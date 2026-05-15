@@ -412,6 +412,51 @@ class WeeklyWorkReportOut(WeeklyWorkReportBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class InstallCaseSpecs(BaseModel):
+    displayArea: str = ""
+    ledPitch: str = ""
+    moduleSize: str = ""
+    moduleQty: str = ""
+    resolution: str = ""
+    installType: str = ""
+
+
+class InstallCaseBase(BaseModel):
+    projectName: Optional[Any] = ""
+    heroImage: Optional[Any] = ""
+    environment: Optional[Any] = "indoor"
+    audience: Optional[Any] = "public"
+    year: Optional[Any] = ""
+    purpose: Optional[Any] = ""
+    client: Optional[Any] = ""
+    specs: Optional[Any] = None
+    createdAt: Optional[Any] = None
+    updatedAt: Optional[Any] = None
+
+
+class InstallCaseCreate(InstallCaseBase):
+    pass
+
+
+class InstallCasePatch(BaseModel):
+    projectName: Optional[Any] = None
+    heroImage: Optional[Any] = None
+    environment: Optional[Any] = None
+    audience: Optional[Any] = None
+    year: Optional[Any] = None
+    purpose: Optional[Any] = None
+    client: Optional[Any] = None
+    specs: Optional[Any] = None
+    createdAt: Optional[Any] = None
+    updatedAt: Optional[Any] = None
+
+
+class InstallCaseOut(InstallCaseBase):
+    id: Optional[Any] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 def decimal_to_int(value):
     if isinstance(value, Decimal):
         return int(value)
@@ -577,6 +622,37 @@ def row_to_weekly_work_report(row) -> dict:
     }
 
 
+def _normalize_install_case_specs(raw) -> dict:
+    if raw is None:
+        return {}
+    if isinstance(raw, dict):
+        return {
+            "displayArea": to_response_value(raw.get("displayArea")) or "",
+            "ledPitch": to_response_value(raw.get("ledPitch")) or "",
+            "moduleSize": to_response_value(raw.get("moduleSize")) or "",
+            "moduleQty": to_response_value(raw.get("moduleQty")) or "",
+            "resolution": to_response_value(raw.get("resolution")) or "",
+            "installType": to_response_value(raw.get("installType")) or "",
+        }
+    return {}
+
+
+def row_to_install_case(row) -> dict:
+    return {
+        "id": to_response_value(row["id"]),
+        "projectName": to_response_value(row["projectName"]),
+        "heroImage": to_response_value(row["heroImage"]),
+        "environment": to_response_value(row["environment"]),
+        "audience": to_response_value(row["audience"]),
+        "year": to_response_value(row["year"]),
+        "purpose": to_response_value(row["purpose"]),
+        "client": to_response_value(row["client"]),
+        "specs": _normalize_install_case_specs(row.get("specs")),
+        "createdAt": to_response_value(row["createdAt"]),
+        "updatedAt": to_response_value(row["updatedAt"]),
+    }
+
+
 CONTRACT_DB_COLUMNS = {
     "year": "year",
     "segment": "segment",
@@ -687,6 +763,18 @@ TABLE_COLUMN_MAPPINGS = {
         "createdAt": "createdAt",
         "updatedAt": "updatedAt",
     },
+    "install_cases_rows": {
+        "projectName": "projectName",
+        "heroImage": "heroImage",
+        "environment": "environment",
+        "audience": "audience",
+        "year": "year",
+        "purpose": "purpose",
+        "client": "client",
+        "specs": "specs",
+        "createdAt": "createdAt",
+        "updatedAt": "updatedAt",
+    },
 }
 
 SALES_REGISTER_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["sales_register_rows"]
@@ -695,6 +783,7 @@ PROJECT_DISCOVERY_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["project_discovery_rows"]
 EXCLUDED_PROJECT_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["excluded_projects_rows"]
 DOCUMENT_REGISTER_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["document_register_rows"]
 WEEKLY_WORK_REPORT_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["weekly_work_reports_rows"]
+INSTALL_CASE_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["install_cases_rows"]
 
 
 def sales_register_to_db_values(row: SalesRegisterBase) -> dict:
@@ -748,6 +837,17 @@ def weekly_work_report_to_db_values(row: WeeklyWorkReportBase) -> dict:
     for api_key, db_key in WEEKLY_WORK_REPORT_DB_COLUMNS.items():
         if api_key in data:
             values[db_key] = data[api_key]
+    return values
+
+
+def install_case_to_db_values(row: InstallCaseBase) -> dict:
+    data = row.model_dump(exclude_unset=True)
+    values = {}
+    for api_key, db_key in INSTALL_CASE_DB_COLUMNS.items():
+        if api_key in data:
+            values[db_key] = data[api_key]
+    if "specs" in values and values["specs"] is None:
+        values["specs"] = {}
     return values
 
 

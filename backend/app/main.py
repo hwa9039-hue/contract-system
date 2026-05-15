@@ -14,6 +14,7 @@ from app.routers import excluded_projects
 from app.routers import project_discovery
 from app.routers import sales_register
 from app.routers import weekly_work_reports
+from app.routers import install_cases
 
 
 DEFAULT_CORS_ORIGINS = (
@@ -87,3 +88,4 @@ app.include_router(project_discovery.router)
 app.include_router(excluded_projects.router)
 app.include_router(document_register.router)
 app.include_router(weekly_work_reports.router)
+app.include_router(install_cases.router)

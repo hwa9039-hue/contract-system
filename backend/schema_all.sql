@@ -164,3 +164,20 @@ CREATE INDEX IF NOT EXISTS contracts_rows_year_idx
 
 CREATE INDEX IF NOT EXISTS contracts_rows_contract_date_idx
   ON contracts_rows ("contractDate" DESC);
+
+CREATE TABLE IF NOT EXISTS install_cases_rows (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "projectName" text NOT NULL DEFAULT '',
+  "heroImage" text NOT NULL DEFAULT '',
+  environment text NOT NULL DEFAULT 'indoor',
+  audience text NOT NULL DEFAULT 'public',
+  year text NOT NULL DEFAULT '',
+  purpose text NOT NULL DEFAULT '',
+  client text NOT NULL DEFAULT '',
+  specs jsonb NOT NULL DEFAULT '{}'::jsonb,
+  "createdAt" timestamptz NOT NULL DEFAULT now(),
+  "updatedAt" timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS install_cases_rows_created_at_idx
+  ON install_cases_rows ("createdAt" DESC);

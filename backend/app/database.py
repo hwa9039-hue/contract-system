@@ -327,4 +327,27 @@ def init_db():
                   on contracts_rows ("contractDate" desc)
                 """
             )
+            cursor.execute(
+                """
+                create table if not exists install_cases_rows (
+                  id uuid primary key default gen_random_uuid(),
+                  "projectName" text not null default '',
+                  "heroImage" text not null default '',
+                  environment text not null default 'indoor',
+                  audience text not null default 'public',
+                  year text not null default '',
+                  purpose text not null default '',
+                  client text not null default '',
+                  specs jsonb not null default '{}'::jsonb,
+                  "createdAt" timestamptz not null default now(),
+                  "updatedAt" timestamptz not null default now()
+                )
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists install_cases_rows_created_at_idx
+                  on install_cases_rows ("createdAt" desc)
+                """
+            )
         repair_contract_row_ids(connection)
