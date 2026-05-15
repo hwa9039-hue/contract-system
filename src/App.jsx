@@ -2740,7 +2740,8 @@ function App() {
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
   const [eventForm, setEventForm] = useState({ ...emptyEvent })
-  const [manualEventEditingId, setManualEventEditingId] = useState(null)
+  const [calendarManualDetailEditMode, setCalendarManualDetailEditMode] = useState(false)
+  const [calendarManualDetailDraft, setCalendarManualDetailDraft] = useState(null)
   const [monthSearch, setMonthSearch] = useState('')
   const [monthTypeFilter, setMonthTypeFilter] = useState(CALENDAR_MONTH_LIST_CATEGORY.ALL)
   const [detailModal, setDetailModal] = useState(null)
@@ -3681,6 +3682,7 @@ function App() {
         text: item.title,
         type: 'manual',
         owner: item.owner,
+        pm: item.pm || '',
         note: item.note,
         dday: getCalendarListRelativeDayLabel('manual', r.dateEnd),
         originalId: item.id,
@@ -6300,34 +6302,6 @@ function App() {
       endYmd = t
     }
 
-    if (manualEventEditingId != null) {
-      const target = manualEvents.find((e) => e.id === manualEventEditingId)
-      if (!target) {
-        showAppAlert('수정 중인 일정을 찾을 수 없습니다.')
-        setManualEventEditingId(null)
-        setEventForm({ ...emptyEvent })
-        return
-      }
-      const next = manualEvents.map((e) =>
-        e.id === manualEventEditingId
-          ? {
-              ...e,
-              dateStart: startYmd,
-              dateEnd: endYmd,
-              date: startYmd,
-              title,
-              owner: safeString(eventForm.owner).trim(),
-              note: safeString(eventForm.note).trim(),
-            }
-          : e
-      )
-      persistEvents(next)
-      setManualEventEditingId(null)
-      setEventForm({ ...emptyEvent })
-      setToastMessage('일정이 수정되었습니다.')
-      return
-    }
-
     const row = {
       id: Date.now(),
       dateStart: startYmd,
@@ -6335,6 +6309,7 @@ function App() {
       date: startYmd,
       title,
       owner: safeString(eventForm.owner).trim(),
+      pm: '',
       note: safeString(eventForm.note).trim(),
     }
 
@@ -6353,26 +6328,111 @@ function App() {
       confirmLabel: '삭제',
       onConfirm: () => {
         persistEvents(manualEvents.filter((item) => item.id !== id))
-        if (manualEventEditingId === id) {
-          setManualEventEditingId(null)
-          setEventForm({ ...emptyEvent })
-        }
         onDeleted?.()
       },
     })
   }
 
-  const startEditManualEventFromListItem = (item) => {
-    if (item.type !== 'manual') return
-    const r = normalizeManualEventRangeInPlace(item)
-    setEventForm({
-      dateStart: r.dateStart,
-      dateEnd: r.dateEnd,
-      title: safeString(item.text || item.title).trim(),
-      owner: safeString(item.owner).trim(),
-      note: safeString(item.note).trim(),
+  const getManualDetailDraftDday = (draft) => {
+    if (!draft) return '-'
+    const ds = safeString(draft.dateStart).trim()
+    const deRaw = safeString(draft.dateEnd).trim()
+    const de = deRaw || ds
+    const pde = parseDateOnly(de)
+    if (!pde || Number.isNaN(pde.getTime())) return '-'
+    return getCalendarListRelativeDayLabel('manual', formatDateInput(pde)) || '-'
+  }
+
+  const beginCalendarManualDetailInlineEdit = () => {
+    if (detailModal?.manualEventId == null) return
+    setCalendarManualDetailDraft({
+      dateStart: detailModal.manualDateStart || '',
+      dateEnd: detailModal.manualDateEnd || detailModal.manualDateStart || '',
+      projectName: safeString(detailModal.projectName).trim(),
+      salesOwner: safeString(detailModal.salesOwner).trim(),
+      pm: safeString(detailModal.pm).trim(),
+      note: safeString(detailModal.note).trim(),
     })
-    setManualEventEditingId(item.originalId)
+    setCalendarManualDetailEditMode(true)
+  }
+
+  const cancelCalendarManualDetailInlineEdit = () => {
+    setCalendarManualDetailEditMode(false)
+    setCalendarManualDetailDraft(null)
+  }
+
+  const saveCalendarManualDetailInlineEdit = () => {
+    if (detailModal?.manualEventId == null || calendarManualDetailDraft == null) return
+    const id = detailModal.manualEventId
+    const title = safeString(calendarManualDetailDraft.projectName).trim()
+    const ds = safeString(calendarManualDetailDraft.dateStart).trim()
+    const deRaw = safeString(calendarManualDetailDraft.dateEnd).trim()
+    const de = deRaw || ds
+    if (!ds || !title) {
+      showAppAlert('시작일과 일정 내용을 입력해주세요.')
+      return
+    }
+    const pds = parseDateOnly(ds)
+    const pde = parseDateOnly(de)
+    if (!pds) {
+      showAppAlert('시작일 형식을 확인해주세요.')
+      return
+    }
+    let startYmd = formatDateInput(pds)
+    let endYmd = formatDateInput(pde && !Number.isNaN(pde.getTime()) ? pde : pds)
+    if (parseDateOnly(startYmd) > parseDateOnly(endYmd)) {
+      const t = startYmd
+      startYmd = endYmd
+      endYmd = t
+    }
+    const ownerVal = safeString(calendarManualDetailDraft.salesOwner).trim()
+    const pmVal = safeString(calendarManualDetailDraft.pm).trim()
+    const noteVal = safeString(calendarManualDetailDraft.note).trim()
+
+    if (!manualEvents.some((e) => e.id === id)) {
+      showAppAlert('수정 중인 일정을 찾을 수 없습니다.')
+      cancelCalendarManualDetailInlineEdit()
+      return
+    }
+
+    const next = manualEvents.map((e) =>
+      e.id === id
+        ? {
+            ...e,
+            dateStart: startYmd,
+            dateEnd: endYmd,
+            date: startYmd,
+            title,
+            owner: ownerVal,
+            pm: pmVal,
+            note: noteVal,
+          }
+        : e
+    )
+    persistEvents(next)
+    setDetailModal((prev) => {
+      if (!prev || prev.manualEventId !== id) return prev
+      return {
+        ...prev,
+        date: formatCalendarManualRangeLabel(startYmd, endYmd),
+        dday: getCalendarListRelativeDayLabel('manual', endYmd),
+        projectName: title,
+        salesOwner: ownerVal,
+        pm: pmVal,
+        note: noteVal,
+        manualDateStart: startYmd,
+        manualDateEnd: endYmd,
+      }
+    })
+    setCalendarManualDetailEditMode(false)
+    setCalendarManualDetailDraft(null)
+    setToastMessage('일정이 수정되었습니다.')
+  }
+
+  const closeCalendarDetailModal = () => {
+    setDetailModal(null)
+    setCalendarManualDetailEditMode(false)
+    setCalendarManualDetailDraft(null)
   }
 
   const prevMonth = () => {
@@ -6383,10 +6443,12 @@ function App() {
     setCalendarCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
   }
 
-  const openCalendarDetail = (item) => {
+  const openCalendarDetail = (item, options = {}) => {
+    const startManualInlineEdit = options.startManualInlineEdit === true
+
     if (item.type === 'manual') {
       const r = normalizeManualEventRangeInPlace(item)
-      setDetailModal({
+      const baseModal = {
         title: '일정 상세',
         typeLabel: '기타 일정',
         date: formatCalendarManualRangeLabel(r.dateStart, r.dateEnd),
@@ -6406,9 +6468,28 @@ function App() {
         manualEventId: item.originalId,
         manualDateStart: r.dateStart,
         manualDateEnd: r.dateEnd,
-      })
+      }
+      if (startManualInlineEdit) {
+        setDetailModal(baseModal)
+        setCalendarManualDetailDraft({
+          dateStart: r.dateStart,
+          dateEnd: r.dateEnd,
+          projectName: safeString(item.text || item.title).trim(),
+          salesOwner: safeString(item.owner).trim(),
+          pm: safeString(item.pm).trim(),
+          note: safeString(item.note).trim(),
+        })
+        setCalendarManualDetailEditMode(true)
+        return
+      }
+      setCalendarManualDetailEditMode(false)
+      setCalendarManualDetailDraft(null)
+      setDetailModal(baseModal)
       return
     }
+
+    setCalendarManualDetailEditMode(false)
+    setCalendarManualDetailDraft(null)
 
     const contract = item.contract
     if (!contract) return
@@ -9819,7 +9900,7 @@ function App() {
                         onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
                       />
                       <button className="primary-btn calendar-add-btn" type="button" onClick={addManualEvent}>
-                        {manualEventEditingId != null ? '일정 저장' : '일정 추가'}
+                        일정 추가
                       </button>
                     </div>
                   </div>
@@ -10032,7 +10113,7 @@ function App() {
                                       className="calendar-manual-action-btn calendar-manual-action-btn--edit"
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        startEditManualEventFromListItem(item)
+                                        openCalendarDetail(item, { startManualInlineEdit: true })
                                       }}
                                     >
                                       수정
@@ -10263,8 +10344,16 @@ function App() {
         </div>
       )}
 
-      {detailModal && (
-        <div className="modal-backdrop" onClick={() => setDetailModal(null)}>
+      {detailModal &&
+        (() => {
+          const inManualInlineEdit =
+            detailModal.manualEventId != null &&
+            calendarManualDetailEditMode &&
+            calendarManualDetailDraft != null
+          const md = calendarManualDetailDraft
+
+          return (
+        <div className="modal-backdrop" onClick={closeCalendarDetailModal}>
           <div
             className="install-case-detail-modal"
             role="dialog"
@@ -10277,41 +10366,51 @@ function App() {
               <div className="install-case-detail-modal-actions">
                 {detailModal.manualEventId != null && (
                   <>
-                    <button
-                      type="button"
-                      className="secondary-btn install-case-modal-delete-btn"
-                      onClick={() => {
-                        deleteManualEvent(detailModal.manualEventId, {
-                          onDeleted: () => setDetailModal(null),
-                        })
-                      }}
-                    >
-                      삭제
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary-btn install-case-modal-edit-btn"
-                      onClick={() => {
-                        const id = detailModal.manualEventId
-                        setEventForm({
-                          dateStart: detailModal.manualDateStart || '',
-                          dateEnd: detailModal.manualDateEnd || detailModal.manualDateStart || '',
-                          title: safeString(detailModal.projectName).trim(),
-                          owner: safeString(detailModal.salesOwner).trim(),
-                          note: safeString(detailModal.note).trim(),
-                        })
-                        setManualEventEditingId(id)
-                        setDetailModal(null)
-                      }}
-                    >
-                      수정
-                    </button>
+                    {!calendarManualDetailEditMode ? (
+                      <>
+                        <button
+                          type="button"
+                          className="secondary-btn install-case-modal-delete-btn"
+                          onClick={() => {
+                            deleteManualEvent(detailModal.manualEventId, {
+                              onDeleted: () => closeCalendarDetailModal(),
+                            })
+                          }}
+                        >
+                          삭제
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-btn install-case-modal-edit-btn"
+                          onClick={beginCalendarManualDetailInlineEdit}
+                        >
+                          수정
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="secondary-btn"
+                          onClick={cancelCalendarManualDetailInlineEdit}
+                        >
+                          취소
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-btn install-case-modal-edit-btn"
+                          onClick={saveCalendarManualDetailInlineEdit}
+                        >
+                          저장
+                        </button>
+                      </>
+                    )}
                   </>
                 )}
                 <button
                   type="button"
                   className="modal-close-btn"
-                  onClick={() => setDetailModal(null)}
+                  onClick={closeCalendarDetailModal}
                   aria-label="닫기"
                 >
                   ✕
@@ -10325,25 +10424,102 @@ function App() {
                 <span className="detail-label">구분</span>
                 <span className="detail-value">{detailModal.typeLabel || '-'}</span>
               </div>
-              <div className="detail-item">
+              <div className="detail-item detail-item-full">
                 <span className="detail-label">등록일자</span>
-                <span className="detail-value">{detailModal.date || '-'}</span>
+                {inManualInlineEdit && md ? (
+                  <div className="detail-value detail-value--edit-cell">
+                    <div className="calendar-detail-modal-date-range" role="group" aria-label="일정 기간">
+                      <input
+                        type="date"
+                        className="detail-inline-field calendar-input calendar-input-date"
+                        value={md.dateStart}
+                        onChange={(e) =>
+                          setCalendarManualDetailDraft((prev) =>
+                            prev ? { ...prev, dateStart: e.target.value } : prev
+                          )
+                        }
+                      />
+                      <span className="calendar-detail-modal-date-sep" aria-hidden>
+                        ~
+                      </span>
+                      <input
+                        type="date"
+                        className="detail-inline-field calendar-input calendar-input-date"
+                        value={md.dateEnd}
+                        onChange={(e) =>
+                          setCalendarManualDetailDraft((prev) =>
+                            prev ? { ...prev, dateEnd: e.target.value } : prev
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <span className="detail-value">{detailModal.date || '-'}</span>
+                )}
               </div>
               <div className="detail-item">
                 <span className="detail-label">D-Day</span>
-                <span className="detail-value">{detailModal.dday || '-'}</span>
+                <span className="detail-value">
+                  {inManualInlineEdit && md ? getManualDetailDraftDday(md) : detailModal.dday || '-'}
+                </span>
               </div>
               <div className="detail-item detail-item-full">
                 <span className="detail-label">사업명</span>
-                <span className="detail-value">{detailModal.projectName || '-'}</span>
+                {inManualInlineEdit && md ? (
+                  <div className="detail-value detail-value--edit-cell">
+                    <input
+                      type="text"
+                      className="detail-inline-field"
+                      value={md.projectName}
+                      onChange={(e) =>
+                        setCalendarManualDetailDraft((prev) =>
+                          prev ? { ...prev, projectName: e.target.value } : prev
+                        )
+                      }
+                    />
+                  </div>
+                ) : (
+                  <span className="detail-value">{detailModal.projectName || '-'}</span>
+                )}
               </div>
               <div className="detail-item">
                 <span className="detail-label">영업담당자</span>
-                <span className="detail-value">{detailModal.salesOwner || '-'}</span>
+                {inManualInlineEdit && md ? (
+                  <div className="detail-value detail-value--edit-cell">
+                    <input
+                      type="text"
+                      className="detail-inline-field"
+                      value={md.salesOwner}
+                      onChange={(e) =>
+                        setCalendarManualDetailDraft((prev) =>
+                          prev ? { ...prev, salesOwner: e.target.value } : prev
+                        )
+                      }
+                    />
+                  </div>
+                ) : (
+                  <span className="detail-value">{detailModal.salesOwner || '-'}</span>
+                )}
               </div>
               <div className="detail-item">
                 <span className="detail-label">현장 PM</span>
-                <span className="detail-value">{detailModal.pm || '-'}</span>
+                {inManualInlineEdit && md ? (
+                  <div className="detail-value detail-value--edit-cell">
+                    <input
+                      type="text"
+                      className="detail-inline-field"
+                      value={md.pm}
+                      onChange={(e) =>
+                        setCalendarManualDetailDraft((prev) =>
+                          prev ? { ...prev, pm: e.target.value } : prev
+                        )
+                      }
+                    />
+                  </div>
+                ) : (
+                  <span className="detail-value">{detailModal.pm || '-'}</span>
+                )}
               </div>
 
               {'contractNo' in detailModal && (
@@ -10395,17 +10571,36 @@ function App() {
                 </>
               )}
 
-              {detailModal.note && (
+              {inManualInlineEdit && md ? (
                 <div className="detail-item detail-item-full detail-item-note-row">
                   <span className="detail-label">비고</span>
-                  <span className="detail-value prewrap">{detailModal.note}</span>
+                  <div className="detail-value detail-value--edit-cell detail-value--textarea-wrap">
+                    <textarea
+                      className="detail-inline-field detail-inline-textarea"
+                      rows={4}
+                      value={md.note}
+                      onChange={(e) =>
+                        setCalendarManualDetailDraft((prev) =>
+                          prev ? { ...prev, note: e.target.value } : prev
+                        )
+                      }
+                    />
+                  </div>
                 </div>
+              ) : (
+                detailModal.note && (
+                  <div className="detail-item detail-item-full detail-item-note-row">
+                    <span className="detail-label">비고</span>
+                    <span className="detail-value prewrap">{detailModal.note}</span>
+                  </div>
+                )
               )}
               </div>
             </div>
           </div>
         </div>
-      )}
+          )
+        })()}
     </div>
   )
 }

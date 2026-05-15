@@ -1758,6 +1758,65 @@ textarea {
   padding-top: 10px;
 }
 
+.detail-item .detail-value.detail-value--edit-cell {
+  white-space: normal;
+  display: flex;
+  align-items: center;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+.detail-item-full .detail-value.detail-value--edit-cell {
+  display: flex;
+  -webkit-line-clamp: unset;
+}
+
+.detail-value--textarea-wrap.detail-value--edit-cell {
+  align-items: stretch;
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+
+.detail-inline-field {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: #111827;
+  padding: 6px 4px;
+  margin: 0;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.detail-inline-field:focus {
+  outline: 2px solid #93c5fd;
+  outline-offset: 0;
+  border-radius: 4px;
+}
+
+.detail-inline-textarea {
+  display: block;
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.calendar-detail-modal-date-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.calendar-detail-modal-date-sep {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .prewrap {
   white-space: pre-wrap;
 }
