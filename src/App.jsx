@@ -10188,6 +10188,7 @@ function App() {
               </div>
             </div>
             <div className="install-case-detail-modal-body">
+              <div className="install-case-detail-inner">
               <div className="install-case-detail-hero-zone">
                 <div className="install-case-detail-hero">
                   <img
@@ -10248,6 +10249,7 @@ function App() {
                     </table>
                   </div>
                 </div>
+              </div>
               </div>
             </div>
           </div>

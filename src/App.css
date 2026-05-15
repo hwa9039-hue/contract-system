@@ -5844,11 +5844,11 @@ textarea:focus-visible {
 }
 
 .install-case-detail-modal {
-  --ic-modal-w: min(900px, 56vw, calc(100vw - 32px));
+  --ic-modal-w: min(1000px, 68vw, calc(100vw - 32px));
   --ic-modal-h: min(85vh, calc(var(--ic-modal-w) * 3 / 4));
   width: min(var(--ic-modal-w), calc(var(--ic-modal-h) * 4 / 3));
   height: var(--ic-modal-h);
-  max-width: min(900px, calc(100vw - 32px));
+  max-width: min(1000px, calc(100vw - 32px));
   max-height: 85vh;
   aspect-ratio: 4 / 3;
   box-sizing: border-box;
@@ -6037,11 +6037,25 @@ textarea:focus-visible {
 .install-case-detail-modal-body {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  align-items: center;
+  justify-content: flex-start;
   padding: 0 0 1.25rem;
   box-sizing: border-box;
   min-height: 0;
   flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.install-case-detail-inner {
+  width: min(90%, 850px);
+  max-width: 100%;
+  margin-inline: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  box-sizing: border-box;
   overflow: hidden;
 }
 
@@ -6058,22 +6072,17 @@ textarea:focus-visible {
 
 .install-case-detail-hero-zone {
   flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 100%;
   box-sizing: border-box;
   min-height: 0;
   padding: 1.5rem 0 0;
 }
 
 .install-case-detail-hero {
-  width: 85%;
-  max-width: min(64rem, 100%);
-  margin-inline: auto;
+  width: 100%;
   aspect-ratio: 4 / 3;
-  max-height: min(36vh, 300px);
+  max-height: min(42vh, 380px);
   min-height: 0;
-  flex-shrink: 0;
   border-radius: 1rem;
   overflow: hidden;
   background: #0f172a;
@@ -6099,7 +6108,7 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 0 1.75rem 1.35rem;
+  padding: 0 0 0.25rem;
   background: #ffffff;
   overflow: hidden;
 }
@@ -6210,24 +6219,20 @@ textarea:focus-visible {
 
 @media (max-width: 900px) {
   .install-case-detail-modal {
-    --ic-modal-w: min(900px, 92vw, calc(100vw - 24px));
+    --ic-modal-w: min(1000px, 94vw, calc(100vw - 24px));
     --ic-modal-h: min(85vh, calc(var(--ic-modal-w) * 3 / 4));
     width: min(var(--ic-modal-w), calc(var(--ic-modal-h) * 4 / 3));
     height: var(--ic-modal-h);
     max-width: calc(100vw - 24px);
   }
 
-  .install-case-detail-modal-body {
+  .install-case-detail-inner {
+    width: min(92%, 850px);
     gap: 1.5rem;
   }
 
   .install-case-detail-hero {
-    width: 88%;
-    max-height: min(32vh, 260px);
-  }
-
-  .install-case-detail-lower-shell {
-    padding: 0 1.25rem 1rem;
+    max-height: min(36vh, 320px);
   }
 
   .install-case-detail-lower {
@@ -6237,7 +6242,12 @@ textarea:focus-visible {
 
 @media (max-width: 640px) {
   .install-case-detail-modal {
-    --ic-modal-w: min(900px, calc(100vw - 20px));
+    --ic-modal-w: min(1000px, calc(100vw - 20px));
+  }
+
+  .install-case-detail-inner {
+    width: min(94%, 100%);
+    gap: 1.25rem;
   }
 
   .install-case-detail-hero-zone {
@@ -6245,17 +6255,12 @@ textarea:focus-visible {
   }
 
   .install-case-detail-hero {
-    width: 90%;
-    max-height: min(28vh, 220px);
+    max-height: min(30vh, 240px);
   }
 
   .install-case-detail-lower {
     grid-template-columns: 1fr;
     gap: 8px;
-  }
-
-  .install-case-detail-lower-shell {
-    padding: 0 1rem 0.9rem;
   }
 
   .install-case-meta-row {
@@ -6277,7 +6282,7 @@ textarea:focus-visible {
 }
 
 @media (max-height: 720px) {
-  .install-case-detail-modal-body {
+  .install-case-detail-inner {
     gap: 1.25rem;
   }
 
@@ -6286,11 +6291,7 @@ textarea:focus-visible {
   }
 
   .install-case-detail-hero {
-    max-height: min(30vh, 240px);
-  }
-
-  .install-case-detail-lower-shell {
-    padding: 0 1.25rem 1rem;
+    max-height: min(32vh, 280px);
   }
 
   .install-case-detail-meta {
