@@ -6080,9 +6080,9 @@ textarea:focus-visible {
 
 .install-case-detail-hero {
   width: 100%;
-  aspect-ratio: 4 / 3;
-  max-height: min(42vh, 380px);
-  min-height: 0;
+  height: 420px;
+  min-height: 400px;
+  max-height: min(52vh, 450px);
   border-radius: 1rem;
   overflow: hidden;
   background: #0f172a;
@@ -6232,7 +6232,9 @@ textarea:focus-visible {
   }
 
   .install-case-detail-hero {
-    max-height: min(36vh, 320px);
+    height: 380px;
+    min-height: 360px;
+    max-height: min(48vh, 420px);
   }
 
   .install-case-detail-lower {
@@ -6255,7 +6257,9 @@ textarea:focus-visible {
   }
 
   .install-case-detail-hero {
-    max-height: min(30vh, 240px);
+    height: 320px;
+    min-height: 300px;
+    max-height: min(42vh, 360px);
   }
 
   .install-case-detail-lower {
@@ -6291,7 +6295,9 @@ textarea:focus-visible {
   }
 
   .install-case-detail-hero {
-    max-height: min(32vh, 280px);
+    height: 340px;
+    min-height: 320px;
+    max-height: min(45vh, 400px);
   }
 
   .install-case-detail-meta {

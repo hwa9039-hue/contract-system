@@ -761,21 +761,62 @@ function parseModuleQtyToWH(formatted) {
 }
 
 function formatBusinessYearPreview(digits) {
-  const d = safeString(digits).replace(/\D/g, '').slice(0, 4)
+  const d = safeString(digits).replace(/\D/g, '').slice(0, 6)
   if (!d) return ''
-  if (d.length === 4) return `${d}년`
+  if (d.length >= 6) {
+    const mm = String(Math.min(12, Math.max(1, parseInt(d.slice(4, 6), 10) || 1))).padStart(2, '0')
+    return `${d.slice(0, 4)}.${mm}`
+  }
+  if (d.length === 4) return `${d}.01`
   return `${d}…`
 }
 
 function businessYearDigitsToStored(digits) {
-  const d = safeString(digits).replace(/\D/g, '').slice(0, 4)
-  if (d.length === 4) return d
-  if (!d) return String(new Date().getFullYear())
-  return String(new Date().getFullYear())
+  const d = safeString(digits).replace(/\D/g, '').slice(0, 6)
+  if (d.length >= 6) {
+    const y = d.slice(0, 4)
+    const m = Math.min(12, Math.max(1, parseInt(d.slice(4, 6), 10) || 1))
+    return `${y}.${String(m).padStart(2, '0')}`
+  }
+  if (d.length === 4) return `${d}.01`
+  const now = new Date()
+  return `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
 function parseYearToDigits(y) {
-  return safeString(y).replace(/\D/g, '').slice(0, 4) || String(new Date().getFullYear())
+  return parseYearToFormDigits(y)
+}
+
+/** 상세 모달·저장값 → 폼 입력용 숫자(YYYY 또는 YYYYMM) */
+function parseYearToFormDigits(y) {
+  const s = safeString(y).trim()
+  const dot = s.match(/^(\d{4})\.(\d{1,2})$/)
+  if (dot) {
+    const mm = String(Math.min(12, Math.max(1, parseInt(dot[2], 10) || 1))).padStart(2, '0')
+    return `${dot[1]}${mm}`
+  }
+  const digits = s.replace(/\D/g, '')
+  if (digits.length >= 6) return digits.slice(0, 6)
+  if (digits.length >= 4) return digits.slice(0, 4)
+  return String(new Date().getFullYear())
+}
+
+/** 상세 모달 사업년도: YYYY.MM (예: 2025.05) */
+function formatInstallCaseYearDetailDisplay(raw) {
+  const s = safeString(raw).trim()
+  if (!s) return '-'
+  const dot = s.match(/^(\d{4})\.(\d{1,2})$/)
+  if (dot) {
+    const mm = String(Math.min(12, Math.max(1, parseInt(dot[2], 10) || 1))).padStart(2, '0')
+    return `${dot[1]}.${mm}`
+  }
+  const digits = s.replace(/\D/g, '')
+  if (digits.length >= 6) {
+    const mm = String(Math.min(12, Math.max(1, parseInt(digits.slice(4, 6), 10) || 1))).padStart(2, '0')
+    return `${digits.slice(0, 4)}.${mm}`
+  }
+  if (digits.length >= 4) return `${digits.slice(0, 4)}.01`
+  return s
 }
 
 function formatInstallCaseCardSubline(row) {
@@ -972,10 +1013,10 @@ function InstallCaseFormTwoColumn({
                       autoComplete="off"
                       value={formDraft.businessYearDigits}
                       onChange={(e) => {
-                        const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 4)
+                        const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 6)
                         setFormDraft((prev) => ({ ...prev, businessYearDigits: v }))
                       }}
-                      placeholder="숫자만 입력 (예: 2024)"
+                      placeholder="숫자만 입력 (예: 202405)"
                     />
                     {formatBusinessYearPreview(formDraft.businessYearDigits) ? (
                       <div className="install-case-form-digit-preview">
@@ -3426,7 +3467,7 @@ function App() {
         projectName: safeString(row.projectName).trim(),
         environment: row.environment || 'indoor',
         audience: row.audience || 'public',
-        businessYearDigits: parseYearToDigits(row.year),
+        businessYearDigits: parseYearToFormDigits(row.year),
         purpose: safeString(row.purpose).trim(),
         client: safeString(row.client).trim(),
         specs: {
@@ -10402,7 +10443,7 @@ function App() {
                     <dl className="install-case-detail-meta">
                       <div className="install-case-meta-row">
                         <dt>사업년도</dt>
-                        <dd>{installCaseDetailModal.year ?? '-'}</dd>
+                        <dd>{formatInstallCaseYearDetailDisplay(installCaseDetailModal.year)}</dd>
                       </div>
                       <div className="install-case-meta-row">
                         <dt>설치장소</dt>
@@ -10423,7 +10464,6 @@ function App() {
                     </dl>
                   </div>
                   <div className="install-case-detail-specs-col">
-                    <div className="install-case-detail-specs-title">제품 규격</div>
                     <table className="install-case-spec-table">
                       <thead>
                         <tr>
