@@ -588,6 +588,17 @@ function parseResolutionStoredToWH(s) {
   return { w: '', h: '' }
 }
 
+/** 상세 모달 제품 규격: 해상도를 (W)… x (H)… 형태로 표시 */
+function formatInstallCaseResolutionDetailDisplay(raw) {
+  const t = safeString(raw).trim()
+  if (!t) return '-'
+  const pair = parseResolutionStoredToWH(t)
+  if (pair.w !== '' || pair.h !== '') {
+    return formatInstallCaseResolutionFromWH(pair.w, pair.h) || '-'
+  }
+  return t
+}
+
 function installCaseLedPitchToFormValue(stored) {
   const s = safeString(stored).trim()
   if (!s) return ''
@@ -9480,7 +9491,13 @@ function App() {
                       {INSTALL_CASE_SPEC_ROWS.map(({ key, label }) => (
                         <tr key={key}>
                           <td>{label}</td>
-                          <td>{installCaseDetailModal.specs[key] ?? '-'}</td>
+                          <td>
+                            {key === 'resolution'
+                              ? formatInstallCaseResolutionDetailDisplay(
+                                  installCaseDetailModal.specs[key]
+                                )
+                              : installCaseDetailModal.specs[key] ?? '-'}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -9513,7 +9530,10 @@ function App() {
               </button>
             </div>
             <div className="install-case-form-modal-body">
-              <div className="install-case-form-two-col">
+              <div
+                className="install-case-form-two-col"
+                key={installCaseEditingId ? `edit-${installCaseEditingId}` : 'create'}
+              >
                 <div className="install-case-form-col install-case-form-col--left">
                   <div className="install-case-form-col-inner">
                     {INSTALL_CASE_REGISTER_BASIC_ROWS.map((def) => {
