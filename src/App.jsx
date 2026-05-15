@@ -620,7 +620,7 @@ function formatModuleQtyFromDigits(wRaw, hRaw) {
   const w = parseInt(wStr, 10) || 0
   const h = parseInt(hStr, 10) || 0
   const ea = w * h
-  return `(W)${commaNumberEn(w)} x (H)${commaNumberEn(h)} = ${commaNumberEn(ea)}EA`
+  return `(W)${commaNumberEn(w)} x (H)${commaNumberEn(h)} = 총계${commaNumberEn(ea)}EA`
 }
 
 function parseModuleQtyToWH(formatted) {
@@ -9602,9 +9602,11 @@ function App() {
                     type="text"
                     inputMode="numeric"
                     autoComplete="off"
-                    value={installCaseFormDraft.specs.displayAreaDigits}
+                    value={
+                      formatInstallCaseWhMmFromDigits(installCaseFormDraft.specs.displayAreaDigits) || ''
+                    }
                     onChange={(e) => {
-                      const v = e.target.value.replace(/\D/g, '')
+                      const v = e.target.value.replace(/[^0-9]/g, '')
                       setInstallCaseFormDraft((prev) => ({
                         ...prev,
                         specs: { ...prev.specs, displayAreaDigits: v },
@@ -9612,11 +9614,6 @@ function App() {
                     }}
                     placeholder="숫자만 입력 (예: 150006000)"
                   />
-                  {formatInstallCaseWhMmFromDigits(installCaseFormDraft.specs.displayAreaDigits) ? (
-                    <div className="install-case-form-digit-preview">
-                      {formatInstallCaseWhMmFromDigits(installCaseFormDraft.specs.displayAreaDigits)}
-                    </div>
-                  ) : null}
                 </div>
 
                 <span className="install-case-form-spec-label install-case-form-spec-label--grid">
@@ -9628,9 +9625,9 @@ function App() {
                     type="text"
                     inputMode="numeric"
                     autoComplete="off"
-                    value={installCaseFormDraft.specs.ledPitchDigits}
+                    value={formatLedPitchFromDigits(installCaseFormDraft.specs.ledPitchDigits) || ''}
                     onChange={(e) => {
-                      const v = e.target.value.replace(/\D/g, '')
+                      const v = e.target.value.replace(/[^0-9]/g, '')
                       setInstallCaseFormDraft((prev) => ({
                         ...prev,
                         specs: { ...prev.specs, ledPitchDigits: v },
@@ -9638,11 +9635,6 @@ function App() {
                     }}
                     placeholder="숫자만 입력 (예: 25, 10, 125)"
                   />
-                  {formatLedPitchFromDigits(installCaseFormDraft.specs.ledPitchDigits) ? (
-                    <div className="install-case-form-digit-preview">
-                      {formatLedPitchFromDigits(installCaseFormDraft.specs.ledPitchDigits)}
-                    </div>
-                  ) : null}
                 </div>
 
                 <span className="install-case-form-spec-label install-case-form-spec-label--grid">
@@ -9654,9 +9646,11 @@ function App() {
                     type="text"
                     inputMode="numeric"
                     autoComplete="off"
-                    value={installCaseFormDraft.specs.moduleSizeDigits}
+                    value={
+                      formatInstallCaseWhMmFromDigits(installCaseFormDraft.specs.moduleSizeDigits) || ''
+                    }
                     onChange={(e) => {
-                      const v = e.target.value.replace(/\D/g, '')
+                      const v = e.target.value.replace(/[^0-9]/g, '')
                       setInstallCaseFormDraft((prev) => ({
                         ...prev,
                         specs: { ...prev.specs, moduleSizeDigits: v },
@@ -9664,11 +9658,6 @@ function App() {
                     }}
                     placeholder="숫자만 입력"
                   />
-                  {formatInstallCaseWhMmFromDigits(installCaseFormDraft.specs.moduleSizeDigits) ? (
-                    <div className="install-case-form-digit-preview">
-                      {formatInstallCaseWhMmFromDigits(installCaseFormDraft.specs.moduleSizeDigits)}
-                    </div>
-                  ) : null}
                 </div>
 
                 <span className="install-case-form-spec-label install-case-form-spec-label--grid">
@@ -9684,7 +9673,7 @@ function App() {
                       autoComplete="off"
                       value={installCaseFormDraft.specs.moduleQtyWDigits}
                       onChange={(e) => {
-                        const v = e.target.value.replace(/\D/g, '')
+                        const v = e.target.value.replace(/[^0-9]/g, '')
                         setInstallCaseFormDraft((prev) => ({
                           ...prev,
                           specs: { ...prev.specs, moduleQtyWDigits: v },
@@ -9699,7 +9688,7 @@ function App() {
                       autoComplete="off"
                       value={installCaseFormDraft.specs.moduleQtyHDigits}
                       onChange={(e) => {
-                        const v = e.target.value.replace(/\D/g, '')
+                        const v = e.target.value.replace(/[^0-9]/g, '')
                         setInstallCaseFormDraft((prev) => ({
                           ...prev,
                           specs: { ...prev.specs, moduleQtyHDigits: v },
