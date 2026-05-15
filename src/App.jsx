@@ -776,7 +776,7 @@ function readImageFileAsDataUrl(file) {
   })
 }
 
-function InstallCaseImageDropzone({ inputId, label, previewUrl, fileName, onFile, onClear }) {
+function InstallCaseImageDropzone({ inputId, label, previewUrl, fileName, onFile, onClear, onInvalidFileType }) {
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef(null)
 
@@ -784,7 +784,9 @@ function InstallCaseImageDropzone({ inputId, label, previewUrl, fileName, onFile
     const file = fileList?.[0]
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      window.alert('이미지 파일만 업로드할 수 있습니다.')
+      if (typeof onInvalidFileType === 'function') {
+        onInvalidFileType()
+      }
       return
     }
     onFile(file)
@@ -879,6 +881,7 @@ function InstallCaseFormTwoColumn({
   onClearInstallCaseImage,
   pairDigitChange,
   onLedPitchChange,
+  onInvalidImageFile,
 }) {
   return (
     <div className="install-case-form-two-col install-case-form-two-col--unified">
@@ -974,6 +977,7 @@ function InstallCaseFormTwoColumn({
                 fileName={icImageFile?.name}
                 onFile={setIcImageFile}
                 onClear={onClearInstallCaseImage}
+                onInvalidFileType={onInvalidImageFile}
               />
             </div>
           </div>
@@ -2726,8 +2730,11 @@ function App() {
   /** 영업·건축·사업검색이력·문서 — 계약현황과 동일한 셀 단위 인라인 편집 */
   const [registryCellEdit, setRegistryCellEdit] = useState(null)
   const [registryCellEditDraft, setRegistryCellEditDraft] = useState('')
-  /** { title, message, payloadIds?: string[], onConfirm?: () => void } */
+  /** 계약 삭제: payloadIds + single | 일반: alert / onConfirm + destructive + confirmLabel */
   const [contractConfirmDialog, setContractConfirmDialog] = useState(null)
+  const showAppAlert = useCallback((message, title = '알림') => {
+    setContractConfirmDialog({ title, message, alert: true })
+  }, [])
   const [calendarCursor, setCalendarCursor] = useState(() => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
@@ -3192,9 +3199,16 @@ function App() {
   }, [icImageFile])
 
   const deleteInstallCaseById = useCallback((id) => {
-    if (!window.confirm('이 설치사례를 삭제할까요?')) return
-    setInstallCases((prev) => prev.filter((c) => c.id !== id))
-    setInstallCaseDetailModal((cur) => (cur && cur.id === id ? null : cur))
+    setContractConfirmDialog({
+      title: '설치사례 삭제',
+      message: '이 설치사례를 삭제할까요?',
+      destructive: true,
+      confirmLabel: '삭제',
+      onConfirm: () => {
+        setInstallCases((prev) => prev.filter((c) => c.id !== id))
+        setInstallCaseDetailModal((cur) => (cur && cur.id === id ? null : cur))
+      },
+    })
   }, [])
 
   const handleOpenInstallCaseRegister = useCallback(() => {
@@ -3288,7 +3302,7 @@ function App() {
   const handleSaveInstallCaseRegister = async () => {
     const d = installCaseFormDraft
     if (!safeString(d.projectName).trim()) {
-      window.alert('사업명을 입력해 주세요.')
+      showAppAlert('사업명을 입력해 주세요.', '알림')
       return
     }
     let imageUrl = INSTALL_CASE_FALLBACK_HERO
@@ -3300,7 +3314,7 @@ function App() {
         if (prev && !prev.startsWith('blob:')) imageUrl = prev
       }
     } catch (e) {
-      window.alert(e?.message || '이미지를 처리하지 못했습니다.')
+      showAppAlert(e?.message || '이미지를 처리하지 못했습니다.', '알림')
       return
     }
     const projectName = safeString(d.projectName).trim()
@@ -3743,7 +3757,7 @@ function App() {
 
   const requireAdmin = () => {
     if (isAdmin) return true
-    alert('관리자 로그인 후 편집할 수 있습니다.')
+    showAppAlert('관리자 로그인 후 편집할 수 있습니다.', '알림')
     return false
   }
 
@@ -3991,7 +4005,7 @@ function App() {
       const firstSheetName = workbook.SheetNames[0]
 
       if (!firstSheetName) {
-        alert('업로드할 시트를 찾을 수 없습니다.')
+        showAppAlert('업로드할 시트를 찾을 수 없습니다.')
         return
       }
 
@@ -4002,7 +4016,7 @@ function App() {
       })
 
       if (!rows.length) {
-        alert('업로드할 데이터가 없습니다.')
+        showAppAlert('업로드할 데이터가 없습니다.')
         return
       }
 
@@ -4065,7 +4079,7 @@ function App() {
         .filter((item) => item.projectName || item.contractNo || item.client)
 
       if (!imported.length) {
-        alert('불러올 수 있는 계약 데이터가 없습니다.')
+        showAppAlert('불러올 수 있는 계약 데이터가 없습니다.')
         return
       }
 
@@ -4081,7 +4095,7 @@ function App() {
       })
 
       if (!uniqueImported.length) {
-        alert(`엑셀에서 ${imported.length}건을 찾았지만 기존 데이터와 중복되어 추가할 신규 사업이 없습니다.`)
+        showAppAlert(`엑셀에서 ${imported.length}건을 찾았지만 기존 데이터와 중복되어 추가할 신규 사업이 없습니다.`)
         return
       }
 
@@ -4093,11 +4107,11 @@ function App() {
       }
 
       await fetchContracts()
-      alert(`엑셀 업로드 완료: 신규 ${uniqueImported.length}건 추가, 중복 ${imported.length - uniqueImported.length}건 제외`)
+      showAppAlert(`엑셀 업로드 완료: 신규 ${uniqueImported.length}건 추가, 중복 ${imported.length - uniqueImported.length}건 제외`)
     } catch (error) {
       console.error('엑셀 업로드 중 오류가 발생했습니다.', error)
       const msg = safeString(error?.message)
-      alert(`엑셀 업로드 중 오류가 발생했습니다.\n${msg || error}`)
+      showAppAlert(`엑셀 업로드 중 오류가 발생했습니다.\n${msg || error}`)
     } finally {
       e.target.value = ''
     }
@@ -4190,19 +4204,24 @@ function App() {
       return
     }
 
-    const ok = window.confirm('이 문서수발신 항목을 삭제하시겠습니까?')
-    if (!ok) return
+    setContractConfirmDialog({
+      title: '문서수발신대장 삭제',
+      message: '이 문서수발신 항목을 삭제하시겠습니까?',
+      destructive: true,
+      confirmLabel: '삭제',
+      onConfirm: async () => {
+        try {
+          await documentRegisterApi.remove(rowId)
+        } catch (error) {
+          logApiOperationError('문서수발신대장 삭제', error)
+          return
+        }
 
-    try {
-      await documentRegisterApi.remove(rowId)
-    } catch (error) {
-      logApiOperationError('문서수발신대장 삭제', error)
-      return
-    }
-
-    setEditingDocumentIds((prev) => prev.filter((id) => id !== rowId))
-    setDocumentEditSnapshots((prev) => removeObjectKey(prev, rowId))
-    await fetchDocuments(false)
+        setEditingDocumentIds((prev) => prev.filter((id) => id !== rowId))
+        setDocumentEditSnapshots((prev) => removeObjectKey(prev, rowId))
+        await fetchDocuments(false)
+      },
+    })
   }
 
   const saveDocumentRow = async (rowId) => {
@@ -4210,7 +4229,7 @@ function App() {
     if (!targetRow) return
 
     if (isDocumentRowEmpty(targetRow)) {
-      alert('입력 내용을 확인해주세요.')
+      showAppAlert('입력 내용을 확인해주세요.')
       return
     }
 
@@ -4249,39 +4268,44 @@ function App() {
     const validSelectedIds = selectedDocumentIds.filter((id) => safeString(id).trim() !== '')
 
     if (validSelectedIds.length === 0) {
-      alert('삭제할 행을 선택해주세요.')
+      showAppAlert('삭제할 행을 선택해주세요.')
       return
     }
 
-    const ok = window.confirm('선택한 데이터를 삭제하시겠습니까?')
-    if (!ok) return
+    setContractConfirmDialog({
+      title: '선택 삭제',
+      message: '선택한 데이터를 삭제하시겠습니까?',
+      destructive: true,
+      confirmLabel: '삭제',
+      onConfirm: async () => {
+        const persistedIds = documents
+          .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
+          .map((row) => row.id)
+          .filter((id) => safeString(id).trim() !== '')
 
-    const persistedIds = documents
-      .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
-      .map((row) => row.id)
-      .filter((id) => safeString(id).trim() !== '')
+        if (persistedIds.length > 0) {
+          const remainingDrafts = documents.filter(
+            (row) => row.isDraft && !validSelectedIds.includes(row.id)
+          )
+          try {
+            await documentRegisterApi.bulkDelete(persistedIds)
+          } catch (error) {
+            logApiOperationError('문서수발신대장 선택 삭제', error)
+            return
+          }
 
-    if (persistedIds.length > 0) {
-      const remainingDrafts = documents.filter(
-        (row) => row.isDraft && !validSelectedIds.includes(row.id)
-      )
-      try {
-        await documentRegisterApi.bulkDelete(persistedIds)
-      } catch (error) {
-        logApiOperationError('문서수발신대장 선택 삭제', error)
-        return
-      }
+          setDocuments(remainingDrafts)
+          setSelectedDocumentIds([])
+          setEditingDocumentIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+          await fetchDocuments(true)
+          return
+        }
 
-      setDocuments(remainingDrafts)
-      setSelectedDocumentIds([])
-      setEditingDocumentIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
-      await fetchDocuments(true)
-      return
-    }
-
-    setDocuments((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
-    setSelectedDocumentIds([])
-    setEditingDocumentIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+        setDocuments((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
+        setSelectedDocumentIds([])
+        setEditingDocumentIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+      },
+    })
   }
 
   const saveDocuments = async () => {
@@ -4292,7 +4316,7 @@ function App() {
     const hasEmptyDraftRows = documents.some((row) => row.isDraft && isDocumentRowEmpty(row))
 
     if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && !hasEmptyDraftRows) {
-      alert('저장할 행이 없습니다.')
+      showAppAlert('저장할 행이 없습니다.')
       return
     }
 
@@ -4415,19 +4439,24 @@ function App() {
       return
     }
 
-    const ok = window.confirm('이 영업관리대장 항목을 삭제하시겠습니까?')
-    if (!ok) return
+    setContractConfirmDialog({
+      title: '영업관리대장 삭제',
+      message: '이 영업관리대장 항목을 삭제하시겠습니까?',
+      destructive: true,
+      confirmLabel: '삭제',
+      onConfirm: async () => {
+        try {
+          await salesRegisterApi.remove(rowId)
+        } catch (error) {
+          logApiOperationError('영업관리대장 삭제', error)
+          return
+        }
 
-    try {
-      await salesRegisterApi.remove(rowId)
-    } catch (error) {
-      logApiOperationError('영업관리대장 삭제', error)
-      return
-    }
-
-    setEditingSalesIds((prev) => prev.filter((id) => id !== rowId))
-    setSalesEditSnapshots((prev) => removeObjectKey(prev, rowId))
-    await fetchSalesRows(false)
+        setEditingSalesIds((prev) => prev.filter((id) => id !== rowId))
+        setSalesEditSnapshots((prev) => removeObjectKey(prev, rowId))
+        await fetchSalesRows(false)
+      },
+    })
   }
 
   const saveSalesRow = async (rowId) => {
@@ -4435,7 +4464,7 @@ function App() {
     if (!targetRow) return
 
     if (isSalesRowEmpty(targetRow)) {
-      alert('입력 내용을 확인해주세요.')
+      showAppAlert('입력 내용을 확인해주세요.')
       return
     }
 
@@ -4474,39 +4503,44 @@ function App() {
     const validSelectedIds = selectedSalesIds.filter((id) => safeString(id).trim() !== '')
 
     if (validSelectedIds.length === 0) {
-      alert('삭제할 행을 선택해주세요.')
+      showAppAlert('삭제할 행을 선택해주세요.')
       return
     }
 
-    const ok = window.confirm('선택한 데이터를 삭제하시겠습니까?')
-    if (!ok) return
+    setContractConfirmDialog({
+      title: '선택 삭제',
+      message: '선택한 데이터를 삭제하시겠습니까?',
+      destructive: true,
+      confirmLabel: '삭제',
+      onConfirm: async () => {
+        const persistedIds = salesRows
+          .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
+          .map((row) => row.id)
+          .filter((id) => safeString(id).trim() !== '')
 
-    const persistedIds = salesRows
-      .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
-      .map((row) => row.id)
-      .filter((id) => safeString(id).trim() !== '')
+        if (persistedIds.length > 0) {
+          const remainingDrafts = salesRows.filter(
+            (row) => row.isDraft && !validSelectedIds.includes(row.id)
+          )
+          try {
+            await salesRegisterApi.bulkDelete(persistedIds)
+          } catch (error) {
+            logApiOperationError('영업관리대장 선택 삭제', error)
+            return
+          }
 
-    if (persistedIds.length > 0) {
-      const remainingDrafts = salesRows.filter(
-        (row) => row.isDraft && !validSelectedIds.includes(row.id)
-      )
-      try {
-        await salesRegisterApi.bulkDelete(persistedIds)
-      } catch (error) {
-        logApiOperationError('영업관리대장 선택 삭제', error)
-        return
-      }
+          setSalesRows(remainingDrafts)
+          setSelectedSalesIds([])
+          setEditingSalesIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+          await fetchSalesRows(true)
+          return
+        }
 
-      setSalesRows(remainingDrafts)
-      setSelectedSalesIds([])
-      setEditingSalesIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
-      await fetchSalesRows(true)
-      return
-    }
-
-    setSalesRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
-    setSelectedSalesIds([])
-    setEditingSalesIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+        setSalesRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
+        setSelectedSalesIds([])
+        setEditingSalesIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+      },
+    })
   }
 
   const saveSalesRows = async () => {
@@ -4515,7 +4549,7 @@ function App() {
     const hasEmptyDraftRows = salesRows.some((row) => row.isDraft && isSalesRowEmpty(row))
 
     if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && !hasEmptyDraftRows) {
-      alert('저장할 행이 없습니다.')
+      showAppAlert('저장할 행이 없습니다.')
       return
     }
 
@@ -4643,19 +4677,24 @@ function App() {
       return
     }
 
-    const ok = window.confirm('이 건축정보 항목을 삭제하시겠습니까?')
-    if (!ok) return
+    setContractConfirmDialog({
+      title: '건축정보 삭제',
+      message: '이 건축정보 항목을 삭제하시겠습니까?',
+      destructive: true,
+      confirmLabel: '삭제',
+      onConfirm: async () => {
+        try {
+          await projectDiscoveryApi.remove(rowId)
+        } catch (error) {
+          logApiOperationError('건축정보 삭제', error)
+          return
+        }
 
-    try {
-      await projectDiscoveryApi.remove(rowId)
-    } catch (error) {
-      logApiOperationError('건축정보 삭제', error)
-      return
-    }
-
-    setEditingDiscoveryIds((prev) => prev.filter((id) => id !== rowId))
-    setDiscoveryEditSnapshots((prev) => removeObjectKey(prev, rowId))
-    await fetchDiscoveryRows(false)
+        setEditingDiscoveryIds((prev) => prev.filter((id) => id !== rowId))
+        setDiscoveryEditSnapshots((prev) => removeObjectKey(prev, rowId))
+        await fetchDiscoveryRows(false)
+      },
+    })
   }
 
   const saveDiscoveryRow = async (rowId) => {
@@ -4663,7 +4702,7 @@ function App() {
     if (!targetRow) return
 
     if (isDiscoveryRowEmpty(targetRow)) {
-      alert('입력 내용을 확인해주세요.')
+      showAppAlert('입력 내용을 확인해주세요.')
       return
     }
 
@@ -4702,39 +4741,44 @@ function App() {
     const validSelectedIds = selectedDiscoveryIds.filter((id) => safeString(id).trim() !== '')
 
     if (validSelectedIds.length === 0) {
-      alert('삭제할 행을 선택해주세요.')
+      showAppAlert('삭제할 행을 선택해주세요.')
       return
     }
 
-    const ok = window.confirm('선택한 데이터를 삭제하시겠습니까?')
-    if (!ok) return
+    setContractConfirmDialog({
+      title: '선택 삭제',
+      message: '선택한 데이터를 삭제하시겠습니까?',
+      destructive: true,
+      confirmLabel: '삭제',
+      onConfirm: async () => {
+        const persistedIds = discoveryRows
+          .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
+          .map((row) => row.id)
+          .filter((id) => safeString(id).trim() !== '')
 
-    const persistedIds = discoveryRows
-      .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
-      .map((row) => row.id)
-      .filter((id) => safeString(id).trim() !== '')
+        if (persistedIds.length > 0) {
+          const remainingDrafts = discoveryRows.filter(
+            (row) => row.isDraft && !validSelectedIds.includes(row.id)
+          )
+          try {
+            await projectDiscoveryApi.bulkDelete(persistedIds)
+          } catch (error) {
+            logApiOperationError('건축정보 선택 삭제', error)
+            return
+          }
 
-    if (persistedIds.length > 0) {
-      const remainingDrafts = discoveryRows.filter(
-        (row) => row.isDraft && !validSelectedIds.includes(row.id)
-      )
-      try {
-        await projectDiscoveryApi.bulkDelete(persistedIds)
-      } catch (error) {
-        logApiOperationError('건축정보 선택 삭제', error)
-        return
-      }
+          setDiscoveryRows(remainingDrafts)
+          setSelectedDiscoveryIds([])
+          setEditingDiscoveryIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+          await fetchDiscoveryRows(true)
+          return
+        }
 
-      setDiscoveryRows(remainingDrafts)
-      setSelectedDiscoveryIds([])
-      setEditingDiscoveryIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
-      await fetchDiscoveryRows(true)
-      return
-    }
-
-    setDiscoveryRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
-    setSelectedDiscoveryIds([])
-    setEditingDiscoveryIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+        setDiscoveryRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
+        setSelectedDiscoveryIds([])
+        setEditingDiscoveryIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+      },
+    })
   }
 
   const saveDiscoveryRows = async () => {
@@ -4745,7 +4789,7 @@ function App() {
     const hasEmptyDraftRows = discoveryRows.some((row) => row.isDraft && isDiscoveryRowEmpty(row))
 
     if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && !hasEmptyDraftRows) {
-      alert('저장할 행이 없습니다.')
+      showAppAlert('저장할 행이 없습니다.')
       return
     }
 
@@ -4871,19 +4915,24 @@ function App() {
       return
     }
 
-    const ok = window.confirm('이 사업검색이력 항목을 삭제하시겠습니까?')
-    if (!ok) return
+    setContractConfirmDialog({
+      title: '사업검색이력 삭제',
+      message: '이 사업검색이력 항목을 삭제하시겠습니까?',
+      destructive: true,
+      confirmLabel: '삭제',
+      onConfirm: async () => {
+        try {
+          await excludedProjectsApi.remove(rowId)
+        } catch (error) {
+          logApiOperationError('사업검색이력 삭제', error)
+          return
+        }
 
-    try {
-      await excludedProjectsApi.remove(rowId)
-    } catch (error) {
-      logApiOperationError('사업검색이력 삭제', error)
-      return
-    }
-
-    setEditingExcludedIds((prev) => prev.filter((id) => id !== rowId))
-    setExcludedEditSnapshots((prev) => removeObjectKey(prev, rowId))
-    await fetchExcludedRows(false)
+        setEditingExcludedIds((prev) => prev.filter((id) => id !== rowId))
+        setExcludedEditSnapshots((prev) => removeObjectKey(prev, rowId))
+        await fetchExcludedRows(false)
+      },
+    })
   }
 
   const saveExcludedRow = async (rowId) => {
@@ -4891,7 +4940,7 @@ function App() {
     if (!targetRow) return
 
     if (isExcludedRowEmpty(targetRow)) {
-      alert('입력 내용을 확인해주세요.')
+      showAppAlert('입력 내용을 확인해주세요.')
       return
     }
 
@@ -4930,39 +4979,44 @@ function App() {
     const validSelectedIds = selectedExcludedIds.filter((id) => safeString(id).trim() !== '')
 
     if (validSelectedIds.length === 0) {
-      alert('삭제할 행을 선택해주세요.')
+      showAppAlert('삭제할 행을 선택해주세요.')
       return
     }
 
-    const ok = window.confirm('선택한 데이터를 삭제하시겠습니까?')
-    if (!ok) return
+    setContractConfirmDialog({
+      title: '선택 삭제',
+      message: '선택한 데이터를 삭제하시겠습니까?',
+      destructive: true,
+      confirmLabel: '삭제',
+      onConfirm: async () => {
+        const persistedIds = excludedRows
+          .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
+          .map((row) => row.id)
+          .filter((id) => safeString(id).trim() !== '')
 
-    const persistedIds = excludedRows
-      .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
-      .map((row) => row.id)
-      .filter((id) => safeString(id).trim() !== '')
+        if (persistedIds.length > 0) {
+          const remainingDrafts = excludedRows.filter(
+            (row) => row.isDraft && !validSelectedIds.includes(row.id)
+          )
+          try {
+            await excludedProjectsApi.bulkDelete(persistedIds)
+          } catch (error) {
+            logApiOperationError('사업검색이력 선택 삭제', error)
+            return
+          }
 
-    if (persistedIds.length > 0) {
-      const remainingDrafts = excludedRows.filter(
-        (row) => row.isDraft && !validSelectedIds.includes(row.id)
-      )
-      try {
-        await excludedProjectsApi.bulkDelete(persistedIds)
-      } catch (error) {
-        logApiOperationError('사업검색이력 선택 삭제', error)
-        return
-      }
+          setExcludedRows(remainingDrafts)
+          setSelectedExcludedIds([])
+          setEditingExcludedIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+          await fetchExcludedRows(true)
+          return
+        }
 
-      setExcludedRows(remainingDrafts)
-      setSelectedExcludedIds([])
-      setEditingExcludedIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
-      await fetchExcludedRows(true)
-      return
-    }
-
-    setExcludedRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
-    setSelectedExcludedIds([])
-    setEditingExcludedIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+        setExcludedRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
+        setSelectedExcludedIds([])
+        setEditingExcludedIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+      },
+    })
   }
 
   const saveExcludedRows = async () => {
@@ -4973,7 +5027,7 @@ function App() {
     const hasEmptyDraftRows = excludedRows.some((row) => row.isDraft && isExcludedRowEmpty(row))
 
     if (rowsToInsert.length === 0 && rowsToUpdate.length === 0 && !hasEmptyDraftRows) {
-      alert('저장할 행이 없습니다.')
+      showAppAlert('저장할 행이 없습니다.')
       return
     }
 
@@ -5165,14 +5219,14 @@ function App() {
 
       if (!target) {
         console.error('엑셀 업로드 대상 메뉴를 확인할 수 없습니다.')
-        alert('엑셀 업로드 대상 메뉴를 확인할 수 없습니다. 다시 시도해주세요.')
+        showAppAlert('엑셀 업로드 대상 메뉴를 확인할 수 없습니다. 다시 시도해주세요.')
         return
       }
 
       const config = getRegistryUploadConfig(target)
       if (!config?.importRows) {
         console.error('엑셀 업로드 설정을 찾을 수 없습니다.', { target, config })
-        alert('엑셀 업로드 설정을 찾을 수 없습니다. 다시 시도해주세요.')
+        showAppAlert('엑셀 업로드 설정을 찾을 수 없습니다. 다시 시도해주세요.')
         return
       }
 
@@ -5187,7 +5241,7 @@ function App() {
       const firstSheetName = workbook.SheetNames[0]
 
       if (!firstSheetName) {
-        alert('업로드할 시트를 찾을 수 없습니다.')
+        showAppAlert('업로드할 시트를 찾을 수 없습니다.')
         return
       }
 
@@ -5198,7 +5252,7 @@ function App() {
       })
 
       if (!rows.length) {
-        alert('업로드할 데이터가 없습니다.')
+        showAppAlert('업로드할 데이터가 없습니다.')
         return
       }
 
@@ -5210,7 +5264,7 @@ function App() {
       )
 
       if (!preparedRows.length) {
-        alert('업로드할 유효한 데이터가 없습니다.')
+        showAppAlert('업로드할 유효한 데이터가 없습니다.')
         return
       }
 
@@ -5235,7 +5289,7 @@ function App() {
       })
 
       if (!uniquePreparedRows.length) {
-        alert(`신규 0건 업로드, 중복 ${duplicateCount}건 제외되었습니다.`)
+        showAppAlert(`신규 0건 업로드, 중복 ${duplicateCount}건 제외되었습니다.`)
         return
       }
 
@@ -5259,7 +5313,7 @@ function App() {
         console.error('[excel-upload] 업로드 실패', error)
         logApiOperationError('엑셀 업로드 실패', error)
         await config.fetchRows(false)
-        alert(error?.message ?? String(error))
+        showAppAlert(error?.message ?? String(error))
         return
       }
 
@@ -5269,10 +5323,10 @@ function App() {
         importedCount: uniquePreparedRows.length,
         duplicateCount,
       })
-      alert('엑셀 업로드가 완료되었습니다.')
+      showAppAlert('엑셀 업로드가 완료되었습니다.')
     } catch (error) {
       console.error('업로드 중 오류가 발생했습니다.', error)
-      alert(error?.message ?? String(error))
+      showAppAlert(error?.message ?? String(error))
     } finally {
       registryUploadInProgressRef.current = false
     }
@@ -5410,7 +5464,7 @@ function App() {
   const handleWorkReportPdfDownload = () => {
     const popup = window.open('', '_blank', 'width=1480,height=980')
     if (!popup) {
-      alert('팝업을 허용한 뒤 다시 시도해주세요.')
+      showAppAlert('팝업을 허용한 뒤 다시 시도해주세요.')
       return
     }
 
@@ -5747,7 +5801,7 @@ function App() {
   const handleWorkReportBoardPdfDownload = () => {
     const popup = window.open('', '_blank', 'width=1680,height=980')
     if (!popup) {
-      alert('팝업을 허용한 뒤 다시 시도해주세요.')
+      showAppAlert('팝업을 허용한 뒤 다시 시도해주세요.')
       return
     }
 
@@ -6058,6 +6112,20 @@ function App() {
     setToastMessage(dialog.single ? '삭제되었습니다.' : '선택한 항목이 삭제되었습니다.')
   }
 
+  const handleConfirmDialogPrimary = () => {
+    const d = contractConfirmDialog
+    if (!d) return
+    if (Array.isArray(d.payloadIds) && d.payloadIds.length > 0) {
+      void runContractDeleteConfirmed()
+      return
+    }
+    if (typeof d.onConfirm === 'function') {
+      void Promise.resolve(d.onConfirm()).finally(() => setContractConfirmDialog(null))
+      return
+    }
+    setContractConfirmDialog(null)
+  }
+
   const startEdit = (rowKey, key, value, row) => {
     if (!isAdmin) return
     if (!rowKey) return
@@ -6214,13 +6282,13 @@ function App() {
     const deRaw = safeString(eventForm.dateEnd).trim()
     const de = deRaw || ds
     if (!ds || !title) {
-      alert('시작일과 일정 내용을 입력해주세요.')
+      showAppAlert('시작일과 일정 내용을 입력해주세요.')
       return
     }
     const pds = parseDateOnly(ds)
     const pde = parseDateOnly(de)
     if (!pds) {
-      alert('시작일 형식을 확인해주세요.')
+      showAppAlert('시작일 형식을 확인해주세요.')
       return
     }
     let startYmd = formatDateInput(pds)
@@ -6247,10 +6315,15 @@ function App() {
   }
 
   const deleteManualEvent = (id) => {
-    const ok = window.confirm('이 일정을 삭제하시겠습니까?')
-    if (!ok) return
-
-    persistEvents(manualEvents.filter((item) => item.id !== id))
+    setContractConfirmDialog({
+      title: '일정 삭제',
+      message: '이 일정을 삭제하시겠습니까?',
+      destructive: true,
+      confirmLabel: '삭제',
+      onConfirm: () => {
+        persistEvents(manualEvents.filter((item) => item.id !== id))
+      },
+    })
   }
 
   const prevMonth = () => {
@@ -10036,6 +10109,9 @@ function App() {
                 onClearInstallCaseImage={clearInstallCaseImage}
                 pairDigitChange={handleInstallCasePairDigitChange}
                 onLedPitchChange={handleInstallCaseLedPitchChange}
+                onInvalidImageFile={() =>
+                  showAppAlert('이미지 파일만 업로드할 수 있습니다.', '알림')
+                }
               />
 
               <div className="install-case-form-actions">
@@ -10051,42 +10127,51 @@ function App() {
         </div>
       )}
 
-      {contractConfirmDialog && (
-        <div
-          className="modal-backdrop contract-confirm-backdrop"
-          onClick={() => setContractConfirmDialog(null)}
-        >
-          <div
-            className="confirm-dialog-shell"
-            style={{
-              maxWidth: 400,
-              width: 'min(400px, calc(100vw - 40px))',
-              boxSizing: 'border-box',
-              flex: '0 0 auto',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="confirm-dialog-title">{contractConfirmDialog.title}</h3>
-            <p className="confirm-dialog-message">{contractConfirmDialog.message}</p>
-            <div className="confirm-dialog-actions">
-              <button
-                type="button"
-                className="secondary-btn"
-                onClick={() => setContractConfirmDialog(null)}
+      {contractConfirmDialog &&
+        (() => {
+          const d = contractConfirmDialog
+          const isContractDel = Array.isArray(d.payloadIds) && d.payloadIds.length > 0
+          const primaryDanger = isContractDel || d.destructive === true
+          const primaryLabel = isContractDel ? '삭제' : d.confirmLabel || '확인'
+          return (
+            <div
+              className="modal-backdrop contract-confirm-backdrop"
+              onClick={() => setContractConfirmDialog(null)}
+            >
+              <div
+                className="confirm-dialog-shell"
+                style={{
+                  maxWidth: 400,
+                  width: 'min(400px, calc(100vw - 40px))',
+                  boxSizing: 'border-box',
+                  flex: '0 0 auto',
+                }}
+                onClick={(e) => e.stopPropagation()}
               >
-                취소
-              </button>
-              <button
-                type="button"
-                className="primary-btn danger-btn"
-                onClick={() => void runContractDeleteConfirmed()}
-              >
-                삭제
-              </button>
+                <h3 className="confirm-dialog-title">{d.title}</h3>
+                <p className="confirm-dialog-message">{d.message}</p>
+                <div className="confirm-dialog-actions">
+                  {!d.alert && (
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      onClick={() => setContractConfirmDialog(null)}
+                    >
+                      취소
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className={`primary-btn${primaryDanger ? ' danger-btn' : ''}`}
+                    onClick={handleConfirmDialogPrimary}
+                  >
+                    {primaryLabel}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )
+        })()}
 
       {showAdminLoginModal && (
         <div className="auth-modal-backdrop" onClick={closeAdminLoginModal}>
