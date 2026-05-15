@@ -1597,6 +1597,7 @@ textarea {
   align-items: center;
   justify-content: center;
   padding: 24px;
+  box-sizing: border-box;
   background: rgba(15, 23, 42, 0.42);
 }
 
@@ -1634,10 +1635,19 @@ textarea {
   height: 32px;
   border: none;
   border-radius: 8px;
-  background: #e5e7eb;
+  background: #eef2f7;
   color: #111827;
   font-weight: 700;
   cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.modal-close-btn:hover {
+  background: #e2e8f0;
+  transform: rotate(4deg);
 }
 
 .detail-modal-grid {
@@ -3227,11 +3237,6 @@ textarea:focus-visible {
   color: var(--muted);
 }
 
-.modal-backdrop {
-  background: rgba(15, 23, 42, 0.5);
-  backdrop-filter: blur(6px);
-}
-
 /* 파일 하단에서도 동일: 테마 구역만 덮어쓸 때 레이아웃 유지 */
 .modal-backdrop.contract-confirm-backdrop {
   display: flex;
@@ -3266,16 +3271,6 @@ textarea:focus-visible {
   color: var(--ink);
   font-size: 19px;
   font-weight: 900;
-}
-
-.modal-close-btn {
-  background: #eef2f7;
-  transition: background 0.15s ease, transform 0.15s ease;
-}
-
-.modal-close-btn:hover {
-  background: #e2e8f0;
-  transform: rotate(4deg);
 }
 
 .detail-modal-grid {
@@ -5791,6 +5786,17 @@ textarea:focus-visible {
   min-height: 0;
   flex: 1 1 auto;
   overflow: hidden;
+}
+
+.install-case-detail-modal-body--plain {
+  display: block;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 18px 20px 20px;
+  box-sizing: border-box;
+  background: #ffffff;
 }
 
 .install-case-detail-visual {

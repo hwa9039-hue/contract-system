@@ -10112,15 +10112,29 @@ function App() {
 
       {detailModal && (
         <div className="modal-backdrop" onClick={() => setDetailModal(null)}>
-          <div className="detail-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="detail-modal-header">
-              <h3>{detailModal.title}</h3>
-              <button className="modal-close-btn" type="button" onClick={() => setDetailModal(null)}>
-                ✕
-              </button>
+          <div
+            className="install-case-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="calendar-detail-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="install-case-detail-modal-header">
+              <h3 id="calendar-detail-modal-title">{detailModal.title}</h3>
+              <div className="install-case-detail-modal-actions">
+                <button
+                  type="button"
+                  className="modal-close-btn"
+                  onClick={() => setDetailModal(null)}
+                  aria-label="닫기"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
-            <div className="detail-modal-grid">
+            <div className="install-case-detail-modal-body install-case-detail-modal-body--plain">
+              <div className="detail-modal-grid">
               <div className="detail-item">
                 <span className="detail-label">구분</span>
                 <span className="detail-value">{detailModal.typeLabel || '-'}</span>
@@ -10201,6 +10215,7 @@ function App() {
                   <span className="detail-value prewrap">{detailModal.note}</span>
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
