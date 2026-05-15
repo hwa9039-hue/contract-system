@@ -621,6 +621,11 @@ function getInstallCaseProjectTitle(row) {
   return safeString(row?.projectName).trim() || '-'
 }
 
+function getInstallCaseEnvironmentLabel(env) {
+  if (env === 'outdoor') return '실외(Outdoor)'
+  return '실내(Indoor)'
+}
+
 function formatInstallCaseLedPitchDisplay(pitch) {
   const s = safeString(pitch).trim()
   if (!s) return '-'
@@ -10136,7 +10141,7 @@ function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="install-case-detail-modal-header">
-              <h3 id="install-case-detail-title">{getInstallCaseProjectTitle(installCaseDetailModal)}</h3>
+              <h3 className="install-case-detail-modal-header-eyebrow">설치사례</h3>
               <div className="install-case-detail-modal-actions">
                 {isAdmin && (
                   <>
@@ -10173,24 +10178,36 @@ function App() {
             <div className="install-case-detail-modal-body">
               <div className="install-case-detail-visual-frame">
                 <div className="install-case-detail-visual">
-                  <img src={installCaseDetailModal.heroImage} alt="" />
+                  <img
+                    src={installCaseDetailModal.heroImage || INSTALL_CASE_FALLBACK_HERO}
+                    alt=""
+                  />
                 </div>
               </div>
               <div className="install-case-detail-aside">
-                <dl className="install-case-detail-meta">
-                  <div className="install-case-meta-row">
-                    <dt>사업년도</dt>
-                    <dd>{installCaseDetailModal.year}</dd>
-                  </div>
-                  <div className="install-case-meta-row">
-                    <dt>용도</dt>
-                    <dd>{installCaseDetailModal.purpose}</dd>
-                  </div>
-                  <div className="install-case-meta-row">
-                    <dt>발주처</dt>
-                    <dd>{installCaseDetailModal.client}</dd>
-                  </div>
-                </dl>
+                <div className="install-case-detail-aside-lead">
+                  <h2 id="install-case-detail-title" className="install-case-detail-aside-title">
+                    {getInstallCaseProjectTitle(installCaseDetailModal)}
+                  </h2>
+                  <dl className="install-case-detail-meta">
+                    <div className="install-case-meta-row">
+                      <dt>사업년도</dt>
+                      <dd>{installCaseDetailModal.year ?? '-'}</dd>
+                    </div>
+                    <div className="install-case-meta-row">
+                      <dt>설치장소</dt>
+                      <dd>{getInstallCaseEnvironmentLabel(installCaseDetailModal.environment)}</dd>
+                    </div>
+                    <div className="install-case-meta-row">
+                      <dt>발주처</dt>
+                      <dd>{installCaseDetailModal.client ?? '-'}</dd>
+                    </div>
+                    <div className="install-case-meta-row">
+                      <dt>용도</dt>
+                      <dd>{installCaseDetailModal.purpose ?? '-'}</dd>
+                    </div>
+                  </dl>
+                </div>
                 <div className="install-case-detail-specs">
                   <div className="install-case-detail-specs-title">제품 규격</div>
                   <table className="install-case-spec-table">
