@@ -550,10 +550,15 @@ function persistExpandedMenuGroups(groups) {
 const MATERIALS_BOARD_FILE_ACCEPT =
   '.pdf,.xls,.xlsx,.hwp,.doc,.docx,.zip,.ppt,.pptx,.txt,.csv,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/haansofthwp,application/x-hwp,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/zip'
 
+function compareMaterialsBoardPosts(a, b) {
+  const dateCmp = safeString(a.registeredAt).localeCompare(safeString(b.registeredAt))
+  if (dateCmp !== 0) return dateCmp
+  return safeString(a.id).localeCompare(safeString(b.id))
+}
+
 const MATERIALS_BOARD_SEED = [
   {
     id: 'mb-5',
-    no: 5,
     title: '2025년 LED 전광판 견적 가이드',
     content: 'LED 전광판 견적 산출 시 참고할 수 있는 가이드 문서입니다.',
     fileName: 'LED_견적_가이드_2025.pdf',
@@ -561,7 +566,6 @@ const MATERIALS_BOARD_SEED = [
   },
   {
     id: 'mb-4',
-    no: 4,
     title: '실내용 모듈 규격 비교표',
     content: '실내용 모듈 주요 제품군별 크기·Pitch 비교표입니다.',
     fileName: '실내_모듈_규격비교.xlsx',
@@ -569,7 +573,6 @@ const MATERIALS_BOARD_SEED = [
   },
   {
     id: 'mb-3',
-    no: 3,
     title: '현장 시공 체크리스트 (양식)',
     content: '현장 시공 전·중·후 점검 항목을 정리한 체크리스트 양식입니다.',
     fileName: '시공_체크리스트_v3.hwp',
@@ -577,7 +580,6 @@ const MATERIALS_BOARD_SEED = [
   },
   {
     id: 'mb-2',
-    no: 2,
     title: '유지보수 계약서 샘플',
     content: '유지보수 계약 시 사용할 수 있는 표준 계약서 샘플입니다.',
     fileName: '유지보수_계약서_샘플.docx',
@@ -585,7 +587,6 @@ const MATERIALS_BOARD_SEED = [
   },
   {
     id: 'mb-1',
-    no: 1,
     title: '프로젝트 도면·시방서 압축본',
     content: '프로젝트 관련 도면 및 시방서 파일 압축본입니다.',
     fileName: 'OO시청_도면패키지.zip',
@@ -3759,7 +3760,7 @@ function App() {
 
   const filteredMaterialsBoardPosts = useMemo(() => {
     const query = safeString(materialsBoardSearch).trim().toLowerCase()
-    const rows = [...materialsBoardPosts].sort((a, b) => a.no - b.no)
+    const rows = [...materialsBoardPosts].sort(compareMaterialsBoardPosts)
     if (!query) return rows
     return rows.filter((row) => {
       const title = safeString(row.title).toLowerCase()
@@ -3864,10 +3865,6 @@ function App() {
       )
       setToastMessage('수정되었습니다.')
     } else {
-      const nextNo =
-        materialsBoardPosts.length > 0
-          ? Math.max(...materialsBoardPosts.map((p) => p.no)) + 1
-          : 1
       const now = new Date()
       const registeredAt = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
       const downloadUrl = materialsBoardFile ? URL.createObjectURL(materialsBoardFile) : ''
@@ -3875,7 +3872,6 @@ function App() {
         ...prev,
         {
           id: `mb-${Date.now()}`,
-          no: nextNo,
           title,
           content,
           fileName,
@@ -10315,13 +10311,13 @@ function App() {
                       </td>
                     </tr>
                   ) : (
-                    filteredMaterialsBoardPosts.map((row) => (
+                    filteredMaterialsBoardPosts.map((row, index) => (
                       <tr
                         key={row.id}
                         className="materials-board-row materials-board-row--clickable"
                         onClick={() => handleDownloadMaterialsBoardFile(row)}
                       >
-                        <td className="materials-board-td materials-board-td--no">{row.no}</td>
+                        <td className="materials-board-td materials-board-td--no">{index + 1}</td>
                         <td
                           className="materials-board-td materials-board-td--title materials-board-td--download"
                           onClick={() => handleDownloadMaterialsBoardFile(row)}
