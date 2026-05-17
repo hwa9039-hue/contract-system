@@ -718,7 +718,7 @@ const INSTALL_CASE_REGISTER_BASIC_ROWS = [
     key: 'projectName',
     label: '사업명',
     required: true,
-    placeholder: '예: ○○시청 LED 전광판 구축',
+    placeholder: '예: 00시청 LED 전광판 구축(계약서 명칭과 동일하게 작성 필요)',
   },
   {
     type: 'select',
@@ -740,9 +740,20 @@ const INSTALL_CASE_REGISTER_BASIC_ROWS = [
       { value: 'private', label: '민간·기타' },
     ],
   },
-  { type: 'businessYear', key: 'businessYearDigits', label: '사업년도' },
+  {
+    type: 'businessYear',
+    key: 'businessYearDigits',
+    label: '사업년도',
+    placeholder: '예: 0000.00',
+  },
   { type: 'text', key: 'purpose', label: '용도', required: true, placeholder: '예: 홍보·안내' },
-  { type: 'text', key: 'client', label: '발주처', required: true, placeholder: '예: OO시청' },
+  {
+    type: 'text',
+    key: 'client',
+    label: '발주처',
+    required: true,
+    placeholder: '예: 00시(계약서 명칭과 동일하게 작성 필요)',
+  },
 ]
 
 const CONTRACT_FIELD_PLACEHOLDERS = {
@@ -1215,7 +1226,7 @@ function InstallCaseFormTwoColumn({
                         const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 6)
                         setFormDraft((prev) => ({ ...prev, businessYearDigits: v }))
                       }}
-                      placeholder="숫자만 입력 (예: 202405)"
+                      placeholder={def.placeholder}
                     />
                   </div>
                 </div>
@@ -1410,7 +1421,7 @@ function getDefaultInstallCaseForm() {
     projectName: '',
     environment: 'indoor',
     audience: 'public',
-    businessYearDigits: String(new Date().getFullYear()),
+    businessYearDigits: '',
     purpose: '',
     client: '',
     specs: {
