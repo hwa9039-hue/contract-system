@@ -10391,21 +10391,18 @@ function App() {
         {menu === 'calendar' && (
           <section className="stat-card stat-card--calendar">
             <div className="calendar-page">
-              <div className="calendar-page-top-nav">
-                <div className="calendar-toolbar-nav">
-                  <button className="month-nav-btn" type="button" onClick={prevMonth}>
-                    ◀
-                  </button>
-                  <div className="calendar-month-title">{getMonthLabel(calendarCursor)}</div>
-                  <button className="month-nav-btn" type="button" onClick={nextMonth}>
-                    ▶
-                  </button>
-                </div>
-              </div>
-
               <div className="calendar-page-body">
                 <div className="calendar-page-main">
-                  <div className="calendar-add-form-bar">
+                  <div className="calendar-main-toolbar">
+                    <div className="calendar-toolbar-nav">
+                      <button className="month-nav-btn" type="button" onClick={prevMonth}>
+                        ◀
+                      </button>
+                      <div className="calendar-month-title">{getMonthLabel(calendarCursor)}</div>
+                      <button className="month-nav-btn" type="button" onClick={nextMonth}>
+                        ▶
+                      </button>
+                    </div>
                     <div className="calendar-toolbar-form calendar-toolbar-form--register-only">
                       <button
                         className="primary-btn calendar-add-btn"
@@ -10508,14 +10505,23 @@ function App() {
                                 <div
                                   className="calendar-week-multi-lane"
                                   style={{
-                                    gridTemplateRows: `repeat(${spanData.laneCount}, 22px)`,
+                                    gridTemplateRows: `repeat(${spanData.laneCount}, 20px)`,
                                   }}
                                 >
                                   {spanData.placed.map((seg) => (
                                     <button
                                       key={`${seg.item.id}-w${wi}-c${seg.startCol}-${seg.endCol}-L${seg.lane}`}
                                       type="button"
-                                      className="calendar-span-bar manual-span-bar"
+                                      className={[
+                                        'calendar-span-bar',
+                                        'manual-span-bar',
+                                        'calendar-span-bar--cap-left',
+                                        'calendar-span-bar--cap-right',
+                                        seg.startCol === 0 ? 'calendar-span-bar--week-start' : '',
+                                        seg.endCol === 6 ? 'calendar-span-bar--week-end' : '',
+                                      ]
+                                        .filter(Boolean)
+                                        .join(' ')}
                                       style={{
                                         gridColumn: `${seg.startCol + 1} / ${seg.endCol + 2}`,
                                         gridRow: seg.lane + 1,
@@ -11045,7 +11051,7 @@ function App() {
                       id="calendar-reg-owner"
                       type="text"
                       className="table-search-input install-case-form-input"
-                      placeholder="예: 홍길동"
+                      placeholder="예: OOO"
                       value={eventForm.owner}
                       onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
                     />
@@ -11058,7 +11064,7 @@ function App() {
                       id="calendar-reg-pm"
                       type="text"
                       className="table-search-input install-case-form-input"
-                      placeholder="예: 김철수"
+                      placeholder="예: OOO"
                       value={eventForm.pm}
                       onChange={(e) => setEventForm((prev) => ({ ...prev, pm: e.target.value }))}
                     />
@@ -11406,6 +11412,7 @@ function App() {
                     <input
                       type="text"
                       className="detail-inline-field"
+                      placeholder="예: OOO"
                       value={md.salesOwner}
                       onChange={(e) =>
                         setCalendarManualDetailDraft((prev) =>
@@ -11425,6 +11432,7 @@ function App() {
                     <input
                       type="text"
                       className="detail-inline-field"
+                      placeholder="예: OOO"
                       value={md.pm}
                       onChange={(e) =>
                         setCalendarManualDetailDraft((prev) =>
