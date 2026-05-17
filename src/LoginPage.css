@@ -42,15 +42,16 @@ html.login-page-active #root {
 }
 
 .login-page-card {
-  width: min(720px, 100%);
-  padding: 32px 32px 28px;
+  width: max-content;
+  max-width: 100%;
+  padding: 28px 22px 24px;
   border-radius: 16px;
   background: #ffffff;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.1);
   border: 1px solid #e2e8f0;
   flex-shrink: 0;
   box-sizing: border-box;
-  display: flex;
+  display: inline-flex;
   flex-direction: column;
   align-items: stretch;
 }
@@ -77,6 +78,7 @@ html.login-page-active #root {
   color: #0f172a;
   line-height: 1.3;
   letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
 .login-page-subtitle {
@@ -179,13 +181,13 @@ html.login-page-active #root {
 /* mt-6 p-4 rounded-lg bg-white/50 border border-gray-200 */
 .login-page-permissions {
   margin-top: 24px;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.5);
   border: 1px solid #e5e7eb;
   text-align: left;
-  width: 100%;
-  max-width: none;
+  width: max-content;
+  max-width: 100%;
   box-sizing: border-box;
   align-self: stretch;
 }
@@ -225,9 +227,23 @@ html.login-page-active #root {
   font-size: 12px;
   line-height: 1.45;
   margin-top: 16px;
+  max-width: 100%;
 }
 
 @media (max-width: 700px) {
+  .login-page-card {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .login-page-title {
+    white-space: normal;
+  }
+
+  .login-page-permissions {
+    width: 100%;
+  }
+
   .login-page-permissions-item--single-line {
     white-space: normal;
   }
