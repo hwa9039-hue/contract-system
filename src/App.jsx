@@ -10278,12 +10278,6 @@ function App() {
 
         {menu === 'materialsBoard' && (
           <section className="stat-card stat-card--materials-board">
-            <p className="materials-board-lead">
-              {isAdmin
-                ? '사업부 공용 자료를 한곳에서 확인하고 등록할 수 있습니다.'
-                : '사업부 공용 자료를 조회하고 첨부 파일을 다운로드할 수 있습니다.'}
-            </p>
-
             <div className="table-toolbar contract-toolbar-simple materials-board-search-toolbar">
               <input
                 className="table-search-input"

@@ -6817,18 +6817,11 @@ textarea:focus-visible {
 
 /* 게시판 */
 .stat-card--materials-board {
-  padding: 28px 32px 36px;
-}
-
-.materials-board-lead {
-  margin: 0 0 16px;
-  font-size: 15px;
-  color: #64748b;
-  line-height: 1.55;
+  padding: 24px 32px 36px;
 }
 
 .materials-board-search-toolbar {
-  margin-bottom: 20px;
+  margin: 0 0 20px;
   display: flex;
   align-items: center;
   gap: 12px;
