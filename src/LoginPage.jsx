@@ -99,7 +99,7 @@ export default function LoginPage() {
           <div className="login-page-permissions-item">- 모든 메뉴 편집 가능</div>
 
           <div className="login-page-permissions-role">일반 사용자</div>
-          <div className="login-page-permissions-item">
+          <div className="login-page-permissions-item login-page-permissions-item--single-line">
             - 주간업무보고서, 영업관리대장, 건축정보, 사업검색이력, 문서수발신대장 편집 가능
           </div>
 
