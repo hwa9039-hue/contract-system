@@ -711,6 +711,80 @@ const INSTALL_CASE_SPEC_ROWS = [
   { key: 'installType', label: '설치유형' },
 ]
 
+/** 설치사례 대분류(구 설치장소) */
+const INSTALL_CASE_MAJOR_CATEGORY_OPTIONS = [
+  { value: '옥외전광판', label: '옥외전광판' },
+  { value: '옥내전광판', label: '옥내전광판' },
+  { value: '체육시설', label: '체육시설' },
+  { value: '미디어보드', label: '미디어보드' },
+  { value: '미디어파사드', label: '미디어파사드' },
+  { value: '미디어 폴', label: '미디어 폴' },
+  { value: '재난·재해·환경안내', label: '재난·재해·환경안내' },
+  { value: '전자게시대', label: '전자게시대' },
+  { value: '응용디스플레이', label: '응용디스플레이' },
+  { value: '교통정보전광판', label: '교통정보전광판' },
+  { value: '해외비즈니스', label: '해외비즈니스' },
+]
+
+/** 설치사례 소분류(구 발주처 구분) */
+const INSTALL_CASE_MINOR_CATEGORY_OPTIONS = [
+  { value: '공공기관', label: '공공기관' },
+  { value: '교육기관', label: '교육기관' },
+  { value: '문화·전시·컨벤션', label: '문화·전시·컨벤션' },
+  { value: '관광·레저', label: '관광·레저' },
+  { value: '상업·유통', label: '상업·유통' },
+  { value: '교통', label: '교통' },
+  { value: '의료기관', label: '의료기관' },
+  { value: '운동장', label: '운동장' },
+  { value: '축구장', label: '축구장' },
+  { value: '야구장', label: '야구장' },
+  { value: '수영장', label: '수영장' },
+  { value: '빙상장', label: '빙상장' },
+  { value: '체육관', label: '체육관' },
+  { value: '기타', label: '기타' },
+]
+
+const INSTALL_CASE_LEGACY_MAJOR_CATEGORY = {
+  indoor: '옥내전광판',
+  outdoor: '옥외전광판',
+}
+
+const INSTALL_CASE_LEGACY_MINOR_CATEGORY = {
+  public: '공공기관',
+  education: '교육기관',
+  culture: '문화·전시·컨벤션',
+  private: '기타',
+}
+
+function withInstallCaseSelectPlaceholder(options, placeholder) {
+  return [{ value: '', label: placeholder }, ...options]
+}
+
+function migrateInstallCaseMajorCategory(raw) {
+  const v = safeString(raw).trim()
+  if (!v) return ''
+  if (INSTALL_CASE_LEGACY_MAJOR_CATEGORY[v]) return INSTALL_CASE_LEGACY_MAJOR_CATEGORY[v]
+  if (INSTALL_CASE_MAJOR_CATEGORY_OPTIONS.some((o) => o.value === v)) return v
+  return v
+}
+
+function migrateInstallCaseMinorCategory(raw) {
+  const v = safeString(raw).trim()
+  if (!v) return ''
+  if (INSTALL_CASE_LEGACY_MINOR_CATEGORY[v]) return INSTALL_CASE_LEGACY_MINOR_CATEGORY[v]
+  if (INSTALL_CASE_MINOR_CATEGORY_OPTIONS.some((o) => o.value === v)) return v
+  return v
+}
+
+function getInstallCaseCategoryLabel(options, value, legacyMap = {}) {
+  const v = safeString(value).trim()
+  if (!v) return '-'
+  const hit = options.find((o) => o.value === v)
+  if (hit) return hit.label
+  if (legacyMap[v]) return legacyMap[v]
+  return v
+}
+
 /** 설치사례 등록/수정: 좌측 기본 필드 */
 const INSTALL_CASE_REGISTER_BASIC_ROWS = [
   {
@@ -723,22 +797,14 @@ const INSTALL_CASE_REGISTER_BASIC_ROWS = [
   {
     type: 'select',
     key: 'environment',
-    label: '설치장소',
-    options: [
-      { value: 'indoor', label: '실내(Indoor)' },
-      { value: 'outdoor', label: '실외(Outdoor)' },
-    ],
+    label: '대분류',
+    options: withInstallCaseSelectPlaceholder(INSTALL_CASE_MAJOR_CATEGORY_OPTIONS, '대분류'),
   },
   {
     type: 'select',
     key: 'audience',
-    label: '발주처 구분',
-    options: [
-      { value: 'public', label: '공공·지자체' },
-      { value: 'education', label: '교육기관' },
-      { value: 'culture', label: '문화·체육시설' },
-      { value: 'private', label: '민간·기타' },
-    ],
+    label: '소분류',
+    options: withInstallCaseSelectPlaceholder(INSTALL_CASE_MINOR_CATEGORY_OPTIONS, '소분류'),
   },
   {
     type: 'businessYear',
@@ -820,8 +886,8 @@ function normalizeInstallCaseRow(row) {
     id: safeString(row?.id),
     projectName: safeString(row?.projectName),
     heroImage: safeString(row?.heroImage).trim() || INSTALL_CASE_FALLBACK_HERO,
-    environment: row?.environment || 'indoor',
-    audience: row?.audience || 'public',
+    environment: migrateInstallCaseMajorCategory(row?.environment),
+    audience: migrateInstallCaseMinorCategory(row?.audience),
     year: safeString(row?.year),
     purpose: safeString(row?.purpose),
     client: safeString(row?.client),
@@ -841,18 +907,19 @@ function getInstallCaseProjectTitle(row) {
 }
 
 function getInstallCaseEnvironmentLabel(env) {
-  if (env === 'outdoor') return '실외(Outdoor)'
-  return '실내(Indoor)'
+  return getInstallCaseCategoryLabel(
+    INSTALL_CASE_MAJOR_CATEGORY_OPTIONS,
+    env,
+    INSTALL_CASE_LEGACY_MAJOR_CATEGORY
+  )
 }
 
 function getInstallCaseAudienceLabel(audience) {
-  const map = {
-    public: '공공·지자체',
-    education: '교육기관',
-    culture: '문화·체육시설',
-    private: '민간·기타',
-  }
-  return map[audience] ?? '-'
+  return getInstallCaseCategoryLabel(
+    INSTALL_CASE_MINOR_CATEGORY_OPTIONS,
+    audience,
+    INSTALL_CASE_LEGACY_MINOR_CATEGORY
+  )
 }
 
 function formatInstallCaseLedPitchDisplay(pitch) {
@@ -1419,8 +1486,8 @@ function InstallCaseFormTwoColumn({
 function getDefaultInstallCaseForm() {
   return {
     projectName: '',
-    environment: 'indoor',
-    audience: 'public',
+    environment: '',
+    audience: '',
     businessYearDigits: '',
     purpose: '',
     client: '',
@@ -3695,8 +3762,8 @@ function App() {
       const mq = parseModuleQtyToWH(safeString(row.specs?.moduleQty))
       setInstallCaseFormDraft({
         projectName: safeString(row.projectName).trim(),
-        environment: row.environment || 'indoor',
-        audience: row.audience || 'public',
+        environment: migrateInstallCaseMajorCategory(row.environment),
+        audience: migrateInstallCaseMinorCategory(row.audience),
         businessYearDigits: parseYearToFormDigits(row.year),
         purpose: safeString(row.purpose).trim(),
         client: safeString(row.client).trim(),
@@ -3938,6 +4005,14 @@ function App() {
       showAppAlert('사업명을 입력해 주세요.', '알림')
       return
     }
+    if (!safeString(d.environment).trim()) {
+      showAppAlert('대분류를 선택해 주세요.', '알림')
+      return
+    }
+    if (!safeString(d.audience).trim()) {
+      showAppAlert('소분류를 선택해 주세요.', '알림')
+      return
+    }
     let imageUrl = INSTALL_CASE_FALLBACK_HERO
     try {
       if (icImageFile) {
@@ -3960,8 +4035,8 @@ function App() {
     const rowPayload = {
       projectName,
       heroImage: imageUrl,
-      environment: d.environment || 'indoor',
-      audience: d.audience || 'public',
+      environment: safeString(d.environment).trim(),
+      audience: safeString(d.audience).trim(),
       year: businessYearDigitsToStored(d.businessYearDigits),
       purpose: safeString(d.purpose).trim() || '-',
       client: safeString(d.client).trim() || '-',
@@ -10210,23 +10285,29 @@ function App() {
                   className="contract-filter-select install-cases-select"
                   value={installCaseEnvFilter}
                   onChange={(e) => setInstallCaseEnvFilter(e.target.value)}
-                  aria-label="설치장소 필터"
+                  aria-label="대분류 필터"
                 >
-                  <option value="">설치장소</option>
-                  <option value="indoor">실내(Indoor)</option>
-                  <option value="outdoor">실외(Outdoor)</option>
+                  {withInstallCaseSelectPlaceholder(INSTALL_CASE_MAJOR_CATEGORY_OPTIONS, '대분류').map(
+                    (opt) => (
+                      <option key={opt.value || 'major-all'} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    )
+                  )}
                 </select>
                 <select
                   className="contract-filter-select install-cases-select"
                   value={installCaseAudienceFilter}
                   onChange={(e) => setInstallCaseAudienceFilter(e.target.value)}
-                  aria-label="발주처 필터"
+                  aria-label="소분류 필터"
                 >
-                  <option value="">발주처</option>
-                  <option value="public">공공·지자체</option>
-                  <option value="education">교육기관</option>
-                  <option value="culture">문화·체육시설</option>
-                  <option value="private">민간·기타</option>
+                  {withInstallCaseSelectPlaceholder(INSTALL_CASE_MINOR_CATEGORY_OPTIONS, '소분류').map(
+                    (opt) => (
+                      <option key={opt.value || 'minor-all'} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    )
+                  )}
                 </select>
               </div>
               {isAdmin && (
@@ -10722,11 +10803,11 @@ function App() {
                         <dd>{formatInstallCaseYearDetailDisplay(installCaseDetailModal.year)}</dd>
                       </div>
                       <div className="install-case-meta-row">
-                        <dt>설치장소</dt>
+                        <dt>대분류</dt>
                         <dd>{getInstallCaseEnvironmentLabel(installCaseDetailModal.environment)}</dd>
                       </div>
                       <div className="install-case-meta-row">
-                        <dt>발주처 구분</dt>
+                        <dt>소분류</dt>
                         <dd>{getInstallCaseAudienceLabel(installCaseDetailModal.audience)}</dd>
                       </div>
                       <div className="install-case-meta-row">
