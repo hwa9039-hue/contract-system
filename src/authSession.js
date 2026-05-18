@@ -46,8 +46,6 @@ export function readSharedAuthSession() {
     return { ...session, persistence: 'session' }
   }
 
-  clearSharedAuthSession()
-
   return {
     isAuthenticated: false,
     expiresAt: 0,
@@ -129,12 +127,17 @@ export function clearAdminFlag() {
   }
 }
 
-/** 자동 로그인( persistent ) 시 API 호출용 토큰을 sessionStorage에도 복원 */
+/** localStorage·sessionStorage 중 존재하는 토큰을 활성 스토리지에 복원 */
 export function syncAuthTokenToActiveStorage(persistence = 'session') {
-  if (persistence !== 'persistent') return
   try {
-    const token = localStorage.getItem(AUTH_TOKEN_KEY)
-    if (token) {
+    const token =
+      sessionStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem(AUTH_TOKEN_KEY)
+    if (!token) return
+
+    if (persistence === 'persistent') {
+      localStorage.setItem(AUTH_TOKEN_KEY, token)
+      sessionStorage.setItem(AUTH_TOKEN_KEY, token)
+    } else {
       sessionStorage.setItem(AUTH_TOKEN_KEY, token)
     }
   } catch {
@@ -143,17 +146,51 @@ export function syncAuthTokenToActiveStorage(persistence = 'session') {
 }
 
 /**
+ * 새로고침 시 localStorage·sessionStorage 모두 확인해 세션 복구
+ * @returns {{ isAuthenticated: boolean, expiresAt: number, persistence: 'none' | 'session' | 'persistent', isAdmin: boolean }}
+ */
+export function restoreAuthSessionFromStorages() {
+  const fromLocal = readAuthFromStorage(localStorage)
+  const fromSession = readAuthFromStorage(sessionStorage)
+
+  let chosen = null
+  let persistence = 'none'
+
+  if (fromLocal && fromSession) {
+    chosen = fromLocal.expiresAt >= fromSession.expiresAt ? fromLocal : fromSession
+    persistence =
+      fromLocal.expiresAt >= fromSession.expiresAt ? 'persistent' : 'session'
+  } else if (fromLocal) {
+    chosen = fromLocal
+    persistence = 'persistent'
+  } else if (fromSession) {
+    chosen = fromSession
+    persistence = 'session'
+  }
+
+  if (!chosen) {
+    return {
+      isAuthenticated: false,
+      expiresAt: 0,
+      persistence: 'none',
+      isAdmin: false,
+    }
+  }
+
+  syncAuthTokenToActiveStorage(persistence)
+
+  return {
+    isAuthenticated: true,
+    expiresAt: chosen.expiresAt,
+    persistence,
+    isAdmin: readStoredAdminFlag(persistence),
+  }
+}
+
+/**
  * 앱 마운트 시 storage → 상태 복구용 스냅샷
  * @returns {{ isAuthenticated: boolean, expiresAt: number, persistence: 'none' | 'session' | 'persistent', isAdmin: boolean }}
  */
 export function hydrateAuthSessionFromStorage() {
-  const session = readSharedAuthSession()
-  if (!session.isAuthenticated) {
-    return { ...session, isAdmin: false }
-  }
-  syncAuthTokenToActiveStorage(session.persistence)
-  return {
-    ...session,
-    isAdmin: readStoredAdminFlag(session.persistence),
-  }
+  return restoreAuthSessionFromStorages()
 }

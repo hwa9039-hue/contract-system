@@ -6,6 +6,7 @@ import {
   CONTRACT_PERSISTENT_SESSION_DURATION_MS,
   CONTRACT_SHARED_SESSION_DURATION_MS,
   hydrateAuthSessionFromStorage,
+  restoreAuthSessionFromStorages,
   readStoredAdminFlag,
   SHARED_APP_PASSWORD,
   writeAdminFlag,
@@ -23,16 +24,23 @@ export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(hydrated.isAuthenticated)
   const [isAdmin, setIsAdmin] = useState(hydrated.isAdmin)
   const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(hydrated.expiresAt)
-  const [authHydrated, setAuthHydrated] = useState(false)
+  const [authHydrated, setAuthHydrated] = useState(true)
 
-  useEffect(() => {
-    const session = hydrateAuthSessionFromStorage()
+  const applyRestoredSession = useCallback((session) => {
     setAuthPersistence(session.persistence)
     setIsAuthenticated(session.isAuthenticated)
     setIsAdmin(session.isAdmin)
     setSharedSessionExpiresAt(session.expiresAt)
-    setAuthHydrated(true)
+    if (session.isAuthenticated) {
+      syncAuthTokenToActiveStorage(session.persistence)
+    }
   }, [])
+
+  useEffect(() => {
+    const session = restoreAuthSessionFromStorages()
+    applyRestoredSession(session)
+    setAuthHydrated(true)
+  }, [applyRestoredSession])
 
   useEffect(() => {
     if (!authHydrated || !isAuthenticated) return
@@ -50,8 +58,12 @@ export function AuthProvider({ children }) {
         if (data.auth_disabled) return
         if (data.valid) return
 
-        // JWT가 없는 공유 세션(비활성 모드·클라이언트 세션)은 /me 실패로 지우지 않음
         if (!hadBearerToken) return
+
+        const stored = restoreAuthSessionFromStorages()
+        if (stored.isAuthenticated && stored.expiresAt > Date.now()) {
+          return
+        }
 
         setAuthPersistence('none')
         setIsAuthenticated(false)

@@ -248,17 +248,14 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
     throw new Error(DISCOVERY_EXCEL_FORMAT_ERROR)
   }
 
-  const headerIndex = rawData.findIndex((row) => {
-    if (!Array.isArray(row)) return false
-    return row.some((cell) => {
-      const compact = stripCellForMatch(cell)
-      if (!compact) return false
-      return (
-        compact.includes(stripCellForMatch('건축정보일자')) ||
-        compact.includes(stripCellForMatch('사업명'))
+  const headerIndex = rawData.findIndex(
+    (row) =>
+      row &&
+      row.some(
+        (cell) =>
+          String(cell).includes('사업명') || String(cell).includes('건축정보일자')
       )
-    })
-  })
+  )
 
   console.log('[discovery-excel] headerIndex', headerIndex)
 
@@ -266,14 +263,21 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
     throw new Error(DISCOVERY_EXCEL_FORMAT_ERROR)
   }
 
-  const headers = buildHeaderKeys(rawData[headerIndex])
-  const dataRows = rawData.slice(headerIndex + 1)
+  const headerRow = rawData[headerIndex]
+  const headerKeys = (headerRow || []).map((cell, index) => {
+    const key = String(cell ?? '').trim()
+    return key || `__EMPTY_${index}`
+  })
 
-  const parsedData = dataRows
-    .filter((dataRow) => Array.isArray(dataRow) && !isEmptyDataRow(dataRow))
+  const parsedData = rawData
+    .slice(headerIndex + 1)
+    .filter(
+      (row) =>
+        row && row.some((cell) => cell !== null && cell !== undefined && String(cell).trim() !== '')
+    )
     .map((dataRow) => {
       const rowObject = {}
-      headers.forEach((key, columnIndex) => {
+      headerKeys.forEach((key, columnIndex) => {
         let value = dataRow[columnIndex] ?? ''
         if (isDateLikeHeader(key)) {
           value = excelCellToYmd(value)
@@ -282,7 +286,9 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
       })
       return rowObject
     })
-    .filter((rowObject) => !isEmptyParsedRow(rowObject))
+    .filter((rowObject) =>
+      Object.values(rowObject).some((value) => String(value ?? '').trim() !== '')
+    )
 
   console.log('최종 파싱 데이터:', parsedData)
 
@@ -290,7 +296,7 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
     rows: parsedData,
     headerRowIndex: headerIndex,
     raw_data: rawData,
-    headers,
+    headers: headerKeys,
   }
 }
 
