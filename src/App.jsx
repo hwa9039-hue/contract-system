@@ -179,6 +179,269 @@ const WORK_REPORT_SECTION_KEYS = {
   supportDone: '영업지원_완료업무',
 }
 
+/** 주간업무보고서 PDF/인쇄 팝업 공통 스타일 */
+const WORK_REPORT_PDF_PRINT_STYLES = `
+  @page { size: A4 landscape; margin: 10mm; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    color: #1f2937;
+    background: #ffffff;
+    font-family: 'Pretendard', 'SUIT', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+  .pdf-print-root {
+    width: 100%;
+    padding: 0;
+  }
+  .pdf-shell {
+    width: 100%;
+    max-width: 100%;
+    border: 1px solid #d6dee8;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #ffffff;
+  }
+  .pdf-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid #dbe4ee;
+    background: #f8fafc;
+  }
+  .pdf-title {
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 4px;
+    color: #0f172a;
+  }
+  .pdf-meta {
+    font-size: 12px;
+    color: #475569;
+  }
+  .pdf-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+    padding: 8px;
+    align-items: stretch;
+  }
+  .pdf-day-card {
+    min-width: 0;
+    border: 1px solid #d8dee7;
+    border-radius: 8px;
+    background: #f9fbfd;
+    overflow: hidden;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .pdf-day-head {
+    padding: 8px 10px;
+    border-bottom: 1px solid #dbe4ee;
+    background: #ffffff;
+  }
+  .pdf-day-weekday {
+    font-size: 11px;
+    font-weight: 800;
+    color: #1d4f63;
+    margin-bottom: 2px;
+  }
+  .pdf-day-date {
+    font-size: 10px;
+    color: #64748b;
+  }
+  .pdf-section {
+    padding: 6px 8px;
+    border-bottom: 1px solid #e5e7eb;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .pdf-section:last-child {
+    border-bottom: none;
+  }
+  .pdf-section-title {
+    padding: 5px 8px;
+    border-radius: 6px;
+    background: #1f5f74 !important;
+    color: #ffffff !important;
+    font-size: 10px;
+    font-weight: 800;
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+  .pdf-check-list {
+    margin: 0;
+    padding-left: 16px;
+  }
+  .pdf-check-list li {
+    min-height: 16px;
+    font-size: 9px;
+    line-height: 1.45;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  .pdf-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .pdf-table th,
+  .pdf-table td {
+    border: 1px solid #dbe4ee;
+    padding: 4px 5px;
+    vertical-align: top;
+    font-size: 8.5px;
+    line-height: 1.4;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    white-space: normal;
+    hyphens: none;
+  }
+  .pdf-table th {
+    background: #eef4ff !important;
+    color: #1e3a5f !important;
+    font-weight: 800;
+  }
+  .pdf-index {
+    width: 10%;
+    text-align: center;
+  }
+  .pdf-manager {
+    width: 22%;
+  }
+  .pdf-destination {
+    width: 20%;
+  }
+  .pdf-support-title {
+    margin: 6px 0 4px;
+    font-size: 9px;
+    font-weight: 800;
+    color: #1f5f74;
+  }
+  .report-shell {
+    width: 100%;
+    max-width: 100%;
+    border: 1px solid #d6dee8;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #ffffff;
+  }
+  .weekly-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+    padding: 8px;
+  }
+  .weekly-card {
+    min-width: 0;
+    border: 1px solid #d8dee7;
+    border-radius: 8px;
+    background: #f9fbfd;
+    overflow: hidden;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .weekly-section-title {
+    padding: 5px 8px;
+    border-radius: 6px;
+    background: #1f5f74 !important;
+    color: #ffffff !important;
+    font-size: 10px;
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+  .weekly-content,
+  .weekly-check-list li {
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    font-size: 9px;
+    line-height: 1.45;
+  }
+  @media print {
+    html, body {
+      width: 100%;
+      height: auto;
+      font-family: 'Pretendard', 'SUIT', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+    .pdf-print-root {
+      padding: 0;
+    }
+    .pdf-shell,
+    .report-shell {
+      border: none;
+      border-radius: 0;
+      max-width: 100%;
+    }
+    .pdf-grid,
+    .weekly-grid {
+      gap: 4px;
+      padding: 4px 0;
+    }
+    .pdf-day-card,
+    .pdf-section,
+    .weekly-card,
+    .weekly-section {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+  }
+`
+
+const WORK_REPORT_PDF_PRINT_FONT_LINK =
+  'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css'
+
+const WORK_REPORT_PDF_PRINT_ONLOAD_SCRIPT = `
+  (function () {
+    function fitAndPrint() {
+      var shell = document.querySelector('.pdf-shell');
+      if (!shell) {
+        window.print();
+        return;
+      }
+      var pageWidthPx = Math.round((297 - 20) / 25.4 * 96);
+      shell.style.transform = '';
+      shell.style.zoom = '';
+      shell.style.width = '100%';
+      var naturalWidth = shell.scrollWidth;
+      if (naturalWidth > pageWidthPx) {
+        var scale = pageWidthPx / naturalWidth;
+        if ('zoom' in shell.style) {
+          shell.style.zoom = String(scale);
+        } else {
+          shell.style.transform = 'scale(' + scale + ')';
+          shell.style.transformOrigin = 'top left';
+          document.body.style.height = Math.ceil(shell.offsetHeight * scale) + 'px';
+        }
+      }
+      window.setTimeout(function () { window.print(); }, 150);
+    }
+    function start() {
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(fitAndPrint).catch(fitAndPrint);
+      } else {
+        fitAndPrint();
+      }
+    }
+    if (document.readyState === 'complete') {
+      start();
+    } else {
+      window.addEventListener('load', start);
+    }
+  })();
+`
+
 const CALENDAR_STORAGE_KEY = 'contract_manager_calendar_events_v4'
 const CALENDAR_STORAGE_KEY_LEGACY_V3 = 'contract_manager_calendar_events_v3'
 /** 달력 열 순서: 일요일(0) ~ 토요일(6) */
@@ -6170,44 +6433,24 @@ function App() {
         <head>
           <meta charset="UTF-8" />
           <title>주간업무보고서</title>
-          <style>
-            body { font-family: "Malgun Gothic", sans-serif; margin: 0; padding: 24px; color: #1f2937; background: #fff; }
-            .report-shell { border: 1px solid #d6dee8; border-radius: 16px; overflow: hidden; }
-            .report-header { padding: 18px 22px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
-            .report-title { font-size: 24px; font-weight: 800; margin-bottom: 6px; }
-            .report-subtitle { font-size: 13px; color: #475569; }
-            .weekly-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; padding: 16px; }
-            .weekly-card { border: 1px solid #d8dee7; border-radius: 12px; background: #f8fafc; overflow: hidden; }
-            .weekly-card-head { padding: 12px 12px 10px; border-bottom: 1px solid #e5e7eb; background: #ffffff; }
-            .weekly-card-weekday { font-size: 13px; font-weight: 800; color: #2563eb; margin-bottom: 4px; }
-            .weekly-card-date { font-size: 12px; color: #64748b; }
-            .weekly-section { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
-            .weekly-section:last-child { border-bottom: none; }
-            .weekly-section-title { font-size: 12px; font-weight: 800; color: #334155; margin-bottom: 8px; }
-            .weekly-check-list { margin: 0; padding-left: 18px; }
-            .weekly-check-list li { min-height: 20px; font-size: 12px; color: #334155; line-height: 1.5; }
-            .weekly-user { font-size: 11px; font-weight: 800; color: #2563eb; margin-bottom: 6px; }
-            .weekly-content { font-size: 12px; color: #334155; line-height: 1.6; white-space: normal; word-break: break-word; min-height: 20px; }
-            @media print { body { padding: 0; } .report-shell { border: none; border-radius: 0; } }
-          </style>
+          <link rel="stylesheet" href="${WORK_REPORT_PDF_PRINT_FONT_LINK}" />
+          <style>${WORK_REPORT_PDF_PRINT_STYLES}</style>
         </head>
         <body>
-          <div class="report-shell">
-            <div class="report-header">
-              <div class="report-title">주간업무보고서</div>
-              <div class="report-subtitle">${escapeHtml(
-                `${getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)} · 담당자 ${
-                  workReportFilters.assignee || '전체'
-                }`
-              )}</div>
+          <div class="pdf-print-root">
+            <div class="report-shell pdf-shell">
+              <div class="pdf-header report-header">
+                <div class="pdf-title report-title">주간업무보고서</div>
+                <div class="pdf-meta report-subtitle">${escapeHtml(
+                  `${getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)} · 담당자 ${
+                    workReportFilters.assignee || '전체'
+                  }`
+                )}</div>
+              </div>
+              <div class="weekly-grid pdf-grid">${cardMarkup}</div>
             </div>
-            <div class="weekly-grid">${cardMarkup}</div>
           </div>
-          <script>
-            window.onload = function () {
-              window.print();
-            };
-          </script>
+          <script>${WORK_REPORT_PDF_PRINT_ONLOAD_SCRIPT}</script>
         </body>
       </html>
     `)
@@ -6556,36 +6799,13 @@ function App() {
         <head>
           <meta charset="UTF-8" />
           <title>주간업무보고서</title>
-          <style>
-            body { font-family: "Malgun Gothic", sans-serif; margin: 0; padding: 24px; color: #1f2937; background: #ffffff; }
-            .pdf-shell { border: 1px solid #d6dee8; border-radius: 16px; overflow: hidden; }
-            .pdf-header { padding: 18px 22px; border-bottom: 1px solid #dbe4ee; background: #f8fafc; }
-            .pdf-title { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
-            .pdf-meta { font-size: 13px; color: #475569; }
-            .pdf-grid { display: grid; grid-template-columns: repeat(7, minmax(280px, 1fr)); gap: 12px; padding: 16px; }
-            .pdf-day-card { border: 1px solid #d8dee7; border-radius: 12px; background: #f9fbfd; overflow: hidden; }
-            .pdf-day-head { padding: 12px; border-bottom: 1px solid #dbe4ee; background: #ffffff; }
-            .pdf-day-weekday { font-size: 13px; font-weight: 800; color: #1d4f63; margin-bottom: 4px; }
-            .pdf-day-date { font-size: 12px; color: #64748b; }
-            .pdf-section { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
-            .pdf-section:last-child { border-bottom: none; }
-            .pdf-section-title { padding: 7px 10px; border-radius: 8px; background: #1f5f74; color: #ffffff; font-size: 12px; font-weight: 800; margin-bottom: 8px; }
-            .pdf-check-list { margin: 0; padding-left: 18px; }
-            .pdf-check-list li { min-height: 20px; font-size: 12px; line-height: 1.5; }
-            .pdf-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-            .pdf-table th, .pdf-table td { border: 1px solid #dbe4ee; padding: 6px; vertical-align: top; font-size: 11px; }
-            .pdf-table th { background: #f8fafc; font-weight: 800; }
-            .pdf-index { width: 28px; text-align: center; }
-            .pdf-manager { width: 78px; }
-            .pdf-destination { width: 88px; }
-            .pdf-support-title { margin: 10px 0 6px; font-size: 11px; font-weight: 800; color: #1f5f74; }
-            .pdf-support-body { min-height: 48px; font-size: 12px; line-height: 1.6; }
-            @media print { body { padding: 0; } .pdf-shell { border: none; border-radius: 0; } }
-          </style>
+          <link rel="stylesheet" href="${WORK_REPORT_PDF_PRINT_FONT_LINK}" />
+          <style>${WORK_REPORT_PDF_PRINT_STYLES}</style>
         </head>
         <body>
-          <div class="pdf-shell">
-            <div class="pdf-header">
+          <div class="pdf-print-root">
+            <div class="pdf-shell">
+              <div class="pdf-header">
               <div class="pdf-title">주간업무보고서</div>
               <div class="pdf-meta">${escapeHtml(
                 `${getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)} · 담당자 ${
@@ -6593,9 +6813,10 @@ function App() {
                 }`
               )}</div>
             </div>
-            <div class="pdf-grid">${cards}</div>
+              <div class="pdf-grid">${cards}</div>
+            </div>
           </div>
-          <script>window.onload = function () { window.print(); };</script>
+          <script>${WORK_REPORT_PDF_PRINT_ONLOAD_SCRIPT}</script>
         </body>
       </html>
     `)
