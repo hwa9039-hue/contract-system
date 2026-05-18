@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import './App.css'
 import { contractsApi } from './contractsApi'
@@ -18,6 +18,12 @@ import {
   sheetToJsonWithRangeSkip,
   DISCOVERY_EXCEL_SKIP_ROWS,
 } from './excelSheetUtils.js'
+import {
+  WorkReportMeetingMinutesSection,
+  buildMeetingMinutesPdfMarkup,
+  isMeetingMinutesDataEmpty,
+  parseMeetingMinutesFromEntry,
+} from './workReportMeetingMinutes.jsx'
 
 const CONTRACT_COLUMNS = [
   { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text' },
@@ -400,10 +406,44 @@ const WORK_REPORT_PDF_PRINT_STYLES = `
     .pdf-day-card,
     .pdf-section,
     .weekly-card,
-    .weekly-section {
+    .weekly-section,
+    .pdf-meeting-minutes {
       break-inside: avoid;
       page-break-inside: avoid;
     }
+  }
+  .pdf-meeting-minutes {
+    margin: 10px 8px 8px;
+    padding: 8px;
+    border: 1px solid #dbe4ee;
+    border-radius: 8px;
+    background: #ffffff;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .pdf-meeting-title {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+  .pdf-meeting-info-table th[scope="row"] {
+    width: 12%;
+    text-align: center;
+    background: #f8fafc !important;
+    font-weight: 800;
+  }
+  .pdf-meeting-index {
+    width: 6%;
+    text-align: center;
+  }
+  .pdf-meeting-assignee {
+    width: 14%;
+    text-align: center;
+  }
+  .pdf-meeting-due {
+    width: 14%;
+    text-align: center;
   }
 `
 
@@ -2072,11 +2112,17 @@ function getDashboardWeekMeetingMinutes(weekStartDate, workReportRows, workRepor
   )
   const entry = draftEntry || stored
   if (!entry) return null
-  const user = safeString(entry.user).trim()
-  const dueDate = safeString(entry.destination).trim()
-  const content = safeString(entry.content).trim()
-  if (!user && !dueDate && !content) return null
-  return { user, dueDate, content }
+  const data = parseMeetingMinutesFromEntry(entry)
+  if (isMeetingMinutesDataEmpty(data)) return null
+  const firstAgendaContent =
+    data.agenda.map((row) => safeString(row.content).trim()).find(Boolean) || ''
+  return {
+    user: data.meta.author,
+    dueDate: data.meta.meetingDateTime,
+    content: firstAgendaContent,
+    location: data.meta.location,
+    attendees: data.meta.attendees,
+  }
 }
 
 function safeString(value) {
@@ -2983,11 +3029,7 @@ function isWorkReportRowEmpty(row) {
   }
 
   if (normalizedSection === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
-    return (
-      safeString(row.user).trim() === '' &&
-      safeString(row.content).trim() === '' &&
-      safeString(row.destination).trim() === ''
-    )
+    return isMeetingMinutesDataEmpty(parseMeetingMinutesFromEntry(row))
   }
 
   return safeString(row.content).trim() === ''
@@ -6665,6 +6707,13 @@ function App() {
       })
       .join('')
 
+    const meetingMinutesMarkup = buildMeetingMinutesPdfMarkup(
+      selectedWorkWeekMeta.weekStartDate,
+      (date, section, orderIndex) =>
+        getWorkReportBoardEntry(date, section, orderIndex, workReportDrafts),
+      escapeHtml
+    )
+
     popup.document.write(`
       <!doctype html>
       <html lang="ko">
@@ -6686,6 +6735,7 @@ function App() {
                 )}</div>
               </div>
               <div class="weekly-grid pdf-grid">${cardMarkup}</div>
+              ${meetingMinutesMarkup}
             </div>
           </div>
           <script>${WORK_REPORT_PDF_PRINT_ONLOAD_SCRIPT}</script>
@@ -9763,94 +9813,16 @@ function App() {
               <div className="work-report-saving-indicator">업무보고 내용을 저장하고 있습니다.</div>
             )}
 
-            <section className="work-report-meeting-minutes-section">
-              <div className="work-report-meeting-minutes-header">
-                <div className="work-report-meeting-minutes-title">회의록</div>
-                <div className="work-report-meeting-minutes-meta">
-                  <label className="work-report-meeting-minutes-meta-field">
-                    <span className="work-report-meeting-minutes-meta-label">담당자</span>
-                    <input
-                      type="text"
-                      className="work-report-meeting-minutes-meta-input work-report-report-field"
-                      value={
-                        getWorkReportBoardEntry(
-                          selectedWorkWeekMeta.weekStartDate,
-                          WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                          1
-                        ).user
-                      }
-                      placeholder="담당자"
-                      onChange={(e) =>
-                        updateWorkReportBoardEntry(
-                          selectedWorkWeekMeta.weekStartDate,
-                          WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                          1,
-                          { user: e.target.value }
-                        )
-                      }
-                      onBlur={handleWorkReportBoardBlur(
-                        selectedWorkWeekMeta.weekStartDate,
-                        WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                        1
-                      )}
-                    />
-                  </label>
-                  <label className="work-report-meeting-minutes-meta-field">
-                    <span className="work-report-meeting-minutes-meta-label">날짜/기한</span>
-                    <input
-                      type="text"
-                      className="work-report-meeting-minutes-meta-input work-report-report-field"
-                      value={
-                        getWorkReportBoardEntry(
-                          selectedWorkWeekMeta.weekStartDate,
-                          WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                          1
-                        ).destination
-                      }
-                      placeholder="예: 2026-05-15"
-                      onChange={(e) =>
-                        updateWorkReportBoardEntry(
-                          selectedWorkWeekMeta.weekStartDate,
-                          WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                          1,
-                          { destination: e.target.value }
-                        )
-                      }
-                      onBlur={handleWorkReportBoardBlur(
-                        selectedWorkWeekMeta.weekStartDate,
-                        WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                        1
-                      )}
-                    />
-                  </label>
-                </div>
-              </div>
-              <textarea
-                className="work-report-meeting-minutes-textarea work-report-report-field"
-                rows={14}
-                value={
-                  getWorkReportBoardEntry(
-                    selectedWorkWeekMeta.weekStartDate,
-                    WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                    1
-                  ).content
-                }
-                placeholder="주간 회의 내용을 입력하세요"
-                onChange={(e) =>
-                  updateWorkReportBoardEntry(
-                    selectedWorkWeekMeta.weekStartDate,
-                    WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                    1,
-                    { content: e.target.value }
-                  )
-                }
-                onBlur={handleWorkReportBoardBlur(
-                  selectedWorkWeekMeta.weekStartDate,
-                  WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                  1
-                )}
-              />
-            </section>
+            <WorkReportMeetingMinutesSection
+              weekStartDate={selectedWorkWeekMeta.weekStartDate}
+              getEntry={getWorkReportBoardEntry}
+              updateEntry={updateWorkReportBoardEntry}
+              onBlur={handleWorkReportBoardBlur(
+                selectedWorkWeekMeta.weekStartDate,
+                WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                1
+              )}
+            />
           </section>
         )}
 
