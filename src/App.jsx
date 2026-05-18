@@ -4004,6 +4004,9 @@ function App() {
     return Math.max(0, Math.ceil(remainingTime / (60 * 1000)))
   }, [remainingTime, sharedSessionExpiresAt])
 
+  /** 자동 로그인(30일) 등 24시간 초과 세션 — 분 단위 타이머 대신 문구 표시 */
+  const isLongLivedSession = remainingSessionMinutes > 24 * 60
+
   const groupedContracts = useMemo(() => {
     const groups = new Map()
 
@@ -9497,14 +9500,28 @@ function App() {
                   minHeight: 30,
                   padding: '0 10px',
                   borderRadius: 999,
-                  background: remainingSessionMinutes <= 1 ? '#fef2f2' : '#eef5ff',
-                  border: remainingSessionMinutes <= 1 ? '1px solid #fecaca' : '1px solid #cfe0ff',
-                  color: remainingSessionMinutes <= 1 ? '#b91c1c' : '#1f4fd1',
+                  background: isLongLivedSession
+                    ? '#ecfdf5'
+                    : remainingSessionMinutes <= 1
+                      ? '#fef2f2'
+                      : '#eef5ff',
+                  border: isLongLivedSession
+                    ? '1px solid #bbf7d0'
+                    : remainingSessionMinutes <= 1
+                      ? '1px solid #fecaca'
+                      : '1px solid #cfe0ff',
+                  color: isLongLivedSession
+                    ? '#15803d'
+                    : remainingSessionMinutes <= 1
+                      ? '#b91c1c'
+                      : '#1f4fd1',
                   fontSize: 12,
                   fontWeight: 700,
                 }}
               >
-                남은 시간 {remainingSessionMinutes}분
+                {isLongLivedSession
+                  ? '🟢 자동 로그인 됨'
+                  : `남은 시간 ${remainingSessionMinutes}분`}
               </span>
               <button
                 className="secondary-btn"
@@ -9537,7 +9554,7 @@ function App() {
 
         {toastMessage && <div className="mode-toast">{toastMessage}</div>}
 
-        {showSessionWarning && (
+        {showSessionWarning && !isLongLivedSession && (
           <div
             className="main-area-session-banner"
             style={{

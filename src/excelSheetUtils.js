@@ -1,9 +1,13 @@
 import * as XLSX from 'xlsx'
 
+/** 셀 매칭용: 공백·줄바꿈·NBSP·제로폭 문자 전부 제거 */
+function stripCellForMatch(cell) {
+  return String(cell ?? '')
+    .replace(/[\s\u200b\u00a0\u2028\u2029\ufeff]+/g, '')
+}
+
 function normalizeExcelHeaderKey(text) {
-  return String(text ?? '')
-    .trim()
-    .replace(/\s+/g, '')
+  return stripCellForMatch(text)
     .replace(/\(.*?\)/g, '')
     .replace(/[^가-힣a-zA-Z0-9]/g, '')
     .toLowerCase()
@@ -12,15 +16,14 @@ function normalizeExcelHeaderKey(text) {
 function rowContainsText(row, markers) {
   if (!Array.isArray(row)) return false
   return row.some((cell) => {
-    const text = String(cell ?? '').trim()
-    if (!text) return false
-    const normalized = normalizeExcelHeaderKey(text)
+    const compact = stripCellForMatch(cell)
+    if (!compact) return false
     return markers.some((marker) => {
-      const normalizedMarker = normalizeExcelHeaderKey(marker)
+      const compactMarker = stripCellForMatch(marker)
+      if (!compactMarker) return false
       return (
-        text.includes(marker) ||
-        normalized.includes(normalizedMarker) ||
-        normalizedMarker.includes(normalized)
+        compact.includes(compactMarker) ||
+        normalizeExcelHeaderKey(cell).includes(normalizeExcelHeaderKey(marker))
       )
     })
   })
@@ -85,10 +88,12 @@ export function detectExcelHeaderRowIndexFromAoA(rawData, headerKeywords, maxSca
 
 function isEmptyDataRow(row) {
   if (!Array.isArray(row) || !row.length) return true
-  return row.every((cell) => {
-    if (cell === null || cell === undefined) return true
-    return String(cell).trim() === ''
-  })
+  return row.every((cell) => stripCellForMatch(cell) === '')
+}
+
+function isEmptyParsedRow(rowObject) {
+  if (!rowObject || typeof rowObject !== 'object') return true
+  return !Object.values(rowObject).some((value) => stripCellForMatch(value) !== '')
 }
 
 function buildHeaderKeys(headerRow) {
@@ -215,8 +220,14 @@ export function detectExcelHeaderRowIndex(worksheet, headerKeywords, maxScanRows
   return detectExcelHeaderRowIndexFromAoA(raw_data, headerKeywords, maxScanRows)
 }
 
-/** 건축정보 헤더 행 탐색용 앵커 컬럼명 */
-export const DISCOVERY_HEADER_MARKERS = ['건축정보일자', '사업명']
+/** 건축정보 헤더 행 탐색용 앵커 컬럼명 (공백 제거 후 부분 일치) */
+export const DISCOVERY_HEADER_MARKERS = [
+  '건축정보일자',
+  '건축정보 일자',
+  '사업명',
+  '발주처',
+  '허가일',
+]
 
 export const DISCOVERY_EXCEL_FORMAT_ERROR = '엑셀 양식이 올바르지 않습니다.'
 
@@ -237,9 +248,19 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
     throw new Error(DISCOVERY_EXCEL_FORMAT_ERROR)
   }
 
-  const headerIndex = rawData.findIndex((row) =>
-    rowContainsText(row, DISCOVERY_HEADER_MARKERS)
-  )
+  const headerIndex = rawData.findIndex((row) => {
+    if (!Array.isArray(row)) return false
+    return row.some((cell) => {
+      const compact = stripCellForMatch(cell)
+      if (!compact) return false
+      return (
+        compact.includes(stripCellForMatch('건축정보일자')) ||
+        compact.includes(stripCellForMatch('사업명'))
+      )
+    })
+  })
+
+  console.log('[discovery-excel] headerIndex', headerIndex)
 
   if (headerIndex < 0) {
     throw new Error(DISCOVERY_EXCEL_FORMAT_ERROR)
@@ -247,21 +268,21 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
 
   const headers = buildHeaderKeys(rawData[headerIndex])
   const dataRows = rawData.slice(headerIndex + 1)
-  const parsedData = []
 
-  for (const dataRow of dataRows) {
-    if (!Array.isArray(dataRow) || isEmptyDataRow(dataRow)) continue
-
-    const rowObject = {}
-    headers.forEach((key, columnIndex) => {
-      let value = dataRow[columnIndex] ?? ''
-      if (isDateLikeHeader(key)) {
-        value = excelCellToYmd(value)
-      }
-      rowObject[key] = value
+  const parsedData = dataRows
+    .filter((dataRow) => Array.isArray(dataRow) && !isEmptyDataRow(dataRow))
+    .map((dataRow) => {
+      const rowObject = {}
+      headers.forEach((key, columnIndex) => {
+        let value = dataRow[columnIndex] ?? ''
+        if (isDateLikeHeader(key)) {
+          value = excelCellToYmd(value)
+        }
+        rowObject[key] = value
+      })
+      return rowObject
     })
-    parsedData.push(rowObject)
-  }
+    .filter((rowObject) => !isEmptyParsedRow(rowObject))
 
   console.log('최종 파싱 데이터:', parsedData)
 
