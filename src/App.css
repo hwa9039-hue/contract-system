@@ -5924,37 +5924,17 @@ textarea:focus-visible {
   text-align: center;
 }
 
-.meeting-minutes-info-table,
 .meeting-minutes-agenda-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
 }
 
-.meeting-minutes-info-table th,
-.meeting-minutes-info-table td,
 .meeting-minutes-agenda-table th,
 .meeting-minutes-agenda-table td {
   border: 1px solid #cbd5e1;
   vertical-align: middle;
   padding: 0;
-}
-
-.meeting-minutes-info-table th[scope='row'] {
-  width: 12%;
-  min-width: 72px;
-  padding: 10px 8px;
-  background: #f8fafc;
-  color: #334155;
-  font-size: 12px;
-  font-weight: 800;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.meeting-minutes-info-table td {
-  width: 38%;
-  background: #ffffff;
 }
 
 .meeting-minutes-agenda-table thead th {
@@ -5983,45 +5963,41 @@ textarea:focus-visible {
   width: 120px;
 }
 
+.meeting-minutes-agenda-table tbody tr.meeting-minutes-agenda-row {
+  height: 52px;
+}
+
+.meeting-minutes-agenda-table tbody td {
+  vertical-align: middle;
+}
+
 .meeting-minutes-cell-input,
 .meeting-minutes-cell-textarea {
   display: block;
   width: 100%;
-  min-height: 40px;
+  height: 100%;
+  min-height: 52px;
   margin: 0;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 0;
   border-radius: 0;
   background: transparent;
   color: #0f172a;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.45;
   box-shadow: none;
   outline: none;
 }
 
 .meeting-minutes-cell-textarea {
-  min-height: 88px;
-  resize: vertical;
-  field-sizing: content;
+  resize: none;
+  overflow: hidden;
 }
 
 .meeting-minutes-cell-input:focus,
 .meeting-minutes-cell-textarea:focus {
   background: #f8fafc;
   box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.35);
-}
-
-.meeting-minutes-agenda-table tbody td {
-  vertical-align: top;
-}
-
-.work-report-meeting-minutes-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding: 10px 12px;
-  border-top: 1px solid #e2e8f0;
-  background: #f8fafc;
 }
 
 @media print {
