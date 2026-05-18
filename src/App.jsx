@@ -2784,6 +2784,50 @@ function isDiscoveryRowEmpty(row) {
   return DISCOVERY_COLUMNS.every((column) => safeString(row[column.key]).trim() === '')
 }
 
+const DISCOVERY_EXCEL_TABLE_FIELDS = [
+  '건축정보일자',
+  '확인',
+  '영업자',
+  '사업구분',
+  '발주처',
+  '사업명',
+  '사업금액',
+  '준공시기',
+  '담당자',
+  '비고',
+]
+
+function discoveryRowToExcelTableItem(row) {
+  return {
+    건축정보일자: safeString(row.permitDate).trim(),
+    확인: safeString(row.checkStatus).trim(),
+    영업자: safeString(row.salesTarget).trim(),
+    사업구분: safeString(row.projectCategory).trim(),
+    발주처: safeString(row.client).trim(),
+    사업명: safeString(row.projectName).trim(),
+    사업금액: safeString(row.projectAmount).trim(),
+    준공시기: safeString(row.completionPeriod).trim(),
+    담당자: safeString(row.manager).trim(),
+    비고: safeString(row.note).trim(),
+  }
+}
+
+function discoveryExcelCellDisplay(value) {
+  if (value === null || value === undefined) return '-'
+  const text = safeString(value).trim()
+  if (!text || text === 'undefined' || text === 'null') return '-'
+  return text
+}
+
+function matchesDiscoveryExcelTableSearch(item, searchText) {
+  const query = safeString(searchText).trim()
+  if (!query) return true
+  const haystack = DISCOVERY_EXCEL_TABLE_FIELDS.map((field) =>
+    discoveryExcelCellDisplay(item[field])
+  ).join(' ')
+  return haystack.includes(query)
+}
+
 function toDiscoveryPayload(row, timestamp) {
   return {
     permitDate: toDbDate(row.permitDate),
@@ -3391,6 +3435,7 @@ function App() {
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
   const [discoveryRows, setDiscoveryRows] = useState([])
+  const [discoveryTableData, setDiscoveryTableData] = useState([])
   const [excludedRows, setExcludedRows] = useState([])
   const [workReportRows, setWorkReportRows] = useState([])
   const initialMenu = loadStoredMenu()
@@ -3697,15 +3742,18 @@ function App() {
   const fetchDiscoveryRows = async (preserveDrafts = true) => {
     try {
       const rows = await projectDiscoveryApi.list()
+      const normalizedRows = rows.map((item, index) => normalizeDiscoveryRow(item, index))
       setDiscoveryRows((prev) => {
         const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-        return [...rows.map((item, index) => normalizeDiscoveryRow(item, index)), ...draftRows]
+        return [...normalizedRows, ...draftRows]
       })
+      setDiscoveryTableData(normalizedRows.map(discoveryRowToExcelTableItem))
       setSelectedDiscoveryIds([])
       return rows
     } catch (error) {
       console.error('[건축정보] API fetch failed', error)
       setDiscoveryRows([])
+      setDiscoveryTableData([])
       setSelectedDiscoveryIds([])
       return []
     }
@@ -4555,6 +4603,23 @@ function App() {
       return managerMatch && categoryMatch
     })
   }, [discoveryFilters.manager, discoveryFilters.projectCategory, discoveryRows, discoverySearch])
+
+  const filteredDiscoveryTableData = useMemo(() => {
+    return discoveryTableData.filter((item) => {
+      if (!matchesDiscoveryExcelTableSearch(item, discoverySearch)) return false
+      const managerMatch =
+        !discoveryFilters.manager || discoveryExcelCellDisplay(item.담당자) === discoveryFilters.manager
+      const categoryMatch =
+        !discoveryFilters.projectCategory ||
+        discoveryExcelCellDisplay(item.사업구분) === discoveryFilters.projectCategory
+      return managerMatch && categoryMatch
+    })
+  }, [
+    discoveryFilters.manager,
+    discoveryFilters.projectCategory,
+    discoverySearch,
+    discoveryTableData,
+  ])
 
   const filteredExcludedRows = useMemo(() => {
     return excludedRows.filter((row) => {
@@ -6447,6 +6512,8 @@ function App() {
           const parsed = sheetToJsonWithDiscoveryDynamicHeader(worksheet)
           rows = parsed.rows
           headerRowIndex = parsed.headerRowIndex
+          setDiscoveryTableData(rows)
+          console.log('[excel-upload] discoveryTableData state 업데이트', rows.length)
         } catch (parseError) {
           const message =
             parseError?.message === DISCOVERY_EXCEL_FORMAT_ERROR
@@ -10506,27 +10573,29 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {renderGroupedRegistryRows({
-                      groups: groupedDiscoveryRows,
-                      columns: DISCOVERY_COLUMNS,
-                      emptyMessage: '등록된 데이터가 없습니다.',
-                      selectedIds: selectedDiscoveryIds,
-                      onToggleSelection: toggleDiscoverySelection,
-                      editingIds: [],
-                      isSaving: isSavingDiscovery,
-                      onStartEdit: startDiscoveryEdit,
-                      onSaveRow: saveDiscoveryRow,
-                      onCancelRow: cancelDiscoveryRow,
-                      onChange: handleDiscoveryCellChange,
-                      isEmptyRow: isDiscoveryRowEmpty,
-                      isYearOpen: isDiscoveryYearOpen,
-                      onToggleYear: toggleDiscoveryYear,
-                      cellEditScope: 'discovery',
-                      isAdminForRegistry: true,
-                      registryCellEdit,
-                      onRegistryCellStart: (rowId, columnKey, value, row) =>
-                        startRegistryCellEdit('discovery', rowId, columnKey, value, row),
-                    })}
+                    {filteredDiscoveryTableData && filteredDiscoveryTableData.length > 0 ? (
+                      filteredDiscoveryTableData.map((item, index) => (
+                        <tr key={`excel-row-${index}`} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                          <td className="td-align-center registry-check-cell" />
+                          <td className="td-align-center">{discoveryExcelCellDisplay(item.건축정보일자)}</td>
+                          <td className="td-align-center">{discoveryExcelCellDisplay(item.확인)}</td>
+                          <td className="td-align-center">{discoveryExcelCellDisplay(item.영업자)}</td>
+                          <td className="td-align-center">{discoveryExcelCellDisplay(item.사업구분)}</td>
+                          <td className="td-align-center">{discoveryExcelCellDisplay(item.발주처)}</td>
+                          <td className="td-align-left">{discoveryExcelCellDisplay(item.사업명)}</td>
+                          <td className="td-align-right">{discoveryExcelCellDisplay(item.사업금액)}</td>
+                          <td className="td-align-center">{discoveryExcelCellDisplay(item.준공시기)}</td>
+                          <td className="td-align-center">{discoveryExcelCellDisplay(item.담당자)}</td>
+                          <td className="td-align-left">{discoveryExcelCellDisplay(item.비고)}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={DISCOVERY_COLUMNS.length + 1} className="empty-cell" style={{ textAlign: 'center' }}>
+                          등록된 데이터가 없습니다.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
