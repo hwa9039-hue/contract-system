@@ -3211,18 +3211,17 @@ function getDashboardDisplayDate(value) {
   return raw ? raw.slice(0, 10) : '-'
 }
 
-function getDashboardSortTime(row, dateKey) {
-  const primaryDate = parseDateOnly(row[dateKey])
-  if (primaryDate) return primaryDate.getTime()
+const DASHBOARD_RECENT_ITEM_LIMIT = 10
 
-  const createdDate = new Date(row.createdAt || row.updatedAt || 0)
-  return Number.isNaN(createdDate.getTime()) ? 0 : createdDate.getTime()
+function getDashboardRecentUpdatedTime(row) {
+  const updated = new Date(row.updatedAt || row.createdAt || 0)
+  return Number.isNaN(updated.getTime()) ? 0 : updated.getTime()
 }
 
 function getDashboardRecentItems(rows, config) {
   return [...rows]
-    .sort((a, b) => getDashboardSortTime(b, config.dateKey) - getDashboardSortTime(a, config.dateKey))
-    .slice(0, 5)
+    .sort((a, b) => getDashboardRecentUpdatedTime(b) - getDashboardRecentUpdatedTime(a))
+    .slice(0, DASHBOARD_RECENT_ITEM_LIMIT)
     .map((row) => ({
       id: row.id,
       date: getDashboardDisplayDate(row[config.dateKey] || row.createdAt),

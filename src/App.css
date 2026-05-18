@@ -2995,6 +2995,10 @@ textarea:focus-visible {
 .dashboard-recent-list {
   display: grid;
   gap: 0;
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 .dashboard-recent-item {
