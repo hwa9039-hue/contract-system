@@ -811,7 +811,6 @@ function loadExpandedMenuGroups(menuKey) {
       const parsed = JSON.parse(raw)
       if (parsed && typeof parsed === 'object') {
         if (typeof parsed.work === 'boolean') expanded.work = parsed.work
-        if (typeof parsed.sales === 'boolean') expanded.sales = parsed.sales
       }
     }
   } catch {
@@ -819,6 +818,7 @@ function loadExpandedMenuGroups(menuKey) {
   }
   const activeGroupId = getMenuGroupIdForMenu(menuKey)
   if (activeGroupId) expanded[activeGroupId] = true
+  expanded.sales = true
   return expanded
 }
 
@@ -9337,21 +9337,23 @@ function App() {
                     </span>
                   </button>
                   {isExpanded ? (
-                    <div className="menu-group-items">
+                    <ul className="menu-group-items">
                       {group.items.map((item) => (
-                        <button
-                          key={item.key}
-                          type="button"
-                          className={
-                            menu === item.key ? 'menu-btn menu-btn--child active' : 'menu-btn menu-btn--child'
-                          }
-                          onClick={() => setMenu(item.key)}
-                        >
-                          <span className="menu-child-bullet" aria-hidden />
-                          <span className="menu-child-label">{item.label}</span>
-                        </button>
+                        <li key={item.key} className="menu-group-item">
+                          <button
+                            type="button"
+                            className={
+                              menu === item.key
+                                ? 'menu-btn menu-btn--child active'
+                                : 'menu-btn menu-btn--child'
+                            }
+                            onClick={() => setMenu(item.key)}
+                          >
+                            {item.label}
+                          </button>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   ) : null}
                 </div>
               )

@@ -4297,32 +4297,25 @@ textarea:focus-visible {
   margin: 2px 0 4px 14px;
   padding: 4px 0 4px 12px;
   border-left: 2px solid rgba(255, 255, 255, 0.14);
+  list-style: none;
+}
+
+.menu-group-item {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .menu-btn--child {
   display: flex;
   align-items: center;
-  gap: 8px;
   width: 100%;
   min-width: 0;
   height: 38px;
-  padding: 0 12px 0 18px;
+  padding: 0 12px 0 14px;
   font-size: 12px;
   font-weight: 600;
   color: #9fb0c3;
-}
-
-.menu-child-bullet {
-  flex-shrink: 0;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.32);
-}
-
-.menu-child-label {
-  flex: 1;
-  min-width: 0;
   line-height: 1.3;
 }
 
@@ -4330,17 +4323,9 @@ textarea:focus-visible {
   color: #dbe5f0;
 }
 
-.menu-btn--child:hover .menu-child-bullet {
-  background: rgba(255, 255, 255, 0.55);
-}
-
 .menu-btn--child.active {
   font-weight: 800;
   color: #10201f;
-}
-
-.menu-btn--child.active .menu-child-bullet {
-  background: #64748b;
 }
 
 .month-list-title-row {

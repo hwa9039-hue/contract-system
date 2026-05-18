@@ -9,51 +9,51 @@ function normalizeExcelHeaderKey(text) {
     .toLowerCase()
 }
 
-function rowCellsNormalized(worksheet, rowIndex, colStart, colEnd) {
-  const cells = []
-  for (let c = colStart; c <= colEnd; c += 1) {
-    const addr = XLSX.utils.encode_cell({ r: rowIndex, c })
-    const cell = worksheet[addr]
-    if (!cell) continue
-    const raw = cell.w ?? cell.v ?? ''
-    const text = normalizeExcelHeaderKey(raw)
-    if (text) cells.push(text)
-  }
-  return cells
-}
+function rowMatchesHeaderKeywords(row, headerKeywords) {
+  const cells = (row || [])
+    .map((cell) => normalizeExcelHeaderKey(cell))
+    .filter(Boolean)
+  if (!cells.length) return 0
 
-/**
- * 시트 상단 타이틀/빈 행을 건너뛰고 실제 헤더 행(0-based)을 찾는다.
- * @param {import('xlsx').WorkSheet} worksheet
- * @param {string[]} headerKeywords
- * @param {number} maxScanRows
- */
-export function detectExcelHeaderRowIndex(worksheet, headerKeywords, maxScanRows = 20) {
-  const ref = worksheet?.['!ref']
-  if (!ref || !headerKeywords?.length) return 0
-
-  const range = XLSX.utils.decode_range(ref)
   const normalizedKeywords = headerKeywords
     .map((kw) => normalizeExcelHeaderKey(kw))
     .filter(Boolean)
 
-  if (!normalizedKeywords.length) return range.s.r
+  if (!normalizedKeywords.length) return 0
 
-  const scanEnd = Math.min(range.e.r, range.s.r + maxScanRows)
-  let bestRow = range.s.r
+  let score = 0
+  for (const keyword of normalizedKeywords) {
+    if (
+      cells.some(
+        (cell) => cell === keyword || cell.includes(keyword) || keyword.includes(cell)
+      )
+    ) {
+      score += 1
+    }
+  }
+  return score
+}
+
+/**
+ * 2차원 배열에서 실제 헤더 행(0-based)을 찾는다.
+ * @param {unknown[][]} rawData
+ * @param {string[]} headerKeywords
+ * @param {number} maxScanRows
+ */
+export function detectExcelHeaderRowIndexFromAoA(rawData, headerKeywords, maxScanRows = 30) {
+  if (!Array.isArray(rawData) || !rawData.length || !headerKeywords?.length) return 0
+
+  const normalizedKeywords = headerKeywords
+    .map((kw) => normalizeExcelHeaderKey(kw))
+    .filter(Boolean)
+  if (!normalizedKeywords.length) return 0
+
+  const scanEnd = Math.min(rawData.length, maxScanRows)
+  let bestRow = 0
   let bestScore = 0
 
-  for (let r = range.s.r; r <= scanEnd; r += 1) {
-    const cells = rowCellsNormalized(worksheet, r, range.s.c, range.e.c)
-    if (!cells.length) continue
-
-    let score = 0
-    for (const keyword of normalizedKeywords) {
-      if (cells.some((cell) => cell === keyword || cell.includes(keyword) || keyword.includes(cell))) {
-        score += 1
-      }
-    }
-
+  for (let r = 0; r < scanEnd; r += 1) {
+    const score = rowMatchesHeaderKeywords(rawData[r], headerKeywords)
     if (score > bestScore) {
       bestScore = score
       bestRow = r
@@ -63,29 +63,76 @@ export function detectExcelHeaderRowIndex(worksheet, headerKeywords, maxScanRows
     if (score >= minHits) return r
   }
 
-  return bestScore > 0 ? bestRow : range.s.r
+  return bestScore > 0 ? bestRow : 0
+}
+
+function isEmptyDataRow(row) {
+  if (!Array.isArray(row) || !row.length) return true
+  return row.every((cell) => {
+    if (cell === null || cell === undefined) return true
+    return String(cell).trim() === ''
+  })
+}
+
+function buildHeaderKeys(headerRow) {
+  const used = new Map()
+  return (headerRow || []).map((cell, index) => {
+    const base = String(cell ?? '').trim() || `__EMPTY_${index}`
+    const count = used.get(base) ?? 0
+    used.set(base, count + 1)
+    return count === 0 ? base : `${base}_${count + 1}`
+  })
 }
 
 /**
+ * sheet_to_json(header:1) → 헤더 행 탐지 → 객체 배열 수동 변환
  * @param {import('xlsx').WorkSheet} worksheet
  * @param {string[]} headerKeywords
  */
 export function sheetToJsonWithSmartHeader(worksheet, headerKeywords) {
-  const headerRowIndex = detectExcelHeaderRowIndex(worksheet, headerKeywords)
-  const ref = worksheet?.['!ref']
-  if (!ref) {
-    return { rows: [], headerRowIndex: 0 }
-  }
-
-  const range = XLSX.utils.decode_range(ref)
-  range.s.r = headerRowIndex
-  const trimmedSheet = { ...worksheet, '!ref': XLSX.utils.encode_range(range) }
-  const rows = XLSX.utils.sheet_to_json(trimmedSheet, {
+  const raw_data = XLSX.utils.sheet_to_json(worksheet, {
+    header: 1,
     defval: '',
     raw: true,
   })
 
-  return { rows, headerRowIndex }
+  console.log(raw_data)
+
+  if (!Array.isArray(raw_data) || !raw_data.length) {
+    return { rows: [], headerRowIndex: 0, raw_data: [] }
+  }
+
+  const headerRowIndex = detectExcelHeaderRowIndexFromAoA(raw_data, headerKeywords)
+  const headerRow = raw_data[headerRowIndex]
+  if (!Array.isArray(headerRow)) {
+    return { rows: [], headerRowIndex, raw_data }
+  }
+
+  const headerKeys = buildHeaderKeys(headerRow)
+  const rows = []
+
+  for (let r = headerRowIndex + 1; r < raw_data.length; r += 1) {
+    const dataRow = raw_data[r]
+    if (!Array.isArray(dataRow) || isEmptyDataRow(dataRow)) continue
+
+    const rowObject = {}
+    headerKeys.forEach((key, columnIndex) => {
+      rowObject[key] = dataRow[columnIndex] ?? ''
+    })
+    rows.push(rowObject)
+  }
+
+  return { rows, headerRowIndex, raw_data }
+}
+
+/** @deprecated AoA 기반 detectExcelHeaderRowIndexFromAoA 사용 */
+export function detectExcelHeaderRowIndex(worksheet, headerKeywords, maxScanRows = 30) {
+  const raw_data = XLSX.utils.sheet_to_json(worksheet, {
+    header: 1,
+    defval: '',
+    raw: true,
+  })
+  return detectExcelHeaderRowIndexFromAoA(raw_data, headerKeywords, maxScanRows)
 }
 
 export const CONTRACT_EXCEL_HEADER_KEYWORDS = [
