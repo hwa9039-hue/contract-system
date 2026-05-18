@@ -1012,6 +1012,40 @@ textarea {
   flex: 0 0 auto;
   justify-content: flex-end;
   width: auto;
+  max-width: none;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.calendar-main-toolbar .calendar-toolbar-form.calendar-toolbar-form--register-only {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.calendar-main-toolbar .calendar-toolbar-nav {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 3;
+}
+
+.calendar-main-toolbar .calendar-month-title {
+  flex: 0 0 auto;
+  min-width: 9rem;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  font-size: 20px;
+  font-weight: 800;
+  color: #1f2937;
+  line-height: 1.2;
+}
+
+.calendar-main-toolbar .month-nav-btn {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 4;
+  pointer-events: auto;
 }
 
 .calendar-add-form-bar {
@@ -1049,6 +1083,29 @@ textarea {
 
 .calendar-toolbar-form.calendar-toolbar-form--register-only {
   justify-content: flex-end;
+  width: auto;
+}
+
+.calendar-page-main > .calendar-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.calendar-page-main .calendar-main-toolbar {
+  width: 100%;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+}
+
+.calendar-page-main .calendar-surface {
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
   width: 100%;
 }
 
@@ -2072,9 +2129,10 @@ textarea {
     flex-wrap: nowrap;
   }
 
-  .calendar-month-title {
-    max-width: 150px;
-    font-size: 16px;
+  .calendar-main-toolbar .calendar-month-title {
+    max-width: none;
+    min-width: 8rem;
+    font-size: 18px;
   }
 
   .calendar-input-date {

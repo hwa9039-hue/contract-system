@@ -10387,17 +10387,30 @@ function App() {
             <div className="calendar-page">
               <div className="calendar-page-body">
                 <div className="calendar-page-main">
-                  <div className="calendar-main-toolbar">
-                    <div className="calendar-toolbar-nav">
-                      <button className="month-nav-btn" type="button" onClick={prevMonth}>
-                        ◀
-                      </button>
-                      <div className="calendar-month-title">{getMonthLabel(calendarCursor)}</div>
-                      <button className="month-nav-btn" type="button" onClick={nextMonth}>
-                        ▶
-                      </button>
-                    </div>
-                    <div className="calendar-toolbar-form calendar-toolbar-form--register-only">
+                  <div className="calendar-body">
+                    <div className="calendar-main-toolbar">
+                      <div className="calendar-toolbar-nav" role="group" aria-label="월 이동">
+                        <button
+                          className="month-nav-btn"
+                          type="button"
+                          aria-label="이전 달"
+                          onClick={() => prevMonth()}
+                        >
+                          ◀
+                        </button>
+                        <div className="calendar-month-title" aria-live="polite">
+                          {getMonthLabel(calendarCursor)}
+                        </div>
+                        <button
+                          className="month-nav-btn"
+                          type="button"
+                          aria-label="다음 달"
+                          onClick={() => nextMonth()}
+                        >
+                          ▶
+                        </button>
+                      </div>
+                      <div className="calendar-toolbar-form calendar-toolbar-form--register-only">
                       <button
                         className="primary-btn calendar-add-btn"
                         type="button"
@@ -10406,9 +10419,8 @@ function App() {
                         등록
                       </button>
                     </div>
-                  </div>
+                    </div>
 
-                  <div className="calendar-body">
                     <div className="calendar-surface">
                       <div className="calendar-weekday-row" aria-hidden>
                         {CALENDAR_WEEKDAY_LABELS_KO.map((label, wi) => (
