@@ -15,8 +15,8 @@ import { CONTRACT_SHARED_WARNING_MS } from './authSession.js'
 import {
   CONTRACT_EXCEL_HEADER_KEYWORDS,
   sheetToJsonWithSmartHeader,
-  sheetToJsonWithRangeSkip,
-  DISCOVERY_EXCEL_SKIP_ROWS,
+  sheetToJsonWithDiscoveryDynamicHeader,
+  DISCOVERY_EXCEL_FORMAT_ERROR,
 } from './excelSheetUtils.js'
 import {
   WorkReportMeetingMinutesSection,
@@ -6410,10 +6410,29 @@ function App() {
 
       const worksheet = workbook.Sheets[firstSheetName]
       const headerKeywords = collectRegistryExcelHeaderKeywords(config.columns)
-      const { rows, headerRowIndex } =
-        target === 'discovery'
-          ? sheetToJsonWithRangeSkip(worksheet, DISCOVERY_EXCEL_SKIP_ROWS)
-          : sheetToJsonWithSmartHeader(worksheet, headerKeywords)
+
+      let rows = []
+      let headerRowIndex = 0
+
+      if (target === 'discovery') {
+        try {
+          const parsed = sheetToJsonWithDiscoveryDynamicHeader(worksheet)
+          rows = parsed.rows
+          headerRowIndex = parsed.headerRowIndex
+        } catch (parseError) {
+          const message =
+            parseError?.message === DISCOVERY_EXCEL_FORMAT_ERROR
+              ? DISCOVERY_EXCEL_FORMAT_ERROR
+              : parseError?.message || DISCOVERY_EXCEL_FORMAT_ERROR
+          console.error('[excel-upload] 건축정보 파싱 실패', parseError)
+          showAppAlert(message)
+          return
+        }
+      } else {
+        const parsed = sheetToJsonWithSmartHeader(worksheet, headerKeywords)
+        rows = parsed.rows
+        headerRowIndex = parsed.headerRowIndex
+      }
 
       console.log('[excel-upload] parsed object rows', {
         target,
@@ -6425,7 +6444,7 @@ function App() {
       if (!rows.length) {
         const headerHint =
           target === 'discovery'
-            ? `상단 ${DISCOVERY_EXCEL_SKIP_ROWS}행을 건너뛴 뒤 ${headerRowIndex + 1}행을 헤더로 읽었습니다.`
+            ? `'건축정보일자' 또는 '사업명' 헤더 행(${headerRowIndex + 1}행) 이후 데이터 없음`
             : `헤더 행 자동 탐지: ${headerRowIndex + 1}행`
         showAppAlert(
           `업로드할 데이터가 없습니다.\n` +

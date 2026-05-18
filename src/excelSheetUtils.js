@@ -9,6 +9,23 @@ function normalizeExcelHeaderKey(text) {
     .toLowerCase()
 }
 
+function rowContainsText(row, markers) {
+  if (!Array.isArray(row)) return false
+  return row.some((cell) => {
+    const text = String(cell ?? '').trim()
+    if (!text) return false
+    const normalized = normalizeExcelHeaderKey(text)
+    return markers.some((marker) => {
+      const normalizedMarker = normalizeExcelHeaderKey(marker)
+      return (
+        text.includes(marker) ||
+        normalized.includes(normalizedMarker) ||
+        normalizedMarker.includes(normalized)
+      )
+    })
+  })
+}
+
 function rowMatchesHeaderKeywords(row, headerKeywords) {
   const cells = (row || [])
     .map((cell) => normalizeExcelHeaderKey(cell))
@@ -84,6 +101,86 @@ function buildHeaderKeys(headerRow) {
   })
 }
 
+function isDateLikeHeader(headerKey) {
+  const norm = normalizeExcelHeaderKey(headerKey)
+  return (
+    norm.includes('일자') ||
+    norm.includes('날짜') ||
+    norm.includes('허가일') ||
+    norm.includes('건축정보일자')
+  )
+}
+
+/** 엑셀 시리얼·문자열 → YYYY-MM-DD */
+export function excelCellToYmd(value) {
+  if (value === null || value === undefined || value === '') return ''
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const parsed = XLSX.SSF.parse_date_code(value)
+    if (parsed?.y) {
+      const yyyy = String(parsed.y)
+      const mm = String(parsed.m).padStart(2, '0')
+      const dd = String(parsed.d).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}`
+    }
+  }
+
+  const str = String(value).trim()
+  if (!str) return ''
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str
+  if (/^\d{4}\.\d{2}\.\d{2}$/.test(str)) return str.replaceAll('.', '-')
+  if (/^\d{4}\/\d{2}\/\d{2}$/.test(str)) return str.replaceAll('/', '-')
+
+  const numeric = Number(str)
+  if (Number.isFinite(numeric) && numeric > 20000 && numeric < 60000) {
+    const parsed = XLSX.SSF.parse_date_code(numeric)
+    if (parsed?.y) {
+      const yyyy = String(parsed.y)
+      const mm = String(parsed.m).padStart(2, '0')
+      const dd = String(parsed.d).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}`
+    }
+  }
+
+  const date = new Date(str)
+  if (!Number.isNaN(date.getTime())) {
+    const yyyy = String(date.getFullYear())
+    const mm = String(date.getMonth() + 1).padStart(2, '0')
+    const dd = String(date.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+  }
+
+  return str
+}
+
+function aoaToObjectRows(rawData, headerRowIndex, { convertDateHeaders = false } = {}) {
+  const headerRow = rawData[headerRowIndex]
+  if (!Array.isArray(headerRow)) {
+    return []
+  }
+
+  const headers = buildHeaderKeys(headerRow)
+  const parsedData = []
+
+  for (let r = headerRowIndex + 1; r < rawData.length; r += 1) {
+    const dataRow = rawData[r]
+    if (!Array.isArray(dataRow) || isEmptyDataRow(dataRow)) continue
+
+    const rowObject = {}
+    headers.forEach((key, columnIndex) => {
+      let value = dataRow[columnIndex] ?? ''
+      if (convertDateHeaders && isDateLikeHeader(key)) {
+        value = excelCellToYmd(value)
+      }
+      rowObject[key] = value
+    })
+    parsedData.push(rowObject)
+  }
+
+  return parsedData
+}
+
 /**
  * sheet_to_json(header:1) → 헤더 행 탐지 → 객체 배열 수동 변환
  * @param {import('xlsx').WorkSheet} worksheet
@@ -103,24 +200,7 @@ export function sheetToJsonWithSmartHeader(worksheet, headerKeywords) {
   }
 
   const headerRowIndex = detectExcelHeaderRowIndexFromAoA(raw_data, headerKeywords)
-  const headerRow = raw_data[headerRowIndex]
-  if (!Array.isArray(headerRow)) {
-    return { rows: [], headerRowIndex, raw_data }
-  }
-
-  const headerKeys = buildHeaderKeys(headerRow)
-  const rows = []
-
-  for (let r = headerRowIndex + 1; r < raw_data.length; r += 1) {
-    const dataRow = raw_data[r]
-    if (!Array.isArray(dataRow) || isEmptyDataRow(dataRow)) continue
-
-    const rowObject = {}
-    headerKeys.forEach((key, columnIndex) => {
-      rowObject[key] = dataRow[columnIndex] ?? ''
-    })
-    rows.push(rowObject)
-  }
+  const rows = aoaToObjectRows(raw_data, headerRowIndex, { convertDateHeaders: true })
 
   return { rows, headerRowIndex, raw_data }
 }
@@ -135,39 +215,70 @@ export function detectExcelHeaderRowIndex(worksheet, headerKeywords, maxScanRows
   return detectExcelHeaderRowIndexFromAoA(raw_data, headerKeywords, maxScanRows)
 }
 
-/**
- * 건축정보 엑셀: 상단 메타/병합 행(0-based) 건너뛰기.
- * sheet_to_json range N → N행을 헤더로, 이후 행을 데이터로 읽음.
- */
-export const DISCOVERY_EXCEL_SKIP_ROWS = 3
+/** 건축정보 헤더 행 탐색용 앵커 컬럼명 */
+export const DISCOVERY_HEADER_MARKERS = ['건축정보일자', '사업명']
+
+export const DISCOVERY_EXCEL_FORMAT_ERROR = '엑셀 양식이 올바르지 않습니다.'
 
 /**
+ * 건축정보: 2차원 배열 → '건축정보일자'/'사업명' 행 탐색 → 객체 배열 조립
  * @param {import('xlsx').WorkSheet} worksheet
- * @param {number} skipRows
  */
-export function sheetToJsonWithRangeSkip(worksheet, skipRows = DISCOVERY_EXCEL_SKIP_ROWS) {
-  const rows = XLSX.utils.sheet_to_json(worksheet, {
-    range: skipRows,
+export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
+  const rawData = XLSX.utils.sheet_to_json(worksheet, {
+    header: 1,
     defval: '',
     raw: true,
   })
 
-  const parsed =
-    Array.isArray(rows) ? rows : rows && typeof rows === 'object' ? [rows] : []
+  console.log('[discovery-excel] rawData', rawData)
 
-  console.log('[discovery-excel] skip_rows', skipRows)
-  console.log('[discovery-excel] parsed_rows', parsed)
-  console.log('[discovery-excel] parsed_count', parsed.length)
+  if (!Array.isArray(rawData) || !rawData.length) {
+    throw new Error(DISCOVERY_EXCEL_FORMAT_ERROR)
+  }
 
-  const nonEmpty = parsed.filter((row) => {
-    if (!row || typeof row !== 'object') return false
-    return Object.values(row).some((cell) => String(cell ?? '').trim() !== '')
-  })
+  const headerIndex = rawData.findIndex((row) =>
+    rowContainsText(row, DISCOVERY_HEADER_MARKERS)
+  )
 
-  console.log('[discovery-excel] non_empty_rows', nonEmpty)
-  console.log('[discovery-excel] non_empty_count', nonEmpty.length)
+  if (headerIndex < 0) {
+    throw new Error(DISCOVERY_EXCEL_FORMAT_ERROR)
+  }
 
-  return { rows: nonEmpty, headerRowIndex: skipRows }
+  const headers = buildHeaderKeys(rawData[headerIndex])
+  const dataRows = rawData.slice(headerIndex + 1)
+  const parsedData = []
+
+  for (const dataRow of dataRows) {
+    if (!Array.isArray(dataRow) || isEmptyDataRow(dataRow)) continue
+
+    const rowObject = {}
+    headers.forEach((key, columnIndex) => {
+      let value = dataRow[columnIndex] ?? ''
+      if (isDateLikeHeader(key)) {
+        value = excelCellToYmd(value)
+      }
+      rowObject[key] = value
+    })
+    parsedData.push(rowObject)
+  }
+
+  console.log('최종 파싱 데이터:', parsedData)
+
+  return {
+    rows: parsedData,
+    headerRowIndex: headerIndex,
+    raw_data: rawData,
+    headers,
+  }
+}
+
+/** @deprecated sheetToJsonWithDiscoveryDynamicHeader 사용 */
+export const DISCOVERY_EXCEL_SKIP_ROWS = 3
+
+/** @deprecated sheetToJsonWithDiscoveryDynamicHeader 사용 */
+export function sheetToJsonWithRangeSkip(worksheet, skipRows = DISCOVERY_EXCEL_SKIP_ROWS) {
+  return sheetToJsonWithDiscoveryDynamicHeader(worksheet)
 }
 
 export const CONTRACT_EXCEL_HEADER_KEYWORDS = [
