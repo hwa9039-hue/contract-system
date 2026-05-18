@@ -5637,96 +5637,97 @@ textarea:focus-visible {
   margin-top: 9px;
 }
 
+.work-report-report-field,
 .work-report-report-input,
 .work-report-report-textarea,
 .work-report-report-multiselect {
   width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
   border: 1px solid #cfd8e3;
   border-radius: 6px;
   background: #ffffff;
   color: #1f2937;
   font-size: 12px;
-  line-height: 1.5;
-  outline: none;
-}
-
-.work-report-report-input {
-  min-height: 28px;
-  padding: 4px 8px;
-}
-
-.work-report-report-input.compact {
-  min-height: 26px;
-  padding: 3px 8px;
-}
-
-.work-report-report-input.destination {
-  min-height: 32px;
-}
-
-.work-report-report-textarea {
-  padding: 5px 8px;
-  resize: vertical;
-}
-
-.work-report-report-textarea.external {
-  width: 100%;
-  min-height: 72px;
-  height: 100%;
-  box-sizing: border-box;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  padding: 8px;
-  resize: vertical;
-  outline: none;
-  font-size: 13px;
   line-height: 1.45;
+  outline: none;
+  box-sizing: border-box;
 }
 
-.work-report-report-textarea.external:focus {
+.work-report-report-field:focus,
+.work-report-report-input:focus,
+.work-report-report-textarea:focus {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
 }
 
-.work-report-report-textarea.di,
-.work-report-report-textarea.road {
-  min-height: 62px;
-}
-
-.work-report-report-multiselect {
-  min-height: 84px;
-  padding: 6px;
+.work-report-report-field--grow {
+  min-height: 36px;
+  resize: vertical;
 }
 
 .work-report-report-table {
   display: flex;
   flex-direction: column;
-  min-width: 640px;
+  width: 100%;
+  min-width: 0;
 }
 
-.work-report-report-table-head,
-.work-report-report-table-row {
+.work-report-report-table-head--external,
+.work-report-report-table-row--external {
   display: grid;
-  grid-template-columns: minmax(140px, 0.8fr) minmax(260px, 2fr) minmax(160px, 1fr);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr) minmax(0, 0.95fr);
+  width: 100%;
 }
 
 .work-report-report-table-head-journal,
 .work-report-report-table-row-journal {
-  grid-template-columns: 36px minmax(100px, 0.7fr) minmax(200px, 2.3fr);
+  display: grid;
+  grid-template-columns: 32px minmax(0, 0.75fr) minmax(0, 1.35fr);
+  width: 100%;
+}
+
+.work-report-report-table-head--external > div,
+.work-report-report-table-head-journal > div {
+  min-width: 0;
+  padding: 6px 8px;
+  border-right: 1px solid #e5eaf1;
+  font-size: 10px;
+  font-weight: 800;
+  color: #315ca8;
+}
+
+.work-report-report-table-head--external > div:last-child,
+.work-report-report-table-head-journal > div:last-child {
+  border-right: none;
 }
 
 .work-report-report-table-row-journal.editable {
   align-items: center;
 }
 
+.work-report-report-table-row--external.editable > *,
 .work-report-report-table-row-journal.editable > * {
   min-width: 0;
-  padding: 6px;
+  padding: 4px;
   border-right: 1px solid #e5eaf1;
 }
 
+.work-report-report-table-row--external.editable > *:last-child,
 .work-report-report-table-row-journal.editable > *:last-child {
   border-right: none;
+}
+
+.work-report-report-cell {
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+}
+
+.work-report-report-cell > .work-report-report-field,
+.work-report-report-cell > .work-report-report-field--grow,
+.work-report-report-cell > .work-report-external-manager-multi {
+  flex: 1 1 auto;
 }
 
 .work-report-report-table-row-journal .work-report-report-line-number {
@@ -5738,16 +5739,10 @@ textarea:focus-visible {
   min-height: 0;
 }
 
-.work-report-report-table-row.editable .work-report-report-manager-editor {
-  min-width: 0;
-  padding: 6px;
-  border-right: 1px solid #e5eaf1;
+.work-report-report-cell--manager .work-report-external-manager-multi-trigger {
+  min-height: 36px;
 }
 
-.work-report-report-input.manager {
-  width: 100%;
-  min-height: 32px;
-}
 
 .work-report-report-table-head {
   background: #eef4ff;
@@ -5845,6 +5840,14 @@ textarea:focus-visible {
   flex-direction: column;
   gap: 10px;
   padding: 8px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.work-report-report-journal-block {
+  width: 100%;
+  min-width: 0;
 }
 
 .work-report-report-manager-list,
@@ -5901,7 +5904,47 @@ textarea:focus-visible {
 }
 
 .work-report-report-table-scroll {
-  overflow-x: auto;
+  overflow: visible;
+  width: 100%;
+  min-width: 0;
+}
+
+.work-report-day-sections.report-mode .work-report-report-section {
+  overflow: hidden;
+}
+
+.work-report-meeting-minutes-section {
+  margin-top: 14px;
+  border: 1px solid #dde5ef;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.work-report-meeting-minutes-title {
+  padding: 10px 14px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 14px;
+  font-weight: 800;
+  border-bottom: 1px solid #dbe5f0;
+}
+
+.work-report-meeting-minutes-textarea {
+  display: block;
+  width: 100%;
+  min-height: 280px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  resize: vertical;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.work-report-meeting-minutes-textarea:focus {
+  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 .work-report-report-manager-editor {

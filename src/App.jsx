@@ -177,6 +177,7 @@ const WORK_REPORT_SECTION_KEYS = {
   road: '도로사업',
   supportProgress: '영업지원_진행업무',
   supportDone: '영업지원_완료업무',
+  meetingMinutes: '회의록',
 }
 
 /** 주간업무보고서 PDF/인쇄 팝업 공통 스타일 */
@@ -8896,13 +8897,12 @@ function App() {
   const renderWorkReportExternalSectionV5 = (date) => (
     <section className="work-report-report-section">
       <div className="work-report-report-section-title">외부일정</div>
-      <div className="work-report-report-table-scroll">
-        <div className="work-report-report-table">
-          <div className="work-report-report-table-head">
-            <div>담당자</div>
-            <div>내용</div>
-            <div>목적지</div>
-          </div>
+      <div className="work-report-report-table work-report-report-table--external">
+        <div className="work-report-report-table-head work-report-report-table-head--external">
+          <div>담당자</div>
+          <div>내용</div>
+          <div>목적지</div>
+        </div>
           {Array.from({ length: WORK_REPORT_EXTERNAL_ROW_COUNT }, (_, index) => {
             const orderIndex = index + 1
             const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
@@ -8910,10 +8910,10 @@ function App() {
             return (
               <div
                 key={`external-v5-${date}-${orderIndex}`}
-                className="work-report-report-table-row editable"
+                className="work-report-report-table-row editable work-report-report-table-row--external"
                 onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
               >
-                <div className="work-report-report-manager-editor">
+                <div className="work-report-report-cell work-report-report-cell--manager">
                   <WorkReportExternalManagerMultiSelect
                     value={entry.user}
                     onChange={(next) =>
@@ -8924,32 +8924,35 @@ function App() {
                     options={WORK_REPORT_EXTERNAL_USER_OPTIONS}
                   />
                 </div>
-                <textarea
-                  className="work-report-report-textarea external"
-                  rows={2}
-                  value={entry.content}
-                  placeholder="내용 입력"
-                  onChange={(e) =>
-                    updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
-                      content: e.target.value,
-                    })
-                  }
-                />
-                <input
-                  className="work-report-report-input destination"
-                  type="text"
-                  value={entry.destination}
-                  placeholder="목적지 입력"
-                  onChange={(e) =>
-                    updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
-                      destination: e.target.value,
-                    })
-                  }
-                />
+                <div className="work-report-report-cell">
+                  <textarea
+                    className="work-report-report-field work-report-report-field--grow"
+                    rows={2}
+                    value={entry.content}
+                    placeholder="내용 입력"
+                    onChange={(e) =>
+                      updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                        content: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="work-report-report-cell">
+                  <input
+                    className="work-report-report-field"
+                    type="text"
+                    value={entry.destination}
+                    placeholder="목적지 입력"
+                    onChange={(e) =>
+                      updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                        destination: e.target.value,
+                      })
+                    }
+                  />
+                </div>
               </div>
             )
           })}
-        </div>
       </div>
     </section>
   )
@@ -8957,7 +8960,7 @@ function App() {
   const renderWorkReportManagedSectionV5 = (date, title, section, rowCount, contentClassName) => (
     <div className="work-report-report-journal-block">
       <div className="work-report-report-subtitle">{title}</div>
-      <div className="work-report-report-table">
+      <div className="work-report-report-table work-report-report-table--journal">
         <div className="work-report-report-table-head work-report-report-table-head-journal">
           <div>#</div>
           <div>담당자</div>
@@ -8974,24 +8977,28 @@ function App() {
               onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
             >
               <div className="work-report-report-line-number">{orderIndex}</div>
-              <input
-                className="work-report-report-input manager"
-                type="text"
-                value={entry.user}
-                placeholder="담당자"
-                onChange={(e) =>
-                  updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
-                }
-              />
-              <textarea
-                className={`work-report-report-textarea ${contentClassName}`}
-                rows={3}
-                value={entry.content}
-                placeholder="내용 입력"
-                onChange={(e) =>
-                  updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
-                }
-              />
+              <div className="work-report-report-cell">
+                <input
+                  className="work-report-report-field"
+                  type="text"
+                  value={entry.user}
+                  placeholder="담당자"
+                  onChange={(e) =>
+                    updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
+                  }
+                />
+              </div>
+              <div className="work-report-report-cell">
+                <textarea
+                  className="work-report-report-field work-report-report-field--grow"
+                  rows={2}
+                  value={entry.content}
+                  placeholder="내용 입력"
+                  onChange={(e) =>
+                    updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
+                  }
+                />
+              </div>
             </div>
           )
         })}
@@ -9015,7 +9022,7 @@ function App() {
             >
               <span className="work-report-report-line-number">{orderIndex}.</span>
               <input
-                className="work-report-report-input compact"
+                className="work-report-report-field"
                 type="text"
                 value={entry.content}
                 placeholder="내용 입력"
@@ -9488,9 +9495,32 @@ function App() {
               <div className="work-report-saving-indicator">업무보고 내용을 저장하고 있습니다.</div>
             )}
 
-            <div className="work-report-help-text">
-              각 항목을 클릭하면 바로 입력할 수 있고, 포커스가 빠질 때 자동 저장됩니다.
-            </div>
+            <section className="work-report-meeting-minutes-section">
+              <div className="work-report-meeting-minutes-title">회의록</div>
+              <textarea
+                className="work-report-meeting-minutes-textarea work-report-report-field"
+                rows={14}
+                value={getWorkReportBoardEntry(
+                  selectedWorkWeekMeta.weekStartDate,
+                  WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                  1
+                ).content}
+                placeholder="주간 회의 내용을 입력하세요"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(
+                    selectedWorkWeekMeta.weekStartDate,
+                    WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                    1,
+                    { content: e.target.value }
+                  )
+                }
+                onBlur={handleWorkReportBoardBlur(
+                  selectedWorkWeekMeta.weekStartDate,
+                  WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                  1
+                )}
+              />
+            </section>
           </section>
         )}
 
