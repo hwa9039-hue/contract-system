@@ -8692,17 +8692,17 @@ function App() {
                 className="work-report-report-table-row editable"
                 onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
               >
-                <input
-                  className="work-report-report-input manager"
-                  type="text"
-                  value={entry.user}
-                  placeholder="담당자"
-                  onChange={(e) =>
-                    updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
-                      user: e.target.value,
-                    })
-                  }
-                />
+                <div className="work-report-report-manager-editor">
+                  <WorkReportExternalManagerMultiSelect
+                    value={entry.user}
+                    onChange={(next) =>
+                      updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                        user: next,
+                      })
+                    }
+                    options={WORK_REPORT_EXTERNAL_USER_OPTIONS}
+                  />
+                </div>
                 <textarea
                   className="work-report-report-textarea external"
                   rows={2}
