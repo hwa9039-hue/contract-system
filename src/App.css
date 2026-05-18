@@ -1578,113 +1578,21 @@ textarea {
   grid-template-columns: repeat(7, minmax(0, 1fr));
   column-gap: 0;
   row-gap: 4px;
-  padding: 0 8px 6px;
+  padding: 0 0 6px;
   flex: 0 0 auto;
   background: #ffffff;
   border-bottom: 1px solid #dbe3ef;
 }
 
-/* 다중일 스팬 바 — 단일 일정과 동일한 단색 칩, 칸 경계에서 끊김 없이 연결 */
-.calendar-span-bar {
-  margin: 0;
-  padding: 6px 8px;
-  min-height: 28px;
-  height: 28px;
-  line-height: 1.32;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 0;
-  border: 1px solid transparent;
-  cursor: pointer;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  box-sizing: border-box;
-  align-self: stretch;
+/* 다중일 스팬 바 — .event-pill·타입 클래스와 동일한 여백·색상 */
+.calendar-span-bar.event-pill {
+  width: auto;
+  min-width: 0;
+  margin-left: 8px;
+  margin-right: 8px;
+  align-self: center;
   position: relative;
   z-index: 1;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease,
-    background-color 0.15s ease;
-}
-
-.calendar-span-bar--cap-left {
-  border-top-left-radius: 6px;
-  border-bottom-left-radius: 6px;
-}
-
-.calendar-span-bar--cap-right {
-  border-top-right-radius: 6px;
-  border-bottom-right-radius: 6px;
-}
-
-.calendar-span-bar--segment-mid-left {
-  margin-left: -1px;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-  border-left-width: 0;
-  padding-left: 9px;
-}
-
-.calendar-span-bar--segment-mid-right {
-  margin-right: -1px;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  border-right-width: 0;
-  padding-right: 9px;
-}
-
-.calendar-span-bar--segment-mid-left.calendar-span-bar--segment-mid-right {
-  border-radius: 0;
-  margin-left: -1px;
-  margin-right: -1px;
-}
-
-.calendar-span-bar--week-start.calendar-span-bar--cap-left {
-  margin-left: 0;
-}
-
-.calendar-span-bar--week-end.calendar-span-bar--cap-right {
-  margin-right: 0;
-}
-
-.calendar-span-bar.contract-event {
-  background: #fef08a;
-  color: #713f12;
-  border-color: #eab308;
-}
-
-.calendar-span-bar.due-event {
-  background: #bfdbfe;
-  color: #1e3a8a;
-  border-color: #2563eb;
-}
-
-.calendar-span-bar.manual-event {
-  background: #bbf7d0;
-  color: #14532d;
-  border-color: #22c55e;
-}
-
-.calendar-span-bar.event-pill-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
-  z-index: 2;
-}
-
-.calendar-span-bar.contract-event.event-pill-button:hover {
-  background: #fde047;
-  border-color: #ca8a04;
-}
-
-.calendar-span-bar.due-event.event-pill-button:hover {
-  background: #93c5fd;
-  border-color: #1d4ed8;
-}
-
-.calendar-span-bar.manual-event.event-pill-button:hover {
-  background: #86efac;
-  border-color: #16a34a;
 }
 
 .calendar-date-range-group {

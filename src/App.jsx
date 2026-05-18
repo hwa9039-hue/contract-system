@@ -11100,21 +11100,7 @@ function App() {
                                     <button
                                       key={`${seg.item.id}-w${wi}-c${seg.startCol}-${seg.endCol}-L${seg.lane}`}
                                       type="button"
-                                      className={[
-                                        'calendar-span-bar',
-                                        'event-pill-button',
-                                        getCalendarEventPillTypeClass(seg.item.type),
-                                        seg.isCapLeft
-                                          ? 'calendar-span-bar--cap-left'
-                                          : 'calendar-span-bar--segment-mid-left',
-                                        seg.isCapRight
-                                          ? 'calendar-span-bar--cap-right'
-                                          : 'calendar-span-bar--segment-mid-right',
-                                        seg.startCol === 0 ? 'calendar-span-bar--week-start' : '',
-                                        seg.endCol === 6 ? 'calendar-span-bar--week-end' : '',
-                                      ]
-                                        .filter(Boolean)
-                                        .join(' ')}
+                                      className={`event-pill calendar-span-bar event-pill-button ${getCalendarEventPillTypeClass(seg.item.type)}`}
                                       style={{
                                         gridColumn: `${seg.startCol + 1} / ${seg.endCol + 2}`,
                                         gridRow: seg.lane + 1,
