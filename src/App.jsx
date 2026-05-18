@@ -297,6 +297,12 @@ function getCalendarEventTypeClassName(type) {
   return 'selected-event-type--manual'
 }
 
+function getCalendarEventPillTypeClass(type) {
+  if (type === 'contract') return 'contract-event'
+  if (type === 'due') return 'due-event'
+  return 'manual-event'
+}
+
 function chunkArray(arr, size) {
   const out = []
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
@@ -10569,13 +10575,7 @@ function App() {
                                                 <button
                                                   key={item.id}
                                                   type="button"
-                                                  className={`event-pill event-pill-button ${
-                                                    item.type === 'contract'
-                                                      ? 'contract-event'
-                                                      : item.type === 'due'
-                                                        ? 'due-event'
-                                                        : 'manual-event'
-                                                  }`}
+                                                  className={`event-pill event-pill-button ${getCalendarEventPillTypeClass(item.type)}`}
                                                   onClick={() => openCalendarDetail(item)}
                                                 >
                                                   {item.text}
@@ -10592,7 +10592,7 @@ function App() {
                                 <div
                                   className="calendar-week-multi-lane"
                                   style={{
-                                    gridTemplateRows: `repeat(${spanData.laneCount}, 20px)`,
+                                    gridTemplateRows: `repeat(${spanData.laneCount}, 28px)`,
                                   }}
                                 >
                                   {spanData.placed.map((seg) => (
@@ -10601,7 +10601,8 @@ function App() {
                                       type="button"
                                       className={[
                                         'calendar-span-bar',
-                                        'manual-span-bar',
+                                        'event-pill-button',
+                                        getCalendarEventPillTypeClass(seg.item.type),
                                         'calendar-span-bar--cap-left',
                                         'calendar-span-bar--cap-right',
                                         seg.startCol === 0 ? 'calendar-span-bar--week-start' : '',
