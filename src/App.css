@@ -268,11 +268,9 @@ textarea {
 .dashboard-year-summary {
   list-style: none;
   cursor: pointer;
-  padding: 14px 16px;
-  font-family: 'SUIT', sans-serif;
-  font-size: 24px;
-  font-weight: 800;
-  color: #223b63;
+  padding: 14px 18px;
+  min-height: 58px;
+  box-sizing: border-box;
   background: #f1f6ff;
   border-bottom: 1px solid #d9e5f8;
 }
@@ -3022,33 +3020,16 @@ textarea:focus-visible {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
   min-height: 58px;
   padding: 14px 18px;
+  box-sizing: border-box;
   background:
     linear-gradient(90deg, var(--panel-soft), #ffffff),
     #ffffff;
-  border-bottom-color: var(--line);
+  border-bottom: 1px solid var(--line);
   color: var(--ink);
-  font-size: 22px;
-}
-
-.dashboard-year-summary::before {
-  content: '+';
-  width: 26px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 18px;
-  line-height: 1;
-}
-
-.dashboard-year-accordion.is-expanded .dashboard-year-summary::before {
-  content: '-';
 }
 
 .dashboard-year-summary--toggle {
@@ -3735,12 +3716,10 @@ textarea:focus-visible {
 }
 
 /* dashboard and calendar detail restoration */
-.dashboard-year-summary {
-  justify-content: space-between;
-}
-
-.dashboard-year-summary::before {
+.dashboard-year-summary::before,
+.dashboard-year-accordion.is-expanded .dashboard-year-summary::before {
   content: none;
+  display: none;
 }
 
 .dashboard-year-summary--toggle {
@@ -3763,7 +3742,17 @@ textarea:focus-visible {
   display: flex;
   align-items: baseline;
   gap: 12px;
+  flex: 1 1 auto;
   min-width: 0;
+}
+
+.dashboard-year-title > span:first-child {
+  font-family: 'SUIT', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #223b63;
+  white-space: nowrap;
 }
 
 .dashboard-year-total {
@@ -3771,6 +3760,15 @@ textarea:focus-visible {
   font-family: 'Pretendard', sans-serif;
   font-size: 13px;
   font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.dashboard-year-accordion.is-expanded .dashboard-year-summary,
+.dashboard-year-accordion:not(.is-expanded) .dashboard-year-summary {
+  justify-content: space-between;
+  padding: 14px 18px;
+  min-height: 58px;
 }
 
 .panel-toggle-btn {

@@ -3332,7 +3332,10 @@ function App() {
   const [expandedMenuGroups, setExpandedMenuGroups] = useState(() =>
     loadExpandedMenuGroups(initialMenu)
   )
-  const [openDashboardYears, setOpenDashboardYears] = useState({})
+  const [openDashboardYears, setOpenDashboardYears] = useState(() => {
+    const currentYear = String(new Date().getFullYear())
+    return { [currentYear]: true }
+  })
   const [openContractYears, setOpenContractYears] = useState({})
   const [isContractPageYearSummaryOpen, setIsContractPageYearSummaryOpen] = useState(false)
   const [installCaseEnvFilter, setInstallCaseEnvFilter] = useState('')
@@ -4700,10 +4703,12 @@ function App() {
   const defaultExcludedYear = groupedExcludedRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedExcludedRows)
   const defaultDocumentYear = groupedDocumentRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedDocumentRows)
 
-  const isDashboardYearOpen = (year) =>
-    Object.prototype.hasOwnProperty.call(openDashboardYears, year)
-      ? openDashboardYears[year]
-      : String(year) === dashboardCurrentYear
+  const isDashboardYearOpen = (year) => {
+    const key = String(year)
+    return Object.prototype.hasOwnProperty.call(openDashboardYears, key)
+      ? openDashboardYears[key]
+      : key === dashboardCurrentYear
+  }
 
   const isContractYearOpen = (year) =>
     Object.prototype.hasOwnProperty.call(openContractYears, year)
@@ -4894,9 +4899,10 @@ function App() {
   }
 
   const toggleDashboardYear = (year) => {
+    const key = String(year)
     setOpenDashboardYears((prev) => ({
       ...prev,
-      [year]: !isDashboardYearOpen(year),
+      [key]: !isDashboardYearOpen(key),
     }))
   }
 
