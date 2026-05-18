@@ -2083,6 +2083,18 @@ function getWorkReportPrimaryChecklistStoredRow(date, sectionKey, workReportRows
   return row1 || null
 }
 
+/** 외부일정 entry → 담당자·내용·목적지 (JSON content / destination 필드 모두 지원) */
+function resolveDashboardExternalScheduleRow(entry) {
+  if (!entry) return null
+  const user = safeString(entry.user).trim()
+  const destinationFromField = safeString(entry.destination).trim()
+  const parsed = parseExternalScheduleContent(entry.content)
+  const content = parsed.content || safeString(entry.content).trim()
+  const destination = destinationFromField || parsed.destination
+  if (!user && !content && !destination) return null
+  return { user, content, destination }
+}
+
 /** 대시보드 브리핑: 오늘 날짜의 외부일정 슬롯(저장분 + draft) */
 function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDrafts) {
   const section = WORK_REPORT_SECTION_KEYS.external
@@ -2093,10 +2105,8 @@ function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDr
     const stored = workReportRows.find(
       (r) => r.date === dateYmd && r.section === section && Number(r.orderIndex || 1) === oi
     )
-    const entry = draftEntry || stored
-    const user = safeString(entry?.user).trim()
-    const content = safeString(entry?.content).trim()
-    if (user || content) list.push({ user, content })
+    const resolved = resolveDashboardExternalScheduleRow(draftEntry || stored)
+    if (resolved) list.push(resolved)
   }
   return list
 }
@@ -9778,6 +9788,12 @@ function App() {
                                   </div>
                                   <div className="dashboard-work-report-briefing-external-content">
                                     {row.content || '—'}
+                                  </div>
+                                  <div
+                                    className="dashboard-work-report-briefing-external-destination"
+                                    title={safeString(row.destination).trim() || undefined}
+                                  >
+                                    {safeString(row.destination).trim() || '—'}
                                   </div>
                                 </li>
                               )

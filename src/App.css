@@ -2630,8 +2630,9 @@ textarea:focus-visible {
 
 .dashboard-work-report-briefing-external-item {
   display: grid;
-  grid-template-columns: minmax(100px, 0.35fr) minmax(0, 1fr);
-  gap: 10px 14px;
+  grid-template-columns: minmax(88px, 0.22fr) minmax(0, 1fr) minmax(72px, 0.28fr);
+  gap: 10px 12px;
+  align-items: center;
   padding: 8px 10px;
   border-radius: 8px;
   background: #ffffff;
@@ -2639,17 +2640,36 @@ textarea:focus-visible {
 }
 
 .dashboard-work-report-briefing-external-managers {
+  min-width: 0;
   font-size: 12px;
   font-weight: 800;
   color: #2563eb;
   line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-work-report-briefing-external-content {
+  min-width: 0;
   font-size: 13px;
   color: #334155;
   line-height: 1.5;
-  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-work-report-briefing-external-destination {
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  line-height: 1.4;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-work-report-briefing-meeting {
@@ -2703,6 +2723,10 @@ textarea:focus-visible {
 
   .dashboard-work-report-briefing-external-item {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-work-report-briefing-external-destination {
+    text-align: left;
   }
 }
 
