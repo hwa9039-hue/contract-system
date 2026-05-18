@@ -170,8 +170,6 @@ const WORK_REPORT_MANAGER_OPTIONS = [
   '신상준',
 ]
 const WORK_REPORT_EXTERNAL_USER_OPTIONS = WORK_REPORT_MANAGER_OPTIONS
-const WORK_REPORT_DI_MANAGERS = ['전기웅', '유영무', '김성수', '이재승']
-const WORK_REPORT_ROAD_MANAGERS = ['이용자', '박재범']
 const WORK_REPORT_SECTION_KEYS = {
   checklist: '주요확인사항',
   external: '외부일정',
@@ -2609,20 +2607,6 @@ function serializeExternalScheduleContent(content, destination) {
   })
 }
 
-function getFixedWorkReportManager(section, orderIndex) {
-  const normalizedOrderIndex = Number(orderIndex || 1)
-
-  if (section === WORK_REPORT_SECTION_KEYS.di) {
-    return WORK_REPORT_DI_MANAGERS[normalizedOrderIndex - 1] || ''
-  }
-
-  if (section === WORK_REPORT_SECTION_KEYS.road) {
-    return WORK_REPORT_ROAD_MANAGERS[normalizedOrderIndex - 1] || ''
-  }
-
-  return ''
-}
-
 function normalizeWorkReportRow(item) {
   const section = safeString(item.section ?? item.category)
   const orderIndex = Number(item.order_index ?? item.orderIndex ?? 1)
@@ -2634,7 +2618,7 @@ function normalizeWorkReportRow(item) {
   return {
     id: safeString(item.id),
     date: safeString(item.date ?? item.reportDate ?? item.reportdate ?? item.weekStartDate ?? item.weekstartdate),
-    user: safeString(item.user ?? item.assignee).trim() || getFixedWorkReportManager(section, orderIndex),
+    user: safeString(item.user ?? item.assignee).trim(),
     section,
     content: parsedExternalContent.content,
     destination: parsedExternalContent.destination,
@@ -2667,8 +2651,7 @@ function isWorkReportRowEmpty(row) {
 
 function toWorkReportPayload(row, timestamp, includeLegacyColumns = false) {
   const meta = buildWorkReportWeekMeta(row.date || new Date())
-  const resolvedUser =
-    safeString(row.user).trim() || getFixedWorkReportManager(safeString(row.section).trim(), row.orderIndex)
+  const resolvedUser = safeString(row.user).trim()
   const payload = {
     date: toDbDate(row.date),
     user: resolvedUser,
@@ -6020,10 +6003,6 @@ function App() {
     setSelectedWorkWeek(normalized)
   }
 
-  const handleCreateCurrentWorkWeek = () => {
-    trackWorkWeek(buildWorkReportWeekMeta(new Date()).weekStartDate)
-  }
-
   const handleShiftWorkWeek = (offset) => {
     const nextWeek = formatDateInput(
       addDays(getWeekStartMonday(selectedWorkWeekMeta.weekStartDate), offset * 7)
@@ -6034,7 +6013,7 @@ function App() {
   const getWorkReportCellKey = (date, section, orderIndex = 1) => `${date}__${section}__${orderIndex}`
 
   const getStoredWorkReportEntry = (date, section, orderIndex = 1) =>
-    filteredWorkReportRows.find(
+    workReportRows.find(
       (row) => row.date === date && row.section === section && Number(row.orderIndex || 1) === orderIndex
     )
 
@@ -6061,7 +6040,7 @@ function App() {
         : createWorkReportDraftRow({
             reportDate: date,
             section,
-            user: getFixedWorkReportManager(section, orderIndex) || workReportFilters.assignee,
+            user: workReportFilters.assignee,
             orderIndex,
           })
     )
@@ -8397,18 +8376,18 @@ function App() {
       <div className="work-report-day-sections work-report-day-sections-dense">
         {renderWorkReportChecklistSectionV2(day.date)}
         {renderWorkReportExternalSectionV2(day.date)}
-        {renderWorkReportFixedManagerSectionV3(
+        {renderWorkReportManagedSection(
           day.date,
           'DI사업',
           WORK_REPORT_SECTION_KEYS.di,
-          WORK_REPORT_DI_MANAGERS,
+          WORK_REPORT_DI_ROW_COUNT,
           'work-report-board-textarea-di'
         )}
-        {renderWorkReportFixedManagerSectionV3(
+        {renderWorkReportManagedSection(
           day.date,
           '도로사업',
           WORK_REPORT_SECTION_KEYS.road,
-          WORK_REPORT_ROAD_MANAGERS,
+          WORK_REPORT_ROAD_ROW_COUNT,
           'work-report-board-textarea-road'
         )}
         {renderWorkReportSupportSectionV3(day.date)}
@@ -8621,18 +8600,18 @@ function App() {
       <div className="work-report-day-sections work-report-day-sections-dense">
         {renderWorkReportChecklistSectionV4(day.date)}
         {renderWorkReportExternalSectionV4(day.date)}
-        {renderWorkReportFixedManagerSectionV4(
+        {renderWorkReportManagedSection(
           day.date,
           'DI사업',
           WORK_REPORT_SECTION_KEYS.di,
-          WORK_REPORT_DI_MANAGERS,
+          WORK_REPORT_DI_ROW_COUNT,
           'work-report-board-textarea-di'
         )}
-        {renderWorkReportFixedManagerSectionV4(
+        {renderWorkReportManagedSection(
           day.date,
           '도로사업',
           WORK_REPORT_SECTION_KEYS.road,
-          WORK_REPORT_ROAD_MANAGERS,
+          WORK_REPORT_ROAD_ROW_COUNT,
           'work-report-board-textarea-road'
         )}
         {renderWorkReportSupportSectionV4(day.date)}
@@ -8705,64 +8684,48 @@ function App() {
           </div>
           {Array.from({ length: WORK_REPORT_EXTERNAL_ROW_COUNT }, (_, index) => {
             const orderIndex = index + 1
-            const cellKey = getWorkReportCellKey(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
-            const isEditing = editingWorkCellKey === cellKey
-            const entry = getDisplayedWorkReportEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
-
-            if (isEditing && editingWorkCellData) {
-              return (
-                <div
-                  key={`external-v5-${date}-${orderIndex}`}
-                  className="work-report-report-table-row editing"
-                  onBlur={(e) => {
-                    if (!e.currentTarget.contains(e.relatedTarget)) {
-                      commitWorkReportEdit()
-                    }
-                  }}
-                >
-                  <div className="work-report-report-manager-editor">
-                    <WorkReportExternalManagerMultiSelect
-                      value={editingWorkCellData.user}
-                      onChange={(next) => handleWorkReportEditorChange('user', next)}
-                      options={WORK_REPORT_EXTERNAL_USER_OPTIONS}
-                    />
-                  </div>
-                  <textarea
-                    className="work-report-report-textarea external"
-                    rows={2}
-                    autoFocus
-                    value={editingWorkCellData.content}
-                    placeholder="내용 입력"
-                    onChange={(e) => handleWorkReportEditorChange('content', e.target.value)}
-                    onKeyDown={(e) => handleWorkReportInlineKeyDown(e, { multiline: true })}
-                  />
-                  <input
-                    className="work-report-report-input destination"
-                    type="text"
-                    value={editingWorkCellData.destination}
-                    placeholder="목적지 입력"
-                    onChange={(e) => handleWorkReportEditorChange('destination', e.target.value)}
-                    onKeyDown={(e) => handleWorkReportInlineKeyDown(e)}
-                  />
-                </div>
-              )
-            }
+            const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
 
             return (
-              <button
+              <div
                 key={`external-v5-${date}-${orderIndex}`}
-                type="button"
-                className="work-report-report-table-row"
-                onClick={() => startWorkReportCellEdit(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
+                className="work-report-report-table-row editable"
+                onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
               >
-                <div className="work-report-report-manager-cell">{renderWorkReportManagerBadges(entry?.user)}</div>
-                <div className={`work-report-report-content-cell ${entry?.content ? 'has-value' : 'is-empty'}`}>
-                  {entry?.content || ' '}
-                </div>
-                <div className={`work-report-report-destination-cell ${entry?.destination ? 'has-value' : 'is-empty'}`}>
-                  {entry?.destination || ' '}
-                </div>
-              </button>
+                <input
+                  className="work-report-report-input manager"
+                  type="text"
+                  value={entry.user}
+                  placeholder="담당자"
+                  onChange={(e) =>
+                    updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                      user: e.target.value,
+                    })
+                  }
+                />
+                <textarea
+                  className="work-report-report-textarea external"
+                  rows={2}
+                  value={entry.content}
+                  placeholder="내용 입력"
+                  onChange={(e) =>
+                    updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                      content: e.target.value,
+                    })
+                  }
+                />
+                <input
+                  className="work-report-report-input destination"
+                  type="text"
+                  value={entry.destination}
+                  placeholder="목적지 입력"
+                  onChange={(e) =>
+                    updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                      destination: e.target.value,
+                    })
+                  }
+                />
+              </div>
             )
           })}
         </div>
@@ -8770,66 +8733,49 @@ function App() {
     </section>
   )
 
-  const renderWorkReportManagerSectionV5 = (date, title, section, managers, contentClassName) => (
-    <section className="work-report-report-section">
-      <div className="work-report-report-section-title">{title}</div>
-      <div className="work-report-report-manager-list">
-        {managers.map((managerName, index) => {
+  const renderWorkReportManagedSectionV5 = (date, title, section, rowCount, contentClassName) => (
+    <div className="work-report-report-journal-block">
+      <div className="work-report-report-subtitle">{title}</div>
+      <div className="work-report-report-table">
+        <div className="work-report-report-table-head work-report-report-table-head-journal">
+          <div>#</div>
+          <div>담당자</div>
+          <div>내용</div>
+        </div>
+        {Array.from({ length: rowCount }, (_, index) => {
           const orderIndex = index + 1
-          const cellKey = getWorkReportCellKey(date, section, orderIndex)
-          const isEditing = editingWorkCellKey === cellKey
-          const entry = getDisplayedWorkReportEntry(date, section, orderIndex)
-
-          if (isEditing && editingWorkCellData) {
-            return (
-              <div
-                key={`manager-v5-${section}-${date}-${orderIndex}`}
-                className="work-report-report-manager-block editing"
-                onBlur={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget)) {
-                    commitWorkReportEdit()
-                  }
-                }}
-              >
-                <div className="work-report-report-manager-heading">
-                  <span className="work-report-report-order-badge">{orderIndex}</span>
-                  <span className="work-report-report-manager-badge fixed">{managerName}</span>
-                </div>
-                <textarea
-                  className={`work-report-report-textarea ${contentClassName}`}
-                  rows={4}
-                  autoFocus
-                  value={editingWorkCellData.content}
-                  placeholder="내용 입력"
-                  onChange={(e) => {
-                    handleWorkReportEditorChange('user', managerName)
-                    handleWorkReportEditorChange('content', e.target.value)
-                  }}
-                  onKeyDown={(e) => handleWorkReportInlineKeyDown(e, { multiline: true })}
-                />
-              </div>
-            )
-          }
+          const entry = getWorkReportBoardEntry(date, section, orderIndex)
 
           return (
-            <button
-              key={`manager-v5-${section}-${date}-${orderIndex}`}
-              type="button"
-              className="work-report-report-manager-block"
-              onClick={() => startWorkReportCellEdit(date, section, orderIndex)}
+            <div
+              key={`journal-v5-${section}-${date}-${orderIndex}`}
+              className="work-report-report-table-row editable work-report-report-table-row-journal"
+              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
             >
-              <div className="work-report-report-manager-heading">
-                <span className="work-report-report-order-badge">{orderIndex}</span>
-                <span className="work-report-report-manager-badge fixed">{managerName}</span>
-              </div>
-              <div className={`work-report-report-block-content ${entry?.content ? 'has-value' : 'is-empty'}`}>
-                {entry?.content || ' '}
-              </div>
-            </button>
+              <div className="work-report-report-line-number">{orderIndex}</div>
+              <input
+                className="work-report-report-input manager"
+                type="text"
+                value={entry.user}
+                placeholder="담당자"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
+                }
+              />
+              <textarea
+                className={`work-report-report-textarea ${contentClassName}`}
+                rows={3}
+                value={entry.content}
+                placeholder="내용 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
+                }
+              />
+            </div>
           )
         })}
       </div>
-    </section>
+    </div>
   )
 
   const renderWorkReportSupportListV5 = (date, title, section) => (
@@ -8838,47 +8784,25 @@ function App() {
       <div className="work-report-report-line-list support">
         {Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
           const orderIndex = index + 1
-          const cellKey = getWorkReportCellKey(date, section, orderIndex)
-          const isEditing = editingWorkCellKey === cellKey
-          const entry = getDisplayedWorkReportEntry(date, section, orderIndex)
-
-          if (isEditing && editingWorkCellData) {
-            return (
-              <div
-                key={`support-v5-${date}-${section}-${orderIndex}`}
-                className="work-report-report-line-edit"
-                onBlur={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget)) {
-                    commitWorkReportEdit()
-                  }
-                }}
-              >
-                <span className="work-report-report-line-number">{orderIndex}.</span>
-                <input
-                  className="work-report-report-input compact"
-                  type="text"
-                  value={editingWorkCellData.content}
-                  autoFocus
-                  placeholder="내용 입력"
-                  onChange={(e) => handleWorkReportEditorChange('content', e.target.value)}
-                  onKeyDown={(e) => handleWorkReportInlineKeyDown(e)}
-                />
-              </div>
-            )
-          }
+          const entry = getWorkReportBoardEntry(date, section, orderIndex)
 
           return (
-            <button
+            <div
               key={`support-v5-${date}-${section}-${orderIndex}`}
-              type="button"
-              className="work-report-report-line-button"
-              onClick={() => startWorkReportCellEdit(date, section, orderIndex)}
+              className="work-report-report-line-edit"
+              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
             >
               <span className="work-report-report-line-number">{orderIndex}.</span>
-              <span className={`work-report-report-line-text ${entry?.content ? 'has-value' : 'is-empty'}`}>
-                {entry?.content || ' '}
-              </span>
-            </button>
+              <input
+                className="work-report-report-input compact"
+                type="text"
+                value={entry.content}
+                placeholder="내용 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
+                }
+              />
+            </div>
           )
         })}
       </div>
@@ -8907,18 +8831,18 @@ function App() {
         <section className="work-report-report-section">
           <div className="work-report-report-section-title">업무일지</div>
           <div className="work-report-report-journal-wrap">
-            {renderWorkReportManagerSectionV5(
+            {renderWorkReportManagedSectionV5(
               day.date,
               'DI사업',
               WORK_REPORT_SECTION_KEYS.di,
-              WORK_REPORT_DI_MANAGERS,
+              WORK_REPORT_DI_ROW_COUNT,
               'di'
             )}
-            {renderWorkReportManagerSectionV5(
+            {renderWorkReportManagedSectionV5(
               day.date,
               '도로사업',
               WORK_REPORT_SECTION_KEYS.road,
-              WORK_REPORT_ROAD_MANAGERS,
+              WORK_REPORT_ROAD_ROW_COUNT,
               'road'
             )}
             {renderWorkReportSupportSectionV5(day.date)}
@@ -8927,6 +8851,7 @@ function App() {
       </div>
     </div>
   )
+
 
   return (
     <div className="app-shell">
@@ -9292,9 +9217,6 @@ function App() {
         {menu === 'workReports' && (
           <section className="stat-card">
             <div className="contracts-header-actions work-report-toolbar">
-              <button className="primary-btn" type="button" onClick={handleCreateCurrentWorkWeek}>
-                등록
-              </button>
               <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
                 이전 주
               </button>

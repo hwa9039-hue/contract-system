@@ -5710,6 +5710,26 @@ textarea:focus-visible {
   grid-template-columns: minmax(140px, 0.8fr) minmax(260px, 2fr) minmax(160px, 1fr);
 }
 
+.work-report-report-table-head-journal,
+.work-report-report-table-row-journal {
+  grid-template-columns: 36px minmax(100px, 0.7fr) minmax(200px, 2.3fr);
+}
+
+.work-report-report-table-row-journal.editable > * {
+  min-width: 0;
+  padding: 6px;
+  border-right: 1px solid #e5eaf1;
+}
+
+.work-report-report-table-row-journal.editable > *:last-child {
+  border-right: none;
+}
+
+.work-report-report-input.manager {
+  width: 100%;
+  min-height: 32px;
+}
+
 .work-report-report-table-head {
   background: #eef4ff;
   border-bottom: 1px solid #dde5ef;
