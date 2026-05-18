@@ -2454,6 +2454,12 @@ function parseAmount(value) {
   return Number.isFinite(n) ? n : 0
 }
 
+/** 계약현황 그룹 헤더용 계약금액 합계 */
+function sumContractAmounts(items) {
+  if (!Array.isArray(items) || !items.length) return 0
+  return items.reduce((sum, item) => sum + parseAmount(item?.amount), 0)
+}
+
 function parseYearValue(value) {
   const year = safeString(value).replace(/[^\d]/g, '').slice(0, 4)
   return year ? Number(year) : null
@@ -4098,15 +4104,24 @@ function App() {
           buckets[getContractCategorySubgroupId(item.contractType)].push(item)
         })
 
-        const subGroups = CONTRACT_CATEGORY_SUBGROUPS.map(({ groupId, label }) => ({
-          groupId,
-          label,
-          items: [...buckets[groupId]].sort(compareContractsByContractDateDesc),
-        }))
+        const subGroups = CONTRACT_CATEGORY_SUBGROUPS.map(({ groupId, label }) => {
+          const items = [...buckets[groupId]].sort(compareContractsByContractDateDesc)
+          return {
+            groupId,
+            label,
+            items,
+            totalAmount: sumContractAmounts(items),
+          }
+        })
 
         const items = subGroups.flatMap((g) => g.items)
 
-        return { year, subGroups, items }
+        return {
+          year,
+          subGroups,
+          items,
+          totalAmount: sumContractAmounts(items),
+        }
       })
   }, [filteredContracts])
 
@@ -10217,7 +10232,8 @@ function App() {
                                 <span className="contract-year-sign">{collapsed ? '+' : '-'}</span>
                                 <span>{yearBlock.year}년</span>
                                 <span className="contract-year-count">
-                                  {yearBlock.items.length.toLocaleString('ko-KR')}건
+                                  {yearBlock.items.length.toLocaleString('ko-KR')}건 (총{' '}
+                                  {yearBlock.totalAmount.toLocaleString('ko-KR')}원)
                                 </span>
                               </div>
                             </td>
@@ -10245,7 +10261,8 @@ function App() {
                                   <span className="contract-year-sign">{subCollapsed ? '+' : '-'}</span>
                                   <span>{sub.label}</span>
                                   <span className="contract-year-count">
-                                    {sub.items.length.toLocaleString('ko-KR')}건
+                                    {sub.items.length.toLocaleString('ko-KR')}건 (총{' '}
+                                    {sub.totalAmount.toLocaleString('ko-KR')}원)
                                   </span>
                                 </div>
                               </td>
