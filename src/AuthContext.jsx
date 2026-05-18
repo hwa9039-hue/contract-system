@@ -5,45 +5,61 @@ import {
   ADMIN_PASSWORD,
   CONTRACT_PERSISTENT_SESSION_DURATION_MS,
   CONTRACT_SHARED_SESSION_DURATION_MS,
-  readSharedAuthSession,
+  hydrateAuthSessionFromStorage,
   readStoredAdminFlag,
   SHARED_APP_PASSWORD,
   writeAdminFlag,
   writeSharedAuthSession,
   clearAdminFlag,
   clearSharedAuthSession,
+  syncAuthTokenToActiveStorage,
 } from './authSession.js'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const initialSession = readSharedAuthSession()
-  const [authPersistence, setAuthPersistence] = useState(initialSession.persistence)
-  const [isAuthenticated, setIsAuthenticated] = useState(initialSession.isAuthenticated)
-  const [isAdmin, setIsAdmin] = useState(
-    () =>
-      initialSession.isAuthenticated && readStoredAdminFlag(initialSession.persistence)
-  )
-  const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(initialSession.expiresAt)
+  const hydrated = hydrateAuthSessionFromStorage()
+  const [authPersistence, setAuthPersistence] = useState(hydrated.persistence)
+  const [isAuthenticated, setIsAuthenticated] = useState(hydrated.isAuthenticated)
+  const [isAdmin, setIsAdmin] = useState(hydrated.isAdmin)
+  const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(hydrated.expiresAt)
+  const [authHydrated, setAuthHydrated] = useState(false)
 
   useEffect(() => {
-    if (!isAuthenticated) return
+    const session = hydrateAuthSessionFromStorage()
+    setAuthPersistence(session.persistence)
+    setIsAuthenticated(session.isAuthenticated)
+    setIsAdmin(session.isAdmin)
+    setSharedSessionExpiresAt(session.expiresAt)
+    setAuthHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    if (!authHydrated || !isAuthenticated) return
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/auth/me`, apiFetchInit({ headers: { ...getAuthHeaders() } }))
+        const authHeaders = getAuthHeaders()
+        const hadBearerToken = Boolean(authHeaders.Authorization)
+        const res = await fetch(
+          `${API_BASE_URL}/api/auth/me`,
+          apiFetchInit({ headers: { ...authHeaders } })
+        )
         const data = await res.json()
         if (cancelled) return
         if (data.auth_disabled) return
-        if (!data.valid) {
-          setAuthPersistence('none')
-          setIsAuthenticated(false)
-          setIsAdmin(false)
-          setSharedSessionExpiresAt(0)
-          clearSharedAuthSession()
-          clearAdminFlag()
-          clearAuthToken()
-        }
+        if (data.valid) return
+
+        // JWT가 없는 공유 세션(비활성 모드·클라이언트 세션)은 /me 실패로 지우지 않음
+        if (!hadBearerToken) return
+
+        setAuthPersistence('none')
+        setIsAuthenticated(false)
+        setIsAdmin(false)
+        setSharedSessionExpiresAt(0)
+        clearSharedAuthSession()
+        clearAdminFlag()
+        clearAuthToken()
       } catch {
         /* 네트워크 오류 시 기존 세션 유지 */
       }
@@ -51,7 +67,7 @@ export function AuthProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [isAuthenticated])
+  }, [authHydrated, isAuthenticated])
 
   const login = useCallback(async (role, password, rememberMe = false) => {
     const trimmed = String(password).trim()
@@ -110,13 +126,19 @@ export function AuthProvider({ children }) {
         logCmsApiLogin('rejected', { status: response.status, message })
         return { ok: false, error: message }
       } else if (data.access_token) {
-        setAuthToken(data.access_token)
+        setAuthToken(data.access_token, { persistent: rememberMe })
       }
 
-      const expiresAt = Date.now() + CONTRACT_SHARED_SESSION_DURATION_MS
-      writeSharedAuthSession(expiresAt)
-      writeAdminFlag(wantsAdmin)
+      const persistence = rememberMe ? 'persistent' : 'session'
+      const sessionDuration = rememberMe
+        ? CONTRACT_PERSISTENT_SESSION_DURATION_MS
+        : CONTRACT_SHARED_SESSION_DURATION_MS
+      const expiresAt = Date.now() + sessionDuration
+      writeSharedAuthSession(expiresAt, persistence)
+      writeAdminFlag(wantsAdmin, persistence)
+      syncAuthTokenToActiveStorage(persistence)
 
+      setAuthPersistence(persistence)
       setIsAuthenticated(true)
       setIsAdmin(wantsAdmin)
       setSharedSessionExpiresAt(expiresAt)
@@ -125,6 +147,7 @@ export function AuthProvider({ children }) {
         mode: data.auth_disabled ? 'auth_disabled' : 'jwt',
         api: API_BASE_URL,
         role: wantsAdmin ? 'admin' : 'user',
+        persistence,
       })
 
       return { ok: true }
@@ -152,6 +175,7 @@ export function AuthProvider({ children }) {
     const expiresAt = Date.now() + duration
     if (authPersistence === 'persistent' || authPersistence === 'session') {
       writeSharedAuthSession(expiresAt, authPersistence)
+      syncAuthTokenToActiveStorage(authPersistence)
     }
     setSharedSessionExpiresAt(expiresAt)
     return expiresAt
@@ -162,11 +186,12 @@ export function AuthProvider({ children }) {
       isAuthenticated,
       isAdmin,
       sharedSessionExpiresAt,
+      authHydrated,
       login,
       logout,
       extendLogin,
     }),
-    [isAuthenticated, isAdmin, sharedSessionExpiresAt, login, logout, extendLogin]
+    [isAuthenticated, isAdmin, sharedSessionExpiresAt, authHydrated, login, logout, extendLogin]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

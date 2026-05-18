@@ -8,7 +8,10 @@ import { bootstrapCmsApiProbe } from './cmsApiProbe.js'
 bootstrapCmsApiProbe()
 
 function AppRoot() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, authHydrated } = useAuth()
+  if (!authHydrated) {
+    return null
+  }
   if (!isAuthenticated) {
     return <LoginPage />
   }

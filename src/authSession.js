@@ -6,6 +6,8 @@ export const CONTRACT_SHARED_SESSION_DURATION_MS = 20 * 60 * 1000
 export const CONTRACT_PERSISTENT_SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000
 export const CONTRACT_SHARED_WARNING_MS = 5 * 60 * 1000
 
+import { AUTH_TOKEN_KEY } from './apiClient.js'
+
 export const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'smartdi2026!'
 export const ADMIN_PASSWORD = import.meta.env.VITE_APP_ADMIN_PASSWORD || 'admin2026!'
 
@@ -124,5 +126,34 @@ export function clearAdminFlag() {
     sessionStorage.removeItem(ADMIN_SESSION_KEY)
   } catch {
     /* ignore */
+  }
+}
+
+/** 자동 로그인( persistent ) 시 API 호출용 토큰을 sessionStorage에도 복원 */
+export function syncAuthTokenToActiveStorage(persistence = 'session') {
+  if (persistence !== 'persistent') return
+  try {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY)
+    if (token) {
+      sessionStorage.setItem(AUTH_TOKEN_KEY, token)
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * 앱 마운트 시 storage → 상태 복구용 스냅샷
+ * @returns {{ isAuthenticated: boolean, expiresAt: number, persistence: 'none' | 'session' | 'persistent', isAdmin: boolean }}
+ */
+export function hydrateAuthSessionFromStorage() {
+  const session = readSharedAuthSession()
+  if (!session.isAuthenticated) {
+    return { ...session, isAdmin: false }
+  }
+  syncAuthTokenToActiveStorage(session.persistence)
+  return {
+    ...session,
+    isAdmin: readStoredAdminFlag(session.persistence),
   }
 }

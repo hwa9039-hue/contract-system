@@ -11,6 +11,10 @@ import { installCasesApi, INSTALL_CASES_API_PATH } from './installCasesApi'
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { useAuth } from './AuthContext.jsx'
 import { CONTRACT_SHARED_WARNING_MS } from './authSession.js'
+import {
+  CONTRACT_EXCEL_HEADER_KEYWORDS,
+  sheetToJsonWithSmartHeader,
+} from './excelSheetUtils.js'
 
 const CONTRACT_COLUMNS = [
   { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text' },
@@ -4541,7 +4545,28 @@ function App() {
     }
   }, [workReportRows, workReportDrafts])
 
-  const dashboardSummary = useMemo(() => buildDashboardSummary(contracts), [contracts])
+  const dashboardCurrentYear = String(new Date().getFullYear())
+  const dashboardSummary = useMemo(() => {
+    const { years } = buildDashboardSummary(contracts)
+    const currentYearBlock = years.find((y) => String(y.year) === dashboardCurrentYear)
+    if (currentYearBlock) {
+      return { years: [currentYearBlock] }
+    }
+    return {
+      years: [
+        {
+          year: dashboardCurrentYear,
+          totalAmount: 0,
+          items: DASHBOARD_CATEGORY_ORDER.map((name) => ({
+            name,
+            count: 0,
+            amount: 0,
+            ratio: 0,
+          })),
+        },
+      ],
+    }
+  }, [contracts, dashboardCurrentYear])
   const dashboardData = useMemo(() => {
     const persistedSalesRows = getPersistedRows(salesRows)
     const persistedDiscoveryRows = getPersistedRows(discoveryRows)
@@ -4610,7 +4635,9 @@ function App() {
   const defaultDocumentYear = groupedDocumentRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedDocumentRows)
 
   const isDashboardYearOpen = (year) =>
-    Object.prototype.hasOwnProperty.call(openDashboardYears, year) ? openDashboardYears[year] : false
+    Object.prototype.hasOwnProperty.call(openDashboardYears, year)
+      ? openDashboardYears[year]
+      : String(year) === dashboardCurrentYear
 
   const isContractYearOpen = (year) =>
     Object.prototype.hasOwnProperty.call(openContractYears, year)
@@ -4872,13 +4899,13 @@ function App() {
       }
 
       const worksheet = workbook.Sheets[firstSheetName]
-      const rows = XLSX.utils.sheet_to_json(worksheet, {
-        defval: '',
-        raw: true,
-      })
+      const { rows, headerRowIndex } = sheetToJsonWithSmartHeader(
+        worksheet,
+        CONTRACT_EXCEL_HEADER_KEYWORDS
+      )
 
       if (!rows.length) {
-        showAppAlert('업로드할 데이터가 없습니다.')
+        showAppAlert('업로드할 데이터가 없습니다. (헤더 행을 찾지 못했습니다.)')
         return
       }
 
@@ -6155,6 +6182,17 @@ function App() {
     ...(REGISTRY_EXCEL_HEADER_ALIASES[column.key] || []),
   ]
 
+  const collectRegistryExcelHeaderKeywords = (columns) => {
+    const keywords = new Set()
+    columns.forEach((column) => {
+      getRegistryExcelHeaderCandidates(column).forEach((kw) => {
+        const t = safeString(kw).trim()
+        if (t) keywords.add(t)
+      })
+    })
+    return [...keywords]
+  }
+
   const buildRegistryImportRows = (rows, columns, createDraftRow, isEmptyRow) => {
     const preparedRows = []
     const skippedLines = []
@@ -6261,13 +6299,14 @@ function App() {
       }
 
       const worksheet = workbook.Sheets[firstSheetName]
-      const rows = XLSX.utils.sheet_to_json(worksheet, {
-        defval: '',
-        raw: true,
-      })
+      const headerKeywords = collectRegistryExcelHeaderKeywords(config.columns)
+      const { rows, headerRowIndex } = sheetToJsonWithSmartHeader(worksheet, headerKeywords)
 
       if (!rows.length) {
-        showAppAlert('업로드할 데이터가 없습니다.')
+        showAppAlert(
+          `업로드할 데이터가 없습니다.\n` +
+            `(헤더 행 자동 탐지: ${headerRowIndex + 1}행 — 컬럼명이 시스템과 일치하는지 확인해 주세요.)`
+        )
         return
       }
 
@@ -6289,8 +6328,8 @@ function App() {
             : ''
         showAppAlert(
           `업로드할 유효한 데이터가 없습니다.\n` +
-            `엑셀 첫 행 헤더가 시스템 컬럼명(예: 건축정보일자, 사업명)과 일치하는지 확인해 주세요.\n` +
-            `(시트 헤더: ${headerSample || '없음'})${skippedHint}`
+            `헤더는 ${headerRowIndex + 1}행에서 인식했습니다. 컬럼명(예: 건축정보일자, 사업명)을 확인해 주세요.\n` +
+            `(인식된 헤더: ${headerSample || '없음'})${skippedHint}`
         )
         return
       }
