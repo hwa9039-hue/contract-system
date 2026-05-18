@@ -2942,12 +2942,20 @@ function isAllVisibleRegistryRowsSelected(rows, selectedIds) {
   return visibleIds.every((id) => selectedSet.has(id))
 }
 
+function registryCellDisplayText(value) {
+  if (value === null || value === undefined) return ''
+  const text = safeString(value).trim()
+  if (text === 'undefined' || text === 'null') return ''
+  return text
+}
+
 function getRegistryPlainDisplayValue(row, column) {
   if (column.type === 'amount') {
-    return formatAmountDisplay(row[column.key]) || '-'
+    const amountText = registryCellDisplayText(formatAmountDisplay(row[column.key]))
+    return amountText || '-'
   }
 
-  return safeString(row[column.key]).trim() || '-'
+  return registryCellDisplayText(row[column.key]) || '-'
 }
 
 function parseExternalScheduleContent(value) {
@@ -6264,9 +6272,9 @@ function App() {
 
   const REGISTRY_EXCEL_HEADER_ALIASES = {
     registerDate: ['등록일', '등록일자', '작성일'],
-    permitDate: ['허가일', '허가일자', '인허가일', '건축허가일', '건축 인허가일'],
+    permitDate: ['건축정보일자', '건축정보 일자', '허가일', '허가일자', '인허가일', '건축허가일', '건축 인허가일'],
     checkStatus: ['확인여부', '체크', '확인상태'],
-    salesTarget: ['영업대상', '영업 담당', '영업담당'],
+    salesTarget: ['영업자', '영업대상', '영업 담당', '영업담당'],
     projectCategory: ['사업 구분', '구분', '사업구분'],
     localGov: ['지자체', '지방자치단체', '시군구', '지역'],
     client: ['발주처', '수요기관', '발주 기관'],
@@ -6447,7 +6455,7 @@ function App() {
       if (!rows.length) {
         const headerHint =
           target === 'discovery'
-            ? `'건축정보일자' 또는 '사업명' 헤더 행(${headerRowIndex + 1}행) 이후 데이터 없음`
+            ? `'사업명'·'발주처' 헤더 행(${headerRowIndex + 1}행) 이후 데이터 없음`
             : `헤더 행 자동 탐지: ${headerRowIndex + 1}행`
         showAppAlert(
           `업로드할 데이터가 없습니다.\n` +

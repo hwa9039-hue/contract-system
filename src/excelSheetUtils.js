@@ -231,8 +231,31 @@ export const DISCOVERY_HEADER_MARKERS = [
 
 export const DISCOVERY_EXCEL_FORMAT_ERROR = '엑셀 양식이 올바르지 않습니다.'
 
+function countNonEmptyDiscoveryCells(row) {
+  if (!Array.isArray(row)) return 0
+  return row.filter((cell) => String(cell ?? '').trim() !== '').length
+}
+
+function discoveryRowIncludesText(row, marker) {
+  if (!Array.isArray(row) || !marker) return false
+  return row.some((cell) => String(cell ?? '').includes(marker))
+}
+
+/** 건축정보: 헤더 문자열 → Key (모든 공백·줄바꿈 제거) */
+export function discoveryCleanHeaderKey(originalKey, index = 0) {
+  const trimmed = String(originalKey ?? '').trim()
+  if (!trimmed) return `__EMPTY_${index}`
+  return String(originalKey).replace(/\s+/g, '').trim()
+}
+
+function isDiscoveryRealHeaderRow(row) {
+  if (!Array.isArray(row)) return false
+  if (countNonEmptyDiscoveryCells(row) < 5) return false
+  return discoveryRowIncludesText(row, '사업명') && discoveryRowIncludesText(row, '발주처')
+}
+
 /**
- * 건축정보: 2차원 배열 → '건축정보일자'/'사업명' 행 탐색 → 객체 배열 조립
+ * 건축정보: 2차원 배열 → '사업명'+'발주처' 헤더 행 탐색 → 객체 배열 조립
  * @param {import('xlsx').WorkSheet} worksheet
  */
 export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
@@ -248,26 +271,18 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
     throw new Error(DISCOVERY_EXCEL_FORMAT_ERROR)
   }
 
-  const headerIndex = rawData.findIndex(
-    (row) =>
-      row &&
-      row.some(
-        (cell) =>
-          String(cell).includes('사업명') || String(cell).includes('건축정보일자')
-      )
-  )
-
-  console.log('[discovery-excel] headerIndex', headerIndex)
+  const headerIndex = rawData.findIndex((row) => isDiscoveryRealHeaderRow(row))
 
   if (headerIndex < 0) {
     throw new Error(DISCOVERY_EXCEL_FORMAT_ERROR)
   }
 
   const headerRow = rawData[headerIndex]
-  const headerKeys = (headerRow || []).map((cell, index) => {
-    const key = String(cell ?? '').trim()
-    return key || `__EMPTY_${index}`
-  })
+  const cleanHeaders = (headerRow || []).map((cell, index) =>
+    discoveryCleanHeaderKey(cell, index)
+  )
+
+  console.log('찾은 헤더 줄 번호:', headerIndex, '정리된 헤더 키:', cleanHeaders)
 
   const parsedData = rawData
     .slice(headerIndex + 1)
@@ -277,12 +292,12 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
     )
     .map((dataRow) => {
       const rowObject = {}
-      headerKeys.forEach((key, columnIndex) => {
+      cleanHeaders.forEach((cleanKey, columnIndex) => {
         let value = dataRow[columnIndex] ?? ''
-        if (isDateLikeHeader(key)) {
+        if (isDateLikeHeader(cleanKey)) {
           value = excelCellToYmd(value)
         }
-        rowObject[key] = value
+        rowObject[cleanKey] = value
       })
       return rowObject
     })
@@ -296,7 +311,7 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
     rows: parsedData,
     headerRowIndex: headerIndex,
     raw_data: rawData,
-    headers: headerKeys,
+    headers: cleanHeaders,
   }
 }
 
