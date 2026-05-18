@@ -2743,9 +2743,26 @@ function toSalesPayload(row, timestamp) {
   }
 }
 
-function normalizeDiscoveryRow(item) {
+function getRegistryTableRowDomKey(row, index, prefix = '') {
+  const id = safeString(row?.id).trim()
+  if (id && id !== 'undefined') {
+    return prefix ? `${prefix}::${id}` : id
+  }
+  return prefix ? `${prefix}-row-${index}` : `row-${index}`
+}
+
+function normalizeDiscoveryRow(item, rowIndex = 0) {
+  let id = safeString(item.id).trim()
+  if (!id || id === 'undefined') {
+    const permit = safeString(item.permitDate ?? item.permitdate).trim()
+    const project = safeString(item.projectName ?? item.projectname).trim()
+    id = `discovery-fallback-${rowIndex}-${permit}-${project}`.replace(/\s+/g, '-')
+    if (!id || id === `discovery-fallback-${rowIndex}--`) {
+      id = `discovery-fallback-${rowIndex}`
+    }
+  }
   return {
-    id: safeString(item.id),
+    id,
     permitDate: safeString(item.permitDate ?? item.permitdate),
     checkStatus: safeString(item.checkStatus ?? item.checkstatus),
     salesTarget: safeString(item.salesTarget ?? item.salestarget),
@@ -3682,7 +3699,7 @@ function App() {
       const rows = await projectDiscoveryApi.list()
       setDiscoveryRows((prev) => {
         const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-        return [...rows.map(normalizeDiscoveryRow), ...draftRows]
+        return [...rows.map((item, index) => normalizeDiscoveryRow(item, index)), ...draftRows]
       })
       setSelectedDiscoveryIds([])
       return rows
@@ -8014,6 +8031,7 @@ function App() {
   const renderRegistryDataRow = ({
     row,
     index,
+    rowKey: rowKeyProp,
     columns,
     editingIds,
     isSaving,
@@ -8029,13 +8047,16 @@ function App() {
     registryCellEdit: registryCellEditProp = null,
     onRegistryCellStart = null,
   }) => {
+    const rowKey = rowKeyProp ?? getRegistryTableRowDomKey(row, index)
+    const rowId = safeString(row?.id).trim() || rowKey
+    const displayRow = safeString(row?.id).trim() ? row : { ...row, id: rowId }
     const useCellMode = Boolean(cellEditScope && onRegistryCellStart)
-    const isRowLegacyEditing = !useCellMode && (row.isDraft || editingIds.includes(row.id))
+    const isRowLegacyEditing = !useCellMode && (row.isDraft || editingIds.includes(rowId))
     const showDraftOrLegacyRow = row.isDraft || isRowLegacyEditing
 
     return (
       <tr
-        key={row.id}
+        key={rowKey}
         className={index % 2 === 0 ? 'row-even' : 'row-odd'}
         onBlur={
           row.isDraft && showDraftOrLegacyRow
@@ -8047,8 +8068,8 @@ function App() {
           <input
             className="registry-row-checkbox"
             type="checkbox"
-            checked={selectedIds.includes(row.id)}
-            onChange={() => onToggleSelection(row.id)}
+            checked={selectedIds.includes(rowId)}
+            onChange={() => onToggleSelection(rowId)}
           />
         </td>
 
@@ -8057,7 +8078,7 @@ function App() {
             useCellMode &&
             !row.isDraft &&
             registryCellEditProp?.scope === cellEditScope &&
-            registryCellEditProp.rowId === row.id &&
+            registryCellEditProp.rowId === rowId &&
             registryCellEditProp.columnKey === column.key
           const showInput = showDraftOrLegacyRow || isThisCell
           return (
@@ -8077,7 +8098,7 @@ function App() {
                 if (!isAdminForRegistry) return
                 if (row.isDraft) return
                 if (useCellMode && onRegistryCellStart) {
-                  onRegistryCellStart(row.id, column.key, row[column.key], row)
+                  onRegistryCellStart(rowId, column.key, row[column.key], row)
                   return
                 }
                 if (!showInput) {
@@ -8089,7 +8110,7 @@ function App() {
                 isThisCell ? (
                   renderRegistryCellInlineEditor(column)
                 ) : (
-                  renderRegistryEditor(row, column, onChange, {
+                  renderRegistryEditor(displayRow, column, onChange, {
                     onSave: onSaveRow,
                     onCancel: onCancelRow,
                   })
@@ -8139,12 +8160,13 @@ function App() {
       renderRegistryDataRow({
         row,
         index,
+        rowKey: getRegistryTableRowDomKey(row, index),
         columns,
         editingIds,
         isSaving,
-        onStartEdit: () => onStartEdit(row.id),
-        onSaveRow: () => onSaveRow(row.id),
-        onCancelRow: () => onCancelRow(row.id),
+        onStartEdit: () => onStartEdit(safeString(row.id).trim() || getRegistryTableRowDomKey(row, index)),
+        onSaveRow: () => onSaveRow(safeString(row.id).trim() || getRegistryTableRowDomKey(row, index)),
+        onCancelRow: () => onCancelRow(safeString(row.id).trim() || getRegistryTableRowDomKey(row, index)),
         onChange,
         isEmptyRow,
         selectedIds,
@@ -8207,16 +8229,19 @@ function App() {
 
       return [
         yearRow,
-        ...yearBlock.items.map((row, index) =>
-          renderRegistryDataRow({
+        ...yearBlock.items.map((row, index) => {
+          const rowDomKey = getRegistryTableRowDomKey(row, index, String(yearBlock.year))
+          const rowId = safeString(row.id).trim() || rowDomKey
+          return renderRegistryDataRow({
             row,
             index,
+            rowKey: rowDomKey,
             columns,
             editingIds,
             isSaving,
-            onStartEdit: () => onStartEdit(row.id),
-            onSaveRow: () => onSaveRow(row.id),
-            onCancelRow: () => onCancelRow(row.id),
+            onStartEdit: () => onStartEdit(rowId),
+            onSaveRow: () => onSaveRow(rowId),
+            onCancelRow: () => onCancelRow(rowId),
             onChange,
             isEmptyRow,
             selectedIds,
@@ -8226,7 +8251,7 @@ function App() {
             registryCellEdit: registryCellEditGrouped,
             onRegistryCellStart,
           })
-        ),
+        }),
       ]
     })
   }
@@ -8286,16 +8311,19 @@ function App() {
 
       if (collapsed) return [yearRow]
 
-      const activeRows = activeItems.map((row, index) =>
-        renderRegistryDataRow({
+      const activeRows = activeItems.map((row, index) => {
+        const rowDomKey = getRegistryTableRowDomKey(row, index, `${yearBlock.year}-active`)
+        const rowId = safeString(row.id).trim() || rowDomKey
+        return renderRegistryDataRow({
           row,
           index,
+          rowKey: rowDomKey,
           columns,
           editingIds,
           isSaving,
-          onStartEdit: () => onStartEdit(row.id),
-          onSaveRow: () => onSaveRow(row.id),
-          onCancelRow: () => onCancelRow(row.id),
+          onStartEdit: () => onStartEdit(rowId),
+          onSaveRow: () => onSaveRow(rowId),
+          onCancelRow: () => onCancelRow(rowId),
           onChange,
           isEmptyRow,
           selectedIds,
@@ -8305,7 +8333,7 @@ function App() {
           registryCellEdit: registryCellEditGrouped,
           onRegistryCellStart,
         })
-      )
+      })
 
       const completedCount = completedItems.length
       if (completedCount === 0) {
@@ -8335,16 +8363,19 @@ function App() {
       )
 
       const completedRows = completedOpen
-        ? completedItems.map((row, index) =>
-            renderRegistryDataRow({
+        ? completedItems.map((row, index) => {
+            const rowDomKey = getRegistryTableRowDomKey(row, index, `${yearBlock.year}-completed`)
+            const rowId = safeString(row.id).trim() || rowDomKey
+            return renderRegistryDataRow({
               row,
               index,
+              rowKey: rowDomKey,
               columns,
               editingIds,
               isSaving,
-              onStartEdit: () => onStartEdit(row.id),
-              onSaveRow: () => onSaveRow(row.id),
-              onCancelRow: () => onCancelRow(row.id),
+              onStartEdit: () => onStartEdit(rowId),
+              onSaveRow: () => onSaveRow(rowId),
+              onCancelRow: () => onCancelRow(rowId),
               onChange,
               isEmptyRow,
               selectedIds,
@@ -8354,7 +8385,7 @@ function App() {
               registryCellEdit: registryCellEditGrouped,
               onRegistryCellStart,
             })
-          )
+          })
         : []
 
       return [yearRow, completedToggleRow, ...completedRows, ...activeRows]
