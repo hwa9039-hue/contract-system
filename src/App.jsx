@@ -17,6 +17,7 @@ import {
   sheetToJsonWithSmartHeader,
   sheetToJsonWithDiscoveryDynamicHeader,
   DISCOVERY_EXCEL_FORMAT_ERROR,
+  DISCOVERY_EXCEL_NO_DATA_ERROR,
 } from './excelSheetUtils.js'
 import {
   WorkReportMeetingMinutesSection,
@@ -6518,7 +6519,9 @@ function App() {
           const message =
             parseError?.message === DISCOVERY_EXCEL_FORMAT_ERROR
               ? DISCOVERY_EXCEL_FORMAT_ERROR
-              : parseError?.message || DISCOVERY_EXCEL_FORMAT_ERROR
+              : parseError?.message === DISCOVERY_EXCEL_NO_DATA_ERROR
+                ? DISCOVERY_EXCEL_NO_DATA_ERROR
+                : parseError?.message || DISCOVERY_EXCEL_FORMAT_ERROR
           console.error('[excel-upload] 건축정보 파싱 실패', parseError)
           showAppAlert(message)
           return
