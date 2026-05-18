@@ -425,6 +425,7 @@ class InstallCaseBase(BaseModel):
     projectName: Optional[Any] = ""
     heroImage: Optional[Any] = ""
     environment: Optional[Any] = "indoor"
+    middleCategory: Optional[Any] = ""
     audience: Optional[Any] = "public"
     year: Optional[Any] = ""
     purpose: Optional[Any] = ""
@@ -442,6 +443,7 @@ class InstallCasePatch(BaseModel):
     projectName: Optional[Any] = None
     heroImage: Optional[Any] = None
     environment: Optional[Any] = None
+    middleCategory: Optional[Any] = None
     audience: Optional[Any] = None
     year: Optional[Any] = None
     purpose: Optional[Any] = None
@@ -643,6 +645,7 @@ def row_to_install_case(row) -> dict:
         "projectName": to_response_value(row["projectName"]),
         "heroImage": to_response_value(row["heroImage"]),
         "environment": to_response_value(row["environment"]),
+        "middleCategory": to_response_value(row.get("middleCategory", "")),
         "audience": to_response_value(row["audience"]),
         "year": to_response_value(row["year"]),
         "purpose": to_response_value(row["purpose"]),
@@ -767,6 +770,7 @@ TABLE_COLUMN_MAPPINGS = {
         "projectName": "projectName",
         "heroImage": "heroImage",
         "environment": "environment",
+        "middleCategory": "middleCategory",
         "audience": "audience",
         "year": "year",
         "purpose": "purpose",

@@ -170,6 +170,7 @@ CREATE TABLE IF NOT EXISTS install_cases_rows (
   "projectName" text NOT NULL DEFAULT '',
   "heroImage" text NOT NULL DEFAULT '',
   environment text NOT NULL DEFAULT 'indoor',
+  "middleCategory" text NOT NULL DEFAULT '',
   audience text NOT NULL DEFAULT 'public',
   year text NOT NULL DEFAULT '',
   purpose text NOT NULL DEFAULT '',

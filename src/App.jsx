@@ -8,6 +8,10 @@ import { projectDiscoveryApi } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import { installCasesApi, INSTALL_CASES_API_PATH } from './installCasesApi'
+import {
+  createLocalInstallCaseId,
+  isInstallCaseApiUnavailableError,
+} from './installCaseLocal.js'
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { useAuth } from './AuthContext.jsx'
 import { CONTRACT_SHARED_WARNING_MS } from './authSession.js'
@@ -991,10 +995,14 @@ const INSTALL_CASE_SPEC_ROWS = [
   { key: 'installType', label: '설치유형' },
 ]
 
-/** 설치사례 대분류(구 설치장소) */
+/** 설치사례 대분류 */
 const INSTALL_CASE_MAJOR_CATEGORY_OPTIONS = [
   { value: '옥외전광판', label: '옥외전광판' },
   { value: '옥내전광판', label: '옥내전광판' },
+]
+
+/** 설치사례 중분류 */
+const INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS = [
   { value: '체육시설', label: '체육시설' },
   { value: '미디어보드', label: '미디어보드' },
   { value: '미디어파사드', label: '미디어파사드' },
@@ -1045,7 +1053,16 @@ function migrateInstallCaseMajorCategory(raw) {
   if (!v) return ''
   if (INSTALL_CASE_LEGACY_MAJOR_CATEGORY[v]) return INSTALL_CASE_LEGACY_MAJOR_CATEGORY[v]
   if (INSTALL_CASE_MAJOR_CATEGORY_OPTIONS.some((o) => o.value === v)) return v
+  if (INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS.some((o) => o.value === v)) return ''
   return v
+}
+
+function migrateInstallCaseMiddleCategory(middleRaw, environmentRaw) {
+  const mid = safeString(middleRaw).trim()
+  if (mid && INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS.some((o) => o.value === mid)) return mid
+  const env = safeString(environmentRaw).trim()
+  if (env && INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS.some((o) => o.value === env)) return env
+  return mid
 }
 
 function migrateInstallCaseMinorCategory(raw) {
@@ -1079,6 +1096,12 @@ const INSTALL_CASE_REGISTER_BASIC_ROWS = [
     key: 'environment',
     label: '대분류',
     options: withInstallCaseSelectPlaceholder(INSTALL_CASE_MAJOR_CATEGORY_OPTIONS, '대분류'),
+  },
+  {
+    type: 'select',
+    key: 'middleCategory',
+    label: '중분류',
+    options: withInstallCaseSelectPlaceholder(INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS, '중분류'),
   },
   {
     type: 'select',
@@ -1167,6 +1190,7 @@ function normalizeInstallCaseRow(row) {
     projectName: safeString(row?.projectName),
     heroImage: safeString(row?.heroImage).trim() || INSTALL_CASE_FALLBACK_HERO,
     environment: migrateInstallCaseMajorCategory(row?.environment),
+    middleCategory: migrateInstallCaseMiddleCategory(row?.middleCategory, row?.environment),
     audience: migrateInstallCaseMinorCategory(row?.audience),
     year: safeString(row?.year),
     purpose: safeString(row?.purpose),
@@ -1192,6 +1216,10 @@ function getInstallCaseEnvironmentLabel(env) {
     env,
     INSTALL_CASE_LEGACY_MAJOR_CATEGORY
   )
+}
+
+function getInstallCaseMiddleCategoryLabel(middle) {
+  return getInstallCaseCategoryLabel(INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS, middle)
 }
 
 function getInstallCaseAudienceLabel(audience) {
@@ -1779,6 +1807,7 @@ function getDefaultInstallCaseForm() {
   return {
     projectName: '',
     environment: '',
+    middleCategory: '',
     audience: '',
     businessYearDigits: '',
     purpose: '',
@@ -3307,6 +3336,7 @@ function App() {
   const [openContractYears, setOpenContractYears] = useState({})
   const [isContractPageYearSummaryOpen, setIsContractPageYearSummaryOpen] = useState(false)
   const [installCaseEnvFilter, setInstallCaseEnvFilter] = useState('')
+  const [installCaseMiddleFilter, setInstallCaseMiddleFilter] = useState('')
   const [installCaseAudienceFilter, setInstallCaseAudienceFilter] = useState('')
   const [installCaseDetailModal, setInstallCaseDetailModal] = useState(null)
   const [installCases, setInstallCases] = useState([])
@@ -3991,10 +4021,12 @@ function App() {
   const filteredInstallCases = useMemo(() => {
     return installCases.filter((row) => {
       const envOk = !installCaseEnvFilter || row.environment === installCaseEnvFilter
+      const midOk =
+        !installCaseMiddleFilter || row.middleCategory === installCaseMiddleFilter
       const audOk = !installCaseAudienceFilter || row.audience === installCaseAudienceFilter
-      return envOk && audOk
+      return envOk && midOk && audOk
     })
-  }, [installCaseAudienceFilter, installCaseEnvFilter, installCases])
+  }, [installCaseAudienceFilter, installCaseEnvFilter, installCaseMiddleFilter, installCases])
 
   useEffect(() => {
     if (!icImageFile) return undefined
@@ -4067,6 +4099,7 @@ function App() {
       setInstallCaseFormDraft({
         projectName: safeString(row.projectName).trim(),
         environment: migrateInstallCaseMajorCategory(row.environment),
+        middleCategory: migrateInstallCaseMiddleCategory(row.middleCategory, row.environment),
         audience: migrateInstallCaseMinorCategory(row.audience),
         businessYearDigits: parseYearToFormDigits(row.year),
         purpose: safeString(row.purpose).trim(),
@@ -4313,6 +4346,10 @@ function App() {
       showAppAlert('대분류를 선택해 주세요.', '알림')
       return
     }
+    if (!safeString(d.middleCategory).trim()) {
+      showAppAlert('중분류를 선택해 주세요.', '알림')
+      return
+    }
     if (!safeString(d.audience).trim()) {
       showAppAlert('소분류를 선택해 주세요.', '알림')
       return
@@ -4340,6 +4377,7 @@ function App() {
       projectName,
       heroImage: imageUrl,
       environment: safeString(d.environment).trim(),
+      middleCategory: safeString(d.middleCategory).trim(),
       audience: safeString(d.audience).trim(),
       year: businessYearDigitsToStored(d.businessYearDigits),
       purpose: safeString(d.purpose).trim() || '-',
@@ -4353,6 +4391,25 @@ function App() {
         installType: safeString(d.specs.installType).trim() || '-',
       },
     }
+    const applyLocalInstallCaseSave = () => {
+      const localRow = normalizeInstallCaseRow({
+        ...rowPayload,
+        id: installCaseEditingId || createLocalInstallCaseId(),
+      })
+      if (installCaseEditingId) {
+        setInstallCases((prev) =>
+          prev.map((row) => (row.id === installCaseEditingId ? localRow : row))
+        )
+        setInstallCaseDetailModal((cur) =>
+          cur && cur.id === installCaseEditingId ? localRow : cur
+        )
+      } else {
+        setInstallCases((prev) => [localRow, ...prev])
+      }
+      clearInstallCaseFormDraftStorage()
+      handleCloseInstallCaseRegister({ discardDraft: true })
+    }
+
     try {
       if (installCaseEditingId) {
         const updated = await installCasesApi.update(installCaseEditingId, rowPayload)
@@ -4368,6 +4425,15 @@ function App() {
       await fetchInstallCases()
     } catch (error) {
       logApiOperationError(installCaseEditingId ? '설치사례 수정' : '설치사례 등록', error)
+      if (isInstallCaseApiUnavailableError(error)) {
+        applyLocalInstallCaseSave()
+        showAppAlert(
+          '설치사례 API에 연결할 수 없어 입력 내용을 화면에만 임시 반영했습니다.\n' +
+            '백엔드를 재시작한 뒤 다시 저장해 주세요. (GET /api/health → installCases: true)',
+          '알림'
+        )
+        return
+      }
       showAppAlert(error?.message || '저장에 실패했습니다.', '알림')
     }
   }
@@ -10722,6 +10788,20 @@ function App() {
                 </select>
                 <select
                   className="contract-filter-select install-cases-select"
+                  value={installCaseMiddleFilter}
+                  onChange={(e) => setInstallCaseMiddleFilter(e.target.value)}
+                  aria-label="중분류 필터"
+                >
+                  {withInstallCaseSelectPlaceholder(INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS, '중분류').map(
+                    (opt) => (
+                      <option key={opt.value || 'middle-all'} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    )
+                  )}
+                </select>
+                <select
+                  className="contract-filter-select install-cases-select"
                   value={installCaseAudienceFilter}
                   onChange={(e) => setInstallCaseAudienceFilter(e.target.value)}
                   aria-label="소분류 필터"
@@ -11229,6 +11309,10 @@ function App() {
                       <div className="install-case-meta-row">
                         <dt>대분류</dt>
                         <dd>{getInstallCaseEnvironmentLabel(installCaseDetailModal.environment)}</dd>
+                      </div>
+                      <div className="install-case-meta-row">
+                        <dt>중분류</dt>
+                        <dd>{getInstallCaseMiddleCategoryLabel(installCaseDetailModal.middleCategory)}</dd>
                       </div>
                       <div className="install-case-meta-row">
                         <dt>소분류</dt>

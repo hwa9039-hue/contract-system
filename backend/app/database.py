@@ -334,6 +334,7 @@ def init_db():
                   "projectName" text not null default '',
                   "heroImage" text not null default '',
                   environment text not null default 'indoor',
+                  "middleCategory" text not null default '',
                   audience text not null default 'public',
                   year text not null default '',
                   purpose text not null default '',
@@ -342,6 +343,12 @@ def init_db():
                   "createdAt" timestamptz not null default now(),
                   "updatedAt" timestamptz not null default now()
                 )
+                """
+            )
+            cursor.execute(
+                """
+                alter table install_cases_rows
+                add column if not exists "middleCategory" text not null default ''
                 """
             )
             cursor.execute(

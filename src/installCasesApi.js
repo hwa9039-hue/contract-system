@@ -29,15 +29,15 @@ async function requestJson(path, options = {}) {
 
   if (!response.ok) {
     const detail = await readApiErrorMessage(response)
-    if (response.status === 404 && String(path).startsWith(INSTALL_CASES_API_PATH)) {
-      throw new Error(
-        `설치사례 API(POST ${INSTALL_CASES_API_PATH})를 찾을 수 없습니다 (404).\n` +
-          `요청 URL: ${url}\n` +
-          `백엔드를 최신 코드로 재시작한 뒤 GET /api/health 에서 installCases: true 인지 확인하세요.\n\n` +
-          detail
-      )
-    }
-    throw new Error(detail)
+    const err = new Error(
+      response.status === 404 && String(path).startsWith(INSTALL_CASES_API_PATH)
+        ? `설치사례 API(${path})를 찾을 수 없습니다 (404).\n요청 URL: ${url}\n` +
+          `백엔드를 최신 코드로 재시작한 뒤 GET /api/health 에서 installCases: true 인지 확인하세요.\n\n${detail}`
+        : detail
+    )
+    err.status = response.status
+    err.url = url
+    throw err
   }
 
   if (response.status === 204) return null

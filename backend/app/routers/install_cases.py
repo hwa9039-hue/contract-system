@@ -18,7 +18,7 @@ INSTALL_CASES_API_PATH = "/api/install-cases"
 router = APIRouter(prefix=INSTALL_CASES_API_PATH, tags=["install-cases"])
 
 RETURNING_COLUMNS = """
-  id, "projectName", "heroImage", environment, audience, year,
+  id, "projectName", "heroImage", environment, "middleCategory", audience, year,
   purpose, client, specs, "createdAt", "updatedAt"
 """
 
