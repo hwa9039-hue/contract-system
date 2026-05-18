@@ -8,6 +8,7 @@ export default function LoginPage() {
   const { login } = useAuth()
   const [role, setRole] = useState('user')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -24,7 +25,7 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setSubmitting(true)
-    const result = await login(role, password)
+    const result = await login(role, password, rememberMe)
     setSubmitting(false)
     if (!result.ok) {
       setError(result.error || '로그인에 실패했습니다.')
@@ -84,6 +85,17 @@ export default function LoginPage() {
             autoComplete="current-password"
             autoFocus
           />
+
+          <label className="login-page-remember">
+            <input
+              type="checkbox"
+              className="login-page-remember-input"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            />
+            <span className="login-page-remember-box" aria-hidden="true" />
+            <span className="login-page-remember-label">자동 로그인</span>
+          </label>
 
           {error ? <div className="login-page-error">{error}</div> : null}
 

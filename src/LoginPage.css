@@ -155,6 +155,88 @@ html.login-page-active #root {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
+.login-page-remember {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.login-page-remember-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.login-page-remember-box {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.login-page-remember-box::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  margin-top: -1px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+  opacity: 0;
+  transition:
+    transform 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.login-page-remember-input:focus-visible + .login-page-remember-box {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+}
+
+.login-page-remember-input:checked + .login-page-remember-box {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.login-page-remember-input:checked + .login-page-remember-box::after {
+  transform: rotate(45deg) scale(1);
+  opacity: 1;
+}
+
+.login-page-remember:hover .login-page-remember-box {
+  border-color: #94a3b8;
+}
+
+.login-page-remember-input:checked:hover + .login-page-remember-box {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.login-page-remember-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  line-height: 1.3;
+}
+
 .login-page-error {
   padding: 10px 12px;
   border-radius: 8px;

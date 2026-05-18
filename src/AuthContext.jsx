@@ -3,6 +3,7 @@ import { API_BASE_URL, apiFetchInit, clearAuthToken, getAuthHeaders, setAuthToke
 import { logCmsApiLogin } from './cmsApiProbe.js'
 import {
   ADMIN_PASSWORD,
+  CONTRACT_PERSISTENT_SESSION_DURATION_MS,
   CONTRACT_SHARED_SESSION_DURATION_MS,
   readSharedAuthSession,
   readStoredAdminFlag,
@@ -17,9 +18,11 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const initialSession = readSharedAuthSession()
+  const [authPersistence, setAuthPersistence] = useState(initialSession.persistence)
   const [isAuthenticated, setIsAuthenticated] = useState(initialSession.isAuthenticated)
   const [isAdmin, setIsAdmin] = useState(
-    () => initialSession.isAuthenticated && readStoredAdminFlag()
+    () =>
+      initialSession.isAuthenticated && readStoredAdminFlag(initialSession.persistence)
   )
   const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(initialSession.expiresAt)
 
@@ -33,6 +36,7 @@ export function AuthProvider({ children }) {
         if (cancelled) return
         if (data.auth_disabled) return
         if (!data.valid) {
+          setAuthPersistence('none')
           setIsAuthenticated(false)
           setIsAdmin(false)
           setSharedSessionExpiresAt(0)
@@ -49,7 +53,7 @@ export function AuthProvider({ children }) {
     }
   }, [isAuthenticated])
 
-  const login = useCallback(async (role, password) => {
+  const login = useCallback(async (role, password, rememberMe = false) => {
     const trimmed = String(password).trim()
     const wantsAdmin = role === 'admin'
 
@@ -134,17 +138,24 @@ export function AuthProvider({ children }) {
     clearSharedAuthSession()
     clearAdminFlag()
     clearAuthToken()
+    setAuthPersistence('none')
     setIsAuthenticated(false)
     setIsAdmin(false)
     setSharedSessionExpiresAt(0)
   }, [])
 
   const extendLogin = useCallback(() => {
-    const expiresAt = Date.now() + CONTRACT_SHARED_SESSION_DURATION_MS
-    writeSharedAuthSession(expiresAt)
+    const duration =
+      authPersistence === 'persistent'
+        ? CONTRACT_PERSISTENT_SESSION_DURATION_MS
+        : CONTRACT_SHARED_SESSION_DURATION_MS
+    const expiresAt = Date.now() + duration
+    if (authPersistence === 'persistent' || authPersistence === 'session') {
+      writeSharedAuthSession(expiresAt, authPersistence)
+    }
     setSharedSessionExpiresAt(expiresAt)
     return expiresAt
-  }, [])
+  }, [authPersistence])
 
   const value = useMemo(
     () => ({

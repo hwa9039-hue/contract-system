@@ -99,19 +99,25 @@ export function apiFetchInit(init = {}) {
 
 export function getAuthHeaders() {
   try {
-    const token = sessionStorage.getItem(AUTH_TOKEN_KEY)
+    const token = sessionStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem(AUTH_TOKEN_KEY)
     return token ? { Authorization: `Bearer ${token}` } : {}
   } catch {
     return {}
   }
 }
 
-export function setAuthToken(token) {
+/** @param {{ persistent?: boolean }} [options] */
+export function setAuthToken(token, options = {}) {
+  const persistent = options?.persistent === true
   try {
-    if (token) {
+    sessionStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(AUTH_TOKEN_KEY)
+    if (!token) return
+    if (persistent) {
+      localStorage.setItem(AUTH_TOKEN_KEY, token)
       sessionStorage.setItem(AUTH_TOKEN_KEY, token)
     } else {
-      sessionStorage.removeItem(AUTH_TOKEN_KEY)
+      sessionStorage.setItem(AUTH_TOKEN_KEY, token)
     }
   } catch {
     // no-op
@@ -121,6 +127,7 @@ export function setAuthToken(token) {
 export function clearAuthToken() {
   try {
     sessionStorage.removeItem(AUTH_TOKEN_KEY)
+    localStorage.removeItem(AUTH_TOKEN_KEY)
   } catch {
     // no-op
   }
