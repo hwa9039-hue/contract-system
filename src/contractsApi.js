@@ -1,4 +1,5 @@
 import { API_BASE_URL, getAuthHeaders, apiFetchInit } from './apiClient.js'
+import { readApiErrorMessage } from './apiErrors.js'
 
 /** PATCH/DELETE 경로 세그먼트 (계약번호·UUID 등 특수문자 안전) */
 function encodeContractPathId(id) {
@@ -20,20 +21,6 @@ async function parseResponseBody(response) {
   }
 }
 
-async function formatResponseError(response) {
-  const text = await response.text()
-  if (!text) return `Request failed with status ${response.status}`
-  try {
-    const data = JSON.parse(text)
-    const detail = data?.detail
-    if (typeof detail === 'string') return detail
-    if (detail != null) return JSON.stringify(detail)
-  } catch {
-    // use raw text
-  }
-  return text
-}
-
 async function requestJson(path, options = {}) {
   const { headers: optHeaders, ...rest } = options
   const response = await fetch(`${API_BASE_URL}${path}`, apiFetchInit({
@@ -46,7 +33,7 @@ async function requestJson(path, options = {}) {
   }))
 
   if (!response.ok) {
-    throw new Error(await formatResponseError(response))
+    throw new Error(await readApiErrorMessage(response))
   }
 
   return parseResponseBody(response)
@@ -57,6 +44,8 @@ async function requestJson(path, options = {}) {
  * if the browser throws before a response (network), fall back to /bulk.
  */
 async function postContractRowsBulk(rows) {
+  const importUrl = `${API_BASE_URL}/api/contracts/import`
+  const bulkUrl = `${API_BASE_URL}/api/contracts/bulk`
   const body = JSON.stringify({ rows })
   const postInit = apiFetchInit({
     method: 'POST',
@@ -68,9 +57,11 @@ async function postContractRowsBulk(rows) {
   })
 
   let response
+  let networkError = null
   try {
     response = await fetch(importUrl, postInit)
-  } catch {
+  } catch (err) {
+    networkError = err
     response = null
   }
 
@@ -83,13 +74,22 @@ async function postContractRowsBulk(rows) {
   if (useBulk) {
     try {
       response = await fetch(bulkUrl, postInit)
-    } catch {
-      throw new Error('네트워크 오류로 엑셀 업로드를 완료하지 못했습니다.')
+      networkError = null
+    } catch (err) {
+      networkError = err
+      response = null
     }
   }
 
+  if (response == null) {
+    const hint = networkError?.message ? `\n(${networkError.message})` : ''
+    throw new Error(
+      `서버에 연결할 수 없습니다. API 주소(${API_BASE_URL})와 네트워크 연결을 확인하세요.${hint}`
+    )
+  }
+
   if (!response.ok) {
-    throw new Error(await formatResponseError(response))
+    throw new Error(await readApiErrorMessage(response))
   }
 
   return parseResponseBody(response)

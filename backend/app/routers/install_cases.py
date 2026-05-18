@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 
 from app.database import get_connection
 from app.schemas import (
     InstallCaseCreate,
+    InstallCaseOut,
     InstallCasePatch,
     install_case_to_db_values,
     row_to_install_case,
@@ -13,6 +14,8 @@ from app.schemas import (
 
 # 백엔드·프론트 공통 경로 (복수형 cases)
 INSTALL_CASES_API_PATH = "/api/install-cases"
+
+router = APIRouter(prefix=INSTALL_CASES_API_PATH, tags=["install-cases"])
 
 RETURNING_COLUMNS = """
   id, "projectName", "heroImage", environment, audience, year,
@@ -38,7 +41,6 @@ def prepare_insert_values(row: InstallCaseCreate) -> dict:
 
 
 def list_install_case_rows():
-    print("API Hit: /api/install-cases")
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -52,7 +54,6 @@ def list_install_case_rows():
 
 
 def create_install_case_row(row: InstallCaseCreate):
-    print("API Hit: /api/install-cases")
     values = prepare_insert_values(row)
     columns = list(values.keys())
     quoted_columns = [quote_identifier(column) for column in columns]
@@ -75,7 +76,6 @@ def create_install_case_row(row: InstallCaseCreate):
 
 
 def update_install_case_row(row_id: str, patch: InstallCasePatch):
-    print("API Hit: /api/install-cases")
     values = install_case_to_db_values(patch)
     if not values:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
@@ -109,7 +109,6 @@ def update_install_case_row(row_id: str, patch: InstallCasePatch):
 
 
 def delete_install_case_row(row_id: str):
-    print("API Hit: /api/install-cases")
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute("delete from install_cases_rows where id::text = %s", (row_id,))
@@ -118,3 +117,23 @@ def delete_install_case_row(row_id: str):
 
     if deleted_count == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Install case not found")
+
+
+@router.get("", response_model=list[InstallCaseOut])
+def api_list_install_cases():
+    return list_install_case_rows()
+
+
+@router.post("", response_model=InstallCaseOut, status_code=status.HTTP_201_CREATED)
+def api_create_install_case(row: InstallCaseCreate):
+    return create_install_case_row(row)
+
+
+@router.patch("/{row_id}", response_model=InstallCaseOut)
+def api_update_install_case(row_id: str, patch: InstallCasePatch):
+    return update_install_case_row(row_id, patch)
+
+
+@router.delete("/{row_id}", status_code=status.HTTP_204_NO_CONTENT)
+def api_delete_install_case(row_id: str):
+    delete_install_case_row(row_id)

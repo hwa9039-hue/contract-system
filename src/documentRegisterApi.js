@@ -1,19 +1,25 @@
 import { API_BASE_URL, getAuthHeaders, apiFetchInit } from './apiClient.js'
+import { readApiErrorMessage } from './apiErrors.js'
 
 async function requestJson(path, options = {}) {
+  const url = `${API_BASE_URL}${path}`
   const { headers: optHeaders, ...rest } = options
-  const response = await fetch(`${API_BASE_URL}${path}`, apiFetchInit({
-    ...rest,
-    headers: {
-      'Content-Type': 'application/json',
-      ...getAuthHeaders(),
-      ...(optHeaders || {}),
-    },
-  }))
+  let response
+  try {
+    response = await fetch(url, apiFetchInit({
+      ...rest,
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+        ...(optHeaders || {}),
+      },
+    }))
+  } catch (err) {
+    throw new Error(`서버에 연결할 수 없습니다. (${url}) ${err?.message || err}`)
+  }
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || `Request failed with status ${response.status}`)
+    throw new Error(await readApiErrorMessage(response))
   }
 
   if (response.status === 204) return null
@@ -31,13 +37,13 @@ export const documentRegisterApi = {
     })
   },
   update(id, patch) {
-    return requestJson(`/api/document-register/${id}`, {
+    return requestJson(`/api/document-register/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: JSON.stringify(patch),
     })
   },
   remove(id) {
-    return requestJson(`/api/document-register/${id}`, {
+    return requestJson(`/api/document-register/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     })
   },

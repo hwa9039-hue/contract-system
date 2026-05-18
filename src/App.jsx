@@ -1340,6 +1340,18 @@ function businessYearDigitsToStored(digits) {
   return `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
+/** 사업년도 입력: 숫자만 허용, 최대 6자리(YYYYMM) */
+function parseBusinessYearInputDigits(raw) {
+  return safeString(raw).replace(/\D/g, '').slice(0, 6)
+}
+
+/** 사업년도 입력 표시: 202509 → 2025.09 */
+function formatBusinessYearInputDisplay(digits) {
+  const d = parseBusinessYearInputDigits(digits)
+  if (d.length <= 4) return d
+  return `${d.slice(0, 4)}.${d.slice(4)}`
+}
+
 function parseYearToDigits(y) {
   return parseYearToFormDigits(y)
 }
@@ -1564,12 +1576,12 @@ function InstallCaseFormTwoColumn({
                       type="text"
                       inputMode="numeric"
                       autoComplete="off"
-                      value={formDraft.businessYearDigits}
+                      value={formatBusinessYearInputDisplay(formDraft.businessYearDigits)}
                       onChange={(e) => {
-                        const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 6)
+                        const v = parseBusinessYearInputDigits(e.target.value)
                         setFormDraft((prev) => ({ ...prev, businessYearDigits: v }))
                       }}
-                      placeholder={def.placeholder}
+                      placeholder={def.placeholder || '2025.09'}
                     />
                   </div>
                 </div>
@@ -2690,6 +2702,7 @@ function toDiscoveryPayload(row, timestamp) {
     completionPeriod: safeString(row.completionPeriod).trim(),
     manager: safeString(row.manager).trim(),
     note: safeString(row.note).trim(),
+    createdAt: timestamp,
     updatedAt: timestamp,
   }
 }
@@ -4959,8 +4972,8 @@ function App() {
       showAppAlert(`엑셀 업로드 완료: 신규 ${uniqueImported.length}건 추가, 중복 ${imported.length - uniqueImported.length}건 제외`)
     } catch (error) {
       console.error('엑셀 업로드 중 오류가 발생했습니다.', error)
-      const msg = safeString(error?.message)
-      showAppAlert(`엑셀 업로드 중 오류가 발생했습니다.\n${msg || error}`)
+      const msg = safeString(error?.message).trim() || safeString(error)
+      showAppAlert(msg ? `계약현황 엑셀 업로드 실패:\n${msg}` : '계약현황 엑셀 업로드 중 오류가 발생했습니다.')
     } finally {
       e.target.value = ''
     }
@@ -6109,8 +6122,42 @@ function App() {
     }
   }
 
+  const REGISTRY_EXCEL_HEADER_ALIASES = {
+    registerDate: ['등록일', '등록일자', '작성일'],
+    permitDate: ['허가일', '허가일자', '인허가일', '건축허가일', '건축 인허가일'],
+    checkStatus: ['확인여부', '체크', '확인상태'],
+    salesTarget: ['영업대상', '영업 담당', '영업담당'],
+    projectCategory: ['사업 구분', '구분', '사업구분'],
+    localGov: ['지자체', '지방자치단체', '시군구', '지역'],
+    client: ['발주처', '수요기관', '발주 기관'],
+    projectName: ['사업명', '공사명', '과업명', '건명', '프로젝트명'],
+    projectAmount: ['사업금액', '금액', '사업 금액', '계약금액'],
+    completionPeriod: ['준공시기', '준공', '납기'],
+    manager: ['담당자', '담당', 'PM'],
+    note: ['비고', '메모', '참고'],
+    docDate: ['문서일자', '일자', '날짜'],
+    docNo: ['문서번호', '문서 번호', '번호'],
+    senderReceiver: ['발신수신', '발신/수신', '상대방'],
+    title: ['제목', '문서제목'],
+    method: ['방법', '수단'],
+    writer: ['작성자', '기안자'],
+    writeDate: ['작성일', '작성일자'],
+    openDate: ['공개일', '공개일자'],
+    category: ['분류', '카테고리'],
+    keyword: ['키워드', '검색어'],
+    exclusionReason: ['제외사유', '제외 사유'],
+    orderNo: ['순번', '번호', 'No'],
+  }
+
+  const getRegistryExcelHeaderCandidates = (column) => [
+    column.label,
+    column.key,
+    ...(REGISTRY_EXCEL_HEADER_ALIASES[column.key] || []),
+  ]
+
   const buildRegistryImportRows = (rows, columns, createDraftRow, isEmptyRow) => {
     const preparedRows = []
+    const skippedLines = []
 
     rows.forEach((sourceRow, index) => {
       const nextRow = {
@@ -6119,7 +6166,7 @@ function App() {
       }
 
       columns.forEach((column) => {
-        const rawValue = getValueByHeader(sourceRow, [column.label, column.key], '')
+        const rawValue = getValueByHeader(sourceRow, getRegistryExcelHeaderCandidates(column), '')
 
         if (column.type === 'date') {
           nextRow[column.key] = excelDateToInput(rawValue)
@@ -6131,18 +6178,32 @@ function App() {
           return
         }
 
+        if (column.type === 'select' || column.type === 'text' || column.type === 'textarea') {
+          nextRow[column.key] = safeString(rawValue).trim()
+          return
+        }
+
         nextRow[column.key] = safeString(rawValue).trim()
       })
 
-      if (!isEmptyRow(nextRow)) {
+      const hasMeaningfulData =
+        !isEmptyRow(nextRow) ||
+        columns.some((column) => safeString(nextRow[column.key]).trim() !== '')
+
+      if (hasMeaningfulData) {
         preparedRows.push({
           row: nextRow,
           sourceLine: index + 2,
         })
+      } else {
+        const hasAnyCell = Object.values(sourceRow).some(
+          (v) => v !== null && v !== undefined && safeString(v).trim() !== ''
+        )
+        if (hasAnyCell) skippedLines.push(index + 2)
       }
     })
 
-    return preparedRows
+    return { prepared: preparedRows, skippedLines }
   }
 
   const handleRegistryUploadFileChange = async (e) => {
@@ -6210,7 +6271,7 @@ function App() {
         return
       }
 
-      const preparedRows = buildRegistryImportRows(
+      const { prepared: preparedRows, skippedLines } = buildRegistryImportRows(
         rows,
         config.columns,
         config.createDraftRow,
@@ -6218,7 +6279,19 @@ function App() {
       )
 
       if (!preparedRows.length) {
-        showAppAlert('업로드할 유효한 데이터가 없습니다.')
+        const headerSample = Object.keys(rows[0] || {})
+          .filter((k) => !k.startsWith('__EMPTY'))
+          .slice(0, 10)
+          .join(', ')
+        const skippedHint =
+          skippedLines.length > 0
+            ? `\n데이터가 있으나 컬럼 매핑 실패한 행: ${skippedLines.slice(0, 5).join(', ')}${skippedLines.length > 5 ? '…' : ''}`
+            : ''
+        showAppAlert(
+          `업로드할 유효한 데이터가 없습니다.\n` +
+            `엑셀 첫 행 헤더가 시스템 컬럼명(예: 건축정보일자, 사업명)과 일치하는지 확인해 주세요.\n` +
+            `(시트 헤더: ${headerSample || '없음'})${skippedHint}`
+        )
         return
       }
 
