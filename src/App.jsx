@@ -676,7 +676,15 @@ function buildWeekManualSpanBarPlacements(weekDays, calendarItems) {
         if (!dPrev || !isConsecutiveCalendarYmd(dPrev, d2)) break
         endCol = j
       }
-      segments.push({ item, startCol, endCol })
+      const startDay = weekDays[startCol]
+      const endDay = weekDays[endCol]
+      segments.push({
+        item,
+        startCol,
+        endCol,
+        isCapLeft: startDay === ds,
+        isCapRight: endDay === de,
+      })
       i = endCol + 1
     }
   }
@@ -10902,8 +10910,12 @@ function App() {
                                         'calendar-span-bar',
                                         'event-pill-button',
                                         getCalendarEventPillTypeClass(seg.item.type),
-                                        'calendar-span-bar--cap-left',
-                                        'calendar-span-bar--cap-right',
+                                        seg.isCapLeft
+                                          ? 'calendar-span-bar--cap-left'
+                                          : 'calendar-span-bar--segment-mid-left',
+                                        seg.isCapRight
+                                          ? 'calendar-span-bar--cap-right'
+                                          : 'calendar-span-bar--segment-mid-right',
                                         seg.startCol === 0 ? 'calendar-span-bar--week-start' : '',
                                         seg.endCol === 6 ? 'calendar-span-bar--week-end' : '',
                                       ]
