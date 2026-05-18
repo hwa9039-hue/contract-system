@@ -2008,6 +2008,25 @@ function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDr
   return list
 }
 
+/** 대시보드: 오늘이 속한 주(weekStart)의 회의록 — user=담당자, destination=날짜/기한, content=회의 내용 */
+function getDashboardWeekMeetingMinutes(weekStartDate, workReportRows, workReportDrafts) {
+  const date = safeString(weekStartDate).trim()
+  if (!date) return null
+  const section = WORK_REPORT_SECTION_KEYS.meetingMinutes
+  const cellKey = `${date}__${section}__1`
+  const draftEntry = workReportDrafts?.[cellKey]
+  const stored = workReportRows.find(
+    (r) => r.date === date && r.section === section && Number(r.orderIndex || 1) === 1
+  )
+  const entry = draftEntry || stored
+  if (!entry) return null
+  const user = safeString(entry.user).trim()
+  const dueDate = safeString(entry.destination).trim()
+  const content = safeString(entry.content).trim()
+  if (!user && !dueDate && !content) return null
+  return { user, dueDate, content }
+}
+
 function safeString(value) {
   if (value === null || value === undefined) return ''
   return String(value)
@@ -2908,6 +2927,14 @@ function isWorkReportRowEmpty(row) {
     normalizedSection === WORK_REPORT_SECTION_KEYS.road
   ) {
     return safeString(row.content).trim() === ''
+  }
+
+  if (normalizedSection === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
+    return (
+      safeString(row.user).trim() === '' &&
+      safeString(row.content).trim() === '' &&
+      safeString(row.destination).trim() === ''
+    )
   }
 
   return safeString(row.content).trim() === ''
@@ -4476,12 +4503,21 @@ function App() {
       )
     ).trim()
     const externalRows = collectDashboardTodayExternalRows(todayYmd, workReportRows, workReportDrafts)
+    const weekStartDate = buildWorkReportWeekMeta(todayYmd).weekStartDate
+    const meetingMinutes = getDashboardWeekMeetingMinutes(
+      weekStartDate,
+      workReportRows,
+      workReportDrafts
+    )
     return {
       todayYmd,
+      weekStartDate,
       checklistText,
       externalRows,
+      meetingMinutes,
       hasChecklist: Boolean(checklistText),
       hasExternal: externalRows.length > 0,
+      hasMeetingMinutes: Boolean(meetingMinutes),
     }
   }, [workReportRows, workReportDrafts])
 
@@ -9293,12 +9329,15 @@ function App() {
                     </button>
                   </div>
 
-                  {!dashboardTodayWorkBrief.hasChecklist && !dashboardTodayWorkBrief.hasExternal ? (
+                  {!dashboardTodayWorkBrief.hasChecklist &&
+                  !dashboardTodayWorkBrief.hasExternal &&
+                  !dashboardTodayWorkBrief.hasMeetingMinutes ? (
                     <p className="dashboard-work-report-briefing-empty">
-                      오늘 등록된 주요 확인사항/외부일정이 없습니다.
+                      오늘 등록된 주요 확인사항/외부일정이 없고, 이번 주 회의록도 없습니다.
                     </p>
                   ) : (
-                    <div className="dashboard-work-report-briefing-split">
+                    <>
+                      <div className="dashboard-work-report-briefing-split">
                       <div className="dashboard-work-report-briefing-col">
                         <h3 className="dashboard-work-report-briefing-col-title">주요 확인사항</h3>
                         {dashboardTodayWorkBrief.hasChecklist ? (
@@ -9334,7 +9373,33 @@ function App() {
                           <p className="dashboard-work-report-briefing-col-empty">등록된 외부일정이 없습니다.</p>
                         )}
                       </div>
-                    </div>
+                      </div>
+                      <div className="dashboard-work-report-briefing-meeting">
+                        <h3 className="dashboard-work-report-briefing-col-title">회의록</h3>
+                        {dashboardTodayWorkBrief.hasMeetingMinutes ? (
+                          <div className="dashboard-work-report-briefing-meeting-body">
+                            <div className="dashboard-work-report-briefing-meeting-meta">
+                              <span>
+                                <strong>담당자</strong>{' '}
+                                {dashboardTodayWorkBrief.meetingMinutes.user || '—'}
+                              </span>
+                              <span>
+                                <strong>날짜/기한</strong>{' '}
+                                {dashboardTodayWorkBrief.meetingMinutes.dueDate || '—'}
+                              </span>
+                            </div>
+                            <div className="dashboard-work-report-briefing-meeting-content">
+                              {dashboardTodayWorkBrief.meetingMinutes.content || '—'}
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="dashboard-work-report-briefing-col-empty">
+                            이번 주({getWorkReportWeekLabel(dashboardTodayWorkBrief.weekStartDate)}) 회의록이
+                            없습니다.
+                          </p>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -9496,15 +9561,77 @@ function App() {
             )}
 
             <section className="work-report-meeting-minutes-section">
-              <div className="work-report-meeting-minutes-title">회의록</div>
+              <div className="work-report-meeting-minutes-header">
+                <div className="work-report-meeting-minutes-title">회의록</div>
+                <div className="work-report-meeting-minutes-meta">
+                  <label className="work-report-meeting-minutes-meta-field">
+                    <span className="work-report-meeting-minutes-meta-label">담당자</span>
+                    <input
+                      type="text"
+                      className="work-report-meeting-minutes-meta-input work-report-report-field"
+                      value={
+                        getWorkReportBoardEntry(
+                          selectedWorkWeekMeta.weekStartDate,
+                          WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                          1
+                        ).user
+                      }
+                      placeholder="담당자"
+                      onChange={(e) =>
+                        updateWorkReportBoardEntry(
+                          selectedWorkWeekMeta.weekStartDate,
+                          WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                          1,
+                          { user: e.target.value }
+                        )
+                      }
+                      onBlur={handleWorkReportBoardBlur(
+                        selectedWorkWeekMeta.weekStartDate,
+                        WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                        1
+                      )}
+                    />
+                  </label>
+                  <label className="work-report-meeting-minutes-meta-field">
+                    <span className="work-report-meeting-minutes-meta-label">날짜/기한</span>
+                    <input
+                      type="text"
+                      className="work-report-meeting-minutes-meta-input work-report-report-field"
+                      value={
+                        getWorkReportBoardEntry(
+                          selectedWorkWeekMeta.weekStartDate,
+                          WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                          1
+                        ).destination
+                      }
+                      placeholder="예: 2026-05-15"
+                      onChange={(e) =>
+                        updateWorkReportBoardEntry(
+                          selectedWorkWeekMeta.weekStartDate,
+                          WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                          1,
+                          { destination: e.target.value }
+                        )
+                      }
+                      onBlur={handleWorkReportBoardBlur(
+                        selectedWorkWeekMeta.weekStartDate,
+                        WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                        1
+                      )}
+                    />
+                  </label>
+                </div>
+              </div>
               <textarea
                 className="work-report-meeting-minutes-textarea work-report-report-field"
                 rows={14}
-                value={getWorkReportBoardEntry(
-                  selectedWorkWeekMeta.weekStartDate,
-                  WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                  1
-                ).content}
+                value={
+                  getWorkReportBoardEntry(
+                    selectedWorkWeekMeta.weekStartDate,
+                    WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                    1
+                  ).content
+                }
                 placeholder="주간 회의 내용을 입력하세요"
                 onChange={(e) =>
                   updateWorkReportBoardEntry(

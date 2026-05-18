@@ -2698,6 +2698,50 @@ textarea:focus-visible {
   word-break: break-word;
 }
 
+.dashboard-work-report-briefing-meeting {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.dashboard-work-report-briefing-meeting-body {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.dashboard-work-report-briefing-meeting-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.dashboard-work-report-briefing-meeting-meta strong {
+  color: #1e40af;
+  font-weight: 800;
+}
+
+.dashboard-work-report-briefing-meeting-content {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #334155;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.work-report-external-manager-multi-trigger {
+  white-space: nowrap;
+}
+
+.work-report-external-manager-multi-value {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
 @media (max-width: 900px) {
   .dashboard-work-report-briefing-split {
     grid-template-columns: 1fr;
@@ -5703,7 +5747,7 @@ textarea:focus-visible {
 }
 
 .work-report-report-table-row-journal.editable {
-  align-items: center;
+  align-items: stretch;
 }
 
 .work-report-report-table-row--external.editable > *,
@@ -5728,15 +5772,21 @@ textarea:focus-visible {
 .work-report-report-cell > .work-report-report-field--grow,
 .work-report-report-cell > .work-report-external-manager-multi {
   flex: 1 1 auto;
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
+.work-report-report-table-row-journal.editable .work-report-report-cell > .work-report-report-field:not(.work-report-report-field--grow) {
+  height: 100%;
 }
 
 .work-report-report-table-row-journal .work-report-report-line-number {
   display: flex;
   align-items: center;
   justify-content: center;
-  align-self: center;
+  align-self: stretch;
   padding-top: 0;
-  min-height: 0;
+  min-height: 36px;
 }
 
 .work-report-report-cell--manager .work-report-external-manager-multi-trigger {
@@ -5921,13 +5971,53 @@ textarea:focus-visible {
   background: #ffffff;
 }
 
-.work-report-meeting-minutes-title {
+.work-report-meeting-minutes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   padding: 10px 14px;
   background: #eff6ff;
+  border-bottom: 1px solid #dbe5f0;
+}
+
+.work-report-meeting-minutes-title {
+  margin: 0;
+  padding: 0;
+  background: transparent;
   color: #1d4ed8;
   font-size: 14px;
   font-weight: 800;
-  border-bottom: 1px solid #dbe5f0;
+  border: none;
+}
+
+.work-report-meeting-minutes-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.work-report-meeting-minutes-meta-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.work-report-meeting-minutes-meta-label {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  color: #475569;
+}
+
+.work-report-meeting-minutes-meta-input {
+  width: 132px;
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 12px;
 }
 
 .work-report-meeting-minutes-textarea {
@@ -6006,6 +6096,8 @@ textarea:focus-visible {
   font-weight: 700;
   color: #1d4ed8;
   max-width: 100%;
+  white-space: nowrap;
+  word-break: keep-all;
 }
 
 .work-report-external-manager-multi-placeholder {
@@ -6047,6 +6139,8 @@ textarea:focus-visible {
   text-align: left;
   font-size: 12px;
   color: #334155;
+  white-space: nowrap;
+  word-break: keep-all;
 }
 
 .work-report-external-manager-multi-item:hover {
