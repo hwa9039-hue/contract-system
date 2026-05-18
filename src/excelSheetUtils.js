@@ -266,17 +266,18 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
   // 4. 헤더 키(Key) 정규화
   const headers = rawData[headerIndex].map((key) => String(key || '').replace(/\s+/g, '').trim())
 
-  // 5. 데이터 매핑 (엑셀 날짜 변환 포함)
+  // 5. 데이터 매핑 (절대 데이터 밀림 방지)
   const parsedData = rawData
     .slice(headerIndex + 1)
     .filter((row) => row && row.length > 0)
     .map((row) => {
       const rowData = {}
+
       headers.forEach((header, index) => {
         if (header) {
           let value = row[index]
 
-          if (header === '건축정보일자' && typeof value === 'number') {
+          if (header.includes('건축정보일자') && typeof value === 'number') {
             const date = new Date(Math.round((value - 25569) * 86400 * 1000))
             const yyyy = date.getFullYear()
             const mm = String(date.getMonth() + 1).padStart(2, '0')
