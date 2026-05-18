@@ -232,66 +232,54 @@ export const DISCOVERY_HEADER_MARKERS = [
 export const DISCOVERY_EXCEL_FORMAT_ERROR = '엑셀 양식이 올바르지 않습니다.'
 export const DISCOVERY_EXCEL_NO_DATA_ERROR = '업로드할 유효한 데이터가 없습니다.'
 
-/** 헤더/셀 문자열에서 공백·NBSP·BOM 등 제거 */
-const DISCOVERY_HEADER_STRIP_RE = /[\s\uFEFF\xA0]+/g
-
 /**
  * 건축정보: 2차원 배열 → '사업명'+'발주처' 헤더 행 탐색 → 객체 배열 조립
  * @param {import('xlsx').WorkSheet} worksheet
  */
 export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
-  const rawData = XLSX.utils.sheet_to_json(worksheet, {
-    header: 1,
-    defval: '',
-    raw: true,
-  })
+  // 1. 순수 2차원 배열 추출
+  const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
 
-  console.log('[discovery-excel] rawData', rawData)
-
-  if (!Array.isArray(rawData) || !rawData.length) {
-    throw new Error(DISCOVERY_EXCEL_FORMAT_ERROR)
+  // 2. 헤더 찾기 (JSON 문자열 변환으로 가장 확실하게 검색)
+  let headerIndex = -1
+  for (let i = 0; i < rawData.length; i++) {
+    if (Array.isArray(rawData[i])) {
+      const rowStr = JSON.stringify(rawData[i]).replace(/\s/g, '')
+      if (rowStr.includes('사업명') && rowStr.includes('발주처')) {
+        headerIndex = i
+        break
+      }
+    }
   }
 
-  // 1. 무식하지만 100% 확실한 헤더 찾기 (문자열 뭉개기 방식)
-  const headerIndex = rawData.findIndex((row) => {
-    if (!row || !Array.isArray(row)) return false
-    const rowString = row.join('').replace(DISCOVERY_HEADER_STRIP_RE, '')
-    return rowString.includes('사업명') && rowString.includes('발주처')
-  })
-
+  // 3. ★ 최후의 수단: 그래도 못 찾으면 무조건 인덱스 2번(3번째 줄) 강제 지정 ★
   if (headerIndex === -1) {
-    console.error('헤더 찾기 실패. 원본 배열:', rawData)
-    throw new Error(DISCOVERY_EXCEL_NO_DATA_ERROR)
+    if (rawData[2] && rawData[2].length >= 5) {
+      headerIndex = 2
+      console.log('검색 실패: 인덱스 2번을 헤더로 강제 지정합니다.')
+    } else {
+      console.error('원본 데이터:', rawData)
+      throw new Error(DISCOVERY_EXCEL_NO_DATA_ERROR)
+    }
   }
 
-  // 2. 헤더 키(Key) 추출 시 보이지 않는 특수문자 완벽 제거
-  const headers = rawData[headerIndex].map((key) => {
-    return String(key || '').replace(DISCOVERY_HEADER_STRIP_RE, '').trim()
-  })
+  // 4. 헤더 키(Key) 정규화
+  const headers = rawData[headerIndex].map((key) => String(key || '').replace(/\s+/g, '').trim())
 
-  console.log('최종 찾은 헤더 인덱스:', headerIndex)
-  console.log('정규화된 헤더:', headers)
-
-  // 3. 데이터 매핑
-  const dataRows = rawData.slice(headerIndex + 1)
-  const parsedData = dataRows
-    .filter(
-      (row) =>
-        row &&
-        row.length > 0 &&
-        row.some((cell) => cell !== undefined && cell !== null && String(cell).trim() !== '')
-    )
+  // 5. 데이터 매핑
+  const parsedData = rawData
+    .slice(headerIndex + 1)
+    .filter((row) => row && row.length > 0)
     .map((row) => {
       const rowData = {}
       headers.forEach((header, index) => {
-        if (header) {
-          rowData[header] = row[index]
-        }
+        if (header) rowData[header] = row[index]
       })
       return rowData
     })
+    .filter((item) => item.사업명)
 
-  console.log('최종 파싱 데이터:', parsedData)
+  console.log('최종 렌더링될 데이터:', parsedData)
 
   return {
     rows: parsedData,

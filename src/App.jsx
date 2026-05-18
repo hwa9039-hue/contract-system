@@ -6511,10 +6511,11 @@ function App() {
       if (target === 'discovery') {
         try {
           const parsed = sheetToJsonWithDiscoveryDynamicHeader(worksheet)
-          rows = parsed.rows
+          const parsedData = parsed.rows
+          rows = parsedData
           headerRowIndex = parsed.headerRowIndex
-          setDiscoveryTableData(rows)
-          console.log('[excel-upload] discoveryTableData state 업데이트', rows.length)
+          console.log('최종 렌더링될 데이터:', parsedData)
+          setDiscoveryTableData(parsedData)
         } catch (parseError) {
           const message =
             parseError?.message === DISCOVERY_EXCEL_FORMAT_ERROR
