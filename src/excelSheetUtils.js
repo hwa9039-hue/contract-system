@@ -135,6 +135,41 @@ export function detectExcelHeaderRowIndex(worksheet, headerKeywords, maxScanRows
   return detectExcelHeaderRowIndexFromAoA(raw_data, headerKeywords, maxScanRows)
 }
 
+/**
+ * 건축정보 엑셀: 상단 메타/병합 행(0-based) 건너뛰기.
+ * sheet_to_json range N → N행을 헤더로, 이후 행을 데이터로 읽음.
+ */
+export const DISCOVERY_EXCEL_SKIP_ROWS = 3
+
+/**
+ * @param {import('xlsx').WorkSheet} worksheet
+ * @param {number} skipRows
+ */
+export function sheetToJsonWithRangeSkip(worksheet, skipRows = DISCOVERY_EXCEL_SKIP_ROWS) {
+  const rows = XLSX.utils.sheet_to_json(worksheet, {
+    range: skipRows,
+    defval: '',
+    raw: true,
+  })
+
+  const parsed =
+    Array.isArray(rows) ? rows : rows && typeof rows === 'object' ? [rows] : []
+
+  console.log('[discovery-excel] skip_rows', skipRows)
+  console.log('[discovery-excel] parsed_rows', parsed)
+  console.log('[discovery-excel] parsed_count', parsed.length)
+
+  const nonEmpty = parsed.filter((row) => {
+    if (!row || typeof row !== 'object') return false
+    return Object.values(row).some((cell) => String(cell ?? '').trim() !== '')
+  })
+
+  console.log('[discovery-excel] non_empty_rows', nonEmpty)
+  console.log('[discovery-excel] non_empty_count', nonEmpty.length)
+
+  return { rows: nonEmpty, headerRowIndex: skipRows }
+}
+
 export const CONTRACT_EXCEL_HEADER_KEYWORDS = [
   '사업년도',
   '계약일자',

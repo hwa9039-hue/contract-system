@@ -8,16 +8,15 @@ import { projectDiscoveryApi } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import { installCasesApi, INSTALL_CASES_API_PATH } from './installCasesApi'
-import {
-  createLocalInstallCaseId,
-  isInstallCaseApiUnavailableError,
-} from './installCaseLocal.js'
+import { createLocalInstallCaseId } from './installCaseLocal.js'
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { useAuth } from './AuthContext.jsx'
 import { CONTRACT_SHARED_WARNING_MS } from './authSession.js'
 import {
   CONTRACT_EXCEL_HEADER_KEYWORDS,
   sheetToJsonWithSmartHeader,
+  sheetToJsonWithRangeSkip,
+  DISCOVERY_EXCEL_SKIP_ROWS,
 } from './excelSheetUtils.js'
 
 const CONTRACT_COLUMNS = [
@@ -4428,16 +4427,13 @@ function App() {
       await fetchInstallCases()
     } catch (error) {
       logApiOperationError(installCaseEditingId ? '설치사례 수정' : '설치사례 등록', error)
-      if (isInstallCaseApiUnavailableError(error)) {
-        applyLocalInstallCaseSave()
-        showAppAlert(
-          '설치사례 API에 연결할 수 없어 입력 내용을 화면에만 임시 반영했습니다.\n' +
-            '백엔드를 재시작한 뒤 다시 저장해 주세요. (GET /api/health → installCases: true)',
-          '알림'
-        )
-        return
-      }
-      showAppAlert(error?.message || '저장에 실패했습니다.', '알림')
+      applyLocalInstallCaseSave()
+      const actionLabel = installCaseEditingId ? '수정' : '등록'
+      showAppAlert(
+        `${actionLabel}에 실패했습니다. 입력 내용은 목록 최상단에 임시 반영했습니다.\n` +
+          (error?.message || String(error)),
+        '알림'
+      )
     }
   }
 
@@ -6372,12 +6368,26 @@ function App() {
 
       const worksheet = workbook.Sheets[firstSheetName]
       const headerKeywords = collectRegistryExcelHeaderKeywords(config.columns)
-      const { rows, headerRowIndex } = sheetToJsonWithSmartHeader(worksheet, headerKeywords)
+      const { rows, headerRowIndex } =
+        target === 'discovery'
+          ? sheetToJsonWithRangeSkip(worksheet, DISCOVERY_EXCEL_SKIP_ROWS)
+          : sheetToJsonWithSmartHeader(worksheet, headerKeywords)
+
+      console.log('[excel-upload] parsed object rows', {
+        target,
+        headerRowIndex,
+        rowCount: rows.length,
+        sample: rows.slice(0, 3),
+      })
 
       if (!rows.length) {
+        const headerHint =
+          target === 'discovery'
+            ? `상단 ${DISCOVERY_EXCEL_SKIP_ROWS}행을 건너뛴 뒤 ${headerRowIndex + 1}행을 헤더로 읽었습니다.`
+            : `헤더 행 자동 탐지: ${headerRowIndex + 1}행`
         showAppAlert(
           `업로드할 데이터가 없습니다.\n` +
-            `(헤더 행 자동 탐지: ${headerRowIndex + 1}행 — 컬럼명이 시스템과 일치하는지 확인해 주세요.)`
+            `(${headerHint} — 컬럼명이 시스템과 일치하는지 확인해 주세요.)`
         )
         return
       }
