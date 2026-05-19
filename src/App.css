@@ -2402,7 +2402,7 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  margin-bottom: 12px;
+  margin-bottom: 96px;
 }
 
 .main-area > section.stat-card .work-report-week-board-area .work-report-week-grid {
@@ -2419,7 +2419,7 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  margin-top: 48px;
+  margin-top: 80px;
 }
 
 .main-area > section.stat-card .work-report-week-grid {
