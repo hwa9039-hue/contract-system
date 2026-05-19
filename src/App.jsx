@@ -3911,16 +3911,10 @@ function App() {
   }
 
   const fetchInstallCases = async () => {
-    try {
-      const rows = await installCasesApi.list()
-      const normalized = Array.isArray(rows) ? rows.map(normalizeInstallCaseRow) : []
-      setInstallCases(normalized)
-      return normalized
-    } catch (error) {
-      console.error('[설치사례] 목록 조회 실패', error)
-      setInstallCases([])
-      return []
-    }
+    const rows = await installCasesApi.list()
+    const normalized = Array.isArray(rows) ? rows.map(normalizeInstallCaseRow) : []
+    setInstallCases(normalized)
+    return normalized
   }
 
   useEffect(() => {
@@ -4295,7 +4289,7 @@ function App() {
       onConfirm: async () => {
         try {
           await installCasesApi.remove(id)
-          await fetchInstallCases()
+          setInstallCases((prev) => prev.filter((row) => row.id !== id))
           setInstallCaseDetailModal((cur) => (cur && cur.id === id ? null : cur))
         } catch (error) {
           logApiOperationError('설치사례 삭제', error)
