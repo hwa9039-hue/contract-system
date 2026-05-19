@@ -190,21 +190,21 @@ export function WorkReportMeetingMinutesSection({
                     onChange={(e) => patchAgendaRow(index, { content: e.target.value })}
                   />
                 </td>
-                <td>
+                <td className="meeting-minutes-col-assignee">
                   <input
                     type="text"
-                    className="meeting-minutes-cell-input work-report-report-field"
+                    className="meeting-minutes-cell-input meeting-minutes-cell-input--center work-report-report-field"
                     value={row.assignee}
                     placeholder="담당자"
                     onChange={(e) => patchAgendaRow(index, { assignee: e.target.value })}
                   />
                 </td>
-                <td>
+                <td className="meeting-minutes-col-due">
                   <input
                     type="text"
-                    className="meeting-minutes-cell-input work-report-report-field"
+                    className="meeting-minutes-cell-input meeting-minutes-cell-input--center work-report-report-field"
                     value={row.dueDate}
-                    placeholder="업무기한"
+                    placeholder="2000-00-00"
                     onChange={(e) => patchAgendaRow(index, { dueDate: e.target.value })}
                   />
                 </td>

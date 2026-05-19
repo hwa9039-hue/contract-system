@@ -2419,7 +2419,7 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  margin-top: 4px;
+  margin-top: 48px;
 }
 
 .main-area > section.stat-card .work-report-week-grid {
@@ -6045,6 +6045,14 @@ textarea:focus-visible {
 
 .meeting-minutes-col-due {
   width: 120px;
+}
+
+.meeting-minutes-agenda-table .meeting-minutes-cell-input--center {
+  text-align: center;
+}
+
+.meeting-minutes-agenda-table .meeting-minutes-cell-input--center::placeholder {
+  text-align: center;
 }
 
 .meeting-minutes-agenda-table tbody tr.meeting-minutes-agenda-row {
