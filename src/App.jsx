@@ -1151,7 +1151,7 @@ function MaterialBoardMultiFileDropzone({
             ⬆
           </span>
           <span className="install-case-dropzone-hint">
-            클릭하거나 파일을 드래그하여 추가하세요
+            클릭하거나 파일을 드래그하여 업로드하세요
           </span>
         </div>
       </div>
@@ -3447,12 +3447,12 @@ function formatPercent(value) {
   return `${value.toFixed(1)}%`
 }
 
-/** 계약현황 상단 요약에서만 `전광판`을 `디스플레이`로 표시 (데이터·대시보드는 `전광판` 유지) */
+/** 화면 표기용: 집계 키 `전광판`은 메뉴 용어와 맞춰 `디스플레이`로 표시 (내부 데이터·집계 키는 유지) */
 function getContractPageSummaryCategoryTitle(name) {
   return name === '전광판' ? '디스플레이' : name
 }
 
-/** 대시보드 「연도별 계약금액 현황」 카드 그리드와 동일한 마크업·클래스. `formatCategoryTitle`은 계약현황 전용 표기에만 사용. */
+/** 대시보드·계약현황 「연도별 계약금액 현황」 카드 그리드. `formatCategoryTitle`로 화면 제목만 변환. */
 function YearContractAmountCategoryCards({ items, keyPrefix, formatCategoryTitle }) {
   const prefix = keyPrefix != null && keyPrefix !== '' ? String(keyPrefix) : ''
   const titleFor = (name) => (typeof formatCategoryTitle === 'function' ? formatCategoryTitle(name) : name)
@@ -10183,6 +10183,7 @@ function App() {
                           <YearContractAmountCategoryCards
                             items={yearBlock.items}
                             keyPrefix={yearBlock.year}
+                            formatCategoryTitle={getContractPageSummaryCategoryTitle}
                           />
                         )}
                       </section>
