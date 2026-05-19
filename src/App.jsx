@@ -12036,7 +12036,7 @@ function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="install-case-detail-modal-header">
-              <h3 id="calendar-detail-modal-title">{detailModal.title}</h3>
+              <h3 id="calendar-detail-modal-title">상세 정보</h3>
               <div className="install-case-detail-modal-actions">
                 {detailModal.manualEventId != null && (
                   <>
@@ -12093,45 +12093,7 @@ function App() {
             </div>
 
             <div className="install-case-detail-modal-body install-case-detail-modal-body--plain">
-              <div className="detail-modal-grid">
-              <div className="detail-item">
-                <span className="detail-label">구분</span>
-                <span className="detail-value">{detailModal.typeLabel || '-'}</span>
-              </div>
-              <div className="detail-item detail-item-full">
-                <span className="detail-label">등록일자</span>
-                {inManualInlineEdit && md ? (
-                  <div className="detail-value detail-value--edit-cell">
-                    <div className="calendar-detail-modal-date-range" role="group" aria-label="일정 기간">
-                      <input
-                        type="date"
-                        className="detail-inline-field calendar-input calendar-input-date"
-                        value={md.dateStart}
-                        onChange={(e) =>
-                          setCalendarManualDetailDraft((prev) =>
-                            prev ? { ...prev, dateStart: e.target.value } : prev
-                          )
-                        }
-                      />
-                      <span className="calendar-detail-modal-date-sep" aria-hidden>
-                        ~
-                      </span>
-                      <input
-                        type="date"
-                        className="detail-inline-field calendar-input calendar-input-date"
-                        value={md.dateEnd}
-                        onChange={(e) =>
-                          setCalendarManualDetailDraft((prev) =>
-                            prev ? { ...prev, dateEnd: e.target.value } : prev
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <span className="detail-value">{detailModal.date || '-'}</span>
-                )}
-              </div>
+              <div className="detail-modal-grid detail-modal-grid--calendar">
               <div className="detail-item">
                 <span className="detail-label">D-Day</span>
                 <span className="detail-value">
@@ -12197,6 +12159,40 @@ function App() {
                   <span className="detail-value">{detailModal.pm || '-'}</span>
                 )}
               </div>
+
+
+              {inManualInlineEdit && md ? (
+                <div className="detail-item detail-item-full">
+                  <span className="detail-label">일정 기간</span>
+                  <div className="detail-value detail-value--edit-cell">
+                    <div className="calendar-detail-modal-date-range" role="group" aria-label="일정 기간">
+                      <input
+                        type="date"
+                        className="detail-inline-field calendar-input calendar-input-date"
+                        value={md.dateStart}
+                        onChange={(e) =>
+                          setCalendarManualDetailDraft((prev) =>
+                            prev ? { ...prev, dateStart: e.target.value } : prev
+                          )
+                        }
+                      />
+                      <span className="calendar-detail-modal-date-sep" aria-hidden>
+                        ~
+                      </span>
+                      <input
+                        type="date"
+                        className="detail-inline-field calendar-input calendar-input-date"
+                        value={md.dateEnd}
+                        onChange={(e) =>
+                          setCalendarManualDetailDraft((prev) =>
+                            prev ? { ...prev, dateEnd: e.target.value } : prev
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               {'contractNo' in detailModal && (
                 <>
