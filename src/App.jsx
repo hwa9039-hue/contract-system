@@ -8447,7 +8447,7 @@ function App() {
           <td colSpan={columns.length + 1}>
             <div className="contract-year-toggle" aria-hidden="true">
               <span className="contract-year-sign">{collapsed ? '+' : '-'}</span>
-              <span>{yearBlock.year}</span>
+              <span>{yearBlock.year}년</span>
               <span className="contract-year-count">
                 {yearBlock.items.length.toLocaleString('ko-KR')}건
               </span>
@@ -8531,7 +8531,7 @@ function App() {
           <td colSpan={columns.length + 1}>
             <div className="contract-year-toggle" aria-hidden="true">
               <span className="contract-year-sign">{collapsed ? '+' : '-'}</span>
-              <span>{yearBlock.year}</span>
+              <span>{yearBlock.year}년</span>
               <span className="contract-year-count">
                 {yearBlock.items.length.toLocaleString('ko-KR')}건
               </span>
