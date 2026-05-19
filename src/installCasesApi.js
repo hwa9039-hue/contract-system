@@ -1,11 +1,28 @@
 import { API_BASE_URL, getAuthHeaders, apiFetchInit } from './apiClient.js'
 import { readApiErrorMessage } from './apiErrors.js'
+import { createLocalInstallCaseId } from './installCaseLocal.js'
 
 /** 설치사례 API — 백엔드 INSTALL_CASES_API_PATH 와 동일 (복수형 /api/install-cases) */
 export const INSTALL_CASES_API_PATH = '/api/install-cases'
 
+const MOCK_SAVE_DELAY_MS = 1000
+
 function installCasesUrl(suffix = '') {
   return `${API_BASE_URL}${INSTALL_CASES_API_PATH}${suffix}`
+}
+
+function mockDelay(ms = MOCK_SAVE_DELAY_MS) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function mockInstallCaseRow(payload, existingId = null) {
+  const timestamp = new Date().toISOString()
+  return {
+    ...payload,
+    id: existingId || createLocalInstallCaseId(),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }
 }
 
 async function requestJson(path, options = {}) {
@@ -39,8 +56,69 @@ async function requestJson(path, options = {}) {
   return response.json()
 }
 
+async function postInstallCase(payload) {
+  const url = installCasesUrl()
+  const response = await fetch(
+    url,
+    apiFetchInit({
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(payload),
+    })
+  )
+
+  if (response.status === 404) {
+    await mockDelay()
+    return mockInstallCaseRow(payload)
+  }
+
+  if (!response.ok) {
+    const detail = await readApiErrorMessage(response)
+    const err = new Error(detail)
+    err.status = response.status
+    err.url = url
+    throw err
+  }
+
+  return response.json()
+}
+
+async function patchInstallCase(id, patch) {
+  const path = `${INSTALL_CASES_API_PATH}/${encodeURIComponent(id)}`
+  const url = `${API_BASE_URL}${path}`
+  const response = await fetch(
+    url,
+    apiFetchInit({
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(patch),
+    })
+  )
+
+  if (response.status === 404) {
+    await mockDelay()
+    return mockInstallCaseRow({ ...patch, id }, id)
+  }
+
+  if (!response.ok) {
+    const detail = await readApiErrorMessage(response)
+    const err = new Error(detail)
+    err.status = response.status
+    err.url = url
+    throw err
+  }
+
+  return response.json()
+}
+
 export const installCasesApi = {
-  /** GET 목록 — 라우트 미배포(404) 등이면 빈 배열, 콘솔 에러 없음 */
+  /** GET 목록 — 라우트 미배포(404) 등이면 빈 배열 */
   async list() {
     const url = installCasesUrl()
     try {
@@ -70,17 +148,11 @@ export const installCasesApi = {
   },
 
   create(payload) {
-    return requestJson(INSTALL_CASES_API_PATH, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
+    return postInstallCase(payload)
   },
 
   update(id, patch) {
-    return requestJson(`${INSTALL_CASES_API_PATH}/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      body: JSON.stringify(patch),
-    })
+    return patchInstallCase(id, patch)
   },
 
   remove(id) {

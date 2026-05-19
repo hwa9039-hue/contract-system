@@ -13,7 +13,6 @@ import {
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import { installCasesApi } from './installCasesApi'
-import { createLocalInstallCaseId } from './installCaseLocal.js'
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { useAuth } from './AuthContext.jsx'
 import { CONTRACT_SHARED_WARNING_MS } from './authSession.js'
@@ -3581,6 +3580,7 @@ function App() {
   const [installCaseRegisterOpen, setInstallCaseRegisterOpen] = useState(false)
   const [installCaseFormDraft, setInstallCaseFormDraft] = useState(() => getDefaultInstallCaseForm())
   const [installCaseEditingId, setInstallCaseEditingId] = useState(null)
+  const [installCaseSubmitting, setInstallCaseSubmitting] = useState(false)
   const [icImageFile, setIcImageFile] = useState(null)
   const [icImagePreview, setIcImagePreview] = useState('')
   const icImageRestoreRef = useRef('')
@@ -4582,6 +4582,8 @@ function App() {
   }, [])
 
   const handleSaveInstallCaseRegister = async () => {
+    if (installCaseSubmitting) return
+
     const d = installCaseFormDraft
     if (!safeString(d.projectName).trim()) {
       showAppAlert('사업명을 입력해 주세요.', '알림')
@@ -4599,84 +4601,77 @@ function App() {
       showAppAlert('소분류를 선택해 주세요.', '알림')
       return
     }
-    let imageUrl = INSTALL_CASE_FALLBACK_HERO
-    try {
-      if (icImageFile) {
-        imageUrl = (await readImageFileAsDataUrl(icImageFile)) || INSTALL_CASE_FALLBACK_HERO
-      } else {
-        const prev = safeString(icImagePreview).trim()
-        if (prev && !prev.startsWith('blob:')) imageUrl = prev
-      }
-    } catch (e) {
-      showAppAlert(e?.message || '이미지를 처리하지 못했습니다.', '알림')
-      return
-    }
-    const projectName = safeString(d.projectName).trim()
-    const displayArea = formatInstallCaseWhMmFromWH(d.specs.displayAreaW, d.specs.displayAreaH) || '-'
-    const moduleSize = formatInstallCaseWhMmFromWH(d.specs.moduleSizeW, d.specs.moduleSizeH) || '-'
-    const ledPitch = safeString(d.specs.ledPitch).trim() || '-'
-    const moduleQty = formatInstallCaseModuleQtyLine(d.specs.moduleQtyW, d.specs.moduleQtyH) || '-'
-    const resolution =
-      formatInstallCaseResolutionFromWH(d.specs.resolutionW, d.specs.resolutionH) || '-'
-    const rowPayload = {
-      projectName,
-      heroImage: imageUrl,
-      environment: safeString(d.environment).trim(),
-      middleCategory: safeString(d.middleCategory).trim(),
-      audience: safeString(d.audience).trim(),
-      year: businessYearDigitsToStored(d.businessYearDigits),
-      purpose: safeString(d.purpose).trim() || '-',
-      client: safeString(d.client).trim() || '-',
-      specs: {
-        displayArea,
-        ledPitch,
-        moduleSize,
-        moduleQty,
-        resolution,
-        installType: safeString(d.specs.installType).trim() || '-',
-      },
-    }
-    const applyLocalInstallCaseSave = () => {
-      const localRow = normalizeInstallCaseRow({
-        ...rowPayload,
-        id: installCaseEditingId || createLocalInstallCaseId(),
-      })
-      if (installCaseEditingId) {
-        setInstallCases((prev) =>
-          prev.map((row) => (row.id === installCaseEditingId ? localRow : row))
-        )
-        setInstallCaseDetailModal((cur) =>
-          cur && cur.id === installCaseEditingId ? localRow : cur
-        )
-      } else {
-        setInstallCases((prev) => [localRow, ...prev])
-      }
-      clearInstallCaseFormDraftStorage()
-      handleCloseInstallCaseRegister({ discardDraft: true })
-    }
 
+    setInstallCaseSubmitting(true)
     try {
+      let imageUrl = INSTALL_CASE_FALLBACK_HERO
+      try {
+        if (icImageFile) {
+          imageUrl = (await readImageFileAsDataUrl(icImageFile)) || INSTALL_CASE_FALLBACK_HERO
+        } else {
+          const prev = safeString(icImagePreview).trim()
+          if (prev && !prev.startsWith('blob:')) imageUrl = prev
+        }
+      } catch (e) {
+        showAppAlert(e?.message || '이미지를 처리하지 못했습니다.', '알림')
+        return
+      }
+
+      const projectName = safeString(d.projectName).trim()
+      const displayArea = formatInstallCaseWhMmFromWH(d.specs.displayAreaW, d.specs.displayAreaH) || '-'
+      const moduleSize = formatInstallCaseWhMmFromWH(d.specs.moduleSizeW, d.specs.moduleSizeH) || '-'
+      const ledPitch = safeString(d.specs.ledPitch).trim() || '-'
+      const moduleQty = formatInstallCaseModuleQtyLine(d.specs.moduleQtyW, d.specs.moduleQtyH) || '-'
+      const resolution =
+        formatInstallCaseResolutionFromWH(d.specs.resolutionW, d.specs.resolutionH) || '-'
+      const rowPayload = {
+        projectName,
+        heroImage: imageUrl,
+        environment: safeString(d.environment).trim(),
+        middleCategory: safeString(d.middleCategory).trim(),
+        audience: safeString(d.audience).trim(),
+        year: businessYearDigitsToStored(d.businessYearDigits),
+        purpose: safeString(d.purpose).trim() || '-',
+        client: safeString(d.client).trim() || '-',
+        specs: {
+          displayArea,
+          ledPitch,
+          moduleSize,
+          moduleQty,
+          resolution,
+          installType: safeString(d.specs.installType).trim() || '-',
+        },
+      }
+
       if (installCaseEditingId) {
         const updated = await installCasesApi.update(installCaseEditingId, rowPayload)
         const normalized = normalizeInstallCaseRow(updated)
+        setInstallCases((prev) =>
+          prev.map((row) => (row.id === installCaseEditingId ? normalized : row))
+        )
         setInstallCaseDetailModal((cur) =>
           cur && cur.id === installCaseEditingId ? normalized : cur
         )
+        clearInstallCaseFormDraftStorage()
+        handleCloseInstallCaseRegister({ discardDraft: true })
+        showAppAlert('설치사례가 성공적으로 수정되었습니다.', '알림')
       } else {
-        await installCasesApi.create(rowPayload)
+        const created = await installCasesApi.create(rowPayload)
+        const normalized = normalizeInstallCaseRow(created)
+        setInstallCases((prev) => [normalized, ...prev])
+        clearInstallCaseFormDraftStorage()
+        handleCloseInstallCaseRegister({ discardDraft: true })
+        showAppAlert('설치사례가 성공적으로 등록되었습니다.', '알림')
       }
-      clearInstallCaseFormDraftStorage()
-      handleCloseInstallCaseRegister({ discardDraft: true })
-      await fetchInstallCases()
     } catch (error) {
       logApiOperationError(installCaseEditingId ? '설치사례 수정' : '설치사례 등록', error)
-      applyLocalInstallCaseSave()
-      const actionLabel = installCaseEditingId ? '수정' : '등록'
       showAppAlert(
-        `${actionLabel}에 실패했습니다. 입력 내용은 목록 최상단에 임시 반영했습니다.\n` +
-          (error?.message || String(error)),
+        error?.message ||
+          (installCaseEditingId ? '수정에 실패했습니다.' : '등록에 실패했습니다.'),
         '알림'
       )
+    } finally {
+      setInstallCaseSubmitting(false)
     }
   }
 
@@ -12103,11 +12098,27 @@ function App() {
               />
 
               <div className="install-case-form-actions">
-                <button type="button" className="secondary-btn" onClick={handleCloseInstallCaseRegister}>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={handleCloseInstallCaseRegister}
+                  disabled={installCaseSubmitting}
+                >
                   취소
                 </button>
-                <button type="button" className="primary-btn" onClick={handleSaveInstallCaseRegister}>
-                  {installCaseEditingId ? '저장' : '등록'}
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={handleSaveInstallCaseRegister}
+                  disabled={installCaseSubmitting}
+                >
+                  {installCaseSubmitting
+                    ? installCaseEditingId
+                      ? '저장 중...'
+                      : '등록 중...'
+                    : installCaseEditingId
+                      ? '저장'
+                      : '등록'}
                 </button>
               </div>
             </div>
