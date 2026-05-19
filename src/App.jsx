@@ -12,7 +12,7 @@ import {
 } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
-import { installCasesApi } from './installCasesApi'
+import { installCasesApi, INSTALL_CASES_USE_MOCK } from './installCasesApi'
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { useAuth } from './AuthContext.jsx'
 import { CONTRACT_SHARED_WARNING_MS } from './authSession.js'
@@ -1302,25 +1302,34 @@ const INSTALL_CASE_FALLBACK_HERO = 'https://picsum.photos/seed/newinstallh/960/7
 
 function normalizeInstallCaseRow(row) {
   const specs = row?.specs && typeof row.specs === 'object' ? row.specs : {}
+  const id = safeString(row?.id).trim() || `local-${Date.now()}`
   return {
-    id: safeString(row?.id),
-    projectName: safeString(row?.projectName),
+    id,
+    projectName: safeString(row?.projectName).trim() || '-',
     heroImage: safeString(row?.heroImage).trim() || INSTALL_CASE_FALLBACK_HERO,
     environment: migrateInstallCaseMajorCategory(row?.environment),
     middleCategory: migrateInstallCaseMiddleCategory(row?.middleCategory, row?.environment),
     audience: migrateInstallCaseMinorCategory(row?.audience),
-    year: safeString(row?.year),
-    purpose: safeString(row?.purpose),
-    client: safeString(row?.client),
+    year: safeString(row?.year).trim() || '-',
+    purpose: safeString(row?.purpose).trim() || '-',
+    client: safeString(row?.client).trim() || '-',
     specs: {
-      displayArea: safeString(specs.displayArea),
-      ledPitch: safeString(specs.ledPitch),
-      moduleSize: safeString(specs.moduleSize),
-      moduleQty: safeString(specs.moduleQty),
-      resolution: safeString(specs.resolution),
-      installType: safeString(specs.installType),
+      displayArea: safeString(specs.displayArea).trim() || '-',
+      ledPitch: safeString(specs.ledPitch).trim() || '-',
+      moduleSize: safeString(specs.moduleSize).trim() || '-',
+      moduleQty: safeString(specs.moduleQty).trim() || '-',
+      resolution: safeString(specs.resolution).trim() || '-',
+      installType: safeString(specs.installType).trim() || '-',
     },
   }
+}
+
+/** 등록 폼 payload → 갤러리 카드용 행 (모킹·실API 공통) */
+function buildInstallCaseRowFromPayload(rowPayload, idOverride = null) {
+  return normalizeInstallCaseRow({
+    ...rowPayload,
+    id: idOverride || rowPayload?.id || `local-${Date.now()}`,
+  })
 }
 
 function getInstallCaseProjectTitle(row) {
@@ -4648,27 +4657,43 @@ function App() {
     setInstallCaseSubmitting(true)
     try {
       if (isEdit) {
-        await installCasesApi.update(editingId, rowPayload)
+        const updated = await installCasesApi.update(editingId, rowPayload)
+        const normalized = buildInstallCaseRowFromPayload(
+          { ...rowPayload, ...updated },
+          editingId
+        )
+        setInstallCases((prev) =>
+          prev.map((row) => (row.id === editingId ? normalized : row))
+        )
+        setInstallCaseDetailModal((cur) =>
+          cur && cur.id === editingId ? normalized : cur
+        )
+        clearInstallCaseFormDraftStorage()
+        handleCloseInstallCaseRegister({ discardDraft: true })
+        showAppAlert('설치사례가 성공적으로 수정되었습니다.', '알림')
       } else {
-        await installCasesApi.create(rowPayload)
+        const created = await installCasesApi.create(rowPayload)
+        const newCase = buildInstallCaseRowFromPayload(
+          { ...rowPayload, ...created },
+          safeString(created?.id).trim() || `local-${Date.now()}`
+        )
+        setInstallCases((prev) => [newCase, ...prev])
+        setInstallCaseEnvFilter('')
+        setInstallCaseMiddleFilter('')
+        setInstallCaseAudienceFilter('')
+        clearInstallCaseFormDraftStorage()
+        handleCloseInstallCaseRegister({ discardDraft: true })
+        showAppAlert('설치사례가 성공적으로 등록되었습니다.', '알림')
       }
 
-      const refreshed = await fetchInstallCases()
-      if (isEdit && editingId) {
-        const found = refreshed.find((row) => row.id === editingId)
-        if (found) {
-          setInstallCaseDetailModal(found)
+      if (!INSTALL_CASES_USE_MOCK) {
+        const refreshed = await fetchInstallCases()
+        if (isEdit && editingId) {
+          const found = refreshed.find((row) => row.id === editingId)
+          if (found) setInstallCaseDetailModal(found)
         }
       }
-
-      clearInstallCaseFormDraftStorage()
-      handleCloseInstallCaseRegister({ discardDraft: true })
-      showAppAlert(
-        isEdit ? '설치사례가 성공적으로 수정되었습니다.' : '설치사례가 성공적으로 등록되었습니다.',
-        '알림'
-      )
     } catch (error) {
-      console.error('[설치사례] 저장 실패', error)
       logApiOperationError(isEdit ? '설치사례 수정' : '설치사례 등록', error)
       showAppAlert(
         error?.message || (isEdit ? '수정에 실패했습니다.' : '등록에 실패했습니다.'),
