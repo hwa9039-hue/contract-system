@@ -96,19 +96,31 @@ const SALES_COLUMNS = [
 const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
 const DISCOVERY_SALES_TARGET_OPTIONS = SALES_MANAGER_OPTIONS
 const DISCOVERY_MANAGER_FILTER_OPTIONS = SALES_MANAGER_OPTIONS.filter((name) => name !== '신상준')
-/** 건축정보 표 열 너비(%) — 합계 97%, 체크박스 3%와 함께 100% */
-const DISCOVERY_CHECK_COL_WIDTH_PCT = '3%'
 const DISCOVERY_COLUMNS = [
-  { key: 'permitDate', label: '건축정보일자', align: 'center', type: 'date', widthPct: '7%', cellClass: 'discovery-col-tight' },
-  { key: 'checkStatus', label: '확인', align: 'center', type: 'text', widthPct: '5%', cellClass: 'discovery-col-tight' },
+  {
+    key: 'permitDate',
+    label: '건축정보일자',
+    align: 'center',
+    type: 'date',
+    widthClass: 'discovery-w-32',
+    cellClass: 'discovery-col-tight discovery-w-32',
+  },
+  {
+    key: 'checkStatus',
+    label: '확인',
+    align: 'center',
+    type: 'text',
+    widthClass: 'discovery-w-24',
+    cellClass: 'discovery-col-tight discovery-w-24',
+  },
   {
     key: 'salesTarget',
     label: '영업자',
     align: 'center',
     type: 'select',
     options: DISCOVERY_SALES_TARGET_OPTIONS,
-    widthPct: '6%',
-    cellClass: 'discovery-col-tight',
+    widthClass: 'discovery-w-24',
+    cellClass: 'discovery-col-tight discovery-w-24',
   },
   {
     key: 'projectCategory',
@@ -116,22 +128,57 @@ const DISCOVERY_COLUMNS = [
     align: 'center',
     type: 'select',
     options: DISCOVERY_CATEGORY_OPTIONS,
-    widthPct: '6%',
-    cellClass: 'discovery-col-tight',
+    widthClass: 'discovery-w-24',
+    cellClass: 'discovery-col-tight discovery-w-24',
   },
-  { key: 'client', label: '발주처', align: 'center', type: 'text', widthPct: '7%', cellClass: 'discovery-col-tight' },
-  { key: 'projectName', label: '사업명', align: 'left', type: 'text', widthPct: '22%', cellClass: 'discovery-col-project' },
+  {
+    key: 'client',
+    label: '발주처',
+    align: 'center',
+    type: 'text',
+    widthClass: 'discovery-w-32',
+    cellClass: 'discovery-col-tight discovery-w-32',
+  },
+  {
+    key: 'projectName',
+    label: '사업명',
+    align: 'left',
+    type: 'text',
+    widthClass: 'discovery-w-p20',
+    cellClass: 'discovery-col-project discovery-w-p20',
+  },
   {
     key: 'projectAmount',
     label: '사업금액',
     align: 'right',
     type: 'amount',
-    widthPct: '11%',
-    cellClass: 'discovery-col-amount',
+    widthClass: 'discovery-w-40',
+    cellClass: 'discovery-col-amount discovery-w-40',
   },
-  { key: 'completionPeriod', label: '준공시기', align: 'center', type: 'text', widthPct: '9%', cellClass: 'discovery-col-tight' },
-  { key: 'manager', label: '담당자', align: 'center', type: 'text', widthPct: '5%', cellClass: 'discovery-col-tight' },
-  { key: 'note', label: '비고', align: 'left', type: 'textarea', widthPct: '21%', cellClass: 'discovery-col-note' },
+  {
+    key: 'completionPeriod',
+    label: '준공시기',
+    align: 'center',
+    type: 'text',
+    widthClass: 'discovery-w-32',
+    cellClass: 'discovery-col-tight discovery-w-32',
+  },
+  {
+    key: 'manager',
+    label: '담당자',
+    align: 'center',
+    type: 'text',
+    widthClass: 'discovery-w-24',
+    cellClass: 'discovery-col-tight discovery-w-24',
+  },
+  {
+    key: 'note',
+    label: '비고',
+    align: 'left',
+    type: 'textarea',
+    widthClass: 'discovery-w-p35',
+    cellClass: 'discovery-col-note discovery-w-p35',
+  },
 ]
 
 const EXCLUDED_CATEGORY_OPTIONS = ['발주계획', '사전규격', '입찰공고', '정보공개']
@@ -8230,7 +8277,7 @@ function App() {
       >
         <td
           className={`td-align-center registry-check-cell${
-            cellEditScope === 'discovery' ? ' discovery-check-col' : ''
+            cellEditScope === 'discovery' ? ' discovery-check-col discovery-w-12' : ''
           }`}
         >
           <input
@@ -8260,10 +8307,12 @@ function App() {
                     : 'td-align-center'
               } ${column.type === 'textarea' ? 'multiline-cell' : ''} ${
                 column.cellClass || ''
-              } ${isAdminForRegistry && !row.isDraft ? 'editable-cell' : ''}`}
+              } ${column.widthClass || ''} ${
+                isAdminForRegistry && !row.isDraft ? 'editable-cell' : ''
+              }`}
               style={
-                column.widthPct != null
-                  ? { width: column.widthPct, maxWidth: column.widthPct }
+                column.widthClass || column.widthPct != null
+                  ? undefined
                   : column.width != null
                     ? { width: column.width, minWidth: column.minWidth ?? column.width }
                     : undefined
@@ -10671,14 +10720,14 @@ function App() {
               <div className="table-wrap contracts-only-scroll">
                 <table className="contract-table excel-table registry-table discovery-registry-table discovery-table-fixed">
                   <colgroup>
-                    <col style={{ width: DISCOVERY_CHECK_COL_WIDTH_PCT }} />
+                    <col className="discovery-w-12" />
                     {DISCOVERY_COLUMNS.map((column) => (
-                      <col key={column.key} style={{ width: column.widthPct }} />
+                      <col key={column.key} className={column.widthClass} />
                     ))}
                   </colgroup>
                   <thead>
                     <tr>
-                      <th className="th-align-center registry-check-header discovery-check-col">
+                      <th className="th-align-center registry-check-header discovery-check-col discovery-w-12">
                         <input
                           className="registry-row-checkbox"
                           type="checkbox"
@@ -10703,12 +10752,7 @@ function App() {
                                 : column.align === 'left'
                                   ? 'th-align-left'
                                   : 'th-align-center'
-                          } ${column.cellClass || ''}`}
-                          style={
-                            column.widthPct != null
-                              ? { width: column.widthPct, maxWidth: column.widthPct }
-                              : undefined
-                          }
+                          } ${column.cellClass || ''} ${column.widthClass || ''}`}
                         >
                           {column.label}
                         </th>

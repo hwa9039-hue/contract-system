@@ -4545,6 +4545,7 @@ textarea:focus-visible {
   min-width: 44px;
 }
 
+/* 건축정보 표: w-full + table-fixed, Tailwind 너비 클래스와 동일 수치 */
 .discovery-registry-table.discovery-table-fixed,
 .discovery-table-fixed {
   table-layout: fixed;
@@ -4552,60 +4553,97 @@ textarea:focus-visible {
   max-width: 100%;
 }
 
-.discovery-registry-table th,
-.discovery-registry-table td {
+.discovery-registry-table.excel-table th,
+.discovery-registry-table.excel-table td {
+  padding: 12px;
+  height: auto;
   vertical-align: middle;
   overflow: hidden;
   box-sizing: border-box;
 }
 
-.discovery-registry-table .discovery-check-col,
-.discovery-registry-table .registry-check-header.discovery-check-col,
-.discovery-registry-table .registry-check-cell.discovery-check-col {
-  width: 3%;
-  max-width: 3%;
-  min-width: 0;
+.discovery-registry-table .cell-display {
+  min-height: 0;
   padding: 0;
-  vertical-align: middle;
-  text-align: center;
 }
 
-.discovery-registry-table .registry-check-cell {
-  display: table-cell;
+.discovery-registry-table col.discovery-w-12,
+.discovery-registry-table th.discovery-w-12,
+.discovery-registry-table td.discovery-w-12 {
+  width: 3rem;
+  min-width: 3rem;
+  max-width: 3rem;
+}
+
+.discovery-registry-table col.discovery-w-24,
+.discovery-registry-table th.discovery-w-24,
+.discovery-registry-table td.discovery-w-24 {
+  width: 6rem;
+  min-width: 6rem;
+  max-width: 6rem;
+}
+
+.discovery-registry-table col.discovery-w-32,
+.discovery-registry-table th.discovery-w-32,
+.discovery-registry-table td.discovery-w-32 {
+  width: 8rem;
+  min-width: 8rem;
+  max-width: 8rem;
+}
+
+.discovery-registry-table col.discovery-w-40,
+.discovery-registry-table th.discovery-w-40,
+.discovery-registry-table td.discovery-w-40 {
+  width: 10rem;
+  min-width: 10rem;
+  max-width: 10rem;
+}
+
+.discovery-registry-table col.discovery-w-p20,
+.discovery-registry-table th.discovery-w-p20,
+.discovery-registry-table td.discovery-w-p20 {
+  width: 20%;
+  min-width: 0;
+}
+
+.discovery-registry-table col.discovery-w-p35,
+.discovery-registry-table th.discovery-w-p35,
+.discovery-registry-table td.discovery-w-p35 {
+  width: 35%;
+  min-width: 0;
+}
+
+.discovery-registry-table .discovery-check-col {
+  vertical-align: middle;
+  text-align: center;
 }
 
 .discovery-registry-table .registry-check-cell .registry-row-checkbox {
   display: block;
   margin-left: auto;
   margin-right: auto;
-  vertical-align: middle;
 }
 
-.discovery-registry-table .discovery-col-tight {
-  width: auto;
-  min-width: 0;
-  max-width: 100%;
+.discovery-registry-table .discovery-col-tight,
+.discovery-registry-table .discovery-col-amount {
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.discovery-registry-table .discovery-col-tight .cell-display {
-  min-width: 0;
+.discovery-registry-table .discovery-col-tight .cell-display,
+.discovery-registry-table .discovery-col-amount .cell-display {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   justify-content: center;
 }
 
+.discovery-registry-table .discovery-col-amount .cell-display {
+  justify-content: flex-end;
+}
+
 .discovery-registry-table .discovery-col-project,
 .discovery-registry-table .discovery-col-note {
-  width: auto;
-  min-width: 0;
-  max-width: 100%;
-  vertical-align: middle;
   white-space: normal;
-  overflow: hidden;
   word-break: break-word;
   overflow-wrap: break-word;
 }
@@ -4613,30 +4651,11 @@ textarea:focus-visible {
 .discovery-registry-table .discovery-col-project .cell-display,
 .discovery-registry-table .discovery-col-note .cell-display,
 .discovery-registry-table .discovery-col-note.multiline-cell .cell-display {
-  min-width: 0;
-  align-items: center;
   white-space: normal;
   word-break: break-word;
   overflow-wrap: break-word;
-  overflow: hidden;
-  text-overflow: clip;
+  align-items: center;
   line-height: 1.35;
-}
-
-.discovery-registry-table .discovery-col-amount {
-  width: auto;
-  min-width: 0;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.discovery-registry-table .discovery-col-amount .cell-display {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .discovery-registry-table thead th.discovery-col-amount {
@@ -4645,7 +4664,6 @@ textarea:focus-visible {
 
 .discovery-registry-table td.discovery-col-amount {
   text-align: right;
-  vertical-align: middle;
 }
 
 .registry-table td .cell-display {
