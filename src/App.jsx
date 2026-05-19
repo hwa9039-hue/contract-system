@@ -97,16 +97,39 @@ const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
 const DISCOVERY_SALES_TARGET_OPTIONS = SALES_MANAGER_OPTIONS
 const DISCOVERY_MANAGER_FILTER_OPTIONS = SALES_MANAGER_OPTIONS.filter((name) => name !== '신상준')
 const DISCOVERY_COLUMNS = [
-  { key: 'permitDate', label: '건축정보일자', align: 'center', type: 'date', width: 108 },
-  { key: 'checkStatus', label: '확인', align: 'center', type: 'text', width: 64 },
-  { key: 'salesTarget', label: '영업자', align: 'center', type: 'select', options: DISCOVERY_SALES_TARGET_OPTIONS, width: 96 },
-  { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: DISCOVERY_CATEGORY_OPTIONS, width: 96 },
-  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 120 },
-  { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 250, minWidth: 250, cellClass: 'discovery-col-project' },
-  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 140, cellClass: 'discovery-col-amount' },
-  { key: 'completionPeriod', label: '준공시기', align: 'center', type: 'text', width: 96 },
-  { key: 'manager', label: '담당자', align: 'center', type: 'text', width: 88 },
-  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 400, minWidth: 400, cellClass: 'discovery-col-note' },
+  { key: 'permitDate', label: '건축정보일자', align: 'center', type: 'date', width: 100, cellClass: 'discovery-col-tight' },
+  { key: 'checkStatus', label: '확인', align: 'center', type: 'text', width: 52, cellClass: 'discovery-col-tight' },
+  {
+    key: 'salesTarget',
+    label: '영업자',
+    align: 'center',
+    type: 'select',
+    options: DISCOVERY_SALES_TARGET_OPTIONS,
+    width: 76,
+    cellClass: 'discovery-col-tight',
+  },
+  {
+    key: 'projectCategory',
+    label: '사업구분',
+    align: 'center',
+    type: 'select',
+    options: DISCOVERY_CATEGORY_OPTIONS,
+    width: 84,
+    cellClass: 'discovery-col-tight',
+  },
+  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 100, cellClass: 'discovery-col-tight' },
+  { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 280, minWidth: 200, cellClass: 'discovery-col-project' },
+  {
+    key: 'projectAmount',
+    label: '사업금액',
+    align: 'right',
+    type: 'amount',
+    width: 126,
+    cellClass: 'discovery-col-amount col-amount',
+  },
+  { key: 'completionPeriod', label: '준공시기', align: 'center', type: 'text', width: 88, cellClass: 'discovery-col-tight' },
+  { key: 'manager', label: '담당자', align: 'center', type: 'text', width: 72, cellClass: 'discovery-col-tight' },
+  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 320, minWidth: 240, cellClass: 'discovery-col-note' },
 ]
 
 const EXCLUDED_CATEGORY_OPTIONS = ['발주계획', '사전규격', '입찰공고', '정보공개']

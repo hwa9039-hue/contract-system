@@ -4548,26 +4548,52 @@ textarea:focus-visible {
 .discovery-registry-table {
   table-layout: fixed;
   width: 100%;
-  min-width: 1400px;
+  min-width: 1158px;
 }
 
 .discovery-registry-table th,
 .discovery-registry-table td {
-  vertical-align: top;
+  vertical-align: middle;
   overflow: visible;
 }
 
-.discovery-registry-table .discovery-col-project {
-  min-width: 250px;
-  width: 250px;
-  white-space: normal;
-  word-break: break-word;
-  overflow-wrap: anywhere;
+.discovery-registry-table .registry-check-header,
+.discovery-registry-table .registry-check-cell {
+  width: 48px;
+  min-width: 48px;
+  max-width: 48px;
+  padding: 0;
+  vertical-align: middle;
+  text-align: center;
 }
 
+.discovery-registry-table .registry-check-cell {
+  display: table-cell;
+}
+
+.discovery-registry-table .registry-check-cell .registry-row-checkbox {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  vertical-align: middle;
+}
+
+.discovery-registry-table .discovery-col-tight {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.discovery-registry-table .discovery-col-tight .cell-display {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  justify-content: center;
+}
+
+.discovery-registry-table .discovery-col-project,
 .discovery-registry-table .discovery-col-note {
-  min-width: 400px;
-  width: 400px;
+  vertical-align: top;
   white-space: normal;
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -4575,25 +4601,32 @@ textarea:focus-visible {
 
 .discovery-registry-table .discovery-col-project .cell-display,
 .discovery-registry-table .discovery-col-note .cell-display {
+  align-items: flex-start;
   white-space: normal;
   word-break: break-word;
   overflow-wrap: anywhere;
   overflow: visible;
   text-overflow: clip;
+  line-height: 1.35;
 }
 
 .discovery-registry-table .discovery-col-amount,
 .discovery-registry-table th.discovery-col-amount {
-  min-width: 140px;
-  width: 140px;
-  padding-left: 16px;
-  padding-right: 16px;
+  width: 126px;
+  min-width: 126px;
+  max-width: 126px;
+}
+
+.discovery-registry-table .discovery-col-amount.th-align-right,
+.discovery-registry-table .discovery-col-amount.td-align-right {
   text-align: right;
-  white-space: nowrap;
 }
 
 .discovery-registry-table .discovery-col-amount .cell-display {
-  padding-right: 4px;
+  min-height: 37px;
+  padding: 8px 12px 8px 7px;
+  justify-content: flex-end;
+  white-space: nowrap;
 }
 
 .registry-table td .cell-display {
