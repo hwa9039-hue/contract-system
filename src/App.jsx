@@ -4,7 +4,11 @@ import './App.css'
 import { contractsApi } from './contractsApi'
 import { documentRegisterApi } from './documentRegisterApi'
 import { excludedProjectsApi } from './excludedProjectsApi'
-import { projectDiscoveryApi } from './projectDiscoveryApi'
+import {
+  DISCOVERY_API_PATHS,
+  DISCOVERY_API_USE_MOCK,
+  projectDiscoveryApi,
+} from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import { installCasesApi, INSTALL_CASES_API_PATH } from './installCasesApi'
@@ -3760,6 +3764,9 @@ function App() {
     try {
       const rows = await projectDiscoveryApi.list()
       const normalizedRows = rows.map((item, index) => normalizeDiscoveryRow(item, index))
+      if (DISCOVERY_API_USE_MOCK && normalizedRows.length === 0) {
+        return []
+      }
       setDiscoveryRows((prev) => {
         const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
         return [...normalizedRows, ...draftRows]
@@ -6350,7 +6357,7 @@ function App() {
         }
       case 'discovery':
         return {
-          importEndpoint: '/api/project-discovery/import',
+          importEndpoint: DISCOVERY_API_PATHS.import,
           columns: DISCOVERY_COLUMNS,
           rows: discoveryRows,
           createDraftRow: createDiscoveryDraftRow,
@@ -6653,13 +6660,19 @@ function App() {
         return
       }
 
-      await config.fetchRows(false)
+      const discoveryMockSave = target === 'discovery' && DISCOVERY_API_USE_MOCK
+      if (!discoveryMockSave) {
+        await config.fetchRows(false)
+      }
       console.log('[excel-upload] 완료', {
         target,
         importedCount: uniquePreparedRows.length,
         duplicateCount,
+        discoveryMockSave,
       })
-      showAppAlert('엑셀 업로드가 완료되었습니다.')
+      showAppAlert(
+        discoveryMockSave ? '서버에 성공적으로 저장되었습니다.' : '엑셀 업로드가 완료되었습니다.'
+      )
     } catch (error) {
       console.error('업로드 중 오류가 발생했습니다.', error)
       showAppAlert(error?.message ?? String(error))
