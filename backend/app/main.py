@@ -87,10 +87,19 @@ def health_check():
             if getattr(route, "path", None) and "install-cases" in route.path
         }
     )
+    discovery_paths = sorted(
+        {
+            getattr(route, "path", "")
+            for route in app.routes
+            if getattr(route, "path", None) and "project-discovery" in route.path
+        }
+    )
     return {
         "status": "ok",
         "installCases": bool(install_paths),
         "installCasesPaths": install_paths,
+        "projectDiscovery": bool(discovery_paths),
+        "projectDiscoveryPaths": discovery_paths,
     }
 
 

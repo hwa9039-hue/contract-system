@@ -3768,10 +3768,7 @@ function App() {
       setSelectedDiscoveryIds([])
       return rows
     } catch (error) {
-      console.error('[건축정보] API fetch failed', error)
-      setDiscoveryRows([])
-      setDiscoveryTableData([])
-      setSelectedDiscoveryIds([])
+      console.warn('[건축정보] API 조회 실패 — 화면 데이터 유지', error)
       return []
     }
   }
@@ -6645,8 +6642,14 @@ function App() {
       } catch (error) {
         console.error('[excel-upload] 업로드 실패', error)
         logApiOperationError('엑셀 업로드 실패', error)
-        await config.fetchRows(false)
-        showAppAlert(error?.message ?? String(error))
+        const preserveParsedDiscoveryTable = target === 'discovery'
+        if (!preserveParsedDiscoveryTable) {
+          await config.fetchRows(false)
+        }
+        const saveFailPrefix = preserveParsedDiscoveryTable
+          ? `서버 저장에 실패했습니다. 파싱된 ${rows.length.toLocaleString('ko-KR')}건은 화면에 그대로 표시됩니다.\n\n`
+          : ''
+        showAppAlert(`${saveFailPrefix}${error?.message ?? String(error)}`)
         return
       }
 
