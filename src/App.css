@@ -4627,14 +4627,6 @@ textarea:focus-visible {
   vertical-align: middle;
 }
 
-.discovery-registry-table .discovery-col-amount .cell-display {
-  min-height: 37px;
-  padding: 8px 24px 8px 7px;
-  justify-content: flex-end;
-  align-items: center;
-  white-space: nowrap;
-}
-
 .registry-table td .cell-display {
   width: 100%;
   overflow-wrap: anywhere;
