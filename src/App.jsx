@@ -12,7 +12,7 @@ import {
 } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
-import { installCasesApi, INSTALL_CASES_API_PATH } from './installCasesApi'
+import { installCasesApi } from './installCasesApi'
 import { createLocalInstallCaseId } from './installCaseLocal.js'
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { useAuth } from './AuthContext.jsx'
@@ -3911,16 +3911,10 @@ function App() {
   }
 
   const fetchInstallCases = async () => {
-    try {
-      console.log('[install-cases] fetch list', INSTALL_CASES_API_PATH)
-      const rows = await installCasesApi.list()
-      setInstallCases(rows.map(normalizeInstallCaseRow))
-      return rows
-    } catch (error) {
-      console.error('[설치사례] API fetch failed', error)
-      setInstallCases([])
-      return []
-    }
+    const rows = await installCasesApi.list()
+    const normalized = Array.isArray(rows) ? rows.map(normalizeInstallCaseRow) : []
+    setInstallCases(normalized)
+    return normalized
   }
 
   useEffect(() => {
@@ -11176,7 +11170,14 @@ function App() {
             </div>
 
             {filteredInstallCases.length === 0 && (
-              <div className="install-cases-empty">조건에 맞는 설치사례가 없습니다.</div>
+              <div className="install-cases-empty">
+                {installCases.length === 0 &&
+                !installCaseEnvFilter &&
+                !installCaseMiddleFilter &&
+                !installCaseAudienceFilter
+                  ? '조회된 설치사례가 없습니다.'
+                  : '조건에 맞는 설치사례가 없습니다.'}
+              </div>
             )}
           </section>
         )}

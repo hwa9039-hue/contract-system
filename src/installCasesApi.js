@@ -23,18 +23,13 @@ async function requestJson(path, options = {}) {
     }))
   } catch (err) {
     throw new Error(
-      `서버에 연결할 수 없습니다. (${installCasesUrl(options.method === 'POST' && !path.includes('/') ? '' : path || '')}) ${err?.message || err}`
+      `서버에 연결할 수 없습니다. (${installCasesUrl()}) ${err?.message || err}`
     )
   }
 
   if (!response.ok) {
     const detail = await readApiErrorMessage(response)
-    const err = new Error(
-      response.status === 404 && String(path).startsWith(INSTALL_CASES_API_PATH)
-        ? `설치사례 API(${path})를 찾을 수 없습니다 (404).\n요청 URL: ${url}\n` +
-          `백엔드를 최신 코드로 재시작한 뒤 GET /api/health 에서 installCases: true 인지 확인하세요.\n\n${detail}`
-        : detail
-    )
+    const err = new Error(detail)
     err.status = response.status
     err.url = url
     throw err
@@ -45,26 +40,50 @@ async function requestJson(path, options = {}) {
 }
 
 export const installCasesApi = {
-  list() {
-    console.log('[install-cases] GET', installCasesUrl())
-    return requestJson(INSTALL_CASES_API_PATH)
+  /** GET 목록 — 라우트 미배포(404) 등이면 빈 배열, 콘솔 에러 없음 */
+  async list() {
+    const url = installCasesUrl()
+    try {
+      const response = await fetch(
+        url,
+        apiFetchInit({
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
+        })
+      )
+
+      if (response.status === 404) {
+        return []
+      }
+
+      if (!response.ok) {
+        return []
+      }
+
+      const data = await response.json()
+      return Array.isArray(data) ? data : []
+    } catch {
+      return []
+    }
   },
+
   create(payload) {
-    console.log('[install-cases] POST', installCasesUrl())
     return requestJson(INSTALL_CASES_API_PATH, {
       method: 'POST',
       body: JSON.stringify(payload),
     })
   },
+
   update(id, patch) {
-    console.log('[install-cases] PATCH', installCasesUrl(`/${id}`))
     return requestJson(`${INSTALL_CASES_API_PATH}/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: JSON.stringify(patch),
     })
   },
+
   remove(id) {
-    console.log('[install-cases] DELETE', installCasesUrl(`/${id}`))
     return requestJson(`${INSTALL_CASES_API_PATH}/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     })
