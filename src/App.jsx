@@ -144,8 +144,8 @@ const DISCOVERY_COLUMNS = [
     label: '사업명',
     align: 'left',
     type: 'text',
-    widthClass: 'discovery-w-p20',
-    cellClass: 'discovery-col-project discovery-w-p20',
+    widthClass: 'discovery-w-p12',
+    cellClass: 'discovery-col-project discovery-w-p12',
   },
   {
     key: 'projectAmount',
@@ -168,8 +168,8 @@ const DISCOVERY_COLUMNS = [
     label: '담당자',
     align: 'center',
     type: 'text',
-    widthClass: 'discovery-w-24',
-    cellClass: 'discovery-col-tight discovery-w-24',
+    widthClass: 'discovery-w-48',
+    cellClass: 'discovery-col-manager discovery-w-48',
   },
   {
     key: 'note',

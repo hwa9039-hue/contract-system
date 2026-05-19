@@ -4553,13 +4553,28 @@ textarea:focus-visible {
   max-width: 100%;
 }
 
-.discovery-registry-table.excel-table th,
-.discovery-registry-table.excel-table td {
+.discovery-registry-table.excel-table thead th,
+.discovery-registry-table.excel-table tbody tr:not(.contract-year-row) > td {
   padding: 12px;
   height: auto;
   vertical-align: middle;
   overflow: hidden;
   box-sizing: border-box;
+}
+
+/* 연도 그룹 헤더: 계약현황과 동일하게 날씬하게 (데이터 행 py-3 덮어쓰기) */
+.discovery-registry-table .contract-year-row td {
+  padding: 8px 12px;
+  height: 42px;
+  max-height: 42px;
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
+.discovery-registry-table .contract-year-row .contract-year-toggle {
+  height: 42px;
+  min-height: 42px;
+  padding: 0 14px;
 }
 
 .discovery-registry-table .cell-display {
@@ -4639,6 +4654,21 @@ textarea:focus-visible {
 
 .discovery-registry-table .discovery-col-amount .cell-display {
   justify-content: flex-end;
+}
+
+.discovery-registry-table .discovery-col-manager {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.discovery-registry-table .discovery-col-manager .cell-display {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.35;
 }
 
 .discovery-registry-table .discovery-col-project,
