@@ -10681,11 +10681,13 @@ function App() {
                         <th
                           key={column.key}
                           className={`${
-                            column.align === 'right'
-                              ? 'th-align-right'
-                              : column.align === 'left'
-                              ? 'th-align-left'
-                              : 'th-align-center'
+                            column.key === 'projectAmount'
+                              ? 'th-align-center'
+                              : column.align === 'right'
+                                ? 'th-align-right'
+                                : column.align === 'left'
+                                  ? 'th-align-left'
+                                  : 'th-align-center'
                           } ${column.cellClass || ''}`}
                           style={{
                             width: column.width,

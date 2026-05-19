@@ -4593,15 +4593,16 @@ textarea:focus-visible {
 
 .discovery-registry-table .discovery-col-project,
 .discovery-registry-table .discovery-col-note {
-  vertical-align: top;
+  vertical-align: middle;
   white-space: normal;
   word-break: break-word;
   overflow-wrap: anywhere;
 }
 
 .discovery-registry-table .discovery-col-project .cell-display,
-.discovery-registry-table .discovery-col-note .cell-display {
-  align-items: flex-start;
+.discovery-registry-table .discovery-col-note .cell-display,
+.discovery-registry-table .discovery-col-note.multiline-cell .cell-display {
+  align-items: center;
   white-space: normal;
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -4617,15 +4618,20 @@ textarea:focus-visible {
   max-width: 126px;
 }
 
-.discovery-registry-table .discovery-col-amount.th-align-right,
-.discovery-registry-table .discovery-col-amount.td-align-right {
+.discovery-registry-table thead th.discovery-col-amount {
+  text-align: center;
+}
+
+.discovery-registry-table td.discovery-col-amount {
   text-align: right;
+  vertical-align: middle;
 }
 
 .discovery-registry-table .discovery-col-amount .cell-display {
   min-height: 37px;
-  padding: 8px 12px 8px 7px;
+  padding: 8px 24px 8px 7px;
   justify-content: flex-end;
+  align-items: center;
   white-space: nowrap;
 }
 
