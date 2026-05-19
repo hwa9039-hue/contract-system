@@ -947,14 +947,16 @@ function persistExpandedMenuGroups(groups) {
   }
 }
 
-/** 게시판 — 문서 업로드 허용 확장자 */
-const MATERIALS_BOARD_FILE_ACCEPT =
-  '.pdf,.xls,.xlsx,.hwp,.doc,.docx,.zip,.ppt,.pptx,.txt,.csv,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/haansofthwp,application/x-hwp,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/zip'
-
 function compareMaterialsBoardPosts(a, b) {
-  const dateCmp = safeString(a.registeredAt).localeCompare(safeString(b.registeredAt))
+  const dateCmp = safeString(b.registeredAt).localeCompare(safeString(a.registeredAt))
   if (dateCmp !== 0) return dateCmp
-  return safeString(a.id).localeCompare(safeString(b.id))
+  return safeString(b.id).localeCompare(safeString(a.id))
+}
+
+const MATERIALS_BOARD_MOCK_SAVE_MS = 1000
+
+function formatMaterialsBoardRegisteredAt(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 const MATERIALS_BOARD_SEED = [
@@ -962,35 +964,35 @@ const MATERIALS_BOARD_SEED = [
     id: 'mb-5',
     title: '2025년 LED 전광판 견적 가이드',
     content: 'LED 전광판 견적 산출 시 참고할 수 있는 가이드 문서입니다.',
-    fileName: 'LED_견적_가이드_2025.pdf',
+    files: [{ name: 'LED_견적_가이드_2025.pdf', size: 2457600 }],
     registeredAt: '2025-05-12',
   },
   {
     id: 'mb-4',
     title: '실내용 모듈 규격 비교표',
     content: '실내용 모듈 주요 제품군별 크기·Pitch 비교표입니다.',
-    fileName: '실내_모듈_규격비교.xlsx',
+    files: [{ name: '실내_모듈_규격비교.xlsx', size: 512000 }],
     registeredAt: '2025-05-08',
   },
   {
     id: 'mb-3',
     title: '현장 시공 체크리스트 (양식)',
     content: '현장 시공 전·중·후 점검 항목을 정리한 체크리스트 양식입니다.',
-    fileName: '시공_체크리스트_v3.hwp',
+    files: [{ name: '시공_체크리스트_v3.hwp', size: 89000 }],
     registeredAt: '2025-04-22',
   },
   {
     id: 'mb-2',
     title: '유지보수 계약서 샘플',
     content: '유지보수 계약 시 사용할 수 있는 표준 계약서 샘플입니다.',
-    fileName: '유지보수_계약서_샘플.docx',
+    files: [{ name: '유지보수_계약서_샘플.docx', size: 156000 }],
     registeredAt: '2025-04-10',
   },
   {
     id: 'mb-1',
     title: '프로젝트 도면·시방서 압축본',
     content: '프로젝트 관련 도면 및 시방서 파일 압축본입니다.',
-    fileName: 'OO시청_도면패키지.zip',
+    files: [{ name: 'OO시청_도면패키지.zip', size: 12582912 }],
     registeredAt: '2025-03-28',
   },
 ]
@@ -999,36 +1001,102 @@ function getDefaultMaterialsBoardForm() {
   return { title: '', content: '' }
 }
 
-function isMaterialsBoardFileAllowed(file) {
-  if (!file) return false
-  const name = safeString(file.name).toLowerCase()
-  const allowed = ['.pdf', '.xls', '.xlsx', '.hwp', '.doc', '.docx', '.zip', '.ppt', '.pptx', '.txt', '.csv']
-  return allowed.some((ext) => name.endsWith(ext))
+function formatMaterialsBoardFileSize(bytes) {
+  const n = Number(bytes)
+  if (!Number.isFinite(n) || n < 0) return '0 B'
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function revokeMaterialsBoardDownloadUrl(row) {
-  const url = safeString(row?.downloadUrl).trim()
-  if (url) URL.revokeObjectURL(url)
+function normalizeMaterialsBoardPost(row) {
+  const files = Array.isArray(row?.files)
+    ? row.files
+        .map((f) => ({
+          name: safeString(f?.name).trim(),
+          size: Number(f?.size) || 0,
+        }))
+        .filter((f) => f.name)
+    : safeString(row?.fileName).trim()
+      ? [{ name: safeString(row.fileName).trim(), size: 0 }]
+      : []
+  const downloadUrls = Array.isArray(row?.downloadUrls)
+    ? row.downloadUrls
+    : safeString(row?.downloadUrl).trim()
+      ? [{ name: files[0]?.name || 'download', url: row.downloadUrl }]
+      : []
+  return {
+    id: safeString(row?.id).trim() || `mb-${Date.now()}`,
+    title: safeString(row?.title).trim(),
+    content: safeString(row?.content).trim(),
+    files,
+    fileName: files.map((f) => f.name).join(', '),
+    downloadUrls,
+    registeredAt: safeString(row?.registeredAt).trim() || formatMaterialsBoardRegisteredAt(),
+  }
 }
 
-function MaterialBoardFileDropzone({ inputId, fileName, onFile, onClear }) {
+function createMaterialsBoardPendingFileEntry(file) {
+  return {
+    id: `mbf-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    file,
+  }
+}
+
+function filesMetaFromPendingEntries(entries) {
+  return (entries || [])
+    .map((entry) => ({
+      name: safeString(entry?.file?.name).trim(),
+      size: Number(entry?.file?.size) || 0,
+    }))
+    .filter((f) => f.name)
+}
+
+function buildMaterialsBoardDownloadUrls(entries) {
+  return (entries || [])
+    .map((entry) => {
+      const name = safeString(entry?.file?.name).trim()
+      if (!name || !entry?.file) return null
+      return { name, url: URL.createObjectURL(entry.file) }
+    })
+    .filter(Boolean)
+}
+
+function revokeMaterialsBoardPostUrls(row) {
+  const urls = Array.isArray(row?.downloadUrls) ? row.downloadUrls : []
+  urls.forEach((item) => {
+    const url = safeString(item?.url).trim()
+    if (url) URL.revokeObjectURL(url)
+  })
+  const legacy = safeString(row?.downloadUrl).trim()
+  if (legacy) URL.revokeObjectURL(legacy)
+}
+
+function getMaterialsBoardAttachSummary(row) {
+  const files = Array.isArray(row?.files) ? row.files : []
+  if (files.length === 0) return null
+  return {
+    count: files.length,
+    title: files.map((f) => f.name).join(', '),
+  }
+}
+
+function MaterialBoardMultiFileDropzone({ inputId, pendingFiles, onAddFiles, onRemoveFile }) {
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef(null)
 
-  const assignFile = (fileList) => {
-    const nextFile = fileList?.[0]
-    if (!nextFile) return
-    if (!isMaterialsBoardFileAllowed(nextFile)) {
-      window.alert('PDF, Excel, HWP, Word, ZIP 등 지원 형식의 파일만 업로드할 수 있습니다.')
-      return
-    }
-    onFile(nextFile)
+  const addFromList = (fileList) => {
+    if (!fileList?.length) return
+    const entries = Array.from(fileList).map((file) => createMaterialsBoardPendingFileEntry(file))
+    onAddFiles(entries)
   }
 
   return (
-    <div className="install-case-dropzone-wrap">
+    <div className="materials-board-multi-upload">
       <div
-        className={`install-case-dropzone${dragOver ? ' install-case-dropzone--active' : ''}`}
+        className={`install-case-dropzone materials-board-multi-dropzone${
+          dragOver ? ' install-case-dropzone--active' : ''
+        }`}
         role="button"
         tabIndex={0}
         onClick={() => inputRef.current?.click()}
@@ -1057,7 +1125,7 @@ function MaterialBoardFileDropzone({ inputId, fileName, onFile, onClear }) {
           e.preventDefault()
           e.stopPropagation()
           setDragOver(false)
-          assignFile(e.dataTransfer?.files)
+          addFromList(e.dataTransfer?.files)
         }}
       >
         <input
@@ -1065,39 +1133,45 @@ function MaterialBoardFileDropzone({ inputId, fileName, onFile, onClear }) {
           id={inputId}
           className="install-case-dropzone-input"
           type="file"
-          accept={MATERIALS_BOARD_FILE_ACCEPT}
-          aria-label="첨부 파일 업로드"
+          multiple
+          aria-label="첨부 파일 다중 선택"
           onChange={(e) => {
-            assignFile(e.target.files)
+            addFromList(e.target.files)
             e.target.value = ''
           }}
         />
-        {safeString(fileName).trim() ? (
-          <div className="install-case-dropzone-placeholder">
-            <span className="install-case-dropzone-icon" aria-hidden>
-              📎
-            </span>
-            <span className="install-case-dropzone-filename">{fileName}</span>
-            <button
-              type="button"
-              className="install-case-dropzone-clear materials-board-dropzone-clear-inline"
-              onClick={(e) => {
-                e.stopPropagation()
-                onClear()
-              }}
-            >
-              제거
-            </button>
-          </div>
-        ) : (
-          <div className="install-case-dropzone-placeholder">
-            <span className="install-case-dropzone-icon" aria-hidden>
-              ⬆
-            </span>
-            <span className="install-case-dropzone-hint">클릭하거나 파일을 드래그하여 업로드하세요</span>
-          </div>
-        )}
+        <div className="install-case-dropzone-placeholder">
+          <span className="install-case-dropzone-icon" aria-hidden>
+            ⬆
+          </span>
+          <span className="install-case-dropzone-hint">
+            클릭하거나 파일을 드래그하여 추가하세요 (개수 제한 없음, 모든 형식)
+          </span>
+        </div>
       </div>
+
+      {pendingFiles.length > 0 && (
+        <ul className="materials-board-file-list" aria-label="선택된 첨부 파일">
+          {pendingFiles.map((entry) => (
+            <li key={entry.id} className="materials-board-file-list-item">
+              <span className="materials-board-file-list-name" title={entry.file.name}>
+                📎 {entry.file.name}
+              </span>
+              <span className="materials-board-file-list-size">
+                {formatMaterialsBoardFileSize(entry.file.size)}
+              </span>
+              <button
+                type="button"
+                className="materials-board-file-list-remove"
+                aria-label={`${entry.file.name} 제거`}
+                onClick={() => onRemoveFile(entry.id)}
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -3596,15 +3670,15 @@ function App() {
   const installCaseFormDraftRef = useRef(installCaseFormDraft)
   const icImagePreviewRef = useRef(icImagePreview)
   const [materialsBoardPosts, setMaterialsBoardPosts] = useState(() =>
-    MATERIALS_BOARD_SEED.map((row) => ({ ...row }))
+    MATERIALS_BOARD_SEED.map((row) => normalizeMaterialsBoardPost(row))
   )
   const [materialsBoardRegisterOpen, setMaterialsBoardRegisterOpen] = useState(false)
   const [materialsBoardFormDraft, setMaterialsBoardFormDraft] = useState(() =>
     getDefaultMaterialsBoardForm()
   )
-  const [materialsBoardFile, setMaterialsBoardFile] = useState(null)
+  const [materialsBoardPendingFiles, setMaterialsBoardPendingFiles] = useState([])
   const [materialsBoardEditingId, setMaterialsBoardEditingId] = useState(null)
-  const [materialsBoardSavedFileName, setMaterialsBoardSavedFileName] = useState('')
+  const [materialsBoardSubmitting, setMaterialsBoardSubmitting] = useState(false)
   const [materialsBoardSearch, setMaterialsBoardSearch] = useState('')
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
@@ -3686,8 +3760,13 @@ function App() {
   const [registryCellEditDraft, setRegistryCellEditDraft] = useState('')
   /** 계약 삭제: payloadIds + single | 일반: alert / onConfirm + destructive + confirmLabel */
   const [contractConfirmDialog, setContractConfirmDialog] = useState(null)
-  const showAppAlert = useCallback((message, title = '알림') => {
-    setContractConfirmDialog({ title, message, alert: true })
+  const showAppAlert = useCallback((message, title = '알림', onClose) => {
+    setContractConfirmDialog({
+      title,
+      message,
+      alert: true,
+      ...(typeof onClose === 'function' ? { onConfirm: onClose } : {}),
+    })
   }, [])
   const [calendarCursor, setCalendarCursor] = useState(() => {
     const now = new Date()
@@ -4435,20 +4514,27 @@ function App() {
     return rows.filter((row) => {
       const title = safeString(row.title).toLowerCase()
       const content = safeString(row.content).toLowerCase()
-      return title.includes(query) || content.includes(query)
+      const fileNames = (Array.isArray(row.files) ? row.files : [])
+        .map((f) => safeString(f?.name).toLowerCase())
+        .join(' ')
+      return (
+        title.includes(query) || content.includes(query) || fileNames.includes(query)
+      )
     })
   }, [materialsBoardPosts, materialsBoardSearch])
 
   const handleDownloadMaterialsBoardFile = useCallback(
     (row) => {
-      const fileName = safeString(row?.fileName).trim()
+      const urls = Array.isArray(row?.downloadUrls) ? row.downloadUrls : []
+      const first = urls[0]
+      const fileName = safeString(first?.name || row?.files?.[0]?.name || row?.fileName).trim()
+      const downloadUrl = safeString(first?.url || row?.downloadUrl).trim()
       if (!fileName) {
         showAppAlert('첨부 파일이 없습니다.', '알림')
         return
       }
-      const downloadUrl = safeString(row?.downloadUrl).trim()
       if (!downloadUrl) {
-        showAppAlert('다운로드할 수 있는 파일이 없습니다.', '알림')
+        showAppAlert('다운로드할 수 있는 파일이 없습니다. (새로 등록한 글은 새로고침 전까지 다운로드 가능)', '알림')
         return
       }
       const link = document.createElement('a')
@@ -4466,8 +4552,7 @@ function App() {
     if (!isAdmin) return
     setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
-    setMaterialsBoardFile(null)
-    setMaterialsBoardSavedFileName('')
+    setMaterialsBoardPendingFiles([])
     setMaterialsBoardRegisterOpen(true)
   }, [isAdmin])
 
@@ -4478,8 +4563,7 @@ function App() {
       title: safeString(row.title).trim(),
       content: safeString(row.content).trim(),
     })
-    setMaterialsBoardFile(null)
-    setMaterialsBoardSavedFileName(safeString(row.fileName).trim())
+    setMaterialsBoardPendingFiles([])
     setMaterialsBoardRegisterOpen(true)
   }, [isAdmin])
 
@@ -4487,8 +4571,8 @@ function App() {
     setMaterialsBoardRegisterOpen(false)
     setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
-    setMaterialsBoardFile(null)
-    setMaterialsBoardSavedFileName('')
+    setMaterialsBoardPendingFiles([])
+    setMaterialsBoardSubmitting(false)
   }, [])
 
   const handleDeleteMaterialsBoardPost = useCallback((row, e) => {
@@ -4500,69 +4584,76 @@ function App() {
       destructive: true,
       confirmLabel: '삭제',
       onConfirm: () => {
-        revokeMaterialsBoardDownloadUrl(row)
+        revokeMaterialsBoardPostUrls(row)
         setMaterialsBoardPosts((prev) => prev.filter((p) => p.id !== row.id))
         setToastMessage('삭제되었습니다.')
       },
     })
   }, [isAdmin])
 
-  const handleSaveMaterialsBoardRegister = useCallback(() => {
-    if (!isAdmin) return
+  const handleSaveMaterialsBoardRegister = useCallback(async () => {
+    if (!isAdmin || materialsBoardSubmitting) return
     const title = safeString(materialsBoardFormDraft.title).trim()
     if (!title) {
       showAppAlert('제목을 입력해 주세요.', '알림')
       return
     }
     const content = safeString(materialsBoardFormDraft.content).trim()
-    const fileName =
-      materialsBoardFile?.name || safeString(materialsBoardSavedFileName).trim()
+    const editingId = materialsBoardEditingId
 
-    if (materialsBoardEditingId) {
-      setMaterialsBoardPosts((prev) =>
-        prev.map((p) => {
-          if (p.id !== materialsBoardEditingId) return p
-          let downloadUrl = safeString(p.downloadUrl).trim()
-          if (materialsBoardFile) {
-            revokeMaterialsBoardDownloadUrl(p)
-            downloadUrl = URL.createObjectURL(materialsBoardFile)
-          } else if (!fileName) {
-            revokeMaterialsBoardDownloadUrl(p)
-            downloadUrl = ''
-          }
-          return { ...p, title, content, fileName, downloadUrl }
+    setMaterialsBoardSubmitting(true)
+    try {
+      await new Promise((resolve) => setTimeout(resolve, MATERIALS_BOARD_MOCK_SAVE_MS))
+
+      const files = filesMetaFromPendingEntries(materialsBoardPendingFiles)
+      const downloadUrls = buildMaterialsBoardDownloadUrls(materialsBoardPendingFiles)
+
+      if (editingId) {
+        showAppAlert('게시글이 성공적으로 수정되었습니다.', '알림', () => {
+          setMaterialsBoardPosts((prev) =>
+            prev.map((p) => {
+              if (p.id !== editingId) return p
+              revokeMaterialsBoardPostUrls(p)
+              return normalizeMaterialsBoardPost({
+                ...p,
+                id: editingId,
+                title,
+                content,
+                files: files.length ? files : p.files,
+                downloadUrls: downloadUrls.length ? downloadUrls : p.downloadUrls,
+                registeredAt: p.registeredAt,
+              })
+            })
+          )
+          handleCloseMaterialsBoardRegister()
         })
-      )
-      setToastMessage('수정되었습니다.')
-    } else {
-      const now = new Date()
-      const registeredAt = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-      const downloadUrl = materialsBoardFile ? URL.createObjectURL(materialsBoardFile) : ''
-      setMaterialsBoardPosts((prev) => [
-        ...prev,
-        {
+      } else {
+        const newPost = normalizeMaterialsBoardPost({
           id: `mb-${Date.now()}`,
           title,
           content,
-          fileName,
-          downloadUrl,
-          registeredAt,
-        },
-      ])
-      setToastMessage('등록되었습니다.')
+          files,
+          downloadUrls,
+          registeredAt: formatMaterialsBoardRegisteredAt(),
+        })
+        showAppAlert('게시글이 성공적으로 등록되었습니다.', '알림', () => {
+          setMaterialsBoardPosts((prev) => [newPost, ...prev])
+          handleCloseMaterialsBoardRegister()
+        })
+      }
+    } catch (error) {
+      showAppAlert(error?.message || '저장에 실패했습니다.', '알림')
+    } finally {
+      setMaterialsBoardSubmitting(false)
     }
-    setMaterialsBoardRegisterOpen(false)
-    setMaterialsBoardEditingId(null)
-    setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
-    setMaterialsBoardFile(null)
-    setMaterialsBoardSavedFileName('')
   }, [
     materialsBoardEditingId,
     materialsBoardFormDraft,
-    materialsBoardFile,
-    materialsBoardPosts,
-    materialsBoardSavedFileName,
+    materialsBoardPendingFiles,
+    materialsBoardSubmitting,
+    handleCloseMaterialsBoardRegister,
     isAdmin,
+    showAppAlert,
   ])
 
   const handleInstallCasePairDigitChange = useCallback((pairId, axis) => (e) => {
@@ -11260,19 +11351,30 @@ function App() {
                           {row.title}
                         </td>
                         <td className="materials-board-td materials-board-td--attach">
-                          {row.fileName ? (
-                            <span
-                              className="materials-board-attach"
-                              title={row.fileName}
-                              aria-label={`첨부: ${row.fileName}`}
-                            >
-                              <span className="materials-board-attach-icon" aria-hidden>
-                                📎
+                          {(() => {
+                            const attach = getMaterialsBoardAttachSummary(row)
+                            if (!attach) {
+                              return (
+                                <span className="materials-board-attach materials-board-attach--empty">
+                                  —
+                                </span>
+                              )
+                            }
+                            return (
+                              <span
+                                className="materials-board-attach"
+                                title={attach.title}
+                                aria-label={`첨부 ${attach.count}개: ${attach.title}`}
+                              >
+                                <span className="materials-board-attach-icon" aria-hidden>
+                                  📎
+                                </span>
+                                {attach.count > 1 ? (
+                                  <span className="materials-board-attach-count">{attach.count}</span>
+                                ) : null}
                               </span>
-                            </span>
-                          ) : (
-                            <span className="materials-board-attach materials-board-attach--empty">—</span>
-                          )}
+                            )
+                          })()}
                         </td>
                         <td className="materials-board-td materials-board-td--date">
                           <div className="materials-board-date-cell">
@@ -12069,20 +12171,39 @@ function App() {
                 onChange={(e) => setMaterialsBoardFormDraft((prev) => ({ ...prev, content: e.target.value }))}
                 placeholder="설명을 입력하세요 (선택)"
               />
-              <label className="install-case-form-label">첨부 파일</label>
-              <MaterialBoardFileDropzone
+              <label className="install-case-form-label">첨부 파일 (다중 선택)</label>
+              <MaterialBoardMultiFileDropzone
                 inputId="materials-board-file-input"
-                fileName={materialsBoardFile?.name || materialsBoardSavedFileName}
-                onFile={setMaterialsBoardFile}
-                onClear={() => {
-                  setMaterialsBoardFile(null)
-                  setMaterialsBoardSavedFileName('')
-                }}
+                pendingFiles={materialsBoardPendingFiles}
+                onAddFiles={(entries) =>
+                  setMaterialsBoardPendingFiles((prev) => [...prev, ...entries])
+                }
+                onRemoveFile={(fileId) =>
+                  setMaterialsBoardPendingFiles((prev) => prev.filter((e) => e.id !== fileId))
+                }
               />
               <div className="install-case-form-actions">
-                <button type="button" className="secondary-btn" onClick={handleCloseMaterialsBoardRegister}>취소</button>
-                <button type="button" className="primary-btn" onClick={handleSaveMaterialsBoardRegister}>
-                  {materialsBoardEditingId ? '저장' : '등록'}
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={handleCloseMaterialsBoardRegister}
+                  disabled={materialsBoardSubmitting}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={() => void handleSaveMaterialsBoardRegister()}
+                  disabled={materialsBoardSubmitting}
+                >
+                  {materialsBoardSubmitting
+                    ? materialsBoardEditingId
+                      ? '저장 중...'
+                      : '등록 중...'
+                    : materialsBoardEditingId
+                      ? '저장'
+                      : '등록'}
                 </button>
               </div>
             </div>
