@@ -3597,7 +3597,6 @@ function App() {
   })
   const [toastMessage, setToastMessage] = useState('')
   const [registryUploadTarget, setRegistryUploadTarget] = useState('')
-  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
 
   const fileInputRef = useRef(null)
   const registryUploadInputRef = useRef(null)
@@ -6671,11 +6670,7 @@ function App() {
         duplicateCount,
         discoveryMockSave,
       })
-      if (target === 'discovery') {
-        setIsSuccessModalOpen(true)
-      } else {
-        showAppAlert('엑셀 업로드가 완료되었습니다.')
-      }
+      showAppAlert('엑셀 업로드가 완료되었습니다.', '알림')
     } catch (error) {
       console.error('업로드 중 오류가 발생했습니다.', error)
       showAppAlert(error?.message ?? String(error))
@@ -12300,30 +12295,6 @@ function App() {
         </div>
           )
         })()}
-
-      {isSuccessModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-2xl p-8 flex flex-col items-center shadow-xl w-80">
-            <div className="w-16 h-16 rounded-full bg-teal-50 border-4 border-teal-100 flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-
-            <h2 className="text-xl font-bold text-gray-900 mb-2">저장 완료</h2>
-
-            <p className="text-sm text-gray-500 text-center mb-6">건축정보 데이터가 저장되었습니다.</p>
-
-            <button
-              type="button"
-              onClick={() => setIsSuccessModalOpen(false)}
-              className="w-full py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
-              확인
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
