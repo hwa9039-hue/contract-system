@@ -167,52 +167,52 @@ export function WorkReportMeetingMinutesSection({
 
   return (
     <section className="work-report-meeting-minutes-section" onBlur={onBlur}>
-      <h3 className="work-report-meeting-minutes-title">회의록</h3>
-
-      <table className="meeting-minutes-agenda-table">
-        <thead>
-          <tr>
-            <th className="meeting-minutes-col-index">#</th>
-            <th>회의록</th>
-            <th className="meeting-minutes-col-assignee">담당자</th>
-            <th className="meeting-minutes-col-due">업무기한</th>
-          </tr>
-        </thead>
-        <tbody>
-          {agendaRows.map((row, index) => (
-            <tr key={`meeting-agenda-${index + 1}`} className="meeting-minutes-agenda-row">
-              <td className="meeting-minutes-col-index">{index + 1}</td>
-              <td>
-                <textarea
-                  className="meeting-minutes-cell-textarea work-report-report-field"
-                  rows={2}
-                  value={row.content}
-                  placeholder="회의 내용"
-                  onChange={(e) => patchAgendaRow(index, { content: e.target.value })}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  className="meeting-minutes-cell-input work-report-report-field"
-                  value={row.assignee}
-                  placeholder="담당자"
-                  onChange={(e) => patchAgendaRow(index, { assignee: e.target.value })}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  className="meeting-minutes-cell-input work-report-report-field"
-                  value={row.dueDate}
-                  placeholder="업무기한"
-                  onChange={(e) => patchAgendaRow(index, { dueDate: e.target.value })}
-                />
-              </td>
+      <div className="meeting-minutes-table-scroll">
+        <table className="meeting-minutes-agenda-table">
+          <thead>
+            <tr>
+              <th className="meeting-minutes-col-index">#</th>
+              <th>회의록</th>
+              <th className="meeting-minutes-col-assignee">담당자</th>
+              <th className="meeting-minutes-col-due">업무기한</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {agendaRows.map((row, index) => (
+              <tr key={`meeting-agenda-${index + 1}`} className="meeting-minutes-agenda-row">
+                <td className="meeting-minutes-col-index">{index + 1}</td>
+                <td>
+                  <textarea
+                    className="meeting-minutes-cell-textarea work-report-report-field"
+                    rows={2}
+                    value={row.content}
+                    placeholder="회의 내용"
+                    onChange={(e) => patchAgendaRow(index, { content: e.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    className="meeting-minutes-cell-input work-report-report-field"
+                    value={row.assignee}
+                    placeholder="담당자"
+                    onChange={(e) => patchAgendaRow(index, { assignee: e.target.value })}
+                  />
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    className="meeting-minutes-cell-input work-report-report-field"
+                    value={row.dueDate}
+                    placeholder="업무기한"
+                    onChange={(e) => patchAgendaRow(index, { dueDate: e.target.value })}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   )
 }

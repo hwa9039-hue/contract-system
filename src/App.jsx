@@ -781,7 +781,7 @@ function calendarMonthListEventPassesCategoryFilter(item, selectedCategory) {
 const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
 const PAGE_TITLE_MAP = {
   dashboard: '대시보드',
-  workReports: '주간업무보고서',
+  workReports: '주간업무보고서 & 회의록',
   contracts: '계약현황',
   calendar: '캘린더',
   sales: '영업관리대장',
@@ -802,7 +802,7 @@ const SIDEBAR_MENU_GROUPS = [
     id: 'work',
     label: '업무관리',
     items: [
-      { key: 'workReports', label: '주간업무보고서' },
+      { key: 'workReports', label: '주간업무보고서 & 회의록' },
       { key: 'calendar', label: '캘린더' },
     ],
   },
@@ -9938,7 +9938,8 @@ function App() {
         )}
 
         {menu === 'workReports' && (
-          <section className="stat-card">
+          <section className="stat-card stat-card--work-reports">
+            <h2 className="work-report-page-section-title">주간업무보고서</h2>
             <div className="contracts-header-actions work-report-toolbar">
               <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
                 이전 주
@@ -9982,24 +9983,29 @@ function App() {
               </div>
             </div>
 
-            <div className="work-report-week-grid">
-              {selectedWorkWeekDays.map((day) => renderWorkReportDayBoardV5(day))}
+            <div className="work-report-week-board-area">
+              <div className="work-report-week-grid">
+                {selectedWorkWeekDays.map((day) => renderWorkReportDayBoardV5(day))}
+              </div>
             </div>
 
             {isSavingWorkReports && (
               <div className="work-report-saving-indicator">업무보고 내용을 저장하고 있습니다.</div>
             )}
 
-            <WorkReportMeetingMinutesSection
-              weekStartDate={selectedWorkWeekMeta.weekStartDate}
-              getEntry={getWorkReportBoardEntry}
-              updateEntry={updateWorkReportBoardEntry}
-              onBlur={handleWorkReportBoardBlur(
-                selectedWorkWeekMeta.weekStartDate,
-                WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                1
-              )}
-            />
+            <div className="work-report-meeting-minutes-block">
+              <h2 className="work-report-page-section-title">회의록</h2>
+              <WorkReportMeetingMinutesSection
+                weekStartDate={selectedWorkWeekMeta.weekStartDate}
+                getEntry={getWorkReportBoardEntry}
+                updateEntry={updateWorkReportBoardEntry}
+                onBlur={handleWorkReportBoardBlur(
+                  selectedWorkWeekMeta.weekStartDate,
+                  WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                  1
+                )}
+              />
+            </div>
           </section>
         )}
 
