@@ -4545,6 +4545,32 @@ textarea:focus-visible {
   min-width: 44px;
 }
 
+.discovery-registry-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.discovery-registry-table th,
+.discovery-registry-table td {
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.discovery-registry-table .discovery-col-project,
+.discovery-registry-table .discovery-col-note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 0;
+}
+
+.discovery-registry-table .discovery-col-note {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
 .registry-table td .cell-display {
   width: 100%;
   overflow-wrap: anywhere;

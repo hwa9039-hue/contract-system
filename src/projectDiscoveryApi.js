@@ -3,7 +3,6 @@ import { readApiErrorMessage } from './apiErrors.js'
 
 /**
  * 백엔드 라우터(backend/app/routers/project_discovery.py) 기준 경로.
- * architecture / building 등 다른 이름의 API는 이 프로젝트·운영 서버에 없음.
  */
 export const DISCOVERY_API_PATHS = {
   list: '/api/project-discovery',
@@ -11,21 +10,41 @@ export const DISCOVERY_API_PATHS = {
   bulkDelete: '/api/project-discovery/bulk-delete',
 }
 
+const DISCOVERY_STORAGE_KEY = 'cms_project_discovery_rows'
+
 function resolveDiscoveryApiMock() {
   const env = import.meta.env.VITE_DISCOVERY_API_MOCK
   if (env === 'true' || env === '1') return true
   if (env === 'false' || env === '0') return false
-  /** 운영 API(api.signtelecom-smartdi.com)에 project-discovery 미배포 → 기본 mock */
-  return import.meta.env.PROD
+  return false
 }
 
-/** true 이면 GET/POST 없이 임시 성공 처리 (배포 후 VITE_DISCOVERY_API_MOCK=false) */
+/** POST 실패(404 등) 시 로컬 저장 폴백만 사용할 때 true */
 export const DISCOVERY_API_USE_MOCK = resolveDiscoveryApiMock()
 
 const MOCK_SAVE_DELAY_MS = 1000
 
 function mockDelay(ms = MOCK_SAVE_DELAY_MS) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export function loadStoredDiscoveryRows() {
+  try {
+    const raw = localStorage.getItem(DISCOVERY_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+export function saveStoredDiscoveryRows(rows) {
+  try {
+    localStorage.setItem(DISCOVERY_STORAGE_KEY, JSON.stringify(Array.isArray(rows) ? rows : []))
+  } catch (error) {
+    console.warn('[건축정보] localStorage 저장 실패', error)
+  }
 }
 
 function mockImportedRows(rows) {
@@ -79,17 +98,24 @@ export const projectDiscoveryApi = {
   },
 
   async list() {
-    if (DISCOVERY_API_USE_MOCK) {
-      console.info('[건축정보] API mock — GET', DISCOVERY_API_PATHS.list, '(요청 생략)')
-      return []
+    try {
+      const rows = await requestJson(DISCOVERY_API_PATHS.list)
+      if (Array.isArray(rows) && rows.length) {
+        saveStoredDiscoveryRows(rows)
+        return rows
+      }
+    } catch (error) {
+      console.warn('[건축정보] GET 실패 — 로컬 캐시 사용', error)
     }
-    return requestJson(DISCOVERY_API_PATHS.list)
+    return loadStoredDiscoveryRows()
   },
 
   async create(payload) {
     if (DISCOVERY_API_USE_MOCK) {
       await mockDelay(300)
-      return mockImportedRows([payload])[0]
+      const created = mockImportedRows([payload])[0]
+      saveStoredDiscoveryRows([...loadStoredDiscoveryRows(), created])
+      return created
     }
     return requestJson(DISCOVERY_API_PATHS.list, {
       method: 'POST',
@@ -100,6 +126,10 @@ export const projectDiscoveryApi = {
   async update(id, patch) {
     if (DISCOVERY_API_USE_MOCK) {
       await mockDelay(300)
+      const rows = loadStoredDiscoveryRows().map((row) =>
+        String(row.id) === String(id) ? { ...row, ...patch, id: row.id } : row
+      )
+      saveStoredDiscoveryRows(rows)
       return { id, ...patch }
     }
     return requestJson(`${DISCOVERY_API_PATHS.list}/${encodeURIComponent(id)}`, {
@@ -111,6 +141,7 @@ export const projectDiscoveryApi = {
   async remove(id) {
     if (DISCOVERY_API_USE_MOCK) {
       await mockDelay(200)
+      saveStoredDiscoveryRows(loadStoredDiscoveryRows().filter((row) => String(row.id) !== String(id)))
       return null
     }
     return requestJson(`${DISCOVERY_API_PATHS.list}/${encodeURIComponent(id)}`, {
@@ -121,6 +152,9 @@ export const projectDiscoveryApi = {
   async bulkDelete(ids) {
     if (DISCOVERY_API_USE_MOCK) {
       await mockDelay(300)
+      const idSet = new Set(ids.map(String))
+      const next = loadStoredDiscoveryRows().filter((row) => !idSet.has(String(row.id)))
+      saveStoredDiscoveryRows(next)
       return { deleted: ids.length }
     }
     return requestJson(DISCOVERY_API_PATHS.bulkDelete, {
@@ -132,6 +166,7 @@ export const projectDiscoveryApi = {
   async removeAll() {
     if (DISCOVERY_API_USE_MOCK) {
       await mockDelay(300)
+      saveStoredDiscoveryRows([])
       return { deleted: 0 }
     }
     return requestJson(DISCOVERY_API_PATHS.list, {
@@ -140,19 +175,22 @@ export const projectDiscoveryApi = {
   },
 
   async importRows(rows) {
-    if (DISCOVERY_API_USE_MOCK) {
-      console.info('[건축정보] API mock — POST', DISCOVERY_API_PATHS.import, {
+    try {
+      console.log('[excel-upload] POST', `${API_BASE_URL}${DISCOVERY_API_PATHS.import}`, {
         rowCount: rows.length,
       })
-      await mockDelay(MOCK_SAVE_DELAY_MS)
-      return mockImportedRows(rows)
+      return await requestJson(DISCOVERY_API_PATHS.import, {
+        method: 'POST',
+        body: JSON.stringify({ rows }),
+      })
+    } catch (error) {
+      console.warn('[건축정보] POST import 실패 — 로컬 저장 폴백', error)
+      if (DISCOVERY_API_USE_MOCK) {
+        await mockDelay(MOCK_SAVE_DELAY_MS)
+      }
+      const created = mockImportedRows(rows)
+      saveStoredDiscoveryRows([...loadStoredDiscoveryRows(), ...created])
+      return created
     }
-    console.log('[excel-upload] POST', `${API_BASE_URL}${DISCOVERY_API_PATHS.import}`, {
-      rowCount: rows.length,
-    })
-    return requestJson(DISCOVERY_API_PATHS.import, {
-      method: 'POST',
-      body: JSON.stringify({ rows }),
-    })
   },
 }

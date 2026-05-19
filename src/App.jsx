@@ -94,17 +94,18 @@ const SALES_COLUMNS = [
 
 const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
 const DISCOVERY_SALES_TARGET_OPTIONS = SALES_MANAGER_OPTIONS
+const DISCOVERY_MANAGER_FILTER_OPTIONS = SALES_MANAGER_OPTIONS.filter((name) => name !== '신상준')
 const DISCOVERY_COLUMNS = [
-  { key: 'permitDate', label: '건축정보일자', align: 'center', type: 'date', width: 118 },
-  { key: 'checkStatus', label: '확인', align: 'center', type: 'text', width: 76 },
-  { key: 'salesTarget', label: '영업자', align: 'center', type: 'select', options: DISCOVERY_SALES_TARGET_OPTIONS, width: 118 },
-  { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: DISCOVERY_CATEGORY_OPTIONS, width: 104 },
-  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 160 },
-  { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 240 },
-  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 132 },
-  { key: 'completionPeriod', label: '준공시기', align: 'center', type: 'text', width: 120 },
-  { key: 'manager', label: '담당자', align: 'center', type: 'text', width: 110 },
-  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 280 },
+  { key: 'permitDate', label: '건축정보일자', align: 'center', type: 'date', width: 108 },
+  { key: 'checkStatus', label: '확인', align: 'center', type: 'text', width: 64 },
+  { key: 'salesTarget', label: '영업자', align: 'center', type: 'select', options: DISCOVERY_SALES_TARGET_OPTIONS, width: 96 },
+  { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: DISCOVERY_CATEGORY_OPTIONS, width: 96 },
+  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 120 },
+  { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 200, cellClass: 'discovery-col-project' },
+  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 112 },
+  { key: 'completionPeriod', label: '준공시기', align: 'center', type: 'text', width: 96 },
+  { key: 'manager', label: '담당자', align: 'center', type: 'text', width: 88 },
+  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 180, cellClass: 'discovery-col-note' },
 ]
 
 const EXCLUDED_CATEGORY_OPTIONS = ['발주계획', '사전규격', '입찰공고', '정보공개']
@@ -2840,6 +2841,46 @@ function discoveryExcelCellDisplay(value) {
   return text
 }
 
+function discoveryExcelAmountDisplay(value) {
+  if (value === null || value === undefined) return '-'
+  const text = safeString(value).trim()
+  if (!text || text === '-' || text === 'undefined' || text === 'null') return '-'
+  const digits = text.replace(/[^\d.-]/g, '')
+  if (!digits) return text
+  const n = Number(digits)
+  if (!Number.isFinite(n)) return text
+  return n.toLocaleString('ko-KR')
+}
+
+function excelTableItemToDiscoveryRow(item, index) {
+  return normalizeDiscoveryRow(
+    {
+      id: `discovery-excel-${index}`,
+      permitDate: item.건축정보일자,
+      checkStatus: item.확인,
+      salesTarget: item.영업자,
+      projectCategory: item.사업구분,
+      client: item.발주처,
+      projectName: item.사업명,
+      projectAmount: item.사업금액,
+      completionPeriod: item.준공시기,
+      manager: item.담당자,
+      note: item.비고,
+    },
+    index
+  )
+}
+
+function applyDiscoveryRowsToState(normalizedRows, preserveDrafts, setters) {
+  const { setDiscoveryRows, setDiscoveryTableData, setSelectedDiscoveryIds } = setters
+  setDiscoveryRows((prev) => {
+    const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
+    return [...normalizedRows, ...draftRows]
+  })
+  setDiscoveryTableData(normalizedRows.map(discoveryRowToExcelTableItem))
+  setSelectedDiscoveryIds([])
+}
+
 function matchesDiscoveryExcelTableSearch(item, searchText) {
   const query = safeString(searchText).trim()
   if (!query) return true
@@ -3763,16 +3804,14 @@ function App() {
   const fetchDiscoveryRows = async (preserveDrafts = true) => {
     try {
       const rows = await projectDiscoveryApi.list()
-      const normalizedRows = rows.map((item, index) => normalizeDiscoveryRow(item, index))
-      if (DISCOVERY_API_USE_MOCK && normalizedRows.length === 0) {
-        return []
-      }
-      setDiscoveryRows((prev) => {
-        const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-        return [...normalizedRows, ...draftRows]
+      const normalizedRows = (Array.isArray(rows) ? rows : []).map((item, index) =>
+        normalizeDiscoveryRow(item, index)
+      )
+      applyDiscoveryRowsToState(normalizedRows, preserveDrafts, {
+        setDiscoveryRows,
+        setDiscoveryTableData,
+        setSelectedDiscoveryIds,
       })
-      setDiscoveryTableData(normalizedRows.map(discoveryRowToExcelTableItem))
-      setSelectedDiscoveryIds([])
       return rows
     } catch (error) {
       console.warn('[건축정보] API 조회 실패 — 화면 데이터 유지', error)
@@ -4651,6 +4690,12 @@ function App() {
     discoveryTableData,
   ])
 
+  const discoveryVisibleTableRows = useMemo(() => {
+    const persisted = filteredDiscoveryRows.filter((row) => !row.isDraft)
+    if (persisted.length) return persisted
+    return filteredDiscoveryTableData.map((item, index) => excelTableItemToDiscoveryRow(item, index))
+  }, [filteredDiscoveryRows, filteredDiscoveryTableData])
+
   const filteredExcludedRows = useMemo(() => {
     return excludedRows.filter((row) => {
       if (!matchesRegistrySearch(row, EXCLUDED_COLUMNS, excludedSearch)) return false
@@ -4893,7 +4938,7 @@ function App() {
     contractVisibleRowKeysFlat.every((rk) => selectedContractRowKeys.has(rk))
   const allSalesSelected = isAllVisibleRegistryRowsSelected(filteredSalesRows, selectedSalesIds)
   const allDiscoverySelected = isAllVisibleRegistryRowsSelected(
-    filteredDiscoveryRows,
+    discoveryVisibleTableRows,
     selectedDiscoveryIds
   )
   const allExcludedSelected = isAllVisibleRegistryRowsSelected(
@@ -6660,15 +6705,11 @@ function App() {
         return
       }
 
-      const discoveryMockSave = target === 'discovery' && DISCOVERY_API_USE_MOCK
-      if (!discoveryMockSave) {
-        await config.fetchRows(false)
-      }
+      await config.fetchRows(false)
       console.log('[excel-upload] 완료', {
         target,
         importedCount: uniquePreparedRows.length,
         duplicateCount,
-        discoveryMockSave,
       })
       showAppAlert('엑셀 업로드가 완료되었습니다.', '알림')
     } catch (error) {
@@ -10575,7 +10616,7 @@ function App() {
                 style={{ width: 150 }}
               >
                 <option value="">담당자</option>
-                {SALES_MANAGER_OPTIONS.map((option) => (
+                {DISCOVERY_MANAGER_FILTER_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
@@ -10597,7 +10638,7 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll">
-                <table className="contract-table excel-table registry-table">
+                <table className="contract-table excel-table registry-table discovery-registry-table">
                   <thead>
                     <tr>
                       <th className="th-align-center registry-check-header">
@@ -10608,8 +10649,15 @@ function App() {
                           onChange={() =>
                             setSelectedDiscoveryIds((prev) =>
                               allDiscoverySelected
-                                ? prev.filter((id) => !filteredDiscoveryRows.some((row) => row.id === id))
-                                : [...new Set([...prev, ...filteredDiscoveryRows.map((row) => row.id)])]
+                                ? prev.filter(
+                                    (id) => !discoveryVisibleTableRows.some((row) => row.id === id)
+                                  )
+                                : [
+                                    ...new Set([
+                                      ...prev,
+                                      ...discoveryVisibleTableRows.map((row) => row.id),
+                                    ]),
+                                  ]
                             )
                           }
                         />
@@ -10632,20 +10680,40 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredDiscoveryTableData && filteredDiscoveryTableData.length > 0 ? (
-                      filteredDiscoveryTableData.map((item, index) => (
-                        <tr key={`excel-row-${index}`} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
-                          <td className="td-align-center registry-check-cell" />
-                          <td className="td-align-center">{discoveryExcelCellDisplay(item.건축정보일자)}</td>
-                          <td className="td-align-center">{discoveryExcelCellDisplay(item.확인)}</td>
-                          <td className="td-align-center">{discoveryExcelCellDisplay(item.영업자)}</td>
-                          <td className="td-align-center">{discoveryExcelCellDisplay(item.사업구분)}</td>
-                          <td className="td-align-center">{discoveryExcelCellDisplay(item.발주처)}</td>
-                          <td className="td-align-left">{discoveryExcelCellDisplay(item.사업명)}</td>
-                          <td className="td-align-right">{discoveryExcelCellDisplay(item.사업금액)}</td>
-                          <td className="td-align-center">{discoveryExcelCellDisplay(item.준공시기)}</td>
-                          <td className="td-align-center">{discoveryExcelCellDisplay(item.담당자)}</td>
-                          <td className="td-align-left">{discoveryExcelCellDisplay(item.비고)}</td>
+                    {discoveryVisibleTableRows.length > 0 ? (
+                      discoveryVisibleTableRows.map((row, index) => (
+                        <tr
+                          key={getRegistryTableRowDomKey(row, index, 'discovery')}
+                          className={index % 2 === 0 ? 'row-even' : 'row-odd'}
+                        >
+                          <td className="td-align-center registry-check-cell">
+                            <input
+                              className="registry-row-checkbox"
+                              type="checkbox"
+                              checked={selectedDiscoveryIds.includes(row.id)}
+                              onChange={() =>
+                                setSelectedDiscoveryIds((prev) =>
+                                  prev.includes(row.id)
+                                    ? prev.filter((id) => id !== row.id)
+                                    : [...prev, row.id]
+                                )
+                              }
+                            />
+                          </td>
+                          <td className="td-align-center">{discoveryExcelCellDisplay(row.permitDate)}</td>
+                          <td className="td-align-center">{discoveryExcelCellDisplay(row.checkStatus)}</td>
+                          <td className="td-align-center">{discoveryExcelCellDisplay(row.salesTarget)}</td>
+                          <td className="td-align-center">{discoveryExcelCellDisplay(row.projectCategory)}</td>
+                          <td className="td-align-center">{discoveryExcelCellDisplay(row.client)}</td>
+                          <td className="td-align-left discovery-col-project">
+                            {discoveryExcelCellDisplay(row.projectName)}
+                          </td>
+                          <td className="td-align-right">{discoveryExcelAmountDisplay(row.projectAmount)}</td>
+                          <td className="td-align-center">{discoveryExcelCellDisplay(row.completionPeriod)}</td>
+                          <td className="td-align-center">{discoveryExcelCellDisplay(row.manager)}</td>
+                          <td className="td-align-left discovery-col-note">
+                            {discoveryExcelCellDisplay(row.note)}
+                          </td>
                         </tr>
                       ))
                     ) : (
