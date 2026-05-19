@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 /** npm run dev 에서 index.html 의 api-config.js(운영 URL) 로드를 제거 */
 function skipApiConfigInDev() {
@@ -18,7 +19,7 @@ function skipApiConfigInDev() {
 }
 
 export default defineConfig({
-  plugins: [react(), skipApiConfigInDev()],
+  plugins: [react(), tailwindcss(), skipApiConfigInDev()],
   server: {
     host: '0.0.0.0',
   },
