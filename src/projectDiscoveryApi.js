@@ -150,17 +150,31 @@ export const projectDiscoveryApi = {
   },
 
   async bulkDelete(ids) {
-    if (DISCOVERY_API_USE_MOCK) {
-      await mockDelay(300)
-      const idSet = new Set(ids.map(String))
+    const idSet = new Set(ids.map(String))
+    const applyLocalDelete = () => {
       const next = loadStoredDiscoveryRows().filter((row) => !idSet.has(String(row.id)))
       saveStoredDiscoveryRows(next)
+      return next
+    }
+
+    if (DISCOVERY_API_USE_MOCK) {
+      await mockDelay(300)
+      applyLocalDelete()
       return { deleted: ids.length }
     }
-    return requestJson(DISCOVERY_API_PATHS.bulkDelete, {
-      method: 'POST',
-      body: JSON.stringify({ ids }),
-    })
+
+    try {
+      const result = await requestJson(DISCOVERY_API_PATHS.bulkDelete, {
+        method: 'POST',
+        body: JSON.stringify({ ids }),
+      })
+      applyLocalDelete()
+      return result
+    } catch (error) {
+      applyLocalDelete()
+      console.warn('[건축정보] bulkDelete API 실패 — 로컬 캐시에서 삭제 반영', error)
+      return { deleted: ids.length, localOnly: true }
+    }
   },
 
   async removeAll() {

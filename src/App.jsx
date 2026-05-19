@@ -102,11 +102,11 @@ const DISCOVERY_COLUMNS = [
   { key: 'salesTarget', label: '영업자', align: 'center', type: 'select', options: DISCOVERY_SALES_TARGET_OPTIONS, width: 96 },
   { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: DISCOVERY_CATEGORY_OPTIONS, width: 96 },
   { key: 'client', label: '발주처', align: 'center', type: 'text', width: 120 },
-  { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 200, cellClass: 'discovery-col-project' },
+  { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 250, minWidth: 250, cellClass: 'discovery-col-project' },
   { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 140, cellClass: 'discovery-col-amount' },
   { key: 'completionPeriod', label: '준공시기', align: 'center', type: 'text', width: 96 },
   { key: 'manager', label: '담당자', align: 'center', type: 'text', width: 88 },
-  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 180, cellClass: 'discovery-col-note' },
+  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 400, minWidth: 400, cellClass: 'discovery-col-note' },
 ]
 
 const EXCLUDED_CATEGORY_OPTIONS = ['발주계획', '사전규격', '입찰공고', '정보공개']
@@ -6012,6 +6012,17 @@ function App() {
           .map((row) => row.id)
           .filter((id) => safeString(id).trim() !== '')
 
+        const applyDiscoveryDeleteToState = () => {
+          const nextRows = discoveryRows.filter((row) => !validSelectedIds.includes(row.id))
+          const persisted = nextRows.filter((row) => !row.isDraft)
+          setDiscoveryRows(nextRows)
+          setDiscoveryTableData(persisted.map(discoveryRowToExcelTableItem))
+          saveStoredDiscoveryRows(persisted)
+          setSelectedDiscoveryIds([])
+          setEditingDiscoveryIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+          setToastMessage('삭제되었습니다.')
+        }
+
         if (persistedIds.length > 0) {
           try {
             await projectDiscoveryApi.bulkDelete(persistedIds)
@@ -6019,20 +6030,11 @@ function App() {
             logApiOperationError('건축정보 선택 삭제', error)
             return
           }
+          applyDiscoveryDeleteToState()
+          return
         }
 
-        setDiscoveryRows((prev) => {
-          const next = prev.filter((row) => !validSelectedIds.includes(row.id))
-          const persisted = next.filter((row) => !row.isDraft)
-          setDiscoveryTableData(persisted.map(discoveryRowToExcelTableItem))
-          saveStoredDiscoveryRows(persisted)
-          return next
-        })
-        setSelectedDiscoveryIds([])
-        setEditingDiscoveryIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
-        if (persistedIds.length > 0) {
-          await fetchDiscoveryRows(true)
-        }
+        applyDiscoveryDeleteToState()
       },
     })
   }
@@ -8230,7 +8232,10 @@ function App() {
               } ${column.type === 'textarea' ? 'multiline-cell' : ''} ${
                 column.cellClass || ''
               } ${isAdminForRegistry && !row.isDraft ? 'editable-cell' : ''}`}
-              style={{ width: column.width }}
+              style={{
+                width: column.width,
+                minWidth: column.minWidth ?? column.width,
+              }}
               onClick={() => {
                 if (!isAdminForRegistry) return
                 if (row.isDraft) return
@@ -8256,7 +8261,15 @@ function App() {
                 <div
                   className="cell-display"
                   style={{
-                    whiteSpace: column.type === 'textarea' ? 'pre-wrap' : 'normal',
+                    whiteSpace:
+                      column.type === 'textarea' || column.key === 'projectName' || column.key === 'note'
+                        ? 'pre-wrap'
+                        : 'normal',
+                    wordBreak:
+                      column.type === 'textarea' || column.key === 'projectName' || column.key === 'note'
+                        ? 'break-word'
+                        : 'normal',
+                    overflowWrap: 'anywhere',
                   }}
                 >
                   {getRegistryPlainDisplayValue(row, column)}
@@ -10651,7 +10664,10 @@ function App() {
                               ? 'th-align-left'
                               : 'th-align-center'
                           } ${column.cellClass || ''}`}
-                          style={{ width: column.width }}
+                          style={{
+                            width: column.width,
+                            minWidth: column.minWidth ?? column.width,
+                          }}
                         >
                           {column.label}
                         </th>
