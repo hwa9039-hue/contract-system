@@ -3911,10 +3911,16 @@ function App() {
   }
 
   const fetchInstallCases = async () => {
-    const rows = await installCasesApi.list()
-    const normalized = Array.isArray(rows) ? rows.map(normalizeInstallCaseRow) : []
-    setInstallCases(normalized)
-    return normalized
+    try {
+      const rows = await installCasesApi.list()
+      const normalized = Array.isArray(rows) ? rows.map(normalizeInstallCaseRow) : []
+      setInstallCases(normalized)
+      return normalized
+    } catch (error) {
+      console.error('[설치사례] 목록 조회 실패', error)
+      setInstallCases([])
+      return []
+    }
   }
 
   useEffect(() => {
@@ -4644,28 +4650,29 @@ function App() {
     }
 
     const isEdit = Boolean(installCaseEditingId)
+    const editingId = installCaseEditingId
     setInstallCaseSubmitting(true)
     try {
       if (isEdit) {
-        const updated = await installCasesApi.update(installCaseEditingId, rowPayload)
-        const normalized = normalizeInstallCaseRow(updated)
-        setInstallCases((prev) =>
-          prev.map((row) => (row.id === installCaseEditingId ? normalized : row))
-        )
-        setInstallCaseDetailModal((cur) =>
-          cur && cur.id === installCaseEditingId ? normalized : cur
-        )
-        clearInstallCaseFormDraftStorage()
-        handleCloseInstallCaseRegister({ discardDraft: true })
-        showAppAlert('설치사례가 성공적으로 수정되었습니다.', '알림')
+        await installCasesApi.update(editingId, rowPayload)
       } else {
-        const created = await installCasesApi.create(rowPayload)
-        const normalized = normalizeInstallCaseRow(created)
-        setInstallCases((prev) => [normalized, ...prev])
-        clearInstallCaseFormDraftStorage()
-        handleCloseInstallCaseRegister({ discardDraft: true })
-        showAppAlert('설치사례가 성공적으로 등록되었습니다.', '알림')
+        await installCasesApi.create(rowPayload)
       }
+
+      const refreshed = await fetchInstallCases()
+      if (isEdit && editingId) {
+        const found = refreshed.find((row) => row.id === editingId)
+        if (found) {
+          setInstallCaseDetailModal(found)
+        }
+      }
+
+      clearInstallCaseFormDraftStorage()
+      handleCloseInstallCaseRegister({ discardDraft: true })
+      showAppAlert(
+        isEdit ? '설치사례가 성공적으로 수정되었습니다.' : '설치사례가 성공적으로 등록되었습니다.',
+        '알림'
+      )
     } catch (error) {
       console.error('[설치사례] 저장 실패', error)
       logApiOperationError(isEdit ? '설치사례 수정' : '설치사례 등록', error)
