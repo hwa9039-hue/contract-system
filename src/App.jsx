@@ -1151,7 +1151,7 @@ function MaterialBoardMultiFileDropzone({
             ⬆
           </span>
           <span className="install-case-dropzone-hint">
-            클릭하거나 파일을 드래그하여 추가하세요 (개수 제한 없음, 모든 형식)
+            클릭하거나 파일을 드래그하여 추가하세요
           </span>
         </div>
       </div>
@@ -12182,7 +12182,7 @@ function App() {
                 rows={5}
                 value={materialsBoardFormDraft.content}
                 onChange={(e) => setMaterialsBoardFormDraft((prev) => ({ ...prev, content: e.target.value }))}
-                placeholder="설명을 입력하세요 (선택)"
+                placeholder="설명을 입력하세요"
               />
               <label className="install-case-form-label">첨부 파일 (다중 선택)</label>
               <MaterialBoardMultiFileDropzone
