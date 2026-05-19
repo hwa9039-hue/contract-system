@@ -8,6 +8,7 @@ import {
   DISCOVERY_API_PATHS,
   DISCOVERY_API_USE_MOCK,
   projectDiscoveryApi,
+  saveStoredDiscoveryRows,
 } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
@@ -102,7 +103,7 @@ const DISCOVERY_COLUMNS = [
   { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: DISCOVERY_CATEGORY_OPTIONS, width: 96 },
   { key: 'client', label: '발주처', align: 'center', type: 'text', width: 120 },
   { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 200, cellClass: 'discovery-col-project' },
-  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 112 },
+  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 140, cellClass: 'discovery-col-amount' },
   { key: 'completionPeriod', label: '준공시기', align: 'center', type: 'text', width: 96 },
   { key: 'manager', label: '담당자', align: 'center', type: 'text', width: 88 },
   { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 180, cellClass: 'discovery-col-note' },
@@ -2841,17 +2842,6 @@ function discoveryExcelCellDisplay(value) {
   return text
 }
 
-function discoveryExcelAmountDisplay(value) {
-  if (value === null || value === undefined) return '-'
-  const text = safeString(value).trim()
-  if (!text || text === '-' || text === 'undefined' || text === 'null') return '-'
-  const digits = text.replace(/[^\d.-]/g, '')
-  if (!digits) return text
-  const n = Number(digits)
-  if (!Number.isFinite(n)) return text
-  return n.toLocaleString('ko-KR')
-}
-
 function excelTableItemToDiscoveryRow(item, index) {
   return normalizeDiscoveryRow(
     {
@@ -4690,12 +4680,6 @@ function App() {
     discoveryTableData,
   ])
 
-  const discoveryVisibleTableRows = useMemo(() => {
-    const persisted = filteredDiscoveryRows.filter((row) => !row.isDraft)
-    if (persisted.length) return persisted
-    return filteredDiscoveryTableData.map((item, index) => excelTableItemToDiscoveryRow(item, index))
-  }, [filteredDiscoveryRows, filteredDiscoveryTableData])
-
   const filteredExcludedRows = useMemo(() => {
     return excludedRows.filter((row) => {
       if (!matchesRegistrySearch(row, EXCLUDED_COLUMNS, excludedSearch)) return false
@@ -4938,7 +4922,7 @@ function App() {
     contractVisibleRowKeysFlat.every((rk) => selectedContractRowKeys.has(rk))
   const allSalesSelected = isAllVisibleRegistryRowsSelected(filteredSalesRows, selectedSalesIds)
   const allDiscoverySelected = isAllVisibleRegistryRowsSelected(
-    discoveryVisibleTableRows,
+    filteredDiscoveryRows,
     selectedDiscoveryIds
   )
   const allExcludedSelected = isAllVisibleRegistryRowsSelected(
@@ -6029,26 +6013,26 @@ function App() {
           .filter((id) => safeString(id).trim() !== '')
 
         if (persistedIds.length > 0) {
-          const remainingDrafts = discoveryRows.filter(
-            (row) => row.isDraft && !validSelectedIds.includes(row.id)
-          )
           try {
             await projectDiscoveryApi.bulkDelete(persistedIds)
           } catch (error) {
             logApiOperationError('건축정보 선택 삭제', error)
             return
           }
-
-          setDiscoveryRows(remainingDrafts)
-          setSelectedDiscoveryIds([])
-          setEditingDiscoveryIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
-          await fetchDiscoveryRows(true)
-          return
         }
 
-        setDiscoveryRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
+        setDiscoveryRows((prev) => {
+          const next = prev.filter((row) => !validSelectedIds.includes(row.id))
+          const persisted = next.filter((row) => !row.isDraft)
+          setDiscoveryTableData(persisted.map(discoveryRowToExcelTableItem))
+          saveStoredDiscoveryRows(persisted)
+          return next
+        })
         setSelectedDiscoveryIds([])
         setEditingDiscoveryIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+        if (persistedIds.length > 0) {
+          await fetchDiscoveryRows(true)
+        }
       },
     })
   }
@@ -6589,7 +6573,9 @@ function App() {
           rows = parsedData
           headerRowIndex = parsed.headerRowIndex
           console.log('최종 렌더링될 데이터:', parsedData)
+          const previewRows = parsedData.map((item, index) => excelTableItemToDiscoveryRow(item, index))
           setDiscoveryTableData(parsedData)
+          setDiscoveryRows(previewRows)
         } catch (parseError) {
           const message =
             parseError?.message === DISCOVERY_EXCEL_FORMAT_ERROR
@@ -8242,8 +8228,8 @@ function App() {
                     ? 'td-align-left'
                     : 'td-align-center'
               } ${column.type === 'textarea' ? 'multiline-cell' : ''} ${
-                isAdminForRegistry && !row.isDraft ? 'editable-cell' : ''
-              }`}
+                column.cellClass || ''
+              } ${isAdminForRegistry && !row.isDraft ? 'editable-cell' : ''}`}
               style={{ width: column.width }}
               onClick={() => {
                 if (!isAdminForRegistry) return
@@ -10649,15 +10635,8 @@ function App() {
                           onChange={() =>
                             setSelectedDiscoveryIds((prev) =>
                               allDiscoverySelected
-                                ? prev.filter(
-                                    (id) => !discoveryVisibleTableRows.some((row) => row.id === id)
-                                  )
-                                : [
-                                    ...new Set([
-                                      ...prev,
-                                      ...discoveryVisibleTableRows.map((row) => row.id),
-                                    ]),
-                                  ]
+                                ? prev.filter((id) => !filteredDiscoveryRows.some((row) => row.id === id))
+                                : [...new Set([...prev, ...filteredDiscoveryRows.map((row) => row.id)])]
                             )
                           }
                         />
@@ -10665,13 +10644,13 @@ function App() {
                       {DISCOVERY_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={
+                          className={`${
                             column.align === 'right'
                               ? 'th-align-right'
                               : column.align === 'left'
                               ? 'th-align-left'
                               : 'th-align-center'
-                          }
+                          } ${column.cellClass || ''}`}
                           style={{ width: column.width }}
                         >
                           {column.label}
@@ -10680,49 +10659,27 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {discoveryVisibleTableRows.length > 0 ? (
-                      discoveryVisibleTableRows.map((row, index) => (
-                        <tr
-                          key={getRegistryTableRowDomKey(row, index, 'discovery')}
-                          className={index % 2 === 0 ? 'row-even' : 'row-odd'}
-                        >
-                          <td className="td-align-center registry-check-cell">
-                            <input
-                              className="registry-row-checkbox"
-                              type="checkbox"
-                              checked={selectedDiscoveryIds.includes(row.id)}
-                              onChange={() =>
-                                setSelectedDiscoveryIds((prev) =>
-                                  prev.includes(row.id)
-                                    ? prev.filter((id) => id !== row.id)
-                                    : [...prev, row.id]
-                                )
-                              }
-                            />
-                          </td>
-                          <td className="td-align-center">{discoveryExcelCellDisplay(row.permitDate)}</td>
-                          <td className="td-align-center">{discoveryExcelCellDisplay(row.checkStatus)}</td>
-                          <td className="td-align-center">{discoveryExcelCellDisplay(row.salesTarget)}</td>
-                          <td className="td-align-center">{discoveryExcelCellDisplay(row.projectCategory)}</td>
-                          <td className="td-align-center">{discoveryExcelCellDisplay(row.client)}</td>
-                          <td className="td-align-left discovery-col-project">
-                            {discoveryExcelCellDisplay(row.projectName)}
-                          </td>
-                          <td className="td-align-right">{discoveryExcelAmountDisplay(row.projectAmount)}</td>
-                          <td className="td-align-center">{discoveryExcelCellDisplay(row.completionPeriod)}</td>
-                          <td className="td-align-center">{discoveryExcelCellDisplay(row.manager)}</td>
-                          <td className="td-align-left discovery-col-note">
-                            {discoveryExcelCellDisplay(row.note)}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={DISCOVERY_COLUMNS.length + 1} className="empty-cell" style={{ textAlign: 'center' }}>
-                          등록된 데이터가 없습니다.
-                        </td>
-                      </tr>
-                    )}
+                    {renderGroupedRegistryRows({
+                      groups: groupedDiscoveryRows,
+                      columns: DISCOVERY_COLUMNS,
+                      emptyMessage: '등록된 데이터가 없습니다.',
+                      selectedIds: selectedDiscoveryIds,
+                      onToggleSelection: toggleDiscoverySelection,
+                      editingIds: editingDiscoveryIds,
+                      isSaving: isSavingDiscovery,
+                      onStartEdit: startDiscoveryEdit,
+                      onSaveRow: saveDiscoveryRow,
+                      onCancelRow: cancelDiscoveryRow,
+                      onChange: handleDiscoveryCellChange,
+                      isEmptyRow: isDiscoveryRowEmpty,
+                      isYearOpen: isDiscoveryYearOpen,
+                      onToggleYear: toggleDiscoveryYear,
+                      cellEditScope: 'discovery',
+                      isAdminForRegistry: true,
+                      registryCellEdit,
+                      onRegistryCellStart: (rowId, columnKey, value, row) =>
+                        startRegistryCellEdit('discovery', rowId, columnKey, value, row),
+                    })}
                   </tbody>
                 </table>
               </div>

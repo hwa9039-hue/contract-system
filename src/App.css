@@ -4571,6 +4571,17 @@ textarea:focus-visible {
   text-overflow: clip;
 }
 
+.discovery-registry-table .discovery-col-amount,
+.discovery-registry-table th.discovery-col-amount {
+  padding-left: 16px;
+  padding-right: 16px;
+  text-align: right;
+}
+
+.discovery-registry-table .discovery-col-amount .cell-display {
+  padding-right: 4px;
+}
+
 .registry-table td .cell-display {
   width: 100%;
   overflow-wrap: anywhere;
