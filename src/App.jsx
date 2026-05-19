@@ -4396,6 +4396,7 @@ function App() {
 
   const handleCloseInstallCaseRegister = useCallback(
     ({ discardDraft = false } = {}) => {
+      setInstallCaseSubmitting(false)
       if (!discardDraft) {
         flushInstallCaseFormDraftToStorage()
       }
@@ -4602,48 +4603,50 @@ function App() {
       return
     }
 
+    let imageUrl = INSTALL_CASE_FALLBACK_HERO
+    try {
+      if (icImageFile) {
+        imageUrl = (await readImageFileAsDataUrl(icImageFile)) || INSTALL_CASE_FALLBACK_HERO
+      } else {
+        const prev = safeString(icImagePreview).trim()
+        if (prev && !prev.startsWith('blob:')) imageUrl = prev
+      }
+    } catch (e) {
+      console.error('[설치사례] 이미지 처리 실패', e)
+      showAppAlert(e?.message || '이미지를 처리하지 못했습니다.', '알림')
+      return
+    }
+
+    const projectName = safeString(d.projectName).trim()
+    const displayArea = formatInstallCaseWhMmFromWH(d.specs.displayAreaW, d.specs.displayAreaH) || '-'
+    const moduleSize = formatInstallCaseWhMmFromWH(d.specs.moduleSizeW, d.specs.moduleSizeH) || '-'
+    const ledPitch = safeString(d.specs.ledPitch).trim() || '-'
+    const moduleQty = formatInstallCaseModuleQtyLine(d.specs.moduleQtyW, d.specs.moduleQtyH) || '-'
+    const resolution =
+      formatInstallCaseResolutionFromWH(d.specs.resolutionW, d.specs.resolutionH) || '-'
+    const rowPayload = {
+      projectName,
+      heroImage: imageUrl,
+      environment: safeString(d.environment).trim(),
+      middleCategory: safeString(d.middleCategory).trim(),
+      audience: safeString(d.audience).trim(),
+      year: businessYearDigitsToStored(d.businessYearDigits),
+      purpose: safeString(d.purpose).trim() || '-',
+      client: safeString(d.client).trim() || '-',
+      specs: {
+        displayArea,
+        ledPitch,
+        moduleSize,
+        moduleQty,
+        resolution,
+        installType: safeString(d.specs.installType).trim() || '-',
+      },
+    }
+
+    const isEdit = Boolean(installCaseEditingId)
     setInstallCaseSubmitting(true)
     try {
-      let imageUrl = INSTALL_CASE_FALLBACK_HERO
-      try {
-        if (icImageFile) {
-          imageUrl = (await readImageFileAsDataUrl(icImageFile)) || INSTALL_CASE_FALLBACK_HERO
-        } else {
-          const prev = safeString(icImagePreview).trim()
-          if (prev && !prev.startsWith('blob:')) imageUrl = prev
-        }
-      } catch (e) {
-        showAppAlert(e?.message || '이미지를 처리하지 못했습니다.', '알림')
-        return
-      }
-
-      const projectName = safeString(d.projectName).trim()
-      const displayArea = formatInstallCaseWhMmFromWH(d.specs.displayAreaW, d.specs.displayAreaH) || '-'
-      const moduleSize = formatInstallCaseWhMmFromWH(d.specs.moduleSizeW, d.specs.moduleSizeH) || '-'
-      const ledPitch = safeString(d.specs.ledPitch).trim() || '-'
-      const moduleQty = formatInstallCaseModuleQtyLine(d.specs.moduleQtyW, d.specs.moduleQtyH) || '-'
-      const resolution =
-        formatInstallCaseResolutionFromWH(d.specs.resolutionW, d.specs.resolutionH) || '-'
-      const rowPayload = {
-        projectName,
-        heroImage: imageUrl,
-        environment: safeString(d.environment).trim(),
-        middleCategory: safeString(d.middleCategory).trim(),
-        audience: safeString(d.audience).trim(),
-        year: businessYearDigitsToStored(d.businessYearDigits),
-        purpose: safeString(d.purpose).trim() || '-',
-        client: safeString(d.client).trim() || '-',
-        specs: {
-          displayArea,
-          ledPitch,
-          moduleSize,
-          moduleQty,
-          resolution,
-          installType: safeString(d.specs.installType).trim() || '-',
-        },
-      }
-
-      if (installCaseEditingId) {
+      if (isEdit) {
         const updated = await installCasesApi.update(installCaseEditingId, rowPayload)
         const normalized = normalizeInstallCaseRow(updated)
         setInstallCases((prev) =>
@@ -4664,10 +4667,10 @@ function App() {
         showAppAlert('설치사례가 성공적으로 등록되었습니다.', '알림')
       }
     } catch (error) {
-      logApiOperationError(installCaseEditingId ? '설치사례 수정' : '설치사례 등록', error)
+      console.error('[설치사례] 저장 실패', error)
+      logApiOperationError(isEdit ? '설치사례 수정' : '설치사례 등록', error)
       showAppAlert(
-        error?.message ||
-          (installCaseEditingId ? '수정에 실패했습니다.' : '등록에 실패했습니다.'),
+        error?.message || (isEdit ? '수정에 실패했습니다.' : '등록에 실패했습니다.'),
         '알림'
       )
     } finally {
@@ -12075,7 +12078,10 @@ function App() {
               <button
                 type="button"
                 className="modal-close-btn"
-                onClick={handleCloseInstallCaseRegister}
+                onClick={() => {
+                  if (!installCaseSubmitting) handleCloseInstallCaseRegister()
+                }}
+                disabled={installCaseSubmitting}
                 aria-label="닫기"
               >
                 ✕

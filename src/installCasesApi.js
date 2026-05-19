@@ -6,6 +6,7 @@ import { createLocalInstallCaseId } from './installCaseLocal.js'
 export const INSTALL_CASES_API_PATH = '/api/install-cases'
 
 const MOCK_SAVE_DELAY_MS = 1000
+const FETCH_TIMEOUT_MS = 15000
 
 function installCasesUrl(suffix = '') {
   return `${API_BASE_URL}${INSTALL_CASES_API_PATH}${suffix}`
@@ -13,6 +14,24 @@ function installCasesUrl(suffix = '') {
 
 function mockDelay(ms = MOCK_SAVE_DELAY_MS) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function fetchWithTimeout(url, init = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    })
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+async function mockSaveAfterDelay(payload, existingId = null) {
+  await mockDelay()
+  return mockInstallCaseRow(payload, existingId)
 }
 
 function mockInstallCaseRow(payload, existingId = null) {
@@ -58,63 +77,75 @@ async function requestJson(path, options = {}) {
 
 async function postInstallCase(payload) {
   const url = installCasesUrl()
-  const response = await fetch(
-    url,
-    apiFetchInit({
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders(),
-      },
-      body: JSON.stringify(payload),
-    })
-  )
+  try {
+    const response = await fetchWithTimeout(
+      url,
+      apiFetchInit({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(payload),
+      })
+    )
 
-  if (response.status === 404) {
-    await mockDelay()
-    return mockInstallCaseRow(payload)
+    if (response.status === 404) {
+      return mockSaveAfterDelay(payload)
+    }
+
+    if (!response.ok) {
+      const detail = await readApiErrorMessage(response)
+      const err = new Error(detail)
+      err.status = response.status
+      err.url = url
+      throw err
+    }
+
+    return response.json()
+  } catch (err) {
+    if (err?.status && err.status !== 404) {
+      throw err
+    }
+    return mockSaveAfterDelay(payload)
   }
-
-  if (!response.ok) {
-    const detail = await readApiErrorMessage(response)
-    const err = new Error(detail)
-    err.status = response.status
-    err.url = url
-    throw err
-  }
-
-  return response.json()
 }
 
 async function patchInstallCase(id, patch) {
   const path = `${INSTALL_CASES_API_PATH}/${encodeURIComponent(id)}`
   const url = `${API_BASE_URL}${path}`
-  const response = await fetch(
-    url,
-    apiFetchInit({
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders(),
-      },
-      body: JSON.stringify(patch),
-    })
-  )
+  try {
+    const response = await fetchWithTimeout(
+      url,
+      apiFetchInit({
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(patch),
+      })
+    )
 
-  if (response.status === 404) {
-    await mockDelay()
-    return mockInstallCaseRow({ ...patch, id }, id)
+    if (response.status === 404) {
+      return mockSaveAfterDelay({ ...patch, id }, id)
+    }
+
+    if (!response.ok) {
+      const detail = await readApiErrorMessage(response)
+      const err = new Error(detail)
+      err.status = response.status
+      err.url = url
+      throw err
+    }
+
+    return response.json()
+  } catch (err) {
+    if (err?.status && err.status !== 404) {
+      throw err
+    }
+    return mockSaveAfterDelay({ ...patch, id }, id)
   }
-
-  if (!response.ok) {
-    const detail = await readApiErrorMessage(response)
-    const err = new Error(detail)
-    err.status = response.status
-    err.url = url
-    throw err
-  }
-
-  return response.json()
 }
 
 export const installCasesApi = {
