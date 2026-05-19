@@ -1081,12 +1081,18 @@ function getMaterialsBoardAttachSummary(row) {
   }
 }
 
-function MaterialBoardMultiFileDropzone({ inputId, pendingFiles, onAddFiles, onRemoveFile }) {
+function MaterialBoardMultiFileDropzone({
+  inputId,
+  pendingFiles = [],
+  onAddFiles,
+  onRemoveFile,
+}) {
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef(null)
+  const fileEntries = Array.isArray(pendingFiles) ? pendingFiles : []
 
   const addFromList = (fileList) => {
-    if (!fileList?.length) return
+    if (!fileList?.length || typeof onAddFiles !== 'function') return
     const entries = Array.from(fileList).map((file) => createMaterialsBoardPendingFileEntry(file))
     onAddFiles(entries)
   }
@@ -1150,26 +1156,32 @@ function MaterialBoardMultiFileDropzone({ inputId, pendingFiles, onAddFiles, onR
         </div>
       </div>
 
-      {pendingFiles.length > 0 && (
+      {fileEntries.length > 0 && (
         <ul className="materials-board-file-list" aria-label="선택된 첨부 파일">
-          {pendingFiles.map((entry) => (
-            <li key={entry.id} className="materials-board-file-list-item">
-              <span className="materials-board-file-list-name" title={entry.file.name}>
-                📎 {entry.file.name}
-              </span>
-              <span className="materials-board-file-list-size">
-                {formatMaterialsBoardFileSize(entry.file.size)}
-              </span>
-              <button
-                type="button"
-                className="materials-board-file-list-remove"
-                aria-label={`${entry.file.name} 제거`}
-                onClick={() => onRemoveFile(entry.id)}
-              >
-                ✕
-              </button>
-            </li>
-          ))}
+          {fileEntries.map((entry) => {
+            const file = entry?.file
+            if (!file?.name) return null
+            return (
+              <li key={entry.id || file.name} className="materials-board-file-list-item">
+                <span className="materials-board-file-list-name" title={file.name}>
+                  📎 {file.name}
+                </span>
+                <span className="materials-board-file-list-size">
+                  {formatMaterialsBoardFileSize(file.size)}
+                </span>
+                <button
+                  type="button"
+                  className="materials-board-file-list-remove"
+                  aria-label={`${file.name} 제거`}
+                  onClick={() => {
+                    if (typeof onRemoveFile === 'function' && entry?.id) onRemoveFile(entry.id)
+                  }}
+                >
+                  ✕
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>
@@ -3676,7 +3688,7 @@ function App() {
   const [materialsBoardFormDraft, setMaterialsBoardFormDraft] = useState(() =>
     getDefaultMaterialsBoardForm()
   )
-  const [materialsBoardPendingFiles, setMaterialsBoardPendingFiles] = useState([])
+  const [materialsBoardFile, setMaterialsBoardFile] = useState([])
   const [materialsBoardEditingId, setMaterialsBoardEditingId] = useState(null)
   const [materialsBoardSubmitting, setMaterialsBoardSubmitting] = useState(false)
   const [materialsBoardSearch, setMaterialsBoardSearch] = useState('')
@@ -4103,8 +4115,7 @@ function App() {
     setMaterialsBoardRegisterOpen(false)
     setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
-    setMaterialsBoardFile(null)
-    setMaterialsBoardSavedFileName('')
+    setMaterialsBoardFile([])
     setMaterialsBoardSearch('')
   }, [menu])
 
@@ -4552,7 +4563,7 @@ function App() {
     if (!isAdmin) return
     setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
-    setMaterialsBoardPendingFiles([])
+    setMaterialsBoardFile([])
     setMaterialsBoardRegisterOpen(true)
   }, [isAdmin])
 
@@ -4563,7 +4574,7 @@ function App() {
       title: safeString(row.title).trim(),
       content: safeString(row.content).trim(),
     })
-    setMaterialsBoardPendingFiles([])
+    setMaterialsBoardFile([])
     setMaterialsBoardRegisterOpen(true)
   }, [isAdmin])
 
@@ -4571,7 +4582,7 @@ function App() {
     setMaterialsBoardRegisterOpen(false)
     setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
-    setMaterialsBoardPendingFiles([])
+    setMaterialsBoardFile([])
     setMaterialsBoardSubmitting(false)
   }, [])
 
@@ -4605,8 +4616,8 @@ function App() {
     try {
       await new Promise((resolve) => setTimeout(resolve, MATERIALS_BOARD_MOCK_SAVE_MS))
 
-      const files = filesMetaFromPendingEntries(materialsBoardPendingFiles)
-      const downloadUrls = buildMaterialsBoardDownloadUrls(materialsBoardPendingFiles)
+      const files = filesMetaFromPendingEntries(materialsBoardFile)
+      const downloadUrls = buildMaterialsBoardDownloadUrls(materialsBoardFile)
 
       if (editingId) {
         showAppAlert('게시글이 성공적으로 수정되었습니다.', '알림', () => {
@@ -4625,6 +4636,7 @@ function App() {
               })
             })
           )
+          setMaterialsBoardFile([])
           handleCloseMaterialsBoardRegister()
         })
       } else {
@@ -4638,6 +4650,7 @@ function App() {
         })
         showAppAlert('게시글이 성공적으로 등록되었습니다.', '알림', () => {
           setMaterialsBoardPosts((prev) => [newPost, ...prev])
+          setMaterialsBoardFile([])
           handleCloseMaterialsBoardRegister()
         })
       }
@@ -4649,7 +4662,7 @@ function App() {
   }, [
     materialsBoardEditingId,
     materialsBoardFormDraft,
-    materialsBoardPendingFiles,
+    materialsBoardFile,
     materialsBoardSubmitting,
     handleCloseMaterialsBoardRegister,
     isAdmin,
@@ -12174,12 +12187,12 @@ function App() {
               <label className="install-case-form-label">첨부 파일 (다중 선택)</label>
               <MaterialBoardMultiFileDropzone
                 inputId="materials-board-file-input"
-                pendingFiles={materialsBoardPendingFiles}
+                pendingFiles={materialsBoardFile}
                 onAddFiles={(entries) =>
-                  setMaterialsBoardPendingFiles((prev) => [...prev, ...entries])
+                  setMaterialsBoardFile((prev) => [...prev, ...entries])
                 }
                 onRemoveFile={(fileId) =>
-                  setMaterialsBoardPendingFiles((prev) => prev.filter((e) => e.id !== fileId))
+                  setMaterialsBoardFile((prev) => prev.filter((e) => e.id !== fileId))
                 }
               />
               <div className="install-case-form-actions">
