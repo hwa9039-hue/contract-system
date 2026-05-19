@@ -2416,52 +2416,9 @@ textarea:focus-visible {
 
 .main-area > section.stat-card .work-report-week-board-area .work-report-week-grid {
   flex: 1 1 auto;
-  min-height: 100%;
-  height: 100%;
-  align-items: stretch;
+  min-height: 0;
   overflow-x: auto;
   overflow-y: auto;
-}
-
-.main-area > section.stat-card.stat-card--work-reports .work-report-day-board.report-mode {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  height: 100%;
-}
-
-.main-area > section.stat-card.stat-card--work-reports .work-report-day-sections.report-mode {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.main-area > section.stat-card.stat-card--work-reports .work-report-day-sections.report-mode > .work-report-report-section:last-child {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.main-area > section.stat-card.stat-card--work-reports .work-report-report-journal-wrap {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.main-area > section.stat-card.stat-card--work-reports .work-report-report-checklist-combined-textarea {
-  min-height: 200px;
-}
-
-.main-area > section.stat-card.stat-card--work-reports .work-report-report-cell > .work-report-report-field--grow {
-  flex: 1 1 auto;
-  min-height: 52px;
-  height: 100%;
-}
-
-.main-area > section.stat-card.stat-card--work-reports .work-report-report-table-row-journal.editable,
-.main-area > section.stat-card.stat-card--work-reports .work-report-report-table-row--external.editable {
-  min-height: 52px;
 }
 
 .main-area > section.stat-card.stat-card--work-reports .work-report-meeting-minutes-block {
@@ -5297,7 +5254,7 @@ textarea:focus-visible {
   grid-template-columns: repeat(7, minmax(400px, 1fr));
   gap: 10px;
   overflow-x: auto;
-  align-items: stretch;
+  align-items: start;
 }
 
 .work-report-day-board-dense {
@@ -5515,7 +5472,7 @@ textarea:focus-visible {
   grid-template-columns: repeat(7, minmax(400px, 1fr));
   gap: 10px;
   overflow-x: auto;
-  align-items: stretch;
+  align-items: start;
 }
 
 .work-report-day-board-dense {
