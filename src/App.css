@@ -4562,19 +4562,30 @@ textarea:focus-visible {
   box-sizing: border-box;
 }
 
-/* 연도 그룹 헤더: 계약현황과 동일하게 날씬하게 (데이터 행 py-3 덮어쓰기) */
-.discovery-registry-table .contract-year-row td {
-  padding: 8px 12px;
-  height: 42px;
-  max-height: 42px;
+/* 연도 그룹 헤더: 데이터 행 py-3 무시, 얇은 띠 고정 (py-1.5 + h-10) */
+.discovery-registry-table.discovery-table-fixed .contract-year-row td {
+  padding: 6px 12px;
+  height: 40px;
+  max-height: 40px;
+  line-height: 1.2;
   vertical-align: middle;
   box-sizing: border-box;
 }
 
-.discovery-registry-table .contract-year-row .contract-year-toggle {
-  height: 42px;
-  min-height: 42px;
-  padding: 0 14px;
+.discovery-registry-table.discovery-table-fixed .contract-year-row .contract-year-toggle {
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  padding: 0 12px;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.discovery-registry-table.discovery-table-fixed .contract-year-row .contract-year-sign {
+  width: 20px;
+  height: 20px;
+  font-size: 13px;
 }
 
 .discovery-registry-table .cell-display {
