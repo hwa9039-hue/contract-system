@@ -4545,23 +4545,26 @@ textarea:focus-visible {
   min-width: 44px;
 }
 
-.discovery-registry-table {
+.discovery-registry-table.discovery-table-fixed,
+.discovery-table-fixed {
   table-layout: fixed;
   width: 100%;
-  min-width: 1158px;
+  max-width: 100%;
 }
 
 .discovery-registry-table th,
 .discovery-registry-table td {
   vertical-align: middle;
-  overflow: visible;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
-.discovery-registry-table .registry-check-header,
-.discovery-registry-table .registry-check-cell {
-  width: 48px;
-  min-width: 48px;
-  max-width: 48px;
+.discovery-registry-table .discovery-check-col,
+.discovery-registry-table .registry-check-header.discovery-check-col,
+.discovery-registry-table .registry-check-cell.discovery-check-col {
+  width: 3%;
+  max-width: 3%;
+  min-width: 0;
   padding: 0;
   vertical-align: middle;
   text-align: center;
@@ -4579,12 +4582,16 @@ textarea:focus-visible {
 }
 
 .discovery-registry-table .discovery-col-tight {
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .discovery-registry-table .discovery-col-tight .cell-display {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4593,29 +4600,43 @@ textarea:focus-visible {
 
 .discovery-registry-table .discovery-col-project,
 .discovery-registry-table .discovery-col-note {
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
   vertical-align: middle;
   white-space: normal;
+  overflow: hidden;
   word-break: break-word;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .discovery-registry-table .discovery-col-project .cell-display,
 .discovery-registry-table .discovery-col-note .cell-display,
 .discovery-registry-table .discovery-col-note.multiline-cell .cell-display {
+  min-width: 0;
   align-items: center;
   white-space: normal;
   word-break: break-word;
-  overflow-wrap: anywhere;
-  overflow: visible;
+  overflow-wrap: break-word;
+  overflow: hidden;
   text-overflow: clip;
   line-height: 1.35;
 }
 
-.discovery-registry-table .discovery-col-amount,
-.discovery-registry-table th.discovery-col-amount {
-  width: 126px;
-  min-width: 126px;
-  max-width: 126px;
+.discovery-registry-table .discovery-col-amount {
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.discovery-registry-table .discovery-col-amount .cell-display {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .discovery-registry-table thead th.discovery-col-amount {

@@ -96,16 +96,18 @@ const SALES_COLUMNS = [
 const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
 const DISCOVERY_SALES_TARGET_OPTIONS = SALES_MANAGER_OPTIONS
 const DISCOVERY_MANAGER_FILTER_OPTIONS = SALES_MANAGER_OPTIONS.filter((name) => name !== '신상준')
+/** 건축정보 표 열 너비(%) — 합계 97%, 체크박스 3%와 함께 100% */
+const DISCOVERY_CHECK_COL_WIDTH_PCT = '3%'
 const DISCOVERY_COLUMNS = [
-  { key: 'permitDate', label: '건축정보일자', align: 'center', type: 'date', width: 100, cellClass: 'discovery-col-tight' },
-  { key: 'checkStatus', label: '확인', align: 'center', type: 'text', width: 52, cellClass: 'discovery-col-tight' },
+  { key: 'permitDate', label: '건축정보일자', align: 'center', type: 'date', widthPct: '7%', cellClass: 'discovery-col-tight' },
+  { key: 'checkStatus', label: '확인', align: 'center', type: 'text', widthPct: '5%', cellClass: 'discovery-col-tight' },
   {
     key: 'salesTarget',
     label: '영업자',
     align: 'center',
     type: 'select',
     options: DISCOVERY_SALES_TARGET_OPTIONS,
-    width: 76,
+    widthPct: '6%',
     cellClass: 'discovery-col-tight',
   },
   {
@@ -114,22 +116,22 @@ const DISCOVERY_COLUMNS = [
     align: 'center',
     type: 'select',
     options: DISCOVERY_CATEGORY_OPTIONS,
-    width: 84,
+    widthPct: '6%',
     cellClass: 'discovery-col-tight',
   },
-  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 100, cellClass: 'discovery-col-tight' },
-  { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 280, minWidth: 200, cellClass: 'discovery-col-project' },
+  { key: 'client', label: '발주처', align: 'center', type: 'text', widthPct: '7%', cellClass: 'discovery-col-tight' },
+  { key: 'projectName', label: '사업명', align: 'left', type: 'text', widthPct: '22%', cellClass: 'discovery-col-project' },
   {
     key: 'projectAmount',
     label: '사업금액',
     align: 'right',
     type: 'amount',
-    width: 126,
-    cellClass: 'discovery-col-amount col-amount',
+    widthPct: '11%',
+    cellClass: 'discovery-col-amount',
   },
-  { key: 'completionPeriod', label: '준공시기', align: 'center', type: 'text', width: 88, cellClass: 'discovery-col-tight' },
-  { key: 'manager', label: '담당자', align: 'center', type: 'text', width: 72, cellClass: 'discovery-col-tight' },
-  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 320, minWidth: 240, cellClass: 'discovery-col-note' },
+  { key: 'completionPeriod', label: '준공시기', align: 'center', type: 'text', widthPct: '9%', cellClass: 'discovery-col-tight' },
+  { key: 'manager', label: '담당자', align: 'center', type: 'text', widthPct: '5%', cellClass: 'discovery-col-tight' },
+  { key: 'note', label: '비고', align: 'left', type: 'textarea', widthPct: '21%', cellClass: 'discovery-col-note' },
 ]
 
 const EXCLUDED_CATEGORY_OPTIONS = ['발주계획', '사전규격', '입찰공고', '정보공개']
@@ -8226,7 +8228,11 @@ function App() {
             : undefined
         }
       >
-        <td className="td-align-center registry-check-cell">
+        <td
+          className={`td-align-center registry-check-cell${
+            cellEditScope === 'discovery' ? ' discovery-check-col' : ''
+          }`}
+        >
           <input
             className="registry-row-checkbox"
             type="checkbox"
@@ -8255,10 +8261,13 @@ function App() {
               } ${column.type === 'textarea' ? 'multiline-cell' : ''} ${
                 column.cellClass || ''
               } ${isAdminForRegistry && !row.isDraft ? 'editable-cell' : ''}`}
-              style={{
-                width: column.width,
-                minWidth: column.minWidth ?? column.width,
-              }}
+              style={
+                column.widthPct != null
+                  ? { width: column.widthPct, maxWidth: column.widthPct }
+                  : column.width != null
+                    ? { width: column.width, minWidth: column.minWidth ?? column.width }
+                    : undefined
+              }
               onClick={() => {
                 if (!isAdminForRegistry) return
                 if (row.isDraft) return
@@ -10660,10 +10669,16 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll">
-                <table className="contract-table excel-table registry-table discovery-registry-table">
+                <table className="contract-table excel-table registry-table discovery-registry-table discovery-table-fixed">
+                  <colgroup>
+                    <col style={{ width: DISCOVERY_CHECK_COL_WIDTH_PCT }} />
+                    {DISCOVERY_COLUMNS.map((column) => (
+                      <col key={column.key} style={{ width: column.widthPct }} />
+                    ))}
+                  </colgroup>
                   <thead>
                     <tr>
-                      <th className="th-align-center registry-check-header">
+                      <th className="th-align-center registry-check-header discovery-check-col">
                         <input
                           className="registry-row-checkbox"
                           type="checkbox"
@@ -10689,10 +10704,11 @@ function App() {
                                   ? 'th-align-left'
                                   : 'th-align-center'
                           } ${column.cellClass || ''}`}
-                          style={{
-                            width: column.width,
-                            minWidth: column.minWidth ?? column.width,
-                          }}
+                          style={
+                            column.widthPct != null
+                              ? { width: column.widthPct, maxWidth: column.widthPct }
+                              : undefined
+                          }
                         >
                           {column.label}
                         </th>
