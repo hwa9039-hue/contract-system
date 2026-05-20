@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# 전체 PostgreSQL DB 백업 (pg_dump custom format .dump)
-# - contract-backend 컨테이너는 API 전용(DB 아님). PostgreSQL 컨테이너를 자동 탐지하거나 POSTGRES_DOCKER_CONTAINER 로 지정.
-# - NAS: 호스트 pg_dump 대신 docker exec -i 로 DB 컨테이너 내부 PostgreSQL(기본 5432)에 접속합니다.
-# - 실행 위치: scripts/backup-postgres.sh 또는 backend/backup-postgres.sh
+# 전체 PostgreSQL DB 백업 (pg_dump) + 업로드·데이터 폴더 복사 (원본 확장자 유지)
+# - DB: docker exec pg_dump → BACKUP_DIR/<날짜>/pg_backup_*.dump
+# - 파일: docker cp / 호스트 backend/postgres_data·uploads → BACKUP_DIR/<날짜>/files/
 #
 # Synology 작업 스케줄러 예:
 #   /bin/bash /volume1/docker/contract-management-system/scripts/backup-postgres.sh
@@ -63,26 +62,26 @@ read_dotenv_value() {
 }
 
 load_env_from_files() {
-  local f val
+  local f val key
   for f in \
     "${SCRIPT_DIR}/.env" \
     "${BACKEND_DIR}/.env" \
     "${PROJECT_ROOT}/.env"; do
-    if [[ -z "${DATABASE_URL:-}" ]]; then
-      if val="$(read_dotenv_value "$f" "DATABASE_URL")"; then
-        export DATABASE_URL="$val"
+    for key in \
+      DATABASE_URL \
+      BACKUP_DIR \
+      POSTGRES_DOCKER_CONTAINER \
+      BACKUP_APP_DOCKER_CONTAINER \
+      BACKUP_UPLOAD_CONTAINER_PATHS \
+      BACKUP_HOST_PATHS \
+      BACKUP_SKIP_FILE_COPY; do
+      local var_name="$key"
+      if [[ -z "${!var_name:-}" ]]; then
+        if val="$(read_dotenv_value "$f" "$key")"; then
+          export "${key}=${val}"
+        fi
       fi
-    fi
-    if [[ -z "${BACKUP_DIR:-}" ]]; then
-      if val="$(read_dotenv_value "$f" "BACKUP_DIR")"; then
-        export BACKUP_DIR="$val"
-      fi
-    fi
-    if [[ -z "${POSTGRES_DOCKER_CONTAINER:-}" ]]; then
-      if val="$(read_dotenv_value "$f" "POSTGRES_DOCKER_CONTAINER")"; then
-        export POSTGRES_DOCKER_CONTAINER="$val"
-      fi
-    fi
+    done
   done
 }
 
@@ -99,11 +98,13 @@ if [[ -z "${BACKUP_DIR:-}" ]]; then
   export BACKUP_DIR
 fi
 
-mkdir -p "$BACKUP_DIR"
-
 STAMP="$(date +%Y%m%d_%H%M%S)"
-OUT="${BACKUP_DIR}/pg_backup_${STAMP}.dump"
+BACKUP_SESSION_DIR="${BACKUP_DIR}/${STAMP}"
+FILES_DIR="${BACKUP_SESSION_DIR}/files"
+OUT="${BACKUP_SESSION_DIR}/pg_backup_${STAMP}.dump"
 OUT_BASENAME="$(basename "$OUT")"
+
+mkdir -p "$BACKUP_SESSION_DIR" "$FILES_DIR"
 
 # postgresql://user:pass@host:port/dbname
 parse_database_url() {
@@ -128,7 +129,6 @@ is_backend_container() {
   return 1
 }
 
-# DATABASE_URL 의 호스트 포트(예: 5433)로 publish 된 컨테이너 탐지
 detect_postgres_container_by_port() {
   local port="${PGPORT:-}"
   [[ -n "$port" ]] || return 1
@@ -171,7 +171,6 @@ detect_postgres_container_by_port() {
   return 1
 }
 
-# contract-backend 는 FastAPI 전용 — PostgreSQL 이미지 컨테이너만 선택
 detect_postgres_container() {
   local name image
   local -a matches=()
@@ -192,9 +191,8 @@ detect_postgres_container() {
   fi
 
   if [[ ${#matches[@]} -gt 1 ]]; then
-    local preferred
+    local preferred m
     for preferred in smartdi postgres postgresql pgsql db; do
-      local m
       for m in "${matches[@]}"; do
         if [[ "${m,,}" == *"${preferred,,}"* ]]; then
           echo "$m"
@@ -220,9 +218,25 @@ resolve_postgres_container() {
   detect_postgres_container
 }
 
+resolve_app_container() {
+  if [[ -n "${BACKUP_APP_DOCKER_CONTAINER:-}" ]]; then
+    echo "$BACKUP_APP_DOCKER_CONTAINER"
+    return 0
+  fi
+  local name
+  while IFS= read -r name; do
+    [[ -z "$name" ]] && continue
+    if is_backend_container "$name"; then
+      echo "$name"
+      return 0
+    fi
+  done < <("${DOCKER[@]}" ps --format '{{.Names}}' 2>/dev/null || true)
+  return 1
+}
+
 read_container_postgres_env() {
   local container="$1"
-  local line key val
+  local line val
   CONTAINER_POSTGRES_USER=""
   CONTAINER_POSTGRES_PASSWORD=""
   CONTAINER_POSTGRES_DB=""
@@ -257,11 +271,10 @@ pg_dump_via_docker_exec() {
 
   if [[ -z "$pg_user" || -z "$pg_db" ]]; then
     echo "ERROR: Could not resolve PostgreSQL user/database for container '${container}'." >&2
-    echo "  Set DATABASE_URL or POSTGRES_DOCKER_CONTAINER in .env" >&2
     exit 1
   fi
 
-  echo "pg_dump via: docker exec -i ${container} pg_dump -U ${pg_user} -d ${pg_db} (inside container: port 5432 / local socket)" >&2
+  echo "pg_dump via: docker exec -i ${container} pg_dump -U ${pg_user} -d ${pg_db}" >&2
 
   : >"$OUT"
   "${DOCKER[@]}" exec -i -e PGPASSWORD="$pg_pass" "$container" \
@@ -272,7 +285,7 @@ pg_dump_via_docker_run_client() {
   echo "pg_dump via temporary postgres client container..." >&2
   "${DOCKER[@]}" run --rm \
     --network host \
-    -v "${BACKUP_DIR}:/backup:rw" \
+    -v "${BACKUP_SESSION_DIR}:/backup:rw" \
     -e "DATABASE_URL=${DATABASE_URL}" \
     postgres:16-alpine \
     pg_dump "$DATABASE_URL" -Fc --no-owner --no-acl -f "/backup/${OUT_BASENAME}"
@@ -289,7 +302,6 @@ run_pg_dump() {
     return
   fi
 
-  # NAS: Docker DB 컨테이너가 있으면 호스트 pg_dump 보다 먼저 exec (0바이트·잘못된 대상 방지)
   if docker_available; then
     local pg_container
     if pg_container="$(resolve_postgres_container 2>/dev/null)" && [[ -n "$pg_container" ]]; then
@@ -302,7 +314,7 @@ run_pg_dump() {
   fi
 
   if command -v pg_dump >/dev/null 2>&1; then
-    echo "pg_dump on host (PATH) → ${DATABASE_URL%%@*}@..." >&2
+    echo "pg_dump on host (PATH)..." >&2
     pg_dump "$DATABASE_URL" -Fc --no-owner --no-acl -f "$OUT"
     return
   fi
@@ -313,29 +325,256 @@ run_pg_dump() {
   fi
 
   echo "ERROR: pg_dump not found and no PostgreSQL Docker container detected." >&2
-  echo "  - On NAS: docker ps --format '{{.Names}}\t{{.Image}}'" >&2
-  echo "  - Set POSTGRES_DOCKER_CONTAINER=<name> in ${BACKEND_DIR}/.env" >&2
-  echo "  - Note: contract-backend is NOT the database; do not use it for pg_dump." >&2
   exit 1
 }
 
-echo "Project root: ${PROJECT_ROOT}" >&2
-echo "Backend dir:  ${BACKEND_DIR}" >&2
-echo "Backup dir:   ${BACKUP_DIR}" >&2
+# ---------------------------------------------------------------------------
+# 파일 백업 (호스트 경로 + docker cp)
+# ---------------------------------------------------------------------------
+sanitize_backup_label() {
+  local s="$1"
+  s="${s// /_}"
+  s="${s//\//_}"
+  s="${s//\\/_}"
+  s="${s#_}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "${s:-data}"
+}
+
+resolve_host_path() {
+  local p="$1"
+  if [[ "$p" = /* ]]; then
+    printf '%s' "$p"
+    return 0
+  fi
+  if [[ -d "${PROJECT_ROOT}/${p}" ]]; then
+    printf '%s' "${PROJECT_ROOT}/${p}"
+    return 0
+  fi
+  if [[ -d "${BACKEND_DIR}/${p}" ]]; then
+    printf '%s' "${BACKEND_DIR}/${p}"
+    return 0
+  fi
+  if [[ -d "${p}" ]]; then
+    printf '%s' "$(cd "$p" && pwd)"
+    return 0
+  fi
+  return 1
+}
+
+dir_has_entries() {
+  local d="$1"
+  [[ -d "$d" ]] || return 1
+  local n
+  n="$(find "$d" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')"
+  [[ "${n:-0}" -gt 0 ]]
+}
+
+count_files_under() {
+  local d="$1"
+  find "$d" -type f 2>/dev/null | wc -l | tr -d ' '
+}
+
+backup_host_directory() {
+  local src="$1"
+  local label="$2"
+  local dest="${FILES_DIR}/$(sanitize_backup_label "$label")"
+
+  [[ -d "$src" ]] || return 1
+  dir_has_entries "$src" || return 1
+
+  mkdir -p "$dest"
+  # 원본 확장자·하위 구조 유지
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --delete "${src}/" "${dest}/"
+  else
+    cp -a "${src}/." "${dest}/"
+  fi
+
+  local n
+  n="$(count_files_under "$dest")"
+  echo "Files OK (host): ${src} → ${dest} (${n} files)" >&2
+  return 0
+}
+
+container_path_is_dir() {
+  local container="$1"
+  local cpath="$2"
+  "${DOCKER[@]}" exec "$container" test -d "$cpath" 2>/dev/null
+}
+
+container_path_has_entries() {
+  local container="$1"
+  local cpath="$2"
+  container_path_is_dir "$container" "$cpath" || return 1
+  local n
+  n="$("${DOCKER[@]}" exec "$container" sh -c "find '$cpath' -mindepth 1 -maxdepth 1 2>/dev/null | wc -l" 2>/dev/null | tr -d ' ')"
+  [[ "${n:-0}" -gt 0 ]]
+}
+
+backup_from_container() {
+  local container="$1"
+  local cpath="$2"
+  local label="$3"
+  local dest="${FILES_DIR}/$(sanitize_backup_label "$label")"
+
+  container_path_has_entries "$container" "$cpath" || return 1
+
+  mkdir -p "$dest"
+  "${DOCKER[@]}" cp "${container}:${cpath}/." "${dest}/"
+
+  local n
+  n="$(count_files_under "$dest")"
+  echo "Files OK (docker cp): ${container}:${cpath} → ${dest} (${n} files)" >&2
+  return 0
+}
+
+is_upload_mount_destination() {
+  case "$1" in
+    /var/lib/postgresql/data|/var/lib/postgresql/data/*) return 1 ;;
+    /app/uploads|/app/uploads/*|/app/data/uploads|/app/data/uploads/*) return 0 ;;
+    /app/data/files|/app/data/files/*|/data/uploads|/data/uploads/*) return 0 ;;
+    /uploads|/uploads/*|/files|/files/*) return 0 ;;
+  esac
+  case "$1" in
+    *upload*|*Upload*|*file*|*File*|*data*) return 0 ;;
+  esac
+  return 1
+}
+
+backup_container_bind_mounts() {
+  local container="$1"
+  local line mtype src dest label
+
+  while IFS='|' read -r mtype src dest; do
+    [[ "$mtype" == "bind" && -n "$src" && -n "$dest" ]] || continue
+    is_upload_mount_destination "$dest" || continue
+    [[ -d "$src" ]] || continue
+    label="${container}_mount_$(basename "$dest")"
+    backup_host_directory "$src" "$label" || true
+  done < <("${DOCKER[@]}" inspect -f '{{range .Mounts}}{{if eq .Type "bind"}}{{.Type}}|{{.Source}}|{{.Destination}}{{"\n"}}{{end}}{{end}}' "$container" 2>/dev/null || true)
+}
+
+default_upload_container_paths() {
+  printf '%s\n' \
+    /app/uploads \
+    /app/data/uploads \
+    /app/data/files \
+    /data/uploads \
+    /uploads \
+    /files
+}
+
+default_host_backup_paths() {
+  printf '%s\n' \
+    backend/postgres_data \
+    postgres_data \
+    backend/uploads \
+    backend/data \
+    backend/app/uploads \
+    uploads
+}
+
+run_file_backup() {
+  if [[ "${BACKUP_SKIP_FILE_COPY:-}" == "1" || "${BACKUP_SKIP_FILE_COPY:-}" == "true" ]]; then
+    echo "File backup skipped (BACKUP_SKIP_FILE_COPY)." >&2
+    return 0
+  fi
+
+  echo "Backing up uploaded files → ${FILES_DIR}" >&2
+  local copied=0
+  local rel resolved container cpath app_container pg_container
+
+  # 1) 호스트 경로 (NAS: backend/postgres_data 등)
+  if [[ -n "${BACKUP_HOST_PATHS:-}" ]]; then
+    while IFS= read -r rel || [[ -n "${rel:-}" ]]; do
+      rel="${rel//$'\r'/}"
+      rel="${rel#"${rel%%[![:space:]]*}"}"
+      rel="${rel%"${rel##*[![:space:]]}"}"
+      [[ -z "$rel" ]] && continue
+      if resolved="$(resolve_host_path "$rel" 2>/dev/null)"; then
+        if backup_host_directory "$resolved" "host_$(basename "$resolved")"; then
+          copied=$((copied + 1))
+        fi
+      fi
+    done < <(tr ',' '\n' <<<"${BACKUP_HOST_PATHS}")
+  else
+    while IFS= read -r rel; do
+      if resolved="$(resolve_host_path "$rel" 2>/dev/null)"; then
+        if backup_host_directory "$resolved" "host_$(basename "$resolved")"; then
+          copied=$((copied + 1))
+        fi
+      fi
+    done < <(default_host_backup_paths)
+  fi
+
+  if ! docker_available; then
+    if [[ "$copied" -eq 0 ]]; then
+      echo "WARN: No file directories copied (Docker unavailable for container paths)." >&2
+    fi
+    return 0
+  fi
+
+  # 2) API 컨테이너 bind mount → 호스트에서 복사 (docker cp 보다 빠름)
+  if app_container="$(resolve_app_container 2>/dev/null)" && [[ -n "$app_container" ]]; then
+    backup_container_bind_mounts "$app_container"
+    if [[ -n "${BACKUP_UPLOAD_CONTAINER_PATHS:-}" ]]; then
+      while IFS= read -r cpath || [[ -n "${cpath:-}" ]]; do
+        cpath="${cpath//$'\r'/}"
+        cpath="${cpath#"${cpath%%[![:space:]]*}"}"
+        cpath="${cpath%"${cpath##*[![:space:]]}"}"
+        [[ -z "$cpath" ]] && continue
+        if backup_from_container "$app_container" "$cpath" "${app_container}_${cpath//\//_}"; then
+          copied=$((copied + 1))
+        fi
+      done < <(tr ',' '\n' <<<"${BACKUP_UPLOAD_CONTAINER_PATHS}")
+    else
+      while IFS= read -r cpath; do
+        if backup_from_container "$app_container" "$cpath" "${app_container}_${cpath//\//_}"; then
+          copied=$((copied + 1))
+        fi
+      done < <(default_upload_container_paths)
+    fi
+  fi
+
+  # 3) PostgreSQL 컨테이너에 업로드 경로가 마운트된 경우
+  if pg_container="$(resolve_postgres_container 2>/dev/null)" && [[ -n "$pg_container" ]]; then
+    backup_container_bind_mounts "$pg_container"
+    while IFS= read -r cpath; do
+      if backup_from_container "$pg_container" "$cpath" "${pg_container}_${cpath//\//_}"; then
+        copied=$((copied + 1))
+      fi
+    done < <(default_upload_container_paths)
+  fi
+
+  if [[ "$copied" -eq 0 ]]; then
+    echo "WARN: No upload/data directories were copied." >&2
+    echo "  Set BACKUP_HOST_PATHS or BACKUP_UPLOAD_CONTAINER_PATHS in .env if paths differ." >&2
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# 실행
+# ---------------------------------------------------------------------------
+echo "Project root:    ${PROJECT_ROOT}" >&2
+echo "Backend dir:     ${BACKEND_DIR}" >&2
+echo "Backup session:  ${BACKUP_SESSION_DIR}" >&2
 if [[ -n "${POSTGRES_DOCKER_CONTAINER:-}" ]]; then
-  echo "DB container: ${POSTGRES_DOCKER_CONTAINER} (from .env)" >&2
+  echo "DB container:    ${POSTGRES_DOCKER_CONTAINER} (from .env)" >&2
 elif docker_available && pg_c="$(resolve_postgres_container 2>/dev/null || true)" && [[ -n "$pg_c" ]]; then
-  echo "DB container: ${pg_c} (auto-detected)" >&2
+  echo "DB container:    ${pg_c} (auto-detected)" >&2
 fi
 
 run_pg_dump
 
 if [[ ! -s "$OUT" ]]; then
   echo "ERROR: Backup file is missing or empty: $OUT" >&2
-  echo "  Tip: confirm container with: docker ps" >&2
-  echo "  Set POSTGRES_DOCKER_CONTAINER in backend/.env if auto-detect picks the wrong one." >&2
   exit 1
 fi
 
-BYTES="$(wc -c <"$OUT" | tr -d ' ')"
-echo "Backup OK: ${OUT} (${BYTES} bytes)"
+DUMP_BYTES="$(wc -c <"$OUT" | tr -d ' ')"
+echo "Dump OK: ${OUT} (${DUMP_BYTES} bytes)" >&2
+
+run_file_backup
+
+echo "Backup session complete: ${BACKUP_SESSION_DIR}"

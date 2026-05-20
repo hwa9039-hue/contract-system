@@ -1,5 +1,6 @@
 import { API_BASE_URL, getAuthHeaders, apiFetchInit } from './apiClient.js'
 import { readApiErrorMessage } from './apiErrors.js'
+import { normalizeRegistryImportResponse } from './excelImportResponse.js'
 
 async function requestJson(path, options = {}) {
   const url = `${API_BASE_URL}${path}`
@@ -63,6 +64,6 @@ export const excludedProjectsApi = {
     return requestJson('/api/excluded-projects/import', {
       method: 'POST',
       body: JSON.stringify({ rows }),
-    })
+    }).then(normalizeRegistryImportResponse)
   },
 }

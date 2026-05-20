@@ -4,6 +4,7 @@ import './App.css'
 import { contractsApi } from './contractsApi'
 import { documentRegisterApi } from './documentRegisterApi'
 import { excludedProjectsApi } from './excludedProjectsApi'
+import { buildExcelImportAlertBody } from './excelImportResponse.js'
 import {
   DISCOVERY_API_PATHS,
   DISCOVERY_API_USE_MOCK,
@@ -2732,20 +2733,6 @@ function normalizeEditValue(key, value) {
   return safeString(value).trim()
 }
 
-function normalizeKey(value) {
-  return safeString(value).trim().replace(/\s+/g, '').toLowerCase()
-}
-
-function getContractDuplicateKey(item) {
-  const projectKey = normalizeKey(item.projectName)
-  if (projectKey) return `project:${projectKey}`
-
-  const contractKey = normalizeKey(item.contractNo)
-  if (contractKey) return `contract:${contractKey}`
-
-  return ''
-}
-
 function compareKoreanText(a, b) {
   return safeString(a).localeCompare(safeString(b), 'ko-KR', {
     numeric: true,
@@ -5428,31 +5415,33 @@ function App() {
         return
       }
 
-      const existingKeys = new Set(contracts.map(getContractDuplicateKey).filter(Boolean))
-      const uniqueImported = []
-      const seenImportKeys = new Set()
+      const payload = imported
+        .filter((item) => item.projectName || item.contractNo || item.client)
+        .map(normalizeContractPayload)
 
-      imported.forEach((item) => {
-        const key = getContractDuplicateKey(item)
-        if (!key || existingKeys.has(key) || seenImportKeys.has(key)) return
-        seenImportKeys.add(key)
-        uniqueImported.push(item)
-      })
-
-      if (!uniqueImported.length) {
-        showAppAlert(`엑셀에서 ${imported.length}건을 찾았지만 기존 데이터와 중복되어 추가할 신규 사업이 없습니다.`)
+      if (!payload.length) {
+        showAppAlert('불러올 수 있는 계약 데이터가 없습니다.')
         return
       }
 
-      const payload = uniqueImported.map(normalizeContractPayload)
-      const chunkSize = 25
-      for (let i = 0; i < payload.length; i += chunkSize) {
-        const chunk = payload.slice(i, i + chunkSize)
-        await contractsApi.bulkCreate(chunk)
-      }
+      const result = await contractsApi.bulkCreate(payload)
 
       await fetchContracts()
-      showAppAlert(`엑셀 업로드 완료: 신규 ${uniqueImported.length}건 추가, 중복 ${imported.length - uniqueImported.length}건 제외`)
+      const dupLen = Array.isArray(result.duplicateItems) ? result.duplicateItems.length : 0
+      const intro = `엑셀 업로드 성공: 신규 ${result.created}건 추가, 중복 ${dupLen}건 제외`
+      let msg = buildExcelImportAlertBody(intro, result.duplicateItems)
+      if (result.usedBulkFallback) {
+        msg += `\n\n※ 구형 API(/bulk)로 저장되어 서버 중복 목록·엑셀 백업은 제공되지 않습니다.`
+      } else if (result.excelBackupPath) {
+        msg += `\n\n[서버 엑셀 백업]\n${result.excelBackupPath}`
+      } else if (result.excelBackupError) {
+        msg += `\n\n※ 서버 엑셀 백업 실패: ${result.excelBackupError}`
+      }
+      const skipKey = Number(result.skippedNoDuplicateKeyRows || 0)
+      if (!result.usedBulkFallback && skipKey > 0) {
+        msg += `\n\n※ 사업명·계약번호가 비어 무시된 행: ${skipKey}건`
+      }
+      showAppAlert(msg)
     } catch (error) {
       console.error('엑셀 업로드 중 오류가 발생했습니다.', error)
       const msg = safeString(error?.message).trim() || safeString(error)
@@ -6832,33 +6821,8 @@ function App() {
         return
       }
 
-      const existingSignatures = new Set(
-        config.rows
-          .filter((row) => !row.isDraft)
-          .map((row) => getRegistryRowSignature(row, config.columns))
-      )
-      const uploadSignatures = new Set()
-      const uniquePreparedRows = []
-      let duplicateCount = 0
-
-      preparedRows.forEach((preparedRow) => {
-        const signature = getRegistryRowSignature(preparedRow.row, config.columns)
-        if (existingSignatures.has(signature) || uploadSignatures.has(signature)) {
-          duplicateCount += 1
-          return
-        }
-
-        uploadSignatures.add(signature)
-        uniquePreparedRows.push(preparedRow)
-      })
-
-      if (!uniquePreparedRows.length) {
-        showAppAlert(`신규 0건 업로드, 중복 ${duplicateCount}건 제외되었습니다.`)
-        return
-      }
-
       const baseTime = Date.now()
-      const payloadRows = uniquePreparedRows.map(({ row }, index) => {
+      const payloadRows = preparedRows.map(({ row }, index) => {
         const timestamp = new Date(baseTime + index).toISOString()
         return {
           ...config.toPayload(row, timestamp),
@@ -6872,7 +6836,18 @@ function App() {
           endpoint: config.importEndpoint,
           rowCount: payloadRows.length,
         })
-        await config.importRows(payloadRows)
+        const { rows: insertedRows, duplicateItems } = await config.importRows(payloadRows)
+        const dupCount = Array.isArray(duplicateItems) ? duplicateItems.length : 0
+        const intro = `엑셀 업로드 성공: 신규 ${insertedRows.length}건 추가, 중복 ${dupCount}건 제외`
+        const msg = buildExcelImportAlertBody(intro, duplicateItems)
+
+        await config.fetchRows(false)
+        console.log('[excel-upload] 완료', {
+          target,
+          importedCount: insertedRows.length,
+          duplicateCount: dupCount,
+        })
+        showAppAlert(msg)
       } catch (error) {
         console.error('[excel-upload] 업로드 실패', error)
         logApiOperationError('엑셀 업로드 실패', error)
@@ -6886,14 +6861,6 @@ function App() {
         showAppAlert(`${saveFailPrefix}${error?.message ?? String(error)}`)
         return
       }
-
-      await config.fetchRows(false)
-      console.log('[excel-upload] 완료', {
-        target,
-        importedCount: uniquePreparedRows.length,
-        duplicateCount,
-      })
-      showAppAlert('엑셀 업로드가 완료되었습니다.', '알림')
     } catch (error) {
       console.error('업로드 중 오류가 발생했습니다.', error)
       showAppAlert(error?.message ?? String(error))

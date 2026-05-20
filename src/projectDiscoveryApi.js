@@ -1,5 +1,6 @@
 import { API_BASE_URL, getAuthHeaders, apiFetchInit } from './apiClient.js'
 import { readApiErrorMessage } from './apiErrors.js'
+import { normalizeRegistryImportResponse } from './excelImportResponse.js'
 
 /**
  * 백엔드 라우터(backend/app/routers/project_discovery.py) 기준 경로.
@@ -193,10 +194,11 @@ export const projectDiscoveryApi = {
       console.log('[excel-upload] POST', `${API_BASE_URL}${DISCOVERY_API_PATHS.import}`, {
         rowCount: rows.length,
       })
-      return await requestJson(DISCOVERY_API_PATHS.import, {
+      const raw = await requestJson(DISCOVERY_API_PATHS.import, {
         method: 'POST',
         body: JSON.stringify({ rows }),
       })
+      return normalizeRegistryImportResponse(raw)
     } catch (error) {
       console.warn('[건축정보] POST import 실패 — 로컬 저장 폴백', error)
       if (DISCOVERY_API_USE_MOCK) {
@@ -204,7 +206,7 @@ export const projectDiscoveryApi = {
       }
       const created = mockImportedRows(rows)
       saveStoredDiscoveryRows([...loadStoredDiscoveryRows(), ...created])
-      return created
+      return normalizeRegistryImportResponse({ rows: created, duplicateItems: [] })
     }
   },
 }

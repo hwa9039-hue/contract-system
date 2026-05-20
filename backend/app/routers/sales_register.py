@@ -4,8 +4,8 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, status
 
 from app.database import get_connection
+from app.excel_import_dedupe import SALES_SIGNATURE_KEYS, import_rows_with_signature_dedupe
 from app.schemas import (
-    SALES_REGISTER_DB_COLUMNS,
     SalesRegisterBulkDelete,
     SalesRegisterCreate,
     SalesRegisterImport,
@@ -155,14 +155,18 @@ def delete_all_sales_register_rows():
     return {"deleted": deleted_count}
 
 
-@router.post("/import", response_model=list[SalesRegisterOut], status_code=status.HTTP_201_CREATED)
+@router.post("/import", status_code=status.HTTP_201_CREATED)
 def import_sales_register_rows(payload: SalesRegisterImport):
-    created_rows = []
-
     with get_connection() as connection:
         with connection.cursor() as cursor:
-            for row in payload.rows:
-                created_rows.append(insert_sales_row(cursor, row))
+            created_rows, duplicate_items = import_rows_with_signature_dedupe(
+                cursor,
+                "sales_register_rows",
+                SALES_SIGNATURE_KEYS,
+                payload.rows,
+                sales_register_to_db_values,
+                insert_sales_row,
+            )
         connection.commit()
 
-    return created_rows
+    return {"rows": created_rows, "duplicateItems": duplicate_items}

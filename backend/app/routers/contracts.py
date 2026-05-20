@@ -2,7 +2,13 @@ import logging
 
 from fastapi import APIRouter, HTTPException, status
 
+from app.contract_import_backup_xlsx import write_contract_import_excel_backup
 from app.database import get_connection, repair_contract_row_ids
+from app.excel_import_dedupe import (
+    contract_duplicate_key_from_values,
+    contract_duplicate_label,
+    load_contract_duplicate_keys,
+)
 from app.schemas import (
     CONTRACT_DB_COLUMNS,
     ContractBulkCreate,
@@ -52,6 +58,68 @@ def _insert_contract_rows(rows: list[ContractCreate]) -> int:
                 created += 1
         connection.commit()
     return created
+
+
+def _import_contract_rows_with_dedupe(rows: list[ContractCreate]) -> dict:
+    """중복 건너뛰기 후 INSERT 결과로 엑셀 백업(선택) 및 duplicateItems 반환."""
+    duplicate_items: list[str] = []
+    inserted_api_rows: list[dict] = []
+    skipped_no_key = 0
+
+    with get_connection() as connection:
+        filled = repair_contract_row_ids(connection)
+        if filled:
+            logger.warning("contracts_rows: backfilled id on %s row(s) that had null id", filled)
+
+        with connection.cursor() as cursor:
+            existing_keys = load_contract_duplicate_keys(cursor)
+            seen_batch: set[str] = set()
+
+            for contract in rows:
+                values = contract_to_db_values(contract)
+                dk = contract_duplicate_key_from_values(values)
+                if not dk:
+                    skipped_no_key += 1
+                    continue
+                if dk in existing_keys or dk in seen_batch:
+                    duplicate_items.append(contract_duplicate_label(values))
+                    continue
+
+                columns = list(values.keys())
+                placeholders = [f"%({column})s" for column in columns]
+                quoted_columns = [quote_identifier(column) for column in columns]
+                cursor.execute(
+                    f"""
+                    insert into contracts_rows ({", ".join(quoted_columns)})
+                    values ({", ".join(placeholders)})
+                    returning {RETURNING_COLUMNS}
+                    """,
+                    values,
+                )
+                row = cursor.fetchone()
+                if row:
+                    inserted_api_rows.append(row_to_contract(row))
+                seen_batch.add(dk)
+                existing_keys.add(dk)
+
+        connection.commit()
+
+    created = len(inserted_api_rows)
+    excel_path: str | None = None
+    excel_err: str | None = None
+    if created > 0:
+        excel_path, excel_err = write_contract_import_excel_backup(
+            inserted_contract_rows=inserted_api_rows,
+            duplicate_items=duplicate_items if duplicate_items else None,
+        )
+
+    return {
+        "created": created,
+        "duplicateItems": duplicate_items,
+        "excelBackupPath": excel_path,
+        "excelBackupError": excel_err,
+        "skippedNoDuplicateKeyRows": skipped_no_key,
+    }
 
 
 @router.get("", response_model=list[ContractOut])
@@ -108,9 +176,9 @@ def bulk_create_contracts(payload: ContractBulkCreate):
 
 @router.post("/import", status_code=status.HTTP_201_CREATED)
 def import_contracts(payload: ContractBulkCreate):
-    """Same as /bulk; path matches other registries (/api/*/import)."""
+    """중복 건너뛴 뒤 DB 반영 행만 엑셀 백업(환경설정 시). duplicateItems 포함."""
     try:
-        return {"created": _insert_contract_rows(payload.rows)}
+        return _import_contract_rows_with_dedupe(payload.rows)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -144,7 +212,7 @@ def bulk_delete_contracts(payload: ContractBulkDelete):
 
 @router.patch("/{contract_id}", response_model=ContractOut)
 def update_contract(contract_id: str, patch: ContractPatch):
-    """행 수정은 DB PK `id`(UUID 문자열)로만 조회합니다. 계약번호만으로 갱신하려면 별도 쿼리·제약(유일성)이 필요합니다."""
+    """행 수정은 DB PK `id`(UUID 문자열)로만 조회합니다."""
     patch_data = patch.model_dump(exclude_unset=True)
     if not patch_data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")

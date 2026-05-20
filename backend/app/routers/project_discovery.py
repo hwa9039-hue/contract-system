@@ -4,6 +4,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, status
 
 from app.database import get_connection
+from app.excel_import_dedupe import DISCOVERY_SIGNATURE_KEYS, import_rows_with_signature_dedupe
 from app.schemas import (
     ProjectDiscoveryBulkDelete,
     ProjectDiscoveryCreate,
@@ -153,14 +154,18 @@ def delete_all_project_discovery_rows():
     return {"deleted": deleted_count}
 
 
-@router.post("/import", response_model=list[ProjectDiscoveryOut], status_code=status.HTTP_201_CREATED)
+@router.post("/import", status_code=status.HTTP_201_CREATED)
 def import_project_discovery_rows(payload: ProjectDiscoveryImport):
-    created_rows = []
-
     with get_connection() as connection:
         with connection.cursor() as cursor:
-            for row in payload.rows:
-                created_rows.append(insert_discovery_row(cursor, row))
+            created_rows, duplicate_items = import_rows_with_signature_dedupe(
+                cursor,
+                "project_discovery_rows",
+                DISCOVERY_SIGNATURE_KEYS,
+                payload.rows,
+                project_discovery_to_db_values,
+                insert_discovery_row,
+            )
         connection.commit()
 
-    return created_rows
+    return {"rows": created_rows, "duplicateItems": duplicate_items}

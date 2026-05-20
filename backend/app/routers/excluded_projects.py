@@ -4,6 +4,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, status
 
 from app.database import get_connection
+from app.excel_import_dedupe import EXCLUDED_SIGNATURE_KEYS, import_rows_with_signature_dedupe
 from app.schemas import (
     ExcludedProjectBulkDelete,
     ExcludedProjectCreate,
@@ -153,14 +154,18 @@ def delete_all_excluded_project_rows():
     return {"deleted": deleted_count}
 
 
-@router.post("/import", response_model=list[ExcludedProjectOut], status_code=status.HTTP_201_CREATED)
+@router.post("/import", status_code=status.HTTP_201_CREATED)
 def import_excluded_project_rows(payload: ExcludedProjectImport):
-    created_rows = []
-
     with get_connection() as connection:
         with connection.cursor() as cursor:
-            for row in payload.rows:
-                created_rows.append(insert_excluded_project_row(cursor, row))
+            created_rows, duplicate_items = import_rows_with_signature_dedupe(
+                cursor,
+                "excluded_projects_rows",
+                EXCLUDED_SIGNATURE_KEYS,
+                payload.rows,
+                excluded_project_to_db_values,
+                insert_excluded_project_row,
+            )
         connection.commit()
 
-    return created_rows
+    return {"rows": created_rows, "duplicateItems": duplicate_items}

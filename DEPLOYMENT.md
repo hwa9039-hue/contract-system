@@ -37,7 +37,36 @@ PostgreSQL **전체 DB**를 `pg_dump`로 한 번에 덤프(`.dump`)합니다.
 | `DATABASE_URL` | 환경변수 없으면 `<프로젝트>/.env` → `<프로젝트>/backend/.env` 순으로 로드 |
 | `BACKUP_DIR` | 미설정 시 `<프로젝트>/backups` (실행 위치와 무관) |
 
-다른 NAS 공유 폴더에 두려면 `.env` 또는 스케줄러 환경 변수에 예: `BACKUP_DIR=/volume1/backup/contract-db`
+백업 1회 실행 시 `<BACKUP_DIR>/YYYYMMDD_HHMMSS/` 폴더가 생깁니다.
+
+| 항목 | 경로 |
+|------|------|
+| DB 덤프 | `.../pg_backup_YYYYMMDD_HHMMSS.dump` |
+| 업로드·데이터 파일 | `.../files/` (xlsx·pdf 등 **원본 확장자 그대로**) |
+
+파일 복사 대상(자동): `backend/postgres_data`, `backend/uploads`, API 컨테이너 `/app/uploads` 등.  
+경로가 다르면 `.env`에 `BACKUP_HOST_PATHS`, `BACKUP_UPLOAD_CONTAINER_PATHS` 지정.
+
+### 계약 엑셀 업로드 서버 백업 (.xlsx)
+
+계약현황 **엑셀 업로드**가 `/api/contracts/import`로 성공하면(신규 1건 이상), 서버가 DB에 넣은 행만 역으로 `.xlsx`를 만들어 둘 수 있습니다.
+
+| 항목 | 설명 |
+|------|------|
+| 환경변수 | `CONTRACT_IMPORT_EXCEL_BACKUP_DIR` — 디렉터리 절대 경로 (미설정이면 기능 생략) |
+| 파일명 | `계약현황_백업_YYYYMMDD_HHMMSS.xlsx` |
+| 시트 | `계약현황`(신규 저장분), `중복제외`(중복 식별 목록, 해당 시 행 존재) |
+
+Docker에서는 컨테이너 안 경로와 NAS 폴더를 **볼륨 마운트**로 맞춥니다.
+
+```yaml
+environment:
+  - CONTRACT_IMPORT_EXCEL_BACKUP_DIR=/data/contract_excel_backup
+volumes:
+  - /volume1/backup/contract-excel-import:/data/contract_excel_backup
+```
+
+위 NAS 공유폴더를 `backup-postgres.sh`의 `BACKUP_HOST_PATHS` 등에 포함하면 파일 복사 백업에도 같이 잡히게 할 수 있습니다.
 
 ### pg_dump / Docker (중요)
 
