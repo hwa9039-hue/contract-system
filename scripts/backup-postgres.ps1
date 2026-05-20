@@ -3,7 +3,11 @@
 # - BACKUP_DIR:   미설정 시 <프로젝트>/backups
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$ProjectRoot = if ($env:CMS_PROJECT_ROOT) {
+    (Resolve-Path $env:CMS_PROJECT_ROOT).Path
+} else {
+    (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+}
 
 function Get-DotEnvValue {
     param(

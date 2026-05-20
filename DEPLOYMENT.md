@@ -4,27 +4,69 @@
 
 ## 1. 자동 백업이란?
 
-PostgreSQL 데이터를 주기적으로 파일로 덤프해 두는 것입니다. NAS나 서버가 고장 나도 덤프 파일이 있으면 복구할 수 있습니다.
+PostgreSQL **전체 DB**를 `pg_dump`로 한 번에 덤프(`.dump`)합니다.  
+예전처럼 일부 테이블만 CSV로 뽑으면 `weekly_work_reports_rows`, `install_cases_rows` 등 **나중에 추가된 테이블이 빠질 수 있으므로**, 반드시 아래 스크립트를 쓰세요.
 
-### NAS에서 Bash가 되는 경우
+| 스크립트 | 용도 |
+|----------|------|
+| `scripts/backup-postgres.sh` | Synology NAS / Linux / macOS |
+| `scripts/backup-postgres.ps1` | Windows |
 
-`DATABASE_URL`을 설정한 뒤 cron 또는 작업 스케줄러에서 매일 실행합니다.
+### Synology NAS 작업 스케줄러 (권장)
+
+1. **제어판 → 작업 스케줄러 → 생성 → 예약된 작업 → 사용자 정의 스크립트**
+2. **실행 명령** (경로는 NAS에 클론한 실제 위치로 바꿈):
 
 ```bash
-cd /path/to/contract-management-system
-export DATABASE_URL="postgresql://USER:PASS@HOST:PORT/DBNAME"
-bash scripts/backup-postgres.sh
+/bin/bash /volume1/docker/contract-management-system/scripts/backup-postgres.sh
 ```
 
-덤프 파일 위치는 기본값 `./backups/` 입니다. 다른 경로를 쓰려면 `BACKUP_DIR` 환경변수를 지정합니다.
+3. **중요**: `cd` 없이 **bash + 스크립트 절대 경로**로 실행합니다. 스크립트가 프로젝트 루트의 `.env` / `backend/.env`에서 `DATABASE_URL`을 자동으로 읽습니다.
+4. 구식 **테이블별 CSV 백업 작업은 비활성화**하고, 위 작업만 남깁니다.
 
-### Windows에서 PostgreSQL 클라이언트(pg_dump)가 설치된 경우
+스케줄러가 프로젝트 폴더 밖에서 실행되면, 작업에 환경 변수를 추가할 수 있습니다.
 
-PowerShell에서:
+| 변수 | 값 예시 |
+|------|---------|
+| `CMS_PROJECT_ROOT` | `/volume1/docker/contract-management-system` |
+
+### .env / 저장 경로
+
+| 항목 | 기본 동작 |
+|------|-----------|
+| `DATABASE_URL` | 환경변수 없으면 `<프로젝트>/.env` → `<프로젝트>/backend/.env` 순으로 로드 |
+| `BACKUP_DIR` | 미설정 시 `<프로젝트>/backups` (실행 위치와 무관) |
+
+다른 NAS 공유 폴더에 두려면 `.env` 또는 스케줄러 환경 변수에 예: `BACKUP_DIR=/volume1/backup/contract-db`
+
+### pg_dump가 NAS 호스트에 없을 때 (Docker)
+
+호스트에 `pg_dump`가 없으면 스크립트가 순서대로 시도합니다.
+
+1. `POSTGRES_DOCKER_CONTAINER` 환경 변수가 있으면 → 해당 컨테이너 안에서 `pg_dump` 실행 후 파일 복사
+2. 없으면 → `postgres:16-alpine` 이미지로 `docker run --network host` 실행
+
+PostgreSQL이 **전용 컨테이너**로만 떠 있으면 스케줄러에 예를 들어:
+
+```text
+POSTGRES_DOCKER_CONTAINER=postgres
+```
+
+(실제 컨테이너 이름은 **컨테이너 매니저**에서 확인)
+
+### 수동 실행 (SSH)
+
+```bash
+/bin/bash /volume1/docker/contract-management-system/scripts/backup-postgres.sh
+```
+
+성공 시 `Backup OK: .../backups/pg_backup_YYYYMMDD_HHMMSS.dump (... bytes)` 가 출력됩니다.
+
+### Windows
+
+PowerShell에서 (`.env` 자동 로드):
 
 ```powershell
-cd C:\path\to\contract-management-system
-$env:DATABASE_URL="postgresql://USER:PASS@HOST:PORT/DBNAME"
 .\scripts\backup-postgres.ps1
 ```
 
@@ -32,8 +74,8 @@ $env:DATABASE_URL="postgresql://USER:PASS@HOST:PORT/DBNAME"
 
 ### 필요한 것
 
-- 서버나 NAS에 `pg_dump` 명령이 PATH에 있어야 합니다(PostgreSQL 클라이언트).
-- `DATABASE_URL`은 백엔드 `.env`와 동일하게 맞춥니다.
+- `DATABASE_URL`은 백엔드 `backend/.env`와 동일 (루트 `.env`에 넣어도 됨).
+- 호스트 `pg_dump`, 또는 Docker 위 **fallback** 중 하나.
 
 ---
 
