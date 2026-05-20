@@ -39,20 +39,35 @@ PostgreSQL **전체 DB**를 `pg_dump`로 한 번에 덤프(`.dump`)합니다.
 
 다른 NAS 공유 폴더에 두려면 `.env` 또는 스케줄러 환경 변수에 예: `BACKUP_DIR=/volume1/backup/contract-db`
 
-### pg_dump가 NAS 호스트에 없을 때 (Docker)
+### pg_dump / Docker (중요)
 
-호스트에 `pg_dump`가 없으면 스크립트가 순서대로 시도합니다.
+`backend/docker-compose.yml`에는 **`contract-backend`(FastAPI)만** 있고 PostgreSQL 서비스는 없습니다.  
+`DATABASE_URL`의 `192.168.0.100:5433` 은 **별도 PostgreSQL**(패키지 또는 다른 컨테이너)입니다.
 
-1. `POSTGRES_DOCKER_CONTAINER` 환경 변수가 있으면 → 해당 컨테이너 안에서 `pg_dump` 실행 후 파일 복사
-2. 없으면 → `postgres:16-alpine` 이미지로 `docker run --network host` 실행
+**`contract-backend` 컨테이너로는 백업하지 마세요.** API 이미지에 `pg_dump`가 없습니다.
 
-PostgreSQL이 **전용 컨테이너**로만 떠 있으면 스케줄러에 예를 들어:
+백업 스크립트 동작 순서:
 
-```text
-POSTGRES_DOCKER_CONTAINER=postgres
+1. **`POSTGRES_DOCKER_CONTAINER`** (`.env` 지정) 또는 **자동 탐지** → `docker exec -i <DB컨테이너> pg_dump -U smartdi -d smartdi ...` (컨테이너 **내부** 5432 / 로컬 소켓. 호스트 포트 5433과 무관)
+2. 자동 탐지: `DATABASE_URL`의 포트(예 `5433`)로 publish 된 컨테이너 → 이름에 `smartdi`/`postgres` 포함 → `postgres` 이미지
+3. Docker·DB 컨테이너가 없을 때만 호스트 `pg_dump`
+4. 없으면 `postgres:16-alpine` 임시 컨테이너 (`docker run --network host`)
+
+0바이트 덤프는 대개 **호스트 pg_dump**가 NAS 로컬 DB에 붙었을 때 발생합니다. 최신 스크립트는 Docker DB를 **우선** 사용합니다.
+
+컨테이너 이름을 직접 지정하려면 NAS SSH에서:
+
+```bash
+docker ps --format '{{.Names}}\t{{.Image}}'
 ```
 
-(실제 컨테이너 이름은 **컨테이너 매니저**에서 확인)
+`backend/.env` 예:
+
+```env
+POSTGRES_DOCKER_CONTAINER=실제_포스트그레스_컨테이너_이름
+```
+
+`backend/backup-postgres.sh` 또는 `scripts/backup-postgres.sh` 둘 다 동일 로직입니다.
 
 ### 수동 실행 (SSH)
 
