@@ -2446,6 +2446,7 @@ function isUsableContractPathId(id) {
   const s = normalizeRegistryRowId(id)
   if (!s) return false
   if (s.startsWith('__MISSING__')) return false
+  if (s.startsWith('__ROW__')) return false
   if (s === '[object Object]') return false
   if (s.length > 256) return false
   return !/[\r\n]/.test(s)
@@ -2460,10 +2461,14 @@ function firstUsableContractPathId(...parts) {
   return ''
 }
 
-/** 테이블 rowKey: `record.id` 고정 (fetch 시 id 강제 주입) */
+/** 테이블 UI 키 — 행마다 고유. 저장 API 는 `record.id`(DB PK)만 사용 */
 function getContractTableRowKey(record) {
   if (record == null || typeof record !== 'object') return ''
-  return record.id != null && record.id !== '' ? String(record.id) : ''
+  if (record.selectKey != null && String(record.selectKey).trim() !== '') {
+    return String(record.selectKey)
+  }
+  const serverId = firstUsableContractPathId(record.id, record.key)
+  return serverId || ''
 }
 
 function removeObjectKey(object, key) {
@@ -3900,11 +3905,15 @@ function App() {
       }
 
       const normalized = Array.isArray(data)
-        ? data.map((item) => {
-            const idStr = normalizeRegistryRowId(
-              item.id || item._id || item.contract_id || item.contractNo || item.ID
-            )
-            return { ...item, id: idStr, key: idStr }
+        ? data.map((item, index) => {
+            /** contractNo 는 중복될 수 있어 UI/API id 로 쓰지 않음 */
+            const serverId = firstUsableContractPathId(item.id, item._id, item.contract_id, item.ID)
+            return {
+              ...item,
+              id: serverId,
+              key: serverId,
+              selectKey: serverId || `__ROW__${index}`,
+            }
           })
         : []
       setContracts(normalized)
@@ -5237,8 +5246,8 @@ function App() {
     return false
   }
 
-  const handleExtendLogin = () => {
-    const expiresAt = extendLogin()
+  const handleExtendLogin = async () => {
+    const expiresAt = await extendLogin()
     setRemainingTime(Math.max(0, expiresAt - Date.now()))
     setShowSessionWarning(false)
   }
@@ -7519,9 +7528,7 @@ function App() {
           .map((selectedKey) => {
             const rec = getContractRowBySelectKey(selectedKey)
             const fromRowId = normalizeRegistryRowId(rec?.id)
-            const merged =
-              fromRowId ||
-              firstUsableContractPathId(rec?.key, pickContractRowId(rec), selectedKey)
+            const merged = fromRowId || firstUsableContractPathId(rec?.key, rec?.id)
             const s = normalizeRegistryRowId(merged)
             if (import.meta.env.DEV && s && /^\d+$/.test(s)) {
               console.info('[계약현황 삭제] 숫자형 id 사용:', s)
@@ -7628,7 +7635,7 @@ function App() {
     if (!isAdmin) return
     if (!rowKey) return
 
-    const serverRowId = firstUsableContractPathId(row?.key, row?.id, pickContractRowId(row), rowKey) || null
+    const serverRowId = firstUsableContractPathId(row?.id, row?.key) || null
 
     setContractEdit({ rowKey, key, serverRowId })
 
@@ -7652,10 +7659,8 @@ function App() {
 
     const rowLookup = getContractRowBySelectKey(snap.rowKey)
     const record = rowLookup
-    /** PATCH 주소 `/api/contracts/{id}` — 목록에서 강제한 `record.id` 우선 */
-    const id =
-      normalizeRegistryRowId(record?.id) ||
-      firstUsableContractPathId(record?.key, pickContractRowId(record), snap.serverRowId, snap.rowKey)
+    /** PATCH `/api/contracts/{id}` — DB PK 만 (계약번호·UI 키 사용 금지) */
+    const id = firstUsableContractPathId(record?.id, snap.serverRowId, record?.key)
 
     console.log('[계약현황 saveEdit] editingRow (full row):', record ? { ...record } : null, {
       contractEdit: snap,
@@ -7713,9 +7718,7 @@ function App() {
 
     setContractEdit((prev) => {
       if (!prev || prev.rowKey !== rowKey) return prev
-      const nextSid =
-        firstUsableContractPathId(prev.serverRowId, targetRow.key, targetRow.id, pickContractRowId(targetRow)) ||
-        null
+      const nextSid = firstUsableContractPathId(targetRow.id, targetRow.key, prev.serverRowId) || null
       return { ...prev, key: nextColumn.key, serverRowId: nextSid || null }
     })
     if (nextColumn.key === 'amount') {
