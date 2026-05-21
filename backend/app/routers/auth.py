@@ -6,10 +6,11 @@ from app.auth_utils import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
     decode_token,
+    get_auth_admin_password,
     get_auth_shared_password,
     get_jwt_secret,
     is_auth_disabled,
-    verify_shared_password,
+    verify_login_password,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -17,10 +18,14 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 class LoginBody(BaseModel):
     password: str
+    role: str | None = "user"
 
 
 @router.post("/login")
 def login(body: LoginBody):
+    login_role = (body.role or "user").strip().lower()
+    if login_role not in ("admin", "user"):
+        login_role = "user"
     if is_auth_disabled():
         return {
             "access_token": None,
@@ -39,8 +44,13 @@ def login(body: LoginBody):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AUTH_SHARED_PASSWORD is not set on the server",
         )
+    if login_role == "admin" and not get_auth_admin_password():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AUTH_ADMIN_PASSWORD is not set on the server",
+        )
 
-    if not verify_shared_password(body.password):
+    if not verify_login_password(body.password, login_role):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
 
     token = create_access_token()

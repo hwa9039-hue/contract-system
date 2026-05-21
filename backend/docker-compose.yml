@@ -16,4 +16,5 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-https://contract.signtelecom-smartdi.com,https://contract-system-2ev.pages.dev,http://localhost:5173,http://127.0.0.1:5173}
       JWT_SECRET: ${JWT_SECRET:-20262026signtelecomsmartdi20262026}
       AUTH_SHARED_PASSWORD: ${AUTH_SHARED_PASSWORD:-smartdi2026!}
+      AUTH_ADMIN_PASSWORD: ${AUTH_ADMIN_PASSWORD:-admin2026!}
       AUTH_DISABLED: ${AUTH_DISABLED:-false}

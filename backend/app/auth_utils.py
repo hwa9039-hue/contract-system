@@ -19,6 +19,10 @@ def get_auth_shared_password() -> str:
     return os.getenv("AUTH_SHARED_PASSWORD", "").strip()
 
 
+def get_auth_admin_password() -> str:
+    return os.getenv("AUTH_ADMIN_PASSWORD", "").strip()
+
+
 def is_auth_disabled() -> bool:
     return os.getenv("AUTH_DISABLED", "").lower() in ("1", "true", "yes")
 
@@ -41,6 +45,18 @@ def decode_token(token: str) -> dict:
 
 def verify_shared_password(password: str) -> bool:
     expected = get_auth_shared_password()
+    if not expected:
+        return False
+    return secrets.compare_digest(password.encode("utf-8"), expected.encode("utf-8"))
+
+
+def verify_login_password(password: str, role: str = "user") -> bool:
+    """user → AUTH_SHARED_PASSWORD, admin → AUTH_ADMIN_PASSWORD 만 허용."""
+    normalized_role = (role or "user").strip().lower()
+    if normalized_role == "admin":
+        expected = get_auth_admin_password()
+    else:
+        expected = get_auth_shared_password()
     if not expected:
         return False
     return secrets.compare_digest(password.encode("utf-8"), expected.encode("utf-8"))

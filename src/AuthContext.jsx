@@ -90,7 +90,7 @@ export function AuthProvider({ children }) {
     }
 
     if (wantsAdmin) {
-      if (trimmed !== ADMIN_PASSWORD && trimmed !== SHARED_APP_PASSWORD) {
+      if (trimmed !== ADMIN_PASSWORD) {
         return { ok: false, error: '관리자 비밀번호가 올바르지 않습니다.' }
       }
     } else if (trimmed !== SHARED_APP_PASSWORD) {
@@ -109,7 +109,10 @@ export function AuthProvider({ children }) {
         apiFetchInit({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: trimmed }),
+          body: JSON.stringify({
+            password: trimmed,
+            role: wantsAdmin ? 'admin' : 'user',
+          }),
         })
       )
       const data = await response.json().catch(() => ({}))

@@ -6,3 +6,11 @@ __pycache__
 .git
 .gitignore
 Dockerfile
+postgres_data
+uploads
+data
+sql
+schema_all.sql
+backup-postgres.sh
+README.md
+docker-compose.yml

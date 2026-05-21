@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import contextmanager
 
@@ -5,6 +6,8 @@ import psycopg
 from dotenv import load_dotenv
 from psycopg import sql
 from psycopg.rows import dict_row
+
+logger = logging.getLogger(__name__)
 
 
 load_dotenv()
@@ -28,6 +31,28 @@ def _pg_rel_column_exists(cursor, table: str, attname: str) -> bool:
         (table, attname),
     )
     return cursor.fetchone() is not None
+
+
+def _pg_column_udt_name(cursor, table: str, attname: str) -> str | None:
+    cursor.execute(
+        """
+        select t.typname
+        from pg_catalog.pg_attribute a
+        inner join pg_catalog.pg_class c on c.oid = a.attrelid
+        inner join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+        inner join pg_catalog.pg_type t on t.oid = a.atttypid
+        where n.nspname = 'public'
+          and c.relname = %s
+          and a.attname = %s
+          and a.attnum > 0
+          and not a.attisdropped
+        """,
+        (table, attname),
+    )
+    row = cursor.fetchone()
+    if not row:
+        return None
+    return row.get("typname") if isinstance(row, dict) else row[0]
 
 
 def _rename_column_if_legacy(cursor, table: str, old_attname: str, new_attname: str) -> None:
@@ -103,8 +128,19 @@ def repair_contract_row_ids(connection) -> int:
 
     API `id` 는 DB PK(UUID 문자열)이어야 PATCH/DELETE 가 동작합니다.
     계약번호(contractNo)는 별도 필드로만 내려가며 `id`로 치환하지 않습니다(중복 가능·경로 불일치).
+
+    옛 스키마처럼 id 가 integer(serial) 이면 UUID 보정은 건너뜁니다.
     """
     with connection.cursor() as cursor:
+        id_type = _pg_column_udt_name(cursor, "contracts_rows", "id")
+        if id_type is None:
+            return 0
+        if id_type != "uuid":
+            logger.debug(
+                "contracts_rows.id type is %s (not uuid); skip null-id UUID repair",
+                id_type,
+            )
+            return 0
         cursor.execute(
             """
             update contracts_rows
@@ -357,4 +393,9 @@ def init_db():
                   on install_cases_rows ("createdAt" desc)
                 """
             )
-        repair_contract_row_ids(connection)
+        try:
+            repair_contract_row_ids(connection)
+        except Exception:
+            logger.exception(
+                "contracts_rows id repair skipped due to error; continuing startup"
+            )
