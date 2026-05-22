@@ -24,6 +24,11 @@ import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
 import { materialsBoardApi, downloadMaterialsBoardBlobUrl, materialsBoardDownloadUrl } from './materialsBoardApi'
+import {
+  calendarEventsApi,
+  calendarManualEventToPayload,
+  normalizeCalendarManualEvent,
+} from './calendarEventsApi'
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { useAuth } from './AuthContext.jsx'
 import { CONTRACT_SHARED_WARNING_MS } from './authSession.js'
@@ -842,6 +847,15 @@ function loadManualEventsFromLocalStorage() {
   const fromV3 = tryParse(localStorage.getItem(CALENDAR_STORAGE_KEY_LEGACY_V3))
   if (fromV3) return fromV3.map((row) => ({ ...row, ...normalizeManualEventRangeInPlace(row) }))
   return []
+}
+
+function clearLocalCalendarManualEventsStorage() {
+  try {
+    localStorage.removeItem(CALENDAR_STORAGE_KEY)
+    localStorage.removeItem(CALENDAR_STORAGE_KEY_LEGACY_V3)
+  } catch {
+    /* ignore */
+  }
 }
 
 const INSTALL_CASE_FORM_DRAFT_STORAGE_KEY = 'contract_manager_install_case_form_draft_v1'
@@ -3896,7 +3910,7 @@ function App() {
   })
   const [isExcludedGuideCollapsed, setIsExcludedGuideCollapsed] = useState(true)
   const [isDocumentGuideCollapsed, setIsDocumentGuideCollapsed] = useState(true)
-  const [manualEvents, setManualEvents] = useState(() => loadManualEventsFromLocalStorage())
+  const [manualEvents, setManualEvents] = useState([])
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({
     year: ALL_OPTION,
@@ -4185,6 +4199,43 @@ function App() {
     }
   }
 
+  const fetchCalendarEvents = async () => {
+    try {
+      let rows = await calendarEventsApi.list()
+      let list = Array.isArray(rows) ? rows : []
+
+      if (list.length === 0) {
+        const localRows = loadManualEventsFromLocalStorage()
+        if (localRows.length > 0) {
+          try {
+            await calendarEventsApi.importRows(localRows.map(calendarManualEventToPayload))
+            clearLocalCalendarManualEventsStorage()
+            rows = await calendarEventsApi.list()
+            list = Array.isArray(rows) ? rows : []
+          } catch (importError) {
+            console.error('[캘린더] localStorage → DB 이전 실패', importError)
+            const normalizedLocal = localRows.map((row) =>
+              normalizeCalendarManualEvent(normalizeManualEventRangeInPlace(row))
+            )
+            setManualEvents(normalizedLocal)
+            return normalizedLocal
+          }
+        }
+      }
+
+      const normalized = list
+        .map(normalizeCalendarManualEvent)
+        .filter(Boolean)
+        .map((row) => ({ ...row, ...normalizeManualEventRangeInPlace(row) }))
+      setManualEvents(normalized)
+      return normalized
+    } catch (error) {
+      console.error('[캘린더] API fetch failed', error)
+      setManualEvents([])
+      return []
+    }
+  }
+
   useEffect(() => {
     remoteListsSyncRef.current = () => {
       void fetchContracts()
@@ -4195,6 +4246,7 @@ function App() {
       void fetchWorkReportRows()
       void fetchInstallCases()
       void fetchMaterialsBoardPosts()
+      void fetchCalendarEvents()
     }
   })
 
@@ -4248,6 +4300,11 @@ function App() {
   useEffect(() => {
     if (menu !== 'materialsBoard') return
     void fetchMaterialsBoardPosts()
+  }, [menu])
+
+  useEffect(() => {
+    if (menu !== 'calendar') return
+    void fetchCalendarEvents()
   }, [menu])
 
   useEffect(() => {
@@ -5400,12 +5457,6 @@ function App() {
   }, [calendarCursor, calendarItems, monthSearch, monthTypeFilter])
 
   const calendarTodayYmd = formatDateInput(new Date())
-
-  const persistEvents = (next) => {
-    const normalized = next.map((e) => ({ ...e, ...normalizeManualEventRangeInPlace(e) }))
-    setManualEvents(normalized)
-    localStorage.setItem(CALENDAR_STORAGE_KEY, JSON.stringify(normalized))
-  }
 
   const resetAppUiOnLogout = () => {
     setContractEdit(null)
@@ -7962,7 +8013,7 @@ function App() {
     return <input {...commonProps} type="text" />
   }
 
-  const addManualEvent = () => {
+  const addManualEvent = async () => {
     const title = eventForm.title.trim()
     const ds = safeString(eventForm.dateStart).trim()
     const deRaw = safeString(eventForm.dateEnd).trim()
@@ -7985,22 +8036,29 @@ function App() {
       endYmd = t
     }
 
-    const row = {
-      id: Date.now(),
+    const payload = calendarManualEventToPayload({
       dateStart: startYmd,
       dateEnd: endYmd,
-      date: startYmd,
       title,
       owner: safeString(eventForm.owner).trim(),
       pm: safeString(eventForm.pm).trim(),
       note: safeString(eventForm.note).trim(),
+    })
+
+    try {
+      const created = await calendarEventsApi.create(payload)
+      const row = normalizeCalendarManualEvent(created)
+      if (!row) {
+        showAppAlert('일정 등록에 실패했습니다.')
+        return
+      }
+      setManualEvents((prev) => [{ ...row, ...normalizeManualEventRangeInPlace(row) }, ...prev])
+      setEventForm({ ...emptyEvent })
+      setCalendarEventRegisterOpen(false)
+    } catch (error) {
+      console.error('[캘린더] 일정 등록 실패', error)
+      showAppAlert(error?.message || '일정 등록에 실패했습니다.')
     }
-
-    const next = [row, ...manualEvents]
-
-    persistEvents(next)
-    setEventForm({ ...emptyEvent })
-    setCalendarEventRegisterOpen(false)
   }
 
   const openCalendarEventRegisterModal = () => {
@@ -8015,9 +8073,15 @@ function App() {
       message: '이 일정을 삭제하시겠습니까?',
       destructive: true,
       confirmLabel: '삭제',
-      onConfirm: () => {
-        persistEvents(manualEvents.filter((item) => item.id !== id))
-        onDeleted?.()
+      onConfirm: async () => {
+        try {
+          await calendarEventsApi.remove(String(id))
+          setManualEvents((prev) => prev.filter((item) => String(item.id) !== String(id)))
+          onDeleted?.()
+        } catch (error) {
+          console.error('[캘린더] 일정 삭제 실패', error)
+          showAppAlert(error?.message || '일정 삭제에 실패했습니다.')
+        }
       },
     })
   }
@@ -8050,7 +8114,7 @@ function App() {
     setCalendarManualDetailDraft(null)
   }
 
-  const saveCalendarManualDetailInlineEdit = () => {
+  const saveCalendarManualDetailInlineEdit = async () => {
     if (detailModal?.manualEventId == null || calendarManualDetailDraft == null) return
     const id = detailModal.manualEventId
     const title = safeString(calendarManualDetailDraft.projectName).trim()
@@ -8078,44 +8142,52 @@ function App() {
     const pmVal = safeString(calendarManualDetailDraft.pm).trim()
     const noteVal = safeString(calendarManualDetailDraft.note).trim()
 
-    if (!manualEvents.some((e) => e.id === id)) {
+    if (!manualEvents.some((e) => String(e.id) === String(id))) {
       showAppAlert('수정 중인 일정을 찾을 수 없습니다.')
       cancelCalendarManualDetailInlineEdit()
       return
     }
 
-    const next = manualEvents.map((e) =>
-      e.id === id
-        ? {
-            ...e,
-            dateStart: startYmd,
-            dateEnd: endYmd,
-            date: startYmd,
-            title,
-            owner: ownerVal,
-            pm: pmVal,
-            note: noteVal,
-          }
-        : e
-    )
-    persistEvents(next)
-    setDetailModal((prev) => {
-      if (!prev || prev.manualEventId !== id) return prev
-      return {
-        ...prev,
-        date: formatCalendarManualRangeLabel(startYmd, endYmd),
-        dday: getCalendarListRelativeDayLabel('manual', endYmd),
-        projectName: title,
-        salesOwner: ownerVal,
-        pm: pmVal,
-        note: noteVal,
-        manualDateStart: startYmd,
-        manualDateEnd: endYmd,
-      }
+    const payload = calendarManualEventToPayload({
+      dateStart: startYmd,
+      dateEnd: endYmd,
+      title,
+      owner: ownerVal,
+      pm: pmVal,
+      note: noteVal,
     })
-    setCalendarManualDetailEditMode(false)
-    setCalendarManualDetailDraft(null)
-    setToastMessage('일정이 수정되었습니다.')
+
+    try {
+      const updated = await calendarEventsApi.update(String(id), payload)
+      const row = normalizeCalendarManualEvent(updated)
+      if (!row) {
+        showAppAlert('일정 수정에 실패했습니다.')
+        return
+      }
+      const normalized = { ...row, ...normalizeManualEventRangeInPlace(row) }
+      setManualEvents((prev) =>
+        prev.map((e) => (String(e.id) === String(id) ? normalized : e))
+      )
+      setDetailModal((prev) => {
+        if (!prev || String(prev.manualEventId) !== String(id)) return prev
+        return {
+          ...prev,
+          date: formatCalendarManualRangeLabel(startYmd, endYmd),
+          dday: getCalendarListRelativeDayLabel('manual', endYmd),
+          projectName: title,
+          salesOwner: ownerVal,
+          pm: pmVal,
+          note: noteVal,
+          manualDateStart: startYmd,
+          manualDateEnd: endYmd,
+        }
+      })
+      cancelCalendarManualDetailInlineEdit()
+      setToastMessage('일정이 수정되었습니다.')
+    } catch (error) {
+      console.error('[캘린더] 일정 수정 실패', error)
+      showAppAlert(error?.message || '일정 수정에 실패했습니다.')
+    }
   }
 
   const closeCalendarDetailModal = () => {

@@ -68,6 +68,19 @@ volumes:
 
 위 NAS 공유폴더를 `backup-postgres.sh`의 `BACKUP_HOST_PATHS` 등에 포함하면 파일 복사 백업에도 같이 잡히게 할 수 있습니다.
 
+`docker-compose.yml` 기본 설정:
+
+```yaml
+environment:
+  CONTRACT_IMPORT_EXCEL_BACKUP_DIR: /data/contract_excel_backup
+volumes:
+  - ./data/contract_excel_backup:/data/contract_excel_backup
+```
+
+호스트 경로 `backend/data/contract_excel_backup`이 `BACKUP_HOST_PATHS`에 포함되면 스케줄 백업에 `.xlsx`도 함께 복사됩니다.
+
+**NAS 점검:** [docs/NAS-BACKUP-CHECKLIST.md](docs/NAS-BACKUP-CHECKLIST.md)
+
 ### pg_dump / Docker (중요)
 
 `backend/docker-compose.yml`에는 **`contract-backend`(FastAPI)만** 있고 PostgreSQL 서비스는 없습니다.  

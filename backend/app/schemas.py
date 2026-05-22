@@ -412,6 +412,49 @@ class WeeklyWorkReportOut(WeeklyWorkReportBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class CalendarManualEventBase(BaseModel):
+    dateStart: Optional[Any] = None
+    dateEnd: Optional[Any] = None
+    title: str = ""
+    owner: str = ""
+    pm: str = ""
+    note: str = ""
+
+    @field_validator("dateStart", "dateEnd", mode="before")
+    @classmethod
+    def empty_string_dates_to_none(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+
+class CalendarManualEventCreate(CalendarManualEventBase):
+    pass
+
+
+class CalendarManualEventPatch(BaseModel):
+    dateStart: Optional[Any] = None
+    dateEnd: Optional[Any] = None
+    title: Optional[str] = None
+    owner: Optional[str] = None
+    pm: Optional[str] = None
+    note: Optional[str] = None
+
+
+class CalendarManualEventBulkImport(BaseModel):
+    events: list[CalendarManualEventCreate] = Field(default_factory=list)
+
+
+class CalendarManualEventOut(CalendarManualEventBase):
+    id: Optional[Any] = None
+    createdAt: Optional[Any] = None
+    updatedAt: Optional[Any] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class InstallCaseSpecs(BaseModel):
     displayArea: str = ""
     ledPitch: str = ""
@@ -643,6 +686,31 @@ def row_to_weekly_work_report(row) -> dict:
     }
 
 
+def row_to_calendar_manual_event(row) -> dict:
+    date_start = row.get("dateStart")
+    date_end = row.get("dateEnd")
+    if hasattr(date_start, "isoformat"):
+        date_start = date_start.isoformat()[:10]
+    else:
+        date_start = to_response_value(date_start) or ""
+    if hasattr(date_end, "isoformat"):
+        date_end = date_end.isoformat()[:10]
+    else:
+        date_end = to_response_value(date_end) or ""
+
+    return {
+        "id": to_response_value(row["id"]),
+        "dateStart": date_start,
+        "dateEnd": date_end,
+        "title": to_response_value(row.get("title")) or "",
+        "owner": to_response_value(row.get("owner")) or "",
+        "pm": to_response_value(row.get("pm")) or "",
+        "note": to_response_value(row.get("note")) or "",
+        "createdAt": to_response_value(row.get("createdAt")),
+        "updatedAt": to_response_value(row.get("updatedAt")),
+    }
+
+
 def _normalize_install_case_specs(raw) -> dict:
     if raw is None:
         return {}
@@ -849,6 +917,16 @@ TABLE_COLUMN_MAPPINGS = {
         "createdAt": "createdAt",
         "updatedAt": "updatedAt",
     },
+    "calendar_manual_events": {
+        "dateStart": "dateStart",
+        "dateEnd": "dateEnd",
+        "title": "title",
+        "owner": "owner",
+        "pm": "pm",
+        "note": "note",
+        "createdAt": "createdAt",
+        "updatedAt": "updatedAt",
+    },
 }
 
 SALES_REGISTER_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["sales_register_rows"]
@@ -858,6 +936,7 @@ EXCLUDED_PROJECT_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["excluded_projects_rows"]
 DOCUMENT_REGISTER_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["document_register_rows"]
 WEEKLY_WORK_REPORT_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["weekly_work_reports_rows"]
 INSTALL_CASE_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["install_cases_rows"]
+CALENDAR_MANUAL_EVENT_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["calendar_manual_events"]
 
 
 def sales_register_to_db_values(row: SalesRegisterBase) -> dict:
@@ -912,6 +991,17 @@ def weekly_work_report_to_db_values(row: WeeklyWorkReportBase) -> dict:
         if api_key in data:
             values[db_key] = data[api_key]
     return values
+
+
+def calendar_manual_event_to_db_values(
+    row: CalendarManualEventCreate | CalendarManualEventPatch,
+) -> dict:
+    data = row.model_dump(exclude_unset=True)
+    return {
+        db_key: data[api_key]
+        for api_key, db_key in CALENDAR_MANUAL_EVENT_DB_COLUMNS.items()
+        if api_key in data
+    }
 
 
 def install_case_to_db_values(row: InstallCaseBase) -> dict:

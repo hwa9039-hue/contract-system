@@ -196,3 +196,18 @@ CREATE TABLE IF NOT EXISTS materials_board_posts (
 
 CREATE INDEX IF NOT EXISTS materials_board_posts_registered_at_idx
   ON materials_board_posts ("registeredAt" DESC);
+
+CREATE TABLE IF NOT EXISTS calendar_manual_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "dateStart" date,
+  "dateEnd" date,
+  title text NOT NULL DEFAULT '',
+  owner text NOT NULL DEFAULT '',
+  pm text NOT NULL DEFAULT '',
+  note text NOT NULL DEFAULT '',
+  "createdAt" timestamptz NOT NULL DEFAULT now(),
+  "updatedAt" timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS calendar_manual_events_date_start_idx
+  ON calendar_manual_events ("dateStart" DESC);

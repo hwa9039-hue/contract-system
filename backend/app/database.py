@@ -448,6 +448,27 @@ def init_db():
                   add column if not exists "downloadCount" integer not null default 0
                 """
             )
+            cursor.execute(
+                """
+                create table if not exists calendar_manual_events (
+                  id uuid primary key default gen_random_uuid(),
+                  "dateStart" date,
+                  "dateEnd" date,
+                  title text not null default '',
+                  owner text not null default '',
+                  pm text not null default '',
+                  note text not null default '',
+                  "createdAt" timestamptz not null default now(),
+                  "updatedAt" timestamptz not null default now()
+                )
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists calendar_manual_events_date_start_idx
+                  on calendar_manual_events ("dateStart" desc)
+                """
+            )
         try:
             repair_contract_row_ids(connection)
         except Exception:

@@ -16,6 +16,7 @@ from app.routers import sales_register
 from app.routers import weekly_work_reports
 from app.routers.install_cases import INSTALL_CASES_API_PATH, router as install_cases_router
 from app.routers.materials_board import MATERIALS_BOARD_API_PATH, router as materials_board_router
+from app.routers.calendar_events import CALENDAR_EVENTS_API_PATH, router as calendar_events_router
 
 
 DEFAULT_CORS_ORIGINS = (
@@ -108,6 +109,13 @@ def health_check():
             if getattr(route, "path", None) and "project-discovery" in route.path
         }
     )
+    calendar_paths = sorted(
+        {
+            getattr(route, "path", "")
+            for route in app.routes
+            if getattr(route, "path", None) and "calendar-events" in route.path
+        }
+    )
     return {
         "status": "ok",
         "installCases": bool(install_paths),
@@ -116,6 +124,8 @@ def health_check():
         "materialsBoardPaths": materials_board_paths,
         "projectDiscovery": bool(discovery_paths),
         "projectDiscoveryPaths": discovery_paths,
+        "calendarEvents": bool(calendar_paths),
+        "calendarEventsPaths": calendar_paths,
     }
 
 
@@ -129,3 +139,4 @@ app.include_router(document_register.router)
 app.include_router(weekly_work_reports.router)
 app.include_router(install_cases_router)
 app.include_router(materials_board_router)
+app.include_router(calendar_events_router)

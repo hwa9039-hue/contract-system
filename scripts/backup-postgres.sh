@@ -471,6 +471,7 @@ default_host_backup_paths() {
     postgres_data \
     backend/uploads \
     backend/data \
+    backend/data/contract_excel_backup \
     backend/app/uploads \
     uploads
 }
