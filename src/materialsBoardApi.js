@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
+import { API_BASE_URL, apiFetchInit, getAuthHeaders, getAuthToken } from './apiClient.js'
 
 export const MATERIALS_BOARD_API_PATH = '/api/materials-board'
 
@@ -58,82 +58,65 @@ async function requestJson(path, options = {}) {
   return response.json()
 }
 
-function triggerBrowserFileDownload(objectUrl, fileName) {
+function saveBlobAsDownload(blob, fileName) {
+  const objectUrl = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = objectUrl
   link.download = fileName || 'download'
   link.rel = 'noopener'
-  link.style.display = 'none'
   document.body.appendChild(link)
   link.click()
-  link.remove()
+  window.setTimeout(() => {
+    link.remove()
+    URL.revokeObjectURL(objectUrl)
+  }, 2000)
 }
-
-let activeMaterialsBoardDownloadKey = ''
-let activeMaterialsBoardDownloadUntil = 0
 
 export function materialsBoardFileUrl(postId, fileId) {
   return `${API_BASE_URL}${MATERIALS_BOARD_API_PATH}/${encodeURIComponent(postId)}/files/${encodeURIComponent(fileId)}`
 }
 
-export async function downloadMaterialsBoardFile(postId, fileId, fileName) {
-  const downloadKey = `${postId}:${fileId}:${fileName || 'download'}`
-  const now = Date.now()
-  if (
-    activeMaterialsBoardDownloadKey === downloadKey &&
-    now < activeMaterialsBoardDownloadUntil
-  ) {
-    return
+export function materialsBoardDownloadUrl(postId, fileId) {
+  const url = new URL(materialsBoardFileUrl(postId, fileId))
+  const token = getAuthToken()
+  if (token) {
+    url.searchParams.set('access_token', token)
   }
-  activeMaterialsBoardDownloadKey = downloadKey
-  activeMaterialsBoardDownloadUntil = now + 1500
+  return url.toString()
+}
 
-  const response = await fetch(materialsBoardFileUrl(postId, fileId), apiFetchInit({
-    headers: {
-      ...getAuthHeaders(),
-    },
-  }))
+export async function downloadMaterialsBoardFile(postId, fileId, fileName) {
+  const response = await fetch(
+    materialsBoardFileUrl(postId, fileId),
+    apiFetchInit({
+      headers: {
+        ...getAuthHeaders(),
+      },
+    })
+  )
 
   if (!response.ok) {
-    activeMaterialsBoardDownloadKey = ''
-    activeMaterialsBoardDownloadUntil = 0
-    throw new Error(`다운로드 실패 (${response.status})`)
+    const message = await response.text()
+    throw new Error(message || `다운로드 실패 (${response.status})`)
   }
 
   const blob = await response.blob()
-  const objectUrl = URL.createObjectURL(blob)
-  try {
-    triggerBrowserFileDownload(objectUrl, fileName)
-  } finally {
-    window.setTimeout(() => {
-      URL.revokeObjectURL(objectUrl)
-      if (activeMaterialsBoardDownloadKey === downloadKey) {
-        activeMaterialsBoardDownloadKey = ''
-        activeMaterialsBoardDownloadUntil = 0
-      }
-    }, 1500)
-  }
+  saveBlobAsDownload(blob, fileName)
+
+  const countHeader = response.headers.get('X-Download-Count')
+  const downloadCount = countHeader != null ? Number(countHeader) : NaN
+  return Number.isFinite(downloadCount) ? downloadCount : null
 }
 
 export function downloadMaterialsBoardBlobUrl(blobUrl, fileName) {
-  const safeName = fileName || 'download'
-  const downloadKey = `blob:${safeName}:${blobUrl}`
-  const now = Date.now()
-  if (
-    activeMaterialsBoardDownloadKey === downloadKey &&
-    now < activeMaterialsBoardDownloadUntil
-  ) {
-    return
-  }
-  activeMaterialsBoardDownloadKey = downloadKey
-  activeMaterialsBoardDownloadUntil = now + 1500
-  triggerBrowserFileDownload(blobUrl, safeName)
-  window.setTimeout(() => {
-    if (activeMaterialsBoardDownloadKey === downloadKey) {
-      activeMaterialsBoardDownloadKey = ''
-      activeMaterialsBoardDownloadUntil = 0
-    }
-  }, 1500)
+  const link = document.createElement('a')
+  link.href = blobUrl
+  link.download = fileName || 'download'
+  link.rel = 'noopener'
+  document.body.appendChild(link)
+  link.click()
+  window.setTimeout(() => link.remove(), 1000)
+  return null
 }
 
 export const materialsBoardApi = {

@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ContractBase(BaseModel):
@@ -459,6 +459,25 @@ class InstallCaseOut(InstallCaseBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class MaterialsBoardFileOut(BaseModel):
+    id: Optional[Any] = None
+    name: str = ""
+    size: int = 0
+
+
+class MaterialsBoardOut(BaseModel):
+    id: Optional[Any] = None
+    title: str = ""
+    content: str = ""
+    files: list[MaterialsBoardFileOut] = Field(default_factory=list)
+    registeredAt: Optional[Any] = ""
+    downloadCount: int = 0
+    createdAt: Optional[Any] = None
+    updatedAt: Optional[Any] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 def decimal_to_int(value):
     if isinstance(value, Decimal):
         return int(value)
@@ -653,6 +672,55 @@ def row_to_install_case(row) -> dict:
         "specs": _normalize_install_case_specs(row.get("specs")),
         "createdAt": to_response_value(row["createdAt"]),
         "updatedAt": to_response_value(row["updatedAt"]),
+    }
+
+
+def _normalize_materials_board_files(raw) -> list[dict]:
+    if isinstance(raw, list):
+        items = raw
+    elif isinstance(raw, str) and raw.strip():
+        try:
+            import json
+
+            parsed = json.loads(raw)
+            items = parsed if isinstance(parsed, list) else []
+        except Exception:
+            items = []
+    else:
+        items = []
+
+    normalized = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        file_id = to_response_value(item.get("id"))
+        name = to_response_value(item.get("name")) or ""
+        if not file_id or not name:
+            continue
+        try:
+            size = int(item.get("size") or 0)
+        except (TypeError, ValueError):
+            size = 0
+        normalized.append({"id": file_id, "name": name, "size": size})
+    return normalized
+
+
+def row_to_materials_board_post(row) -> dict:
+    registered = row.get("registeredAt")
+    if hasattr(registered, "isoformat"):
+        registered_at = registered.isoformat()[:10]
+    else:
+        registered_at = to_response_value(registered) or ""
+
+    return {
+        "id": to_response_value(row["id"]),
+        "title": to_response_value(row.get("title")) or "",
+        "content": to_response_value(row.get("content")) or "",
+        "files": _normalize_materials_board_files(row.get("files")),
+        "registeredAt": registered_at,
+        "downloadCount": int(row.get("downloadCount") or 0),
+        "createdAt": to_response_value(row.get("createdAt")),
+        "updatedAt": to_response_value(row.get("updatedAt")),
     }
 
 

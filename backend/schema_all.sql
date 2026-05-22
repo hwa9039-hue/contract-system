@@ -182,3 +182,17 @@ CREATE TABLE IF NOT EXISTS install_cases_rows (
 
 CREATE INDEX IF NOT EXISTS install_cases_rows_created_at_idx
   ON install_cases_rows ("createdAt" DESC);
+
+CREATE TABLE IF NOT EXISTS materials_board_posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL DEFAULT '',
+  content text NOT NULL DEFAULT '',
+  files jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "registeredAt" date NOT NULL DEFAULT CURRENT_DATE,
+  "downloadCount" integer NOT NULL DEFAULT 0,
+  "createdAt" timestamptz NOT NULL DEFAULT now(),
+  "updatedAt" timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS materials_board_posts_registered_at_idx
+  ON materials_board_posts ("registeredAt" DESC);

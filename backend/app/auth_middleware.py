@@ -46,10 +46,11 @@ class ApiJwtAuthMiddleware(BaseHTTPMiddleware):
 
         auth_header = request.headers.get("authorization") or ""
         parts = auth_header.split(None, 1)
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            return JSONResponse({"detail": "Not authenticated"}, status_code=401)
-
-        token = parts[1].strip()
+        token = ""
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            token = parts[1].strip()
+        if not token:
+            token = (request.query_params.get("access_token") or "").strip()
         if not token:
             return JSONResponse({"detail": "Not authenticated"}, status_code=401)
 

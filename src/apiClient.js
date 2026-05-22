@@ -106,6 +106,14 @@ export function getAuthHeaders() {
   }
 }
 
+export function getAuthToken() {
+  try {
+    return sessionStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem(AUTH_TOKEN_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
 /** @param {{ persistent?: boolean }} [options] */
 export function setAuthToken(token, options = {}) {
   const persistent = options?.persistent === true

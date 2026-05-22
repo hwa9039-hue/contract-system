@@ -423,6 +423,31 @@ def init_db():
                   on install_cases_rows ("createdAt" desc)
                 """
             )
+            cursor.execute(
+                """
+                create table if not exists materials_board_posts (
+                  id uuid primary key default gen_random_uuid(),
+                  title text not null default '',
+                  content text not null default '',
+                  files jsonb not null default '[]'::jsonb,
+                  "registeredAt" date not null default current_date,
+                  "createdAt" timestamptz not null default now(),
+                  "updatedAt" timestamptz not null default now()
+                )
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists materials_board_posts_registered_at_idx
+                  on materials_board_posts ("registeredAt" desc)
+                """
+            )
+            cursor.execute(
+                """
+                alter table materials_board_posts
+                  add column if not exists "downloadCount" integer not null default 0
+                """
+            )
         try:
             repair_contract_row_ids(connection)
         except Exception:

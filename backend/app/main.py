@@ -15,6 +15,7 @@ from app.routers import project_discovery
 from app.routers import sales_register
 from app.routers import weekly_work_reports
 from app.routers.install_cases import INSTALL_CASES_API_PATH, router as install_cases_router
+from app.routers.materials_board import MATERIALS_BOARD_API_PATH, router as materials_board_router
 
 
 DEFAULT_CORS_ORIGINS = (
@@ -57,6 +58,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Download-Count"],
 )
 # 가장 바깥: OPTIONS 프리플라이트에 CORS 헤더를 직접 붙임 (Nginx/프록시와 CORSMiddleware 조합 이슈 완화)
 app.add_middleware(
@@ -72,6 +74,11 @@ def root():
 @app.on_event("startup")
 def on_startup():
     init_db()
+    from app.routers.install_cases import ensure_install_case_upload_dirs
+    from app.routers.materials_board import MATERIALS_BOARD_DIR
+
+    ensure_install_case_upload_dirs()
+    MATERIALS_BOARD_DIR.mkdir(parents=True, exist_ok=True)
     logger.info("init_db completed (contracts_rows null id repair runs here and on GET /api/contracts)")
     logger.info("CORS allow_origins count=%s (merged env + defaults)", len(_EFFECTIVE_CORS_ORIGINS))
     logger.info("Install cases API: POST/GET /api/install-cases (registered on app in main.py)")
@@ -87,6 +94,13 @@ def health_check():
             if getattr(route, "path", None) and "install-cases" in route.path
         }
     )
+    materials_board_paths = sorted(
+        {
+            getattr(route, "path", "")
+            for route in app.routes
+            if getattr(route, "path", None) and "materials-board" in route.path
+        }
+    )
     discovery_paths = sorted(
         {
             getattr(route, "path", "")
@@ -98,6 +112,8 @@ def health_check():
         "status": "ok",
         "installCases": bool(install_paths),
         "installCasesPaths": install_paths,
+        "materialsBoard": bool(materials_board_paths),
+        "materialsBoardPaths": materials_board_paths,
         "projectDiscovery": bool(discovery_paths),
         "projectDiscoveryPaths": discovery_paths,
     }
@@ -112,3 +128,4 @@ app.include_router(excluded_projects.router)
 app.include_router(document_register.router)
 app.include_router(weekly_work_reports.router)
 app.include_router(install_cases_router)
+app.include_router(materials_board_router)
