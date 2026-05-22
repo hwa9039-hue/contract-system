@@ -1133,22 +1133,26 @@ function MaterialsBoardCardThumb({ row }) {
   const fileId = safeString(file?.id).trim()
   const kindClass = getMaterialsBoardFileKindClass(fileName)
   const kindLabel = getMaterialsBoardFileKindLabel(fileName)
-
-  if (postId && fileId && isMaterialsBoardImageFileName(fileName)) {
-    return (
-      <div className="materials-board-card-thumb">
-        <img src={materialsBoardDownloadUrl(postId, fileId)} alt="" loading="lazy" />
-      </div>
-    )
-  }
+  const isImage = postId && fileId && isMaterialsBoardImageFileName(fileName)
 
   return (
-    <div className={`materials-board-card-thumb materials-board-card-thumb--${kindClass}`}>
-      <span className="materials-board-card-thumb-label">{kindLabel}</span>
+    <div className="materials-board-card-thumb">
+      {isImage ? (
+        <img src={materialsBoardDownloadUrl(postId, fileId)} alt="" loading="lazy" />
+      ) : (
+        <div className="materials-board-card-thumb-fallback" aria-hidden>
+          <span
+            className={`materials-board-card-thumb-badge materials-board-card-thumb-badge--${kindClass}`}
+          >
+            {kindLabel}
+          </span>
+          <span className="materials-board-card-thumb-icon">📄</span>
+        </div>
+      )}
       {fileName ? (
-        <span className="materials-board-card-thumb-name" title={fileName}>
+        <div className="materials-board-card-thumb-caption" title={fileName}>
           {fileName}
-        </span>
+        </div>
       ) : null}
     </div>
   )

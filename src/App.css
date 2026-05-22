@@ -7441,13 +7441,20 @@ textarea:focus-visible {
 }
 
 .materials-board-card {
-  border: 1px solid #e8edf5;
-  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
   overflow: hidden;
   background: #fff;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.materials-board-card:hover {
+  border-color: rgba(47, 107, 255, 0.35);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+  transform: translateY(-2px);
 }
 
 .materials-board-card-main {
@@ -7457,6 +7464,7 @@ textarea:focus-visible {
   padding: 0;
   text-align: left;
   cursor: pointer;
+  width: 100%;
 }
 
 .materials-board-card-main:disabled {
@@ -7465,96 +7473,123 @@ textarea:focus-visible {
 }
 
 .materials-board-card-main:hover:not(:disabled) {
-  background: #fbfdff;
+  background: transparent;
 }
 
 .materials-board-card-thumb {
-  aspect-ratio: 4 / 3;
+  position: relative;
+  aspect-ratio: 16 / 10;
   background: #f1f5f9;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
   overflow: hidden;
-  padding: 16px;
 }
 
 .materials-board-card-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
-.materials-board-card-thumb-label {
-  font-size: 28px;
+.materials-board-card-thumb-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.materials-board-card-thumb-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.04em;
 }
 
-.materials-board-card-thumb-name {
-  max-width: 100%;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.92);
-  text-align: center;
+.materials-board-card-thumb-badge--pdf {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.materials-board-card-thumb-badge--doc {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.materials-board-card-thumb-badge--xls {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.materials-board-card-thumb-badge--ppt {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.materials-board-card-thumb-badge--zip {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.materials-board-card-thumb-badge--file {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.materials-board-card-thumb-icon {
+  font-size: 34px;
+  line-height: 1;
+  opacity: 0.72;
+}
+
+.materials-board-card-thumb-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0), rgba(15, 23, 42, 0.72));
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.materials-board-card-thumb--pdf {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  color: #fff;
-}
-
-.materials-board-card-thumb--doc {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #fff;
-}
-
-.materials-board-card-thumb--xls {
-  background: linear-gradient(135deg, #16a34a, #15803d);
-  color: #fff;
-}
-
-.materials-board-card-thumb--ppt {
-  background: linear-gradient(135deg, #ea580c, #c2410c);
-  color: #fff;
-}
-
-.materials-board-card-thumb--zip {
-  background: linear-gradient(135deg, #7c3aed, #6d28d9);
-  color: #fff;
-}
-
-.materials-board-card-thumb--file {
-  background: linear-gradient(135deg, #64748b, #475569);
-  color: #fff;
-}
-
 .materials-board-card-body {
-  padding: 14px 16px 16px;
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .materials-board-card-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: #1e293b;
-  line-height: 1.45;
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.35;
 }
 
 .materials-board-card-meta {
-  margin-top: 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   font-size: 12px;
+  font-weight: 600;
   color: #64748b;
 }
 
 .materials-board-card-download-hint {
-  margin-top: 10px;
   font-size: 12px;
   font-weight: 700;
   color: #1f4fd1;
