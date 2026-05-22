@@ -2352,6 +2352,7 @@ textarea:focus-visible {
 .main-area > section.stat-card .contracts-header-actions,
 .main-area > section.stat-card .contracts-year-summary-embed,
 .main-area > section.stat-card .install-cases-toolbar,
+.main-area > section.stat-card .materials-board-toolbar,
 .main-area > section.stat-card .table-toolbar,
 .main-area > section.stat-card .contract-filter-row {
   flex-shrink: 0;
@@ -2370,6 +2371,17 @@ textarea:focus-visible {
   height: auto;
   max-height: none;
   overflow: auto;
+}
+
+.main-area > section.stat-card .install-cases-gallery,
+.main-area > section.stat-card .materials-board-table-panel,
+.main-area > section.stat-card .materials-board-card-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .main-area > section.stat-card.stat-card--dashboard {
@@ -6447,6 +6459,10 @@ textarea:focus-visible {
   flex: 1 1 auto;
   min-height: 0;
   align-content: start;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .install-case-card-shell {
@@ -7294,6 +7310,9 @@ textarea:focus-visible {
 
 /* 게시판 */
 .stat-card--materials-board {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   padding: 24px 32px 36px;
 }
 
@@ -7367,8 +7386,12 @@ textarea:focus-visible {
 .materials-board-table-panel {
   border: 1px solid #e8edf5;
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: #fff;
+  flex: 1 1 auto;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .materials-board-table {
@@ -7497,6 +7520,12 @@ textarea:focus-visible {
   grid-auto-rows: 1fr;
   gap: 16px;
   align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .materials-board-card {
