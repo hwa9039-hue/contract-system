@@ -11742,28 +11742,20 @@ function App() {
                     </dl>
                   </div>
                   <div className="install-case-detail-specs-col">
-                    <table className="install-case-spec-table">
-                      <thead>
-                        <tr>
-                          <th scope="col">구분</th>
-                          <th scope="col">사양</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {INSTALL_CASE_SPEC_ROWS.map(({ key, label }) => (
-                          <tr key={key}>
-                            <td>{label}</td>
-                            <td>
-                              {key === 'resolution'
-                                ? formatInstallCaseResolutionDetailDisplay(
-                                    installCaseDetailModal.specs[key]
-                                  )
-                                : installCaseDetailModal.specs[key] ?? '-'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <dl className="install-case-detail-meta">
+                      {INSTALL_CASE_SPEC_ROWS.map(({ key, label }) => (
+                        <div className="install-case-meta-row" key={key}>
+                          <dt>{label}</dt>
+                          <dd>
+                            {key === 'resolution'
+                              ? formatInstallCaseResolutionDetailDisplay(
+                                  installCaseDetailModal.specs[key]
+                                )
+                              : installCaseDetailModal.specs[key] ?? '-'}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
                   </div>
                 </div>
               </div>

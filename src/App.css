@@ -6573,7 +6573,7 @@ textarea:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 14px 8px;
+  padding: 10px 16px 12px;
   border-bottom: 1px solid var(--line);
   background: #ffffff;
   flex-shrink: 0;
@@ -6584,13 +6584,13 @@ textarea:focus-visible {
   margin: 0;
   flex: 1;
   min-width: 0;
-  font-size: clamp(13px, 0.5vw + 12px, 15px);
+  font-size: clamp(18px, 1.1vw + 15px, 24px);
   font-weight: 900;
   color: var(--ink);
-  line-height: 1.25;
+  line-height: 1.3;
   letter-spacing: -0.02em;
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
@@ -6837,7 +6837,8 @@ textarea:focus-visible {
   min-height: 0;
 }
 
-.install-case-detail-info-col .install-case-meta-row {
+.install-case-detail-info-col .install-case-meta-row,
+.install-case-detail-specs-col .install-case-meta-row {
   grid-template-columns: minmax(72px, 38%) minmax(0, 1fr);
 }
 
@@ -6879,41 +6880,6 @@ textarea:focus-visible {
   color: #1e293b;
   margin-bottom: 8px;
   letter-spacing: -0.01em;
-}
-
-.install-case-spec-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.install-case-spec-table th,
-.install-case-spec-table td {
-  padding: 8px 12px;
-  border-bottom: 1px solid #eef2f7;
-  text-align: left;
-  vertical-align: top;
-  line-height: 1.35;
-}
-
-.install-case-spec-table thead th {
-  background: #f1f5f9;
-  font-weight: 800;
-  color: #334155;
-}
-
-.install-case-spec-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.install-case-spec-table td:first-child {
-  width: 38%;
-  font-weight: 700;
-  color: #475569;
-  background: #fbfcfe;
 }
 
 @media (max-width: 1100px) {
@@ -6979,15 +6945,6 @@ textarea:focus-visible {
   .install-case-detail-specs-title {
     font-size: 15px;
   }
-
-  .install-case-spec-table {
-    font-size: 12px;
-  }
-
-  .install-case-spec-table th,
-  .install-case-spec-table td {
-    padding: 7px 10px;
-  }
 }
 
 @media (max-height: 720px) {
@@ -7016,15 +6973,6 @@ textarea:focus-visible {
   .install-case-detail-specs-title {
     font-size: 15px;
     margin-bottom: 6px;
-  }
-
-  .install-case-spec-table {
-    font-size: 12px;
-  }
-
-  .install-case-spec-table th,
-  .install-case-spec-table td {
-    padding: 6px 10px;
   }
 }
 
