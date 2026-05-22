@@ -119,20 +119,16 @@ export default function LoginPage() {
           action="/login"
         >
           {!isAdmin ? (
-            <>
-              <label className="login-page-label" htmlFor="login-username-user">
-                로그인 구분
-              </label>
-              <input
-                id="login-username-user"
-                type="text"
-                name="username"
-                className="login-page-input login-page-input--readonly"
-                value={credentialId}
-                readOnly
-                autoComplete="username"
-              />
-            </>
+            <input
+              type="text"
+              name="username"
+              className="login-page-sr-only"
+              value={credentialId}
+              readOnly
+              tabIndex={-1}
+              aria-hidden="true"
+              autoComplete="username"
+            />
           ) : null}
           <label className="login-page-label" htmlFor={`login-password-${role}`}>
             {isAdmin ? '관리자 비밀번호' : '공용 비밀번호'}
