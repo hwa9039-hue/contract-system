@@ -1881,6 +1881,11 @@ textarea {
   background: rgba(15, 23, 42, 0.42);
 }
 
+.modal-backdrop > .install-case-form-modal {
+  min-height: 0;
+  max-height: min(900px, calc(100dvh - 48px));
+}
+
 /* 확인·삭제 커스텀 모달: DOM 순서와 무관하게 다른 modal-backdrop·auth 모달보다 항상 위 */
 .modal-backdrop.contract-confirm-backdrop {
   z-index: 99999;
@@ -7006,9 +7011,9 @@ textarea:focus-visible {
 .install-case-form-modal {
   width: min(1080px, calc(100vw - 24px));
   max-width: none;
-  max-height: min(92vh, 900px);
-  display: flex;
-  flex-direction: column;
+  max-height: min(900px, calc(100dvh - 48px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-height: 0;
   background: #ffffff;
   border-radius: 10px;
@@ -7039,12 +7044,19 @@ textarea:focus-visible {
   padding: 18px 22px 20px;
   overflow-x: hidden;
   overflow-y: auto;
-  flex: 1 1 auto;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.install-case-form-modal-body .install-case-form-two-col--unified {
+  flex: none;
+  min-height: auto;
+}
+
+.install-case-form-modal-body .install-case-form-panel {
+  min-height: auto;
+  overflow: visible;
 }
 
 .install-case-form-modal-footer {
