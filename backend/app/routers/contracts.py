@@ -69,6 +69,7 @@ def _import_contract_rows_with_dedupe(rows: list[ContractCreate]) -> dict:
     with get_connection() as connection:
         filled = repair_contract_row_ids(connection)
         if filled:
+            connection.commit()
             logger.warning("contracts_rows: backfilled id on %s row(s) that had null id", filled)
 
         with connection.cursor() as cursor:
@@ -127,6 +128,7 @@ def list_contracts():
     with get_connection() as connection:
         filled = repair_contract_row_ids(connection)
         if filled:
+            connection.commit()
             logger.warning("contracts_rows: backfilled id on %s row(s) that had null id", filled)
         with connection.cursor() as cursor:
             cursor.execute(

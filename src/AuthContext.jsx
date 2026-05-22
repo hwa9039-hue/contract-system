@@ -42,6 +42,28 @@ export function AuthProvider({ children }) {
     setAuthHydrated(true)
   }, [applyRestoredSession])
 
+  const refreshAccessToken = useCallback(async (persistence) => {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/auth/refresh`,
+        apiFetchInit({
+          method: 'POST',
+          headers: { ...getAuthHeaders() },
+        })
+      )
+      if (!res.ok) return false
+      const data = await res.json().catch(() => ({}))
+      if (data.auth_disabled) return true
+      if (data.access_token) {
+        setAuthToken(data.access_token, { persistent: persistence === 'persistent' })
+        return true
+      }
+      return false
+    } catch {
+      return false
+    }
+  }, [])
+
   useEffect(() => {
     if (!authHydrated || !isAuthenticated) return
     let cancelled = false
@@ -62,7 +84,8 @@ export function AuthProvider({ children }) {
 
         const stored = restoreAuthSessionFromStorages()
         if (stored.isAuthenticated && stored.expiresAt > Date.now()) {
-          return
+          const refreshed = await refreshAccessToken(stored.persistence)
+          if (refreshed) return
         }
 
         setAuthPersistence('none')
@@ -79,7 +102,7 @@ export function AuthProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [authHydrated, isAuthenticated])
+  }, [authHydrated, isAuthenticated, refreshAccessToken])
 
   const login = useCallback(async (role, password, rememberMe = false) => {
     const trimmed = String(password).trim()
@@ -182,7 +205,9 @@ export function AuthProvider({ children }) {
     setSharedSessionExpiresAt(0)
   }, [])
 
-  const extendLogin = useCallback(() => {
+  const extendLogin = useCallback(async () => {
+    const persistence = authPersistence === 'persistent' ? 'persistent' : 'session'
+    await refreshAccessToken(persistence)
     const duration =
       authPersistence === 'persistent'
         ? CONTRACT_PERSISTENT_SESSION_DURATION_MS
@@ -194,7 +219,7 @@ export function AuthProvider({ children }) {
     }
     setSharedSessionExpiresAt(expiresAt)
     return expiresAt
-  }, [authPersistence])
+  }, [authPersistence, refreshAccessToken])
 
   const value = useMemo(
     () => ({

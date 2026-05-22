@@ -10112,13 +10112,6 @@ function App() {
 
               <div className="dashboard-surface-card">
                 <div className="dashboard-year-list">
-                  <div className="dashboard-section-header legacy-contract-dashboard-title">
-                    <div>
-                      <p className="dashboard-section-eyebrow">계약현황 상세</p>
-                      <h2>연도별 계약금액 현황</h2>
-                    </div>
-                  </div>
-
                   {dashboardSummary.years.map((yearBlock) => {
                     const isCollapsed = !isDashboardYearOpen(yearBlock.year)
 

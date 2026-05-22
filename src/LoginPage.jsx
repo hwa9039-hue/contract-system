@@ -49,6 +49,7 @@ export default function LoginPage() {
             className={`login-role-tab${role === 'user' ? ' login-role-tab--active' : ''}`}
             onClick={() => {
               setRole('user')
+              setPassword('')
               setError('')
             }}
           >
@@ -61,6 +62,7 @@ export default function LoginPage() {
             className={`login-role-tab${role === 'admin' ? ' login-role-tab--active' : ''}`}
             onClick={() => {
               setRole('admin')
+              setPassword('')
               setError('')
             }}
           >
@@ -68,12 +70,24 @@ export default function LoginPage() {
           </button>
         </div>
 
-        <form className="login-page-form" onSubmit={handleSubmit}>
+        <form className="login-page-form" onSubmit={handleSubmit} autoComplete="on">
+          {/* Chrome/Edge 비밀번호 저장: 역할별 username + password 쌍 */}
+          <input
+            type="text"
+            name="username"
+            className="login-page-sr-only"
+            value={role === 'admin' ? 'contract-admin' : 'contract-user'}
+            readOnly
+            tabIndex={-1}
+            aria-hidden="true"
+            autoComplete="username"
+          />
           <label className="login-page-label" htmlFor="login-password">
-            공용 비밀번호
+            {role === 'admin' ? '관리자 비밀번호' : '공용 비밀번호'}
           </label>
           <input
             id="login-password"
+            name="password"
             type="password"
             className="login-page-input"
             value={password}

@@ -126,10 +126,23 @@ html.login-page-active #root {
 }
 
 .login-page-form {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: 100%;
+}
+
+.login-page-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .login-page-label {

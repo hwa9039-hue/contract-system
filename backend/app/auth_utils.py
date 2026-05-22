@@ -43,6 +43,14 @@ def decode_token(token: str) -> dict:
     return jwt.decode(token, secret, algorithms=[ALGORITHM])
 
 
+def decode_token_allow_expired(token: str) -> dict:
+    """로그인 연장(refresh) 시 만료된 JWT 서명만 검증합니다."""
+    secret = get_jwt_secret()
+    if not secret:
+        raise RuntimeError("JWT_SECRET is not set")
+    return jwt.decode(token, secret, algorithms=[ALGORITHM], options={"verify_exp": False})
+
+
 def verify_shared_password(password: str) -> bool:
     expected = get_auth_shared_password()
     if not expected:

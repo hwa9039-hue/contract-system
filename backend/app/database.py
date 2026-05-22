@@ -124,31 +124,61 @@ get_db = get_connection
 
 
 def repair_contract_row_ids(connection) -> int:
-    """contracts_rows 에서 id 가 NULL 인 행에 UUID 를 채웁니다. 반환: 갱신된 행 수.
+    """contracts_rows 에서 id 가 NULL 인 행에 PK 를 채웁니다. 반환: 갱신된 행 수.
 
-    API `id` 는 DB PK(UUID 문자열)이어야 PATCH/DELETE 가 동작합니다.
-    계약번호(contractNo)는 별도 필드로만 내려가며 `id`로 치환하지 않습니다(중복 가능·경로 불일치).
-
-    옛 스키마처럼 id 가 integer(serial) 이면 UUID 보정은 건너뜁니다.
+    - uuid 컬럼: gen_random_uuid()
+    - integer 컬럼: max(id)+1 부여 (옛 스키마·엑셀 import 후 id NULL 대응)
     """
     with connection.cursor() as cursor:
         id_type = _pg_column_udt_name(cursor, "contracts_rows", "id")
         if id_type is None:
             return 0
-        if id_type != "uuid":
-            logger.debug(
-                "contracts_rows.id type is %s (not uuid); skip null-id UUID repair",
-                id_type,
+        if id_type == "uuid":
+            cursor.execute(
+                """
+                update contracts_rows
+                set id = gen_random_uuid()
+                where id is null
+                """
             )
-            return 0
-        cursor.execute(
-            """
-            update contracts_rows
-            set id = gen_random_uuid()
-            where id is null
-            """
+            return int(cursor.rowcount or 0)
+        if id_type in ("int2", "int4", "int8"):
+            cursor.execute(
+                """
+                with max_id as (
+                  select coalesce(max(id), 0) as m from contracts_rows where id is not null
+                ),
+                null_rows as (
+                  select ctid
+                  from contracts_rows
+                  where id is null
+                  order by ctid
+                ),
+                numbered as (
+                  select
+                    null_rows.ctid,
+                    (select m from max_id) + row_number() over (order by null_rows.ctid) as new_id
+                  from null_rows
+                )
+                update contracts_rows as c
+                set id = numbered.new_id
+                from numbered
+                where c.ctid = numbered.ctid
+                """
+            )
+            filled = int(cursor.rowcount or 0)
+            if filled:
+                logger.info(
+                    "contracts_rows.id type is %s; backfilled id on %s row(s) with null id",
+                    id_type,
+                    filled,
+                )
+            return filled
+        logger.debug(
+            "contracts_rows.id type is %s; skip null-id repair",
+            id_type,
         )
-        return int(cursor.rowcount or 0)
+        return 0
 
 
 def init_db():
