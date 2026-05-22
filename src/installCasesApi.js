@@ -5,7 +5,7 @@ import { createLocalInstallCaseId } from './installCaseLocal.js'
 export const INSTALL_CASES_API_PATH = '/api/install-cases'
 
 /** 백엔드 미배포 시 UI 테스트용 — 배포 완료 시 false 로 전환 */
-export const INSTALL_CASES_USE_MOCK = true
+export const INSTALL_CASES_USE_MOCK = false
 
 const MOCK_SAVE_DELAY_MS = 1000
 

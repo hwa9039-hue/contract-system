@@ -14,6 +14,7 @@ import {
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import { installCasesApi, INSTALL_CASES_USE_MOCK } from './installCasesApi'
+import { materialsBoardApi } from './materialsBoardApi'
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { useAuth } from './AuthContext.jsx'
 import { CONTRACT_SHARED_WARNING_MS } from './authSession.js'
@@ -1011,23 +1012,27 @@ function formatMaterialsBoardFileSize(bytes) {
 }
 
 function normalizeMaterialsBoardPost(row) {
+  const postId = safeString(row?.id).trim()
   const files = Array.isArray(row?.files)
     ? row.files
         .map((f) => ({
+          id: safeString(f?.id).trim(),
           name: safeString(f?.name).trim(),
           size: Number(f?.size) || 0,
         }))
         .filter((f) => f.name)
     : safeString(row?.fileName).trim()
-      ? [{ name: safeString(row.fileName).trim(), size: 0 }]
+      ? [{ id: '', name: safeString(row.fileName).trim(), size: 0 }]
       : []
-  const downloadUrls = Array.isArray(row?.downloadUrls)
-    ? row.downloadUrls
-    : safeString(row?.downloadUrl).trim()
-      ? [{ name: files[0]?.name || 'download', url: row.downloadUrl }]
-      : []
+  const downloadUrls = files
+    .filter((f) => f.id && postId)
+    .map((f) => ({
+      name: f.name,
+      postId,
+      fileId: f.id,
+    }))
   return {
-    id: safeString(row?.id).trim() || `mb-${Date.now()}`,
+    id: postId || `mb-${Date.now()}`,
     title: safeString(row?.title).trim(),
     content: safeString(row?.content).trim(),
     files,
@@ -3673,9 +3678,7 @@ function App() {
   const icImageRestoreRef = useRef('')
   const installCaseFormDraftRef = useRef(installCaseFormDraft)
   const icImagePreviewRef = useRef(icImagePreview)
-  const [materialsBoardPosts, setMaterialsBoardPosts] = useState(() =>
-    MATERIALS_BOARD_SEED.map((row) => normalizeMaterialsBoardPost(row))
-  )
+  const [materialsBoardPosts, setMaterialsBoardPosts] = useState([])
   const [materialsBoardRegisterOpen, setMaterialsBoardRegisterOpen] = useState(false)
   const [materialsBoardFormDraft, setMaterialsBoardFormDraft] = useState(() =>
     getDefaultMaterialsBoardForm()
@@ -4007,10 +4010,29 @@ function App() {
   }
 
   const fetchInstallCases = async () => {
-    const rows = await installCasesApi.list()
-    const normalized = Array.isArray(rows) ? rows.map(normalizeInstallCaseRow) : []
-    setInstallCases(normalized)
-    return normalized
+    try {
+      const rows = await installCasesApi.list()
+      const normalized = Array.isArray(rows) ? rows.map(normalizeInstallCaseRow) : []
+      setInstallCases(normalized)
+      return normalized
+    } catch (error) {
+      console.error('[설치사례] API fetch failed', error)
+      setInstallCases([])
+      return []
+    }
+  }
+
+  const fetchMaterialsBoardPosts = async () => {
+    try {
+      const rows = await materialsBoardApi.list()
+      const normalized = Array.isArray(rows) ? rows.map(normalizeMaterialsBoardPost) : []
+      setMaterialsBoardPosts(normalized)
+      return normalized
+    } catch (error) {
+      console.error('[게시판] API fetch failed', error)
+      setMaterialsBoardPosts([])
+      return []
+    }
   }
 
   useEffect(() => {
@@ -4022,6 +4044,7 @@ function App() {
       void fetchExcludedRows(true)
       void fetchWorkReportRows()
       void fetchInstallCases()
+      void fetchMaterialsBoardPosts()
     }
   })
 
@@ -4070,6 +4093,11 @@ function App() {
   useEffect(() => {
     if (menu !== 'installCases') return
     void fetchInstallCases()
+  }, [menu])
+
+  useEffect(() => {
+    if (menu !== 'materialsBoard') return
+    void fetchMaterialsBoardPosts()
   }, [menu])
 
   useEffect(() => {
@@ -4531,17 +4559,29 @@ function App() {
   }, [materialsBoardPosts, materialsBoardSearch])
 
   const handleDownloadMaterialsBoardFile = useCallback(
-    (row) => {
+    async (row) => {
       const urls = Array.isArray(row?.downloadUrls) ? row.downloadUrls : []
       const first = urls[0]
       const fileName = safeString(first?.name || row?.files?.[0]?.name || row?.fileName).trim()
-      const downloadUrl = safeString(first?.url || row?.downloadUrl).trim()
       if (!fileName) {
         showAppAlert('첨부 파일이 없습니다.', '알림')
         return
       }
+
+      const postId = safeString(first?.postId || row?.id).trim()
+      const fileId = safeString(first?.fileId || row?.files?.[0]?.id).trim()
+      if (postId && fileId) {
+        try {
+          await materialsBoardApi.downloadFile(postId, fileId, fileName)
+        } catch (error) {
+          showAppAlert(error?.message || '다운로드에 실패했습니다.', '알림')
+        }
+        return
+      }
+
+      const downloadUrl = safeString(first?.url || row?.downloadUrl).trim()
       if (!downloadUrl) {
-        showAppAlert('다운로드할 수 있는 파일이 없습니다. (새로 등록한 글은 새로고침 전까지 다운로드 가능)', '알림')
+        showAppAlert('다운로드할 수 있는 파일이 없습니다.', '알림')
         return
       }
       const link = document.createElement('a')
@@ -4590,13 +4630,19 @@ function App() {
       message: `「${row.title}」을(를) 삭제하시겠습니까?`,
       destructive: true,
       confirmLabel: '삭제',
-      onConfirm: () => {
-        revokeMaterialsBoardPostUrls(row)
-        setMaterialsBoardPosts((prev) => prev.filter((p) => p.id !== row.id))
-        setToastMessage('삭제되었습니다.')
+      onConfirm: async () => {
+        try {
+          await materialsBoardApi.remove(row.id)
+          revokeMaterialsBoardPostUrls(row)
+          setMaterialsBoardPosts((prev) => prev.filter((p) => p.id !== row.id))
+          setToastMessage('삭제되었습니다.')
+        } catch (error) {
+          logApiOperationError('게시판 삭제', error)
+          showAppAlert(error?.message || '삭제에 실패했습니다.', '알림')
+        }
       },
     })
-  }, [isAdmin])
+  }, [isAdmin, showAppAlert])
 
   const handleSaveMaterialsBoardRegister = useCallback(async () => {
     if (!isAdmin || materialsBoardSubmitting) return
@@ -4610,47 +4656,39 @@ function App() {
 
     setMaterialsBoardSubmitting(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, MATERIALS_BOARD_MOCK_SAVE_MS))
-
-      const files = filesMetaFromPendingEntries(materialsBoardFile)
-      const downloadUrls = buildMaterialsBoardDownloadUrls(materialsBoardFile)
+      const payload = {
+        title,
+        content,
+        files: materialsBoardFile,
+      }
 
       if (editingId) {
+        const updated = await materialsBoardApi.update(editingId, payload)
+        const normalized = normalizeMaterialsBoardPost({ ...updated, id: editingId })
         showAppAlert('게시글이 성공적으로 수정되었습니다.', '알림', () => {
           setMaterialsBoardPosts((prev) =>
             prev.map((p) => {
               if (p.id !== editingId) return p
               revokeMaterialsBoardPostUrls(p)
-              return normalizeMaterialsBoardPost({
-                ...p,
-                id: editingId,
-                title,
-                content,
-                files: files.length ? files : p.files,
-                downloadUrls: downloadUrls.length ? downloadUrls : p.downloadUrls,
-                registeredAt: p.registeredAt,
-              })
+              return normalized
             })
           )
           setMaterialsBoardFile([])
           handleCloseMaterialsBoardRegister()
         })
       } else {
-        const newPost = normalizeMaterialsBoardPost({
-          id: `mb-${Date.now()}`,
-          title,
-          content,
-          files,
-          downloadUrls,
-          registeredAt: formatMaterialsBoardRegisteredAt(),
-        })
+        const created = await materialsBoardApi.create(payload)
+        const normalized = normalizeMaterialsBoardPost(created)
         showAppAlert('게시글이 성공적으로 등록되었습니다.', '알림', () => {
-          setMaterialsBoardPosts((prev) => [newPost, ...prev])
+          setMaterialsBoardPosts((prev) => [normalized, ...prev])
           setMaterialsBoardFile([])
           handleCloseMaterialsBoardRegister()
         })
       }
+
+      await fetchMaterialsBoardPosts()
     } catch (error) {
+      logApiOperationError(editingId ? '게시판 수정' : '게시판 등록', error)
       showAppAlert(error?.message || '저장에 실패했습니다.', '알림')
     } finally {
       setMaterialsBoardSubmitting(false)
