@@ -17,6 +17,8 @@ def _is_public_api_path(path: str) -> bool:
         return True
     if path == "/api/auth/me":
         return True
+    if "/hero-image" in path and path.startswith("/api/install-cases/"):
+        return True
     return False
 
 

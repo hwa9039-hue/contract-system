@@ -13,7 +13,7 @@ import {
 } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
-import { installCasesApi, INSTALL_CASES_USE_MOCK } from './installCasesApi'
+import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
 import { materialsBoardApi } from './materialsBoardApi'
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { useAuth } from './AuthContext.jsx'
@@ -1398,7 +1398,7 @@ function normalizeInstallCaseRow(row) {
   return {
     id,
     projectName: safeString(row?.projectName).trim() || '-',
-    heroImage: safeString(row?.heroImage).trim() || INSTALL_CASE_FALLBACK_HERO,
+    heroImage: resolveInstallCaseHeroImage(safeString(row?.heroImage).trim()) || INSTALL_CASE_FALLBACK_HERO,
     environment: migrateInstallCaseMajorCategory(row?.environment),
     middleCategory: migrateInstallCaseMiddleCategory(row?.middleCategory, row?.environment),
     audience: migrateInstallCaseMinorCategory(row?.audience),
@@ -4739,17 +4739,14 @@ function App() {
     }
 
     let imageUrl = INSTALL_CASE_FALLBACK_HERO
-    try {
-      if (icImageFile) {
-        imageUrl = (await readImageFileAsDataUrl(icImageFile)) || INSTALL_CASE_FALLBACK_HERO
-      } else {
-        const prev = safeString(icImagePreview).trim()
-        if (prev && !prev.startsWith('blob:')) imageUrl = prev
+    const imageFile = icImageFile || null
+    if (!imageFile) {
+      const prev = safeString(icImagePreview).trim()
+      if (prev && !prev.startsWith('blob:')) {
+        imageUrl = prev
       }
-    } catch (e) {
-      console.error('[설치사례] 이미지 처리 실패', e)
-      showAppAlert(e?.message || '이미지를 처리하지 못했습니다.', '알림')
-      return
+    } else {
+      imageUrl = ''
     }
 
     const projectName = safeString(d.projectName).trim()
@@ -4783,41 +4780,22 @@ function App() {
     setInstallCaseSubmitting(true)
     try {
       if (isEdit) {
-        const updated = await installCasesApi.update(editingId, rowPayload)
-        const normalized = buildInstallCaseRowFromPayload(
-          { ...rowPayload, ...updated },
-          editingId
-        )
-        setInstallCases((prev) =>
-          prev.map((row) => (row.id === editingId ? normalized : row))
-        )
-        setInstallCaseDetailModal((cur) =>
-          cur && cur.id === editingId ? normalized : cur
-        )
+        await installCasesApi.update(editingId, rowPayload, imageFile)
         clearInstallCaseFormDraftStorage()
         handleCloseInstallCaseRegister({ discardDraft: true })
+        const refreshed = await fetchInstallCases()
+        const found = refreshed.find((row) => row.id === editingId)
+        if (found) setInstallCaseDetailModal(found)
         showAppAlert('설치사례가 성공적으로 수정되었습니다.', '알림')
       } else {
-        const created = await installCasesApi.create(rowPayload)
-        const newCase = buildInstallCaseRowFromPayload(
-          { ...rowPayload, ...created },
-          safeString(created?.id).trim() || `local-${Date.now()}`
-        )
-        setInstallCases((prev) => [newCase, ...prev])
+        await installCasesApi.create(rowPayload, imageFile)
+        clearInstallCaseFormDraftStorage()
+        handleCloseInstallCaseRegister({ discardDraft: true })
         setInstallCaseEnvFilter('')
         setInstallCaseMiddleFilter('')
         setInstallCaseAudienceFilter('')
-        clearInstallCaseFormDraftStorage()
-        handleCloseInstallCaseRegister({ discardDraft: true })
+        await fetchInstallCases()
         showAppAlert('설치사례가 성공적으로 등록되었습니다.', '알림')
-      }
-
-      if (!INSTALL_CASES_USE_MOCK) {
-        const refreshed = await fetchInstallCases()
-        if (isEdit && editingId) {
-          const found = refreshed.find((row) => row.id === editingId)
-          if (found) setInstallCaseDetailModal(found)
-        }
       }
     } catch (error) {
       logApiOperationError(isEdit ? '설치사례 수정' : '설치사례 등록', error)

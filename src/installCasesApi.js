@@ -1,10 +1,10 @@
-import { API_BASE_URL, getAuthHeaders, apiFetchInit } from './apiClient.js'
+import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
+import { compressInstallCaseImage } from './installCaseImage.js'
 import { createLocalInstallCaseId } from './installCaseLocal.js'
 
-/** 백엔드 router: GET/POST /api/install-cases (백엔드 배포 후 USE_MOCK false) */
+/** 백엔드 router: GET/POST /api/install-cases */
 export const INSTALL_CASES_API_PATH = '/api/install-cases'
 
-/** 백엔드 미배포 시 UI 테스트용 — 배포 완료 시 false 로 전환 */
 export const INSTALL_CASES_USE_MOCK = false
 
 const MOCK_SAVE_DELAY_MS = 1000
@@ -23,97 +23,137 @@ function mockInstallCaseRow(payload, existingId = null) {
   }
 }
 
+function stripOversizedDataUrl(payload) {
+  const next = { ...payload }
+  const hero = String(next.heroImage || '')
+  if (hero.startsWith('data:') && hero.length > 200_000) {
+    next.heroImage = ''
+  }
+  return next
+}
+
+async function requestJson(path, options = {}) {
+  const { headers: optHeaders, ...rest } = options
+  const response = await fetch(
+    `${API_BASE_URL}${path}`,
+    apiFetchInit({
+      ...rest,
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+        ...(optHeaders || {}),
+      },
+    })
+  )
+
+  if (!response.ok) {
+    const message = await response.text()
+    throw new Error(message || `Request failed with status ${response.status}`)
+  }
+
+  if (response.status === 204) return null
+  return response.json()
+}
+
+async function requestForm(path, { method = 'POST', formData } = {}) {
+  const response = await fetch(
+    `${API_BASE_URL}${path}`,
+    apiFetchInit({
+      method,
+      headers: {
+        ...getAuthHeaders(),
+      },
+      body: formData,
+    })
+  )
+
+  if (!response.ok) {
+    const message = await response.text()
+    throw new Error(message || `Request failed with status ${response.status}`)
+  }
+
+  if (response.status === 204) return null
+  return response.json()
+}
+
+export function resolveInstallCaseHeroImage(src) {
+  const value = String(src || '').trim()
+  if (!value) return ''
+  if (value.startsWith('data:') || value.startsWith('http://') || value.startsWith('https://')) {
+    return value
+  }
+  if (value.startsWith('/api/')) {
+    return `${API_BASE_URL}${value}`
+  }
+  return value
+}
+
 export const installCasesApi = {
-  /** GET — 모킹 모드: 네트워크 호출 없이 [] (404·타임아웃 없음) */
   async list() {
     if (INSTALL_CASES_USE_MOCK) {
       return []
     }
 
-    const url = `${API_BASE_URL}${INSTALL_CASES_API_PATH}`
-    const response = await fetch(
-      url,
-      apiFetchInit({
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-        },
-      })
-    )
-    if (!response.ok) {
-      throw new Error(`목록 조회 실패 (${response.status})`)
-    }
-    const data = await response.json()
+    const data = await requestJson(INSTALL_CASES_API_PATH)
     return Array.isArray(data) ? data : []
   },
 
-  /** POST — 모킹: 1초 후 성공 객체 반환 (실제 fetch 없음) */
-  async create(payload) {
+  async create(payload, imageFile = null) {
     if (INSTALL_CASES_USE_MOCK) {
       await mockDelay()
       return mockInstallCaseRow(payload)
     }
-    const url = `${API_BASE_URL}${INSTALL_CASES_API_PATH}`
-    const response = await fetch(
-      url,
-      apiFetchInit({
+
+    if (imageFile) {
+      const compressed = await compressInstallCaseImage(imageFile)
+      const form = new FormData()
+      const { heroImage: _ignored, ...rest } = payload
+      form.append('payload', JSON.stringify(rest))
+      form.append('image', compressed, compressed.name)
+      return requestForm(`${INSTALL_CASES_API_PATH}/form`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-        },
-        body: JSON.stringify(payload),
+        formData: form,
       })
-    )
-    if (!response.ok) {
-      throw new Error(`등록 실패 (${response.status})`)
     }
-    return response.json()
+
+    return requestJson(INSTALL_CASES_API_PATH, {
+      method: 'POST',
+      body: JSON.stringify(stripOversizedDataUrl(payload)),
+    })
   },
 
-  /** PATCH — 모킹: 1초 후 성공 */
-  async update(id, patch) {
+  async update(id, patch, imageFile = null) {
     if (INSTALL_CASES_USE_MOCK) {
       await mockDelay()
       return mockInstallCaseRow({ ...patch, id }, id)
     }
-    const url = `${API_BASE_URL}${INSTALL_CASES_API_PATH}/${encodeURIComponent(id)}`
-    const response = await fetch(
-      url,
-      apiFetchInit({
+
+    if (imageFile) {
+      const compressed = await compressInstallCaseImage(imageFile)
+      const form = new FormData()
+      const { heroImage: _ignored, ...rest } = patch
+      form.append('payload', JSON.stringify(rest))
+      form.append('image', compressed, compressed.name)
+      return requestForm(`${INSTALL_CASES_API_PATH}/${encodeURIComponent(id)}/form`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-        },
-        body: JSON.stringify(patch),
+        formData: form,
       })
-    )
-    if (!response.ok) {
-      throw new Error(`수정 실패 (${response.status})`)
     }
-    return response.json()
+
+    return requestJson(`${INSTALL_CASES_API_PATH}/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(stripOversizedDataUrl(patch)),
+    })
   },
 
-  /** DELETE — 모킹: 1초 후 성공 */
   async remove(id) {
     if (INSTALL_CASES_USE_MOCK) {
       await mockDelay()
       return null
     }
-    const url = `${API_BASE_URL}${INSTALL_CASES_API_PATH}/${encodeURIComponent(id)}`
-    const response = await fetch(
-      url,
-      apiFetchInit({
-        method: 'DELETE',
-        headers: {
-          ...getAuthHeaders(),
-        },
-      })
-    )
-    if (!response.ok) {
-      throw new Error(`삭제 실패 (${response.status})`)
-    }
-    return null
+
+    return requestJson(`${INSTALL_CASES_API_PATH}/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    })
   },
 }
