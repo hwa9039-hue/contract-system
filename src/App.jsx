@@ -1000,7 +1000,7 @@ const MATERIALS_BOARD_SEED = [
 ]
 
 function getDefaultMaterialsBoardForm() {
-  return { title: '', content: '' }
+  return { title: '' }
 }
 
 function formatMaterialsBoardFileSize(bytes) {
@@ -4608,7 +4608,6 @@ function App() {
     setMaterialsBoardEditingId(row.id)
     setMaterialsBoardFormDraft({
       title: safeString(row.title).trim(),
-      content: safeString(row.content).trim(),
     })
     setMaterialsBoardFile([])
     setMaterialsBoardRegisterOpen(true)
@@ -4651,7 +4650,7 @@ function App() {
       showAppAlert('제목을 입력해 주세요.', '알림')
       return
     }
-    const content = safeString(materialsBoardFormDraft.content).trim()
+    const content = ''
     const editingId = materialsBoardEditingId
 
     setMaterialsBoardSubmitting(true)
@@ -11283,7 +11282,7 @@ function App() {
             <div className="table-toolbar contract-toolbar-simple materials-board-search-toolbar">
               <input
                 className="table-search-input"
-                placeholder="제목, 내용 검색"
+                placeholder="제목 검색"
                 value={materialsBoardSearch}
                 onChange={(e) => setMaterialsBoardSearch(e.target.value)}
               />
@@ -12134,15 +12133,6 @@ function App() {
                 value={materialsBoardFormDraft.title}
                 onChange={(e) => setMaterialsBoardFormDraft((prev) => ({ ...prev, title: e.target.value }))}
                 placeholder="예: LED 견적 가이드"
-              />
-              <label className="install-case-form-label" htmlFor="materials-board-content">내용</label>
-              <textarea
-                id="materials-board-content"
-                className="table-search-input install-case-form-input"
-                rows={5}
-                value={materialsBoardFormDraft.content}
-                onChange={(e) => setMaterialsBoardFormDraft((prev) => ({ ...prev, content: e.target.value }))}
-                placeholder="설명을 입력하세요"
               />
               <label className="install-case-form-label">첨부 파일 (다중 선택)</label>
               <MaterialBoardMultiFileDropzone
