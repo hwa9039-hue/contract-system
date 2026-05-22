@@ -2,6 +2,8 @@ export const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
 export const CONTRACT_SHARED_AUTH_KEY = 'CONTRACT_SHARED_AUTH'
 export const CONTRACT_SHARED_EXPIRES_AT_KEY = 'CONTRACT_SHARED_EXPIRES_AT'
 export const CONTRACT_REMEMBER_ME_FLAG_KEY = 'CONTRACT_REMEMBER_ME'
+export const CONTRACT_SAVED_PASSWORD_USER_KEY = 'CONTRACT_SAVED_PASSWORD_USER_V1'
+export const CONTRACT_SAVED_PASSWORD_ADMIN_KEY = 'CONTRACT_SAVED_PASSWORD_ADMIN_V1'
 export const CONTRACT_SHARED_SESSION_DURATION_MS = 20 * 60 * 1000
 export const CONTRACT_PERSISTENT_SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000
 export const CONTRACT_SHARED_WARNING_MS = 5 * 60 * 1000
@@ -193,4 +195,42 @@ export function restoreAuthSessionFromStorages() {
  */
 export function hydrateAuthSessionFromStorage() {
   return restoreAuthSessionFromStorages()
+}
+
+/** 이전에 「자동 로그인」을 켰는지 (로그인 화면 체크박스 기본값) */
+export function readRememberMePreference() {
+  try {
+    return localStorage.getItem(CONTRACT_REMEMBER_ME_FLAG_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function savedPasswordStorageKey(role) {
+  return role === 'admin' ? CONTRACT_SAVED_PASSWORD_ADMIN_KEY : CONTRACT_SAVED_PASSWORD_USER_KEY
+}
+
+/** 자동 로그인 사용 시 저장해 둔 비밀번호 (로그인 화면 자동 채움용) */
+export function readSavedLoginPassword(role) {
+  try {
+    return localStorage.getItem(savedPasswordStorageKey(role)) || ''
+  } catch {
+    return ''
+  }
+}
+
+export function writeSavedLoginPassword(role, password) {
+  try {
+    localStorage.setItem(savedPasswordStorageKey(role), String(password))
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearSavedLoginPassword(role) {
+  try {
+    localStorage.removeItem(savedPasswordStorageKey(role))
+  } catch {
+    /* ignore */
+  }
 }

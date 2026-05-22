@@ -168,6 +168,12 @@ html.login-page-active #root {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
+.login-page-input--readonly {
+  background: #f8fafc;
+  color: #64748b;
+  cursor: default;
+}
+
 .login-page-remember {
   display: flex;
   align-items: center;

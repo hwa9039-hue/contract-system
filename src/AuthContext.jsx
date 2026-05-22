@@ -42,6 +42,7 @@ export function AuthProvider({ children }) {
     setAuthHydrated(true)
   }, [applyRestoredSession])
 
+  /** @returns {'ok' | 'auth_fail' | 'network_fail'} */
   const refreshAccessToken = useCallback(async (persistence) => {
     try {
       const res = await fetch(
@@ -51,54 +52,73 @@ export function AuthProvider({ children }) {
           headers: { ...getAuthHeaders() },
         })
       )
-      if (!res.ok) return false
+      if (!res.ok) {
+        return res.status === 401 || res.status === 403 ? 'auth_fail' : 'network_fail'
+      }
       const data = await res.json().catch(() => ({}))
-      if (data.auth_disabled) return true
+      if (data.auth_disabled) return 'ok'
       if (data.access_token) {
         setAuthToken(data.access_token, { persistent: persistence === 'persistent' })
-        return true
+        return 'ok'
       }
-      return false
+      return 'auth_fail'
     } catch {
-      return false
+      return 'network_fail'
     }
   }, [])
 
   useEffect(() => {
     if (!authHydrated || !isAuthenticated) return
     let cancelled = false
+
+    const clearSession = () => {
+      setAuthPersistence('none')
+      setIsAuthenticated(false)
+      setIsAdmin(false)
+      setSharedSessionExpiresAt(0)
+      clearSharedAuthSession()
+      clearAdminFlag()
+      clearAuthToken()
+    }
+
     ;(async () => {
       try {
+        const stored = restoreAuthSessionFromStorages()
+        if (!stored.isAuthenticated || stored.expiresAt <= Date.now()) {
+          if (!cancelled) clearSession()
+          return
+        }
+
         const authHeaders = getAuthHeaders()
         const hadBearerToken = Boolean(authHeaders.Authorization)
+
+        if (hadBearerToken) {
+          const refreshResult = await refreshAccessToken(stored.persistence)
+          if (cancelled) return
+          if (refreshResult === 'network_fail') return
+        }
+
         const res = await fetch(
           `${API_BASE_URL}/api/auth/me`,
-          apiFetchInit({ headers: { ...authHeaders } })
+          apiFetchInit({ headers: { ...getAuthHeaders() } })
         )
-        const data = await res.json()
+        const data = await res.json().catch(() => ({}))
         if (cancelled) return
-        if (data.auth_disabled) return
-        if (data.valid) return
+        if (data.auth_disabled || data.valid) return
 
         if (!hadBearerToken) return
 
-        const stored = restoreAuthSessionFromStorages()
-        if (stored.isAuthenticated && stored.expiresAt > Date.now()) {
-          const refreshed = await refreshAccessToken(stored.persistence)
-          if (refreshed) return
-        }
+        const refreshResult = await refreshAccessToken(stored.persistence)
+        if (cancelled) return
+        if (refreshResult === 'ok') return
+        if (refreshResult === 'network_fail') return
 
-        setAuthPersistence('none')
-        setIsAuthenticated(false)
-        setIsAdmin(false)
-        setSharedSessionExpiresAt(0)
-        clearSharedAuthSession()
-        clearAdminFlag()
-        clearAuthToken()
+        clearSession()
       } catch {
         /* 네트워크 오류 시 기존 세션 유지 */
       }
     })()
+
     return () => {
       cancelled = true
     }
@@ -188,7 +208,7 @@ export function AuthProvider({ children }) {
         persistence,
       })
 
-      return { ok: true }
+      return { ok: true, role: wantsAdmin ? 'admin' : 'user', password: trimmed }
     } catch (err) {
       logCmsApiLogin('error', { message: err?.message || String(err) })
       return { ok: false, error: '서버에 연결할 수 없습니다. API 주소와 네트워크를 확인하세요.' }

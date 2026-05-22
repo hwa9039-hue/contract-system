@@ -1,14 +1,24 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from './AuthContext.jsx'
+import { readRememberMePreference, readSavedLoginPassword } from './authSession.js'
+import {
+  loadStoredLoginPassword,
+  LOGIN_CREDENTIAL_IDS,
+  saveLoginPassword,
+} from './loginCredentials.js'
 import './LoginPage.css'
 
 const LOGIN_PAGE_ACTIVE_CLASS = 'login-page-active'
 
+function resolveInitialPassword(role) {
+  return readSavedLoginPassword(role)
+}
+
 export default function LoginPage() {
   const { login } = useAuth()
   const [role, setRole] = useState('user')
-  const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(false)
+  const [password, setPassword] = useState(() => resolveInitialPassword('user'))
+  const [rememberMe, setRememberMe] = useState(() => readRememberMePreference())
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -21,6 +31,26 @@ export default function LoginPage() {
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    const saved = readSavedLoginPassword(role)
+    if (saved) {
+      setPassword(saved)
+      return undefined
+    }
+
+    ;(async () => {
+      const storedPassword = await loadStoredLoginPassword(role)
+      if (!cancelled && storedPassword) {
+        setPassword(storedPassword)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [role])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -29,8 +59,18 @@ export default function LoginPage() {
     setSubmitting(false)
     if (!result.ok) {
       setError(result.error || '로그인에 실패했습니다.')
+      return
     }
+    await saveLoginPassword(result.role || role, result.password || password, rememberMe)
   }
+
+  const switchRole = (nextRole) => {
+    setRole(nextRole)
+    setPassword(readSavedLoginPassword(nextRole))
+    setError('')
+  }
+
+  const credentialId = LOGIN_CREDENTIAL_IDS[role]
 
   return (
     <div className="login-page">
@@ -47,11 +87,7 @@ export default function LoginPage() {
             role="tab"
             aria-selected={role === 'user'}
             className={`login-role-tab${role === 'user' ? ' login-role-tab--active' : ''}`}
-            onClick={() => {
-              setRole('user')
-              setPassword('')
-              setError('')
-            }}
+            onClick={() => switchRole('user')}
           >
             사용자
           </button>
@@ -60,33 +96,37 @@ export default function LoginPage() {
             role="tab"
             aria-selected={role === 'admin'}
             className={`login-role-tab${role === 'admin' ? ' login-role-tab--active' : ''}`}
-            onClick={() => {
-              setRole('admin')
-              setPassword('')
-              setError('')
-            }}
+            onClick={() => switchRole('admin')}
           >
             관리자
           </button>
         </div>
 
-        <form className="login-page-form" onSubmit={handleSubmit} autoComplete="on">
-          {/* Chrome/Edge 비밀번호 저장: 역할별 username + password 쌍 */}
+        <form
+          key={`login-form-${role}`}
+          className="login-page-form"
+          onSubmit={handleSubmit}
+          autoComplete="on"
+          method="post"
+          action="/login"
+        >
+          <label className="login-page-label" htmlFor={`login-username-${role}`}>
+            로그인 구분
+          </label>
           <input
+            id={`login-username-${role}`}
             type="text"
             name="username"
-            className="login-page-sr-only"
-            value={role === 'admin' ? 'contract-admin' : 'contract-user'}
+            className="login-page-input login-page-input--readonly"
+            value={credentialId}
             readOnly
-            tabIndex={-1}
-            aria-hidden="true"
             autoComplete="username"
           />
-          <label className="login-page-label" htmlFor="login-password">
+          <label className="login-page-label" htmlFor={`login-password-${role}`}>
             {role === 'admin' ? '관리자 비밀번호' : '공용 비밀번호'}
           </label>
           <input
-            id="login-password"
+            id={`login-password-${role}`}
             name="password"
             type="password"
             className="login-page-input"
@@ -108,7 +148,7 @@ export default function LoginPage() {
               onChange={(e) => setRememberMe(e.target.checked)}
             />
             <span className="login-page-remember-box" aria-hidden="true" />
-            <span className="login-page-remember-label">자동 로그인</span>
+            <span className="login-page-remember-label">자동 로그인 · 비밀번호 저장 (30일)</span>
           </label>
 
           {error ? <div className="login-page-error">{error}</div> : null}
