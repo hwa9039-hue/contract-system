@@ -18,3 +18,6 @@ services:
       AUTH_SHARED_PASSWORD: ${AUTH_SHARED_PASSWORD:-smartdi2026!}
       AUTH_ADMIN_PASSWORD: ${AUTH_ADMIN_PASSWORD:-admin2026!}
       AUTH_DISABLED: ${AUTH_DISABLED:-false}
+      UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
+    volumes:
+      - ./uploads:/app/uploads

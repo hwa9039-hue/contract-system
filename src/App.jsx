@@ -12466,7 +12466,8 @@ function App() {
                   showAppAlert('이미지 파일만 업로드할 수 있습니다.', '알림')
                 }
               />
-
+            </div>
+            <div className="install-case-form-modal-footer">
               <div className="install-case-form-actions">
                 <button
                   type="button"

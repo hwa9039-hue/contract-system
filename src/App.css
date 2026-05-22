@@ -6744,7 +6744,7 @@ textarea:focus-visible {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 0 0 1.25rem;
+  padding: 0 0 2rem;
   box-sizing: border-box;
   min-height: 0;
   flex: 1 1 auto;
@@ -6813,7 +6813,7 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 0 0 0.25rem;
+  padding: 0 0 0.75rem;
   background: #ffffff;
   overflow: hidden;
 }
@@ -7009,6 +7009,7 @@ textarea:focus-visible {
   max-height: min(92vh, 900px);
   display: flex;
   flex-direction: column;
+  min-height: 0;
   background: #ffffff;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.58);
@@ -7036,12 +7037,21 @@ textarea:focus-visible {
 
 .install-case-form-modal-body {
   padding: 18px 22px 20px;
+  overflow-x: hidden;
   overflow-y: auto;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.install-case-form-modal-footer {
+  flex-shrink: 0;
+  padding: 0 22px 18px;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
 }
 
 .install-case-form-two-col {
@@ -7233,6 +7243,11 @@ textarea:focus-visible {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  margin-top: 0;
+  padding-top: 14px;
+}
+
+.install-case-form-modal-body .install-case-form-actions {
   margin-top: 18px;
   padding-top: 14px;
   border-top: 1px solid #e2e8f0;

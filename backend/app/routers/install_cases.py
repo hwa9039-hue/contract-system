@@ -1,14 +1,13 @@
 import json
 import logging
 import os
-import re
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
+from pydantic import ValidationError
 
 from app.database import get_connection
 from app.schemas import (
@@ -49,7 +48,11 @@ def hero_image_disk_path(row_id: str) -> Path:
     return INSTALL_CASES_IMAGE_DIR / f"{row_id}.jpg"
 
 
-def save_hero_image_file(row_id: str, upload: UploadFile) -> None:
+def ensure_install_case_upload_dirs() -> None:
+    INSTALL_CASES_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+async def save_hero_image_file(row_id: str, upload: UploadFile) -> None:
     if not upload.filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image file is required")
 
@@ -57,12 +60,16 @@ def save_hero_image_file(row_id: str, upload: UploadFile) -> None:
     if content_type and not content_type.startswith("image/"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only image files are allowed")
 
-    INSTALL_CASES_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_install_case_upload_dirs()
     dest = hero_image_disk_path(row_id)
     temp_dest = dest.with_suffix(".jpg.tmp")
 
+    content = await upload.read()
+    if not content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty image file")
+
     with temp_dest.open("wb") as handle:
-        shutil.copyfileobj(upload.file, handle)
+        handle.write(content)
 
     temp_dest.replace(dest)
 
@@ -87,6 +94,34 @@ def sanitize_hero_image_value(value: str | None) -> str:
     if text.startswith("data:") and len(text) > 200_000:
         return ""
     return text
+
+
+def adapt_install_case_values_for_db(values: dict) -> dict:
+    adapted = dict(values)
+    specs = adapted.get("specs")
+    if isinstance(specs, dict):
+        adapted["specs"] = json.dumps(specs, ensure_ascii=False)
+    return adapted
+
+
+def sql_placeholders(columns: list[str]) -> list[str]:
+    placeholders = []
+    for column in columns:
+        if column == "specs":
+            placeholders.append(f"%({column})s::jsonb")
+        else:
+            placeholders.append(f"%({column})s")
+    return placeholders
+
+
+def sql_assignments(columns: list[str]) -> list[str]:
+    assignments = []
+    for column in columns:
+        if column == "specs":
+            assignments.append(f'{quote_identifier(column)} = %({column})s::jsonb')
+        else:
+            assignments.append(f"{quote_identifier(column)} = %({column})s")
+    return assignments
 
 
 def list_install_case_rows():
@@ -117,12 +152,12 @@ def get_install_case_row(row_id: str) -> dict | None:
 
 
 def create_install_case_row(row: InstallCaseCreate):
-    values = prepare_insert_values(row)
+    values = adapt_install_case_values_for_db(prepare_insert_values(row))
     if "heroImage" in values:
         values["heroImage"] = sanitize_hero_image_value(values.get("heroImage"))
     columns = list(values.keys())
     quoted_columns = [quote_identifier(column) for column in columns]
-    placeholders = [f"%({column})s" for column in columns]
+    placeholders = sql_placeholders(columns)
 
     with get_connection() as connection:
         with connection.cursor() as cursor:
@@ -141,7 +176,7 @@ def create_install_case_row(row: InstallCaseCreate):
 
 
 def update_install_case_row(row_id: str, patch: InstallCasePatch):
-    values = install_case_to_db_values(patch)
+    values = adapt_install_case_values_for_db(install_case_to_db_values(patch))
     if not values:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
 
@@ -150,11 +185,7 @@ def update_install_case_row(row_id: str, patch: InstallCasePatch):
 
     values["id"] = row_id
     values["updatedAt"] = now_text()
-    assignments = [
-        f"{quote_identifier(column)} = %({column})s"
-        for column in values.keys()
-        if column != "id"
-    ]
+    assignments = sql_assignments([column for column in values.keys() if column != "id"])
 
     with get_connection() as connection:
         with connection.cursor() as cursor:
@@ -201,7 +232,10 @@ def parse_install_case_payload(raw_payload: str, model_cls):
         data = json.loads(raw_payload or "{}")
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payload JSON") from exc
-    return model_cls.model_validate(data)
+    try:
+        return model_cls.model_validate(data)
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.errors()) from exc
 
 
 @router.get("", response_model=list[InstallCaseOut])
@@ -221,19 +255,26 @@ async def api_create_install_case_with_image(
     payload: str = Form(...),
     image: UploadFile = File(...),
 ):
-    row = parse_install_case_payload(payload, InstallCaseCreate)
-    row = row.model_copy(update={"heroImage": ""})
-    created = create_install_case_row(row)
-    row_id = str(created["id"])
+    row_id = None
     try:
-        save_hero_image_file(row_id, image)
+        row = parse_install_case_payload(payload, InstallCaseCreate)
+        row = row.model_copy(update={"heroImage": ""})
+        created = create_install_case_row(row)
+        row_id = str(created["id"])
+        await save_hero_image_file(row_id, image)
         return set_install_case_hero_image_path(row_id)
+    except HTTPException:
+        raise
     except Exception as exc:
-        delete_install_case_row(row_id)
-        logger.exception("install case image save failed during create")
+        logger.exception("install case create with image failed")
+        if row_id:
+            try:
+                delete_install_case_row(row_id)
+            except Exception:
+                logger.exception("install case rollback delete failed")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save image: {exc}",
+            detail=f"Install case save failed: {exc}",
         ) from exc
 
 
@@ -250,13 +291,22 @@ async def api_update_install_case_with_image(
     payload: str = Form(...),
     image: UploadFile | None = File(None),
 ):
-    patch = parse_install_case_payload(payload, InstallCasePatch)
-    patch = patch.model_copy(update={"heroImage": None})
-    updated = update_install_case_row(row_id, patch)
-    if image and image.filename:
-        save_hero_image_file(row_id, image)
-        updated = set_install_case_hero_image_path(row_id)
-    return updated
+    try:
+        patch = parse_install_case_payload(payload, InstallCasePatch)
+        patch = patch.model_copy(update={"heroImage": None})
+        updated = update_install_case_row(row_id, patch)
+        if image and image.filename:
+            await save_hero_image_file(row_id, image)
+            updated = set_install_case_hero_image_path(row_id)
+        return updated
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("install case update with image failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Install case update failed: {exc}",
+        ) from exc
 
 
 @router.get("/{row_id}/hero-image")

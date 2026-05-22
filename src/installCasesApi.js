@@ -32,6 +32,22 @@ function stripOversizedDataUrl(payload) {
   return next
 }
 
+async function readErrorMessage(response) {
+  const raw = await response.text()
+  if (!raw) return `Request failed with status ${response.status}`
+  try {
+    const parsed = JSON.parse(raw)
+    const detail = parsed?.detail
+    if (typeof detail === 'string') return detail
+    if (Array.isArray(detail)) {
+      return detail.map((item) => item?.msg || item?.message || String(item)).join(', ')
+    }
+    return raw
+  } catch {
+    return raw
+  }
+}
+
 async function requestJson(path, options = {}) {
   const { headers: optHeaders, ...rest } = options
   const response = await fetch(
@@ -47,8 +63,7 @@ async function requestJson(path, options = {}) {
   )
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || `Request failed with status ${response.status}`)
+    throw new Error(await readErrorMessage(response))
   }
 
   if (response.status === 204) return null
@@ -68,8 +83,7 @@ async function requestForm(path, { method = 'POST', formData } = {}) {
   )
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || `Request failed with status ${response.status}`)
+    throw new Error(await readErrorMessage(response))
   }
 
   if (response.status === 204) return null
