@@ -125,7 +125,12 @@ parse_database_url || true
 
 is_backend_container() {
   case "${1,,}" in
-    contract-backend*|contract_backend*) return 0 ;;
+    *postgres*|*pgsql*)
+      return 1
+      ;;
+    *contract-backend*|*contract_backend*)
+      return 0
+      ;;
   esac
   return 1
 }
