@@ -7056,11 +7056,36 @@ textarea:focus-visible {
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
+  align-items: stretch;
 }
 
-.install-case-form-specs-title--left {
-  margin-top: 0;
-  margin-bottom: 4px;
+.install-case-form-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100%;
+  border: 1px solid #f3f4f6;
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.install-case-form-section-title {
+  margin: 0;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+  font-weight: 800;
+  color: #1e293b;
+  background: #fafafa;
+}
+
+.install-case-form-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px 18px;
+  min-width: 0;
 }
 
 .install-case-form-col {
@@ -7092,9 +7117,14 @@ textarea:focus-visible {
   min-width: 0;
 }
 
-.install-case-form-specs-title--right {
-  margin-top: 0;
-  margin-bottom: 4px;
+.install-case-form-stack-field--dropzone {
+  margin-top: 2px;
+}
+
+.install-case-form-stack-field--dropzone .install-case-dropzone-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
 }
 
 .install-case-form-grid {
@@ -7106,7 +7136,7 @@ textarea:focus-visible {
 
 .install-case-form-label {
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
   color: #334155;
 }
 

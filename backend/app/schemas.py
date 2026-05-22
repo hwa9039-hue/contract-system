@@ -651,7 +651,9 @@ def _normalize_install_case_specs(raw) -> dict:
             "displayArea": to_response_value(raw.get("displayArea")) or "",
             "ledPitch": to_response_value(raw.get("ledPitch")) or "",
             "moduleSize": to_response_value(raw.get("moduleSize")) or "",
+            "moduleSize2": to_response_value(raw.get("moduleSize2")) or "",
             "moduleQty": to_response_value(raw.get("moduleQty")) or "",
+            "moduleQty2": to_response_value(raw.get("moduleQty2")) or "",
             "resolution": to_response_value(raw.get("resolution")) or "",
             "installType": to_response_value(raw.get("installType")) or "",
         }

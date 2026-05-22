@@ -1387,14 +1387,33 @@ function MaterialBoardMultiFileDropzone({
   )
 }
 
-/** 설치사례 상세 모달 규격표 행 순서 (DB 연동 전 UI용) */
+/** 설치사례 상세 모달 규격표 행 순서 */
 const INSTALL_CASE_SPEC_ROWS = [
   { key: 'displayArea', label: '표출부 사이즈' },
   { key: 'ledPitch', label: 'LED Pitch' },
-  { key: 'moduleSize', label: 'MODULE 크기' },
-  { key: 'moduleQty', label: 'MODULE 수량' },
+  { key: 'moduleSize', label: 'MODULE 크기 1' },
+  { key: 'moduleSize2', label: 'MODULE 크기 2' },
+  { key: 'moduleQty', label: 'MODULE 수량 1' },
+  { key: 'moduleQty2', label: 'MODULE 수량 2' },
   { key: 'resolution', label: '해상도' },
   { key: 'installType', label: '설치유형' },
+]
+
+/** 설치사례 등록/수정: 우측 제품 규격 필드 */
+const INSTALL_CASE_REGISTER_SPEC_FIELDS = [
+  { type: 'wh', pairId: 'displayArea', label: '표출부 사이즈', preview: 'whMm' },
+  { type: 'ledPitch', label: 'LED Pitch' },
+  { type: 'wh', pairId: 'moduleSize', label: 'MODULE 크기 1', preview: 'whMm' },
+  { type: 'wh', pairId: 'moduleSize2', label: 'MODULE 크기 2', preview: 'whMm' },
+  { type: 'wh', pairId: 'moduleQty', label: 'MODULE 수량 1', preview: 'moduleQty' },
+  { type: 'wh', pairId: 'moduleQty2', label: 'MODULE 수량 2', preview: 'moduleQty' },
+  { type: 'wh', pairId: 'resolution', label: '해상도', preview: 'resolution' },
+  {
+    type: 'text',
+    key: 'installType',
+    label: '설치유형',
+    placeholder: '예: 벽면 부착형',
+  },
 ]
 
 /** 설치사례 대분류 */
@@ -1602,7 +1621,9 @@ function normalizeInstallCaseRow(row) {
       displayArea: safeString(specs.displayArea).trim() || '-',
       ledPitch: safeString(specs.ledPitch).trim() || '-',
       moduleSize: safeString(specs.moduleSize).trim() || '-',
+      moduleSize2: safeString(specs.moduleSize2).trim() || '-',
       moduleQty: safeString(specs.moduleQty).trim() || '-',
+      moduleQty2: safeString(specs.moduleQty2).trim() || '-',
       resolution: safeString(specs.resolution).trim() || '-',
       installType: safeString(specs.installType).trim() || '-',
     },
@@ -1944,6 +1965,53 @@ function InstallCaseImageDropzone({ inputId, label, previewUrl, fileName, onFile
 }
 
 /** 설치사례 등록·수정 동일 2단 폼 (좌: 기본정보+이미지 / 우: 제품 규격·W·H 분리) */
+function InstallCaseFormSection({ title, ariaLabel, children }) {
+  return (
+    <div className="install-case-form-panel" role="region" aria-label={ariaLabel || title}>
+      <div className="install-case-form-section-title">{title}</div>
+      <div className="install-case-form-panel-body">{children}</div>
+    </div>
+  )
+}
+
+function InstallCaseFormWhPairField({ label, wValue, hValue, onWChange, onHChange, preview = '' }) {
+  return (
+    <div className="install-case-form-stack-field">
+      <label className="install-case-form-label">{label}</label>
+      <div className="install-case-form-wh-pair">
+        <input
+          className="table-search-input install-case-form-input"
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="가로 (W)"
+          value={wValue}
+          onChange={onWChange}
+        />
+        <input
+          className="table-search-input install-case-form-input"
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="세로 (H)"
+          value={hValue}
+          onChange={onHChange}
+        />
+      </div>
+      {preview ? <div className="install-case-form-digit-preview">{preview}</div> : null}
+    </div>
+  )
+}
+
+function getInstallCaseSpecPreview(type, specs, pairId) {
+  const w = specs[`${pairId}W`]
+  const h = specs[`${pairId}H`]
+  if (type === 'whMm') return formatInstallCaseWhMmFromWH(w, h)
+  if (type === 'moduleQty') return formatInstallCaseModuleQtyLine(w, h)
+  if (type === 'resolution') return formatInstallCaseResolutionFromWH(w, h)
+  return ''
+}
+
 function InstallCaseFormTwoColumn({
   formDraft,
   setFormDraft,
@@ -1955,261 +2023,142 @@ function InstallCaseFormTwoColumn({
   onLedPitchChange,
   onInvalidImageFile,
 }) {
+  const specs = formDraft.specs || {}
+
   return (
     <div className="install-case-form-two-col install-case-form-two-col--unified">
-      <div className="install-case-form-col install-case-form-col--left" role="region" aria-label="기본 정보">
-        <div className="install-case-form-col-inner">
-          <div className="install-case-form-specs-title install-case-form-specs-title--left">기본 정보</div>
-          {INSTALL_CASE_REGISTER_BASIC_ROWS.map((def) => {
-            if (def.type === 'text') {
-              return (
-                <div key={def.key} className="install-case-form-stack-field">
-                  <label className="install-case-form-label">
-                    {def.label}
-                  </label>
-                  <input
-                    className="table-search-input install-case-form-input"
-                    type="text"
-                    value={formDraft[def.key]}
-                    onChange={(e) =>
-                      setFormDraft((prev) => ({
-                        ...prev,
-                        [def.key]: e.target.value,
-                      }))
-                    }
-                    placeholder={def.placeholder}
-                  />
-                </div>
-              )
-            }
-            if (def.type === 'select') {
-              return (
-                <div key={def.key} className="install-case-form-stack-field">
-                  <label className="install-case-form-label">
-                    {def.label}
-                  </label>
-                  <select
-                    className="contract-filter-select install-case-form-input"
-                    value={formDraft[def.key]}
-                    onChange={(e) =>
-                      setFormDraft((prev) => ({
-                        ...prev,
-                        [def.key]: e.target.value,
-                      }))
-                    }
-                  >
-                    {def.options.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )
-            }
-            if (def.type === 'businessYear') {
-              return (
-                <div key={def.key} className="install-case-form-stack-field">
-                  <label className="install-case-form-label">
-                    {def.label}
-                  </label>
-                  <div className="install-case-form-input-stack">
-                    <input
-                      className="table-search-input install-case-form-input"
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      value={formatBusinessYearInputDisplay(formDraft.businessYearDigits)}
-                      onChange={(e) => {
-                        const v = parseBusinessYearInputDigits(e.target.value)
-                        setFormDraft((prev) => ({ ...prev, businessYearDigits: v }))
-                      }}
-                      placeholder={def.placeholder || '2025.09'}
-                    />
-                  </div>
-                </div>
-              )
-            }
-            return null
-          })}
-          <div className="install-case-form-stack-field install-case-form-stack-field--dropzone">
-            <div className="install-case-form-dropzone-row">
-              <InstallCaseImageDropzone
-                inputId="install-case-image-file"
-                label="이미지"
-                previewUrl={icImagePreview}
-                fileName={icImageFile?.name}
-                onFile={setIcImageFile}
-                onClear={onClearInstallCaseImage}
-                onInvalidFileType={onInvalidImageFile}
-              />
-            </div>
-          </div>
+      <InstallCaseFormSection title="기본 정보" ariaLabel="기본 정보">
+        {INSTALL_CASE_REGISTER_BASIC_ROWS.map((def) => {
+          if (def.type === 'text') {
+            return (
+              <div key={def.key} className="install-case-form-stack-field">
+                <label className="install-case-form-label">{def.label}</label>
+                <input
+                  className="table-search-input install-case-form-input"
+                  type="text"
+                  value={formDraft[def.key]}
+                  onChange={(e) =>
+                    setFormDraft((prev) => ({
+                      ...prev,
+                      [def.key]: e.target.value,
+                    }))
+                  }
+                  placeholder={def.placeholder}
+                />
+              </div>
+            )
+          }
+          if (def.type === 'select') {
+            return (
+              <div key={def.key} className="install-case-form-stack-field">
+                <label className="install-case-form-label">{def.label}</label>
+                <select
+                  className="contract-filter-select install-case-form-input"
+                  value={formDraft[def.key]}
+                  onChange={(e) =>
+                    setFormDraft((prev) => ({
+                      ...prev,
+                      [def.key]: e.target.value,
+                    }))
+                  }
+                >
+                  {def.options.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )
+          }
+          if (def.type === 'businessYear') {
+            return (
+              <div key={def.key} className="install-case-form-stack-field">
+                <label className="install-case-form-label">{def.label}</label>
+                <input
+                  className="table-search-input install-case-form-input"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={formatBusinessYearInputDisplay(formDraft.businessYearDigits)}
+                  onChange={(e) => {
+                    const v = parseBusinessYearInputDigits(e.target.value)
+                    setFormDraft((prev) => ({ ...prev, businessYearDigits: v }))
+                  }}
+                  placeholder={def.placeholder || '2025.09'}
+                />
+              </div>
+            )
+          }
+          return null
+        })}
+        <div className="install-case-form-stack-field install-case-form-stack-field--dropzone">
+          <InstallCaseImageDropzone
+            inputId="install-case-image-file"
+            label="이미지"
+            previewUrl={icImagePreview}
+            fileName={icImageFile?.name}
+            onFile={setIcImageFile}
+            onClear={onClearInstallCaseImage}
+            onInvalidFileType={onInvalidImageFile}
+          />
         </div>
-      </div>
+      </InstallCaseFormSection>
 
-      <div className="install-case-form-col install-case-form-col--right" role="region" aria-label="제품 규격">
-        <div className="install-case-form-col-inner">
-          <div className="install-case-form-specs-title install-case-form-specs-title--right">제품 규격</div>
-
-          <div className="install-case-form-stack-field">
-            <label className="install-case-form-label">
-              표출부 사이즈
-            </label>
-            <div className="install-case-form-wh-pair">
-              <input
-                className="table-search-input install-case-form-input"
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="가로 (W)"
-                value={formDraft.specs.displayAreaW}
-                onChange={pairDigitChange('displayArea', 'w')}
+      <InstallCaseFormSection title="제품 규격" ariaLabel="제품 규격">
+        {INSTALL_CASE_REGISTER_SPEC_FIELDS.map((def) => {
+          if (def.type === 'wh') {
+            const pairId = def.pairId
+            return (
+              <InstallCaseFormWhPairField
+                key={pairId}
+                label={def.label}
+                wValue={specs[`${pairId}W`] ?? ''}
+                hValue={specs[`${pairId}H`] ?? ''}
+                onWChange={pairDigitChange(pairId, 'w')}
+                onHChange={pairDigitChange(pairId, 'h')}
+                preview={getInstallCaseSpecPreview(def.preview, specs, pairId)}
               />
-              <input
-                className="table-search-input install-case-form-input"
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="세로 (H)"
-                value={formDraft.specs.displayAreaH}
-                onChange={pairDigitChange('displayArea', 'h')}
-              />
-            </div>
-            {formatInstallCaseWhMmFromWH(formDraft.specs.displayAreaW, formDraft.specs.displayAreaH) ? (
-              <div className="install-case-form-digit-preview">
-                {formatInstallCaseWhMmFromWH(formDraft.specs.displayAreaW, formDraft.specs.displayAreaH)}
+            )
+          }
+          if (def.type === 'ledPitch') {
+            return (
+              <div key="ledPitch" className="install-case-form-stack-field">
+                <label className="install-case-form-label">{def.label}</label>
+                <input
+                  className="table-search-input install-case-form-input"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  placeholder="숫자·소수점 입력 (표시: P값mm)"
+                  value={specs.ledPitch}
+                  onChange={onLedPitchChange}
+                />
               </div>
-            ) : null}
-          </div>
-
-          <div className="install-case-form-stack-field">
-            <label className="install-case-form-label">
-              LED Pitch
-            </label>
-            <input
-              className="table-search-input install-case-form-input"
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              placeholder="숫자·소수점 입력 (표시: P값mm)"
-              value={formDraft.specs.ledPitch}
-              onChange={onLedPitchChange}
-            />
-          </div>
-
-          <div className="install-case-form-stack-field">
-            <label className="install-case-form-label">
-              MODULE 크기
-            </label>
-            <div className="install-case-form-wh-pair">
-              <input
-                className="table-search-input install-case-form-input"
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="가로 (W)"
-                value={formDraft.specs.moduleSizeW}
-                onChange={pairDigitChange('moduleSize', 'w')}
-              />
-              <input
-                className="table-search-input install-case-form-input"
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="세로 (H)"
-                value={formDraft.specs.moduleSizeH}
-                onChange={pairDigitChange('moduleSize', 'h')}
-              />
-            </div>
-            {formatInstallCaseWhMmFromWH(formDraft.specs.moduleSizeW, formDraft.specs.moduleSizeH) ? (
-              <div className="install-case-form-digit-preview">
-                {formatInstallCaseWhMmFromWH(formDraft.specs.moduleSizeW, formDraft.specs.moduleSizeH)}
+            )
+          }
+          if (def.type === 'text') {
+            return (
+              <div key={def.key} className="install-case-form-stack-field">
+                <label className="install-case-form-label">{def.label}</label>
+                <input
+                  className="table-search-input install-case-form-input"
+                  type="text"
+                  value={specs[def.key] ?? ''}
+                  placeholder={def.placeholder}
+                  onChange={(e) =>
+                    setFormDraft((prev) => ({
+                      ...prev,
+                      specs: { ...prev.specs, [def.key]: e.target.value },
+                    }))
+                  }
+                />
               </div>
-            ) : null}
-          </div>
-
-          <div className="install-case-form-stack-field">
-            <label className="install-case-form-label">
-              MODULE 수량
-            </label>
-            <div className="install-case-form-wh-pair">
-              <input
-                className="table-search-input install-case-form-input"
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="가로 (W)"
-                value={formDraft.specs.moduleQtyW}
-                onChange={pairDigitChange('moduleQty', 'w')}
-              />
-              <input
-                className="table-search-input install-case-form-input"
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="세로 (H)"
-                value={formDraft.specs.moduleQtyH}
-                onChange={pairDigitChange('moduleQty', 'h')}
-              />
-            </div>
-            {formatInstallCaseModuleQtyLine(formDraft.specs.moduleQtyW, formDraft.specs.moduleQtyH) ? (
-              <div className="install-case-form-digit-preview">
-                {formatInstallCaseModuleQtyLine(formDraft.specs.moduleQtyW, formDraft.specs.moduleQtyH)}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="install-case-form-stack-field">
-            <label className="install-case-form-label">
-              해상도
-            </label>
-            <div className="install-case-form-wh-pair">
-              <input
-                className="table-search-input install-case-form-input"
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="가로 (W)"
-                value={formDraft.specs.resolutionW}
-                onChange={pairDigitChange('resolution', 'w')}
-              />
-              <input
-                className="table-search-input install-case-form-input"
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                placeholder="세로 (H)"
-                value={formDraft.specs.resolutionH}
-                onChange={pairDigitChange('resolution', 'h')}
-              />
-            </div>
-            {formatInstallCaseResolutionFromWH(formDraft.specs.resolutionW, formDraft.specs.resolutionH) ? (
-              <div className="install-case-form-digit-preview">
-                {formatInstallCaseResolutionFromWH(formDraft.specs.resolutionW, formDraft.specs.resolutionH)}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="install-case-form-stack-field">
-            <label className="install-case-form-label">
-              설치유형
-            </label>
-            <input
-              className="table-search-input install-case-form-input"
-              type="text"
-              value={formDraft.specs.installType ?? ''}
-              placeholder="예: 벽면 부착형"
-              onChange={(e) =>
-                setFormDraft((prev) => ({
-                  ...prev,
-                  specs: { ...prev.specs, installType: e.target.value },
-                }))
-              }
-            />
-          </div>
-        </div>
-      </div>
+            )
+          }
+          return null
+        })}
+      </InstallCaseFormSection>
     </div>
   )
 }
@@ -2228,9 +2177,13 @@ function getDefaultInstallCaseForm() {
       displayAreaH: '',
       moduleSizeW: '',
       moduleSizeH: '',
+      moduleSize2W: '',
+      moduleSize2H: '',
       ledPitch: '',
       moduleQtyW: '',
       moduleQtyH: '',
+      moduleQty2W: '',
+      moduleQty2H: '',
       resolutionW: '',
       resolutionH: '',
       installType: '',
@@ -2239,9 +2192,11 @@ function getDefaultInstallCaseForm() {
 }
 
 function cloneInstallCaseFormDraft(form) {
+  const defaults = getDefaultInstallCaseForm()
   return {
+    ...defaults,
     ...form,
-    specs: { ...form.specs },
+    specs: { ...defaults.specs, ...(form?.specs || {}) },
   }
 }
 
@@ -4657,8 +4612,10 @@ function App() {
       setInstallCaseEditingId(row.id)
       const da = parseWhMmNumbers(safeString(row.specs?.displayArea))
       const ms = parseWhMmNumbers(safeString(row.specs?.moduleSize))
+      const ms2 = parseWhMmNumbers(safeString(row.specs?.moduleSize2))
       const res = parseResolutionStoredToWH(safeString(row.specs?.resolution))
       const mq = parseModuleQtyToWH(safeString(row.specs?.moduleQty))
+      const mq2 = parseModuleQtyToWH(safeString(row.specs?.moduleQty2))
       setInstallCaseFormDraft({
         projectName: safeString(row.projectName).trim(),
         environment: migrateInstallCaseMajorCategory(row.environment),
@@ -4672,9 +4629,13 @@ function App() {
           displayAreaH: da ? String(da.h) : '',
           moduleSizeW: ms ? String(ms.w) : '',
           moduleSizeH: ms ? String(ms.h) : '',
+          moduleSize2W: ms2 ? String(ms2.w) : '',
+          moduleSize2H: ms2 ? String(ms2.h) : '',
           ledPitch: installCaseLedPitchToFormValue(row.specs?.ledPitch),
           moduleQtyW: mq.w,
           moduleQtyH: mq.h,
+          moduleQty2W: mq2.w,
+          moduleQty2H: mq2.h,
           resolutionW: res.w,
           resolutionH: res.h,
           installType: safeString(row.specs?.installType).trim(),
@@ -4968,8 +4929,10 @@ function App() {
     const projectName = safeString(d.projectName).trim()
     const displayArea = formatInstallCaseWhMmFromWH(d.specs.displayAreaW, d.specs.displayAreaH) || '-'
     const moduleSize = formatInstallCaseWhMmFromWH(d.specs.moduleSizeW, d.specs.moduleSizeH) || '-'
+    const moduleSize2 = formatInstallCaseWhMmFromWH(d.specs.moduleSize2W, d.specs.moduleSize2H) || '-'
     const ledPitch = safeString(d.specs.ledPitch).trim() || '-'
     const moduleQty = formatInstallCaseModuleQtyLine(d.specs.moduleQtyW, d.specs.moduleQtyH) || '-'
+    const moduleQty2 = formatInstallCaseModuleQtyLine(d.specs.moduleQty2W, d.specs.moduleQty2H) || '-'
     const resolution =
       formatInstallCaseResolutionFromWH(d.specs.resolutionW, d.specs.resolutionH) || '-'
     const rowPayload = {
@@ -4985,7 +4948,9 @@ function App() {
         displayArea,
         ledPitch,
         moduleSize,
+        moduleSize2,
         moduleQty,
+        moduleQty2,
         resolution,
         installType: safeString(d.specs.installType).trim() || '-',
       },
@@ -12027,7 +11992,11 @@ function App() {
                   </div>
                   <div className="install-case-detail-specs-col">
                     <dl className="install-case-detail-meta">
-                      {INSTALL_CASE_SPEC_ROWS.map(({ key, label }) => (
+                      {INSTALL_CASE_SPEC_ROWS.filter(({ key }) => {
+                        if (key !== 'moduleSize2' && key !== 'moduleQty2') return true
+                        const value = safeString(installCaseDetailModal.specs?.[key]).trim()
+                        return value && value !== '-'
+                      }).map(({ key, label }) => (
                         <div className="install-case-meta-row" key={key}>
                           <dt>{label}</dt>
                           <dd>
