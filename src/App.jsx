@@ -1,4 +1,13 @@
 ﻿import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  Archive,
+  Download,
+  File,
+  FileSpreadsheet,
+  FileText,
+  MoreHorizontal,
+  Presentation,
+} from 'lucide-react'
 import * as XLSX from 'xlsx'
 import './App.css'
 import { contractsApi } from './contractsApi'
@@ -1106,16 +1115,6 @@ function isMaterialsBoardImageFileName(name) {
   return /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(safeString(name).trim())
 }
 
-function getMaterialsBoardFileKindLabel(name) {
-  const ext = safeString(name).trim().split('.').pop()?.toLowerCase() || ''
-  if (ext === 'pdf') return 'PDF'
-  if (['doc', 'docx', 'hwp', 'hwpx'].includes(ext)) return 'DOC'
-  if (['xls', 'xlsx', 'csv'].includes(ext)) return 'XLS'
-  if (['ppt', 'pptx'].includes(ext)) return 'PPT'
-  if (['zip', 'rar', '7z'].includes(ext)) return 'ZIP'
-  return ext ? ext.toUpperCase() : 'FILE'
-}
-
 function getMaterialsBoardFileKindClass(name) {
   const ext = safeString(name).trim().split('.').pop()?.toLowerCase() || ''
   if (ext === 'pdf') return 'pdf'
@@ -1126,46 +1125,37 @@ function getMaterialsBoardFileKindClass(name) {
   return 'file'
 }
 
-const MATERIALS_BOARD_THUMB_PALETTES = [
-  { bg: '#eef5ff', fg: '#1f4fd1', accent: '#bfdbfe' },
-  { bg: '#ecfdf5', fg: '#047857', accent: '#a7f3d0' },
-  { bg: '#fff7ed', fg: '#c2410c', accent: '#fed7aa' },
-  { bg: '#f5f3ff', fg: '#6d28d9', accent: '#ddd6fe' },
-  { bg: '#fdf2f8', fg: '#be185d', accent: '#fbcfe8' },
-  { bg: '#f0fdfa', fg: '#0f766e', accent: '#99f6e4' },
-  { bg: '#fefce8', fg: '#a16207', accent: '#fde68a' },
-  { bg: '#f8fafc', fg: '#334155', accent: '#cbd5e1' },
-]
-
-function hashMaterialsBoardText(value) {
-  const text = safeString(value).trim()
-  let hash = 0
-  for (let i = 0; i < text.length; i += 1) {
-    hash = (hash * 31 + text.charCodeAt(i)) >>> 0
+function MaterialsBoardFileIcon({ kindClass }) {
+  const iconProps = {
+    size: 28,
+    strokeWidth: 1.75,
+    'aria-hidden': true,
   }
-  return hash
-}
 
-function getMaterialsBoardThumbPalette(seed) {
-  const palettes = MATERIALS_BOARD_THUMB_PALETTES
-  return palettes[hashMaterialsBoardText(seed) % palettes.length]
-}
-
-function getMaterialsBoardTitleInitials(title, fileName) {
-  const raw = safeString(title).trim() || safeString(fileName).trim()
-  const cleaned = raw.replace(/\s+/g, ' ').trim()
-  if (!cleaned) return '파'
-
-  const withoutYear = cleaned.replace(/^\d{4}\s*년?\s*/, '').trim()
-  const core = withoutYear || cleaned
-  const koreanChars = core.match(/[가-힣]/g) || []
-  if (koreanChars.length >= 2) {
-    return koreanChars.slice(0, 2).join('')
+  switch (kindClass) {
+    case 'pdf':
+      return <FileText {...iconProps} className="materials-board-file-icon materials-board-file-icon--pdf" />
+    case 'doc':
+      return <FileText {...iconProps} className="materials-board-file-icon materials-board-file-icon--doc" />
+    case 'xls':
+      return (
+        <FileSpreadsheet
+          {...iconProps}
+          className="materials-board-file-icon materials-board-file-icon--xls"
+        />
+      )
+    case 'ppt':
+      return (
+        <Presentation
+          {...iconProps}
+          className="materials-board-file-icon materials-board-file-icon--ppt"
+        />
+      )
+    case 'zip':
+      return <Archive {...iconProps} className="materials-board-file-icon materials-board-file-icon--zip" />
+    default:
+      return <File {...iconProps} className="materials-board-file-icon materials-board-file-icon--file" />
   }
-  if (koreanChars.length === 1) {
-    return koreanChars[0]
-  }
-  return core.slice(0, 2).toUpperCase()
 }
 
 function MaterialsBoardCardThumb({ row }) {
@@ -1174,37 +1164,110 @@ function MaterialsBoardCardThumb({ row }) {
   const postId = safeString(row?.id).trim()
   const fileId = safeString(file?.id).trim()
   const kindClass = getMaterialsBoardFileKindClass(fileName)
-  const kindLabel = getMaterialsBoardFileKindLabel(fileName)
   const isImage = postId && fileId && isMaterialsBoardImageFileName(fileName)
-  const palette = getMaterialsBoardThumbPalette(postId || row?.title || fileName)
-  const initials = getMaterialsBoardTitleInitials(row?.title, fileName)
 
   return (
     <div className="materials-board-card-thumb">
       {isImage ? (
         <img src={materialsBoardDownloadUrl(postId, fileId)} alt="" loading="lazy" />
       ) : (
-        <div
-          className="materials-board-card-thumb-fallback"
-          style={{
-            background: `linear-gradient(145deg, ${palette.bg} 0%, ${palette.accent} 100%)`,
-          }}
-          aria-hidden
-        >
-          <span
-            className="materials-board-card-thumb-initials"
-            style={{ color: palette.fg }}
-          >
-            {initials}
-          </span>
-          <span
-            className={`materials-board-card-thumb-badge materials-board-card-thumb-badge--${kindClass}`}
-          >
-            {kindLabel}
-          </span>
+        <div className="materials-board-card-thumb-icon-wrap" aria-hidden>
+          <MaterialsBoardFileIcon kindClass={kindClass} />
         </div>
       )}
     </div>
+  )
+}
+
+function MaterialsBoardCardItem({
+  row,
+  isAdmin,
+  isDownloading,
+  onDownload,
+  onEdit,
+  onDelete,
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    if (!menuOpen) return undefined
+    const handlePointerDown = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [menuOpen])
+
+  return (
+    <article className={`materials-board-card${menuOpen ? ' materials-board-card--menu-open' : ''}`}>
+      {isAdmin && (
+        <div className="materials-board-card-menu" ref={menuRef}>
+          <button
+            type="button"
+            className="materials-board-card-menu-trigger"
+            aria-label="더보기"
+            aria-expanded={menuOpen}
+            onClick={(event) => {
+              event.stopPropagation()
+              setMenuOpen((open) => !open)
+            }}
+          >
+            <MoreHorizontal size={18} strokeWidth={1.75} />
+          </button>
+          {menuOpen ? (
+            <div className="materials-board-card-menu-panel" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false)
+                  onEdit(row)
+                }}
+              >
+                수정
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="materials-board-card-menu-item--danger"
+                onClick={(event) => {
+                  setMenuOpen(false)
+                  onDelete(row, event)
+                }}
+              >
+                삭제
+              </button>
+            </div>
+          ) : null}
+        </div>
+      )}
+      <button
+        type="button"
+        className="materials-board-card-main"
+        disabled={isDownloading}
+        onClick={(event) => {
+          void onDownload(row, event)
+        }}
+      >
+        <MaterialsBoardCardThumb row={row} />
+        <div className="materials-board-card-body">
+          <div className="materials-board-card-title">{row.title}</div>
+          <div className="materials-board-card-meta">
+            <span>{row.registeredAt}</span>
+            <span className="materials-board-download-count">
+              다운로드 {Number(row.downloadCount) || 0}
+            </span>
+          </div>
+          <div className="materials-board-card-download-hint">
+            <Download size={14} strokeWidth={1.75} aria-hidden />
+            <span>{isDownloading ? '다운로드 중…' : '클릭하여 다운로드'}</span>
+          </div>
+        </div>
+      </button>
+    </article>
   )
 }
 
@@ -11600,53 +11663,15 @@ function App() {
                   </div>
                 ) : (
                   filteredMaterialsBoardPosts.map((row) => (
-                    <article key={row.id} className="materials-board-card">
-                      <button
-                        type="button"
-                        className="materials-board-card-main"
-                        disabled={materialsBoardDownloadingId === row.id}
-                        onClick={(event) => {
-                          void handleDownloadMaterialsBoardFile(row, event)
-                        }}
-                      >
-                        <MaterialsBoardCardThumb row={row} />
-                        <div className="materials-board-card-body">
-                          <div className="materials-board-card-title">{row.title}</div>
-                          <div className="materials-board-card-meta">
-                            <span>{row.registeredAt}</span>
-                            <span className="materials-board-download-count">
-                              다운로드 {Number(row.downloadCount) || 0}
-                            </span>
-                          </div>
-                          <div className="materials-board-card-download-hint">
-                            {materialsBoardDownloadingId === row.id
-                              ? '다운로드 중…'
-                              : '클릭하여 다운로드'}
-                          </div>
-                        </div>
-                      </button>
-                      {isAdmin && (
-                        <div
-                          className="materials-board-card-actions"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            className="materials-board-row-btn"
-                            onClick={() => handleOpenMaterialsBoardEdit(row)}
-                          >
-                            수정
-                          </button>
-                          <button
-                            type="button"
-                            className="materials-board-row-btn materials-board-row-btn--danger"
-                            onClick={(e) => handleDeleteMaterialsBoardPost(row, e)}
-                          >
-                            삭제
-                          </button>
-                        </div>
-                      )}
-                    </article>
+                    <MaterialsBoardCardItem
+                      key={row.id}
+                      row={row}
+                      isAdmin={isAdmin}
+                      isDownloading={materialsBoardDownloadingId === row.id}
+                      onDownload={handleDownloadMaterialsBoardFile}
+                      onEdit={handleOpenMaterialsBoardEdit}
+                      onDelete={handleDeleteMaterialsBoardPost}
+                    />
                   ))
                 )}
               </div>
