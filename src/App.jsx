@@ -4663,30 +4663,18 @@ function App() {
       }
 
       if (editingId) {
-        const updated = await materialsBoardApi.update(editingId, payload)
-        const normalized = normalizeMaterialsBoardPost({ ...updated, id: editingId })
-        showAppAlert('게시글이 성공적으로 수정되었습니다.', '알림', () => {
-          setMaterialsBoardPosts((prev) =>
-            prev.map((p) => {
-              if (p.id !== editingId) return p
-              revokeMaterialsBoardPostUrls(p)
-              return normalized
-            })
-          )
-          setMaterialsBoardFile([])
-          handleCloseMaterialsBoardRegister()
-        })
+        await materialsBoardApi.update(editingId, payload)
+        await fetchMaterialsBoardPosts()
+        setMaterialsBoardFile([])
+        handleCloseMaterialsBoardRegister()
+        showAppAlert('게시글이 성공적으로 수정되었습니다.', '알림')
       } else {
-        const created = await materialsBoardApi.create(payload)
-        const normalized = normalizeMaterialsBoardPost(created)
-        showAppAlert('게시글이 성공적으로 등록되었습니다.', '알림', () => {
-          setMaterialsBoardPosts((prev) => [normalized, ...prev])
-          setMaterialsBoardFile([])
-          handleCloseMaterialsBoardRegister()
-        })
+        await materialsBoardApi.create(payload)
+        await fetchMaterialsBoardPosts()
+        setMaterialsBoardFile([])
+        handleCloseMaterialsBoardRegister()
+        showAppAlert('게시글이 성공적으로 등록되었습니다.', '알림')
       }
-
-      await fetchMaterialsBoardPosts()
     } catch (error) {
       logApiOperationError(editingId ? '게시판 수정' : '게시판 등록', error)
       showAppAlert(error?.message || '저장에 실패했습니다.', '알림')
