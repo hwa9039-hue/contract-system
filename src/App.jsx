@@ -14,7 +14,7 @@ import {
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
-import { materialsBoardApi } from './materialsBoardApi'
+import { materialsBoardApi, downloadMaterialsBoardBlobUrl } from './materialsBoardApi'
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { useAuth } from './AuthContext.jsx'
 import { CONTRACT_SHARED_WARNING_MS } from './authSession.js'
@@ -4559,7 +4559,10 @@ function App() {
   }, [materialsBoardPosts, materialsBoardSearch])
 
   const handleDownloadMaterialsBoardFile = useCallback(
-    async (row) => {
+    async (row, event) => {
+      if (event?.defaultPrevented) return
+      if (event?.target?.closest?.('.materials-board-row-actions')) return
+
       const urls = Array.isArray(row?.downloadUrls) ? row.downloadUrls : []
       const first = urls[0]
       const fileName = safeString(first?.name || row?.files?.[0]?.name || row?.fileName).trim()
@@ -4584,13 +4587,7 @@ function App() {
         showAppAlert('다운로드할 수 있는 파일이 없습니다.', '알림')
         return
       }
-      const link = document.createElement('a')
-      link.href = downloadUrl
-      link.download = fileName
-      link.rel = 'noopener'
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
+      downloadMaterialsBoardBlobUrl(downloadUrl, fileName)
     },
     [showAppAlert]
   )
@@ -11321,13 +11318,13 @@ function App() {
                       <tr
                         key={row.id}
                         className="materials-board-row materials-board-row--clickable"
-                        onClick={() => handleDownloadMaterialsBoardFile(row)}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          void handleDownloadMaterialsBoardFile(row, event)
+                        }}
                       >
                         <td className="materials-board-td materials-board-td--no">{index + 1}</td>
-                        <td
-                          className="materials-board-td materials-board-td--title materials-board-td--download"
-                          onClick={() => handleDownloadMaterialsBoardFile(row)}
-                        >
+                        <td className="materials-board-td materials-board-td--title materials-board-td--download">
                           {row.title}
                         </td>
                         <td className="materials-board-td materials-board-td--attach">
