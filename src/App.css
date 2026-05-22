@@ -5,24 +5,15 @@
   box-sizing: border-box;
 }
 
-:root {
-  /* html zoom 과 동일하게 유지 → 하단 빈 여백 보정(min-height)에 사용 */
-  --app-ui-zoom: 0.9;
-}
-
 /**
- * 브라우저 배율 100%일 때 전체 UI를 약 90%로 보이게 함.
  * 문서 전체 스크롤은 막고(html/body/#root overflow 고정), 각 페이지 표 영역만 내부 스크롤.
+ * CSS zoom은 브라우저 확대/축소와 겹쳐 레이아웃이 어긋나므로 사용하지 않음.
  */
 html {
-  zoom: var(--app-ui-zoom);
   margin: 0;
   padding: 0;
   width: 100%;
-  height: calc(100vh / var(--app-ui-zoom));
-  height: calc(100dvh / var(--app-ui-zoom));
-  max-height: calc(100vh / var(--app-ui-zoom));
-  max-height: calc(100dvh / var(--app-ui-zoom));
+  height: 100%;
   overflow: hidden;
 }
 
@@ -66,10 +57,8 @@ textarea {
   width: 100%;
   flex: 1 1 auto;
   min-height: 0;
-  height: calc(100vh / var(--app-ui-zoom));
-  height: calc(100dvh / var(--app-ui-zoom));
-  max-height: calc(100vh / var(--app-ui-zoom));
-  max-height: calc(100dvh / var(--app-ui-zoom));
+  height: 100%;
+  max-height: 100%;
   overflow: hidden;
 }
 
@@ -2122,7 +2111,6 @@ textarea {
 
 /* modern admin UI restoration */
 :root {
-  --app-ui-zoom: 0.9;
   --page-bg: #f3f6fa;
   --panel: #ffffff;
   --panel-soft: #f8fafc;
