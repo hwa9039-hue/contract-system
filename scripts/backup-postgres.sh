@@ -74,7 +74,8 @@ load_env_from_files() {
       BACKUP_APP_DOCKER_CONTAINER \
       BACKUP_UPLOAD_CONTAINER_PATHS \
       BACKUP_HOST_PATHS \
-      BACKUP_SKIP_FILE_COPY; do
+      BACKUP_SKIP_FILE_COPY \
+      BACKUP_SKIP_EXCEL_EXPORT; do
       local var_name="$key"
       if [[ -z "${!var_name:-}" ]]; then
         if val="$(read_dotenv_value "$f" "$key")"; then
@@ -555,6 +556,74 @@ run_file_backup() {
 }
 
 # ---------------------------------------------------------------------------
+# 메뉴별 Excel 내보내기 (DB → .xlsx, 화면 다운로드와 동일 형식)
+# ---------------------------------------------------------------------------
+run_excel_export() {
+  if [[ "${BACKUP_SKIP_EXCEL_EXPORT:-}" == "1" || "${BACKUP_SKIP_EXCEL_EXPORT:-}" == "true" ]]; then
+    echo "Excel export skipped (BACKUP_SKIP_EXCEL_EXPORT)." >&2
+    return 0
+  fi
+
+  EXCEL_DIR="${BACKUP_SESSION_DIR}/excel"
+  mkdir -p "$EXCEL_DIR"
+
+  export_excel_via_docker() {
+    local container="$1"
+    local tmp_in_container="/tmp/cms_excel_export_$$"
+    "${DOCKER[@]}" exec "$container" rm -rf "$tmp_in_container" 2>/dev/null || true
+    "${DOCKER[@]}" exec "$container" mkdir -p "$tmp_in_container"
+    if "${DOCKER[@]}" exec \
+      -e "MENU_EXCEL_EXPORT_DIR=${tmp_in_container}" \
+      -e "DATABASE_URL=${DATABASE_URL}" \
+      "$container" \
+      python /app/export_menu_excel_backups.py; then
+      "${DOCKER[@]}" cp "${container}:${tmp_in_container}/." "${EXCEL_DIR}/"
+      "${DOCKER[@]}" exec "$container" rm -rf "$tmp_in_container" 2>/dev/null || true
+      return 0
+    fi
+    "${DOCKER[@]}" exec "$container" rm -rf "$tmp_in_container" 2>/dev/null || true
+    return 1
+  }
+
+  export_excel_via_host_python() {
+    if ! command -v python3 >/dev/null 2>&1; then
+      return 1
+    fi
+    if [[ ! -f "${BACKEND_DIR}/export_menu_excel_backups.py" ]]; then
+      return 1
+    fi
+    (
+      cd "${BACKEND_DIR}"
+      export MENU_EXCEL_EXPORT_DIR="${EXCEL_DIR}"
+      export DATABASE_URL="${DATABASE_URL}"
+      python3 export_menu_excel_backups.py
+    )
+  }
+
+  echo "Exporting menu Excel files → ${EXCEL_DIR}" >&2
+
+  local app_container
+  if docker_available && app_container="$(resolve_app_container 2>/dev/null)" && [[ -n "$app_container" ]]; then
+    if export_excel_via_docker "$app_container"; then
+      local n
+      n="$(find "$EXCEL_DIR" -type f -name '*.xlsx' 2>/dev/null | wc -l | tr -d ' ')"
+      echo "Excel OK (docker): ${EXCEL_DIR} (${n} files)" >&2
+      return 0
+    fi
+    echo "WARN: Excel export via container '${app_container}' failed; trying host python..." >&2
+  fi
+
+  if export_excel_via_host_python; then
+    local n
+    n="$(find "$EXCEL_DIR" -type f -name '*.xlsx' 2>/dev/null | wc -l | tr -d ' ')"
+    echo "Excel OK (host python): ${EXCEL_DIR} (${n} files)" >&2
+    return 0
+  fi
+
+  echo "WARN: Menu Excel export failed. Rebuild API image after git pull (export_menu_excel_backups.py)." >&2
+}
+
+# ---------------------------------------------------------------------------
 # 실행
 # ---------------------------------------------------------------------------
 echo "Project root:    ${PROJECT_ROOT}" >&2
@@ -576,6 +645,7 @@ fi
 DUMP_BYTES="$(wc -c <"$OUT" | tr -d ' ')"
 echo "Dump OK: ${OUT} (${DUMP_BYTES} bytes)" >&2
 
+run_excel_export
 run_file_backup
 
 echo "Backup session complete: ${BACKUP_SESSION_DIR}"

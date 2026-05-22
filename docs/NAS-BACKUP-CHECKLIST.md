@@ -36,6 +36,7 @@ SSH 접속 후:
 ### 성공 로그 확인
 
 - [ ] `Dump OK: .../pg_backup_YYYYMMDD_HHMMSS.dump (... bytes)` — **0 bytes 아님**
+- [ ] `Excel OK: .../excel/ (9 files)` — **메뉴별 xlsx 9종**
 - [ ] `Files OK (host): .../backend/uploads → ...` 또는 `Files OK (docker cp): ...`
 - [ ] `Backup session complete: .../YYYYMMDD_HHMMSS`
 
@@ -46,6 +47,7 @@ SSH 접속 후:
 | dump 0 bytes | `POSTGRES_DOCKER_CONTAINER`를 실제 DB 컨테이너명으로 지정 |
 | `contract-backend`로 dump 시도 | API 컨테이너에는 pg_dump 없음 — DB 컨테이너 사용 |
 | `No upload/data directories were copied` | `BACKUP_HOST_PATHS`에 `backend/uploads` 추가 |
+| `Menu Excel export failed` | API 이미지 재빌드 (`export_menu_excel_backups.py` 포함) |
 | DATABASE_URL 없음 | `.env` 경로·`CMS_PROJECT_ROOT` 확인 |
 
 ---
@@ -59,10 +61,11 @@ ls -la /volume1/backup/contract-db/$(ls -t /volume1/backup/contract-db | head -1
 ```
 
 - [ ] `pg_backup_*.dump` 파일 존재
+- [ ] `excel/` 폴더에 **9개** `.xlsx` (계약·영업·문서·건축·사업검색·주간보고·캘린더·설치사례·게시판)
 - [ ] `files/` 하위 폴더 존재
 
 ```bash
-find /volume1/backup/contract-db/$(ls -t /volume1/backup/contract-db | head -1)/files -type f | head -20
+ls -lh /volume1/docker/contract-backend/backups/$(ls -t /volume1/docker/contract-backend/backups | head -1)/excel/
 ```
 
 - [ ] `install-cases/` — 설치사례 `.jpg` (있을 경우)
@@ -73,14 +76,11 @@ find /volume1/backup/contract-db/$(ls -t /volume1/backup/contract-db | head -1)/
 
 ## 4. 메뉴별 백업 포함 여부
 
-| 메뉴 | pg_dump | files/ |
-|------|---------|--------|
-| 계약현황 | ✅ `contracts_rows` | ⚠️ import 시 `.xlsx` (env 설정 시) |
-| 주간업무보고서 | ✅ | — |
-| 영업/건축/사업검색/문서 | ✅ | — |
-| **캘린더 기타 일정** | ✅ `calendar_manual_events` | — |
-| **설치사례** | ✅ | ✅ `uploads/install-cases/` |
-| **게시판** | ✅ | ✅ `uploads/materials-board/` |
+| 메뉴 | pg_dump | excel/ | files/ |
+|------|---------|--------|--------|
+| 계약·영업·건축·문서·사업검색·주간보고·캘린더 | ✅ | ✅ `.xlsx` | — |
+| **설치사례** | ✅ | ✅ 요약 `.xlsx` | ✅ `.jpg` |
+| **게시판** | ✅ | ✅ 목록 `.xlsx` | ✅ 첨부 원본 |
 
 - [ ] 캘린더: API `/api/calendar-events` 배포 후 기타 일정이 DB에 저장되는지 확인
 - [ ] 설치사례·게시판: files 백업에 실제 첨부/이미지 포함 확인

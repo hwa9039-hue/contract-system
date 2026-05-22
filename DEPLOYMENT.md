@@ -42,7 +42,8 @@ PostgreSQL **전체 DB**를 `pg_dump`로 한 번에 덤프(`.dump`)합니다.
 | 항목 | 경로 |
 |------|------|
 | DB 덤프 | `.../pg_backup_YYYYMMDD_HHMMSS.dump` |
-| 업로드·데이터 파일 | `.../files/` (xlsx·pdf 등 **원본 확장자 그대로**) |
+| 메뉴별 Excel | `.../excel/` (계약·영업·건축 등 9종 `.xlsx`) |
+| 업로드·데이터 파일 | `.../files/` (xlsx·pdf·jpg 등 **원본 확장자 그대로**) |
 
 파일 복사 대상(자동): `backend/postgres_data`, `backend/uploads`, API 컨테이너 `/app/uploads` 등.  
 경로가 다르면 `.env`에 `BACKUP_HOST_PATHS`, `BACKUP_UPLOAD_CONTAINER_PATHS` 지정.

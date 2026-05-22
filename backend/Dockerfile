@@ -9,6 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
+COPY export_menu_excel_backups.py .
 
 RUN mkdir -p /app/uploads/install-cases /app/uploads/materials-board \
     && chmod -R 777 /app/uploads
