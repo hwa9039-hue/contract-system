@@ -1126,6 +1126,48 @@ function getMaterialsBoardFileKindClass(name) {
   return 'file'
 }
 
+const MATERIALS_BOARD_THUMB_PALETTES = [
+  { bg: '#eef5ff', fg: '#1f4fd1', accent: '#bfdbfe' },
+  { bg: '#ecfdf5', fg: '#047857', accent: '#a7f3d0' },
+  { bg: '#fff7ed', fg: '#c2410c', accent: '#fed7aa' },
+  { bg: '#f5f3ff', fg: '#6d28d9', accent: '#ddd6fe' },
+  { bg: '#fdf2f8', fg: '#be185d', accent: '#fbcfe8' },
+  { bg: '#f0fdfa', fg: '#0f766e', accent: '#99f6e4' },
+  { bg: '#fefce8', fg: '#a16207', accent: '#fde68a' },
+  { bg: '#f8fafc', fg: '#334155', accent: '#cbd5e1' },
+]
+
+function hashMaterialsBoardText(value) {
+  const text = safeString(value).trim()
+  let hash = 0
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash * 31 + text.charCodeAt(i)) >>> 0
+  }
+  return hash
+}
+
+function getMaterialsBoardThumbPalette(seed) {
+  const palettes = MATERIALS_BOARD_THUMB_PALETTES
+  return palettes[hashMaterialsBoardText(seed) % palettes.length]
+}
+
+function getMaterialsBoardTitleInitials(title, fileName) {
+  const raw = safeString(title).trim() || safeString(fileName).trim()
+  const cleaned = raw.replace(/\s+/g, ' ').trim()
+  if (!cleaned) return '파'
+
+  const withoutYear = cleaned.replace(/^\d{4}\s*년?\s*/, '').trim()
+  const core = withoutYear || cleaned
+  const koreanChars = core.match(/[가-힣]/g) || []
+  if (koreanChars.length >= 2) {
+    return koreanChars.slice(0, 2).join('')
+  }
+  if (koreanChars.length === 1) {
+    return koreanChars[0]
+  }
+  return core.slice(0, 2).toUpperCase()
+}
+
 function MaterialsBoardCardThumb({ row }) {
   const file = getMaterialsBoardPrimaryFile(row)
   const fileName = safeString(file?.name).trim()
@@ -1134,26 +1176,34 @@ function MaterialsBoardCardThumb({ row }) {
   const kindClass = getMaterialsBoardFileKindClass(fileName)
   const kindLabel = getMaterialsBoardFileKindLabel(fileName)
   const isImage = postId && fileId && isMaterialsBoardImageFileName(fileName)
+  const palette = getMaterialsBoardThumbPalette(postId || row?.title || fileName)
+  const initials = getMaterialsBoardTitleInitials(row?.title, fileName)
 
   return (
     <div className="materials-board-card-thumb">
       {isImage ? (
         <img src={materialsBoardDownloadUrl(postId, fileId)} alt="" loading="lazy" />
       ) : (
-        <div className="materials-board-card-thumb-fallback" aria-hidden>
+        <div
+          className="materials-board-card-thumb-fallback"
+          style={{
+            background: `linear-gradient(145deg, ${palette.bg} 0%, ${palette.accent} 100%)`,
+          }}
+          aria-hidden
+        >
+          <span
+            className="materials-board-card-thumb-initials"
+            style={{ color: palette.fg }}
+          >
+            {initials}
+          </span>
           <span
             className={`materials-board-card-thumb-badge materials-board-card-thumb-badge--${kindClass}`}
           >
             {kindLabel}
           </span>
-          <span className="materials-board-card-thumb-icon">📄</span>
         </div>
       )}
-      {fileName ? (
-        <div className="materials-board-card-thumb-caption" title={fileName}>
-          {fileName}
-        </div>
-      ) : null}
     </div>
   )
 }
