@@ -7703,6 +7703,54 @@ function App() {
     popup.document.close()
   }
 
+  const handleMeetingMinutesPdfDownload = () => {
+    const meetingMinutesMarkup = buildMeetingMinutesPdfMarkup(
+      selectedWorkWeekMeta.weekStartDate,
+      getWorkReportBoardEntry,
+      escapeHtml,
+      { includeHeading: false }
+    )
+    if (!meetingMinutesMarkup) {
+      showAppAlert('저장된 회의록 내용이 없습니다.')
+      return
+    }
+
+    const popup = window.open('', '_blank', 'width=1200,height=900')
+    if (!popup) {
+      showAppAlert('팝업을 허용한 뒤 다시 시도해주세요.')
+      return
+    }
+
+    popup.document.write(`
+      <!doctype html>
+      <html lang="ko">
+        <head>
+          <meta charset="UTF-8" />
+          <title>회의록</title>
+          <link rel="stylesheet" href="${WORK_REPORT_PDF_PRINT_FONT_LINK}" />
+          <style>${WORK_REPORT_PDF_PRINT_STYLES}</style>
+        </head>
+        <body>
+          <div class="pdf-print-root">
+            <div class="pdf-shell">
+              <div class="pdf-header">
+                <div class="pdf-title">회의록</div>
+                <div class="pdf-meta">${escapeHtml(
+                  `${getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)} · 담당자 ${
+                    workReportFilters.assignee || '전체'
+                  }`
+                )}</div>
+              </div>
+              ${meetingMinutesMarkup}
+            </div>
+          </div>
+          <script>${WORK_REPORT_PDF_PRINT_ONLOAD_SCRIPT}</script>
+        </body>
+      </html>
+    `)
+    popup.document.close()
+  }
+
   const openContractRegisterModal = () => {
     if (!requireAdmin()) return
     setContractRegisterModalOpen(true)
@@ -10473,7 +10521,12 @@ function App() {
             )}
 
             <div className="work-report-meeting-minutes-block">
-              <h2 className="work-report-page-section-title">회의록</h2>
+              <div className="work-report-meeting-minutes-header">
+                <h2 className="work-report-page-section-title">회의록</h2>
+                <button className="secondary-btn" type="button" onClick={handleMeetingMinutesPdfDownload}>
+                  PDF 다운로드
+                </button>
+              </div>
               <WorkReportMeetingMinutesSection
                 weekStartDate={selectedWorkWeekMeta.weekStartDate}
                 getEntry={getWorkReportBoardEntry}

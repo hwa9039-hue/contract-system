@@ -575,23 +575,37 @@ run_excel_export() {
   export_excel_via_docker() {
     local container="$1"
     local tmp_in_container="/tmp/cms_excel_export_$$"
+    local docker_log="${BACKUP_SESSION_DIR}/excel-export-docker.log"
+
+    if ! "${DOCKER[@]}" exec "$container" test -f /app/export_menu_excel_backups.py 2>/dev/null; then
+      echo "WARN: ${container} image has no /app/export_menu_excel_backups.py — run: docker compose build --no-cache" >&2
+      return 1
+    fi
+
     "${DOCKER[@]}" exec "$container" rm -rf "$tmp_in_container" 2>/dev/null || true
     "${DOCKER[@]}" exec "$container" mkdir -p "$tmp_in_container"
     if "${DOCKER[@]}" exec \
       -e "MENU_EXCEL_EXPORT_DIR=${tmp_in_container}" \
       -e "DATABASE_URL=${DATABASE_URL}" \
       "$container" \
-      python /app/export_menu_excel_backups.py; then
+      python /app/export_menu_excel_backups.py >"$docker_log" 2>&1; then
       "${DOCKER[@]}" cp "${container}:${tmp_in_container}/." "${EXCEL_DIR}/"
       "${DOCKER[@]}" exec "$container" rm -rf "$tmp_in_container" 2>/dev/null || true
       return 0
     fi
+    echo "WARN: Excel export in container '${container}' failed. Log:" >&2
+    sed 's/^/  /' "$docker_log" >&2 || cat "$docker_log" >&2
     "${DOCKER[@]}" exec "$container" rm -rf "$tmp_in_container" 2>/dev/null || true
     return 1
   }
 
   export_excel_via_host_python() {
-    if ! command -v python3 >/dev/null 2>&1; then
+    local py=""
+    if [[ -x "${BACKEND_DIR}/.venv/bin/python" ]]; then
+      py="${BACKEND_DIR}/.venv/bin/python"
+    elif command -v python3 >/dev/null 2>&1; then
+      py="python3"
+    else
       return 1
     fi
     if [[ ! -f "${BACKEND_DIR}/export_menu_excel_backups.py" ]]; then
@@ -601,7 +615,7 @@ run_excel_export() {
       cd "${BACKEND_DIR}"
       export MENU_EXCEL_EXPORT_DIR="${EXCEL_DIR}"
       export DATABASE_URL="${DATABASE_URL}"
-      python3 export_menu_excel_backups.py
+      "$py" export_menu_excel_backups.py
     )
   }
 
@@ -625,7 +639,8 @@ run_excel_export() {
     return 0
   fi
 
-  echo "WARN: Menu Excel export failed. Rebuild API image after git pull (export_menu_excel_backups.py)." >&2
+  echo "WARN: Menu Excel export failed. See excel-export-docker.log in the session folder or rebuild API image." >&2
+  echo "  cd ${BACKEND_DIR} && sudo docker compose build --no-cache && sudo docker compose up -d --force-recreate" >&2
 }
 
 # ---------------------------------------------------------------------------

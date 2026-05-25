@@ -98,7 +98,12 @@ export function serializeMeetingMinutesPatch(data) {
   }
 }
 
-export function buildMeetingMinutesPdfMarkup(weekStartDate, getBoardEntry, escapeHtml) {
+export function buildMeetingMinutesPdfMarkup(
+  weekStartDate,
+  getBoardEntry,
+  escapeHtml,
+  { includeHeading = true } = {}
+) {
   const entry = getBoardEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
   const data = parseMeetingMinutesFromEntry(entry)
   if (isMeetingMinutesDataEmpty(data)) return ''
@@ -121,7 +126,7 @@ export function buildMeetingMinutesPdfMarkup(weekStartDate, getBoardEntry, escap
 
   return `
     <section class="pdf-meeting-minutes">
-      <h3 class="pdf-meeting-title">회의록</h3>
+      ${includeHeading ? '<h3 class="pdf-meeting-title">회의록</h3>' : ''}
       <table class="pdf-table pdf-meeting-agenda-table">
         <thead>
           <tr>

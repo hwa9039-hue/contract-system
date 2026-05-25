@@ -2436,6 +2436,19 @@ textarea:focus-visible {
   margin-top: 0;
 }
 
+.work-report-meeting-minutes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+
+.work-report-meeting-minutes-header .work-report-page-section-title {
+  margin: 0;
+}
+
 .main-area > section.stat-card .work-report-week-grid {
   flex: 1 1 auto;
   min-height: 0;

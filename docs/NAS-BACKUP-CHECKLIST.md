@@ -92,15 +92,34 @@ ls -lh /volume1/docker/contract-backend/backups/$(ls -t /volume1/docker/contract
 **제어판 → 작업 스케줄러 → 예약된 작업**
 
 - [ ] 구식 **테이블별 CSV 백업** 작업 비활성화
-- [ ] 아래 명령만 등록:
+- [ ] **실행 사용자: root** (Docker 접근)
+- [ ] **작업 스케줄러 → 설정 → 저장 폴더** 지정 (실행 로그 확인용)
+- [ ] 「사용자 정의 스크립트」에 **한 줄만** 등록 (줄바꿈 `\` 사용 금지):
 
 ```bash
-/bin/bash /volume1/docker/contract-management-system/scripts/backup-postgres.sh
+/bin/bash /volume1/docker/contract-backend/backend/run-backup-for-scheduler.sh
 ```
 
-- [ ] (선택) 환경 변수 `CMS_PROJECT_ROOT=/volume1/docker/contract-management-system`
 - [ ] 실행 주기: 매일 새벽 등 원하는 시간
-- [ ] **실행 결과 → 로그**에서 마지막 실행 성공 여부 확인
+- [ ] **실행** 버튼으로 수동 테스트 → `backups/` 아래 **오늘 날짜 폴더** 생성 확인
+- [ ] 실패 시 `backups/scheduler-last.log` 열어 원인 확인
+
+### 스케줄러가 「중단됨 (2)」로 1초 만에 끝날 때
+
+| 원인 | 해결 |
+|------|------|
+| Windows에서 복사한 `.sh` **CRLF** 줄바꿈 | NAS SSH: `sed -i 's/\r$//' /volume1/docker/contract-backend/backend/backup-postgres.sh` |
+| `\` 줄바꿈으로 스크립트 등록 | 위 **한 줄** 명령만 사용 |
+| root가 아닌 사용자 실행 | 작업 편집 → 일반 → 사용자 **root** |
+| Docker 권한 없음 | root로 실행하거나 해당 사용자를 docker 그룹에 추가 |
+
+수동 SSH 테스트 (스케줄러와 동일):
+
+```bash
+/bin/bash /volume1/docker/contract-backend/backend/run-backup-for-scheduler.sh
+cat /volume1/docker/contract-backend/backups/scheduler-last.log
+ls -lt /volume1/docker/contract-backend/backups/ | head
+```
 
 ---
 
