@@ -1404,24 +1404,24 @@ function MaterialBoardMultiFileDropzone({
 /** 설치사례 상세 모달 규격표 행 순서 */
 const INSTALL_CASE_SPEC_ROWS = [
   { key: 'displayArea', label: '표출부 사이즈' },
-  { key: 'ledPitch', label: 'LED Pitch' },
   { key: 'moduleSize', label: 'MODULE 크기 1' },
   { key: 'moduleSize2', label: 'MODULE 크기 2' },
   { key: 'moduleQty', label: 'MODULE 수량 1' },
   { key: 'moduleQty2', label: 'MODULE 수량 2' },
   { key: 'resolution', label: '해상도' },
+  { key: 'ledPitch', label: 'LED Pitch' },
   { key: 'installType', label: '설치유형' },
 ]
 
 /** 설치사례 등록/수정: 우측 제품 규격 필드 */
 const INSTALL_CASE_REGISTER_SPEC_FIELDS = [
   { type: 'wh', pairId: 'displayArea', label: '표출부 사이즈', preview: 'whMm' },
-  { type: 'ledPitch', label: 'LED Pitch' },
   { type: 'wh', pairId: 'moduleSize', label: 'MODULE 크기 1', preview: 'whMm' },
   { type: 'wh', pairId: 'moduleSize2', label: 'MODULE 크기 2', preview: 'whMm' },
   { type: 'wh', pairId: 'moduleQty', label: 'MODULE 수량 1', preview: 'moduleQty' },
   { type: 'wh', pairId: 'moduleQty2', label: 'MODULE 수량 2', preview: 'moduleQty' },
   { type: 'wh', pairId: 'resolution', label: '해상도', preview: 'resolution' },
+  { type: 'ledPitch', label: 'LED Pitch' },
   {
     type: 'text',
     key: 'installType',
@@ -1733,7 +1733,7 @@ function formatInstallCaseModuleQtyLine(wRaw, hRaw) {
   const w = parseInt(wStr, 10) || 0
   const h = parseInt(hStr, 10) || 0
   const ea = w * h
-  return `(W)${w} x (H)${h} = ${ea}EA`
+  return `(W)${commaNumberEn(w)} x (H)${commaNumberEn(h)} = ${commaNumberEn(ea)}EA`
 }
 
 /** 표출부 / MODULE 크기: 가로·세로 숫자 → 저장용 mm 문자열 */
@@ -1749,7 +1749,45 @@ function formatInstallCaseResolutionFromWH(wRaw, hRaw) {
   const w = parseInt(safeString(wRaw).replace(/\D/g, ''), 10) || 0
   const h = parseInt(safeString(hRaw).replace(/\D/g, ''), 10) || 0
   if (!w && !h) return ''
-  return `(W)${w} x (H)${h}`
+  return `(W)${commaNumberEn(w)} x (H)${commaNumberEn(h)}`
+}
+
+function formatInstallCaseWhMmDetailDisplay(raw) {
+  const t = safeString(raw).trim()
+  if (!t || t === '-') return '-'
+  const pair = parseWhMmNumbers(t)
+  if (pair) {
+    return formatInstallCaseWhMmFromWH(pair.w, pair.h) || t
+  }
+  return t
+}
+
+function formatInstallCaseModuleQtyDetailDisplay(raw) {
+  const t = safeString(raw).trim()
+  if (!t || t === '-') return '-'
+  const pair = parseModuleQtyToWH(t)
+  if (pair.w || pair.h) {
+    return formatInstallCaseModuleQtyLine(pair.w, pair.h) || t
+  }
+  return t
+}
+
+function formatInstallCaseSpecDetailDisplay(key, raw) {
+  const v = safeString(raw).trim()
+  if (!v || v === '-') return '-'
+  switch (key) {
+    case 'displayArea':
+      return formatInstallCaseWhMmDetailDisplay(v)
+    case 'moduleQty':
+    case 'moduleQty2':
+      return formatInstallCaseModuleQtyDetailDisplay(v)
+    case 'resolution':
+      return formatInstallCaseResolutionDetailDisplay(v)
+    case 'ledPitch':
+      return formatInstallCaseLedPitchDisplay(v)
+    default:
+      return v
+  }
 }
 
 function parseResolutionStoredToWH(s) {
@@ -12124,13 +12162,7 @@ function App() {
                       }).map(({ key, label }) => (
                         <div className="install-case-meta-row" key={key}>
                           <dt>{label}</dt>
-                          <dd>
-                            {key === 'resolution'
-                              ? formatInstallCaseResolutionDetailDisplay(
-                                  installCaseDetailModal.specs[key]
-                                )
-                              : installCaseDetailModal.specs[key] ?? '-'}
-                          </dd>
+                          <dd>{formatInstallCaseSpecDetailDisplay(key, installCaseDetailModal.specs[key])}</dd>
                         </div>
                       ))}
                     </dl>
