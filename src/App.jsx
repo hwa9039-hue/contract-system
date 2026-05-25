@@ -1680,9 +1680,9 @@ function formatInstallCaseLedPitchDisplay(pitch) {
   const s = safeString(pitch).trim()
   if (!s) return '-'
   const mm = s.match(/^P\.?\s*([\d.]+)\s*mm$/i)
-  if (mm) return `P${mm[1]}`
+  if (mm) return `P${mm[1]}mm`
   const m = s.match(/^P\.?\s*(\d+(?:\.\d+)?)$/i)
-  if (m) return `P${m[1]}`
+  if (m) return `P${m[1]}mm`
   return s
 }
 
