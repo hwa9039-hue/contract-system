@@ -3980,6 +3980,7 @@ function App() {
   const [editingWorkCellData, setEditingWorkCellData] = useState(null)
   const [workReportDrafts, setWorkReportDrafts] = useState({})
   const workReportDraftsRef = useRef({})
+  const workReportSaveChainRef = useRef(Promise.resolve())
   useLayoutEffect(() => {
     workReportDraftsRef.current = workReportDrafts
   }, [workReportDrafts])
@@ -7511,10 +7512,14 @@ function App() {
         : Number(orderIndex || 1)
     const cellKey = getWorkReportCellKey(date, sectionNorm, oi)
     setWorkReportDrafts((prev) => {
-      const nextEntry = {
+      const baseEntry = {
         ...getWorkReportBoardEntry(date, sectionNorm, oi, prev),
         ...prev[cellKey],
-        ...patch,
+      }
+      const resolvedPatch = typeof patch === 'function' ? patch(baseEntry) : patch
+      const nextEntry = {
+        ...baseEntry,
+        ...resolvedPatch,
         date,
         section: sectionNorm,
         orderIndex: oi,
@@ -7531,115 +7536,120 @@ function App() {
     })
 
   const saveWorkReportBoardEntry = async (date, section, orderIndex = 1) => {
-    await yieldToReactStateFlush()
-    const sectionNorm = safeString(section).trim()
-    const oi =
-      sectionNorm === WORK_REPORT_SECTION_KEYS.checklist
-        ? WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX
-        : Number(orderIndex || 1)
-    const cellKey = getWorkReportCellKey(date, sectionNorm, oi)
-    const draftsSnapshot = workReportDraftsRef.current
-    const targetRow = {
-      ...getWorkReportBoardEntry(date, sectionNorm, oi, draftsSnapshot),
-      date,
-      section: sectionNorm,
-      orderIndex: oi,
-    }
+    const runSave = async () => {
+      await yieldToReactStateFlush()
+      const sectionNorm = safeString(section).trim()
+      const oi =
+        sectionNorm === WORK_REPORT_SECTION_KEYS.checklist
+          ? WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX
+          : Number(orderIndex || 1)
+      const cellKey = getWorkReportCellKey(date, sectionNorm, oi)
+      const targetRow = {
+        ...getWorkReportBoardEntry(date, sectionNorm, oi, workReportDraftsRef.current),
+        date,
+        section: sectionNorm,
+        orderIndex: oi,
+      }
 
-    if (isWorkReportRowEmpty(targetRow)) {
-      if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
-        const idsToRemove = new Set()
-        for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
-          const ex = getStoredWorkReportEntry(date, sectionNorm, idx)
-          if (ex?.id) idsToRemove.add(ex.id)
+      if (isWorkReportRowEmpty(targetRow)) {
+        if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
+          const idsToRemove = new Set()
+          for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
+            const ex = getStoredWorkReportEntry(date, sectionNorm, idx)
+            if (ex?.id) idsToRemove.add(ex.id)
+          }
+          for (const id of idsToRemove) {
+            try {
+              await weeklyWorkReportsApi.remove(id)
+            } catch (error) {
+              logApiOperationError('주간업무보고서 삭제', error)
+              return
+            }
+          }
+          await fetchWorkReportRows()
+          setWorkReportDrafts((prev) => {
+            const next = { ...prev }
+            for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
+              delete next[getWorkReportCellKey(date, sectionNorm, idx)]
+            }
+            workReportDraftsRef.current = next
+            return next
+          })
+          return
         }
-        for (const id of idsToRemove) {
+
+        if (!targetRow.isDraft && targetRow.id) {
           try {
-            await weeklyWorkReportsApi.remove(id)
+            await weeklyWorkReportsApi.remove(targetRow.id)
           } catch (error) {
             logApiOperationError('주간업무보고서 삭제', error)
             return
           }
+          await fetchWorkReportRows()
         }
-        await fetchWorkReportRows()
+
         setWorkReportDrafts((prev) => {
-          const next = { ...prev }
-          for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
-            delete next[getWorkReportCellKey(date, sectionNorm, idx)]
-          }
+          const next = removeObjectKey(prev, cellKey)
           workReportDraftsRef.current = next
           return next
         })
         return
       }
 
-      if (!targetRow.isDraft && targetRow.id) {
-        try {
-          await weeklyWorkReportsApi.remove(targetRow.id)
-        } catch (error) {
-          logApiOperationError('주간업무보고서 삭제', error)
-          return
-        }
-        await fetchWorkReportRows()
-      }
-
-      setWorkReportDrafts((prev) => {
-        const next = removeObjectKey(prev, cellKey)
-        workReportDraftsRef.current = next
-        return next
-      })
-      return
-    }
-
-    const checklistExtraIdsToDelete = []
-    if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
-      for (let idx = 2; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
-        const ex = getStoredWorkReportEntry(date, sectionNorm, idx)
-        if (ex?.id && ex.id !== targetRow.id) checklistExtraIdsToDelete.push(ex.id)
-      }
-    }
-
-    setIsSavingWorkReports(true)
-
-    try {
-      const timestamp = new Date().toISOString()
-
-      if (targetRow.isDraft) {
-        await weeklyWorkReportsApi.create({
-          ...toWorkReportPayload(targetRow, timestamp, true),
-          createdAt: timestamp,
-        })
-      } else {
-        await weeklyWorkReportsApi.update(targetRow.id, toWorkReportPayload(targetRow, timestamp, true))
-      }
-
-      for (const rid of checklistExtraIdsToDelete) {
-        try {
-          await weeklyWorkReportsApi.remove(rid)
-        } catch (error) {
-          logApiOperationError('주간업무보고서(주요확인사항 정리) 삭제', error)
+      const checklistExtraIdsToDelete = []
+      if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
+        for (let idx = 2; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
+          const ex = getStoredWorkReportEntry(date, sectionNorm, idx)
+          if (ex?.id && ex.id !== targetRow.id) checklistExtraIdsToDelete.push(ex.id)
         }
       }
 
-      await fetchWorkReportRows()
-      trackWorkWeek(targetRow.date)
-      setWorkReportDrafts((prev) => {
-        const next = { ...prev }
-        if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
-          for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
-            delete next[getWorkReportCellKey(date, sectionNorm, idx)]
-          }
+      setIsSavingWorkReports(true)
+
+      try {
+        const timestamp = new Date().toISOString()
+
+        if (targetRow.isDraft) {
+          await weeklyWorkReportsApi.create({
+            ...toWorkReportPayload(targetRow, timestamp, true),
+            createdAt: timestamp,
+          })
         } else {
-          delete next[cellKey]
+          await weeklyWorkReportsApi.update(targetRow.id, toWorkReportPayload(targetRow, timestamp, true))
         }
-        workReportDraftsRef.current = next
-        return next
-      })
-    } catch (error) {
-      logApiOperationError('주간업무보고서 저장', error)
-    } finally {
-      setIsSavingWorkReports(false)
+
+        for (const rid of checklistExtraIdsToDelete) {
+          try {
+            await weeklyWorkReportsApi.remove(rid)
+          } catch (error) {
+            logApiOperationError('주간업무보고서(주요확인사항 정리) 삭제', error)
+          }
+        }
+
+        await fetchWorkReportRows()
+        trackWorkWeek(targetRow.date)
+        setWorkReportDrafts((prev) => {
+          const next = { ...prev }
+          if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
+            for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
+              delete next[getWorkReportCellKey(date, sectionNorm, idx)]
+            }
+          } else {
+            delete next[cellKey]
+          }
+          workReportDraftsRef.current = next
+          return next
+        })
+      } catch (error) {
+        logApiOperationError('주간업무보고서 저장', error)
+      } finally {
+        setIsSavingWorkReports(false)
+      }
     }
+
+    const queued = workReportSaveChainRef.current.then(runSave, runSave)
+    workReportSaveChainRef.current = queued.catch(() => {})
+    return queued
   }
 
   const handleWorkReportBoardBlur = (date, section, orderIndex = 1) => async (e) => {

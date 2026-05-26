@@ -148,19 +148,13 @@ export function WorkReportMeetingMinutesSection({
   const data = useMemo(() => parseMeetingMinutesFromEntry(entry), [entry.content, entry.user, entry.destination])
   const agendaRows = useMemo(() => normalizeMeetingMinutesAgenda(data.agenda), [data.agenda])
 
-  const saveData = (nextData) => {
-    updateEntry(
-      weekStartDate,
-      WORK_REPORT_MEETING_MINUTES_SECTION,
-      1,
-      serializeMeetingMinutesPatch(nextData)
-    )
-  }
-
   const patchAgendaRow = (index, patch) => {
-    saveData({
-      ...data,
-      agenda: agendaRows.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+    updateEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1, (prevEntry) => {
+      const currentData = parseMeetingMinutesFromEntry(prevEntry)
+      const agenda = normalizeMeetingMinutesAgenda(currentData.agenda).map((row, i) =>
+        i === index ? { ...row, ...patch } : row
+      )
+      return serializeMeetingMinutesPatch({ ...currentData, agenda })
     })
   }
 
