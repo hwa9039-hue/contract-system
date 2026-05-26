@@ -3713,6 +3713,17 @@ function isWorkReportDraftRowId(id) {
   return safeString(id).startsWith('work-report-draft-')
 }
 
+function parseWorkReportCellKey(cellKey) {
+  const parts = safeString(cellKey).split('__')
+  if (parts.length < 3) return null
+  const orderIndex = Number(parts[parts.length - 1])
+  if (!Number.isFinite(orderIndex)) return null
+  const date = normalizeWorkReportDateKey(parts[0])
+  if (!date) return null
+  const section = parts.slice(1, -1).join('__')
+  return { date, section, orderIndex }
+}
+
 function serializeWorkReportEntrySnapshot(row) {
   if (!row) return ''
   const section = safeString(row.section).trim()
@@ -4202,11 +4213,7 @@ function App() {
   const [workReportDrafts, setWorkReportDrafts] = useState({})
   const workReportDraftsRef = useRef({})
   const workReportSaveChainRef = useRef(Promise.resolve())
-  const workReportSaveTimersRef = useRef({})
   const saveWorkReportBoardEntryRef = useRef(() => Promise.resolve())
-  const scheduleWorkReportEntrySaveRef = useRef(() => {})
-  const WORK_REPORT_AUTOSAVE_MS = 1000
-  const WORK_REPORT_MEETING_AUTOSAVE_MS = 400
   const skipWorkReportWeekFlushRef = useRef(true)
   useLayoutEffect(() => {
     workReportRowsRef.current = workReportRows
@@ -7863,17 +7870,6 @@ function App() {
         writeMeetingMinutesSessionBackup(normalizeWorkReportDateKey(date), mm2)
       }
     }
-    const debounceMs =
-      sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes
-        ? WORK_REPORT_MEETING_AUTOSAVE_MS
-        : WORK_REPORT_AUTOSAVE_MS
-    const prevTimer = workReportSaveTimersRef.current[cellKey]
-    if (prevTimer?.timerId) clearTimeout(prevTimer.timerId)
-    const timerId = setTimeout(() => {
-      delete workReportSaveTimersRef.current[cellKey]
-      void saveWorkReportBoardEntryRef.current(date, sectionNorm, oi)
-    }, debounceMs)
-    workReportSaveTimersRef.current[cellKey] = { timerId, date, section: sectionNorm, orderIndex: oi }
   }
 
   const yieldToReactStateFlush = () =>
@@ -8059,13 +8055,6 @@ function App() {
           workReportDraftsRef.current = next
           return next
         })
-        const currentDraftAfterSave = workReportDraftsRef.current[cellKey]
-        if (
-          currentDraftAfterSave &&
-          serializeWorkReportEntrySnapshot(currentDraftAfterSave) !== savedSnapshot
-        ) {
-          scheduleWorkReportEntrySaveRef.current(date, sectionNorm, oi)
-        }
       } catch (error) {
         logApiOperationError('주간업무보고서 저장', error)
         const message = safeString(error?.message || error)
@@ -8098,41 +8087,25 @@ function App() {
     }
   }
 
-  const scheduleWorkReportEntrySave = (date, section, orderIndex = 1) => {
-    const { cellKey, sectionNorm, orderIndex: oi } = resolveWorkReportSaveCellMeta(date, section, orderIndex)
-    const debounceMs =
-      sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes
-        ? WORK_REPORT_MEETING_AUTOSAVE_MS
-        : WORK_REPORT_AUTOSAVE_MS
-    const prev = workReportSaveTimersRef.current[cellKey]
-    if (prev?.timerId) clearTimeout(prev.timerId)
-
-    const timerId = setTimeout(() => {
-      delete workReportSaveTimersRef.current[cellKey]
-      void saveWorkReportBoardEntryRef.current(date, sectionNorm, oi)
-    }, debounceMs)
-
-    workReportSaveTimersRef.current[cellKey] = { timerId, date, section: sectionNorm, orderIndex: oi }
-  }
-
-  scheduleWorkReportEntrySaveRef.current = scheduleWorkReportEntrySave
-
   const flushWorkReportEntrySave = (date, section, orderIndex = 1) => {
-    const { cellKey, sectionNorm, orderIndex: oi } = resolveWorkReportSaveCellMeta(date, section, orderIndex)
-    const pending = workReportSaveTimersRef.current[cellKey]
-    if (pending?.timerId) {
-      clearTimeout(pending.timerId)
-      delete workReportSaveTimersRef.current[cellKey]
-    }
+    const { sectionNorm, orderIndex: oi } = resolveWorkReportSaveCellMeta(date, section, orderIndex)
     return saveWorkReportBoardEntry(date, sectionNorm, oi)
   }
 
   const flushAllPendingWorkReportSaves = () => {
-    const pendingEntries = Object.values(workReportSaveTimersRef.current)
-    workReportSaveTimersRef.current = {}
-    for (const pending of pendingEntries) {
-      if (pending?.timerId) clearTimeout(pending.timerId)
-      void saveWorkReportBoardEntryRef.current(pending.date, pending.section, pending.orderIndex)
+    const flushed = new Set()
+    for (const cellKey of Object.keys(workReportDraftsRef.current)) {
+      if (flushed.has(cellKey)) continue
+      const meta = parseWorkReportCellKey(cellKey)
+      if (!meta) continue
+      flushed.add(cellKey)
+      const draft = workReportDraftsRef.current[cellKey]
+      if (!draft) continue
+      const stored = getStoredWorkReportEntry(meta.date, meta.section, meta.orderIndex)
+      const draftSnapshot = serializeWorkReportEntrySnapshot(draft)
+      const storedSnapshot = stored ? serializeWorkReportEntrySnapshot(stored) : ''
+      if (draftSnapshot === storedSnapshot) continue
+      void saveWorkReportBoardEntryRef.current(meta.date, meta.section, meta.orderIndex)
     }
   }
 
