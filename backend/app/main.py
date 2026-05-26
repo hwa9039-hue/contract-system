@@ -24,7 +24,9 @@ DEFAULT_CORS_ORIGINS = (
     "http://127.0.0.1:5173",
     "https://contract-system-2ev.pages.dev",
     "https://contract.signtelecom-smartdi.com",
+    "http://contract.signtelecom-smartdi.com",
     "https://contract.signtelcom-smartdi.com",
+    "http://contract.signtelcom-smartdi.com",
 )
 # 환경변수에 도메인을 빠뜨려도 회사 프론트(pages.dev·signtelecom-smartdi.com)가 허용되도록 정규식으로 보조합니다.
 ALLOW_ORIGIN_REGEX = (

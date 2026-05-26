@@ -46,6 +46,7 @@ import {
   isMeetingMinutesDataEmpty,
   normalizeMeetingMinutesAgenda,
   parseMeetingMinutesFromEntry,
+  serializeMeetingMinutesPatch,
 } from './workReportMeetingMinutes.jsx'
 
 const CONTRACT_COLUMNS = [
@@ -3644,35 +3645,27 @@ function isWorkReportRowEmpty(row) {
   return safeString(row.content).trim() === ''
 }
 
-function toWorkReportPayload(row, timestamp, includeLegacyColumns = false) {
-  const meta = buildWorkReportWeekMeta(row.date || new Date())
+function toWorkReportPayload(row, timestamp) {
+  const sectionNorm = safeString(row.section).trim()
   const resolvedUser = safeString(row.user).trim()
-  const payload = {
-    date: toDbDate(row.date),
-    user: resolvedUser,
-    section: safeString(row.section).trim(),
-    content:
-      safeString(row.section).trim() === WORK_REPORT_SECTION_KEYS.external
-        ? serializeExternalScheduleContent(row.content, row.destination)
-        : safeString(row.content).trim(),
-    order_index: Number(row.orderIndex || 1),
-    updatedAt: timestamp,
-  }
+  let content = safeString(row.content).trim()
+  let user = resolvedUser
 
-  if (!includeLegacyColumns) {
-    return payload
+  if (sectionNorm === WORK_REPORT_SECTION_KEYS.external) {
+    content = serializeExternalScheduleContent(row.content, row.destination)
+  } else if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
+    const serialized = serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry(row))
+    content = serialized.content
+    user = safeString(serialized.user).trim() || resolvedUser
   }
 
   return {
-    ...payload,
-    reportDate: toDbDate(row.date),
-    weekStartDate: meta.weekStartDate,
-    reportYear: meta.year,
-    reportMonth: meta.month,
-    weekNumber: meta.weekNumber,
-    assignee: resolvedUser,
-    category: safeString(row.section).trim(),
-    team: '',
+    date: toDbDate(row.date),
+    user,
+    section: sectionNorm,
+    content,
+    order_index: Number(row.orderIndex || 1),
+    updatedAt: timestamp,
   }
 }
 
@@ -4065,7 +4058,7 @@ function App() {
   const workReportSaveTimersRef = useRef({})
   const saveWorkReportBoardEntryRef = useRef(() => Promise.resolve())
   const scheduleWorkReportEntrySaveRef = useRef(() => {})
-  const WORK_REPORT_AUTOSAVE_MS = 600
+  const WORK_REPORT_AUTOSAVE_MS = 1000
   const skipWorkReportWeekFlushRef = useRef(true)
   useLayoutEffect(() => {
     workReportDraftsRef.current = workReportDrafts
@@ -7729,10 +7722,7 @@ function App() {
 
       try {
         const timestamp = new Date().toISOString()
-        const payload = {
-          ...toWorkReportPayload(targetRow, timestamp, true),
-          ...(targetRow.isDraft ? { createdAt: timestamp } : {}),
-        }
+        const apiPayload = toWorkReportPayload(targetRow, timestamp)
         const existingStored = getStoredWorkReportEntry(date, sectionNorm, oi)
         const persistedId =
           existingStored?.id ||
@@ -7740,12 +7730,12 @@ function App() {
         let savedRow
 
         if (!persistedId) {
-          savedRow = await weeklyWorkReportsApi.create(payload)
+          savedRow = await weeklyWorkReportsApi.create({
+            ...apiPayload,
+            createdAt: timestamp,
+          })
         } else {
-          savedRow = await weeklyWorkReportsApi.update(
-            persistedId,
-            toWorkReportPayload(targetRow, timestamp, false)
-          )
+          savedRow = await weeklyWorkReportsApi.update(persistedId, apiPayload)
         }
 
         const normalizedSaved = normalizeWorkReportRow(savedRow)
