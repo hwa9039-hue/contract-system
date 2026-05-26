@@ -8,6 +8,37 @@ export const MEETING_MINUTES_AGENDA_DEFAULT_ROWS = MEETING_MINUTES_AGENDA_FIXED_
 
 export const WORK_REPORT_MEETING_MINUTES_SECTION = '회의록'
 
+const MEETING_MINUTES_SESSION_KEY_PREFIX = 'cms-meeting-mm2:'
+
+export function getMeetingMinutesSessionStorageKey(weekStartDate) {
+  const date = safeString(weekStartDate).trim().slice(0, 10)
+  return date ? `${MEETING_MINUTES_SESSION_KEY_PREFIX}${date}` : ''
+}
+
+export function readMeetingMinutesSessionBackup(weekStartDate) {
+  try {
+    const key = getMeetingMinutesSessionStorageKey(weekStartDate)
+    if (!key) return ''
+    return sessionStorage.getItem(key) || ''
+  } catch {
+    return ''
+  }
+}
+
+export function writeMeetingMinutesSessionBackup(weekStartDate, content) {
+  try {
+    const key = getMeetingMinutesSessionStorageKey(weekStartDate)
+    if (!key) return
+    if (!safeString(content).trim()) {
+      sessionStorage.removeItem(key)
+      return
+    }
+    sessionStorage.setItem(key, content)
+  } catch {
+    // no-op
+  }
+}
+
 /** Cloudflare WAF 회피 + 탭 혼동 방지 (회의내용·담당자 구분) */
 const MEETING_MINUTES_STORAGE_VERSION = 2
 const MEETING_MINUTES_TEXT_PREFIX = 'mm2\n'

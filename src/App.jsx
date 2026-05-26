@@ -48,6 +48,8 @@ import {
   normalizeMeetingMinutesAgenda,
   parseMeetingMinutesFromEntry,
   serializeMeetingMinutesPatch,
+  readMeetingMinutesSessionBackup,
+  writeMeetingMinutesSessionBackup,
 } from './workReportMeetingMinutes.jsx'
 
 const CONTRACT_COLUMNS = [
@@ -2450,17 +2452,47 @@ function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDr
   return list
 }
 
-/** 대시보드: 오늘이 속한 주(weekStart)의 회의록 agenda 행 목록 */
+/** 대시보드: 오늘이 속한 주(weekStart)의 회의록 agenda 행 목록 (주간보고·회의록 화면과 동일 소스) */
 function getDashboardWeekMeetingMinutesRows(weekStartDate, workReportRows, workReportDrafts) {
-  const date = normalizeWorkReportDateKey(weekStartDate)
-  if (!date) return []
+  const dateKey = normalizeWorkReportDateKey(weekStartDate)
+  if (!dateKey) return []
   const section = WORK_REPORT_SECTION_KEYS.meetingMinutes
-  const cellKey = `${date}__${section}__1`
+  const weekStart = formatDateInput(getWeekStartMonday(dateKey))
+  const cellKey = `${weekStart}__${section}__1`
+  const orderIndex = 1
+
+  const storedMatches = workReportRows.filter((row) => {
+    if (safeString(row.section).trim() !== section) return false
+    if (Number(row.orderIndex || 1) !== orderIndex) return false
+    const rowDateKey = normalizeWorkReportDateKey(row.date)
+    const rowWeekStart = formatDateInput(getWeekStartMonday(rowDateKey || dateKey))
+    return rowWeekStart === weekStart || rowDateKey === dateKey
+  })
+  let storedEntry = pickLatestWorkReportRow(storedMatches)
+
+  const backup = readMeetingMinutesSessionBackup(weekStart)
+  if (backup) {
+    if (!storedEntry) {
+      storedEntry = { content: backup, date: weekStart, section, orderIndex }
+    } else {
+      const storedBody = serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry(storedEntry)).content
+      if (safeString(storedBody).trim() !== safeString(backup).trim()) {
+        storedEntry = { ...storedEntry, content: backup }
+      }
+    }
+  }
+
   const draftEntry = workReportDrafts?.[cellKey]
-  const stored = pickLatestWorkReportRow(
-    workReportRows.filter((r) => workReportRowKeyMatch(r, date, section, 1))
-  )
-  const entry = draftEntry || stored
+  const entry = draftEntry
+    ? {
+        ...(storedEntry || {}),
+        ...draftEntry,
+        content: safeString(draftEntry.content).length
+          ? draftEntry.content
+          : storedEntry?.content || backup || '',
+      }
+    : storedEntry
+
   if (!entry) return []
   const data = parseMeetingMinutesFromEntry(entry)
   if (isMeetingMinutesDataEmpty(data)) return []
@@ -4180,29 +4212,6 @@ function App() {
     workReportRowsRef.current = workReportRows
   }, [workReportRows])
 
-  const getMeetingMinutesSessionKey = (weekStartDate) =>
-    `cms-meeting-mm2:${normalizeWorkReportDateKey(weekStartDate)}`
-
-  const readMeetingMinutesSessionBackup = (weekStartDate) => {
-    try {
-      return sessionStorage.getItem(getMeetingMinutesSessionKey(weekStartDate)) || ''
-    } catch {
-      return ''
-    }
-  }
-
-  const writeMeetingMinutesSessionBackup = (weekStartDate, content) => {
-    try {
-      const key = getMeetingMinutesSessionKey(weekStartDate)
-      if (!safeString(content).trim()) {
-        sessionStorage.removeItem(key)
-        return
-      }
-      sessionStorage.setItem(key, content)
-    } catch {
-      // no-op
-    }
-  }
   const [isSavingWorkReports, setIsSavingWorkReports] = useState(false)
   const [generatedWorkWeeks, setGeneratedWorkWeeks] = useState([])
   const [selectedWorkWeek, setSelectedWorkWeek] = useState(() =>
