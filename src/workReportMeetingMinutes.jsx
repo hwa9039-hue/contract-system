@@ -373,8 +373,8 @@ export function WorkReportMeetingMinutesSection({
                 <td className="meeting-minutes-col-index">{index + 1}</td>
                 <td className="meeting-minutes-col-content">
                   <textarea
-                    className="meeting-minutes-cell-textarea work-report-report-field"
-                    rows={2}
+                    className="work-report-report-field work-report-report-textarea work-report-report-field--grow"
+                    rows={1}
                     value={row.content}
                     placeholder="회의 내용"
                     onChange={(e) => patchAgendaRow(index, { content: e.target.value })}
@@ -384,7 +384,7 @@ export function WorkReportMeetingMinutesSection({
                 <td className="meeting-minutes-col-assignee">
                   <input
                     type="text"
-                    className="meeting-minutes-cell-input meeting-minutes-cell-input--center work-report-report-field"
+                    className="work-report-report-field work-report-report-input meeting-minutes-cell-input--center"
                     value={row.assignee}
                     placeholder="담당자"
                     onChange={(e) => patchAgendaRow(index, { assignee: e.target.value })}
