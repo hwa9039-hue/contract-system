@@ -91,6 +91,45 @@ def _migrate_project_discovery_row_columns(cursor) -> None:
         )
 
 
+def _migrate_contracts_text_columns(cursor) -> None:
+    """구형 NAS DB: varchar(50) 등 → text (엑셀 긴 사업명·발주처 업로드 오류 방지)."""
+    text_columns = (
+        "segment",
+        "refNo",
+        "contractNo",
+        "client",
+        "department",
+        "contractMethod",
+        "contractType",
+        "identNo",
+        "projectName",
+        "salesOwner",
+        "pm",
+        "note",
+    )
+    for col in text_columns:
+        quoted = f'"{col}"'
+        try:
+            cursor.execute(
+                f"""
+                alter table contracts_rows
+                  alter column {quoted} type text
+                  using (
+                    case
+                      when {quoted} is null then null::text
+                      else trim({quoted}::text)
+                    end
+                  )
+                """
+            )
+        except Exception:
+            logger.debug(
+                "contracts_rows.%s type migration skipped or already text",
+                col,
+                exc_info=True,
+            )
+
+
 def _migrate_excluded_projects_row_columns(cursor) -> None:
     for old, new in (
         ("orderno", "orderNo"),
@@ -381,6 +420,7 @@ def init_db():
                   add column if not exists "identNo" text not null default ''
                 """
             )
+            _migrate_contracts_text_columns(cursor)
             cursor.execute(
                 """
                 create index if not exists contracts_rows_year_idx

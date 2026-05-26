@@ -2711,32 +2711,62 @@ function getValueByHeader(row, candidates, fallback = '') {
   return fallback
 }
 
+function isValidCalendarDateYmd(ymd) {
+  const match = safeString(ymd).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return false
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(year, month - 1, day)
+  return (
+    date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+  )
+}
+
+function formatYmdFromParts(year, month, day) {
+  const yyyy = String(year)
+  const mm = String(month).padStart(2, '0')
+  const dd = String(day).padStart(2, '0')
+  const ymd = `${yyyy}-${mm}-${dd}`
+  return isValidCalendarDateYmd(ymd) ? ymd : ''
+}
+
 function excelDateToInput(value) {
   if (value === null || value === undefined || value === '') return ''
 
   if (typeof value === 'number') {
     const parsed = XLSX.SSF.parse_date_code(value)
     if (!parsed) return ''
-    const yyyy = String(parsed.y)
-    const mm = String(parsed.m).padStart(2, '0')
-    const dd = String(parsed.d).padStart(2, '0')
-    return `${yyyy}-${mm}-${dd}`
+    return formatYmdFromParts(parsed.y, parsed.m, parsed.d)
   }
 
   const str = safeString(value).trim()
   if (!str) return ''
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str
-  if (/^\d{4}\.\d{2}\.\d{2}$/.test(str)) return str.replaceAll('.', '-')
-  if (/^\d{4}\/\d{2}\/\d{2}$/.test(str)) return str.replaceAll('/', '-')
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return isValidCalendarDateYmd(str) ? str : ''
+  }
+  if (/^\d{4}\.\d{1,2}\.\d{1,2}$/.test(str)) {
+    const [y, m, d] = str.split('.').map((part) => Number(part))
+    return formatYmdFromParts(y, m, d)
+  }
+  if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(str)) {
+    const [y, m, d] = str.split('/').map((part) => Number(part))
+    return formatYmdFromParts(y, m, d)
+  }
+
+  const serialText = str.replace(/[^\d]/g, '')
+  if (/^\d{4,6}$/.test(serialText)) {
+    const serial = Number(serialText)
+    if (serial > 20000) {
+      const fromSerial = excelDateToInput(serial)
+      if (fromSerial) return fromSerial
+    }
+  }
 
   const date = new Date(str)
   if (Number.isNaN(date.getTime())) return ''
-
-  const yyyy = String(date.getFullYear())
-  const mm = String(date.getMonth() + 1).padStart(2, '0')
-  const dd = String(date.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
+  return formatYmdFromParts(date.getFullYear(), date.getMonth() + 1, date.getDate())
 }
 
 function parseDateOnly(value) {
@@ -2863,7 +2893,83 @@ function parseYearValue(value) {
 
 function toDbDate(value) {
   const str = safeString(value).trim()
-  return str || null
+  if (!str) return null
+  return isValidCalendarDateYmd(str) ? str : null
+}
+
+/** 구형 DB(varchar 50) 대비 — 마이그레이션 전 업로드 차단용 */
+const CONTRACT_EXCEL_LEGACY_VARCHAR_FIELDS = [
+  ['segment', '구분'],
+  ['refNo', '참고번호'],
+  ['contractNo', '계약번호'],
+  ['client', '발주처'],
+  ['department', '담당부서'],
+  ['contractMethod', '계약방식'],
+  ['contractType', '계약분류'],
+  ['identNo', '식별번호'],
+  ['projectName', '사업명'],
+  ['salesOwner', '영업담당자'],
+  ['pm', '현장PM'],
+  ['note', '비고'],
+]
+
+const CONTRACT_EXCEL_LEGACY_VARCHAR_MAX = 50
+
+function collectContractExcelImportIssues(item, excelRowNum) {
+  const issues = []
+  const rowLabel = excelRowNum > 0 ? `엑셀 ${excelRowNum}행` : '엑셀 데이터'
+
+  for (const [key, label] of [
+    ['contractDate', '계약일자'],
+    ['dueDate', '준공일자'],
+  ]) {
+    const raw = safeString(item[key]).trim()
+    if (raw && !isValidCalendarDateYmd(raw)) {
+      issues.push(`${rowLabel} ${label}: "${raw}" (존재하지 않는 날짜입니다)`)
+    }
+  }
+
+  for (const [key, label] of CONTRACT_EXCEL_LEGACY_VARCHAR_FIELDS) {
+    const text = safeString(item[key])
+    if (text.length > CONTRACT_EXCEL_LEGACY_VARCHAR_MAX) {
+      issues.push(
+        `${rowLabel} ${label}: ${text.length}자 (서버 제한 ${CONTRACT_EXCEL_LEGACY_VARCHAR_MAX}자 초과)`
+      )
+    }
+  }
+
+  return issues
+}
+
+function formatContractExcelImportApiError(message) {
+  const msg = safeString(message).trim()
+  if (!msg) return msg
+
+  if (/value too long for type character varying\(50\)/i.test(msg)) {
+    return (
+      '한 칸에 50자를 넘는 값이 있습니다. (사업명·발주처·계약번호 등)\n' +
+      '서버 DB를 최신으로 올리면 긴 텍스트도 업로드할 수 있습니다.\n' +
+      `원본: ${msg}`
+    )
+  }
+
+  const rowMatch = msg.match(/body\.rows\.(\d+)\.(\w+)/i)
+  if (rowMatch) {
+    const excelApproxRow = Number(rowMatch[1]) + 2
+    const field = rowMatch[2]
+    const fieldKo =
+      field === 'contractDate'
+        ? '계약일자'
+        : field === 'dueDate'
+          ? '준공일자'
+          : field
+    if (/day value is outside expected range|valid date/i.test(msg)) {
+      return `엑셀 약 ${excelApproxRow}행 ${fieldKo}: 날짜가 잘못되었습니다. (예: 2월 30일)\n원본: ${msg}`
+    }
+    return `엑셀 약 ${excelApproxRow}행 ${fieldKo} 오류\n원본: ${msg}`
+  }
+
+  return msg
 }
 
 /** 연도/그룹 아코디언 행·헤더: 전체 영역 클릭·키보드로 펼치기/접기 */
@@ -5758,14 +5864,25 @@ function App() {
         return
       }
 
+      const excelDataStartRow = headerRowIndex + 2
+
       const imported = rows
-        .map((row) => {
+        .map((row, rowIndex) => {
           const contractDate = excelDateToInput(
             getValueByHeader(row, ['계약일자', '계약일', '계약 날짜', '계약날짜'])
           )
+          const contractDateRaw = safeString(
+            getValueByHeader(row, ['계약일자', '계약일', '계약 날짜', '계약날짜'])
+          ).trim()
+          const dueDateRaw = safeString(
+            getValueByHeader(row, ['준공일자', '납기일자', '납기일', '준공일'])
+          ).trim()
           const yearFromDate = contractDate ? contractDate.slice(0, 4) : ''
 
           return {
+            _excelRow: excelDataStartRow + rowIndex,
+            _contractDateRaw: contractDateRaw,
+            _dueDateRaw: dueDateRaw,
             year: safeString(
               getValueByHeader(row, ['사업년도', '사업 년도', '연도', '년도'], yearFromDate)
             )
@@ -5821,14 +5938,45 @@ function App() {
         return
       }
 
-      const payload = imported
+      const normalizedRows = imported
         .filter((item) => item.projectName || item.contractNo || item.client)
-        .map(normalizeContractPayload)
+        .map((item) => ({
+          excelRow: item._excelRow,
+          contractDateRaw: item._contractDateRaw,
+          dueDateRaw: item._dueDateRaw,
+          payload: normalizeContractPayload(item),
+        }))
 
-      if (!payload.length) {
+      if (!normalizedRows.length) {
         showAppAlert('불러올 수 있는 계약 데이터가 없습니다.')
         return
       }
+
+      const importIssues = []
+      for (const row of normalizedRows) {
+        const checkItem = {
+          ...row.payload,
+          contractDate:
+            row.contractDateRaw && !row.payload.contractDate
+              ? row.contractDateRaw
+              : row.payload.contractDate,
+          dueDate:
+            row.dueDateRaw && !row.payload.dueDate ? row.dueDateRaw : row.payload.dueDate,
+        }
+        importIssues.push(...collectContractExcelImportIssues(checkItem, row.excelRow))
+      }
+
+      if (importIssues.length) {
+        const preview = importIssues.slice(0, 8).join('\n')
+        const more =
+          importIssues.length > 8 ? `\n… 외 ${importIssues.length - 8}건` : ''
+        showAppAlert(
+          `엑셀 데이터를 확인해 주세요.\n\n${preview}${more}\n\n날짜·긴 텍스트(50자 초과)를 수정한 뒤 다시 업로드하세요.`
+        )
+        return
+      }
+
+      const payload = normalizedRows.map((row) => row.payload)
 
       const result = await contractsApi.bulkCreate(payload)
 
@@ -5850,7 +5998,8 @@ function App() {
       showAppAlert(msg)
     } catch (error) {
       console.error('엑셀 업로드 중 오류가 발생했습니다.', error)
-      const msg = safeString(error?.message).trim() || safeString(error)
+      const raw = safeString(error?.message).trim() || safeString(error)
+      const msg = formatContractExcelImportApiError(raw)
       showAppAlert(msg ? `계약현황 엑셀 업로드 실패:\n${msg}` : '계약현황 엑셀 업로드 중 오류가 발생했습니다.')
     } finally {
       e.target.value = ''
