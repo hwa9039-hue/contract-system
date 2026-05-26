@@ -111,16 +111,18 @@ export function isMeetingMinutesDataEmpty(data) {
   )
 }
 
+function compactMeetingMinutesRows(agenda) {
+  return normalizeMeetingMinutesAgenda(agenda)
+    .map((row) => [safeString(row.content), safeString(row.assignee), safeString(row.dueDate)])
+    .filter(([text, person, due]) => text || person || due)
+}
+
 export function serializeMeetingMinutesPatch(data) {
-  const agenda = normalizeMeetingMinutesAgenda(data.agenda)
+  const rows = compactMeetingMinutesRows(data.agenda)
   return {
     content: JSON.stringify({
       v: MEETING_MINUTES_STORAGE_VERSION,
-      rows: agenda.map((row) => [
-        safeString(row.content),
-        safeString(row.assignee),
-        safeString(row.dueDate),
-      ]),
+      rows,
     }),
     user: safeString(data.meta?.author),
     destination: safeString(data.meta?.meetingDateTime),
