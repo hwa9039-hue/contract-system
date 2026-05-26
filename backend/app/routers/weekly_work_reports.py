@@ -1,7 +1,10 @@
+import logging
 from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, status
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_connection
 from app.schemas import (
@@ -55,6 +58,19 @@ def list_weekly_work_report_rows():
 
 @router.post("", response_model=WeeklyWorkReportOut, status_code=status.HTTP_201_CREATED)
 def create_weekly_work_report_row(row: WeeklyWorkReportCreate):
+    try:
+        return _create_weekly_work_report_row(row)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("weekly work report create failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"weekly work report create failed: {exc}",
+        ) from exc
+
+
+def _create_weekly_work_report_row(row: WeeklyWorkReportCreate):
     values = prepare_insert_values(row)
     columns = list(values.keys())
     quoted_columns = [quote_identifier(column) for column in columns]
@@ -78,36 +94,45 @@ def create_weekly_work_report_row(row: WeeklyWorkReportCreate):
 
 @router.patch("/{row_id}", response_model=WeeklyWorkReportOut)
 def update_weekly_work_report_row(row_id: str, patch: WeeklyWorkReportPatch):
-    values = weekly_work_report_to_db_values(patch)
-    if not values:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
+    try:
+        values = weekly_work_report_to_db_values(patch)
+        if not values:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
 
-    values["id"] = row_id
-    values["updatedAt"] = now_text()
-    assignments = [
-        f"{quote_identifier(column)} = %({column})s"
-        for column in values.keys()
-        if column != "id"
-    ]
+        values["id"] = row_id
+        values["updatedAt"] = now_text()
+        assignments = [
+            f"{quote_identifier(column)} = %({column})s"
+            for column in values.keys()
+            if column != "id"
+        ]
 
-    with get_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"""
-                update weekly_work_reports_rows
-                set {", ".join(assignments)}
-                where id::text = %(id)s
-                returning {RETURNING_COLUMNS}
-                """,
-                values,
-            )
-            updated = cursor.fetchone()
-        connection.commit()
+        with get_connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"""
+                    update weekly_work_reports_rows
+                    set {", ".join(assignments)}
+                    where id::text = %(id)s
+                    returning {RETURNING_COLUMNS}
+                    """,
+                    values,
+                )
+                updated = cursor.fetchone()
+            connection.commit()
 
-    if not updated:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly work report not found")
+        if not updated:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly work report not found")
 
-    return row_to_weekly_work_report(updated)
+        return row_to_weekly_work_report(updated)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("weekly work report patch failed for id=%s", row_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"weekly work report update failed: {exc}",
+        ) from exc
 
 
 @router.delete("/{row_id}", status_code=status.HTTP_204_NO_CONTENT)

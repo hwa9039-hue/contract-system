@@ -7958,8 +7958,8 @@ function App() {
       } catch (error) {
         logApiOperationError('주간업무보고서 저장', error)
         const message = safeString(error?.message || error)
-        const hint = /failed to fetch|networkerror|load failed/i.test(message)
-          ? '서버 연결 또는 Cloudflare 보안(WAF) 문제일 수 있습니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요.'
+        const hint = /failed to fetch|networkerror|load failed|500/i.test(message)
+          ? 'Cloudflare 보안(WAF)이 긴 저장 요청을 막았을 수 있습니다. 페이지를 새로고침(Ctrl+Shift+R)한 뒤 다시 저장해 보세요. 계속되면 NAS 백엔드를 최신으로 재시작해 주세요.'
           : '로그인 상태를 확인한 뒤 다시 시도해주세요.'
         showAppAlert(`주간업무보고서 저장에 실패했습니다.\n${message.slice(0, 200)}\n\n${hint}`)
       } finally {

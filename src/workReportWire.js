@@ -1,17 +1,12 @@
-/** Cloudflare WAF 회피: 주간업무보고서 본문을 wr1:base64 로 API `content`에 실어 보냄 */
+/**
+ * Cloudflare WAF: PATCH/POST 본문의 `"content":"…"` 값이 ~55자를 넘으면 500(브라우저는 CORS/Failed to fetch).
+ * 긴 본문은 `reportPayloadParts`(48자 단위)로만 보냅니다.
+ */
 
 export const WORK_REPORT_WIRE_PREFIX = 'wr1:'
 
-export function encodeWorkReportWireText(text) {
-  const raw = text == null ? '' : String(text)
-  if (!raw) return ''
-  const bytes = new TextEncoder().encode(raw)
-  let binary = ''
-  for (let i = 0; i < bytes.length; i += 1) {
-    binary += String.fromCharCode(bytes[i])
-  }
-  return `${WORK_REPORT_WIRE_PREFIX}${btoa(binary)}`
-}
+/** WAF 안전 한도(문자 단위). 배열 조각은 이 길이 이하로 분할 */
+export const REPORT_PAYLOAD_PART_MAX = 48
 
 export function decodeWorkReportWireText(value) {
   const s = value == null ? '' : String(value)
@@ -25,14 +20,34 @@ export function decodeWorkReportWireText(value) {
   }
 }
 
-/** HTTP JSON에 위험한 평문/JSON 패턴이 노출되지 않도록 content만 wr1 로 인코딩 */
+function splitReportPayloadParts(text) {
+  const raw = text == null ? '' : String(text)
+  if (!raw) return []
+  const parts = []
+  for (let i = 0; i < raw.length; i += REPORT_PAYLOAD_PART_MAX) {
+    parts.push(raw.slice(i, i + REPORT_PAYLOAD_PART_MAX))
+  }
+  return parts
+}
+
+/** API 전송용: 짧으면 content, 길면 reportPayloadParts 만 사용 */
 export function toWeeklyWorkReportWirePayload(payload) {
   if (!payload || typeof payload !== 'object') return payload
-  const { content, body, ...rest } = payload
+  const { content, body, reportPayloadParts, ...rest } = payload
   const raw = String(content ?? body ?? '').trim()
   const wire = { ...rest }
-  if (raw) {
-    wire.content = encodeWorkReportWireText(raw)
+
+  if (!raw) {
+    return wire
   }
+
+  if (raw.length <= REPORT_PAYLOAD_PART_MAX) {
+    wire.content = raw
+    return wire
+  }
+
+  wire.reportPayloadParts = Array.isArray(reportPayloadParts)
+    ? reportPayloadParts
+    : splitReportPayloadParts(raw)
   return wire
 }

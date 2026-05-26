@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 WORK_REPORT_WIRE_PREFIX = "wr1:"
+REPORT_PAYLOAD_PART_MAX = 48
 
 
 def decode_work_report_wire_content(value: Any) -> str:
@@ -385,12 +386,19 @@ class DocumentRegisterBulkDelete(BaseModel):
     ids: list[Any]
 
 
+def _join_report_payload_parts(parts: Any) -> str:
+    if not isinstance(parts, list):
+        return ""
+    return "".join("" if p is None else str(p) for p in parts)
+
+
 class WeeklyWorkReportBase(BaseModel):
     date: Optional[Any] = None
     user: Optional[Any] = ""
     section: Optional[Any] = ""
     content: Optional[Any] = ""
     body: Optional[Any] = None  # WAF 회피 wire 필드 (wr1:base64) → content
+    reportPayloadParts: Optional[list[Any]] = None  # WAF 회피: content 대신 48자 조각 배열
     order_index: Optional[Any] = None
     orderIndex: Optional[Any] = None
     reportYear: Optional[Any] = None
@@ -409,13 +417,18 @@ class WeeklyWorkReportBase(BaseModel):
     def merge_wire_body_into_content(cls, data: Any):
         if not isinstance(data, dict):
             return data
-        body = data.get("body")
+        merged = dict(data)
+        parts = merged.get("reportPayloadParts")
+        if parts is not None:
+            joined = _join_report_payload_parts(parts)
+            if joined:
+                merged["content"] = decode_work_report_wire_content(joined)
+            merged.pop("reportPayloadParts", None)
+        body = merged.get("body")
         if body is not None and str(body).strip() != "":
-            merged = dict(data)
             merged["content"] = decode_work_report_wire_content(body)
             merged.pop("body", None)
-            return merged
-        return data
+        return merged
 
     @field_validator("content", mode="before")
     @classmethod
@@ -433,6 +446,7 @@ class WeeklyWorkReportPatch(BaseModel):
     section: Optional[Any] = None
     content: Optional[Any] = None
     body: Optional[Any] = None
+    reportPayloadParts: Optional[list[Any]] = None
     order_index: Optional[Any] = None
     orderIndex: Optional[Any] = None
     reportYear: Optional[Any] = None
