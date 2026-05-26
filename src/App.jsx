@@ -889,7 +889,8 @@ function calendarMonthListEventPassesCategoryFilter(item, selectedCategory) {
 const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
 const PAGE_TITLE_MAP = {
   dashboard: '대시보드',
-  workReports: '주간업무보고서 & 회의록',
+  workReports: '주간업무보고서',
+  meetingMinutes: '회의록',
   contracts: '계약현황',
   calendar: '캘린더',
   sales: '영업관리대장',
@@ -900,7 +901,11 @@ const PAGE_TITLE_MAP = {
   materialsBoard: '게시판',
 }
 const TOP_SYSTEM_SUBTITLE =
-  '주간업무보고서 · 계약현황 · 캘린더 · 영업관리대장 · 건축정보 · 사업검색이력 · 문서수발신대장 · 설치사례 · 게시판'
+  '주간업무보고서 · 회의록 · 계약현황 · 캘린더 · 영업관리대장 · 건축정보 · 사업검색이력 · 문서수발신대장 · 설치사례 · 게시판'
+
+function isWorkReportRelatedMenu(menuKey) {
+  return menuKey === 'workReports' || menuKey === 'meetingMinutes'
+}
 
 const ACTIVE_MENU_STORAGE_KEY = 'cms-active-menu'
 const SIDEBAR_GROUPS_EXPANDED_KEY = 'cms-sidebar-groups-expanded'
@@ -910,7 +915,8 @@ const SIDEBAR_MENU_GROUPS = [
     id: 'work',
     label: '업무관리',
     items: [
-      { key: 'workReports', label: '주간업무보고서 & 회의록' },
+      { key: 'workReports', label: '주간업무보고서' },
+      { key: 'meetingMinutes', label: '회의록' },
       { key: 'calendar', label: '캘린더' },
     ],
   },
@@ -2452,36 +2458,15 @@ function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDr
   return list
 }
 
-/** 대시보드: 오늘이 속한 주(weekStart)의 회의록 agenda 행 목록 (주간보고·회의록 화면과 동일 소스) */
+/** 대시보드: 오늘이 속한 주(weekStart)의 회의록 agenda 행 목록 (서버 + 미저장 draft만) */
 function getDashboardWeekMeetingMinutesRows(weekStartDate, workReportRows, workReportDrafts) {
   const dateKey = normalizeWorkReportDateKey(weekStartDate)
   if (!dateKey) return []
   const section = WORK_REPORT_SECTION_KEYS.meetingMinutes
   const weekStart = formatDateInput(getWeekStartMonday(dateKey))
   const cellKey = `${weekStart}__${section}__1`
-  const orderIndex = 1
 
-  const storedMatches = workReportRows.filter((row) => {
-    if (safeString(row.section).trim() !== section) return false
-    if (Number(row.orderIndex || 1) !== orderIndex) return false
-    const rowDateKey = normalizeWorkReportDateKey(row.date)
-    const rowWeekStart = formatDateInput(getWeekStartMonday(rowDateKey || dateKey))
-    return rowWeekStart === weekStart || rowDateKey === dateKey
-  })
-  let storedEntry = pickLatestWorkReportRow(storedMatches)
-
-  const backup = readMeetingMinutesSessionBackup(weekStart)
-  if (backup) {
-    if (!storedEntry) {
-      storedEntry = { content: backup, date: weekStart, section, orderIndex }
-    } else {
-      const storedBody = serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry(storedEntry)).content
-      if (safeString(storedBody).trim() !== safeString(backup).trim()) {
-        storedEntry = { ...storedEntry, content: backup }
-      }
-    }
-  }
-
+  const storedEntry = pickMeetingMinutesStoredRow(weekStartDate, workReportRows, 1)
   const draftEntry = workReportDrafts?.[cellKey]
   const entry = draftEntry
     ? {
@@ -2489,7 +2474,7 @@ function getDashboardWeekMeetingMinutesRows(weekStartDate, workReportRows, workR
         ...draftEntry,
         content: safeString(draftEntry.content).length
           ? draftEntry.content
-          : storedEntry?.content || backup || '',
+          : storedEntry?.content || '',
       }
     : storedEntry
 
@@ -3702,6 +3687,23 @@ function pickLatestWorkReportRow(rows) {
   })
 }
 
+/** API 목록에서 해당 주(weekStart) 회의록 행 1건 */
+function pickMeetingMinutesStoredRow(weekStartDate, workReportRows, orderIndex = 1) {
+  const dateKey = normalizeWorkReportDateKey(weekStartDate)
+  if (!dateKey) return undefined
+  const section = WORK_REPORT_SECTION_KEYS.meetingMinutes
+  const weekStart = formatDateInput(getWeekStartMonday(dateKey))
+  const oi = Number(orderIndex || 1)
+  const matches = (Array.isArray(workReportRows) ? workReportRows : []).filter((row) => {
+    if (safeString(row.section).trim() !== section) return false
+    if (Number(row.orderIndex || 1) !== oi) return false
+    const rowDateKey = normalizeWorkReportDateKey(row.date)
+    const rowWeekStart = formatDateInput(getWeekStartMonday(rowDateKey || dateKey))
+    return rowWeekStart === weekStart || rowDateKey === dateKey
+  })
+  return pickLatestWorkReportRow(matches)
+}
+
 function upsertWorkReportRowInList(rows, nextRow) {
   const filtered = (Array.isArray(rows) ? rows : []).filter(
     (row) => !workReportRowKeyMatch(row, nextRow.date, nextRow.section, nextRow.orderIndex)
@@ -4590,8 +4592,21 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (menu !== 'workReports') return
+    if (!isWorkReportRelatedMenu(menu)) return
     void fetchWorkReportRows()
+  }, [menu])
+
+  useEffect(() => {
+    if (!isWorkReportRelatedMenu(menu)) return
+    const refetchOnVisible = () => {
+      if (document.visibilityState === 'visible') void fetchWorkReportRows()
+    }
+    window.addEventListener('focus', refetchOnVisible)
+    document.addEventListener('visibilitychange', refetchOnVisible)
+    return () => {
+      window.removeEventListener('focus', refetchOnVisible)
+      document.removeEventListener('visibilitychange', refetchOnVisible)
+    }
   }, [menu])
 
   useEffect(() => {
@@ -7520,14 +7535,11 @@ function App() {
 
     if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
       const weekStart = formatDateInput(getWeekStartMonday(dateKey))
-      const matches = workReportRowsRef.current.filter((row) => {
-        if (safeString(row.section).trim() !== sectionNorm) return false
-        if (Number(row.orderIndex || 1) !== oi) return false
-        const rowDateKey = normalizeWorkReportDateKey(row.date)
-        const rowWeekStart = formatDateInput(getWeekStartMonday(rowDateKey || dateKey))
-        return rowWeekStart === weekStart || rowDateKey === dateKey
-      })
-      const stored = pickLatestWorkReportRow(matches)
+      const cellKey = getWorkReportCellKey(weekStart, sectionNorm, oi)
+      const stored = pickMeetingMinutesStoredRow(weekStart, workReportRowsRef.current, oi)
+      const hasLocalDraft = Boolean(workReportDraftsRef.current[cellKey])
+      if (!hasLocalDraft) return stored
+
       const backup = readMeetingMinutesSessionBackup(weekStart)
       if (!backup) return stored
       if (!stored) {
@@ -7994,6 +8006,22 @@ function App() {
         workReportRowsRef.current = upsertWorkReportRowInList(workReportRowsRef.current, normalizedSaved)
         setWorkReportRows(workReportRowsRef.current)
 
+        if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes && intendedMeetingContent) {
+          await fetchWorkReportRows()
+          const weekStart = formatDateInput(getWeekStartMonday(normalizeWorkReportDateKey(date)))
+          const apiRow = pickMeetingMinutesStoredRow(weekStart, workReportRowsRef.current, oi)
+          const apiBody = serializeMeetingMinutesPatch(
+            parseMeetingMinutesFromEntry(apiRow || { content: '' })
+          ).content
+          if (safeString(apiBody).trim() !== safeString(intendedMeetingContent).trim()) {
+            showAppAlert(
+              '회의록이 서버에 반영되지 않았습니다.\n\n' +
+                '다른 PC에서는 보이지 않을 수 있습니다. 칸에서 포커스를 빼 저장한 뒤, ' +
+                'NAS 백엔드를 최신(reportPayloadParts 지원)으로 재빌드했는지 확인해 주세요.'
+            )
+          }
+        }
+
         for (const duplicateId of duplicateIds) {
           try {
             await weeklyWorkReportsApi.remove(duplicateId)
@@ -8133,7 +8161,7 @@ function App() {
   }, [selectedWorkWeekMeta.weekStartDate])
 
   useEffect(() => {
-    if (menu !== 'work-reports') flushAllPendingWorkReportSaves()
+    if (!isWorkReportRelatedMenu(menu)) flushAllPendingWorkReportSaves()
   }, [menu])
 
   const handleWorkReportBoardBlur = (date, section, orderIndex = 1) => async (e) => {
@@ -11049,78 +11077,118 @@ function App() {
         {menu === 'workReports' && (
           <section className="stat-card stat-card--work-reports">
             <div className="work-report-page-body">
-            <h2 className="work-report-page-section-title">주간업무보고서</h2>
-            <div className="contracts-header-actions work-report-toolbar">
-              <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
-                이전 주
-              </button>
-              <select
-                className="contract-filter-select work-report-week-select"
-                value={selectedWorkWeek}
-                onChange={(e) => trackWorkWeek(e.target.value)}
-              >
-                {workReportWeekOptions.map((option) => (
-                  <option key={option.weekStartDate} value={option.weekStartDate}>
-                    {getWorkReportWeekLabel(option.weekStartDate)}
-                  </option>
-                ))}
-              </select>
-              <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(1)}>
-                다음 주
-              </button>
-              <input
-                className="table-search-input work-report-filter-input"
-                type="text"
-                placeholder="담당자"
-                value={workReportFilters.assignee}
-                onChange={(e) =>
-                  setWorkReportFilters((prev) => ({ ...prev, assignee: e.target.value }))
-                }
-              />
-              <button className="secondary-btn" type="button" onClick={handleWorkReportBoardPdfDownload}>
-                PDF 다운로드
-              </button>
-            </div>
-
-            <div className="work-report-summary-card">
-              <div className="work-report-summary-title">
-                {getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)}
-              </div>
-              <div className="work-report-summary-meta">
-                <span>주차 {selectedWorkWeekMeta.weekNumber}주차</span>
-                <span>시작일 {selectedWorkWeekMeta.weekStartDate}</span>
-                <span>담당자 {workReportFilters.assignee || '전체'}</span>
-              </div>
-            </div>
-
-            <div className="work-report-week-board-area">
-              <div className="work-report-week-grid">
-                {selectedWorkWeekDays.map((day) => renderWorkReportDayBoardV5(day))}
-              </div>
-            </div>
-
-            {isSavingWorkReports && (
-              <div className="work-report-saving-indicator">업무보고 내용을 저장하고 있습니다.</div>
-            )}
-
-            <div className="work-report-meeting-minutes-block">
-              <div className="work-report-meeting-minutes-header">
-                <h2 className="work-report-page-section-title">회의록</h2>
-                <button className="secondary-btn" type="button" onClick={handleMeetingMinutesPdfDownload}>
+              <h2 className="work-report-page-section-title">주간업무보고서</h2>
+              <div className="contracts-header-actions work-report-toolbar">
+                <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
+                  이전 주
+                </button>
+                <select
+                  className="contract-filter-select work-report-week-select"
+                  value={selectedWorkWeek}
+                  onChange={(e) => trackWorkWeek(e.target.value)}
+                >
+                  {workReportWeekOptions.map((option) => (
+                    <option key={option.weekStartDate} value={option.weekStartDate}>
+                      {getWorkReportWeekLabel(option.weekStartDate)}
+                    </option>
+                  ))}
+                </select>
+                <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(1)}>
+                  다음 주
+                </button>
+                <input
+                  className="table-search-input work-report-filter-input"
+                  type="text"
+                  placeholder="담당자"
+                  value={workReportFilters.assignee}
+                  onChange={(e) =>
+                    setWorkReportFilters((prev) => ({ ...prev, assignee: e.target.value }))
+                  }
+                />
+                <button className="secondary-btn" type="button" onClick={handleWorkReportBoardPdfDownload}>
                   PDF 다운로드
                 </button>
               </div>
-              <WorkReportMeetingMinutesSection
-                weekStartDate={selectedWorkWeekMeta.weekStartDate}
-                getEntry={getWorkReportBoardEntry}
-                updateEntry={updateWorkReportBoardEntry}
-                onBlur={handleWorkReportBoardBlur(
-                  selectedWorkWeekMeta.weekStartDate,
-                  WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                  1
-                )}
-              />
+
+              <div className="work-report-summary-card">
+                <div className="work-report-summary-title">
+                  {getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)}
+                </div>
+                <div className="work-report-summary-meta">
+                  <span>주차 {selectedWorkWeekMeta.weekNumber}주차</span>
+                  <span>시작일 {selectedWorkWeekMeta.weekStartDate}</span>
+                  <span>담당자 {workReportFilters.assignee || '전체'}</span>
+                </div>
+              </div>
+
+              <div className="work-report-week-board-area">
+                <div className="work-report-week-grid">
+                  {selectedWorkWeekDays.map((day) => renderWorkReportDayBoardV5(day))}
+                </div>
+              </div>
+
+              {isSavingWorkReports && (
+                <div className="work-report-saving-indicator">업무보고 내용을 저장하고 있습니다.</div>
+              )}
             </div>
+          </section>
+        )}
+
+        {menu === 'meetingMinutes' && (
+          <section className="stat-card stat-card--work-reports stat-card--meeting-minutes">
+            <div className="work-report-page-body">
+              <div className="work-report-meeting-minutes-header">
+                <h2 className="work-report-page-section-title">회의록</h2>
+                <div className="contracts-header-actions work-report-toolbar work-report-toolbar--meeting">
+                  <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
+                    이전 주
+                  </button>
+                  <select
+                    className="contract-filter-select work-report-week-select"
+                    value={selectedWorkWeek}
+                    onChange={(e) => trackWorkWeek(e.target.value)}
+                  >
+                    {workReportWeekOptions.map((option) => (
+                      <option key={option.weekStartDate} value={option.weekStartDate}>
+                        {getWorkReportWeekLabel(option.weekStartDate)}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(1)}>
+                    다음 주
+                  </button>
+                  <button className="secondary-btn" type="button" onClick={handleMeetingMinutesPdfDownload}>
+                    PDF 다운로드
+                  </button>
+                </div>
+              </div>
+
+              <div className="work-report-summary-card">
+                <div className="work-report-summary-title">
+                  {getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)}
+                </div>
+                <div className="work-report-summary-meta">
+                  <span>주차 {selectedWorkWeekMeta.weekNumber}주차</span>
+                  <span>시작일 {selectedWorkWeekMeta.weekStartDate}</span>
+                </div>
+              </div>
+
+              <div className="work-report-meeting-minutes-block">
+                <WorkReportMeetingMinutesSection
+                  weekStartDate={selectedWorkWeekMeta.weekStartDate}
+                  getEntry={getWorkReportBoardEntry}
+                  updateEntry={updateWorkReportBoardEntry}
+                  onBlur={handleWorkReportBoardBlur(
+                    selectedWorkWeekMeta.weekStartDate,
+                    WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                    1
+                  )}
+                />
+              </div>
+
+              {isSavingWorkReports && (
+                <div className="work-report-saving-indicator">업무보고 내용을 저장하고 있습니다.</div>
+              )}
             </div>
           </section>
         )}
