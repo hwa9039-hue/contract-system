@@ -1563,60 +1563,17 @@ const INSTALL_CASE_REGISTER_BASIC_ROWS = [
   },
 ]
 
-const CONTRACT_FIELD_PLACEHOLDERS = {
-  year: '예: 2025',
-  refNo: '예: REF-001',
-  contractNo: '예: CT-2025-001',
-  client: '예: OO시청',
-  department: '예: 영업1팀',
-  contractMethod: '예: 수의계약',
-  contractType: '예: 구매',
-  identNo: '예: ID-001',
-  projectName: '예: OO시청 LED 전광판 구축',
-  amount: '예: 100000000',
-  salesOwner: '예: 홍길동',
-  pm: '예: 김철수',
-  note: '비고를 입력하세요',
-}
+const CONTRACT_FIELD_PLACEHOLDERS = {}
 
 const REGISTRY_FIELD_PLACEHOLDERS = {
-  sales: {
-    registerDate: '날짜 선택',
-    client: '예: OO시청',
-    projectName: '예: LED 전광판 구축',
-    projectAmount: '예: 100000000',
-    projectCategory: '선택',
-    manager: '선택',
-    stage: '선택',
-    note: '비고를 입력하세요',
-  },
-  discovery: {
-    registerDate: '날짜 선택',
-    client: '예: OO시청',
-    projectName: '예: OO아파트 신축',
-    projectCategory: '선택',
-    note: '비고를 입력하세요',
-  },
-  excluded: {
-    writeDate: '날짜 선택',
-    keyword: '선택',
-    projectName: '예: 검색 프로젝트명',
-    client: '예: OO시청',
-    note: '비고를 입력하세요',
-  },
-  documents: {
-    docDate: '날짜 선택',
-    docNo: '예: DOC-2025-001',
-    senderReceiver: '예: OO시청',
-    title: '예: 계약서 송부',
-    method: '예: 이메일',
-    writer: '예: 홍길동',
-    note: '비고를 입력하세요',
-  },
+  sales: {},
+  discovery: {},
+  excluded: {},
+  documents: {},
 }
 
-function getRegistryFieldPlaceholder(scope, column) {
-  return REGISTRY_FIELD_PLACEHOLDERS[scope]?.[column.key] ?? `예: ${column.label}`
+function getRegistryFieldPlaceholder() {
+  return ''
 }
 
 const INSTALL_CASE_FALLBACK_HERO = 'https://picsum.photos/seed/newinstallh/960/720'
