@@ -318,7 +318,10 @@ export function WorkReportMeetingMinutesSection({
       const agenda = normalizeMeetingMinutesAgenda(currentData.agenda).map((row, i) =>
         i === index ? { ...row, ...patch } : row
       )
-      return serializeMeetingMinutesPatch({ ...currentData, agenda })
+      return {
+        ...prevEntry,
+        ...serializeMeetingMinutesPatch({ ...currentData, agenda }),
+      }
     })
   }
 

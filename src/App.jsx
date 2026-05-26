@@ -3691,7 +3691,7 @@ function serializeWorkReportEntrySnapshot(row) {
     })
   }
   if (section === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
-    return safeString(row.content).trim()
+    return serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry(row)).content
   }
   if (section === WORK_REPORT_SECTION_KEYS.checklist) {
     return safeString(row.content).trim()
@@ -7822,6 +7822,7 @@ function App() {
         orderIndex: oi,
       }
       const savedSnapshot = serializeWorkReportEntrySnapshot(targetRow)
+      let intendedMeetingContent = ''
 
       if (isWorkReportRowEmpty(targetRow)) {
         if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
@@ -7881,6 +7882,9 @@ function App() {
       try {
         const timestamp = new Date().toISOString()
         const apiPayload = toWorkReportPayload(targetRow, timestamp)
+        if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
+          intendedMeetingContent = safeString(apiPayload.content).trim()
+        }
         const existingStored = getStoredWorkReportEntry(date, sectionNorm, oi)
         const persistedId =
           existingStored?.id ||
@@ -7896,7 +7900,13 @@ function App() {
           savedRow = await weeklyWorkReportsApi.update(persistedId, apiPayload)
         }
 
-        const normalizedSaved = normalizeWorkReportRow(savedRow)
+        let normalizedSaved = normalizeWorkReportRow(savedRow)
+        if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes && intendedMeetingContent) {
+          normalizedSaved = {
+            ...normalizedSaved,
+            content: intendedMeetingContent,
+          }
+        }
         const duplicateIds = workReportRowsRef.current
           .filter(
             (row) =>
@@ -7934,9 +7944,16 @@ function App() {
         setWorkReportDrafts((prev) => {
           const next = { ...prev }
           const currentDraft = prev[cellKey]
+          const serverSnapshot = serializeWorkReportEntrySnapshot({
+            ...normalizedSaved,
+            section: sectionNorm,
+          })
           const draftUnchanged =
             !currentDraft || serializeWorkReportEntrySnapshot(currentDraft) === savedSnapshot
-          if (draftUnchanged) {
+          const serverMatches =
+            sectionNorm !== WORK_REPORT_SECTION_KEYS.meetingMinutes ||
+            serverSnapshot === savedSnapshot
+          if (draftUnchanged && serverMatches) {
             if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
               for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
                 delete next[getWorkReportCellKey(date, sectionNorm, idx)]
