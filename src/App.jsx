@@ -3981,6 +3981,10 @@ function App() {
   const [workReportDrafts, setWorkReportDrafts] = useState({})
   const workReportDraftsRef = useRef({})
   const workReportSaveChainRef = useRef(Promise.resolve())
+  const workReportSaveTimersRef = useRef({})
+  const saveWorkReportBoardEntryRef = useRef(() => Promise.resolve())
+  const scheduleWorkReportEntrySaveRef = useRef(() => {})
+  const WORK_REPORT_AUTOSAVE_MS = 600
   useLayoutEffect(() => {
     workReportDraftsRef.current = workReportDrafts
   }, [workReportDrafts])
@@ -7528,6 +7532,7 @@ function App() {
       workReportDraftsRef.current = next
       return next
     })
+    scheduleWorkReportEntrySaveRef.current(date, section, orderIndex)
   }
 
   const yieldToReactStateFlush = () =>
@@ -7652,9 +7657,81 @@ function App() {
     return queued
   }
 
+  saveWorkReportBoardEntryRef.current = saveWorkReportBoardEntry
+
+  const resolveWorkReportSaveCellMeta = (date, section, orderIndex = 1) => {
+    const sectionNorm = safeString(section).trim()
+    const oi =
+      sectionNorm === WORK_REPORT_SECTION_KEYS.checklist
+        ? WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX
+        : Number(orderIndex || 1)
+    return {
+      cellKey: getWorkReportCellKey(date, sectionNorm, oi),
+      sectionNorm,
+      orderIndex: oi,
+    }
+  }
+
+  const scheduleWorkReportEntrySave = (date, section, orderIndex = 1) => {
+    const { cellKey, sectionNorm, orderIndex: oi } = resolveWorkReportSaveCellMeta(date, section, orderIndex)
+    const prev = workReportSaveTimersRef.current[cellKey]
+    if (prev?.timerId) clearTimeout(prev.timerId)
+
+    const timerId = setTimeout(() => {
+      delete workReportSaveTimersRef.current[cellKey]
+      void saveWorkReportBoardEntryRef.current(date, sectionNorm, oi)
+    }, WORK_REPORT_AUTOSAVE_MS)
+
+    workReportSaveTimersRef.current[cellKey] = { timerId, date, section: sectionNorm, orderIndex: oi }
+  }
+
+  scheduleWorkReportEntrySaveRef.current = scheduleWorkReportEntrySave
+
+  const flushWorkReportEntrySave = (date, section, orderIndex = 1) => {
+    const { cellKey, sectionNorm, orderIndex: oi } = resolveWorkReportSaveCellMeta(date, section, orderIndex)
+    const pending = workReportSaveTimersRef.current[cellKey]
+    if (pending?.timerId) {
+      clearTimeout(pending.timerId)
+      delete workReportSaveTimersRef.current[cellKey]
+    }
+    return saveWorkReportBoardEntry(date, sectionNorm, oi)
+  }
+
+  const flushAllPendingWorkReportSaves = () => {
+    const pendingEntries = Object.values(workReportSaveTimersRef.current)
+    workReportSaveTimersRef.current = {}
+    for (const pending of pendingEntries) {
+      if (pending?.timerId) clearTimeout(pending.timerId)
+      void saveWorkReportBoardEntryRef.current(pending.date, pending.section, pending.orderIndex)
+    }
+  }
+
+  useEffect(() => {
+    const onPageHide = () => {
+      flushAllPendingWorkReportSaves()
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') onPageHide()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('pagehide', onPageHide)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('pagehide', onPageHide)
+    }
+  }, [])
+
+  useEffect(() => {
+    flushAllPendingWorkReportSaves()
+  }, [selectedWorkWeekMeta.weekStartDate])
+
+  useEffect(() => {
+    if (menu !== 'work-reports') flushAllPendingWorkReportSaves()
+  }, [menu])
+
   const handleWorkReportBoardBlur = (date, section, orderIndex = 1) => async (e) => {
     if (e.currentTarget.contains(e.relatedTarget)) return
-    await saveWorkReportBoardEntry(date, section, orderIndex)
+    await flushWorkReportEntrySave(date, section, orderIndex)
   }
 
   const handleWorkReportBoardPdfDownload = () => {
