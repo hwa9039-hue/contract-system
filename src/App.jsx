@@ -1,4 +1,5 @@
 ﻿import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Archive,
   Download,
@@ -43,6 +44,7 @@ import {
   WorkReportMeetingMinutesSection,
   buildMeetingMinutesPdfMarkup,
   isMeetingMinutesDataEmpty,
+  normalizeMeetingMinutesAgenda,
   parseMeetingMinutesFromEntry,
 } from './workReportMeetingMinutes.jsx'
 
@@ -2489,10 +2491,10 @@ function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDr
   return list
 }
 
-/** 대시보드: 오늘이 속한 주(weekStart)의 회의록 — user=담당자, destination=날짜/기한, content=회의 내용 */
-function getDashboardWeekMeetingMinutes(weekStartDate, workReportRows, workReportDrafts) {
+/** 대시보드: 오늘이 속한 주(weekStart)의 회의록 agenda 행 목록 */
+function getDashboardWeekMeetingMinutesRows(weekStartDate, workReportRows, workReportDrafts) {
   const date = safeString(weekStartDate).trim()
-  if (!date) return null
+  if (!date) return []
   const section = WORK_REPORT_SECTION_KEYS.meetingMinutes
   const cellKey = `${date}__${section}__1`
   const draftEntry = workReportDrafts?.[cellKey]
@@ -2500,18 +2502,15 @@ function getDashboardWeekMeetingMinutes(weekStartDate, workReportRows, workRepor
     (r) => r.date === date && r.section === section && Number(r.orderIndex || 1) === 1
   )
   const entry = draftEntry || stored
-  if (!entry) return null
+  if (!entry) return []
   const data = parseMeetingMinutesFromEntry(entry)
-  if (isMeetingMinutesDataEmpty(data)) return null
-  const firstAgendaContent =
-    data.agenda.map((row) => safeString(row.content).trim()).find(Boolean) || ''
-  return {
-    user: data.meta.author,
-    dueDate: data.meta.meetingDateTime,
-    content: firstAgendaContent,
-    location: data.meta.location,
-    attendees: data.meta.attendees,
-  }
+  if (isMeetingMinutesDataEmpty(data)) return []
+  return normalizeMeetingMinutesAgenda(data.agenda)
+    .map((row) => ({
+      assignee: safeString(row.assignee).trim(),
+      content: safeString(row.content).trim(),
+    }))
+    .filter((row) => row.assignee || row.content)
 }
 
 function safeString(value) {
@@ -2533,23 +2532,91 @@ function toggleExternalManagerCsv(currentCsv, managerName, optionList) {
 function WorkReportExternalManagerMultiSelect({ value, onChange, options }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
+  const triggerRef = useRef(null)
+  const [menuStyle, setMenuStyle] = useState({ top: 0, left: 0, width: 0 })
   const selected = useMemo(
     () => safeString(value).split(',').map((s) => s.trim()).filter(Boolean),
     [value]
   )
 
+  const updateMenuPosition = useCallback(() => {
+    const el = triggerRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setMenuStyle({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: Math.max(rect.width, 140),
+    })
+  }, [])
+
+  useLayoutEffect(() => {
+    if (!open) return
+    updateMenuPosition()
+    const onReposition = () => updateMenuPosition()
+    window.addEventListener('resize', onReposition)
+    window.addEventListener('scroll', onReposition, true)
+    return () => {
+      window.removeEventListener('resize', onReposition)
+      window.removeEventListener('scroll', onReposition, true)
+    }
+  }, [open, updateMenuPosition])
+
   useEffect(() => {
     if (!open) return
     const onDocDown = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false)
+      const target = e.target
+      if (rootRef.current?.contains(target)) return
+      if (target instanceof Element && target.closest('.work-report-external-manager-multi-menu--portal')) {
+        return
+      }
+      setOpen(false)
     }
     document.addEventListener('mousedown', onDocDown)
     return () => document.removeEventListener('mousedown', onDocDown)
   }, [open])
 
+  const menu =
+    open && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            className="work-report-external-manager-multi-menu work-report-external-manager-multi-menu--portal"
+            role="listbox"
+            aria-multiselectable="true"
+            style={{
+              top: `${menuStyle.top}px`,
+              left: `${menuStyle.left}px`,
+              width: `${menuStyle.width}px`,
+            }}
+          >
+            {options.map((option) => {
+              const isOn = selected.includes(option)
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  role="option"
+                  aria-selected={isOn}
+                  className={`work-report-external-manager-multi-item${isOn ? ' is-selected' : ''}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => onChange(toggleExternalManagerCsv(value, option, options))}
+                >
+                  <span className="work-report-external-manager-multi-tick" aria-hidden>
+                    {isOn ? '✓' : ''}
+                  </span>
+                  {option}
+                </button>
+              )
+            })}
+          </div>,
+          document.body
+        )
+      : null
+
   return (
     <div className="work-report-external-manager-multi" ref={rootRef}>
       <button
+        ref={triggerRef}
         type="button"
         className="work-report-external-manager-multi-trigger"
         aria-expanded={open}
@@ -2570,29 +2637,7 @@ function WorkReportExternalManagerMultiSelect({ value, onChange, options }) {
           {open ? '▲' : '▼'}
         </span>
       </button>
-      {open ? (
-        <div className="work-report-external-manager-multi-menu" role="listbox" aria-multiselectable="true">
-          {options.map((option) => {
-            const isOn = selected.includes(option)
-            return (
-              <button
-                key={option}
-                type="button"
-                role="option"
-                aria-selected={isOn}
-                className={`work-report-external-manager-multi-item${isOn ? ' is-selected' : ''}`}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onChange(toggleExternalManagerCsv(value, option, options))}
-              >
-                <span className="work-report-external-manager-multi-tick" aria-hidden>
-                  {isOn ? '✓' : ''}
-                </span>
-                {option}
-              </button>
-            )
-          })}
-        </div>
-      ) : null}
+      {menu}
     </div>
   )
 }
@@ -5257,7 +5302,7 @@ function App() {
     ).trim()
     const externalRows = collectDashboardTodayExternalRows(todayYmd, workReportRows, workReportDrafts)
     const weekStartDate = buildWorkReportWeekMeta(todayYmd).weekStartDate
-    const meetingMinutes = getDashboardWeekMeetingMinutes(
+    const meetingMinutesRows = getDashboardWeekMeetingMinutesRows(
       weekStartDate,
       workReportRows,
       workReportDrafts
@@ -5267,10 +5312,10 @@ function App() {
       weekStartDate,
       checklistText,
       externalRows,
-      meetingMinutes,
+      meetingMinutesRows,
       hasChecklist: Boolean(checklistText),
       hasExternal: externalRows.length > 0,
-      hasMeetingMinutes: Boolean(meetingMinutes),
+      hasMeetingMinutes: meetingMinutesRows.length > 0,
     }
   }, [workReportRows, workReportDrafts])
 
@@ -10377,21 +10422,40 @@ function App() {
                       <div className="dashboard-work-report-briefing-meeting">
                         <h3 className="dashboard-work-report-briefing-col-title">회의록</h3>
                         {dashboardTodayWorkBrief.hasMeetingMinutes ? (
-                          <div className="dashboard-work-report-briefing-meeting-body">
-                            <div className="dashboard-work-report-briefing-meeting-meta">
-                              <span>
-                                <strong>담당자</strong>{' '}
-                                {dashboardTodayWorkBrief.meetingMinutes.user || '—'}
-                              </span>
-                              <span>
-                                <strong>날짜/기한</strong>{' '}
-                                {dashboardTodayWorkBrief.meetingMinutes.dueDate || '—'}
-                              </span>
-                            </div>
-                            <div className="dashboard-work-report-briefing-meeting-content">
-                              {dashboardTodayWorkBrief.meetingMinutes.content || '—'}
-                            </div>
-                          </div>
+                          <ul className="dashboard-work-report-briefing-external-list">
+                            {dashboardTodayWorkBrief.meetingMinutesRows.map((row, idx) => {
+                              const assignees = safeString(row.assignee)
+                                .split(',')
+                                .map((s) => s.trim())
+                                .filter(Boolean)
+                              return (
+                                <li
+                                  key={`meeting-brief-${idx}`}
+                                  className="dashboard-work-report-briefing-external-item dashboard-work-report-briefing-external-item--meeting"
+                                >
+                                  <div className="dashboard-work-report-briefing-external-managers">
+                                    {assignees.length ? (
+                                      <span className="dashboard-work-report-briefing-manager-badges">
+                                        {assignees.map((name) => (
+                                          <span
+                                            key={`${idx}-${name}`}
+                                            className="dashboard-work-report-briefing-manager-badge"
+                                          >
+                                            {name}
+                                          </span>
+                                        ))}
+                                      </span>
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </div>
+                                  <div className="dashboard-work-report-briefing-external-content">
+                                    {row.content || '—'}
+                                  </div>
+                                </li>
+                              )
+                            })}
+                          </ul>
                         ) : (
                           <p className="dashboard-work-report-briefing-col-empty">
                             이번 주({getWorkReportWeekLabel(dashboardTodayWorkBrief.weekStartDate)}) 회의록이

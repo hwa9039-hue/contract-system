@@ -80,10 +80,7 @@ export function parseMeetingMinutesFromEntry(entry) {
 
 export function isMeetingMinutesDataEmpty(data) {
   return !normalizeMeetingMinutesAgenda(data?.agenda).some(
-    (row) =>
-      safeString(row.content).trim() ||
-      safeString(row.assignee).trim() ||
-      safeString(row.dueDate).trim()
+    (row) => safeString(row.content).trim() || safeString(row.assignee).trim()
   )
 }
 
@@ -112,13 +109,11 @@ export function buildMeetingMinutesPdfMarkup(
     .map((row, index) => {
       const content = safeString(row.content).trim()
       const assignee = safeString(row.assignee).trim()
-      const dueDate = safeString(row.dueDate).trim()
       return `
         <tr>
           <td class="pdf-meeting-index">${index + 1}</td>
           <td class="pdf-meeting-content">${escapeHtml(content).replaceAll('\n', '<br />') || '&nbsp;'}</td>
           <td class="pdf-meeting-assignee">${escapeHtml(assignee) || '&nbsp;'}</td>
-          <td class="pdf-meeting-due">${escapeHtml(dueDate) || '&nbsp;'}</td>
         </tr>
       `
     })
@@ -133,7 +128,6 @@ export function buildMeetingMinutesPdfMarkup(
             <th class="pdf-meeting-index">#</th>
             <th>회의록</th>
             <th class="pdf-meeting-assignee">담당자</th>
-            <th class="pdf-meeting-due">업무기한</th>
           </tr>
         </thead>
         <tbody>
@@ -177,16 +171,15 @@ export function WorkReportMeetingMinutesSection({
           <thead>
             <tr>
               <th className="meeting-minutes-col-index">#</th>
-              <th>회의록</th>
+              <th className="meeting-minutes-col-content">회의록</th>
               <th className="meeting-minutes-col-assignee">담당자</th>
-              <th className="meeting-minutes-col-due">업무기한</th>
             </tr>
           </thead>
           <tbody>
             {agendaRows.map((row, index) => (
               <tr key={`meeting-agenda-${index + 1}`} className="meeting-minutes-agenda-row">
                 <td className="meeting-minutes-col-index">{index + 1}</td>
-                <td>
+                <td className="meeting-minutes-col-content">
                   <textarea
                     className="meeting-minutes-cell-textarea work-report-report-field"
                     rows={2}
@@ -202,15 +195,6 @@ export function WorkReportMeetingMinutesSection({
                     value={row.assignee}
                     placeholder="담당자"
                     onChange={(e) => patchAgendaRow(index, { assignee: e.target.value })}
-                  />
-                </td>
-                <td className="meeting-minutes-col-due">
-                  <input
-                    type="text"
-                    className="meeting-minutes-cell-input meeting-minutes-cell-input--center work-report-report-field"
-                    value={row.dueDate}
-                    placeholder="2000-00-00"
-                    onChange={(e) => patchAgendaRow(index, { dueDate: e.target.value })}
                   />
                 </td>
               </tr>
