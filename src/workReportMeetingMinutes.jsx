@@ -60,6 +60,33 @@ function parseMeetingMinutesMeta(meta = {}, entry) {
   }
 }
 
+function parseMeetingMinutesTextLine(line) {
+  const trimmed = safeString(line).trimEnd()
+  if (!trimmed) return null
+
+  const parts = trimmed.split('\t')
+  if (parts.length >= 3 && /^\d+$/.test(parts[0])) {
+    const rowIndex = Number(parts[0])
+    return {
+      rowIndex,
+      content: parts.slice(1, -1).join('\t').trim(),
+      assignee: safeString(parts[parts.length - 1]).trim(),
+      dueDate: '',
+    }
+  }
+
+  const tabIndex = trimmed.indexOf('\t')
+  if (tabIndex === -1) {
+    return { rowIndex: null, content: trimmed, assignee: '', dueDate: '' }
+  }
+  return {
+    rowIndex: null,
+    content: safeString(trimmed.slice(0, tabIndex)).trim(),
+    assignee: safeString(trimmed.slice(tabIndex + 1)).trim(),
+    dueDate: '',
+  }
+}
+
 function parseMeetingMinutesTextRows(raw) {
   const body = safeString(raw).trim()
   if (!body.startsWith(MEETING_MINUTES_TEXT_PREFIX)) return null
@@ -67,27 +94,47 @@ function parseMeetingMinutesTextRows(raw) {
     .slice(MEETING_MINUTES_TEXT_PREFIX.length)
     .split('\n')
     .map((line) => line.trimEnd())
-  const rows = lines.map((line) => {
-    const tabIndex = line.indexOf('\t')
-    if (tabIndex === -1) {
-      return { content: safeString(line).trim(), assignee: '', dueDate: '' }
+    .filter((line) => line !== '')
+
+  const parsed = lines.map(parseMeetingMinutesTextLine).filter(Boolean)
+  if (!parsed.length) return []
+
+  const useIndexed = parsed.some(
+    (row) => row.rowIndex != null && Number.isFinite(row.rowIndex) && row.rowIndex >= 0
+  )
+
+  if (useIndexed) {
+    const agenda = getDefaultMeetingMinutesAgenda()
+    for (const row of parsed) {
+      const idx = row.rowIndex
+      if (idx == null || idx < 0 || idx >= MEETING_MINUTES_AGENDA_FIXED_ROWS) continue
+      agenda[idx] = {
+        content: safeString(row.content).trim(),
+        assignee: safeString(row.assignee).trim(),
+        dueDate: '',
+      }
     }
-    return {
-      content: safeString(line.slice(0, tabIndex)).trim(),
-      assignee: safeString(line.slice(tabIndex + 1)).trim(),
-      dueDate: '',
-    }
-  })
-  return rows
+    return agenda
+  }
+
+  return parsed.map((row) => ({
+    content: safeString(row.content).trim(),
+    assignee: safeString(row.assignee).trim(),
+    dueDate: '',
+  }))
 }
 
 export function parseMeetingMinutesFromEntry(entry) {
   const raw = safeString(entry?.content).trim()
   const textRows = parseMeetingMinutesTextRows(raw)
   if (textRows) {
+    const agenda =
+      Array.isArray(textRows) && textRows.length === MEETING_MINUTES_AGENDA_FIXED_ROWS
+        ? textRows
+        : normalizeMeetingMinutesAgenda(textRows)
     return {
       meta: getDefaultMeetingMinutesData().meta,
-      agenda: normalizeMeetingMinutesAgenda(textRows),
+      agenda,
     }
   }
 
@@ -141,23 +188,22 @@ export function isMeetingMinutesDataEmpty(data) {
   )
 }
 
-function compactMeetingMinutesRows(agenda) {
-  return normalizeMeetingMinutesAgenda(agenda)
-    .map((row) => [safeString(row.content), safeString(row.assignee), safeString(row.dueDate)])
-    .filter(([text, person, due]) => text || person || due)
-}
-
 function serializeMeetingMinutesTextBody(agenda) {
-  const rows = compactMeetingMinutesRows(agenda)
-  if (!rows.length) return ''
+  const rows = normalizeMeetingMinutesAgenda(agenda)
   const sanitizeCell = (value) =>
     safeString(value)
       .replace(/\t/g, ' ')
       .replace(/\r?\n/g, ' ')
       .trim()
-  return rows
-    .map(([text, person]) => `${sanitizeCell(text)}\t${sanitizeCell(person)}`)
-    .join('\n')
+
+  const lines = []
+  for (let index = 0; index < rows.length; index += 1) {
+    const text = sanitizeCell(rows[index].content)
+    const person = sanitizeCell(rows[index].assignee)
+    if (!text && !person) continue
+    lines.push(`${index}\t${text}\t${person}`)
+  }
+  return lines.join('\n')
 }
 
 export function serializeMeetingMinutesPatch(data) {
@@ -263,6 +309,7 @@ export function WorkReportMeetingMinutesSection({
                     value={row.assignee}
                     placeholder="담당자"
                     onChange={(e) => patchAgendaRow(index, { assignee: e.target.value })}
+                    onBlur={onBlur}
                   />
                 </td>
               </tr>

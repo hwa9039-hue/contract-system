@@ -1,6 +1,6 @@
 /**
  * Cloudflare WAF: PATCH/POST 본문의 `"content":"…"` 값이 ~55자를 넘으면 500(브라우저는 CORS/Failed to fetch).
- * 긴 본문은 `reportPayloadParts`(48자 단위)로만 보냅니다.
+ * 긴 본문은 `reportPayloadParts`(48자 단위)로만 보냅니다. 줄(mm2 행) 단위로 끊어 탭·담당자가 깨지지 않게 합니다.
  */
 
 export const WORK_REPORT_WIRE_PREFIX = 'wr1:'
@@ -23,6 +23,39 @@ export function decodeWorkReportWireText(value) {
 function splitReportPayloadParts(text) {
   const raw = text == null ? '' : String(text)
   if (!raw) return []
+  if (raw.length <= REPORT_PAYLOAD_PART_MAX) return [raw]
+
+  if (raw.includes('\n')) {
+    const lines = raw.split('\n')
+    const parts = []
+    let buffer = ''
+
+    for (const line of lines) {
+      const candidate = buffer ? `${buffer}\n${line}` : line
+      if (candidate.length <= REPORT_PAYLOAD_PART_MAX) {
+        buffer = candidate
+        continue
+      }
+
+      if (buffer) {
+        parts.push(buffer)
+        buffer = ''
+      }
+
+      if (line.length <= REPORT_PAYLOAD_PART_MAX) {
+        buffer = line
+        continue
+      }
+
+      for (let i = 0; i < line.length; i += REPORT_PAYLOAD_PART_MAX) {
+        parts.push(line.slice(i, i + REPORT_PAYLOAD_PART_MAX))
+      }
+    }
+
+    if (buffer) parts.push(buffer)
+    return parts
+  }
+
   const parts = []
   for (let i = 0; i < raw.length; i += REPORT_PAYLOAD_PART_MAX) {
     parts.push(raw.slice(i, i + REPORT_PAYLOAD_PART_MAX))
