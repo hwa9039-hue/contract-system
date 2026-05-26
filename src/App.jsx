@@ -10434,20 +10434,7 @@ function App() {
                                   className="dashboard-work-report-briefing-external-item dashboard-work-report-briefing-external-item--meeting"
                                 >
                                   <div className="dashboard-work-report-briefing-external-managers">
-                                    {assignees.length ? (
-                                      <span className="dashboard-work-report-briefing-manager-badges">
-                                        {assignees.map((name) => (
-                                          <span
-                                            key={`${idx}-${name}`}
-                                            className="dashboard-work-report-briefing-manager-badge"
-                                          >
-                                            {name}
-                                          </span>
-                                        ))}
-                                      </span>
-                                    ) : (
-                                      '—'
-                                    )}
+                                    {assignees.length ? assignees.join(', ') : '—'}
                                   </div>
                                   <div className="dashboard-work-report-briefing-external-content">
                                     {row.content || '—'}

@@ -2744,27 +2744,6 @@ textarea:focus-visible {
   grid-template-columns: minmax(88px, 0.22fr) minmax(0, 1fr);
 }
 
-.dashboard-work-report-briefing-manager-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-}
-
-.dashboard-work-report-briefing-manager-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  font-size: 11px;
-  font-weight: 700;
-  color: #1d4ed8;
-  line-height: 1.35;
-  white-space: nowrap;
-}
-
 .dashboard-work-report-briefing-meeting {
   margin-top: 16px;
   padding-top: 14px;
