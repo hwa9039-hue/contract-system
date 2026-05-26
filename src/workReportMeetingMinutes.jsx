@@ -1,4 +1,5 @@
 ﻿import { useMemo } from 'react'
+import { decodeWorkReportWireText } from './workReportWire.js'
 
 export const MEETING_MINUTES_AGENDA_FIXED_ROWS = 20
 
@@ -7,9 +8,10 @@ export const MEETING_MINUTES_AGENDA_DEFAULT_ROWS = MEETING_MINUTES_AGENDA_FIXED_
 
 export const WORK_REPORT_MEETING_MINUTES_SECTION = '회의록'
 
-/** Cloudflare WAF가 JSON 키(content/assignee/agenda) 조합을 차단 → mm2(탭 구분 텍스트) 우선 */
+/** Cloudflare WAF 회피 + 탭 혼동 방지 (회의내용·담당자 구분) */
 const MEETING_MINUTES_STORAGE_VERSION = 2
 const MEETING_MINUTES_TEXT_PREFIX = 'mm2\n'
+const MEETING_MINUTES_FIELD_SEP = '\u001f'
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -60,20 +62,64 @@ function parseMeetingMinutesMeta(meta = {}, entry) {
   }
 }
 
+function sanitizeMeetingMinutesCell(value) {
+  return safeString(value)
+    .replace(/\u001f/g, ' ')
+    .replace(/\t/g, ' ')
+    .replace(/\r?\n/g, ' ')
+    .trim()
+}
+
+/** `0↟내용↟담당자` — 마지막 구분자 기준으로 담당자 분리(내용에 탭이 있어도 안전) */
+function parseIndexedTabLine(trimmed) {
+  const firstTab = trimmed.indexOf('\t')
+  if (firstTab <= 0 || !/^\d+$/.test(trimmed.slice(0, firstTab))) return null
+
+  const rowIndex = Number(trimmed.slice(0, firstTab))
+  const rest = trimmed.slice(firstTab + 1)
+  const lastTab = rest.lastIndexOf('\t')
+  if (lastTab === -1) {
+    return {
+      rowIndex,
+      content: safeString(rest).trim(),
+      assignee: '',
+      dueDate: '',
+    }
+  }
+  return {
+    rowIndex,
+    content: safeString(rest.slice(0, lastTab)).trim(),
+    assignee: safeString(rest.slice(lastTab + 1)).trim(),
+    dueDate: '',
+  }
+}
+
 function parseMeetingMinutesTextLine(line) {
   const trimmed = safeString(line).trimEnd()
   if (!trimmed) return null
 
-  const parts = trimmed.split('\t')
-  if (parts.length >= 3 && /^\d+$/.test(parts[0])) {
-    const rowIndex = Number(parts[0])
-    return {
-      rowIndex,
-      content: parts.slice(1, -1).join('\t').trim(),
-      assignee: safeString(parts[parts.length - 1]).trim(),
-      dueDate: '',
+  if (trimmed.includes(MEETING_MINUTES_FIELD_SEP)) {
+    const parts = trimmed.split(MEETING_MINUTES_FIELD_SEP)
+    if (parts.length >= 3 && /^\d+$/.test(parts[0])) {
+      return {
+        rowIndex: Number(parts[0]),
+        content: safeString(parts[1]).trim(),
+        assignee: safeString(parts[2]).trim(),
+        dueDate: safeString(parts[3] || '').trim(),
+      }
+    }
+    if (parts.length === 2) {
+      return {
+        rowIndex: null,
+        content: safeString(parts[0]).trim(),
+        assignee: safeString(parts[1]).trim(),
+        dueDate: '',
+      }
     }
   }
+
+  const indexedTab = parseIndexedTabLine(trimmed)
+  if (indexedTab) return indexedTab
 
   const tabIndex = trimmed.indexOf('\t')
   if (tabIndex === -1) {
@@ -126,7 +172,9 @@ function parseMeetingMinutesTextRows(raw) {
 
 export function parseMeetingMinutesFromEntry(entry) {
   const raw = safeString(entry?.content).trim()
-  const textRows = parseMeetingMinutesTextRows(raw)
+  const decoded = decodeWorkReportWireText(raw)
+
+  const textRows = parseMeetingMinutesTextRows(decoded)
   if (textRows) {
     const agenda =
       Array.isArray(textRows) && textRows.length === MEETING_MINUTES_AGENDA_FIXED_ROWS
@@ -138,9 +186,9 @@ export function parseMeetingMinutesFromEntry(entry) {
     }
   }
 
-  if (raw.startsWith('{')) {
+  if (decoded.startsWith('{')) {
     try {
-      const parsed = JSON.parse(raw)
+      const parsed = JSON.parse(decoded)
       if (parsed?.v === MEETING_MINUTES_STORAGE_VERSION && Array.isArray(parsed.rows)) {
         return {
           meta: getDefaultMeetingMinutesData().meta,
@@ -164,7 +212,7 @@ export function parseMeetingMinutesFromEntry(entry) {
     }
   }
 
-  const legacyContent = raw
+  const legacyContent = decoded
   const legacyMeta = {
     meetingDateTime: safeString(entry?.destination).trim(),
     location: '',
@@ -190,18 +238,14 @@ export function isMeetingMinutesDataEmpty(data) {
 
 function serializeMeetingMinutesTextBody(agenda) {
   const rows = normalizeMeetingMinutesAgenda(agenda)
-  const sanitizeCell = (value) =>
-    safeString(value)
-      .replace(/\t/g, ' ')
-      .replace(/\r?\n/g, ' ')
-      .trim()
-
   const lines = []
   for (let index = 0; index < rows.length; index += 1) {
-    const text = sanitizeCell(rows[index].content)
-    const person = sanitizeCell(rows[index].assignee)
+    const text = sanitizeMeetingMinutesCell(rows[index].content)
+    const person = sanitizeMeetingMinutesCell(rows[index].assignee)
     if (!text && !person) continue
-    lines.push(`${index}\t${text}\t${person}`)
+    lines.push(
+      `${index}${MEETING_MINUTES_FIELD_SEP}${text}${MEETING_MINUTES_FIELD_SEP}${person}`
+    )
   }
   return lines.join('\n')
 }
@@ -300,6 +344,7 @@ export function WorkReportMeetingMinutesSection({
                     value={row.content}
                     placeholder="회의 내용"
                     onChange={(e) => patchAgendaRow(index, { content: e.target.value })}
+                    onBlur={onBlur}
                   />
                 </td>
                 <td className="meeting-minutes-col-assignee">
