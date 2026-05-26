@@ -23,6 +23,7 @@ import {
 } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
+import { decodeWorkReportWireText } from './workReportWire.js'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
 import { materialsBoardApi, downloadMaterialsBoardBlobUrl, materialsBoardDownloadUrl } from './materialsBoardApi'
 import {
@@ -3614,13 +3615,35 @@ function serializeExternalScheduleContent(content, destination) {
 }
 
 function isWafRiskyWorkReportContent(content) {
-  const raw = safeString(content).trim()
-  if (!raw.startsWith('{')) return false
-  return (
-    (raw.includes('"content"') && raw.includes('"destination"')) ||
-    (raw.includes('"agenda"') && raw.includes('"assignee"')) ||
-    (raw.includes('"meta"') && raw.includes('"agenda"'))
-  )
+  const raw = safeString(content)
+  if (!raw.trim()) return false
+  if (raw.includes('"agenda"') && (raw.includes('"assignee"') || raw.includes('"dueDate"'))) {
+    return true
+  }
+  if (raw.includes('"meta"') && raw.includes('"agenda"')) {
+    return true
+  }
+  if (raw.includes('"content"') && raw.includes('"destination"')) {
+    return true
+  }
+  if (raw.trim().startsWith('{') && raw.includes('"content"')) {
+    return true
+  }
+  return false
+}
+
+function ensureWorkReportContentSafeForApi(content, sectionNorm) {
+  let next = safeString(content).trim()
+  if (!next || !isWafRiskyWorkReportContent(next)) return next
+
+  if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
+    return serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry({ content: next })).content
+  }
+  if (sectionNorm === WORK_REPORT_SECTION_KEYS.external) {
+    const parsed = parseExternalScheduleContent(next)
+    return serializeExternalScheduleContent(parsed.content, parsed.destination)
+  }
+  return next
 }
 
 function normalizeWorkReportDateKey(value) {
@@ -3683,10 +3706,11 @@ function serializeWorkReportEntrySnapshot(row) {
 function normalizeWorkReportRow(item) {
   const section = safeString(item.section ?? item.category)
   const orderIndex = Number(item.order_index ?? item.orderIndex ?? 1)
+  const decodedContent = decodeWorkReportWireText(item.content)
   const parsedExternalContent =
     section === WORK_REPORT_SECTION_KEYS.external
-      ? parseExternalScheduleContent(item.content)
-      : { content: safeString(item.content), destination: '' }
+      ? parseExternalScheduleContent(decodedContent)
+      : { content: safeString(decodedContent), destination: '' }
 
   return {
     id: safeString(item.id),
@@ -3741,21 +3765,14 @@ function toWorkReportPayload(row, timestamp) {
       safeString(row.destination).trim() || parsed.destination
     )
   } else if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
-    const serialized = serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry(row))
+    const serialized = serializeMeetingMinutesPatch(
+      parseMeetingMinutesFromEntry({ ...row, content: decodeWorkReportWireText(row.content) })
+    )
     content = serialized.content
     user = safeString(serialized.user).trim() || resolvedUser
   }
 
-  if (isWafRiskyWorkReportContent(content)) {
-    if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
-      const serialized = serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry(row))
-      content = serialized.content
-      user = safeString(serialized.user).trim() || resolvedUser
-    } else if (sectionNorm === WORK_REPORT_SECTION_KEYS.external) {
-      const parsed = parseExternalScheduleContent(row.content)
-      content = serializeExternalScheduleContent(parsed.content, parsed.destination)
-    }
-  }
+  content = ensureWorkReportContentSafeForApi(content, sectionNorm)
 
   return {
     date: toDbDate(row.date),

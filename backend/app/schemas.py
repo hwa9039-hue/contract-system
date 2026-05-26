@@ -3,7 +3,28 @@ from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+
+WORK_REPORT_WIRE_PREFIX = "wr1:"
+
+
+def decode_work_report_wire_content(value: Any) -> str:
+    """프론트 wire `body`(wr1:base64) → DB content 문자열."""
+    if value is None:
+        return ""
+    s = str(value).strip()
+    if not s:
+        return ""
+    if s.startswith(WORK_REPORT_WIRE_PREFIX):
+        import base64
+
+        try:
+            raw = base64.b64decode(s[len(WORK_REPORT_WIRE_PREFIX) :].encode("ascii"), validate=False)
+            return raw.decode("utf-8")
+        except Exception:
+            return s
+    return s
 
 
 class ContractBase(BaseModel):
@@ -369,6 +390,7 @@ class WeeklyWorkReportBase(BaseModel):
     user: Optional[Any] = ""
     section: Optional[Any] = ""
     content: Optional[Any] = ""
+    body: Optional[Any] = None  # WAF 회피 wire 필드 (wr1:base64) → content
     order_index: Optional[Any] = None
     orderIndex: Optional[Any] = None
     reportYear: Optional[Any] = None
@@ -382,6 +404,24 @@ class WeeklyWorkReportBase(BaseModel):
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def merge_wire_body_into_content(cls, data: Any):
+        if not isinstance(data, dict):
+            return data
+        body = data.get("body")
+        if body is not None and str(body).strip() != "":
+            merged = dict(data)
+            merged["content"] = decode_work_report_wire_content(body)
+            merged.pop("body", None)
+            return merged
+        return data
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def decode_wire_content_field(cls, value: Any):
+        return decode_work_report_wire_content(value)
+
 
 class WeeklyWorkReportCreate(WeeklyWorkReportBase):
     pass
@@ -392,6 +432,7 @@ class WeeklyWorkReportPatch(BaseModel):
     user: Optional[Any] = None
     section: Optional[Any] = None
     content: Optional[Any] = None
+    body: Optional[Any] = None
     order_index: Optional[Any] = None
     orderIndex: Optional[Any] = None
     reportYear: Optional[Any] = None
@@ -404,6 +445,11 @@ class WeeklyWorkReportPatch(BaseModel):
     category: Optional[Any] = None
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def merge_wire_body_into_content(cls, data: Any):
+        return WeeklyWorkReportBase.merge_wire_body_into_content(data)
 
 
 class WeeklyWorkReportOut(WeeklyWorkReportBase):
