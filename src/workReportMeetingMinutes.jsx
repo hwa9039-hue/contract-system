@@ -7,6 +7,9 @@ export const MEETING_MINUTES_AGENDA_DEFAULT_ROWS = MEETING_MINUTES_AGENDA_FIXED_
 
 export const WORK_REPORT_MEETING_MINUTES_SECTION = '회의록'
 
+/** Cloudflare WAF가 agenda 객체의 content/assignee 등 키 조합을 차단해 v2(배열) 형식 사용 */
+const MEETING_MINUTES_STORAGE_VERSION = 2
+
 function safeString(value) {
   if (value === null || value === undefined) return ''
   return String(value)
@@ -14,11 +17,21 @@ function safeString(value) {
 
 export function normalizeMeetingMinutesAgenda(agenda) {
   const rows = Array.isArray(agenda) ? agenda : []
-  return Array.from({ length: MEETING_MINUTES_AGENDA_FIXED_ROWS }, (_, index) => ({
-    content: safeString(rows[index]?.content),
-    assignee: safeString(rows[index]?.assignee),
-    dueDate: safeString(rows[index]?.dueDate),
-  }))
+  return Array.from({ length: MEETING_MINUTES_AGENDA_FIXED_ROWS }, (_, index) => {
+    const row = rows[index]
+    if (Array.isArray(row)) {
+      return {
+        content: safeString(row[0]),
+        assignee: safeString(row[1]),
+        dueDate: safeString(row[2]),
+      }
+    }
+    return {
+      content: safeString(row?.content ?? row?.text),
+      assignee: safeString(row?.assignee ?? row?.person),
+      dueDate: safeString(row?.dueDate ?? row?.due),
+    }
+  })
 }
 
 export function getDefaultMeetingMinutesAgenda() {
@@ -37,20 +50,36 @@ export function getDefaultMeetingMinutesData() {
   }
 }
 
+function parseMeetingMinutesMeta(meta = {}, entry) {
+  return {
+    meetingDateTime: safeString(meta.meetingDateTime ?? meta.meetingAt ?? entry?.destination).trim(),
+    location: safeString(meta.location ?? meta.place).trim(),
+    attendees: safeString(meta.attendees).trim(),
+    author: safeString(meta.author ?? entry?.user).trim(),
+  }
+}
+
 export function parseMeetingMinutesFromEntry(entry) {
   const raw = safeString(entry?.content).trim()
   if (raw.startsWith('{')) {
     try {
       const parsed = JSON.parse(raw)
-      if (parsed?.meta && Array.isArray(parsed.agenda)) {
+      if (parsed?.v === MEETING_MINUTES_STORAGE_VERSION && Array.isArray(parsed.rows)) {
         return {
-          meta: {
-            meetingDateTime: safeString(parsed.meta.meetingDateTime),
-            location: safeString(parsed.meta.location),
-            attendees: safeString(parsed.meta.attendees),
-            author: safeString(parsed.meta.author),
-          },
-          agenda: normalizeMeetingMinutesAgenda(parsed.agenda),
+          meta: getDefaultMeetingMinutesData().meta,
+          agenda: normalizeMeetingMinutesAgenda(parsed.rows),
+        }
+      }
+
+      const agendaSource = Array.isArray(parsed?.agenda)
+        ? parsed.agenda
+        : Array.isArray(parsed?.items)
+          ? parsed.items
+          : null
+      if (parsed?.meta && agendaSource) {
+        return {
+          meta: parseMeetingMinutesMeta(parsed.meta, entry),
+          agenda: normalizeMeetingMinutesAgenda(agendaSource),
         }
       }
     } catch {
@@ -71,9 +100,7 @@ export function parseMeetingMinutesFromEntry(entry) {
   return {
     meta: legacyMeta,
     agenda: normalizeMeetingMinutesAgenda(
-      legacyContent
-        ? [{ content: legacyContent, assignee: '', dueDate: '' }]
-        : []
+      legacyContent ? [{ content: legacyContent, assignee: '', dueDate: '' }] : []
     ),
   }
 }
@@ -85,10 +112,15 @@ export function isMeetingMinutesDataEmpty(data) {
 }
 
 export function serializeMeetingMinutesPatch(data) {
+  const agenda = normalizeMeetingMinutesAgenda(data.agenda)
   return {
     content: JSON.stringify({
-      ...data,
-      agenda: normalizeMeetingMinutesAgenda(data.agenda),
+      v: MEETING_MINUTES_STORAGE_VERSION,
+      rows: agenda.map((row) => [
+        safeString(row.content),
+        safeString(row.assignee),
+        safeString(row.dueDate),
+      ]),
     }),
     user: safeString(data.meta?.author),
     destination: safeString(data.meta?.meetingDateTime),

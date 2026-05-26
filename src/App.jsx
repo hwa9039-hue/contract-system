@@ -7786,9 +7786,11 @@ function App() {
         }
       } catch (error) {
         logApiOperationError('주간업무보고서 저장', error)
-        showAppAlert(
-          `주간업무보고서 저장에 실패했습니다.\n${safeString(error?.message || error).slice(0, 200)}\n\n로그인 상태를 확인한 뒤 다시 시도해주세요.`
-        )
+        const message = safeString(error?.message || error)
+        const hint = /failed to fetch|networkerror|load failed/i.test(message)
+          ? '서버 연결 또는 Cloudflare 보안(WAF) 문제일 수 있습니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요.'
+          : '로그인 상태를 확인한 뒤 다시 시도해주세요.'
+        showAppAlert(`주간업무보고서 저장에 실패했습니다.\n${message.slice(0, 200)}\n\n${hint}`)
       } finally {
         setIsSavingWorkReports(false)
       }
