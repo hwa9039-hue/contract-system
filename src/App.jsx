@@ -45,6 +45,7 @@ import {
   WorkReportMeetingMinutesSection,
   buildMeetingMinutesPdfMarkup,
   isMeetingMinutesDataEmpty,
+  meetingMinutesAgendaMatches,
   normalizeMeetingMinutesAgenda,
   parseMeetingMinutesFromEntry,
   serializeMeetingMinutesPatch,
@@ -3819,8 +3820,13 @@ function toWorkReportPayload(row, timestamp) {
 
   content = ensureWorkReportContentSafeForApi(content, sectionNorm)
 
+  const reportDate =
+    sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes
+      ? formatDateInput(getWeekStartMonday(normalizeWorkReportDateKey(row.date)))
+      : normalizeWorkReportDateKey(row.date)
+
   return {
-    date: toDbDate(row.date),
+    date: toDbDate(reportDate),
     user,
     section: sectionNorm,
     content,
@@ -8013,11 +8019,21 @@ function App() {
           const apiBody = serializeMeetingMinutesPatch(
             parseMeetingMinutesFromEntry(apiRow || { content: '' })
           ).content
-          if (safeString(apiBody).trim() !== safeString(intendedMeetingContent).trim()) {
+          const intendedHasData = !isMeetingMinutesDataEmpty(
+            parseMeetingMinutesFromEntry({ content: intendedMeetingContent })
+          )
+          const apiHasData = !isMeetingMinutesDataEmpty(
+            parseMeetingMinutesFromEntry(apiRow || { content: '' })
+          )
+          if (
+            intendedHasData &&
+            !apiHasData &&
+            !meetingMinutesAgendaMatches(intendedMeetingContent, apiBody)
+          ) {
             showAppAlert(
-              '회의록이 서버에 반영되지 않았습니다.\n\n' +
-                '다른 PC에서는 보이지 않을 수 있습니다. 칸에서 포커스를 빼 저장한 뒤, ' +
-                'NAS 백엔드를 최신(reportPayloadParts 지원)으로 재빌드했는지 확인해 주세요.'
+              '회의록이 서버에 저장되지 않았습니다.\n\n' +
+                '다른 PC에서는 보이지 않습니다. NAS에서 백엔드를 최신으로 재빌드한 뒤 ' +
+                '(reportPayloadParts 지원) 다시 저장해 주세요.'
             )
           }
         }

@@ -267,6 +267,23 @@ export function isMeetingMinutesDataEmpty(data) {
   )
 }
 
+/** 저장 검증: 행 단위 내용·담당자가 동일한지 (mm2 직렬화 문자열 차이 무시) */
+export function meetingMinutesAgendaMatches(leftContent, rightContent) {
+  const leftAgenda = normalizeMeetingMinutesAgenda(
+    parseMeetingMinutesFromEntry({ content: leftContent }).agenda
+  )
+  const rightAgenda = normalizeMeetingMinutesAgenda(
+    parseMeetingMinutesFromEntry({ content: rightContent }).agenda
+  )
+  for (let index = 0; index < MEETING_MINUTES_AGENDA_FIXED_ROWS; index += 1) {
+    const left = leftAgenda[index] || {}
+    const right = rightAgenda[index] || {}
+    if (safeString(left.content).trim() !== safeString(right.content).trim()) return false
+    if (safeString(left.assignee).trim() !== safeString(right.assignee).trim()) return false
+  }
+  return true
+}
+
 function serializeMeetingMinutesTextBody(agenda) {
   const rows = normalizeMeetingMinutesAgenda(agenda)
   const lines = []
@@ -357,44 +374,40 @@ export function WorkReportMeetingMinutesSection({
   }
 
   return (
-    <section className="work-report-meeting-minutes-section" onBlur={onBlur}>
-      <div className="meeting-minutes-table-scroll">
-        <table className="meeting-minutes-agenda-table">
-          <thead>
-            <tr>
-              <th className="meeting-minutes-col-index">#</th>
-              <th className="meeting-minutes-col-content">회의록</th>
-              <th className="meeting-minutes-col-assignee">담당자</th>
-            </tr>
-          </thead>
-          <tbody>
-            {agendaRows.map((row, index) => (
-              <tr key={`meeting-agenda-${index + 1}`} className="meeting-minutes-agenda-row">
-                <td className="meeting-minutes-col-index">{index + 1}</td>
-                <td className="meeting-minutes-col-content">
-                  <textarea
-                    className="work-report-report-field work-report-report-textarea work-report-report-field--grow"
-                    rows={1}
-                    value={row.content}
-                    placeholder="회의 내용"
-                    onChange={(e) => patchAgendaRow(index, { content: e.target.value })}
-                    onBlur={onBlur}
-                  />
-                </td>
-                <td className="meeting-minutes-col-assignee">
-                  <input
-                    type="text"
-                    className="work-report-report-field work-report-report-input meeting-minutes-cell-input--center"
-                    value={row.assignee}
-                    placeholder="담당자"
-                    onChange={(e) => patchAgendaRow(index, { assignee: e.target.value })}
-                    onBlur={onBlur}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <section className="work-report-report-section work-report-meeting-minutes-panel">
+      <div className="work-report-report-table work-report-report-table--meeting">
+        <div className="work-report-report-table-head work-report-report-table-head-meeting">
+          <div>#</div>
+          <div>회의록</div>
+          <div>담당자</div>
+        </div>
+        {agendaRows.map((row, index) => (
+          <div
+            key={`meeting-agenda-${index + 1}`}
+            className="work-report-report-table-row editable work-report-report-table-row-meeting"
+            onBlur={onBlur}
+          >
+            <div className="work-report-report-line-number">{index + 1}</div>
+            <div className="work-report-report-cell">
+              <textarea
+                className="work-report-report-field work-report-report-field--grow"
+                rows={2}
+                value={row.content}
+                placeholder="내용 입력"
+                onChange={(e) => patchAgendaRow(index, { content: e.target.value })}
+              />
+            </div>
+            <div className="work-report-report-cell work-report-report-cell--meeting-assignee">
+              <input
+                type="text"
+                className="work-report-report-field work-report-report-field--center"
+                value={row.assignee}
+                placeholder="담당자"
+                onChange={(e) => patchAgendaRow(index, { assignee: e.target.value })}
+              />
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   )

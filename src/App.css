@@ -5926,6 +5926,54 @@ textarea:focus-visible {
   width: 100%;
 }
 
+.work-report-report-table-head-meeting,
+.work-report-report-table-row-meeting {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1.35fr) minmax(0, 0.75fr);
+  width: 100%;
+}
+
+.work-report-report-table-head-meeting > div {
+  min-width: 0;
+  padding: 6px 8px;
+  border-right: 1px solid #e5eaf1;
+  font-size: 10px;
+  font-weight: 800;
+  color: #315ca8;
+}
+
+.work-report-report-table-head-meeting > div:last-child {
+  border-right: none;
+}
+
+.work-report-report-table-row-meeting.editable > * {
+  min-width: 0;
+  padding: 4px;
+  border-right: 1px solid #e5eaf1;
+}
+
+.work-report-report-table-row-meeting.editable > *:last-child {
+  border-right: none;
+}
+
+.work-report-report-field--center {
+  text-align: center;
+}
+
+.work-report-report-field--center::placeholder {
+  text-align: center;
+}
+
+.main-area > section.stat-card.stat-card--meeting-minutes .work-report-meeting-minutes-block {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.work-report-meeting-minutes-panel {
+  margin: 0;
+}
+
 .work-report-report-table-head--external > div,
 .work-report-report-table-head-journal > div {
   min-width: 0;
@@ -6169,107 +6217,8 @@ textarea:focus-visible {
   letter-spacing: -0.01em;
 }
 
-.work-report-meeting-minutes-section {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  margin-top: 0;
-  border: 1px solid #d9dee6;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #f5f6f8;
-  page-break-inside: avoid;
-  break-inside: avoid;
-}
-
-.meeting-minutes-table-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.meeting-minutes-table-scroll .meeting-minutes-agenda-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.meeting-minutes-agenda-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-.meeting-minutes-agenda-table th,
-.meeting-minutes-agenda-table td {
-  border: 1px solid #e5eaf1;
-  vertical-align: top;
-  padding: 0;
-}
-
-.meeting-minutes-agenda-table thead th {
-  padding: 6px 8px;
-  background: #ffffff;
-  color: #315ca8;
-  font-size: 10px;
-  font-weight: 800;
-  text-align: center;
-  line-height: 1.35;
-}
-
-.meeting-minutes-col-index {
-  width: 40px;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 800;
-  color: #64748b;
-  background: #ffffff;
-  vertical-align: middle;
-}
-
-.meeting-minutes-col-content {
-  width: auto;
-}
-
-.meeting-minutes-col-assignee {
-  width: 120px;
-}
-
-.meeting-minutes-agenda-table tbody tr.meeting-minutes-agenda-row {
-  height: auto;
-}
-
-.meeting-minutes-agenda-table tbody td {
-  padding: 4px;
-  background: #ffffff;
-}
-
-.meeting-minutes-agenda-table .work-report-report-field {
-  min-height: 36px;
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.meeting-minutes-agenda-table .work-report-report-field--grow {
-  min-height: 36px;
-  max-height: 96px;
-}
-
-.meeting-minutes-agenda-table .meeting-minutes-cell-input--center {
-  text-align: center;
-}
-
-.meeting-minutes-agenda-table .meeting-minutes-cell-input--center::placeholder {
-  text-align: center;
-  font-size: 12px;
-}
-
 @media print {
-  .work-report-meeting-minutes-section {
+  .work-report-meeting-minutes-panel {
     page-break-inside: avoid;
     break-inside: avoid;
   }
