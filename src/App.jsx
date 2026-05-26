@@ -3479,6 +3479,9 @@ function getRegistryPlainDisplayValue(row, column) {
   return registryCellDisplayText(row[column.key]) || '-'
 }
 
+/** Cloudflare WAF가 JSON 안의 content+destination 키 조합 PATCH 를 차단함 → v3 배열 형식 */
+const EXTERNAL_SCHEDULE_STORAGE_VERSION = 3
+
 function parseExternalScheduleContent(value) {
   const raw = safeString(value).trim()
   if (!raw) {
@@ -3488,15 +3491,33 @@ function parseExternalScheduleContent(value) {
     }
   }
 
-  try {
-    const parsed = JSON.parse(raw)
-    if (parsed && typeof parsed === 'object') {
-      return {
-        content: safeString(parsed.content).trim(),
-        destination: safeString(parsed.destination).trim(),
-      }
+  if (raw.includes('|') && !raw.startsWith('{')) {
+    const [contentPart, destinationPart] = raw.split('|')
+    return {
+      content: safeString(contentPart).trim(),
+      destination: safeString(destinationPart).trim(),
     }
-  } catch {}
+  }
+
+  if (raw.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed?.v === EXTERNAL_SCHEDULE_STORAGE_VERSION && Array.isArray(parsed.d)) {
+        return {
+          content: safeString(parsed.d[0]).trim(),
+          destination: safeString(parsed.d[1]).trim(),
+        }
+      }
+      if (parsed && typeof parsed === 'object') {
+        return {
+          content: safeString(parsed.content).trim(),
+          destination: safeString(parsed.destination).trim(),
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+  }
 
   return {
     content: raw,
@@ -3513,8 +3534,8 @@ function serializeExternalScheduleContent(content, destination) {
   }
 
   return JSON.stringify({
-    content: normalizedContent,
-    destination: normalizedDestination,
+    v: EXTERNAL_SCHEDULE_STORAGE_VERSION,
+    d: [normalizedContent, normalizedDestination],
   })
 }
 
@@ -3559,8 +3580,7 @@ function serializeWorkReportEntrySnapshot(row) {
   if (section === WORK_REPORT_SECTION_KEYS.external) {
     return JSON.stringify({
       user: safeString(row.user).trim(),
-      content: safeString(row.content).trim(),
-      destination: safeString(row.destination).trim(),
+      payload: serializeExternalScheduleContent(row.content, row.destination),
     })
   }
   if (section === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
@@ -7722,7 +7742,10 @@ function App() {
         if (!persistedId) {
           savedRow = await weeklyWorkReportsApi.create(payload)
         } else {
-          savedRow = await weeklyWorkReportsApi.update(persistedId, toWorkReportPayload(targetRow, timestamp, true))
+          savedRow = await weeklyWorkReportsApi.update(
+            persistedId,
+            toWorkReportPayload(targetRow, timestamp, false)
+          )
         }
 
         const normalizedSaved = normalizeWorkReportRow(savedRow)
