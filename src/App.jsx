@@ -2440,8 +2440,8 @@ function getWorkReportChecklistCombinedText(date, sectionKey, workReportRows, wo
   }
   const parts = []
   for (let oi = 1; oi <= WORK_REPORT_MAIN_CHECK_COUNT; oi += 1) {
-    const row = workReportRows.find(
-      (r) => r.date === date && r.section === sectionKey && Number(r.orderIndex || 1) === oi
+    const row = pickLatestWorkReportRow(
+      workReportRows.filter((r) => workReportRowKeyMatch(r, date, sectionKey, oi))
     )
     const t = safeString(row?.content).trim()
     if (t) parts.push(t)
@@ -2450,13 +2450,13 @@ function getWorkReportChecklistCombinedText(date, sectionKey, workReportRows, wo
 }
 
 function getWorkReportPrimaryChecklistStoredRow(date, sectionKey, workReportRows) {
-  const row1 = workReportRows.find(
-    (r) => r.date === date && r.section === sectionKey && Number(r.orderIndex || 1) === 1
+  const row1 = pickLatestWorkReportRow(
+    workReportRows.filter((r) => workReportRowKeyMatch(r, date, sectionKey, 1))
   )
   if (row1?.id) return row1
   for (let oi = 2; oi <= WORK_REPORT_MAIN_CHECK_COUNT; oi += 1) {
-    const row = workReportRows.find(
-      (r) => r.date === date && r.section === sectionKey && Number(r.orderIndex || 1) === oi
+    const row = pickLatestWorkReportRow(
+      workReportRows.filter((r) => workReportRowKeyMatch(r, date, sectionKey, oi))
     )
     if (row?.id) return row
   }
@@ -2482,8 +2482,8 @@ function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDr
   for (let oi = 1; oi <= WORK_REPORT_EXTERNAL_ROW_COUNT; oi += 1) {
     const cellKey = `${dateYmd}__${section}__${oi}`
     const draftEntry = workReportDrafts?.[cellKey]
-    const stored = workReportRows.find(
-      (r) => r.date === dateYmd && r.section === section && Number(r.orderIndex || 1) === oi
+    const stored = pickLatestWorkReportRow(
+      workReportRows.filter((r) => workReportRowKeyMatch(r, dateYmd, section, oi))
     )
     const resolved = resolveDashboardExternalScheduleRow(draftEntry || stored)
     if (resolved) list.push(resolved)
@@ -2498,8 +2498,8 @@ function getDashboardWeekMeetingMinutesRows(weekStartDate, workReportRows, workR
   const section = WORK_REPORT_SECTION_KEYS.meetingMinutes
   const cellKey = `${date}__${section}__1`
   const draftEntry = workReportDrafts?.[cellKey]
-  const stored = workReportRows.find(
-    (r) => r.date === date && r.section === section && Number(r.orderIndex || 1) === 1
+  const stored = pickLatestWorkReportRow(
+    workReportRows.filter((r) => workReportRowKeyMatch(r, date, section, 1))
   )
   const entry = draftEntry || stored
   if (!entry) return []
@@ -3518,6 +3518,41 @@ function serializeExternalScheduleContent(content, destination) {
   })
 }
 
+function normalizeWorkReportDateKey(value) {
+  const str = safeString(value).trim()
+  if (!str) return ''
+  return str.slice(0, 10)
+}
+
+function workReportRowKeyMatch(row, date, section, orderIndex) {
+  return (
+    normalizeWorkReportDateKey(row?.date) === normalizeWorkReportDateKey(date) &&
+    safeString(row?.section).trim() === safeString(section).trim() &&
+    Number(row?.orderIndex || 1) === Number(orderIndex || 1)
+  )
+}
+
+function pickLatestWorkReportRow(rows) {
+  if (!Array.isArray(rows) || !rows.length) return undefined
+  if (rows.length === 1) return rows[0]
+  return rows.reduce((latest, row) => {
+    const latestTs = safeString(latest?.updatedAt || latest?.createdAt)
+    const rowTs = safeString(row?.updatedAt || row?.createdAt)
+    return rowTs > latestTs ? row : latest
+  })
+}
+
+function upsertWorkReportRowInList(rows, nextRow) {
+  const filtered = (Array.isArray(rows) ? rows : []).filter(
+    (row) => !workReportRowKeyMatch(row, nextRow.date, nextRow.section, nextRow.orderIndex)
+  )
+  return [...filtered, nextRow]
+}
+
+function isWorkReportDraftRowId(id) {
+  return safeString(id).startsWith('work-report-draft-')
+}
+
 function normalizeWorkReportRow(item) {
   const section = safeString(item.section ?? item.category)
   const orderIndex = Number(item.order_index ?? item.orderIndex ?? 1)
@@ -3528,7 +3563,9 @@ function normalizeWorkReportRow(item) {
 
   return {
     id: safeString(item.id),
-    date: safeString(item.date ?? item.reportDate ?? item.reportdate ?? item.weekStartDate ?? item.weekstartdate),
+    date: normalizeWorkReportDateKey(
+      item.date ?? item.reportDate ?? item.reportdate ?? item.weekStartDate ?? item.weekstartdate
+    ),
     user: safeString(item.user ?? item.assignee).trim(),
     section,
     content: parsedExternalContent.content,
@@ -3898,6 +3935,7 @@ function App() {
   const [discoveryTableData, setDiscoveryTableData] = useState([])
   const [excludedRows, setExcludedRows] = useState([])
   const [workReportRows, setWorkReportRows] = useState([])
+  const workReportRowsRef = useRef([])
   const initialMenu = loadStoredMenu()
   const [menu, setMenu] = useState(initialMenu)
   const [expandedMenuGroups, setExpandedMenuGroups] = useState(() =>
@@ -3988,6 +4026,9 @@ function App() {
   useLayoutEffect(() => {
     workReportDraftsRef.current = workReportDrafts
   }, [workReportDrafts])
+  useLayoutEffect(() => {
+    workReportRowsRef.current = workReportRows
+  }, [workReportRows])
   const [isSavingWorkReports, setIsSavingWorkReports] = useState(false)
   const [generatedWorkWeeks, setGeneratedWorkWeeks] = useState([])
   const [selectedWorkWeek, setSelectedWorkWeek] = useState(() =>
@@ -4252,10 +4293,13 @@ function App() {
   const fetchWorkReportRows = async () => {
     try {
       const rows = await weeklyWorkReportsApi.list()
-      setWorkReportRows(rows.map(normalizeWorkReportRow))
+      const normalized = rows.map(normalizeWorkReportRow)
+      workReportRowsRef.current = normalized
+      setWorkReportRows(normalized)
       return rows
     } catch (error) {
       console.error('[주간업무보고서] API fetch failed', error)
+      workReportRowsRef.current = []
       setWorkReportRows([])
       return []
     }
@@ -7235,10 +7279,12 @@ function App() {
 
   const getWorkReportCellKey = (date, section, orderIndex = 1) => `${date}__${section}__${orderIndex}`
 
-  const getStoredWorkReportEntry = (date, section, orderIndex = 1) =>
-    workReportRows.find(
-      (row) => row.date === date && row.section === section && Number(row.orderIndex || 1) === orderIndex
+  const getStoredWorkReportEntry = (date, section, orderIndex = 1) => {
+    const matches = workReportRowsRef.current.filter((row) =>
+      workReportRowKeyMatch(row, date, section, orderIndex)
     )
+    return pickLatestWorkReportRow(matches)
+  }
 
   const getDisplayedWorkReportEntry = (date, section, orderIndex = 1) => {
     const cellKey = getWorkReportCellKey(date, section, orderIndex)
@@ -7252,9 +7298,7 @@ function App() {
     const cellKey = getWorkReportCellKey(date, section, orderIndex)
     if (editingWorkCellKey === cellKey) return
 
-    const existingEntry = workReportRows.find(
-      (row) => row.date === date && row.section === section && Number(row.orderIndex || 1) === orderIndex
-    )
+    const existingEntry = getStoredWorkReportEntry(date, section, orderIndex)
 
     setEditingWorkCellKey(cellKey)
     setEditingWorkCellData(
@@ -7442,8 +7486,8 @@ function App() {
       const cellKey1 = getWorkReportCellKey(date, sectionNorm, WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX)
       const draft1 = draftsMap[cellKey1]
       const row1 = getStoredWorkReportEntry(date, sectionNorm, 1)
-      const primary = getWorkReportPrimaryChecklistStoredRow(date, sectionNorm, workReportRows)
-      const mergedText = getWorkReportChecklistCombinedText(date, sectionNorm, workReportRows, draftsMap)
+      const primary = getWorkReportPrimaryChecklistStoredRow(date, sectionNorm, workReportRowsRef.current)
+      const mergedText = getWorkReportChecklistCombinedText(date, sectionNorm, workReportRowsRef.current, draftsMap)
 
       if (draft1) {
         const base =
@@ -7521,12 +7565,21 @@ function App() {
         ...prev[cellKey],
       }
       const resolvedPatch = typeof patch === 'function' ? patch(baseEntry) : patch
+      const storedEntry = pickLatestWorkReportRow(
+        workReportRowsRef.current.filter((row) => workReportRowKeyMatch(row, date, sectionNorm, oi))
+      )
       const nextEntry = {
         ...baseEntry,
         ...resolvedPatch,
-        date,
+        date: normalizeWorkReportDateKey(date),
         section: sectionNorm,
         orderIndex: oi,
+      }
+      if (storedEntry?.id) {
+        nextEntry.id = storedEntry.id
+        nextEntry.isDraft = false
+      } else if (!isWorkReportDraftRowId(nextEntry.id)) {
+        nextEntry.isDraft = false
       }
       const next = { ...prev, [cellKey]: nextEntry }
       workReportDraftsRef.current = next
@@ -7551,7 +7604,7 @@ function App() {
       const cellKey = getWorkReportCellKey(date, sectionNorm, oi)
       const targetRow = {
         ...getWorkReportBoardEntry(date, sectionNorm, oi, workReportDraftsRef.current),
-        date,
+        date: normalizeWorkReportDateKey(date),
         section: sectionNorm,
         orderIndex: oi,
       }
@@ -7613,15 +7666,25 @@ function App() {
 
       try {
         const timestamp = new Date().toISOString()
-
-        if (targetRow.isDraft) {
-          await weeklyWorkReportsApi.create({
-            ...toWorkReportPayload(targetRow, timestamp, true),
-            createdAt: timestamp,
-          })
-        } else {
-          await weeklyWorkReportsApi.update(targetRow.id, toWorkReportPayload(targetRow, timestamp, true))
+        const payload = {
+          ...toWorkReportPayload(targetRow, timestamp, true),
+          ...(targetRow.isDraft ? { createdAt: timestamp } : {}),
         }
+        const existingStored = getStoredWorkReportEntry(date, sectionNorm, oi)
+        const persistedId =
+          existingStored?.id ||
+          (!isWorkReportDraftRowId(targetRow.id) ? safeString(targetRow.id).trim() : '')
+        let savedRow
+
+        if (!persistedId) {
+          savedRow = await weeklyWorkReportsApi.create(payload)
+        } else {
+          savedRow = await weeklyWorkReportsApi.update(persistedId, toWorkReportPayload(targetRow, timestamp, true))
+        }
+
+        const normalizedSaved = normalizeWorkReportRow(savedRow)
+        workReportRowsRef.current = upsertWorkReportRowInList(workReportRowsRef.current, normalizedSaved)
+        setWorkReportRows(workReportRowsRef.current)
 
         for (const rid of checklistExtraIdsToDelete) {
           try {
