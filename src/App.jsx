@@ -3480,7 +3480,8 @@ function getRegistryPlainDisplayValue(row, column) {
   return registryCellDisplayText(row[column.key]) || '-'
 }
 
-/** Cloudflare WAF가 JSON 안의 content+destination 키 조합 PATCH 를 차단함 → v3 배열 형식 */
+/** 외부일정 본문·목적지 구분자 (JSON 미사용 → Cloudflare WAF 회피) */
+const EXTERNAL_SCHEDULE_FIELD_SEP = '\u001f'
 const EXTERNAL_SCHEDULE_STORAGE_VERSION = 3
 
 function parseExternalScheduleContent(value) {
@@ -3489,6 +3490,14 @@ function parseExternalScheduleContent(value) {
     return {
       content: '',
       destination: '',
+    }
+  }
+
+  if (raw.includes(EXTERNAL_SCHEDULE_FIELD_SEP)) {
+    const sepIndex = raw.indexOf(EXTERNAL_SCHEDULE_FIELD_SEP)
+    return {
+      content: safeString(raw.slice(0, sepIndex)).trim(),
+      destination: safeString(raw.slice(sepIndex + 1)).trim(),
     }
   }
 
@@ -3534,10 +3543,21 @@ function serializeExternalScheduleContent(content, destination) {
     return ''
   }
 
-  return JSON.stringify({
-    v: EXTERNAL_SCHEDULE_STORAGE_VERSION,
-    d: [normalizedContent, normalizedDestination],
-  })
+  if (!normalizedDestination) {
+    return normalizedContent
+  }
+
+  return `${normalizedContent}${EXTERNAL_SCHEDULE_FIELD_SEP}${normalizedDestination}`
+}
+
+function isWafRiskyWorkReportContent(content) {
+  const raw = safeString(content).trim()
+  if (!raw.startsWith('{')) return false
+  return (
+    (raw.includes('"content"') && raw.includes('"destination"')) ||
+    (raw.includes('"agenda"') && raw.includes('"assignee"')) ||
+    (raw.includes('"meta"') && raw.includes('"agenda"'))
+  )
 }
 
 function normalizeWorkReportDateKey(value) {
@@ -3652,11 +3672,26 @@ function toWorkReportPayload(row, timestamp) {
   let user = resolvedUser
 
   if (sectionNorm === WORK_REPORT_SECTION_KEYS.external) {
-    content = serializeExternalScheduleContent(row.content, row.destination)
+    const parsed = parseExternalScheduleContent(row.content)
+    content = serializeExternalScheduleContent(
+      parsed.content || row.content,
+      safeString(row.destination).trim() || parsed.destination
+    )
   } else if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
     const serialized = serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry(row))
     content = serialized.content
     user = safeString(serialized.user).trim() || resolvedUser
+  }
+
+  if (isWafRiskyWorkReportContent(content)) {
+    if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
+      const serialized = serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry(row))
+      content = serialized.content
+      user = safeString(serialized.user).trim() || resolvedUser
+    } else if (sectionNorm === WORK_REPORT_SECTION_KEYS.external) {
+      const parsed = parseExternalScheduleContent(row.content)
+      content = serializeExternalScheduleContent(parsed.content, parsed.destination)
+    }
   }
 
   return {
@@ -7771,8 +7806,8 @@ function App() {
           }
         }
 
-        await fetchWorkReportRows()
         trackWorkWeek(targetRow.date, { selectWeek: false })
+        setToastMessage('저장되었습니다.')
         setWorkReportDrafts((prev) => {
           const next = { ...prev }
           const currentDraft = prev[cellKey]

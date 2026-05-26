@@ -7,8 +7,9 @@ export const MEETING_MINUTES_AGENDA_DEFAULT_ROWS = MEETING_MINUTES_AGENDA_FIXED_
 
 export const WORK_REPORT_MEETING_MINUTES_SECTION = '회의록'
 
-/** Cloudflare WAF가 agenda 객체의 content/assignee 등 키 조합을 차단해 v2(배열) 형식 사용 */
+/** Cloudflare WAF가 JSON 키(content/assignee/agenda) 조합을 차단 → mm2(탭 구분 텍스트) 우선 */
 const MEETING_MINUTES_STORAGE_VERSION = 2
+const MEETING_MINUTES_TEXT_PREFIX = 'mm2\n'
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -59,8 +60,37 @@ function parseMeetingMinutesMeta(meta = {}, entry) {
   }
 }
 
+function parseMeetingMinutesTextRows(raw) {
+  const body = safeString(raw).trim()
+  if (!body.startsWith(MEETING_MINUTES_TEXT_PREFIX)) return null
+  const lines = body
+    .slice(MEETING_MINUTES_TEXT_PREFIX.length)
+    .split('\n')
+    .map((line) => line.trimEnd())
+  const rows = lines.map((line) => {
+    const tabIndex = line.indexOf('\t')
+    if (tabIndex === -1) {
+      return { content: safeString(line).trim(), assignee: '', dueDate: '' }
+    }
+    return {
+      content: safeString(line.slice(0, tabIndex)).trim(),
+      assignee: safeString(line.slice(tabIndex + 1)).trim(),
+      dueDate: '',
+    }
+  })
+  return rows
+}
+
 export function parseMeetingMinutesFromEntry(entry) {
   const raw = safeString(entry?.content).trim()
+  const textRows = parseMeetingMinutesTextRows(raw)
+  if (textRows) {
+    return {
+      meta: getDefaultMeetingMinutesData().meta,
+      agenda: normalizeMeetingMinutesAgenda(textRows),
+    }
+  }
+
   if (raw.startsWith('{')) {
     try {
       const parsed = JSON.parse(raw)
@@ -117,13 +147,23 @@ function compactMeetingMinutesRows(agenda) {
     .filter(([text, person, due]) => text || person || due)
 }
 
+function serializeMeetingMinutesTextBody(agenda) {
+  const rows = compactMeetingMinutesRows(agenda)
+  if (!rows.length) return ''
+  const sanitizeCell = (value) =>
+    safeString(value)
+      .replace(/\t/g, ' ')
+      .replace(/\r?\n/g, ' ')
+      .trim()
+  return rows
+    .map(([text, person]) => `${sanitizeCell(text)}\t${sanitizeCell(person)}`)
+    .join('\n')
+}
+
 export function serializeMeetingMinutesPatch(data) {
-  const rows = compactMeetingMinutesRows(data.agenda)
+  const textBody = serializeMeetingMinutesTextBody(data.agenda)
   return {
-    content: JSON.stringify({
-      v: MEETING_MINUTES_STORAGE_VERSION,
-      rows,
-    }),
+    content: textBody ? `${MEETING_MINUTES_TEXT_PREFIX}${textBody}` : '',
     user: safeString(data.meta?.author),
     destination: safeString(data.meta?.meetingDateTime),
   }
