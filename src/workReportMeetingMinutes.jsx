@@ -357,7 +357,6 @@ export function WorkReportMeetingMinutesSection({
                     value={row.assignee}
                     placeholder="담당자"
                     onChange={(e) => patchAgendaRow(index, { assignee: e.target.value })}
-                    onBlur={onBlur}
                   />
                 </td>
               </tr>

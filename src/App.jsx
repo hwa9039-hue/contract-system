@@ -4174,13 +4174,35 @@ function App() {
   const saveWorkReportBoardEntryRef = useRef(() => Promise.resolve())
   const scheduleWorkReportEntrySaveRef = useRef(() => {})
   const WORK_REPORT_AUTOSAVE_MS = 1000
+  const WORK_REPORT_MEETING_AUTOSAVE_MS = 400
   const skipWorkReportWeekFlushRef = useRef(true)
-  useLayoutEffect(() => {
-    workReportDraftsRef.current = workReportDrafts
-  }, [workReportDrafts])
   useLayoutEffect(() => {
     workReportRowsRef.current = workReportRows
   }, [workReportRows])
+
+  const getMeetingMinutesSessionKey = (weekStartDate) =>
+    `cms-meeting-mm2:${normalizeWorkReportDateKey(weekStartDate)}`
+
+  const readMeetingMinutesSessionBackup = (weekStartDate) => {
+    try {
+      return sessionStorage.getItem(getMeetingMinutesSessionKey(weekStartDate)) || ''
+    } catch {
+      return ''
+    }
+  }
+
+  const writeMeetingMinutesSessionBackup = (weekStartDate, content) => {
+    try {
+      const key = getMeetingMinutesSessionKey(weekStartDate)
+      if (!safeString(content).trim()) {
+        sessionStorage.removeItem(key)
+        return
+      }
+      sessionStorage.setItem(key, content)
+    } catch {
+      // no-op
+    }
+  }
   const [isSavingWorkReports, setIsSavingWorkReports] = useState(false)
   const [generatedWorkWeeks, setGeneratedWorkWeeks] = useState([])
   const [selectedWorkWeek, setSelectedWorkWeek] = useState(() =>
@@ -7476,6 +7498,35 @@ function App() {
     `${normalizeWorkReportDateKey(date)}__${safeString(section).trim()}__${Number(orderIndex || 1)}`
 
   const getStoredWorkReportEntry = (date, section, orderIndex = 1) => {
+    const sectionNorm = safeString(section).trim()
+    const dateKey = normalizeWorkReportDateKey(date)
+    const oi = Number(orderIndex || 1)
+
+    if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
+      const weekStart = formatDateInput(getWeekStartMonday(dateKey))
+      const matches = workReportRowsRef.current.filter((row) => {
+        if (safeString(row.section).trim() !== sectionNorm) return false
+        if (Number(row.orderIndex || 1) !== oi) return false
+        const rowDateKey = normalizeWorkReportDateKey(row.date)
+        const rowWeekStart = formatDateInput(getWeekStartMonday(rowDateKey || dateKey))
+        return rowWeekStart === weekStart || rowDateKey === dateKey
+      })
+      const stored = pickLatestWorkReportRow(matches)
+      const backup = readMeetingMinutesSessionBackup(weekStart)
+      if (!backup) return stored
+      if (!stored) {
+        return createWorkReportDraftRow({
+          reportDate: weekStart,
+          section: sectionNorm,
+          content: backup,
+          orderIndex: oi,
+        })
+      }
+      const storedBody = serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry(stored)).content
+      if (safeString(storedBody).trim() === safeString(backup).trim()) return stored
+      return { ...stored, content: backup }
+    }
+
     const matches = workReportRowsRef.current.filter((row) =>
       workReportRowKeyMatch(row, date, section, orderIndex)
     )
@@ -7778,9 +7829,7 @@ function App() {
         ...prev[cellKey],
       }
       const resolvedPatch = typeof patch === 'function' ? patch(baseEntry) : patch
-      const storedEntry = pickLatestWorkReportRow(
-        workReportRowsRef.current.filter((row) => workReportRowKeyMatch(row, date, sectionNorm, oi))
-      )
+      const storedEntry = getStoredWorkReportEntry(date, sectionNorm, oi)
       const nextEntry = {
         ...baseEntry,
         ...resolvedPatch,
@@ -7798,7 +7847,24 @@ function App() {
       workReportDraftsRef.current = next
       return next
     })
-    scheduleWorkReportEntrySaveRef.current(date, section, orderIndex)
+    if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
+      const draftEntry = workReportDraftsRef.current[cellKey]
+      if (draftEntry) {
+        const mm2 = serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry(draftEntry)).content
+        writeMeetingMinutesSessionBackup(normalizeWorkReportDateKey(date), mm2)
+      }
+    }
+    const debounceMs =
+      sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes
+        ? WORK_REPORT_MEETING_AUTOSAVE_MS
+        : WORK_REPORT_AUTOSAVE_MS
+    const prevTimer = workReportSaveTimersRef.current[cellKey]
+    if (prevTimer?.timerId) clearTimeout(prevTimer.timerId)
+    const timerId = setTimeout(() => {
+      delete workReportSaveTimersRef.current[cellKey]
+      void saveWorkReportBoardEntryRef.current(date, sectionNorm, oi)
+    }, debounceMs)
+    workReportSaveTimersRef.current[cellKey] = { timerId, date, section: sectionNorm, orderIndex: oi }
   }
 
   const yieldToReactStateFlush = () =>
@@ -7941,18 +8007,37 @@ function App() {
 
         trackWorkWeek(targetRow.date, { selectWeek: false })
         setToastMessage('저장되었습니다.')
+        if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes && intendedMeetingContent) {
+          writeMeetingMinutesSessionBackup(normalizeWorkReportDateKey(date), intendedMeetingContent)
+        }
+
         setWorkReportDrafts((prev) => {
           const next = { ...prev }
           const currentDraft = prev[cellKey]
+
+          if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
+            const mergedMeetingEntry = {
+              ...(currentDraft || getWorkReportBoardEntry(date, sectionNorm, oi, prev)),
+              ...normalizedSaved,
+              content: intendedMeetingContent || safeString(normalizedSaved.content),
+              date: normalizeWorkReportDateKey(date),
+              section: sectionNorm,
+              orderIndex: oi,
+              id: normalizedSaved.id || currentDraft?.id,
+              isDraft: false,
+            }
+            next[cellKey] = mergedMeetingEntry
+            workReportDraftsRef.current = next
+            return next
+          }
+
           const serverSnapshot = serializeWorkReportEntrySnapshot({
             ...normalizedSaved,
             section: sectionNorm,
           })
           const draftUnchanged =
             !currentDraft || serializeWorkReportEntrySnapshot(currentDraft) === savedSnapshot
-          const serverMatches =
-            sectionNorm !== WORK_REPORT_SECTION_KEYS.meetingMinutes ||
-            serverSnapshot === savedSnapshot
+          const serverMatches = serverSnapshot === savedSnapshot
           if (draftUnchanged && serverMatches) {
             if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
               for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
@@ -8006,13 +8091,17 @@ function App() {
 
   const scheduleWorkReportEntrySave = (date, section, orderIndex = 1) => {
     const { cellKey, sectionNorm, orderIndex: oi } = resolveWorkReportSaveCellMeta(date, section, orderIndex)
+    const debounceMs =
+      sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes
+        ? WORK_REPORT_MEETING_AUTOSAVE_MS
+        : WORK_REPORT_AUTOSAVE_MS
     const prev = workReportSaveTimersRef.current[cellKey]
     if (prev?.timerId) clearTimeout(prev.timerId)
 
     const timerId = setTimeout(() => {
       delete workReportSaveTimersRef.current[cellKey]
       void saveWorkReportBoardEntryRef.current(date, sectionNorm, oi)
-    }, WORK_REPORT_AUTOSAVE_MS)
+    }, debounceMs)
 
     workReportSaveTimersRef.current[cellKey] = { timerId, date, section: sectionNorm, orderIndex: oi }
   }
