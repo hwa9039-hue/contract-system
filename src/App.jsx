@@ -2434,7 +2434,7 @@ function createWorkReportDraftRow({
 
 /** 구형 5칸 주요확인사항 → 단일 문자열(줄바꿈) 병합. draft `…__1`이 있으면 그 content 우선 */
 function getWorkReportChecklistCombinedText(date, sectionKey, workReportRows, workReportDrafts) {
-  const cellKey1 = `${date}__${sectionKey}__${WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX}`
+  const cellKey1 = `${normalizeWorkReportDateKey(date)}__${sectionKey}__${WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX}`
   if (workReportDrafts && Object.prototype.hasOwnProperty.call(workReportDrafts, cellKey1)) {
     return safeString(workReportDrafts[cellKey1].content)
   }
@@ -2480,7 +2480,7 @@ function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDr
   const section = WORK_REPORT_SECTION_KEYS.external
   const list = []
   for (let oi = 1; oi <= WORK_REPORT_EXTERNAL_ROW_COUNT; oi += 1) {
-    const cellKey = `${dateYmd}__${section}__${oi}`
+    const cellKey = `${normalizeWorkReportDateKey(dateYmd)}__${section}__${oi}`
     const draftEntry = workReportDrafts?.[cellKey]
     const stored = pickLatestWorkReportRow(
       workReportRows.filter((r) => workReportRowKeyMatch(r, dateYmd, section, oi))
@@ -2493,7 +2493,7 @@ function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDr
 
 /** 대시보드: 오늘이 속한 주(weekStart)의 회의록 agenda 행 목록 */
 function getDashboardWeekMeetingMinutesRows(weekStartDate, workReportRows, workReportDrafts) {
-  const date = safeString(weekStartDate).trim()
+  const date = normalizeWorkReportDateKey(weekStartDate)
   if (!date) return []
   const section = WORK_REPORT_SECTION_KEYS.meetingMinutes
   const cellKey = `${date}__${section}__1`
@@ -3553,6 +3553,29 @@ function isWorkReportDraftRowId(id) {
   return safeString(id).startsWith('work-report-draft-')
 }
 
+function serializeWorkReportEntrySnapshot(row) {
+  if (!row) return ''
+  const section = safeString(row.section).trim()
+  if (section === WORK_REPORT_SECTION_KEYS.external) {
+    return JSON.stringify({
+      user: safeString(row.user).trim(),
+      content: safeString(row.content).trim(),
+      destination: safeString(row.destination).trim(),
+    })
+  }
+  if (section === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
+    return safeString(row.content).trim()
+  }
+  if (section === WORK_REPORT_SECTION_KEYS.checklist) {
+    return safeString(row.content).trim()
+  }
+  return JSON.stringify({
+    user: safeString(row.user).trim(),
+    content: safeString(row.content).trim(),
+    destination: safeString(row.destination).trim(),
+  })
+}
+
 function normalizeWorkReportRow(item) {
   const section = safeString(item.section ?? item.category)
   const orderIndex = Number(item.order_index ?? item.orderIndex ?? 1)
@@ -4023,6 +4046,7 @@ function App() {
   const saveWorkReportBoardEntryRef = useRef(() => Promise.resolve())
   const scheduleWorkReportEntrySaveRef = useRef(() => {})
   const WORK_REPORT_AUTOSAVE_MS = 600
+  const skipWorkReportWeekFlushRef = useRef(true)
   useLayoutEffect(() => {
     workReportDraftsRef.current = workReportDrafts
   }, [workReportDrafts])
@@ -7264,10 +7288,10 @@ function App() {
     }
   })
 
-  const trackWorkWeek = (weekStartDate) => {
+  const trackWorkWeek = (weekStartDate, { selectWeek = true } = {}) => {
     const normalized = buildWorkReportWeekMeta(weekStartDate).weekStartDate
     setGeneratedWorkWeeks((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]))
-    setSelectedWorkWeek(normalized)
+    if (selectWeek) setSelectedWorkWeek(normalized)
   }
 
   const handleShiftWorkWeek = (offset) => {
@@ -7277,7 +7301,8 @@ function App() {
     trackWorkWeek(nextWeek)
   }
 
-  const getWorkReportCellKey = (date, section, orderIndex = 1) => `${date}__${section}__${orderIndex}`
+  const getWorkReportCellKey = (date, section, orderIndex = 1) =>
+    `${normalizeWorkReportDateKey(date)}__${safeString(section).trim()}__${Number(orderIndex || 1)}`
 
   const getStoredWorkReportEntry = (date, section, orderIndex = 1) => {
     const matches = workReportRowsRef.current.filter((row) =>
@@ -7534,9 +7559,26 @@ function App() {
 
     const cellKey = getWorkReportCellKey(date, sectionNorm, oi)
     const draftEntry = draftsMap[cellKey]
-    if (draftEntry) return draftEntry
-
     const storedEntry = getStoredWorkReportEntry(date, sectionNorm, oi)
+    if (draftEntry) {
+      const persistedId =
+        storedEntry?.id || (!isWorkReportDraftRowId(draftEntry.id) ? safeString(draftEntry.id).trim() : '')
+      return {
+        ...(storedEntry ||
+          createWorkReportDraftRow({
+            reportDate: date,
+            section: sectionNorm,
+            orderIndex: oi,
+          })),
+        ...draftEntry,
+        date: normalizeWorkReportDateKey(date),
+        section: sectionNorm,
+        orderIndex: oi,
+        id: persistedId || draftEntry.id,
+        isDraft: !persistedId,
+      }
+    }
+
     if (storedEntry) return storedEntry
 
     return createWorkReportDraftRow({
@@ -7608,6 +7650,7 @@ function App() {
         section: sectionNorm,
         orderIndex: oi,
       }
+      const savedSnapshot = serializeWorkReportEntrySnapshot(targetRow)
 
       if (isWorkReportRowEmpty(targetRow)) {
         if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
@@ -7683,8 +7726,29 @@ function App() {
         }
 
         const normalizedSaved = normalizeWorkReportRow(savedRow)
+        const duplicateIds = workReportRowsRef.current
+          .filter(
+            (row) =>
+              row.id &&
+              row.id !== normalizedSaved.id &&
+              workReportRowKeyMatch(
+                row,
+                normalizedSaved.date,
+                normalizedSaved.section,
+                normalizedSaved.orderIndex
+              )
+          )
+          .map((row) => row.id)
         workReportRowsRef.current = upsertWorkReportRowInList(workReportRowsRef.current, normalizedSaved)
         setWorkReportRows(workReportRowsRef.current)
+
+        for (const duplicateId of duplicateIds) {
+          try {
+            await weeklyWorkReportsApi.remove(duplicateId)
+          } catch (error) {
+            logApiOperationError('주간업무보고서 중복 정리', error)
+          }
+        }
 
         for (const rid of checklistExtraIdsToDelete) {
           try {
@@ -7695,21 +7759,36 @@ function App() {
         }
 
         await fetchWorkReportRows()
-        trackWorkWeek(targetRow.date)
+        trackWorkWeek(targetRow.date, { selectWeek: false })
         setWorkReportDrafts((prev) => {
           const next = { ...prev }
-          if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
-            for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
-              delete next[getWorkReportCellKey(date, sectionNorm, idx)]
+          const currentDraft = prev[cellKey]
+          const draftUnchanged =
+            !currentDraft || serializeWorkReportEntrySnapshot(currentDraft) === savedSnapshot
+          if (draftUnchanged) {
+            if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
+              for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
+                delete next[getWorkReportCellKey(date, sectionNorm, idx)]
+              }
+            } else {
+              delete next[cellKey]
             }
-          } else {
-            delete next[cellKey]
           }
           workReportDraftsRef.current = next
           return next
         })
+        const currentDraftAfterSave = workReportDraftsRef.current[cellKey]
+        if (
+          currentDraftAfterSave &&
+          serializeWorkReportEntrySnapshot(currentDraftAfterSave) !== savedSnapshot
+        ) {
+          scheduleWorkReportEntrySaveRef.current(date, sectionNorm, oi)
+        }
       } catch (error) {
         logApiOperationError('주간업무보고서 저장', error)
+        showAppAlert(
+          `주간업무보고서 저장에 실패했습니다.\n${safeString(error?.message || error).slice(0, 200)}\n\n로그인 상태를 확인한 뒤 다시 시도해주세요.`
+        )
       } finally {
         setIsSavingWorkReports(false)
       }
@@ -7785,6 +7864,10 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (skipWorkReportWeekFlushRef.current) {
+      skipWorkReportWeekFlushRef.current = false
+      return
+    }
     flushAllPendingWorkReportSaves()
   }, [selectedWorkWeekMeta.weekStartDate])
 
