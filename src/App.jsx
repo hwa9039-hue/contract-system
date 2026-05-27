@@ -3550,25 +3550,77 @@ function matchesDateRangeFilter(row, dateKey, startDate, endDate) {
   return true
 }
 
+function formatYmdSlash(ymd) {
+  const s = safeString(ymd).trim()
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return ''
+  return s.replace(/-/g, '/')
+}
+
+function openNativeDatePicker(inputEl) {
+  if (!inputEl) return
+  if (typeof inputEl.showPicker === 'function') {
+    try {
+      inputEl.showPicker()
+      return
+    } catch {
+      /* 일부 브라우저는 사용자 제스처 없으면 거부 */
+    }
+  }
+  inputEl.click()
+}
+
 function RegistryDateRangeFilter({ startDate, endDate, onStartChange, onEndChange }) {
+  const startInputRef = useRef(null)
+  const endInputRef = useRef(null)
+  const startLabel = formatYmdSlash(startDate) || 'YYYY/MM/DD'
+  const endLabel = formatYmdSlash(endDate) || 'YYYY/MM/DD'
+
   return (
-    <div className="registry-date-range-filter" role="group" aria-label="기간 검색">
-      <input
-        type="date"
-        className="table-search-input registry-date-input"
-        value={startDate}
-        onChange={(e) => onStartChange(e.target.value)}
-        aria-label="시작일"
-      />
-      <span className="registry-date-range-sep" aria-hidden="true">
+    <div className="registry-date-range-picker" role="group" aria-label="기간 검색">
+      <button
+        type="button"
+        className="registry-date-range-picker-segment"
+        onClick={() => openNativeDatePicker(startInputRef.current)}
+        aria-label="시작일 선택"
+      >
+        <span className={startDate ? '' : 'registry-date-range-picker-placeholder'}>{startLabel}</span>
+      </button>
+      <span className="registry-date-range-picker-sep" aria-hidden="true">
         ~
       </span>
+      <button
+        type="button"
+        className="registry-date-range-picker-segment"
+        onClick={() => openNativeDatePicker(endInputRef.current)}
+        aria-label="종료일 선택"
+      >
+        <span className={endDate ? '' : 'registry-date-range-picker-placeholder'}>{endLabel}</span>
+      </button>
+      <button
+        type="button"
+        className="registry-date-range-picker-icon"
+        onClick={() => openNativeDatePicker(startInputRef.current)}
+        aria-label="기간 선택"
+      >
+        <span aria-hidden="true">📅</span>
+      </button>
       <input
+        ref={startInputRef}
         type="date"
-        className="table-search-input registry-date-input"
+        className="registry-date-range-picker-native"
+        value={startDate}
+        onChange={(e) => onStartChange(e.target.value)}
+        tabIndex={-1}
+        aria-hidden="true"
+      />
+      <input
+        ref={endInputRef}
+        type="date"
+        className="registry-date-range-picker-native"
         value={endDate}
         onChange={(e) => onEndChange(e.target.value)}
-        aria-label="종료일"
+        tabIndex={-1}
+        aria-hidden="true"
       />
     </div>
   )
