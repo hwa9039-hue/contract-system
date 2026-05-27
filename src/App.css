@@ -5929,7 +5929,7 @@ textarea:focus-visible {
 .work-report-report-table-head-meeting,
 .work-report-report-table-row-meeting {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1.35fr) minmax(0, 0.75fr);
+  grid-template-columns: 32px minmax(0, 1fr) 100px;
   width: 100%;
 }
 

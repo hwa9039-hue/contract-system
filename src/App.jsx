@@ -7990,12 +7990,35 @@ function App() {
         }
 
         let normalizedSaved = normalizeWorkReportRow(savedRow)
+
         if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes && intendedMeetingContent) {
+          await fetchWorkReportRows()
+          const weekStart = formatDateInput(getWeekStartMonday(normalizeWorkReportDateKey(date)))
+          const apiRow =
+            workReportRowsRef.current.find((row) => row.id === normalizedSaved.id) ||
+            pickMeetingMinutesStoredRow(weekStart, workReportRowsRef.current, oi)
+          const apiBody = serializeMeetingMinutesPatch(
+            parseMeetingMinutesFromEntry(apiRow || { content: '' })
+          ).content
+          if (!meetingMinutesAgendaMatches(intendedMeetingContent, apiBody)) {
+            showAppAlert(
+              '회의록이 서버에 저장되지 않았습니다.\n\n' +
+                '대시보드·다른 PC에서 보이지 않습니다. 칸에서 포커스를 뺀 뒤 다시 저장해 보세요. ' +
+                '계속되면 NAS 백엔드를 최신(reportPayloadParts 지원)으로 재빌드해 주세요.'
+            )
+            return
+          }
           normalizedSaved = {
-            ...normalizedSaved,
-            content: intendedMeetingContent,
+            ...(apiRow || normalizedSaved),
+            content: apiBody || intendedMeetingContent,
+            date: weekStart,
+            section: sectionNorm,
+            orderIndex: oi,
+            id: normalizedSaved.id || apiRow?.id,
+            isDraft: false,
           }
         }
+
         const duplicateIds = workReportRowsRef.current
           .filter(
             (row) =>
@@ -8011,32 +8034,6 @@ function App() {
           .map((row) => row.id)
         workReportRowsRef.current = upsertWorkReportRowInList(workReportRowsRef.current, normalizedSaved)
         setWorkReportRows(workReportRowsRef.current)
-
-        if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes && intendedMeetingContent) {
-          await fetchWorkReportRows()
-          const weekStart = formatDateInput(getWeekStartMonday(normalizeWorkReportDateKey(date)))
-          const apiRow = pickMeetingMinutesStoredRow(weekStart, workReportRowsRef.current, oi)
-          const apiBody = serializeMeetingMinutesPatch(
-            parseMeetingMinutesFromEntry(apiRow || { content: '' })
-          ).content
-          const intendedHasData = !isMeetingMinutesDataEmpty(
-            parseMeetingMinutesFromEntry({ content: intendedMeetingContent })
-          )
-          const apiHasData = !isMeetingMinutesDataEmpty(
-            parseMeetingMinutesFromEntry(apiRow || { content: '' })
-          )
-          if (
-            intendedHasData &&
-            !apiHasData &&
-            !meetingMinutesAgendaMatches(intendedMeetingContent, apiBody)
-          ) {
-            showAppAlert(
-              '회의록이 서버에 저장되지 않았습니다.\n\n' +
-                '다른 PC에서는 보이지 않습니다. NAS에서 백엔드를 최신으로 재빌드한 뒤 ' +
-                '(reportPayloadParts 지원) 다시 저장해 주세요.'
-            )
-          }
-        }
 
         for (const duplicateId of duplicateIds) {
           try {
@@ -8138,6 +8135,7 @@ function App() {
 
   const flushAllPendingWorkReportSaves = () => {
     const flushed = new Set()
+    const pending = []
     for (const cellKey of Object.keys(workReportDraftsRef.current)) {
       if (flushed.has(cellKey)) continue
       const meta = parseWorkReportCellKey(cellKey)
@@ -8149,13 +8147,16 @@ function App() {
       const draftSnapshot = serializeWorkReportEntrySnapshot(draft)
       const storedSnapshot = stored ? serializeWorkReportEntrySnapshot(stored) : ''
       if (draftSnapshot === storedSnapshot) continue
-      void saveWorkReportBoardEntryRef.current(meta.date, meta.section, meta.orderIndex)
+      pending.push(
+        saveWorkReportBoardEntryRef.current(meta.date, meta.section, meta.orderIndex)
+      )
     }
+    return Promise.all(pending)
   }
 
   useEffect(() => {
     const onPageHide = () => {
-      flushAllPendingWorkReportSaves()
+      void flushAllPendingWorkReportSaves()
     }
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') onPageHide()
@@ -8173,11 +8174,15 @@ function App() {
       skipWorkReportWeekFlushRef.current = false
       return
     }
-    flushAllPendingWorkReportSaves()
+    void flushAllPendingWorkReportSaves()
   }, [selectedWorkWeekMeta.weekStartDate])
 
   useEffect(() => {
-    if (!isWorkReportRelatedMenu(menu)) flushAllPendingWorkReportSaves()
+    if (isWorkReportRelatedMenu(menu)) return
+    void (async () => {
+      await flushAllPendingWorkReportSaves()
+      if (menu === 'dashboard') await fetchWorkReportRows()
+    })()
   }, [menu])
 
   const handleWorkReportBoardBlur = (date, section, orderIndex = 1) => async (e) => {
