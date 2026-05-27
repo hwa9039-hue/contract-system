@@ -6938,12 +6938,10 @@ textarea:focus-visible {
 
 .install-case-detail-modal {
   --ic-modal-w: min(1000px, 68vw, calc(100vw - 32px));
-  --ic-modal-h: min(85vh, calc(var(--ic-modal-w) * 3 / 4));
-  width: min(var(--ic-modal-w), calc(var(--ic-modal-h) * 4 / 3));
-  height: var(--ic-modal-h);
+  width: var(--ic-modal-w);
+  height: auto;
   max-width: min(1000px, calc(100vw - 32px));
-  max-height: 85vh;
-  aspect-ratio: 4 / 3;
+  max-height: 90vh;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -7136,7 +7134,8 @@ textarea:focus-visible {
   box-sizing: border-box;
   min-height: 0;
   flex: 1 1 auto;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .install-case-detail-inner {
@@ -7173,12 +7172,14 @@ textarea:focus-visible {
 
 .install-case-detail-hero {
   width: 100%;
-  height: 420px;
-  min-height: 400px;
-  max-height: min(52vh, 450px);
+  height: auto;
+  min-height: 0;
   border-radius: 1rem;
   overflow: hidden;
   background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   box-shadow:
     0 12px 28px -8px rgba(15, 23, 42, 0.22),
     0 0 0 1px rgba(15, 23, 42, 0.06);
@@ -7187,8 +7188,9 @@ textarea:focus-visible {
 .install-case-detail-hero img {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  max-height: 70vh;
+  object-fit: contain;
   object-position: center;
 }
 
@@ -7287,21 +7289,13 @@ textarea:focus-visible {
 @media (max-width: 900px) {
   .install-case-detail-modal {
     --ic-modal-w: min(1000px, 94vw, calc(100vw - 24px));
-    --ic-modal-h: min(85vh, calc(var(--ic-modal-w) * 3 / 4));
-    width: min(var(--ic-modal-w), calc(var(--ic-modal-h) * 4 / 3));
-    height: var(--ic-modal-h);
+    width: var(--ic-modal-w);
     max-width: calc(100vw - 24px);
   }
 
   .install-case-detail-inner {
     width: min(92%, 850px);
     gap: 1.5rem;
-  }
-
-  .install-case-detail-hero {
-    height: 380px;
-    min-height: 360px;
-    max-height: min(48vh, 420px);
   }
 
   .install-case-detail-lower {
@@ -7321,12 +7315,6 @@ textarea:focus-visible {
 
   .install-case-detail-hero-zone {
     padding-top: 1rem;
-  }
-
-  .install-case-detail-hero {
-    height: 320px;
-    min-height: 300px;
-    max-height: min(42vh, 360px);
   }
 
   .install-case-detail-lower {
@@ -7358,12 +7346,6 @@ textarea:focus-visible {
 
   .install-case-detail-hero-zone {
     padding-top: 1rem;
-  }
-
-  .install-case-detail-hero {
-    height: 340px;
-    min-height: 320px;
-    max-height: min(45vh, 400px);
   }
 
   .install-case-detail-meta {
