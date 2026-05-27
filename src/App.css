@@ -4216,27 +4216,19 @@ textarea:focus-visible {
 }
 
 .top-system-subtitle-link {
-  border: none;
-  background: none;
-  padding: 0;
-  margin: 0;
   color: #64748b;
   font-family: inherit;
   font-size: 12px;
   font-weight: 700;
   line-height: 1.35;
-  cursor: pointer;
+  cursor: default;
   white-space: nowrap;
-  transition: color 0.15s ease;
 }
 
-.top-system-subtitle-link:hover {
-  color: #1f4fd1;
-}
-
+.top-system-subtitle-link:hover,
 .top-system-subtitle-link.active {
-  color: #2563eb;
-  font-weight: 800;
+  color: #64748b;
+  font-weight: 700;
 }
 
 .top-system-subtitle {

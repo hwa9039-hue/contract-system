@@ -10868,18 +10868,7 @@ function App() {
                         {' · '}
                       </span>
                     ) : null}
-                    <button
-                      type="button"
-                      className={
-                        menu === item.key
-                          ? 'top-system-subtitle-link active'
-                          : 'top-system-subtitle-link'
-                      }
-                      onClick={() => setMenu(item.key)}
-                      aria-current={menu === item.key ? 'page' : undefined}
-                    >
-                      {item.label}
-                    </button>
+                    <span className="top-system-subtitle-link">{item.label}</span>
                   </span>
                 ))}
               </nav>
@@ -10910,7 +10899,7 @@ function App() {
                 }}
               >
                 {isLongLivedSession
-                  ? '🟢 자동 로그인 됨'
+                  ? '🟢 자동 로그인'
                   : `남은 시간 ${remainingSessionMinutes}분`}
               </span>
               <button

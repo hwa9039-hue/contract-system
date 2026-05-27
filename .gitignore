@@ -2,3 +2,7 @@ node_modules
 dist
 build
 .env
+tmp-*.json
+backend/uploads/
+**/__pycache__/
+**/*.pyc
