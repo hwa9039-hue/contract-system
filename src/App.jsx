@@ -902,19 +902,47 @@ const PAGE_TITLE_MAP = {
   installCases: '설치사례',
   materialsBoard: '게시판',
 }
-/** 상단 우측 텍스트 메뉴(대시보드 제외) */
-const TOP_HEADER_NAV_ITEMS = [
+/** 본문 툴바 회색 바 메뉴 — 좌측 사이드바와 동일 순서(대시보드 제외) */
+const PAGE_INLINE_NAV_ITEMS = [
   { key: 'workReports', label: '주간업무보고서' },
   { key: 'meetingMinutes', label: '회의록' },
-  { key: 'contracts', label: '계약현황' },
   { key: 'calendar', label: '캘린더' },
+  { key: 'contracts', label: '계약현황' },
   { key: 'sales', label: '영업관리대장' },
   { key: 'discovery', label: '건축정보' },
   { key: 'excluded', label: '사업검색이력' },
   { key: 'documents', label: '문서수발신대장' },
-  { key: 'installCases', label: '설치사례' },
   { key: 'materialsBoard', label: '게시판' },
+  { key: 'installCases', label: '설치사례' },
 ]
+
+function InlinePageNavBar({ activeMenu, onNavigate }) {
+  return (
+    <div className="page-inline-nav-bar unified-title-bar">
+      <nav className="page-inline-nav" aria-label="페이지 메뉴">
+        {PAGE_INLINE_NAV_ITEMS.map((item, index) => (
+          <span key={item.key} className="page-inline-nav-item">
+            {index > 0 ? (
+              <span className="page-inline-nav-sep" aria-hidden>
+                {' · '}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              className={
+                activeMenu === item.key ? 'page-inline-nav-link active' : 'page-inline-nav-link'
+              }
+              onClick={() => onNavigate(item.key)}
+              aria-current={activeMenu === item.key ? 'page' : undefined}
+            >
+              {item.label}
+            </button>
+          </span>
+        ))}
+      </nav>
+    </div>
+  )
+}
 
 function isWorkReportRelatedMenu(menuKey) {
   return menuKey === 'workReports' || menuKey === 'meetingMinutes'
@@ -10777,29 +10805,6 @@ function App() {
                 justifyContent: 'flex-end',
               }}
             >
-              <nav className="top-system-subtitle-nav" aria-label="빠른 메뉴">
-                {TOP_HEADER_NAV_ITEMS.map((item, index) => (
-                  <span key={item.key} className="top-system-subtitle-item">
-                    {index > 0 ? (
-                      <span className="top-system-subtitle-sep" aria-hidden>
-                        {' · '}
-                      </span>
-                    ) : null}
-                    <button
-                      type="button"
-                      className={
-                        menu === item.key
-                          ? 'top-system-subtitle-link active'
-                          : 'top-system-subtitle-link'
-                      }
-                      onClick={() => setMenu(item.key)}
-                      aria-current={menu === item.key ? 'page' : undefined}
-                    >
-                      {item.label}
-                    </button>
-                  </span>
-                ))}
-              </nav>
               <span
                 style={{
                   display: 'inline-flex',
@@ -11220,13 +11225,15 @@ function App() {
 
         {menu === 'contracts' && (
           <section className="stat-card">
-            <div className="contracts-header-actions">
+            <div className="contracts-header-actions contracts-header-actions--with-inline-nav">
+              {isAdmin && (
+                <button className="primary-btn" type="button" onClick={openContractRegisterModal}>
+                  등록
+                </button>
+              )}
+              <InlinePageNavBar activeMenu={menu} onNavigate={setMenu} />
               {isAdmin && (
                 <>
-                  <button className="primary-btn" type="button" onClick={openContractRegisterModal}>
-                    등록
-                  </button>
-
                   <button className="secondary-btn" type="button" onClick={handleExcelImportClick}>
                     엑셀 업로드
                   </button>
@@ -11590,10 +11597,11 @@ function App() {
 
         {menu === 'sales' && (
           <section className="stat-card">
-            <div className="contracts-header-actions">
+            <div className="contracts-header-actions contracts-header-actions--with-inline-nav">
               <button className="primary-btn" type="button" onClick={handleAddSalesRow}>
                 등록
               </button>
+              <InlinePageNavBar activeMenu={menu} onNavigate={setMenu} />
               <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('sales')}>
                 엑셀 업로드
               </button>
@@ -11729,10 +11737,11 @@ function App() {
 
         {menu === 'discovery' && (
           <section className="stat-card">
-            <div className="contracts-header-actions">
+            <div className="contracts-header-actions contracts-header-actions--with-inline-nav">
               <button className="primary-btn" type="button" onClick={handleAddDiscoveryRow}>
                 등록
               </button>
+              <InlinePageNavBar activeMenu={menu} onNavigate={setMenu} />
               <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('discovery')}>
                 엑셀 업로드
               </button>
@@ -11892,10 +11901,11 @@ function App() {
               )}
             </div>
 
-            <div className="contracts-header-actions">
+            <div className="contracts-header-actions contracts-header-actions--with-inline-nav">
               <button className="primary-btn" type="button" onClick={handleAddExcludedRow}>
                 등록
               </button>
+              <InlinePageNavBar activeMenu={menu} onNavigate={setMenu} />
               <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('excluded')}>
                 엑셀 업로드
               </button>
@@ -12065,10 +12075,11 @@ function App() {
               )}
             </div>
 
-            <div className="contracts-header-actions">
+            <div className="contracts-header-actions contracts-header-actions--with-inline-nav">
               <button className="primary-btn" type="button" onClick={handleAddDocumentRow}>
                 등록
               </button>
+              <InlinePageNavBar activeMenu={menu} onNavigate={setMenu} />
               <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('documents')}>
                 엑셀 업로드
               </button>
@@ -12161,7 +12172,7 @@ function App() {
 
         {menu === 'installCases' && (
           <section className="stat-card stat-card--install-cases">
-            <div className="install-cases-toolbar">
+            <div className="install-cases-toolbar contracts-header-actions--with-inline-nav">
               <div className="install-cases-filters">
                 <select
                   className="contract-filter-select install-cases-select"
@@ -12211,6 +12222,7 @@ function App() {
                   등록
                 </button>
               )}
+              <InlinePageNavBar activeMenu={menu} onNavigate={setMenu} />
             </div>
 
             <div className="install-cases-gallery">
@@ -12303,6 +12315,7 @@ function App() {
                     등록
                   </button>
                 )}
+                <InlinePageNavBar activeMenu={menu} onNavigate={setMenu} />
               </div>
             </div>
 
@@ -12473,15 +12486,16 @@ function App() {
                           ▶
                         </button>
                       </div>
-                      <div className="calendar-toolbar-form calendar-toolbar-form--register-only">
-                      <button
-                        className="primary-btn calendar-add-btn"
-                        type="button"
-                        onClick={openCalendarEventRegisterModal}
-                      >
-                        등록
-                      </button>
-                    </div>
+                      <div className="calendar-toolbar-form calendar-toolbar-form--register-only contracts-header-actions--with-inline-nav">
+                        <button
+                          className="primary-btn calendar-add-btn"
+                          type="button"
+                          onClick={openCalendarEventRegisterModal}
+                        >
+                          등록
+                        </button>
+                        <InlinePageNavBar activeMenu={menu} onNavigate={setMenu} />
+                      </div>
                     </div>
 
                     <div className="calendar-surface">
