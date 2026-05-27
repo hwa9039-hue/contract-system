@@ -2651,7 +2651,7 @@ textarea:focus-visible {
 }
 
 .dashboard-work-report-briefing-title {
-  margin: 6px 0 0;
+  margin: 0;
   font-size: 22px;
   font-weight: 900;
   color: var(--ink);
@@ -2663,6 +2663,14 @@ textarea:focus-visible {
   font-size: 14px;
   font-weight: 700;
   color: var(--muted);
+}
+
+.dashboard-work-report-briefing-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .dashboard-work-report-briefing-cta {

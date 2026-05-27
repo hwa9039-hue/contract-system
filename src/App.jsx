@@ -10906,34 +10906,38 @@ function App() {
                 <div className="dashboard-work-report-briefing">
                   <div className="dashboard-work-report-briefing-top">
                     <div>
-                      <p className="dashboard-section-eyebrow">주간업무보고서</p>
                       <h2 className="dashboard-work-report-briefing-title">오늘 업무 브리핑</h2>
-                      <p className="dashboard-work-report-briefing-meta">
-                        {dashboardTodayWorkBrief.todayYmd} ·{' '}
-                        {getWorkReportWeekLabel(dashboardWorkReportWeekMeta.weekStartDate)}
-                      </p>
                     </div>
-                    <button
-                      className="primary-btn dashboard-work-report-briefing-cta"
-                      type="button"
-                      onClick={() => {
-                        trackWorkWeek(dashboardWorkReportWeekMeta.weekStartDate)
-                        setMenu('workReports')
-                      }}
-                    >
-                      주간업무보고서 열기
-                    </button>
+                    <div className="dashboard-work-report-briefing-actions">
+                      <button
+                        className="primary-btn dashboard-work-report-briefing-cta"
+                        type="button"
+                        onClick={() => {
+                          trackWorkWeek(dashboardWorkReportWeekMeta.weekStartDate)
+                          setMenu('workReports')
+                        }}
+                      >
+                        주간업무보고서 열기
+                      </button>
+                      <button
+                        className="primary-btn dashboard-work-report-briefing-cta"
+                        type="button"
+                        onClick={() => {
+                          trackWorkWeek(dashboardWorkReportWeekMeta.weekStartDate)
+                          setMenu('meetingMinutes')
+                        }}
+                      >
+                        회의록 열기
+                      </button>
+                    </div>
                   </div>
 
-                  {!dashboardTodayWorkBrief.hasChecklist &&
-                  !dashboardTodayWorkBrief.hasExternal &&
-                  !dashboardTodayWorkBrief.hasMeetingMinutes ? (
+                  {!dashboardTodayWorkBrief.hasChecklist && !dashboardTodayWorkBrief.hasExternal ? (
                     <p className="dashboard-work-report-briefing-empty">
-                      오늘 등록된 주요 확인사항/외부일정이 없고, 이번 주 회의록도 없습니다.
+                      오늘 등록된 주요 확인사항/외부일정이 없습니다.
                     </p>
                   ) : (
-                    <>
-                      <div className="dashboard-work-report-briefing-split">
+                    <div className="dashboard-work-report-briefing-split">
                       <div className="dashboard-work-report-briefing-col">
                         <h3 className="dashboard-work-report-briefing-col-title">주요 확인사항</h3>
                         {dashboardTodayWorkBrief.hasChecklist ? (
@@ -10975,39 +10979,7 @@ function App() {
                           <p className="dashboard-work-report-briefing-col-empty">등록된 외부일정이 없습니다.</p>
                         )}
                       </div>
-                      </div>
-                      <div className="dashboard-work-report-briefing-meeting">
-                        <h3 className="dashboard-work-report-briefing-col-title">회의록</h3>
-                        {dashboardTodayWorkBrief.hasMeetingMinutes ? (
-                          <ul className="dashboard-work-report-briefing-external-list">
-                            {dashboardTodayWorkBrief.meetingMinutesRows.map((row, idx) => {
-                              const assignees = safeString(row.assignee)
-                                .split(',')
-                                .map((s) => s.trim())
-                                .filter(Boolean)
-                              return (
-                                <li
-                                  key={`meeting-brief-${idx}`}
-                                  className="dashboard-work-report-briefing-external-item dashboard-work-report-briefing-external-item--meeting"
-                                >
-                                  <div className="dashboard-work-report-briefing-external-managers">
-                                    {assignees.length ? assignees.join(', ') : '—'}
-                                  </div>
-                                  <div className="dashboard-work-report-briefing-external-content">
-                                    {row.content || '—'}
-                                  </div>
-                                </li>
-                              )
-                            })}
-                          </ul>
-                        ) : (
-                          <p className="dashboard-work-report-briefing-col-empty">
-                            이번 주({getWorkReportWeekLabel(dashboardTodayWorkBrief.weekStartDate)}) 회의록이
-                            없습니다.
-                          </p>
-                        )}
-                      </div>
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
