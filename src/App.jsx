@@ -3703,7 +3703,11 @@ function pickMeetingMinutesStoredRow(weekStartDate, workReportRows, orderIndex =
     const rowWeekStart = formatDateInput(getWeekStartMonday(rowDateKey || dateKey))
     return rowWeekStart === weekStart || rowDateKey === dateKey
   })
-  return pickLatestWorkReportRow(matches)
+  if (!matches.length) return undefined
+  const withData = matches.filter(
+    (row) => !isMeetingMinutesDataEmpty(parseMeetingMinutesFromEntry(row))
+  )
+  return pickLatestWorkReportRow(withData.length ? withData : matches)
 }
 
 function upsertWorkReportRowInList(rows, nextRow) {
@@ -8009,6 +8013,12 @@ function App() {
               savedRow = await weeklyWorkReportsApi.update(activeRowId, wirePayload, {
                 alreadyWired: true,
               })
+            }
+            const responseBody = serializeMeetingMinutesPatch(
+              parseMeetingMinutesFromEntry(normalizeWorkReportRow(savedRow || {}))
+            ).content
+            if (meetingMinutesAgendaMatches(intendedMeetingContent, responseBody)) {
+              break
             }
             await fetchWorkReportRows()
             const weekStart = formatDateInput(getWeekStartMonday(normalizeWorkReportDateKey(date)))

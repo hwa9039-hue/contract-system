@@ -120,6 +120,7 @@ def health_check():
     )
     return {
         "status": "ok",
+        "weeklyWorkReportWire": True,
         "installCases": bool(install_paths),
         "installCasesPaths": install_paths,
         "materialsBoard": bool(materials_board_paths),

@@ -278,8 +278,13 @@ export function meetingMinutesAgendaMatches(leftContent, rightContent) {
   for (let index = 0; index < MEETING_MINUTES_AGENDA_FIXED_ROWS; index += 1) {
     const left = leftAgenda[index] || {}
     const right = rightAgenda[index] || {}
-    if (safeString(left.content).trim() !== safeString(right.content).trim()) return false
-    if (safeString(left.assignee).trim() !== safeString(right.assignee).trim()) return false
+    const leftContent = safeString(left.content).trim()
+    const leftAssignee = safeString(left.assignee).trim()
+    const rightContent = safeString(right.content).trim()
+    const rightAssignee = safeString(right.assignee).trim()
+    if (!leftContent && !leftAssignee && !rightContent && !rightAssignee) continue
+    if (leftContent !== rightContent) return false
+    if (leftAssignee !== rightAssignee) return false
   }
   return true
 }

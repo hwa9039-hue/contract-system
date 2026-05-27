@@ -421,8 +421,7 @@ class WeeklyWorkReportBase(BaseModel):
         parts = merged.get("reportPayloadParts")
         if parts is not None:
             joined = _join_report_payload_parts(parts)
-            if joined:
-                merged["content"] = decode_work_report_wire_content(joined)
+            merged["content"] = decode_work_report_wire_content(joined)
             merged.pop("reportPayloadParts", None)
         body = merged.get("body")
         if body is not None and str(body).strip() != "":
@@ -1046,6 +1045,10 @@ def document_register_to_db_values(row: DocumentRegisterBase) -> dict:
 
 def weekly_work_report_to_db_values(row: WeeklyWorkReportBase) -> dict:
     data = row.model_dump(exclude_unset=True)
+    full = row.model_dump()
+    # body / reportPayloadParts 검증기 병합 content는 PATCH exclude_unset에 빠질 수 있음
+    if "content" not in data and full.get("content") is not None:
+        data["content"] = full["content"]
     values = {}
     for api_key, db_key in WEEKLY_WORK_REPORT_DB_COLUMNS.items():
         if api_key in data:
