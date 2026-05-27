@@ -10992,7 +10992,7 @@ function App() {
                           setMenu('workReports')
                         }}
                       >
-                        주간업무보고서 열기
+                        주간업무보고서 바로가기
                       </button>
                       <button
                         className="primary-btn dashboard-work-report-briefing-cta"
@@ -11002,7 +11002,7 @@ function App() {
                           setMenu('meetingMinutes')
                         }}
                       >
-                        회의록 열기
+                        회의록 바로가기
                       </button>
                     </div>
                   </div>
