@@ -2770,6 +2770,15 @@ textarea:focus-visible {
   word-break: break-word;
 }
 
+.dashboard-briefing-due-sub {
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
 .dashboard-briefing-due-meta {
   margin-top: 4px;
   display: flex;

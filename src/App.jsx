@@ -2471,6 +2471,32 @@ function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDr
   return list
 }
 
+/**
+ * @typedef {Object} DashboardWeekDueRow
+ * @property {string} id
+ * @property {string} projectName
+ * @property {string} dueDate
+ * @property {string} dday
+ * @property {string} client 발주처
+ * @property {string} salesManager 영업담당자
+ * @property {string} fieldPM 현장 PM
+ */
+
+function mapDashboardWeekDueRow(calendarDueItem) {
+  const contract = calendarDueItem?.contract || {}
+  return {
+    id: safeString(calendarDueItem?.id),
+    projectName: stripRedundantCalendarTitlePrefix(
+      contract.projectName || calendarDueItem?.title
+    ),
+    dueDate: safeString(calendarDueItem?.date).trim().slice(0, 10),
+    dday: safeString(calendarDueItem?.dday).trim(),
+    client: safeString(contract.client).trim(),
+    salesManager: safeString(contract.salesOwner).trim(),
+    fieldPM: safeString(contract.pm).trim(),
+  }
+}
+
 /** 대시보드 브리핑: 금주(월~일) 준공 일정 — 캘린더 due 항목 */
 function collectDashboardWeekDueRows(calendarItems, weekAnchorDate = new Date()) {
   const weekStart = getWeekStartMonday(weekAnchorDate)
@@ -2483,6 +2509,7 @@ function collectDashboardWeekDueRows(calendarItems, weekAnchorDate = new Date())
       return ymd && ymd >= startYmd && ymd <= endYmd
     })
     .sort((a, b) => safeString(a.date).localeCompare(safeString(b.date)))
+    .map(mapDashboardWeekDueRow)
 }
 
 /** 대시보드: 오늘이 속한 주(weekStart)의 회의록 agenda 행 목록 */
@@ -11026,21 +11053,21 @@ function App() {
                       <div className="dashboard-briefing-box-body">
                         {dashboardWeekDueRows.length > 0 ? (
                           <ul className="dashboard-briefing-due-list">
-                            {dashboardWeekDueRows.map((item) => {
-                              const projectName = stripRedundantCalendarTitlePrefix(
-                                item.contract?.projectName || item.title
-                              )
-                              const dueYmd = safeString(item.date).slice(0, 10)
-                              return (
-                                <li key={item.id} className="dashboard-briefing-due-item">
-                                  <div className="dashboard-briefing-due-title">{projectName || '—'}</div>
-                                  <div className="dashboard-briefing-due-meta">
-                                    <span>{dueYmd}</span>
-                                    {item.dday ? <span className="dashboard-briefing-due-dday">{item.dday}</span> : null}
-                                  </div>
-                                </li>
-                              )
-                            })}
+                            {dashboardWeekDueRows.map((item) => (
+                              <li key={item.id} className="dashboard-briefing-due-item">
+                                <div className="dashboard-briefing-due-title">{item.projectName || '—'}</div>
+                                <p className="dashboard-briefing-due-sub">
+                                  {item.client || '—'} | 영업: {item.salesManager || '—'} | PM:{' '}
+                                  {item.fieldPM || '—'}
+                                </p>
+                                <div className="dashboard-briefing-due-meta">
+                                  <span>{item.dueDate}</span>
+                                  {item.dday ? (
+                                    <span className="dashboard-briefing-due-dday">{item.dday}</span>
+                                  ) : null}
+                                </div>
+                              </li>
+                            ))}
                           </ul>
                         ) : (
                           <p className="dashboard-briefing-box-empty">
@@ -11056,12 +11083,6 @@ function App() {
 
               <div className="dashboard-surface-card">
                 <div className="dashboard-panel">
-                  <div className="dashboard-panel-header">
-                    <div>
-                      <p className="dashboard-section-eyebrow">최근 등록 내역</p>
-                    </div>
-                  </div>
-
                   <div className="dashboard-recent-grid">
                     {dashboardData.recentGroups.map((group) => {
                       const { base, counts } = splitDashboardRecentTitleLabel(group.label)
