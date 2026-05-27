@@ -4079,11 +4079,13 @@ textarea:focus-visible {
 
   .materials-board-layout {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .materials-board-sidebar {
     flex: 0 0 auto;
     width: 100%;
+    min-height: auto;
   }
 
   .materials-board-folder-list {
@@ -7659,6 +7661,7 @@ textarea:focus-visible {
 .stat-card--materials-board {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
   padding: 24px 32px 36px;
 }
@@ -7666,7 +7669,7 @@ textarea:focus-visible {
 .materials-board-layout {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 16px;
   flex: 1 1 auto;
   min-height: 0;
@@ -7676,6 +7679,7 @@ textarea:focus-visible {
 .materials-board-sidebar {
   flex: 0 0 250px;
   width: 250px;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -7684,6 +7688,7 @@ textarea:focus-visible {
   border-radius: 12px;
   background: #f8fafc;
   box-sizing: border-box;
+  min-height: 100%;
 }
 
 .materials-board-folder-add-btn {
@@ -7708,6 +7713,9 @@ textarea:focus-visible {
   flex-direction: column;
   gap: 4px;
   width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .materials-board-folder-item {
@@ -7757,6 +7765,12 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  align-self: stretch;
+}
+
+.main-area > section.stat-card.stat-card--materials-board .materials-board-layout {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .materials-board-search-toolbar {
@@ -7769,39 +7783,59 @@ textarea:focus-visible {
 .materials-board-toolbar {
   margin: 0 0 20px;
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
+  min-height: 40px;
 }
 
 .materials-board-toolbar .table-search-input {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  padding-top: 0;
+  padding-bottom: 0;
+  box-sizing: border-box;
 }
 
 .materials-board-toolbar-right {
   margin-left: auto;
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  height: 40px;
 }
 
 .materials-board-view-toggle {
   display: inline-flex;
+  flex-direction: row;
+  align-items: stretch;
+  height: 40px;
   border: 1px solid #dbe4f0;
   border-radius: 10px;
   overflow: hidden;
   background: #fff;
+  box-sizing: border-box;
 }
 
 .materials-board-view-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
   border: none;
   background: transparent;
-  padding: 8px 14px;
+  padding: 0 14px;
   font-size: 13px;
   font-weight: 700;
   color: #64748b;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .materials-board-view-toggle-btn.active {
@@ -7811,6 +7845,22 @@ textarea:focus-visible {
 
 .materials-board-toolbar .primary-btn {
   flex-shrink: 0;
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  padding-top: 0;
+  padding-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.confirm-dialog-prompt-input {
+  width: 100%;
+  margin-top: 12px;
+  margin-bottom: 4px;
+  box-sizing: border-box;
 }
 
 .materials-board-search-toolbar .table-search-input {

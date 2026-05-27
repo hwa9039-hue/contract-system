@@ -1048,7 +1048,14 @@ const MATERIALS_BOARD_SEED = [
 ]
 
 const MATERIALS_BOARD_FOLDER_ALL = '__all__'
-const MATERIALS_BOARD_BUILTIN_FOLDERS = ['공지사항', '영업자료', '기술문서', '기타']
+const MATERIALS_BOARD_BUILTIN_FOLDERS = ['기타']
+const MATERIALS_BOARD_RESERVED_FOLDER_NAMES = new Set([
+  '전체',
+  '기타',
+  '공지사항',
+  '영업자료',
+  '기술문서',
+])
 const MATERIALS_BOARD_CUSTOM_FOLDERS_KEY = 'cms-materials-board-custom-folders'
 
 function loadMaterialsBoardCustomFolders() {
@@ -1060,7 +1067,7 @@ function loadMaterialsBoardCustomFolders() {
     return parsed
       .map((item) => safeString(typeof item === 'string' ? item : item?.label).trim())
       .filter(Boolean)
-      .filter((name) => name !== '전체' && !MATERIALS_BOARD_BUILTIN_FOLDERS.includes(name))
+      .filter((name) => !MATERIALS_BOARD_RESERVED_FOLDER_NAMES.has(name))
   } catch {
     return []
   }
@@ -5472,19 +5479,29 @@ function App() {
   }, [])
 
   const handleAddMaterialsBoardFolder = useCallback(() => {
-    const name = window.prompt('새 폴더 이름을 입력하세요.')
-    const trimmed = safeString(name).trim()
-    if (!trimmed) return
-    if (trimmed === '전체' || MATERIALS_BOARD_BUILTIN_FOLDERS.includes(trimmed)) {
-      showAppAlert('이미 사용 중인 폴더 이름입니다.', '알림')
-      return
-    }
-    if (materialsBoardCustomFolders.includes(trimmed)) {
-      showAppAlert('이미 추가된 폴더입니다.', '알림')
-      return
-    }
-    setMaterialsBoardCustomFolders((prev) => [...prev, trimmed])
-    setMaterialsBoardSelectedFolder(trimmed)
+    setContractConfirmDialog({
+      title: '새 폴더',
+      message: '새 폴더 이름을 입력하세요.',
+      confirmLabel: '추가',
+      prompt: { value: '', placeholder: '폴더 이름' },
+      onConfirm: (value) => {
+        const trimmed = safeString(value).trim()
+        if (!trimmed) {
+          showAppAlert('폴더 이름을 입력해 주세요.', '알림')
+          return
+        }
+        if (
+          trimmed === '전체' ||
+          trimmed === '기타' ||
+          materialsBoardCustomFolders.includes(trimmed)
+        ) {
+          showAppAlert('이미 사용 중인 폴더 이름입니다.', '알림')
+          return
+        }
+        setMaterialsBoardCustomFolders((prev) => [...prev, trimmed])
+        setMaterialsBoardSelectedFolder(trimmed)
+      },
+    })
   }, [materialsBoardCustomFolders, showAppAlert])
 
   const handleOpenMaterialsBoardRegister = useCallback(() => {
@@ -8876,6 +8893,12 @@ function App() {
     if (!d) return
     if (Array.isArray(d.payloadIds) && d.payloadIds.length > 0) {
       void runContractDeleteConfirmed()
+      return
+    }
+    if (d.prompt && typeof d.onConfirm === 'function') {
+      void Promise.resolve(d.onConfirm(d.prompt.value)).finally(() =>
+        setContractConfirmDialog(null)
+      )
       return
     }
     if (typeof d.onConfirm === 'function') {
@@ -13816,6 +13839,31 @@ function App() {
               >
                 <h3 className="confirm-dialog-title">{d.title}</h3>
                 <p className="confirm-dialog-message">{d.message}</p>
+                {d.prompt ? (
+                  <input
+                    type="text"
+                    className="table-search-input confirm-dialog-prompt-input"
+                    value={d.prompt.value}
+                    placeholder={d.prompt.placeholder || ''}
+                    autoFocus
+                    onChange={(e) =>
+                      setContractConfirmDialog((prev) =>
+                        prev?.prompt
+                          ? {
+                              ...prev,
+                              prompt: { ...prev.prompt, value: e.target.value },
+                            }
+                          : prev
+                      )
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleConfirmDialogPrimary()
+                      }
+                    }}
+                  />
+                ) : null}
                 <div className="confirm-dialog-actions">
                   {!d.alert && (
                     <button
