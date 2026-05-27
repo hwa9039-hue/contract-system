@@ -1250,6 +1250,24 @@ textarea {
   width: min(560px, calc(100vw - 40px));
 }
 
+.materials-board-register-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.materials-board-register-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.materials-board-register-modal-body .install-case-form-actions {
+  margin-top: 0;
+  padding-top: 4px;
+}
+
 .calendar-event-register-modal .calendar-input-date {
   width: auto;
   min-width: 140px;
@@ -7718,13 +7736,38 @@ textarea:focus-visible {
   overflow-y: auto;
 }
 
+.materials-board-folder-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  border-radius: 8px;
+  min-width: 0;
+}
+
+.materials-board-folder-row:hover,
+.materials-board-folder-row:focus-within {
+  background: #eef2f7;
+}
+
+.materials-board-folder-row.active {
+  background: #eef5ff;
+}
+
+.materials-board-folder-row.active .materials-board-folder-item {
+  color: #1f4fd1;
+  font-weight: 700;
+}
+
 .materials-board-folder-item {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  width: 100%;
-  padding: 9px 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 9px 4px 9px 10px;
   border: none;
   border-radius: 8px;
   background: transparent;
@@ -7736,14 +7779,44 @@ textarea:focus-visible {
   font-family: inherit;
 }
 
-.materials-board-folder-item:hover {
-  background: #eef2f7;
+.materials-board-folder-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding-right: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
 }
 
-.materials-board-folder-item.active {
-  background: #eef5ff;
+.materials-board-folder-row:hover .materials-board-folder-actions,
+.materials-board-folder-row:focus-within .materials-board-folder-actions {
+  opacity: 1;
+}
+
+.materials-board-folder-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.materials-board-folder-action-btn:hover {
+  background: #e2e8f0;
   color: #1f4fd1;
-  font-weight: 700;
+}
+
+.materials-board-folder-action-btn--danger:hover {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .materials-board-folder-icon {

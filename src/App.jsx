@@ -7,7 +7,9 @@ import {
   FileSpreadsheet,
   FileText,
   MoreHorizontal,
+  Pencil,
   Presentation,
+  Trash2,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import './App.css'
@@ -1101,6 +1103,20 @@ function getMaterialsBoardAssignableFolders(customFolders) {
     .map((name) => safeString(name).trim())
     .filter((name) => name && !MATERIALS_BOARD_BUILTIN_FOLDERS.includes(name))
   return [...MATERIALS_BOARD_BUILTIN_FOLDERS, ...custom]
+}
+
+function isMaterialsBoardFolderNameTaken(name, customFolders, excludeName = '') {
+  const trimmed = safeString(name).trim()
+  const exclude = safeString(excludeName).trim()
+  if (!trimmed || trimmed === '전체') return true
+  if (trimmed !== exclude && MATERIALS_BOARD_BUILTIN_FOLDERS.includes(trimmed)) return true
+  if (trimmed !== exclude && customFolders.includes(trimmed)) return true
+  return false
+}
+
+function isMaterialsBoardCustomFolderId(folderId) {
+  const id = safeString(folderId).trim()
+  return id && id !== MATERIALS_BOARD_FOLDER_ALL && !MATERIALS_BOARD_BUILTIN_FOLDERS.includes(id)
 }
 
 function getDefaultMaterialsBoardForm(folder = '기타') {
@@ -5490,11 +5506,7 @@ function App() {
           showAppAlert('폴더 이름을 입력해 주세요.', '알림')
           return
         }
-        if (
-          trimmed === '전체' ||
-          trimmed === '기타' ||
-          materialsBoardCustomFolders.includes(trimmed)
-        ) {
+        if (isMaterialsBoardFolderNameTaken(trimmed, materialsBoardCustomFolders)) {
           showAppAlert('이미 사용 중인 폴더 이름입니다.', '알림')
           return
         }
@@ -5503,6 +5515,115 @@ function App() {
       },
     })
   }, [materialsBoardCustomFolders, showAppAlert])
+
+  const updateMaterialsBoardPostsFolder = useCallback(async (fromFolder, toFolder) => {
+    const targets = materialsBoardPosts.filter(
+      (post) => getMaterialsBoardPostFolder(post) === fromFolder
+    )
+    for (const post of targets) {
+      await materialsBoardApi.update(post.id, {
+        title: safeString(post.title).trim(),
+        content: safeString(post.content).trim(),
+        folder: toFolder,
+        files: [],
+      })
+    }
+    if (targets.length > 0) {
+      await fetchMaterialsBoardPosts()
+    }
+  }, [materialsBoardPosts])
+
+  const handleRenameMaterialsBoardFolder = useCallback(
+    (folderId) => {
+      const oldName = safeString(folderId).trim()
+      if (!oldName || oldName === MATERIALS_BOARD_FOLDER_ALL) return
+
+      setContractConfirmDialog({
+        title: '폴더명 수정',
+        message: `「${oldName}」 폴더의 새 이름을 입력하세요.`,
+        confirmLabel: '저장',
+        prompt: { value: oldName, placeholder: '폴더 이름' },
+        onConfirm: async (value) => {
+          const newName = safeString(value).trim()
+          if (!newName) {
+            showAppAlert('폴더 이름을 입력해 주세요.', '알림')
+            return
+          }
+          if (newName === oldName) return
+          if (isMaterialsBoardFolderNameTaken(newName, materialsBoardCustomFolders, oldName)) {
+            showAppAlert('이미 사용 중인 폴더 이름입니다.', '알림')
+            return
+          }
+
+          try {
+            await updateMaterialsBoardPostsFolder(oldName, newName)
+            if (isMaterialsBoardCustomFolderId(oldName)) {
+              setMaterialsBoardCustomFolders((prev) =>
+                prev.map((name) => (name === oldName ? newName : name))
+              )
+            } else if (oldName === '기타' && !materialsBoardCustomFolders.includes(newName)) {
+              setMaterialsBoardCustomFolders((prev) => [...prev, newName])
+            }
+            if (materialsBoardSelectedFolder === oldName) {
+              setMaterialsBoardSelectedFolder(newName)
+            }
+            setToastMessage('폴더명이 변경되었습니다.')
+          } catch (error) {
+            logApiOperationError('게시판 폴더명 수정', error)
+            showAppAlert(error?.message || '폴더명 변경에 실패했습니다.', '알림')
+          }
+        },
+      })
+    },
+    [
+      materialsBoardCustomFolders,
+      materialsBoardSelectedFolder,
+      showAppAlert,
+      updateMaterialsBoardPostsFolder,
+    ]
+  )
+
+  const handleDeleteMaterialsBoardFolder = useCallback(
+    (folderId) => {
+      const folderName = safeString(folderId).trim()
+      if (!folderName || folderName === MATERIALS_BOARD_FOLDER_ALL) return
+
+      if (!isMaterialsBoardCustomFolderId(folderName)) {
+        showAppAlert('기본 폴더 「기타」는 삭제할 수 없습니다.', '알림')
+        return
+      }
+
+      const postCount = materialsBoardPosts.filter(
+        (post) => getMaterialsBoardPostFolder(post) === folderName
+      ).length
+
+      setContractConfirmDialog({
+        title: '폴더 삭제',
+        message:
+          postCount > 0
+            ? `「${folderName}」 폴더를 삭제하시겠습니까?\n해당 폴더의 게시글 ${postCount}건은 「기타」 폴더로 이동합니다.`
+            : `「${folderName}」 폴더를 삭제하시겠습니까?`,
+        destructive: true,
+        confirmLabel: '삭제',
+        onConfirm: async () => {
+          try {
+            if (postCount > 0) {
+              await updateMaterialsBoardPostsFolder(folderName, '기타')
+            }
+            setMaterialsBoardCustomFolders((prev) => prev.filter((name) => name !== folderName))
+            if (materialsBoardSelectedFolder === folderName) {
+              setMaterialsBoardSelectedFolder(MATERIALS_BOARD_FOLDER_ALL)
+            }
+            setToastMessage('폴더가 삭제되었습니다.')
+          } catch (error) {
+            logApiOperationError('게시판 폴더 삭제', error)
+            showAppAlert(error?.message || '폴더 삭제에 실패했습니다.', '알림')
+          }
+        },
+      })
+    },
+    [materialsBoardPosts, materialsBoardSelectedFolder, showAppAlert, updateMaterialsBoardPostsFolder]
+  )
 
   const handleOpenMaterialsBoardRegister = useCallback(() => {
     if (!isAdmin) return
@@ -12720,23 +12841,51 @@ function App() {
                 <nav className="materials-board-folder-list">
                   {materialsBoardFolderNav.map((folderItem) => {
                     const isActive = materialsBoardSelectedFolder === folderItem.id
+                    const showFolderActions =
+                      isAdmin && folderItem.id !== MATERIALS_BOARD_FOLDER_ALL
                     return (
-                      <button
+                      <div
                         key={folderItem.id}
-                        type="button"
-                        className={
-                          isActive
-                            ? 'materials-board-folder-item active'
-                            : 'materials-board-folder-item'
-                        }
-                        onClick={() => setMaterialsBoardSelectedFolder(folderItem.id)}
-                        aria-current={isActive ? 'true' : undefined}
+                        className={`materials-board-folder-row${isActive ? ' active' : ''}`}
                       >
-                        <span className="materials-board-folder-icon" aria-hidden="true">
-                          📂
-                        </span>
-                        <span className="materials-board-folder-label">{folderItem.label}</span>
-                      </button>
+                        <button
+                          type="button"
+                          className="materials-board-folder-item"
+                          onClick={() => setMaterialsBoardSelectedFolder(folderItem.id)}
+                          aria-current={isActive ? 'true' : undefined}
+                        >
+                          <span className="materials-board-folder-icon" aria-hidden="true">
+                            📂
+                          </span>
+                          <span className="materials-board-folder-label">{folderItem.label}</span>
+                        </button>
+                        {showFolderActions ? (
+                          <div className="materials-board-folder-actions">
+                            <button
+                              type="button"
+                              className="materials-board-folder-action-btn"
+                              aria-label={`${folderItem.label} 폴더명 수정`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleRenameMaterialsBoardFolder(folderItem.id)
+                              }}
+                            >
+                              <Pencil size={14} strokeWidth={2} aria-hidden />
+                            </button>
+                            <button
+                              type="button"
+                              className="materials-board-folder-action-btn materials-board-folder-action-btn--danger"
+                              aria-label={`${folderItem.label} 폴더 삭제`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteMaterialsBoardFolder(folderItem.id)
+                              }}
+                            >
+                              <Trash2 size={14} strokeWidth={2} aria-hidden />
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
                     )
                   })}
                 </nav>
@@ -13677,44 +13826,54 @@ function App() {
                 ✕
               </button>
             </div>
-            <div className="install-case-form-modal-body">
-              <label className="install-case-form-label" htmlFor="materials-board-title">제목</label>
-              <input
-                id="materials-board-title"
-                className="table-search-input install-case-form-input"
-                type="text"
-                value={materialsBoardFormDraft.title}
-                onChange={(e) => setMaterialsBoardFormDraft((prev) => ({ ...prev, title: e.target.value }))}
-                placeholder="예: LED 견적 가이드"
-              />
-              <label className="install-case-form-label" htmlFor="materials-board-folder">
-                폴더
-              </label>
-              <select
-                id="materials-board-folder"
-                className="contract-filter-select install-case-form-input global-register-control"
-                value={safeString(materialsBoardFormDraft.folder).trim() || '기타'}
-                onChange={(e) =>
-                  setMaterialsBoardFormDraft((prev) => ({ ...prev, folder: e.target.value }))
-                }
-              >
-                {materialsBoardAssignableFolders.map((folderName) => (
-                  <option key={folderName} value={folderName}>
-                    {folderName}
-                  </option>
-                ))}
-              </select>
-              <label className="install-case-form-label">첨부 파일 (다중 선택)</label>
-              <MaterialBoardMultiFileDropzone
-                inputId="materials-board-file-input"
-                pendingFiles={materialsBoardFile}
-                onAddFiles={(entries) =>
-                  setMaterialsBoardFile((prev) => [...prev, ...entries])
-                }
-                onRemoveFile={(fileId) =>
-                  setMaterialsBoardFile((prev) => prev.filter((e) => e.id !== fileId))
-                }
-              />
+            <div className="install-case-form-modal-body materials-board-register-modal-body">
+              <div className="materials-board-register-field">
+                <label className="install-case-form-label" htmlFor="materials-board-title">
+                  제목
+                </label>
+                <input
+                  id="materials-board-title"
+                  className="table-search-input install-case-form-input"
+                  type="text"
+                  value={materialsBoardFormDraft.title}
+                  onChange={(e) =>
+                    setMaterialsBoardFormDraft((prev) => ({ ...prev, title: e.target.value }))
+                  }
+                  placeholder="예: LED 견적 가이드"
+                />
+              </div>
+              <div className="materials-board-register-field">
+                <label className="install-case-form-label" htmlFor="materials-board-folder">
+                  폴더
+                </label>
+                <select
+                  id="materials-board-folder"
+                  className="contract-filter-select install-case-form-input global-register-control"
+                  value={safeString(materialsBoardFormDraft.folder).trim() || '기타'}
+                  onChange={(e) =>
+                    setMaterialsBoardFormDraft((prev) => ({ ...prev, folder: e.target.value }))
+                  }
+                >
+                  {materialsBoardAssignableFolders.map((folderName) => (
+                    <option key={folderName} value={folderName}>
+                      {folderName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="materials-board-register-field">
+                <label className="install-case-form-label">첨부 파일 (다중 선택)</label>
+                <MaterialBoardMultiFileDropzone
+                  inputId="materials-board-file-input"
+                  pendingFiles={materialsBoardFile}
+                  onAddFiles={(entries) =>
+                    setMaterialsBoardFile((prev) => [...prev, ...entries])
+                  }
+                  onRemoveFile={(fileId) =>
+                    setMaterialsBoardFile((prev) => prev.filter((e) => e.id !== fileId))
+                  }
+                />
+              </div>
               <div className="install-case-form-actions">
                 <button
                   type="button"
