@@ -2839,6 +2839,16 @@ function formatDateInput(date) {
   return `${yyyy}-${mm}-${dd}`
 }
 
+/** `YYYY-MM-DD (요일)` — 대시보드 브리핑 제목용 */
+function formatYmdWithWeekdayKo(date = new Date()) {
+  const d =
+    date instanceof Date
+      ? date
+      : new Date(`${safeString(date).trim().slice(0, 10)}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${formatDateInput(d)} (${CALENDAR_WEEKDAY_LABELS_KO[d.getDay()]})`
+}
+
 function addDays(baseDate, days) {
   const nextDate = new Date(baseDate)
   nextDate.setDate(nextDate.getDate() + days)
@@ -10906,7 +10916,10 @@ function App() {
                 <div className="dashboard-work-report-briefing">
                   <div className="dashboard-work-report-briefing-top">
                     <div>
-                      <h2 className="dashboard-work-report-briefing-title">오늘 업무 브리핑</h2>
+                      <h2 className="dashboard-work-report-briefing-title">
+                        오늘 업무 브리핑 <span className="dashboard-work-report-briefing-title-sep">/</span>{' '}
+                        {formatYmdWithWeekdayKo(new Date())}
+                      </h2>
                     </div>
                     <div className="dashboard-work-report-briefing-actions">
                       <button

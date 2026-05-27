@@ -2652,10 +2652,17 @@ textarea:focus-visible {
 
 .dashboard-work-report-briefing-title {
   margin: 0;
-  font-size: 22px;
+  font-size: 14px;
   font-weight: 900;
-  color: var(--ink);
+  color: #1e40af;
   font-family: 'SUIT', sans-serif;
+  line-height: 1.4;
+}
+
+.dashboard-work-report-briefing-title-sep {
+  margin: 0 4px;
+  font-weight: 800;
+  color: #64748b;
 }
 
 .dashboard-work-report-briefing-meta {
