@@ -2537,22 +2537,25 @@ function getWorkReportChecklistCombinedText(date, sectionKey, workReportRows, wo
   return parts.join('\n')
 }
 
-const WORK_REPORT_CHECKLIST_BULLET_PREFIX = '- '
+const WORK_REPORT_CHECKLIST_BULLET_PREFIX = '• '
 
-/** 주요 확인사항 textarea: Enter / Shift+Enter 줄바꿈 시 다음 줄에 "- " 자동 삽입 */
-function handleWorkReportChecklistTextareaKeyDown(event, onContentChange) {
-  if (event.key !== 'Enter') return
+function getWorkReportChecklistLineBounds(value, cursor) {
+  const lineStart = value.lastIndexOf('\n', Math.max(0, cursor - 1)) + 1
+  const nextBreak = value.indexOf('\n', cursor)
+  const lineEnd = nextBreak === -1 ? value.length : nextBreak
+  return {
+    lineStart,
+    lineEnd,
+    line: value.slice(lineStart, lineEnd),
+  }
+}
 
-  event.preventDefault()
-  const el = event.currentTarget
-  const value = safeString(el.value)
-  const start = Number(el.selectionStart) || 0
-  const end = Number(el.selectionEnd) || start
-  const insert = `\n${WORK_REPORT_CHECKLIST_BULLET_PREFIX}`
-  const next = `${value.slice(0, start)}${insert}${value.slice(end)}`
-  onContentChange(next)
+function isWorkReportChecklistEmptyBulletLine(line) {
+  const trimmed = safeString(line).trimEnd()
+  return trimmed === '•' || trimmed === '-' || trimmed === '• ' || trimmed === '- '
+}
 
-  const cursor = start + insert.length
+function setWorkReportChecklistTextareaCursor(el, cursor) {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       try {
@@ -2563,6 +2566,41 @@ function handleWorkReportChecklistTextareaKeyDown(event, onContentChange) {
       }
     })
   })
+}
+
+/** 주요 확인사항 textarea: 포커스 시 빈 칸이면 첫 줄에 "• " 삽입 */
+function handleWorkReportChecklistTextareaFocus(event, currentValue, onContentChange) {
+  if (safeString(currentValue) !== '') return
+  onContentChange(WORK_REPORT_CHECKLIST_BULLET_PREFIX)
+  setWorkReportChecklistTextareaCursor(event.currentTarget, WORK_REPORT_CHECKLIST_BULLET_PREFIX.length)
+}
+
+/** 주요 확인사항 textarea: Enter 시 다음 줄 "• " / 빈 불릿 줄에서는 불릿 제거 후 일반 개행 */
+function handleWorkReportChecklistTextareaKeyDown(event, onContentChange) {
+  if (event.key !== 'Enter') return
+
+  const el = event.currentTarget
+  const value = safeString(el.value)
+  const start = Number(el.selectionStart) || 0
+  const end = Number(el.selectionEnd) || start
+  const { lineStart, lineEnd, line } = getWorkReportChecklistLineBounds(value, start)
+
+  if (isWorkReportChecklistEmptyBulletLine(line)) {
+    event.preventDefault()
+    const next =
+      lineStart === 0 && lineEnd === value.length
+        ? ''
+        : `${value.slice(0, lineStart)}${value.slice(lineEnd)}`
+    onContentChange(next)
+    setWorkReportChecklistTextareaCursor(el, lineStart)
+    return
+  }
+
+  event.preventDefault()
+  const insert = `\n${WORK_REPORT_CHECKLIST_BULLET_PREFIX}`
+  const next = `${value.slice(0, start)}${insert}${value.slice(end)}`
+  onContentChange(next)
+  setWorkReportChecklistTextareaCursor(el, start + insert.length)
 }
 
 function getWorkReportPrimaryChecklistStoredRow(date, sectionKey, workReportRows) {
@@ -10277,6 +10315,11 @@ function App() {
             value={ckEntry.content}
             placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
             onChange={(e) => updateWorkReportBoardEntry(date, ckSection, 1, { content: e.target.value })}
+            onFocus={(e) =>
+              handleWorkReportChecklistTextareaFocus(e, ckEntry.content, (content) =>
+                updateWorkReportBoardEntry(date, ckSection, 1, { content })
+              )
+            }
             onKeyDown={(e) =>
               handleWorkReportChecklistTextareaKeyDown(e, (content) =>
                 updateWorkReportBoardEntry(date, ckSection, 1, { content })
@@ -10360,6 +10403,14 @@ function App() {
               updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
                 content: e.target.value,
               })
+            }
+            onFocus={(e) =>
+              handleWorkReportChecklistTextareaFocus(
+                e,
+                getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content,
+                (content) =>
+                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              )
             }
             onKeyDown={(e) =>
               handleWorkReportChecklistTextareaKeyDown(e, (content) =>
@@ -10571,6 +10622,14 @@ function App() {
               updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
                 content: e.target.value,
               })
+            }
+            onFocus={(e) =>
+              handleWorkReportChecklistTextareaFocus(
+                e,
+                getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content,
+                (content) =>
+                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              )
             }
             onKeyDown={(e) =>
               handleWorkReportChecklistTextareaKeyDown(e, (content) =>
@@ -10890,6 +10949,14 @@ function App() {
                 content: e.target.value,
               })
             }
+            onFocus={(e) =>
+              handleWorkReportChecklistTextareaFocus(
+                e,
+                getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content,
+                (content) =>
+                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              )
+            }
             onKeyDown={(e) =>
               handleWorkReportChecklistTextareaKeyDown(e, (content) =>
                 updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
@@ -11121,6 +11188,14 @@ function App() {
             updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
               content: e.target.value,
             })
+          }
+          onFocus={(e) =>
+            handleWorkReportChecklistTextareaFocus(
+              e,
+              getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content,
+              (content) =>
+                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+            )
           }
           onKeyDown={(e) =>
             handleWorkReportChecklistTextareaKeyDown(e, (content) =>
