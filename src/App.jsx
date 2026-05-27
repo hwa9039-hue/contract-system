@@ -4079,11 +4079,23 @@ function getCategory(contract) {
   return null
 }
 
+/**
+ * 연도별 계약금액 집계.
+ * - totalAmount: 해당 연도 전체 항목 합산 (category 미인식 포함) → 리스트 합계와 항상 일치
+ * - items: 인식된 카테고리별 금액·비율 (도넛 차트·카드 표시용)
+ */
 function buildDashboardSummary(contracts) {
   const byYear = {}
+  // 연도별 전체 합산 (category 필터 없음) — Single Source of Truth
+  const totalByYear = {}
 
   contracts.forEach((item) => {
     const year = item.year || '미분류'
+    const amt = parseAmount(item.amount)
+
+    // 전체 합산
+    totalByYear[year] = (totalByYear[year] ?? 0) + amt
+
     const category = getCategory(item)
     if (!category) return
 
@@ -4095,27 +4107,32 @@ function buildDashboardSummary(contracts) {
     }
 
     byYear[year][category].count += 1
-    byYear[year][category].amount += parseAmount(item.amount)
+    byYear[year][category].amount += amt
   })
 
-  const years = Object.keys(byYear)
+  // 카테고리가 없는 연도도 totalByYear 에 잡힐 수 있으므로 union
+  const allYears = new Set([...Object.keys(byYear), ...Object.keys(totalByYear)])
+
+  const years = [...allYears]
     .sort((a, b) => Number(b) - Number(a))
     .map((year) => {
-      const totalAmount = DASHBOARD_CATEGORY_ORDER.reduce(
-        (sum, name) => sum + byYear[year][name].amount,
-        0
-      )
+      // 카테고리 합산(차트용) — 미인식 항목은 포함되지 않으므로 비율 기준으로만 사용
+      const categoryTotal = byYear[year]
+        ? DASHBOARD_CATEGORY_ORDER.reduce((sum, name) => sum + byYear[year][name].amount, 0)
+        : 0
+      // 상단 요약·하단 리스트와 동일한 전체 합산
+      const totalAmount = totalByYear[year] ?? 0
 
       return {
         year,
         totalAmount,
         items: DASHBOARD_CATEGORY_ORDER.map((name) => {
-          const amount = byYear[year][name].amount
-          const ratio = totalAmount > 0 ? (amount / totalAmount) * 100 : 0
+          const amount = byYear[year]?.[name]?.amount ?? 0
+          const ratio = categoryTotal > 0 ? (amount / categoryTotal) * 100 : 0
 
           return {
             name,
-            count: byYear[year][name].count,
+            count: byYear[year]?.[name]?.count ?? 0,
             amount,
             ratio,
           }
@@ -5006,12 +5023,11 @@ function App() {
   const contractPageYearSummaryBlock = useMemo(() => {
     const y = contractPageSummaryFocusYear
     if (!y) return null
-    // 하단 리스트와 동일하게 해당 연도 filteredContracts 전체 합산 (category 필터 없음)
-    const totalAmount = sumContractAmounts(contractPageSummaryRows)
+    // buildDashboardSummary 가 이미 전체 합산 totalAmount 를 반환하므로 그대로 사용
     const { years } = buildDashboardSummaryForFocusYear(contractPageSummaryRows, y)
     const fromData = years[0]
-    if (fromData) return { ...fromData, totalAmount }
-    return { ...buildEmptyContractYearSummaryBlock(y), totalAmount }
+    if (fromData) return fromData
+    return buildEmptyContractYearSummaryBlock(y)
   }, [contractPageSummaryFocusYear, contractPageSummaryRows])
 
   const contractYearFilterOptions = useMemo(() => {
