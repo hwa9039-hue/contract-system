@@ -2537,6 +2537,34 @@ function getWorkReportChecklistCombinedText(date, sectionKey, workReportRows, wo
   return parts.join('\n')
 }
 
+const WORK_REPORT_CHECKLIST_BULLET_PREFIX = '- '
+
+/** 주요 확인사항 textarea: Enter / Shift+Enter 줄바꿈 시 다음 줄에 "- " 자동 삽입 */
+function handleWorkReportChecklistTextareaKeyDown(event, onContentChange) {
+  if (event.key !== 'Enter') return
+
+  event.preventDefault()
+  const el = event.currentTarget
+  const value = safeString(el.value)
+  const start = Number(el.selectionStart) || 0
+  const end = Number(el.selectionEnd) || start
+  const insert = `\n${WORK_REPORT_CHECKLIST_BULLET_PREFIX}`
+  const next = `${value.slice(0, start)}${insert}${value.slice(end)}`
+  onContentChange(next)
+
+  const cursor = start + insert.length
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      try {
+        el.selectionStart = cursor
+        el.selectionEnd = cursor
+      } catch {
+        /* ignore */
+      }
+    })
+  })
+}
+
 function getWorkReportPrimaryChecklistStoredRow(date, sectionKey, workReportRows) {
   const row1 = pickLatestWorkReportRow(
     workReportRows.filter((r) => workReportRowKeyMatch(r, date, sectionKey, 1))
@@ -10249,6 +10277,11 @@ function App() {
             value={ckEntry.content}
             placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
             onChange={(e) => updateWorkReportBoardEntry(date, ckSection, 1, { content: e.target.value })}
+            onKeyDown={(e) =>
+              handleWorkReportChecklistTextareaKeyDown(e, (content) =>
+                updateWorkReportBoardEntry(date, ckSection, 1, { content })
+              )
+            }
           />
         </div>
       )
@@ -10327,6 +10360,11 @@ function App() {
               updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
                 content: e.target.value,
               })
+            }
+            onKeyDown={(e) =>
+              handleWorkReportChecklistTextareaKeyDown(e, (content) =>
+                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              )
             }
           />
         </div>
@@ -10533,6 +10571,11 @@ function App() {
               updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
                 content: e.target.value,
               })
+            }
+            onKeyDown={(e) =>
+              handleWorkReportChecklistTextareaKeyDown(e, (content) =>
+                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              )
             }
           />
         </div>
@@ -10847,6 +10890,11 @@ function App() {
                 content: e.target.value,
               })
             }
+            onKeyDown={(e) =>
+              handleWorkReportChecklistTextareaKeyDown(e, (content) =>
+                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              )
+            }
           />
         </div>
       </div>
@@ -11073,6 +11121,11 @@ function App() {
             updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
               content: e.target.value,
             })
+          }
+          onKeyDown={(e) =>
+            handleWorkReportChecklistTextareaKeyDown(e, (content) =>
+              updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+            )
           }
         />
       </div>
