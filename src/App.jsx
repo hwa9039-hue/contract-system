@@ -12568,10 +12568,20 @@ function App() {
                             ▶
                           </button>
                         </div>
+                        <div className="calendar-legend-divider" aria-hidden="true" />
                         <div className="calendar-legend" aria-label="일정 색상 범례">
-                          <span className="calendar-legend-badge contract-event">계약</span>
-                          <span className="calendar-legend-badge due-event">준공</span>
-                          <span className="calendar-legend-badge manual-event">기타</span>
+                          <span className="calendar-legend-item">
+                            <span className="calendar-legend-dot calendar-legend-dot--contract" />
+                            계약
+                          </span>
+                          <span className="calendar-legend-item">
+                            <span className="calendar-legend-dot calendar-legend-dot--due" />
+                            준공
+                          </span>
+                          <span className="calendar-legend-item">
+                            <span className="calendar-legend-dot calendar-legend-dot--manual" />
+                            기타
+                          </span>
                         </div>
                       </div>
                       <div className="calendar-toolbar-form calendar-toolbar-form--register-only">

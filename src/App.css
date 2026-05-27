@@ -4378,38 +4378,59 @@ textarea:focus-visible {
   margin-top: 0;
 }
 
-/* 캘린더 툴바 왼쪽 영역: 네비게이션 + 범례 */
+/* 캘린더 툴바 왼쪽 영역: 네비게이션 + 구분선 + 범례 */
 .calendar-toolbar-left {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   min-width: 0;
   flex: 0 1 auto;
 }
 
-/* 색상 범례 */
+/* 네비게이션 / 범례 구분선 */
+.calendar-legend-divider {
+  width: 1px;
+  height: 18px;
+  background: #d1d5db;
+  flex-shrink: 0;
+  border-radius: 1px;
+}
+
+/* 색상 범례 컨테이너 */
 .calendar-legend {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
   flex-shrink: 0;
 }
 
-.calendar-legend-badge {
+/* 범례 아이템: 도트 + 텍스트 */
+.calendar-legend-item {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
-  border-radius: 6px;
-  border: 1px solid;
+  gap: 5px;
   font-size: 12px;
-  font-weight: 600;
-  line-height: 1.4;
+  font-weight: 500;
+  color: #4b5563;
   white-space: nowrap;
-  pointer-events: none;
   user-select: none;
 }
+
+/* 도트 공통 */
+.calendar-legend-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 도트 색상: 실제 이벤트 필 색상과 동일 */
+.calendar-legend-dot--contract { background: #eab308; }
+.calendar-legend-dot--due      { background: #2563eb; }
+.calendar-legend-dot--manual   { background: #22c55e; }
 
 .calendar-grid {
   margin-top: 0;
