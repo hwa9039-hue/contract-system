@@ -80,16 +80,16 @@ export const weeklyWorkReportsApi = {
   list() {
     return requestJson('/api/weekly-work-reports')
   },
-  create(payload) {
+  create(payload, options = {}) {
     return requestJson('/api/weekly-work-reports', {
       method: 'POST',
-      body: wireWritePayload(payload),
+      body: options.alreadyWired ? payload : wireWritePayload(payload),
     })
   },
-  update(id, patch) {
+  update(id, patch, options = {}) {
     return requestJson(`/api/weekly-work-reports/${encodeURIComponent(String(id))}`, {
       method: 'PATCH',
-      body: wireWritePayload(patch),
+      body: options.alreadyWired ? patch : wireWritePayload(patch),
     })
   },
   remove(id) {

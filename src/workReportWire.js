@@ -1,12 +1,14 @@
 /**
  * Cloudflare WAF: PATCH/POST 본문의 `"content":"…"` 값이 ~55자를 넘으면 500(브라우저는 CORS/Failed to fetch).
- * 긴 본문은 `reportPayloadParts`(48자 단위)로만 보냅니다. 줄(mm2 행) 단위로 끊어 탭·담당자가 깨지지 않게 합니다.
+ * 회의록(mm2)은 `body`(wr1) 또는 `reportPayloadParts`로 전송합니다.
  */
 
 export const WORK_REPORT_WIRE_PREFIX = 'wr1:'
 
 /** WAF 안전 한도(문자 단위). 배열 조각은 이 길이 이하로 분할 */
 export const REPORT_PAYLOAD_PART_MAX = 48
+
+const MEETING_MINUTES_TEXT_PREFIX = 'mm2\n'
 
 export function decodeWorkReportWireText(value) {
   const s = value == null ? '' : String(value)
@@ -20,7 +22,18 @@ export function decodeWorkReportWireText(value) {
   }
 }
 
-function splitReportPayloadParts(text) {
+export function encodeWorkReportWireBody(text) {
+  const raw = text == null ? '' : String(text)
+  if (!raw) return ''
+  const bytes = new TextEncoder().encode(raw)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return `${WORK_REPORT_WIRE_PREFIX}${btoa(binary)}`
+}
+
+export function splitReportPayloadParts(text) {
   const raw = text == null ? '' : String(text)
   if (!raw) return []
   if (raw.length <= REPORT_PAYLOAD_PART_MAX) return [raw]
@@ -63,24 +76,41 @@ function splitReportPayloadParts(text) {
   return parts
 }
 
-/** API 전송용: 짧으면 content, 길면 reportPayloadParts 만 사용 */
-export function toWeeklyWorkReportWirePayload(payload) {
-  if (!payload || typeof payload !== 'object') return payload
+function stripWireContentFields(payload) {
   const { content, body, reportPayloadParts, ...rest } = payload
-  const raw = String(content ?? body ?? '').trim()
-  const wire = { ...rest }
+  return rest
+}
 
-  if (!raw) {
-    return wire
+/** 회의록·긴 본문 저장 시 시도할 wire 형식 순서 */
+export function buildWorkReportWireVariants(payload) {
+  if (!payload || typeof payload !== 'object') return [payload]
+  const rest = stripWireContentFields(payload)
+  const raw = String(payload.content ?? payload.body ?? '').trim()
+  if (!raw) return [rest]
+
+  const variants = []
+  const isMeetingWire = raw.startsWith(MEETING_MINUTES_TEXT_PREFIX)
+
+  if (isMeetingWire) {
+    variants.push({ ...rest, body: encodeWorkReportWireBody(raw) })
+    variants.push({ ...rest, reportPayloadParts: splitReportPayloadParts(raw) })
+    if (raw.length <= REPORT_PAYLOAD_PART_MAX) {
+      variants.push({ ...rest, content: raw })
+    }
+    return variants
   }
 
-  if (raw.length <= REPORT_PAYLOAD_PART_MAX) {
-    wire.content = raw
-    return wire
+  if (raw.length > REPORT_PAYLOAD_PART_MAX) {
+    variants.push({ ...rest, reportPayloadParts: splitReportPayloadParts(raw) })
+    variants.push({ ...rest, body: encodeWorkReportWireBody(raw) })
+    return variants
   }
 
-  wire.reportPayloadParts = Array.isArray(reportPayloadParts)
-    ? reportPayloadParts
-    : splitReportPayloadParts(raw)
-  return wire
+  return [{ ...rest, content: raw }]
+}
+
+/** API 전송용 (첫 번째 wire 변형) */
+export function toWeeklyWorkReportWirePayload(payload) {
+  const variants = buildWorkReportWireVariants(payload)
+  return variants[0] || payload
 }

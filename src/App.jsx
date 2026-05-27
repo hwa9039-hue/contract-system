@@ -52,6 +52,7 @@ import {
   readMeetingMinutesSessionBackup,
   writeMeetingMinutesSessionBackup,
 } from './workReportMeetingMinutes.jsx'
+import { buildWorkReportWireVariants } from './workReportWire.js'
 
 const CONTRACT_COLUMNS = [
   { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text' },
@@ -7978,43 +7979,75 @@ function App() {
         const persistedId =
           existingStored?.id ||
           (!isWorkReportDraftRowId(targetRow.id) ? safeString(targetRow.id).trim() : '')
-        let savedRow
+        const meetingWireVariants =
+          sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes && intendedMeetingContent
+            ? buildWorkReportWireVariants(apiPayload)
+            : null
+        let savedRow = null
+        let activeRowId = persistedId
 
-        if (!persistedId) {
-          savedRow = await weeklyWorkReportsApi.create({
-            ...apiPayload,
-            createdAt: timestamp,
-          })
+        if (!meetingWireVariants) {
+          if (!activeRowId) {
+            savedRow = await weeklyWorkReportsApi.create({
+              ...apiPayload,
+              createdAt: timestamp,
+            })
+            activeRowId = savedRow?.id
+          } else {
+            savedRow = await weeklyWorkReportsApi.update(activeRowId, apiPayload)
+          }
         } else {
-          savedRow = await weeklyWorkReportsApi.update(persistedId, apiPayload)
+          for (let attempt = 0; attempt < meetingWireVariants.length; attempt += 1) {
+            const wirePayload = meetingWireVariants[attempt]
+            if (!activeRowId) {
+              savedRow = await weeklyWorkReportsApi.create(
+                { ...wirePayload, createdAt: timestamp },
+                { alreadyWired: true }
+              )
+              activeRowId = savedRow?.id
+            } else {
+              savedRow = await weeklyWorkReportsApi.update(activeRowId, wirePayload, {
+                alreadyWired: true,
+              })
+            }
+            await fetchWorkReportRows()
+            const weekStart = formatDateInput(getWeekStartMonday(normalizeWorkReportDateKey(date)))
+            const apiRow =
+              workReportRowsRef.current.find((row) => row.id === activeRowId) ||
+              pickMeetingMinutesStoredRow(weekStart, workReportRowsRef.current, oi)
+            const apiBody = serializeMeetingMinutesPatch(
+              parseMeetingMinutesFromEntry(apiRow || { content: '' })
+            ).content
+            if (meetingMinutesAgendaMatches(intendedMeetingContent, apiBody)) {
+              break
+            }
+            if (attempt === meetingWireVariants.length - 1) {
+              showAppAlert(
+                '회의록이 서버에 저장되지 않았습니다.\n\n' +
+                  'NAS contract-backend를 최신으로 재빌드·재시작(body·reportPayloadParts)한 뒤 다시 저장해 주세요.'
+              )
+              return
+            }
+          }
         }
 
         let normalizedSaved = normalizeWorkReportRow(savedRow)
 
         if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes && intendedMeetingContent) {
-          await fetchWorkReportRows()
           const weekStart = formatDateInput(getWeekStartMonday(normalizeWorkReportDateKey(date)))
           const apiRow =
-            workReportRowsRef.current.find((row) => row.id === normalizedSaved.id) ||
+            workReportRowsRef.current.find((row) => row.id === activeRowId) ||
             pickMeetingMinutesStoredRow(weekStart, workReportRowsRef.current, oi)
           const apiBody = serializeMeetingMinutesPatch(
             parseMeetingMinutesFromEntry(apiRow || { content: '' })
           ).content
-          if (!meetingMinutesAgendaMatches(intendedMeetingContent, apiBody)) {
-            showAppAlert(
-              '회의록이 서버에 저장되지 않았습니다.\n\n' +
-                '대시보드·다른 PC에서 보이지 않습니다. 칸에서 포커스를 뺀 뒤 다시 저장해 보세요. ' +
-                '계속되면 NAS 백엔드를 최신(reportPayloadParts 지원)으로 재빌드해 주세요.'
-            )
-            return
-          }
           normalizedSaved = {
             ...(apiRow || normalizedSaved),
             content: apiBody || intendedMeetingContent,
             date: weekStart,
             section: sectionNorm,
             orderIndex: oi,
-            id: normalizedSaved.id || apiRow?.id,
+            id: activeRowId || normalizedSaved.id || apiRow?.id,
             isDraft: false,
           }
         }
