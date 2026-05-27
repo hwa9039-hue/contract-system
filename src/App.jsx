@@ -1119,8 +1119,17 @@ function isMaterialsBoardCustomFolderId(folderId) {
   return id && id !== MATERIALS_BOARD_FOLDER_ALL && !MATERIALS_BOARD_BUILTIN_FOLDERS.includes(id)
 }
 
-function getDefaultMaterialsBoardForm(folder = '기타') {
-  return { title: '', folder: folder || '기타' }
+function getDefaultMaterialsBoardForm() {
+  return { title: '' }
+}
+
+function resolveMaterialsBoardRegisterFolder(folderId, selectedFolderId = MATERIALS_BOARD_FOLDER_ALL) {
+  const fromForm = safeString(folderId).trim()
+  if (fromForm) return fromForm
+  if (selectedFolderId !== MATERIALS_BOARD_FOLDER_ALL) {
+    return safeString(selectedFolderId).trim() || '기타'
+  }
+  return '기타'
 }
 
 function formatMaterialsBoardFileSize(bytes) {
@@ -4471,7 +4480,7 @@ function App() {
   const [materialsBoardFormDraft, setMaterialsBoardFormDraft] = useState(() =>
     getDefaultMaterialsBoardForm()
   )
-  const materialsBoardFormDraftRef = useRef(materialsBoardFormDraft)
+  const [materialsBoardRegisterFolderId, setMaterialsBoardRegisterFolderId] = useState('기타')
   const [materialsBoardFile, setMaterialsBoardFile] = useState([])
   const [materialsBoardEditingId, setMaterialsBoardEditingId] = useState(null)
   const [materialsBoardSubmitting, setMaterialsBoardSubmitting] = useState(false)
@@ -5002,6 +5011,7 @@ function App() {
     setMaterialsBoardRegisterOpen(false)
     setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
+    setMaterialsBoardRegisterFolderId('기타')
     setMaterialsBoardFile([])
     setMaterialsBoardSearch('')
   }, [menu])
@@ -5441,16 +5451,12 @@ function App() {
 
   const materialsBoardRegisterFolderOptions = useMemo(() => {
     const base = materialsBoardAssignableFolders
-    const current = safeString(materialsBoardFormDraft.folder).trim()
+    const current = safeString(materialsBoardRegisterFolderId).trim()
     if (current && !base.includes(current)) {
       return [...base, current]
     }
     return base
-  }, [materialsBoardAssignableFolders, materialsBoardFormDraft.folder])
-
-  useEffect(() => {
-    materialsBoardFormDraftRef.current = materialsBoardFormDraft
-  }, [materialsBoardFormDraft])
+  }, [materialsBoardAssignableFolders, materialsBoardRegisterFolderId])
 
   useEffect(() => {
     persistMaterialsBoardCustomFolders(materialsBoardCustomFolders)
@@ -5568,7 +5574,7 @@ function App() {
         }
         setMaterialsBoardCustomFolders((prev) => [...prev, trimmed])
         setMaterialsBoardSelectedFolder(trimmed)
-        setMaterialsBoardFormDraft((prev) => ({ ...prev, folder: trimmed }))
+        setMaterialsBoardRegisterFolderId(trimmed)
       },
     })
   }, [materialsBoardCustomFolders, showAppAlert])
@@ -5689,7 +5695,8 @@ function App() {
       materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL
         ? materialsBoardSelectedFolder
         : '기타'
-    setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm(defaultFolder))
+    setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
+    setMaterialsBoardRegisterFolderId(defaultFolder)
     setMaterialsBoardFile([])
     setMaterialsBoardRegisterOpen(true)
   }, [isAdmin, materialsBoardSelectedFolder])
@@ -5699,8 +5706,8 @@ function App() {
     setMaterialsBoardEditingId(row.id)
     setMaterialsBoardFormDraft({
       title: safeString(row.title).trim(),
-      folder: getMaterialsBoardPostFolder(row),
     })
+    setMaterialsBoardRegisterFolderId(getMaterialsBoardPostFolder(row))
     setMaterialsBoardFile([])
     setMaterialsBoardRegisterOpen(true)
   }, [isAdmin])
@@ -5709,6 +5716,7 @@ function App() {
     setMaterialsBoardRegisterOpen(false)
     setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
+    setMaterialsBoardRegisterFolderId('기타')
     setMaterialsBoardFile([])
     setMaterialsBoardSubmitting(false)
   }, [])
@@ -5737,18 +5745,16 @@ function App() {
 
   const handleSaveMaterialsBoardRegister = useCallback(async () => {
     if (!isAdmin || materialsBoardSubmitting) return
-    const draft = materialsBoardFormDraftRef.current
-    const title = safeString(draft?.title).trim()
+    const title = safeString(materialsBoardFormDraft.title).trim()
     if (!title) {
       showAppAlert('제목을 입력해 주세요.', '알림')
       return
     }
     const content = ''
-    let folder = safeString(draft?.folder).trim()
-    if (!folder && materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL) {
-      folder = materialsBoardSelectedFolder
-    }
-    folder = folder || '기타'
+    const folderId = resolveMaterialsBoardRegisterFolder(
+      materialsBoardRegisterFolderId,
+      materialsBoardSelectedFolder
+    )
     const editingId = materialsBoardEditingId
 
     setMaterialsBoardSubmitting(true)
@@ -5756,9 +5762,11 @@ function App() {
       const payload = {
         title,
         content,
-        folder,
+        folder: folderId,
+        folderId,
         files: materialsBoardFile,
       }
+      console.log('API로 전송되는 게시글 데이터:', payload)
 
       if (editingId) {
         await materialsBoardApi.update(editingId, payload)
@@ -5782,6 +5790,8 @@ function App() {
   }, [
     materialsBoardEditingId,
     materialsBoardFile,
+    materialsBoardFormDraft,
+    materialsBoardRegisterFolderId,
     materialsBoardSelectedFolder,
     materialsBoardSubmitting,
     handleCloseMaterialsBoardRegister,
@@ -13911,10 +13921,8 @@ function App() {
                 <select
                   id="materials-board-folder"
                   className="contract-filter-select install-case-form-input global-register-control"
-                  value={safeString(materialsBoardFormDraft.folder).trim() || '기타'}
-                  onChange={(e) =>
-                    setMaterialsBoardFormDraft((prev) => ({ ...prev, folder: e.target.value }))
-                  }
+                  value={safeString(materialsBoardRegisterFolderId).trim() || '기타'}
+                  onChange={(e) => setMaterialsBoardRegisterFolderId(e.target.value)}
                 >
                   {materialsBoardRegisterFolderOptions.map((folderName) => (
                     <option key={folderName} value={folderName}>
