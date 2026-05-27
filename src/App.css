@@ -2606,6 +2606,10 @@ textarea:focus-visible {
   padding: 16px 18px;
 }
 
+.dashboard-stack > .dashboard-surface-card:first-child {
+  padding-top: 10px;
+}
+
 .dashboard-surface-card > .dashboard-panel {
   border: none;
   background: transparent;
@@ -2641,28 +2645,28 @@ textarea:focus-visible {
 
 .dashboard-work-report-briefing-top {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 14px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
+  margin: 0 0 12px;
+  padding: 0 0 12px;
   border-bottom: 1px solid #e2e8f0;
 }
 
 .dashboard-work-report-briefing-title {
   margin: 0;
-  font-size: 14px;
-  font-weight: 900;
+  font-size: 20px;
+  font-weight: 800;
   color: #1e40af;
   font-family: 'SUIT', sans-serif;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 
 .dashboard-work-report-briefing-title-sep {
-  margin: 0 4px;
+  margin: 0 6px;
   font-weight: 800;
-  color: #64748b;
+  color: #1e40af;
 }
 
 .dashboard-work-report-briefing-meta {
@@ -2682,6 +2686,11 @@ textarea:focus-visible {
 
 .dashboard-work-report-briefing-cta {
   flex-shrink: 0;
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .dashboard-work-report-briefing-empty {
