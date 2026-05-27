@@ -1095,7 +1095,12 @@ function buildMaterialsBoardFolderNav(customFolders) {
 }
 
 function getMaterialsBoardPostFolder(row) {
-  return safeString(row?.folder).trim() || '기타'
+  // 서버/로컬 데이터에서 folder 키가 누락되고 folderId 로만 오는 케이스까지 수용
+  const folder = safeString(row?.folder).trim()
+  if (folder) return folder
+  const folderId = safeString(row?.folderId).trim()
+  if (folderId) return folderId
+  return '기타'
 }
 
 function getMaterialsBoardAssignableFolders(customFolders) {
