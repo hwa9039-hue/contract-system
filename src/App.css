@@ -4378,6 +4378,39 @@ textarea:focus-visible {
   margin-top: 0;
 }
 
+/* 캘린더 툴바 왼쪽 영역: 네비게이션 + 범례 */
+.calendar-toolbar-left {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+/* 색상 범례 */
+.calendar-legend {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.calendar-legend-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
 .calendar-grid {
   margin-top: 0;
 }

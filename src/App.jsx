@@ -12546,26 +12546,33 @@ function App() {
                 <div className="calendar-page-main">
                   <div className="calendar-body">
                     <div className="calendar-main-toolbar">
-                      <div className="calendar-toolbar-nav" role="group" aria-label="월 이동">
-                        <button
-                          className="month-nav-btn"
-                          type="button"
-                          aria-label="이전 달"
-                          onClick={() => prevMonth()}
-                        >
-                          ◀
-                        </button>
-                        <div className="calendar-month-title" aria-live="polite">
-                          {getMonthLabel(calendarCursor)}
+                      <div className="calendar-toolbar-left">
+                        <div className="calendar-toolbar-nav" role="group" aria-label="월 이동">
+                          <button
+                            className="month-nav-btn"
+                            type="button"
+                            aria-label="이전 달"
+                            onClick={() => prevMonth()}
+                          >
+                            ◀
+                          </button>
+                          <div className="calendar-month-title" aria-live="polite">
+                            {getMonthLabel(calendarCursor)}
+                          </div>
+                          <button
+                            className="month-nav-btn"
+                            type="button"
+                            aria-label="다음 달"
+                            onClick={() => nextMonth()}
+                          >
+                            ▶
+                          </button>
                         </div>
-                        <button
-                          className="month-nav-btn"
-                          type="button"
-                          aria-label="다음 달"
-                          onClick={() => nextMonth()}
-                        >
-                          ▶
-                        </button>
+                        <div className="calendar-legend" aria-label="일정 색상 범례">
+                          <span className="calendar-legend-badge contract-event">계약</span>
+                          <span className="calendar-legend-badge due-event">준공</span>
+                          <span className="calendar-legend-badge manual-event">기타</span>
+                        </div>
                       </div>
                       <div className="calendar-toolbar-form calendar-toolbar-form--register-only">
                         <button
