@@ -2721,19 +2721,19 @@ textarea:focus-visible {
   min-height: 140px;
 }
 
-/* 대시보드 주요 섹션 제목 통일 (text-lg / font-bold) */
+/* 대시보드 주요 섹션 제목 통일 (15px / bold) */
 .dashboard-briefing-box-title,
 .dashboard-recent-title-base,
 .dashboard-year-title > span:first-child {
   font-family: 'SUIT', sans-serif;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 800;
   line-height: 1.35;
+  color: #1e40af;
 }
 
 .dashboard-briefing-box-title {
   margin: 0 0 10px;
-  color: #1e40af;
 }
 
 .dashboard-briefing-box-body {
@@ -3184,13 +3184,9 @@ textarea:focus-visible {
   gap: 4px 6px;
 }
 
-.dashboard-recent-title-base {
-  color: var(--ink);
-}
-
 .dashboard-recent-title-counts {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 800;
   line-height: 1.35;
   color: #1d4ed8;
 }
@@ -3996,7 +3992,6 @@ textarea:focus-visible {
 }
 
 .dashboard-year-title > span:first-child {
-  color: #1e40af;
   white-space: nowrap;
 }
 
