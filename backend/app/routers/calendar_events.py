@@ -14,7 +14,7 @@ from app.schemas import (
 )
 
 CALENDAR_EVENTS_API_PATH = "/api/calendar-events"
-router = APIRouter(prefix=CALENDAR_EVENTS_API_PATH, tags=["calendar-events"])
+router = APIRouter(tags=["calendar-events"])
 
 RETURNING_COLUMNS = """
   id, "dateStart", "dateEnd", title, owner, pm, note, "createdAt", "updatedAt"
@@ -73,17 +73,17 @@ def create_calendar_manual_event_row(row: CalendarManualEventCreate):
     return row_to_calendar_manual_event(created)
 
 
-@router.get("", response_model=list[CalendarManualEventOut])
+@router.get(CALENDAR_EVENTS_API_PATH, response_model=list[CalendarManualEventOut])
 def api_list_calendar_manual_events():
     return list_calendar_manual_event_rows()
 
 
-@router.post("", response_model=CalendarManualEventOut, status_code=status.HTTP_201_CREATED)
+@router.post(CALENDAR_EVENTS_API_PATH, response_model=CalendarManualEventOut, status_code=status.HTTP_201_CREATED)
 def api_create_calendar_manual_event(row: CalendarManualEventCreate):
     return create_calendar_manual_event_row(row)
 
 
-@router.post("/import", response_model=list[CalendarManualEventOut])
+@router.post(f"{CALENDAR_EVENTS_API_PATH}/import", response_model=list[CalendarManualEventOut])
 def api_import_calendar_manual_events(body: CalendarManualEventBulkImport):
     if not body.events:
         return list_calendar_manual_event_rows()
@@ -112,7 +112,7 @@ def api_import_calendar_manual_events(body: CalendarManualEventBulkImport):
     return created_rows
 
 
-@router.patch("/{row_id}", response_model=CalendarManualEventOut)
+@router.patch(f"{CALENDAR_EVENTS_API_PATH}/{{row_id}}", response_model=CalendarManualEventOut)
 def api_update_calendar_manual_event(row_id: str, patch: CalendarManualEventPatch):
     values = calendar_manual_event_to_db_values(patch)
     if not values:
@@ -146,7 +146,7 @@ def api_update_calendar_manual_event(row_id: str, patch: CalendarManualEventPatc
     return row_to_calendar_manual_event(updated)
 
 
-@router.delete("/{row_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(f"{CALENDAR_EVENTS_API_PATH}/{{row_id}}", status_code=status.HTTP_204_NO_CONTENT)
 def api_delete_calendar_manual_event(row_id: str):
     with get_connection() as connection:
         with connection.cursor() as cursor:

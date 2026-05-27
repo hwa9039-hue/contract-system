@@ -1,6 +1,18 @@
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 
+/** 백엔드 `CALENDAR_EVENTS_API_PATH` 와 동일 */
 export const CALENDAR_EVENTS_API_PATH = '/api/calendar-events'
+
+export class CalendarApiHttpError extends Error {
+  constructor(message, { status, data, url, method } = {}) {
+    super(message)
+    this.name = 'CalendarApiHttpError'
+    this.status = status
+    this.response = { status, data }
+    this.url = url
+    this.method = method
+  }
+}
 
 async function readErrorMessage(response) {
   const raw = await response.text()
@@ -19,11 +31,13 @@ async function readErrorMessage(response) {
 }
 
 async function requestJson(path, options = {}) {
-  const { headers: optHeaders, ...rest } = options
+  const { headers: optHeaders, method = 'GET', ...rest } = options
+  const url = `${API_BASE_URL}${path}`
   const response = await fetch(
-    `${API_BASE_URL}${path}`,
+    url,
     apiFetchInit({
       ...rest,
+      method,
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders(),
@@ -33,7 +47,13 @@ async function requestJson(path, options = {}) {
   )
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    const data = await readErrorMessage(response)
+    throw new CalendarApiHttpError(data, {
+      status: response.status,
+      data,
+      url,
+      method,
+    })
   }
 
   if (response.status === 204) return null

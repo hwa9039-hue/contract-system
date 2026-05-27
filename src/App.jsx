@@ -8779,7 +8779,10 @@ function App() {
       setCalendarEventRegisterOpen(false)
     } catch (error) {
       console.error('[캘린더] 일정 등록 실패', error)
-      showAppAlert(error?.message || '일정 등록에 실패했습니다.')
+      if (error?.response) {
+        console.error('[캘린더] 응답 상세', error.response)
+      }
+      showAppAlert('일정 등록에 실패했습니다. 서버 관리자에게 문의하세요.')
     }
   }
 
@@ -8802,7 +8805,10 @@ function App() {
           onDeleted?.()
         } catch (error) {
           console.error('[캘린더] 일정 삭제 실패', error)
-          showAppAlert(error?.message || '일정 삭제에 실패했습니다.')
+          if (error?.response) {
+            console.error('[캘린더] 응답 상세', error.response)
+          }
+          showAppAlert('일정 삭제에 실패했습니다. 서버 관리자에게 문의하세요.')
         }
       },
     })
@@ -8908,7 +8914,10 @@ function App() {
       setToastMessage('일정이 수정되었습니다.')
     } catch (error) {
       console.error('[캘린더] 일정 수정 실패', error)
-      showAppAlert(error?.message || '일정 수정에 실패했습니다.')
+      if (error?.response) {
+        console.error('[캘린더] 응답 상세', error.response)
+      }
+      showAppAlert('일정 수정에 실패했습니다. 서버 관리자에게 문의하세요.')
     }
   }
 
