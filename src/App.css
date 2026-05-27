@@ -4071,48 +4071,28 @@ textarea:focus-visible {
   font-weight: 760;
 }
 
-.contracts-header-actions--with-inline-nav {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.page-inline-nav-bar {
-  display: inline-flex;
-  align-items: center;
-  flex: 1 1 320px;
-  min-width: min(100%, 280px);
-  min-height: 50px;
-  margin: 0;
-  padding: 0 14px;
-  border: 1px solid rgba(220, 227, 237, 0.95);
-  border-radius: 8px;
-  background: rgba(248, 250, 252, 0.96);
-  box-shadow: var(--shadow-sm);
-}
-
-.page-inline-nav {
+.top-system-subtitle-nav {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  width: 100%;
+  justify-content: flex-end;
+  max-width: min(100%, 920px);
   font-family: 'Pretendard', sans-serif;
 }
 
-.page-inline-nav-item {
+.top-system-subtitle-item {
   display: inline-flex;
   align-items: center;
 }
 
-.page-inline-nav-sep {
+.top-system-subtitle-sep {
   color: #94a3b8;
   font-size: 12px;
   font-weight: 700;
   user-select: none;
 }
 
-.page-inline-nav-link {
+.top-system-subtitle-link {
   border: none;
   background: none;
   padding: 0;
@@ -4127,31 +4107,13 @@ textarea:focus-visible {
   transition: color 0.15s ease;
 }
 
-.page-inline-nav-link:hover {
+.top-system-subtitle-link:hover {
   color: #1f4fd1;
 }
 
-.page-inline-nav-link.active {
+.top-system-subtitle-link.active {
   color: #2563eb;
   font-weight: 800;
-}
-
-.materials-board-toolbar-right .page-inline-nav-bar {
-  flex: 1 1 240px;
-  min-width: 200px;
-}
-
-.calendar-toolbar-form--register-only.contracts-header-actions--with-inline-nav {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-left: auto;
-}
-
-.calendar-toolbar-form--register-only .page-inline-nav-bar {
-  flex: 1 1 280px;
-  min-width: 220px;
 }
 
 .top-system-subtitle {
