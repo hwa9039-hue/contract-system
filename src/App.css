@@ -2656,7 +2656,7 @@ textarea:focus-visible {
 
 .dashboard-work-report-briefing-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   color: #1e40af;
   font-family: 'SUIT', sans-serif;
@@ -2700,6 +2700,89 @@ textarea:focus-visible {
   font-size: 13px;
   font-weight: 700;
   color: #64748b;
+}
+
+.dashboard-briefing-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+.dashboard-briefing-box {
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  background: #ffffff;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: 140px;
+}
+
+.dashboard-briefing-box-title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 900;
+  color: #1e40af;
+}
+
+.dashboard-briefing-box-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.dashboard-briefing-box-empty {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.dashboard-briefing-box-empty--placeholder {
+  color: #cbd5e1;
+}
+
+.dashboard-briefing-due-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dashboard-briefing-due-item {
+  padding: 8px 10px;
+  border: 1px solid #e8edf3;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.dashboard-briefing-due-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #1e293b;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.dashboard-briefing-due-meta {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.dashboard-briefing-due-dday {
+  color: #1d4ed8;
 }
 
 .dashboard-work-report-briefing-split {
@@ -2833,7 +2916,17 @@ textarea:focus-visible {
   overflow-x: auto;
 }
 
+@media (max-width: 1200px) {
+  .dashboard-briefing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 900px) {
+  .dashboard-briefing-grid {
+    grid-template-columns: 1fr;
+  }
+
   .dashboard-work-report-briefing-split {
     grid-template-columns: 1fr;
   }

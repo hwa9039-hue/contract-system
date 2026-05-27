@@ -2471,6 +2471,20 @@ function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDr
   return list
 }
 
+/** 대시보드 브리핑: 금주(월~일) 준공 일정 — 캘린더 due 항목 */
+function collectDashboardWeekDueRows(calendarItems, weekAnchorDate = new Date()) {
+  const weekStart = getWeekStartMonday(weekAnchorDate)
+  const startYmd = formatDateInput(weekStart)
+  const endYmd = formatDateInput(addDays(weekStart, 6))
+  return (Array.isArray(calendarItems) ? calendarItems : [])
+    .filter((item) => item?.type === 'due')
+    .filter((item) => {
+      const ymd = safeString(item.date).trim().slice(0, 10)
+      return ymd && ymd >= startYmd && ymd <= endYmd
+    })
+    .sort((a, b) => safeString(a.date).localeCompare(safeString(b.date)))
+}
+
 /** 대시보드: 오늘이 속한 주(weekStart)의 회의록 agenda 행 목록 */
 function getDashboardWeekMeetingMinutesRows(weekStartDate, workReportRows, workReportDrafts) {
   const weekStart = formatDateInput(getWeekStartMonday(normalizeWorkReportDateKey(weekStartDate)))
@@ -5804,6 +5818,11 @@ function App() {
 
     return [...contractDateItems, ...dueDateItems, ...extraItems]
   }, [contracts, manualEvents])
+
+  const dashboardWeekDueRows = useMemo(
+    () => collectDashboardWeekDueRows(calendarItems, new Date()),
+    [calendarItems]
+  )
 
   const monthDays = useMemo(() => {
     const year = calendarCursor.getFullYear()
@@ -10945,24 +10964,32 @@ function App() {
                     </div>
                   </div>
 
-                  {!dashboardTodayWorkBrief.hasChecklist && !dashboardTodayWorkBrief.hasExternal ? (
-                    <p className="dashboard-work-report-briefing-empty">
-                      오늘 등록된 주요 확인사항/외부일정이 없습니다.
-                    </p>
-                  ) : (
-                    <div className="dashboard-work-report-briefing-split">
-                      <div className="dashboard-work-report-briefing-col">
-                        <h3 className="dashboard-work-report-briefing-col-title">주요 확인사항</h3>
+                  <div className="dashboard-briefing-grid">
+                    <div className="dashboard-briefing-box">
+                      <h3 className="dashboard-briefing-box-title">주요 확인사항</h3>
+                      <div className="dashboard-briefing-box-body">
                         {dashboardTodayWorkBrief.hasChecklist ? (
                           <div className="dashboard-work-report-briefing-checklist">
                             {dashboardTodayWorkBrief.checklistText}
                           </div>
                         ) : (
-                          <p className="dashboard-work-report-briefing-col-empty">등록된 주요 확인사항이 없습니다.</p>
+                          <p className="dashboard-briefing-box-empty">등록된 주요 확인사항이 없습니다.</p>
                         )}
                       </div>
-                      <div className="dashboard-work-report-briefing-col">
-                        <h3 className="dashboard-work-report-briefing-col-title">외부일정</h3>
+                    </div>
+
+                    <div className="dashboard-briefing-box">
+                      <h3 className="dashboard-briefing-box-title">개선중</h3>
+                      <div className="dashboard-briefing-box-body">
+                        <p className="dashboard-briefing-box-empty dashboard-briefing-box-empty--placeholder">
+                          내용이 없습니다.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="dashboard-briefing-box">
+                      <h3 className="dashboard-briefing-box-title">외부일정</h3>
+                      <div className="dashboard-briefing-box-body">
                         {dashboardTodayWorkBrief.hasExternal ? (
                           <ul className="dashboard-work-report-briefing-external-list">
                             {dashboardTodayWorkBrief.externalRows.map((row, idx) => {
@@ -10989,11 +11016,41 @@ function App() {
                             })}
                           </ul>
                         ) : (
-                          <p className="dashboard-work-report-briefing-col-empty">등록된 외부일정이 없습니다.</p>
+                          <p className="dashboard-briefing-box-empty">등록된 외부일정이 없습니다.</p>
                         )}
                       </div>
                     </div>
-                  )}
+
+                    <div className="dashboard-briefing-box">
+                      <h3 className="dashboard-briefing-box-title">준공임박</h3>
+                      <div className="dashboard-briefing-box-body">
+                        {dashboardWeekDueRows.length > 0 ? (
+                          <ul className="dashboard-briefing-due-list">
+                            {dashboardWeekDueRows.map((item) => {
+                              const projectName = stripRedundantCalendarTitlePrefix(
+                                item.contract?.projectName || item.title
+                              )
+                              const dueYmd = safeString(item.date).slice(0, 10)
+                              return (
+                                <li key={item.id} className="dashboard-briefing-due-item">
+                                  <div className="dashboard-briefing-due-title">{projectName || '—'}</div>
+                                  <div className="dashboard-briefing-due-meta">
+                                    <span>{dueYmd}</span>
+                                    {item.dday ? <span className="dashboard-briefing-due-dday">{item.dday}</span> : null}
+                                  </div>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        ) : (
+                          <p className="dashboard-briefing-box-empty">
+                            금주({getWorkReportWeekLabel(dashboardTodayWorkBrief.weekStartDate)}) 준공 예정 건이
+                            없습니다.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
