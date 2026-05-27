@@ -5006,10 +5006,12 @@ function App() {
   const contractPageYearSummaryBlock = useMemo(() => {
     const y = contractPageSummaryFocusYear
     if (!y) return null
+    // 하단 리스트와 동일하게 해당 연도 filteredContracts 전체 합산 (category 필터 없음)
+    const totalAmount = sumContractAmounts(contractPageSummaryRows)
     const { years } = buildDashboardSummaryForFocusYear(contractPageSummaryRows, y)
     const fromData = years[0]
-    if (fromData) return fromData
-    return buildEmptyContractYearSummaryBlock(y)
+    if (fromData) return { ...fromData, totalAmount }
+    return { ...buildEmptyContractYearSummaryBlock(y), totalAmount }
   }, [contractPageSummaryFocusYear, contractPageSummaryRows])
 
   const contractYearFilterOptions = useMemo(() => {
