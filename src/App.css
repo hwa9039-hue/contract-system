@@ -5940,10 +5940,6 @@ textarea:focus-visible {
   font-size: 10px;
   font-weight: 800;
   color: #315ca8;
-}
-
-.work-report-report-table-head-meeting > div:first-child,
-.work-report-report-table-head-meeting > div:last-child {
   text-align: center;
 }
 
