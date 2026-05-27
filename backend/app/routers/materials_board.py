@@ -29,57 +29,75 @@ RETURNING_COLUMNS = """
 DEFAULT_MATERIALS_BOARD_FOLDER = "기타"
 
 
-def _form_text_value(value) -> str:
+def _str(value) -> str:
+    """문자열이 아닌 값(UploadFile 포함)은 빈 문자열로 변환합니다."""
     if value is None:
         return ""
     if isinstance(value, str):
         return value.strip()
-    filename = getattr(value, "filename", None)
-    if filename:
+    # UploadFile 등 파일 객체는 무시
+    if hasattr(value, "filename"):
         return ""
     return str(value).strip()
 
 
-def folder_from_request(request: Request, form) -> str:
-    """쿼리·multipart form 에서 folder 값을 읽습니다 (form 필드 누락 시 쿼리로 보완)."""
-    query_folder = _form_text_value(request.query_params.get("folder"))
-    if query_folder:
-        return query_folder
+def _resolve_folder(request: Request, form) -> str:
+    """
+    folder 값 우선순위:
+    1) URL 쿼리 ?folder=xxx  (프론트가 항상 붙여 보냄 — 가장 신뢰)
+    2) multipart payload JSON  { folder: xxx }
+    3) multipart 텍스트 필드   folder / folderId
+    4) 기본값 '기타'
+    """
+    # 1) 쿼리 파라미터
+    qf = _str(request.query_params.get("folder"))
+    if qf:
+        logger.info("folder from query: %r", qf)
+        return qf
 
+    # 2) JSON payload 필드
+    payload_raw = form.get("payload")
+    if payload_raw is not None and isinstance(payload_raw, str):
+        try:
+            data = json.loads(payload_raw)
+            if isinstance(data, dict):
+                pf = _str(data.get("folder")) or _str(data.get("folderId"))
+                if pf:
+                    logger.info("folder from payload JSON: %r", pf)
+                    return pf
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+
+    # 3) 개별 form 텍스트 필드 (UploadFile 이 아닌 것만)
     for key in ("folder", "folderId"):
-        for sub_key, value in form.multi_items():
-            if sub_key != key:
-                continue
-            text = _form_text_value(value)
-            if text:
-                return text
+        raw = form.get(key)
+        ff = _str(raw)
+        if ff:
+            logger.info("folder from form field %r: %r", key, ff)
+            return ff
 
+    logger.warning("folder not found in request — falling back to default")
     return DEFAULT_MATERIALS_BOARD_FOLDER
 
 
 def parse_materials_board_submit(request: Request, form) -> tuple[str, str, str]:
-    """title, content, folder — JSON payload(우선) 또는 개별 form 필드."""
+    """title, content, folder 반환."""
+    # payload JSON 에서 title 읽기 시도
     payload_raw = form.get("payload")
-    if payload_raw is not None:
+    if payload_raw is not None and isinstance(payload_raw, str):
         try:
-            text = payload_raw if isinstance(payload_raw, str) else str(payload_raw)
-            data = json.loads(text)
-            if isinstance(data, dict):
-                title = _form_text_value(data.get("title"))
-                content = _form_text_value(data.get("content"))
-                folder = _form_text_value(data.get("folder")) or _form_text_value(
-                    data.get("folderId")
-                )
-                if not folder:
-                    folder = folder_from_request(request, form)
-                if title:
-                    return title, content, folder
+            data = json.loads(payload_raw)
+            if isinstance(data, dict) and _str(data.get("title")):
+                title = _str(data.get("title"))
+                content = _str(data.get("content"))
+                folder = _resolve_folder(request, form)
+                return title, content, folder
         except (json.JSONDecodeError, TypeError, ValueError):
-            logger.warning("materials board payload JSON parse failed", exc_info=True)
+            pass
 
-    title = _form_text_value(form.get("title"))
-    content = _form_text_value(form.get("content"))
-    folder = folder_from_request(request, form)
+    title = _str(form.get("title"))
+    content = _str(form.get("content"))
+    folder = _resolve_folder(request, form)
     return title, content, folder
 
 
@@ -88,8 +106,9 @@ def materials_board_out(row: dict | None, folder_hint: str | None = None) -> dic
     if not row:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Save failed")
     result = row_to_materials_board_post(row)
-    folder = _form_text_value(folder_hint) or _form_text_value(result.get("folder"))
-    result["folder"] = folder or DEFAULT_MATERIALS_BOARD_FOLDER
+    # DB 반환값 우선 → folder_hint(저장 시 사용한 값) → 기본값
+    db_folder = _str(result.get("folder"))
+    result["folder"] = db_folder or _str(folder_hint) or DEFAULT_MATERIALS_BOARD_FOLDER
     return result
 
 
@@ -220,10 +239,9 @@ async def api_create_materials_board_post(request: Request):
     uploads = form.getlist("files")
 
     logger.info(
-        "materials board create: folder=%r title=%r query_folder=%r",
+        "materials board create: folder=%r title=%r",
         folder_value,
         trimmed_title,
-        request.query_params.get("folder"),
     )
 
     post_id = str(uuid4())
