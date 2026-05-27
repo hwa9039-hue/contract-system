@@ -1392,6 +1392,36 @@ function getMaterialsBoardAttachSummary(row) {
   }
 }
 
+function getMaterialsBoardDownloadTargets(row) {
+  const postId = safeString(row?.id).trim()
+  const urls = Array.isArray(row?.downloadUrls) ? row.downloadUrls : []
+  if (urls.length > 0) {
+    return urls
+      .map((item) => ({
+        postId: safeString(item?.postId || postId).trim(),
+        fileId: safeString(item?.fileId).trim(),
+        fileName: safeString(item?.name).trim(),
+        url: safeString(item?.url).trim(),
+      }))
+      .filter((t) => t.fileName && (t.url || (t.postId && t.fileId)))
+  }
+  const files = Array.isArray(row?.files) ? row.files : []
+  return files
+    .map((f) => ({
+      postId,
+      fileId: safeString(f?.id).trim(),
+      fileName: safeString(f?.name).trim(),
+      url: '',
+    }))
+    .filter((t) => t.fileName && t.postId && t.fileId)
+}
+
+function delayMs(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
 function MaterialBoardMultiFileDropzone({
   inputId,
   pendingFiles = [],
@@ -4441,6 +4471,7 @@ function App() {
   const [materialsBoardFormDraft, setMaterialsBoardFormDraft] = useState(() =>
     getDefaultMaterialsBoardForm()
   )
+  const materialsBoardFormDraftRef = useRef(materialsBoardFormDraft)
   const [materialsBoardFile, setMaterialsBoardFile] = useState([])
   const [materialsBoardEditingId, setMaterialsBoardEditingId] = useState(null)
   const [materialsBoardSubmitting, setMaterialsBoardSubmitting] = useState(false)
@@ -5408,6 +5439,19 @@ function App() {
     [materialsBoardCustomFolders]
   )
 
+  const materialsBoardRegisterFolderOptions = useMemo(() => {
+    const base = materialsBoardAssignableFolders
+    const current = safeString(materialsBoardFormDraft.folder).trim()
+    if (current && !base.includes(current)) {
+      return [...base, current]
+    }
+    return base
+  }, [materialsBoardAssignableFolders, materialsBoardFormDraft.folder])
+
+  useEffect(() => {
+    materialsBoardFormDraftRef.current = materialsBoardFormDraft
+  }, [materialsBoardFormDraft])
+
   useEffect(() => {
     persistMaterialsBoardCustomFolders(materialsBoardCustomFolders)
   }, [materialsBoardCustomFolders])
@@ -5442,43 +5486,55 @@ function App() {
       }
       if (!row || materialsBoardDownloadingId === row.id) return
 
-      const urls = Array.isArray(row?.downloadUrls) ? row.downloadUrls : []
-      const first = urls[0]
-      const fileName = safeString(first?.name || row?.files?.[0]?.name || row?.fileName).trim()
-      if (!fileName) {
+      const targets = getMaterialsBoardDownloadTargets(row)
+      if (targets.length === 0) {
+        const legacyUrl = safeString(row?.downloadUrl).trim()
+        const legacyName = safeString(row?.fileName).trim()
+        if (legacyUrl && legacyName) {
+          downloadMaterialsBoardBlobUrl(legacyUrl, legacyName)
+          setToastMessage('다운로드가 시작되었습니다.')
+          return
+        }
         showAppAlert('첨부 파일이 없습니다.', '알림')
         return
       }
 
-      const postId = safeString(first?.postId || row?.id).trim()
-      const fileId = safeString(first?.fileId || row?.files?.[0]?.id).trim()
-
       setMaterialsBoardDownloadingId(row.id)
       try {
-        if (postId && fileId) {
-          const nextCount = await materialsBoardApi.downloadFile(postId, fileId, fileName)
-          setMaterialsBoardPosts((prev) =>
-            prev.map((post) =>
-              post.id === row.id
-                ? {
-                    ...post,
-                    downloadCount:
-                      nextCount != null ? nextCount : (Number(post.downloadCount) || 0) + 1,
-                  }
-                : post
+        let lastCount = null
+        for (let i = 0; i < targets.length; i += 1) {
+          const target = targets[i]
+          if (i > 0) {
+            await delayMs(350)
+          }
+
+          if (target.postId && target.fileId) {
+            lastCount = await materialsBoardApi.downloadFile(
+              target.postId,
+              target.fileId,
+              target.fileName
             )
-          )
-          setToastMessage('다운로드가 시작되었습니다.')
-          return
+            continue
+          }
+
+          if (target.url) {
+            downloadMaterialsBoardBlobUrl(target.url, target.fileName)
+          }
         }
 
-        const downloadUrl = safeString(first?.url || row?.downloadUrl).trim()
-        if (!downloadUrl) {
-          showAppAlert('다운로드할 수 있는 파일이 없습니다.', '알림')
-          return
+        if (lastCount != null) {
+          setMaterialsBoardPosts((prev) =>
+            prev.map((post) =>
+              post.id === row.id ? { ...post, downloadCount: lastCount } : post
+            )
+          )
         }
-        downloadMaterialsBoardBlobUrl(downloadUrl, fileName)
-        setToastMessage('다운로드가 시작되었습니다.')
+
+        setToastMessage(
+          targets.length > 1
+            ? `${targets.length}개 파일 다운로드가 시작되었습니다.`
+            : '다운로드가 시작되었습니다.'
+        )
       } catch (error) {
         showAppAlert(error?.message || '다운로드에 실패했습니다.', '알림')
       } finally {
@@ -5512,6 +5568,7 @@ function App() {
         }
         setMaterialsBoardCustomFolders((prev) => [...prev, trimmed])
         setMaterialsBoardSelectedFolder(trimmed)
+        setMaterialsBoardFormDraft((prev) => ({ ...prev, folder: trimmed }))
       },
     })
   }, [materialsBoardCustomFolders, showAppAlert])
@@ -5680,13 +5737,18 @@ function App() {
 
   const handleSaveMaterialsBoardRegister = useCallback(async () => {
     if (!isAdmin || materialsBoardSubmitting) return
-    const title = safeString(materialsBoardFormDraft.title).trim()
+    const draft = materialsBoardFormDraftRef.current
+    const title = safeString(draft?.title).trim()
     if (!title) {
       showAppAlert('제목을 입력해 주세요.', '알림')
       return
     }
     const content = ''
-    const folder = safeString(materialsBoardFormDraft.folder).trim() || '기타'
+    let folder = safeString(draft?.folder).trim()
+    if (!folder && materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL) {
+      folder = materialsBoardSelectedFolder
+    }
+    folder = folder || '기타'
     const editingId = materialsBoardEditingId
 
     setMaterialsBoardSubmitting(true)
@@ -5719,8 +5781,8 @@ function App() {
     }
   }, [
     materialsBoardEditingId,
-    materialsBoardFormDraft,
     materialsBoardFile,
+    materialsBoardSelectedFolder,
     materialsBoardSubmitting,
     handleCloseMaterialsBoardRegister,
     isAdmin,
@@ -13854,7 +13916,7 @@ function App() {
                     setMaterialsBoardFormDraft((prev) => ({ ...prev, folder: e.target.value }))
                   }
                 >
-                  {materialsBoardAssignableFolders.map((folderName) => (
+                  {materialsBoardRegisterFolderOptions.map((folderName) => (
                     <option key={folderName} value={folderName}>
                       {folderName}
                     </option>

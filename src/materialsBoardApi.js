@@ -6,9 +6,8 @@ function buildFormData({ title, content, folder, files = [] }) {
   const form = new FormData()
   form.append('title', title)
   form.append('content', content || '')
-  if (folder != null && String(folder).trim()) {
-    form.append('folder', String(folder).trim())
-  }
+  const folderValue = String(folder ?? '기타').trim() || '기타'
+  form.append('folder', folderValue)
   for (const entry of files) {
     const file = entry?.file
     if (file instanceof File) {
