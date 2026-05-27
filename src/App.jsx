@@ -85,7 +85,17 @@ const DOCUMENT_COLUMNS = [
 ]
 
 const SALES_CATEGORY_OPTIONS = ['DI사업', '도로사업']
-const SALES_STAGE_OPTIONS = ['대기', '대응중', '확인필요', '보류', '완료', '발주계획', '사전규격', '입찰공고']
+const SALES_STAGE_OPTIONS = [
+  '대기',
+  '대응중',
+  '확인필요',
+  '보류',
+  '마감',
+  '계약',
+  '발주계획',
+  '사전규격',
+  '입찰공고',
+]
 const SALES_MANAGER_OPTIONS = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범', '신상준']
 const SALES_REGISTER_MANAGER_OPTIONS = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범']
 const SALES_STAGE_TONE_MAP = {
@@ -93,10 +103,20 @@ const SALES_STAGE_TONE_MAP = {
   대응중: { className: 'sales-stage-badge stage-working', optionStyle: { backgroundColor: '#eaf1ff', color: '#1f4fd1' } },
   확인필요: { className: 'sales-stage-badge stage-alert', optionStyle: { backgroundColor: '#fff1e8', color: '#c2410c' } },
   보류: { className: 'sales-stage-badge stage-hold', optionStyle: { backgroundColor: '#f3f4f6', color: '#4b5563' } },
+  마감: { className: 'sales-stage-badge stage-done', optionStyle: { backgroundColor: '#e5e7eb', color: '#111827' } },
   완료: { className: 'sales-stage-badge stage-done', optionStyle: { backgroundColor: '#e5e7eb', color: '#111827' } },
+  계약: {
+    className: 'sales-stage-badge stage-contract',
+    optionStyle: { backgroundColor: '#eef2ff', color: '#4338ca' },
+  },
   발주계획: { className: 'sales-stage-badge stage-green', optionStyle: { backgroundColor: '#ecfdf3', color: '#166534' } },
   사전규격: { className: 'sales-stage-badge stage-green', optionStyle: { backgroundColor: '#ecfdf3', color: '#166534' } },
   입찰공고: { className: 'sales-stage-badge stage-green', optionStyle: { backgroundColor: '#ecfdf3', color: '#166534' } },
+}
+
+function normalizeSalesProjectStage(stage) {
+  const trimmed = safeString(stage).trim()
+  return trimmed === '완료' ? '마감' : trimmed
 }
 const DISCOVERY_CATEGORY_TONE_MAP = {
   '장기 사업': 'discovery-category-badge discovery-long',
@@ -3500,7 +3520,7 @@ function toSalesPayload(row, timestamp) {
     projectName: safeString(row.projectName).trim(),
     projectAmount: parseAmount(row.projectAmount),
     projectCategory: safeString(row.projectCategory).trim(),
-    projectStage: safeString(row.projectStage).trim(),
+    projectStage: normalizeSalesProjectStage(row.projectStage),
     manager: safeString(row.manager).trim(),
     projectType: safeString(row.projectType).trim(),
     department: safeString(row.department).trim(),
@@ -3858,9 +3878,9 @@ function groupRegistryRowsByYear(rows, dateKey) {
   })
 }
 
-/** 영업: 상태 '완료' 여부 (그룹핑용) */
+/** 영업: 상태 '마감' 여부 (그룹핑용, DB 레거시 '완료' 포함) */
 function isSalesStageCompletedForGrouping(row) {
-  return safeString(row.projectStage).trim() === '완료'
+  return normalizeSalesProjectStage(row.projectStage) === '마감'
 }
 
 /** 연도별 1차 그룹 안에서 진행 / 완료 2분할 */
@@ -4193,11 +4213,19 @@ function toWorkReportPayload(row, timestamp) {
 }
 
 function getSalesStageClassName(stage) {
-  return SALES_STAGE_TONE_MAP[safeString(stage).trim()]?.className || 'sales-stage-badge'
+  const key = normalizeSalesProjectStage(stage)
+  return SALES_STAGE_TONE_MAP[key]?.className || 'sales-stage-badge'
 }
 
 function getSalesStageOptionStyle(stage) {
-  return undefined
+  const key = normalizeSalesProjectStage(stage)
+  return SALES_STAGE_TONE_MAP[key]?.optionStyle
+}
+
+function renderSalesProjectStageBadge(stage) {
+  const label = normalizeSalesProjectStage(stage)
+  if (!label) return '-'
+  return <span className={getSalesStageClassName(stage)}>{label}</span>
 }
 
 function getDiscoveryCategoryClassName(category) {
@@ -6050,7 +6078,9 @@ function App() {
       const categoryMatch =
         !salesFilters.projectCategory || row.projectCategory === salesFilters.projectCategory
       const managerMatch = !salesFilters.manager || row.manager === salesFilters.manager
-      const stageMatch = !salesFilters.projectStage || row.projectStage === salesFilters.projectStage
+      const stageMatch =
+        !salesFilters.projectStage ||
+        normalizeSalesProjectStage(row.projectStage) === salesFilters.projectStage
       return categoryMatch && managerMatch && stageMatch
     })
   }, [
@@ -7348,7 +7378,7 @@ function App() {
       사업금액: formatAmountDisplay(row.projectAmount),
       사업구분: row.projectCategory,
       담당자: row.manager,
-      상태: row.projectStage,
+      상태: normalizeSalesProjectStage(row.projectStage),
       담당부서: row.department,
       세부내용: row.detail,
       출처: row.source,
@@ -7909,6 +7939,7 @@ function App() {
     checkStatus: ['확인여부', '체크', '확인상태'],
     salesTarget: ['영업자', '영업대상', '영업 담당', '영업담당'],
     projectCategory: ['사업 구분', '구분', '사업구분'],
+    projectStage: ['상태', '진행상태', '단계', '프로젝트 상태'],
     localGov: ['지자체', '지방자치단체', '시군구', '지역'],
     client: ['발주처', '수요기관', '발주 기관'],
     projectName: ['사업명', '공사명', '과업명', '건명', '프로젝트명'],
@@ -7971,7 +8002,9 @@ function App() {
         }
 
         if (column.type === 'select' || column.type === 'text' || column.type === 'textarea') {
-          nextRow[column.key] = safeString(rawValue).trim()
+          const text = safeString(rawValue).trim()
+          nextRow[column.key] =
+            column.key === 'projectStage' ? normalizeSalesProjectStage(text) : text
           return
         }
 
@@ -10027,7 +10060,9 @@ function App() {
                     overflowWrap: 'anywhere',
                   }}
                 >
-                  {getRegistryPlainDisplayValue(row, column)}
+                  {column.key === 'projectStage' && cellEditScope === 'sales'
+                    ? renderSalesProjectStageBadge(row.projectStage)
+                    : getRegistryPlainDisplayValue(row, column)}
                 </div>
               )}
             </td>
@@ -10258,7 +10293,7 @@ function App() {
           <td colSpan={columns.length + 1}>
             <div className="contract-year-toggle" aria-hidden="true">
               <span className="contract-year-sign">{completedOpen ? '-' : '+'}</span>
-              <span>완료된 건</span>
+              <span>마감된 건</span>
               <span className="contract-year-count">
                 {completedCount.toLocaleString('ko-KR')}건
               </span>

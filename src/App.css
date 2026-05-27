@@ -4909,6 +4909,13 @@ textarea:focus-visible {
   border-color: #9ca3af;
 }
 
+.sales-stage-badge.stage-contract,
+.sales-stage-badge.stage-contract {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+}
+
 .sales-stage-badge.stage-green,
 .sales-stage-badge.stage-green {
   background: #ecfdf3;
