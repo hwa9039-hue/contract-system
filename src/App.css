@@ -4076,6 +4076,25 @@ textarea:focus-visible {
   .calendar-search-input {
     width: 220px;
   }
+
+  .materials-board-layout {
+    flex-direction: column;
+  }
+
+  .materials-board-sidebar {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .materials-board-folder-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .materials-board-folder-item {
+    width: auto;
+    flex: 0 1 auto;
+  }
 }
 
 /* dashboard and calendar detail restoration */
@@ -7642,6 +7661,102 @@ textarea:focus-visible {
   flex-direction: column;
   min-height: 0;
   padding: 24px 32px 36px;
+}
+
+.materials-board-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.materials-board-sidebar {
+  flex: 0 0 250px;
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  box-sizing: border-box;
+}
+
+.materials-board-folder-add-btn {
+  align-self: flex-start;
+  border: 1px dashed #93b4f5;
+  background: #ffffff;
+  color: #1f4fd1;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.materials-board-folder-add-btn:hover {
+  background: #eef5ff;
+}
+
+.materials-board-folder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.materials-board-folder-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.materials-board-folder-item:hover {
+  background: #eef2f7;
+}
+
+.materials-board-folder-item.active {
+  background: #eef5ff;
+  color: #1f4fd1;
+  font-weight: 700;
+}
+
+.materials-board-folder-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.materials-board-folder-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.materials-board-main {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .materials-board-search-toolbar {

@@ -1047,8 +1047,57 @@ const MATERIALS_BOARD_SEED = [
   },
 ]
 
-function getDefaultMaterialsBoardForm() {
-  return { title: '' }
+const MATERIALS_BOARD_FOLDER_ALL = '__all__'
+const MATERIALS_BOARD_BUILTIN_FOLDERS = ['공지사항', '영업자료', '기술문서', '기타']
+const MATERIALS_BOARD_CUSTOM_FOLDERS_KEY = 'cms-materials-board-custom-folders'
+
+function loadMaterialsBoardCustomFolders() {
+  try {
+    const raw = localStorage.getItem(MATERIALS_BOARD_CUSTOM_FOLDERS_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .map((item) => safeString(typeof item === 'string' ? item : item?.label).trim())
+      .filter(Boolean)
+      .filter((name) => name !== '전체' && !MATERIALS_BOARD_BUILTIN_FOLDERS.includes(name))
+  } catch {
+    return []
+  }
+}
+
+function persistMaterialsBoardCustomFolders(names) {
+  try {
+    localStorage.setItem(MATERIALS_BOARD_CUSTOM_FOLDERS_KEY, JSON.stringify(names))
+  } catch {
+    /* ignore */
+  }
+}
+
+function buildMaterialsBoardFolderNav(customFolders) {
+  const custom = customFolders
+    .map((name) => safeString(name).trim())
+    .filter((name) => name && !MATERIALS_BOARD_BUILTIN_FOLDERS.includes(name))
+  return [
+    { id: MATERIALS_BOARD_FOLDER_ALL, label: '전체' },
+    ...MATERIALS_BOARD_BUILTIN_FOLDERS.map((label) => ({ id: label, label })),
+    ...custom.map((label) => ({ id: label, label })),
+  ]
+}
+
+function getMaterialsBoardPostFolder(row) {
+  return safeString(row?.folder).trim() || '기타'
+}
+
+function getMaterialsBoardAssignableFolders(customFolders) {
+  const custom = customFolders
+    .map((name) => safeString(name).trim())
+    .filter((name) => name && !MATERIALS_BOARD_BUILTIN_FOLDERS.includes(name))
+  return [...MATERIALS_BOARD_BUILTIN_FOLDERS, ...custom]
+}
+
+function getDefaultMaterialsBoardForm(folder = '기타') {
+  return { title: '', folder: folder || '기타' }
 }
 
 function formatMaterialsBoardFileSize(bytes) {
@@ -1088,6 +1137,7 @@ function normalizeMaterialsBoardPost(row) {
     downloadUrls,
     downloadCount: Number(row?.downloadCount) || 0,
     registeredAt: safeString(row?.registeredAt).trim() || formatMaterialsBoardRegisteredAt(),
+    folder: getMaterialsBoardPostFolder(row),
   }
 }
 
@@ -4372,6 +4422,10 @@ function App() {
   const [materialsBoardEditingId, setMaterialsBoardEditingId] = useState(null)
   const [materialsBoardSubmitting, setMaterialsBoardSubmitting] = useState(false)
   const [materialsBoardSearch, setMaterialsBoardSearch] = useState('')
+  const [materialsBoardSelectedFolder, setMaterialsBoardSelectedFolder] = useState(MATERIALS_BOARD_FOLDER_ALL)
+  const [materialsBoardCustomFolders, setMaterialsBoardCustomFolders] = useState(() =>
+    loadMaterialsBoardCustomFolders()
+  )
   const [materialsBoardViewMode, setMaterialsBoardViewMode] = useState(() => loadMaterialsBoardViewMode())
   const [materialsBoardDownloadingId, setMaterialsBoardDownloadingId] = useState('')
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
@@ -5321,9 +5375,30 @@ function App() {
     }
   }, [installCaseEditingId])
 
+  const materialsBoardFolderNav = useMemo(
+    () => buildMaterialsBoardFolderNav(materialsBoardCustomFolders),
+    [materialsBoardCustomFolders]
+  )
+
+  const materialsBoardAssignableFolders = useMemo(
+    () => getMaterialsBoardAssignableFolders(materialsBoardCustomFolders),
+    [materialsBoardCustomFolders]
+  )
+
+  useEffect(() => {
+    persistMaterialsBoardCustomFolders(materialsBoardCustomFolders)
+  }, [materialsBoardCustomFolders])
+
   const filteredMaterialsBoardPosts = useMemo(() => {
     const query = safeString(materialsBoardSearch).trim().toLowerCase()
-    const rows = [...materialsBoardPosts].sort(compareMaterialsBoardPosts)
+    let rows = [...materialsBoardPosts].sort(compareMaterialsBoardPosts)
+
+    if (materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL) {
+      rows = rows.filter(
+        (row) => getMaterialsBoardPostFolder(row) === materialsBoardSelectedFolder
+      )
+    }
+
     if (!query) return rows
     return rows.filter((row) => {
       const title = safeString(row.title).toLowerCase()
@@ -5335,7 +5410,7 @@ function App() {
         title.includes(query) || content.includes(query) || fileNames.includes(query)
       )
     })
-  }, [materialsBoardPosts, materialsBoardSearch])
+  }, [materialsBoardPosts, materialsBoardSearch, materialsBoardSelectedFolder])
 
   const handleDownloadMaterialsBoardFile = useCallback(
     async (row, event) => {
@@ -5396,19 +5471,40 @@ function App() {
     persistMaterialsBoardViewMode(nextMode)
   }, [])
 
+  const handleAddMaterialsBoardFolder = useCallback(() => {
+    const name = window.prompt('새 폴더 이름을 입력하세요.')
+    const trimmed = safeString(name).trim()
+    if (!trimmed) return
+    if (trimmed === '전체' || MATERIALS_BOARD_BUILTIN_FOLDERS.includes(trimmed)) {
+      showAppAlert('이미 사용 중인 폴더 이름입니다.', '알림')
+      return
+    }
+    if (materialsBoardCustomFolders.includes(trimmed)) {
+      showAppAlert('이미 추가된 폴더입니다.', '알림')
+      return
+    }
+    setMaterialsBoardCustomFolders((prev) => [...prev, trimmed])
+    setMaterialsBoardSelectedFolder(trimmed)
+  }, [materialsBoardCustomFolders, showAppAlert])
+
   const handleOpenMaterialsBoardRegister = useCallback(() => {
     if (!isAdmin) return
     setMaterialsBoardEditingId(null)
-    setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
+    const defaultFolder =
+      materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL
+        ? materialsBoardSelectedFolder
+        : '기타'
+    setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm(defaultFolder))
     setMaterialsBoardFile([])
     setMaterialsBoardRegisterOpen(true)
-  }, [isAdmin])
+  }, [isAdmin, materialsBoardSelectedFolder])
 
   const handleOpenMaterialsBoardEdit = useCallback((row) => {
     if (!row || !isAdmin) return
     setMaterialsBoardEditingId(row.id)
     setMaterialsBoardFormDraft({
       title: safeString(row.title).trim(),
+      folder: getMaterialsBoardPostFolder(row),
     })
     setMaterialsBoardFile([])
     setMaterialsBoardRegisterOpen(true)
@@ -5452,6 +5548,7 @@ function App() {
       return
     }
     const content = ''
+    const folder = safeString(materialsBoardFormDraft.folder).trim() || '기타'
     const editingId = materialsBoardEditingId
 
     setMaterialsBoardSubmitting(true)
@@ -5459,6 +5556,7 @@ function App() {
       const payload = {
         title,
         content,
+        folder,
         files: materialsBoardFile,
       }
 
@@ -12585,51 +12683,88 @@ function App() {
 
         {menu === 'materialsBoard' && (
           <section className="stat-card stat-card--materials-board">
-            <div className="materials-board-toolbar">
-              <input
-                className="table-search-input"
-                placeholder="제목 검색"
-                value={materialsBoardSearch}
-                onChange={(e) => setMaterialsBoardSearch(e.target.value)}
-              />
-              <div className="materials-board-toolbar-right">
-                <div className="materials-board-view-toggle" role="group" aria-label="게시판 보기 방식">
-                  <button
-                    type="button"
-                    className={
-                      materialsBoardViewMode === 'list'
-                        ? 'materials-board-view-toggle-btn active'
-                        : 'materials-board-view-toggle-btn'
-                    }
-                    onClick={() => handleMaterialsBoardViewModeChange('list')}
-                  >
-                    리스트
-                  </button>
-                  <button
-                    type="button"
-                    className={
-                      materialsBoardViewMode === 'card'
-                        ? 'materials-board-view-toggle-btn active'
-                        : 'materials-board-view-toggle-btn'
-                    }
-                    onClick={() => handleMaterialsBoardViewModeChange('card')}
-                  >
-                    카드
-                  </button>
-                </div>
+            <div className="materials-board-layout">
+              <aside className="materials-board-sidebar" aria-label="게시판 폴더">
                 {isAdmin && (
                   <button
                     type="button"
-                    className="primary-btn"
-                    onClick={handleOpenMaterialsBoardRegister}
+                    className="materials-board-folder-add-btn"
+                    onClick={handleAddMaterialsBoardFolder}
                   >
-                    등록
+                    + 새 폴더
                   </button>
                 )}
-              </div>
-            </div>
+                <nav className="materials-board-folder-list">
+                  {materialsBoardFolderNav.map((folderItem) => {
+                    const isActive = materialsBoardSelectedFolder === folderItem.id
+                    return (
+                      <button
+                        key={folderItem.id}
+                        type="button"
+                        className={
+                          isActive
+                            ? 'materials-board-folder-item active'
+                            : 'materials-board-folder-item'
+                        }
+                        onClick={() => setMaterialsBoardSelectedFolder(folderItem.id)}
+                        aria-current={isActive ? 'true' : undefined}
+                      >
+                        <span className="materials-board-folder-icon" aria-hidden="true">
+                          📂
+                        </span>
+                        <span className="materials-board-folder-label">{folderItem.label}</span>
+                      </button>
+                    )
+                  })}
+                </nav>
+              </aside>
 
-            {materialsBoardViewMode === 'list' ? (
+              <div className="materials-board-main">
+                <div className="materials-board-toolbar">
+                  <input
+                    className="table-search-input"
+                    placeholder="제목 검색"
+                    value={materialsBoardSearch}
+                    onChange={(e) => setMaterialsBoardSearch(e.target.value)}
+                  />
+                  <div className="materials-board-toolbar-right">
+                    <div className="materials-board-view-toggle" role="group" aria-label="게시판 보기 방식">
+                      <button
+                        type="button"
+                        className={
+                          materialsBoardViewMode === 'list'
+                            ? 'materials-board-view-toggle-btn active'
+                            : 'materials-board-view-toggle-btn'
+                        }
+                        onClick={() => handleMaterialsBoardViewModeChange('list')}
+                      >
+                        리스트
+                      </button>
+                      <button
+                        type="button"
+                        className={
+                          materialsBoardViewMode === 'card'
+                            ? 'materials-board-view-toggle-btn active'
+                            : 'materials-board-view-toggle-btn'
+                        }
+                        onClick={() => handleMaterialsBoardViewModeChange('card')}
+                      >
+                        카드
+                      </button>
+                    </div>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        className="primary-btn"
+                        onClick={handleOpenMaterialsBoardRegister}
+                      >
+                        등록
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {materialsBoardViewMode === 'list' ? (
               <div className="materials-board-table-panel">
                 <table className="materials-board-table">
                   <thead>
@@ -12647,7 +12782,9 @@ function App() {
                         <td colSpan={5} className="materials-board-empty">
                           {materialsBoardPosts.length === 0
                             ? '등록된 글이 없습니다.'
-                            : '검색 결과가 없습니다.'}
+                            : materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL
+                              ? '이 폴더에 등록된 글이 없습니다.'
+                              : '검색 결과가 없습니다.'}
                         </td>
                       </tr>
                     ) : (
@@ -12748,7 +12885,9 @@ function App() {
                   <div className="materials-board-empty materials-board-empty--card">
                     {materialsBoardPosts.length === 0
                       ? '등록된 글이 없습니다.'
-                      : '검색 결과가 없습니다.'}
+                      : materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL
+                        ? '이 폴더에 등록된 글이 없습니다.'
+                        : '검색 결과가 없습니다.'}
                   </div>
                 ) : (
                   filteredMaterialsBoardPosts.map((row) => (
@@ -12765,6 +12904,8 @@ function App() {
                 )}
               </div>
             )}
+              </div>
+            </div>
           </section>
         )}
 
@@ -13523,6 +13664,23 @@ function App() {
                 onChange={(e) => setMaterialsBoardFormDraft((prev) => ({ ...prev, title: e.target.value }))}
                 placeholder="예: LED 견적 가이드"
               />
+              <label className="install-case-form-label" htmlFor="materials-board-folder">
+                폴더
+              </label>
+              <select
+                id="materials-board-folder"
+                className="contract-filter-select install-case-form-input global-register-control"
+                value={safeString(materialsBoardFormDraft.folder).trim() || '기타'}
+                onChange={(e) =>
+                  setMaterialsBoardFormDraft((prev) => ({ ...prev, folder: e.target.value }))
+                }
+              >
+                {materialsBoardAssignableFolders.map((folderName) => (
+                  <option key={folderName} value={folderName}>
+                    {folderName}
+                  </option>
+                ))}
+              </select>
               <label className="install-case-form-label">첨부 파일 (다중 선택)</label>
               <MaterialBoardMultiFileDropzone
                 inputId="materials-board-file-input"

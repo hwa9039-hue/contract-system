@@ -188,6 +188,7 @@ CREATE TABLE IF NOT EXISTS materials_board_posts (
   title text NOT NULL DEFAULT '',
   content text NOT NULL DEFAULT '',
   files jsonb NOT NULL DEFAULT '[]'::jsonb,
+  folder text NOT NULL DEFAULT '기타',
   "registeredAt" date NOT NULL DEFAULT CURRENT_DATE,
   "downloadCount" integer NOT NULL DEFAULT 0,
   "createdAt" timestamptz NOT NULL DEFAULT now(),

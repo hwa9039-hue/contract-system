@@ -2,10 +2,13 @@ import { API_BASE_URL, apiFetchInit, getAuthHeaders, getAuthToken } from './apiC
 
 export const MATERIALS_BOARD_API_PATH = '/api/materials-board'
 
-function buildFormData({ title, content, files = [] }) {
+function buildFormData({ title, content, folder, files = [] }) {
   const form = new FormData()
   form.append('title', title)
   form.append('content', content || '')
+  if (folder != null && String(folder).trim()) {
+    form.append('folder', String(folder).trim())
+  }
   for (const entry of files) {
     const file = entry?.file
     if (file instanceof File) {
@@ -126,17 +129,17 @@ export const materialsBoardApi = {
     }).then((data) => (Array.isArray(data) ? data : []))
   },
 
-  create({ title, content, files }) {
+  create({ title, content, folder, files }) {
     return requestForm(MATERIALS_BOARD_API_PATH, {
       method: 'POST',
-      formData: buildFormData({ title, content, files }),
+      formData: buildFormData({ title, content, folder, files }),
     })
   },
 
-  update(id, { title, content, files }) {
+  update(id, { title, content, folder, files }) {
     return requestForm(`${MATERIALS_BOARD_API_PATH}/${encodeURIComponent(id)}`, {
       method: 'PATCH',
-      formData: buildFormData({ title, content, files }),
+      formData: buildFormData({ title, content, folder, files }),
     })
   },
 

@@ -571,6 +571,7 @@ class MaterialsBoardOut(BaseModel):
     id: Optional[Any] = None
     title: str = ""
     content: str = ""
+    folder: str = "기타"
     files: list[MaterialsBoardFileOut] = Field(default_factory=list)
     registeredAt: Optional[Any] = ""
     downloadCount: int = 0
@@ -845,6 +846,7 @@ def row_to_materials_board_post(row) -> dict:
         "id": to_response_value(row["id"]),
         "title": to_response_value(row.get("title")) or "",
         "content": to_response_value(row.get("content")) or "",
+        "folder": to_response_value(row.get("folder")) or "기타",
         "files": _normalize_materials_board_files(row.get("files")),
         "registeredAt": registered_at,
         "downloadCount": int(row.get("downloadCount") or 0),

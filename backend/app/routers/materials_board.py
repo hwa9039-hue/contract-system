@@ -22,8 +22,10 @@ UPLOAD_ROOT = Path(os.getenv("UPLOAD_DIR", "uploads")).resolve()
 MATERIALS_BOARD_DIR = UPLOAD_ROOT / "materials-board"
 
 RETURNING_COLUMNS = """
-  id, title, content, files, "registeredAt", "downloadCount", "createdAt", "updatedAt"
+  id, title, content, folder, files, "registeredAt", "downloadCount", "createdAt", "updatedAt"
 """
+
+DEFAULT_MATERIALS_BOARD_FOLDER = "기타"
 
 
 def now_text() -> str:
@@ -147,6 +149,7 @@ def api_list_materials_board_posts():
 async def api_create_materials_board_post(
     title: str = Form(...),
     content: str = Form(""),
+    folder: str = Form(DEFAULT_MATERIALS_BOARD_FOLDER),
     files: list[UploadFile] = File(default=[]),
 ):
     trimmed_title = (title or "").strip()
@@ -170,10 +173,13 @@ async def api_create_materials_board_post(
                 detail=f"Failed to save attachment: {exc}",
             ) from exc
 
+    folder_value = (folder or "").strip() or DEFAULT_MATERIALS_BOARD_FOLDER
+
     values = {
         "id": post_id,
         "title": trimmed_title,
         "content": (content or "").strip(),
+        "folder": folder_value,
         "files": json.dumps(saved_files),
         "registeredAt": today_date_text(),
         "createdAt": timestamp,
@@ -185,10 +191,10 @@ async def api_create_materials_board_post(
             cursor.execute(
                 f"""
                 insert into materials_board_posts (
-                  id, title, content, files, "registeredAt", "createdAt", "updatedAt"
+                  id, title, content, folder, files, "registeredAt", "createdAt", "updatedAt"
                 )
                 values (
-                  %(id)s, %(title)s, %(content)s, %(files)s::jsonb,
+                  %(id)s, %(title)s, %(content)s, %(folder)s, %(files)s::jsonb,
                   %(registeredAt)s::date, %(createdAt)s, %(updatedAt)s
                 )
                 returning {RETURNING_COLUMNS}
@@ -206,6 +212,7 @@ async def api_update_materials_board_post(
     post_id: str,
     title: str = Form(...),
     content: str = Form(""),
+    folder: str = Form(DEFAULT_MATERIALS_BOARD_FOLDER),
     files: list[UploadFile] = File(default=[]),
 ):
     existing = get_post_row(post_id)
@@ -241,6 +248,7 @@ async def api_update_materials_board_post(
                 update materials_board_posts
                 set title = %(title)s,
                     content = %(content)s,
+                    folder = %(folder)s,
                     files = %(files)s::jsonb,
                     "updatedAt" = %(updatedAt)s
                 where id::text = %(id)s
@@ -250,6 +258,7 @@ async def api_update_materials_board_post(
                     "id": post_id,
                     "title": trimmed_title,
                     "content": (content or "").strip(),
+                    "folder": (folder or "").strip() or DEFAULT_MATERIALS_BOARD_FOLDER,
                     "files": json.dumps(merged_files),
                     "updatedAt": timestamp,
                 },

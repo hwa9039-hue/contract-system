@@ -490,6 +490,12 @@ def init_db():
             )
             cursor.execute(
                 """
+                alter table materials_board_posts
+                  add column if not exists folder text not null default '기타'
+                """
+            )
+            cursor.execute(
+                """
                 create table if not exists calendar_manual_events (
                   id uuid primary key default gen_random_uuid(),
                   "dateStart" date,
