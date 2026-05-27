@@ -902,12 +902,15 @@ const PAGE_TITLE_MAP = {
   installCases: '설치사례',
   materialsBoard: '게시판',
 }
+const TOP_SYSTEM_SUBTITLE =
+  '주간업무보고서 · 회의록 · 계약현황 · 캘린더 · 영업관리대장 · 건축정보 · 사업검색이력 · 문서수발신대장 · 설치사례 · 게시판'
 
 function isWorkReportRelatedMenu(menuKey) {
   return menuKey === 'workReports' || menuKey === 'meetingMinutes'
 }
 
 const ACTIVE_MENU_STORAGE_KEY = 'cms-active-menu'
+const SIDEBAR_GROUPS_EXPANDED_KEY = 'cms-sidebar-groups-expanded'
 
 const SIDEBAR_MENU_GROUPS = [
   {
@@ -932,19 +935,19 @@ const SIDEBAR_MENU_GROUPS = [
   },
 ]
 
-const HEADER_NAV_ITEMS = [
-  { key: 'dashboard', label: '대시보드' },
-  ...SIDEBAR_MENU_GROUPS.flatMap((group) => group.items),
-  { key: 'materialsBoard', label: '게시판' },
-  { key: 'installCases', label: '설치사례' },
-]
-
 const ALL_MENU_KEYS = [
   'dashboard',
   ...SIDEBAR_MENU_GROUPS.flatMap((group) => group.items.map((item) => item.key)),
   'materialsBoard',
   'installCases',
 ]
+
+function getMenuGroupIdForMenu(menuKey) {
+  for (const group of SIDEBAR_MENU_GROUPS) {
+    if (group.items.some((item) => item.key === menuKey)) return group.id
+  }
+  return null
+}
 
 function loadStoredMenu() {
   try {
@@ -954,6 +957,33 @@ function loadStoredMenu() {
     /* ignore */
   }
   return 'dashboard'
+}
+
+function loadExpandedMenuGroups(menuKey) {
+  const expanded = { work: true, sales: true }
+  try {
+    const raw = localStorage.getItem(SIDEBAR_GROUPS_EXPANDED_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.work === 'boolean') expanded.work = parsed.work
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  const activeGroupId = getMenuGroupIdForMenu(menuKey)
+  if (activeGroupId) expanded[activeGroupId] = true
+  expanded.sales = true
+  return expanded
+}
+
+function persistExpandedMenuGroups(groups) {
+  try {
+    localStorage.setItem(SIDEBAR_GROUPS_EXPANDED_KEY, JSON.stringify(groups))
+  } catch {
+    /* ignore */
+  }
 }
 
 function compareMaterialsBoardPosts(a, b) {
@@ -4133,6 +4163,9 @@ function App() {
   const workReportRowsRef = useRef([])
   const initialMenu = loadStoredMenu()
   const [menu, setMenu] = useState(initialMenu)
+  const [expandedMenuGroups, setExpandedMenuGroups] = useState(() =>
+    loadExpandedMenuGroups(initialMenu)
+  )
   const [openDashboardYears, setOpenDashboardYears] = useState(() => {
     const currentYear = String(new Date().getFullYear())
     return { [currentYear]: true }
@@ -4651,7 +4684,23 @@ function App() {
     } catch {
       /* ignore */
     }
+    const activeGroupId = getMenuGroupIdForMenu(menu)
+    if (!activeGroupId) return
+    setExpandedMenuGroups((prev) => {
+      if (prev[activeGroupId]) return prev
+      const next = { ...prev, [activeGroupId]: true }
+      persistExpandedMenuGroups(next)
+      return next
+    })
   }, [menu])
+
+  const toggleMenuGroup = useCallback((groupId) => {
+    setExpandedMenuGroups((prev) => {
+      const next = { ...prev, [groupId]: !prev[groupId] }
+      persistExpandedMenuGroups(next)
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     setInstallCaseDetailModal(null)
@@ -10616,26 +10665,133 @@ function App() {
 
 
   return (
-    <div className="app-shell app-shell--top-nav">
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="sidebar-top">
+          <div className="company-logo-box">
+            <img className="company-logo-img" src="/logo.png" alt="스마트DI" />
+          </div>
+
+          <div className="menu">
+            <button
+              type="button"
+              className={menu === 'dashboard' ? 'menu-btn active' : 'menu-btn'}
+              onClick={() => setMenu('dashboard')}
+            >
+              대시보드
+            </button>
+
+            {SIDEBAR_MENU_GROUPS.map((group) => {
+              const isExpanded = Boolean(expandedMenuGroups[group.id])
+              const hasActiveChild = group.items.some((item) => item.key === menu)
+              return (
+                <div key={group.id} className="menu-group">
+                  <button
+                    type="button"
+                    className={`menu-group-btn${hasActiveChild ? ' menu-group-btn--has-active' : ''}`}
+                    onClick={() => toggleMenuGroup(group.id)}
+                    aria-expanded={isExpanded}
+                    aria-label={`${group.label} ${isExpanded ? '접기' : '펼치기'}`}
+                  >
+                    <span className="menu-group-label">{group.label}</span>
+                    <span className="menu-group-chevron" aria-hidden>
+                      {isExpanded ? '▲' : '▼'}
+                    </span>
+                  </button>
+                  {isExpanded ? (
+                    <ul className="menu-group-items">
+                      {group.items.map((item) => (
+                        <li key={item.key} className="menu-group-item">
+                          <button
+                            type="button"
+                            className={
+                              menu === item.key
+                                ? 'menu-btn menu-btn--child active'
+                                : 'menu-btn menu-btn--child'
+                            }
+                            onClick={() => setMenu(item.key)}
+                          >
+                            {item.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              )
+            })}
+
+            <button
+              type="button"
+              className={menu === 'materialsBoard' ? 'menu-btn active' : 'menu-btn'}
+              onClick={() => setMenu('materialsBoard')}
+            >
+              게시판
+            </button>
+
+            <button
+              type="button"
+              className={menu === 'installCases' ? 'menu-btn active' : 'menu-btn'}
+              onClick={() => setMenu('installCases')}
+            >
+              설치사례
+            </button>
+          </div>
+        </div>
+
+        <div className="sidebar-bottom">
+          <div className="viewer-badge">{isAdmin ? '관리자 모드' : '뷰어 모드'}</div>
+          <button
+            className="logout-btn"
+            type="button"
+            onClick={handleAppLogout}
+            style={{ width: '100%' }}
+          >
+            로그아웃
+          </button>
+        </div>
+      </aside>
+
       <main className="main-area">
         <div className="top-system-bar">
-          <div className="top-system-title top-system-brand-row">
-            <div className="top-system-brand">
-              <div className="top-system-brand-logo">
-                <img className="company-logo-img" src="/logo.png" alt="스마트DI" />
-              </div>
-              <span className="top-system-brand-title">스마트DI사업부 통합관리 시스템</span>
-            </div>
-            <div className="top-system-account">
-              <span className="top-system-viewer-badge">{isAdmin ? '관리자 모드' : '뷰어 모드'}</span>
+          <div className="top-system-title">
+            <span>스마트DI사업부 통합관리 시스템</span>
+            <div
+              style={{
+                marginLeft: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                flexWrap: 'wrap',
+                justifyContent: 'flex-end',
+              }}
+            >
+              <span className="top-system-subtitle">{TOP_SYSTEM_SUBTITLE}</span>
               <span
-                className={
-                  isLongLivedSession
-                    ? 'top-system-session-pill top-system-session-pill--ok'
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  minHeight: 30,
+                  padding: '0 10px',
+                  borderRadius: 999,
+                  background: isLongLivedSession
+                    ? '#ecfdf5'
                     : remainingSessionMinutes <= 1
-                      ? 'top-system-session-pill top-system-session-pill--danger'
-                      : 'top-system-session-pill'
-                }
+                      ? '#fef2f2'
+                      : '#eef5ff',
+                  border: isLongLivedSession
+                    ? '1px solid #bbf7d0'
+                    : remainingSessionMinutes <= 1
+                      ? '1px solid #fecaca'
+                      : '1px solid #cfe0ff',
+                  color: isLongLivedSession
+                    ? '#15803d'
+                    : remainingSessionMinutes <= 1
+                      ? '#b91c1c'
+                      : '#1f4fd1',
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
               >
                 {isLongLivedSession
                   ? '🟢 자동 로그인 됨'
@@ -10649,24 +10805,12 @@ function App() {
               >
                 로그인 연장
               </button>
-              <button className="logout-btn top-system-logout-btn" type="button" onClick={handleAppLogout}>
-                로그아웃
-              </button>
             </div>
           </div>
-          <nav className="top-main-nav" aria-label="주 메뉴">
-            {HEADER_NAV_ITEMS.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                className={menu === item.key ? 'top-main-nav-btn active' : 'top-main-nav-btn'}
-                onClick={() => setMenu(item.key)}
-                aria-current={menu === item.key ? 'page' : undefined}
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
+        </div>
+
+        <div className="page-title-bar unified-title-bar">
+          <h1>{PAGE_TITLE_MAP[menu]}</h1>
         </div>
 
         <input
