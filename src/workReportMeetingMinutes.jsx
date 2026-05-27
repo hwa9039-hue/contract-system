@@ -312,17 +312,102 @@ export function serializeMeetingMinutesPatch(data) {
   }
 }
 
+export function isLegacyMeetingMinutesEntry(entry) {
+  return safeString(entry?.content).trim().startsWith(MEETING_MINUTES_TEXT_PREFIX)
+}
+
+/** 예전 mm2 한 줄 저장(주차·order_index 1) */
+export function getLegacyMeetingMinutesAgenda(weekStartDate, workReportRows) {
+  const rows = Array.isArray(workReportRows) ? workReportRows : []
+  const section = WORK_REPORT_MEETING_MINUTES_SECTION
+  const dateKey = safeString(weekStartDate).trim().slice(0, 10)
+  if (!dateKey) return null
+
+  const matches = rows.filter((row) => {
+    if (safeString(row.section).trim() !== section) return false
+    if (Number(row.orderIndex || 1) !== 1) return false
+    const rowDateKey = safeString(row.date).trim().slice(0, 10)
+    if (!rowDateKey) return false
+    const rowWeekStart = formatWeekStartMonday(rowDateKey)
+    return rowWeekStart === formatWeekStartMonday(dateKey) || rowDateKey === dateKey
+  })
+  if (!matches.length) return null
+
+  const latest = matches.reduce((best, row) => {
+    const rowTs = safeString(row?.updatedAt || row?.createdAt)
+    const bestTs = safeString(best?.updatedAt || best?.createdAt)
+    return rowTs > bestTs ? row : best
+  })
+  if (!isLegacyMeetingMinutesEntry(latest)) return null
+  return normalizeMeetingMinutesAgenda(parseMeetingMinutesFromEntry(latest).agenda)
+}
+
+function formatWeekStartMonday(dateKey) {
+  const d = new Date(`${dateKey}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return dateKey
+  const day = d.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + diff)
+  return d.toISOString().slice(0, 10)
+}
+
+function weekHasPerRowMeetingMinutes(weekStartDate, getEntry) {
+  for (let orderIndex = 2; orderIndex <= MEETING_MINUTES_AGENDA_FIXED_ROWS; orderIndex += 1) {
+    const entry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, orderIndex)
+    if (safeString(entry?.content).trim() || safeString(entry?.user).trim()) return true
+  }
+  const row1 = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
+  if (!row1) return false
+  if (isLegacyMeetingMinutesEntry(row1)) return false
+  return Boolean(safeString(row1.content).trim() || safeString(row1.user).trim())
+}
+
+/** 칸별(order_index 1~20) + 구 mm2 호환 */
+export function loadMeetingMinutesAgenda(weekStartDate, getEntry) {
+  if (!weekHasPerRowMeetingMinutes(weekStartDate, getEntry)) {
+    const legacyAgenda = getLegacyMeetingMinutesAgendaFromGetEntry(weekStartDate, getEntry)
+    if (legacyAgenda) return legacyAgenda
+  }
+
+  const agenda = getDefaultMeetingMinutesAgenda()
+  for (let index = 0; index < MEETING_MINUTES_AGENDA_FIXED_ROWS; index += 1) {
+    const entry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, index + 1)
+    agenda[index] = {
+      content: safeString(entry?.content),
+      assignee: safeString(entry?.user),
+      dueDate: '',
+    }
+  }
+  return agenda
+}
+
+function getLegacyMeetingMinutesAgendaFromGetEntry(weekStartDate, getEntry) {
+  const entry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
+  if (!isLegacyMeetingMinutesEntry(entry)) return null
+  return normalizeMeetingMinutesAgenda(parseMeetingMinutesFromEntry(entry).agenda)
+}
+
+export function getDashboardMeetingMinutesDisplayRows(weekStartDate, getEntry) {
+  const agenda = loadMeetingMinutesAgenda(weekStartDate, getEntry)
+  return normalizeMeetingMinutesAgenda(agenda)
+    .map((row) => ({
+      assignee: safeString(row.assignee).trim(),
+      content: safeString(row.content).trim(),
+    }))
+    .filter((row) => row.assignee || row.content)
+}
+
 export function buildMeetingMinutesPdfMarkup(
   weekStartDate,
   getBoardEntry,
   escapeHtml,
   { includeHeading = true } = {}
 ) {
-  const entry = getBoardEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
-  const data = parseMeetingMinutesFromEntry(entry)
+  const agenda = loadMeetingMinutesAgenda(weekStartDate, getBoardEntry)
+  const data = { agenda, meta: getDefaultMeetingMinutesData().meta }
   if (isMeetingMinutesDataEmpty(data)) return ''
 
-  const agendaRows = normalizeMeetingMinutesAgenda(data.agenda)
+  const agendaRows = normalizeMeetingMinutesAgenda(agenda)
     .map((row, index) => {
       const content = safeString(row.content).trim()
       const assignee = safeString(row.assignee).trim()
@@ -361,19 +446,30 @@ export function WorkReportMeetingMinutesSection({
   updateEntry,
   onBlur,
 }) {
-  const entry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
-  const data = useMemo(() => parseMeetingMinutesFromEntry(entry), [entry.content, entry.user, entry.destination])
-  const agendaRows = useMemo(() => normalizeMeetingMinutesAgenda(data.agenda), [data.agenda])
+  const agendaRows = useMemo(
+    () => loadMeetingMinutesAgenda(weekStartDate, getEntry),
+    [weekStartDate, getEntry]
+  )
 
   const patchAgendaRow = (index, patch) => {
-    updateEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1, (prevEntry) => {
-      const currentData = parseMeetingMinutesFromEntry(prevEntry)
-      const agenda = normalizeMeetingMinutesAgenda(currentData.agenda).map((row, i) =>
-        i === index ? { ...row, ...patch } : row
-      )
+    const orderIndex = index + 1
+    updateEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, orderIndex, (prevEntry) => {
+      const base =
+        prevEntry ||
+        ({
+          date: weekStartDate,
+          section: WORK_REPORT_MEETING_MINUTES_SECTION,
+          orderIndex,
+          content: '',
+          user: '',
+        })
       return {
-        ...prevEntry,
-        ...serializeMeetingMinutesPatch({ ...currentData, agenda }),
+        ...base,
+        date: weekStartDate,
+        section: WORK_REPORT_MEETING_MINUTES_SECTION,
+        orderIndex,
+        content: patch.content !== undefined ? patch.content : base.content,
+        user: patch.assignee !== undefined ? patch.assignee : base.user,
       }
     })
   }
@@ -390,7 +486,11 @@ export function WorkReportMeetingMinutesSection({
           <div
             key={`meeting-agenda-${index + 1}`}
             className="work-report-report-table-row editable work-report-report-table-row-meeting"
-            onBlur={onBlur}
+            onBlur={(e) => {
+              if (typeof onBlur === 'function') {
+                onBlur(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, index + 1)(e)
+              }
+            }}
           >
             <div className="work-report-report-line-number">{index + 1}</div>
             <div className="work-report-report-cell">

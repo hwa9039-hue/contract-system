@@ -44,15 +44,15 @@ import {
 import {
   WorkReportMeetingMinutesSection,
   buildMeetingMinutesPdfMarkup,
+  MEETING_MINUTES_AGENDA_FIXED_ROWS,
   isMeetingMinutesDataEmpty,
-  meetingMinutesAgendaMatches,
+  getLegacyMeetingMinutesAgenda,
+  isLegacyMeetingMinutesEntry,
   normalizeMeetingMinutesAgenda,
   parseMeetingMinutesFromEntry,
   serializeMeetingMinutesPatch,
-  readMeetingMinutesSessionBackup,
-  writeMeetingMinutesSessionBackup,
+  getDashboardMeetingMinutesDisplayRows,
 } from './workReportMeetingMinutes.jsx'
-import { buildWorkReportWireVariants } from './workReportWire.js'
 
 const CONTRACT_COLUMNS = [
   { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text' },
@@ -2460,35 +2460,53 @@ function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDr
   return list
 }
 
-/** 대시보드: 오늘이 속한 주(weekStart)의 회의록 agenda 행 목록 (서버 + 미저장 draft만) */
+/** 대시보드: 오늘이 속한 주(weekStart)의 회의록 agenda 행 목록 */
 function getDashboardWeekMeetingMinutesRows(weekStartDate, workReportRows, workReportDrafts) {
-  const dateKey = normalizeWorkReportDateKey(weekStartDate)
-  if (!dateKey) return []
-  const section = WORK_REPORT_SECTION_KEYS.meetingMinutes
-  const weekStart = formatDateInput(getWeekStartMonday(dateKey))
-  const cellKey = `${weekStart}__${section}__1`
-
-  const storedEntry = pickMeetingMinutesStoredRow(weekStartDate, workReportRows, 1)
-  const draftEntry = workReportDrafts?.[cellKey]
-  const entry = draftEntry
-    ? {
-        ...(storedEntry || {}),
-        ...draftEntry,
-        content: safeString(draftEntry.content).length
-          ? draftEntry.content
-          : storedEntry?.content || '',
+  const weekStart = formatDateInput(getWeekStartMonday(normalizeWorkReportDateKey(weekStartDate)))
+  if (!weekStart) return []
+  const getEntry = (date, section, orderIndex) => {
+    const cellKey = `${normalizeWorkReportDateKey(date)}__${safeString(section).trim()}__${Number(orderIndex || 1)}`
+    const draftEntry = workReportDrafts?.[cellKey]
+    const storedEntry = (() => {
+      const sectionNorm = safeString(section).trim()
+      const oi = Number(orderIndex || 1)
+      const perRowMatches = workReportRows.filter((row) =>
+        workReportRowKeyMatch(row, weekStart, sectionNorm, oi)
+      )
+      const perRowStored = pickLatestWorkReportRow(perRowMatches)
+      if (perRowStored && (oi > 1 || !isLegacyMeetingMinutesEntry(perRowStored))) {
+        return perRowStored
       }
-    : storedEntry
 
-  if (!entry) return []
-  const data = parseMeetingMinutesFromEntry(entry)
-  if (isMeetingMinutesDataEmpty(data)) return []
-  return normalizeMeetingMinutesAgenda(data.agenda)
-    .map((row) => ({
-      assignee: safeString(row.assignee).trim(),
-      content: safeString(row.content).trim(),
-    }))
-    .filter((row) => row.assignee || row.content)
+      const legacyAgenda = getLegacyMeetingMinutesAgenda(weekStart, workReportRows)
+      if (legacyAgenda && oi >= 1 && oi <= MEETING_MINUTES_AGENDA_FIXED_ROWS) {
+        const slice = legacyAgenda[oi - 1]
+        const legacyRow = pickMeetingMinutesStoredRow(weekStart, workReportRows, 1)
+        if (oi === 1 && legacyRow) {
+          return { ...legacyRow, content: slice.content, user: slice.assignee, orderIndex: 1 }
+        }
+        return {
+          date: weekStart,
+          section: sectionNorm,
+          orderIndex: oi,
+          content: slice.content,
+          user: slice.assignee,
+        }
+      }
+      const matches = workReportRows.filter((row) =>
+        workReportRowKeyMatch(row, weekStart, sectionNorm, oi)
+      )
+      return pickLatestWorkReportRow(matches)
+    })()
+    if (!draftEntry) return storedEntry
+    return {
+      ...(storedEntry || {}),
+      ...draftEntry,
+      content: safeString(draftEntry.content).length ? draftEntry.content : storedEntry?.content || '',
+      user: safeString(draftEntry.user).length ? draftEntry.user : storedEntry?.user || '',
+    }
+  }
+  return getDashboardMeetingMinutesDisplayRows(weekStart, getEntry)
 }
 
 function safeString(value) {
@@ -3656,7 +3674,7 @@ function ensureWorkReportContentSafeForApi(content, sectionNorm) {
   if (!next || !isWafRiskyWorkReportContent(next)) return next
 
   if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
-    return serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry({ content: next })).content
+    return next
   }
   if (sectionNorm === WORK_REPORT_SECTION_KEYS.external) {
     const parsed = parseExternalScheduleContent(next)
@@ -3742,7 +3760,10 @@ function serializeWorkReportEntrySnapshot(row) {
     })
   }
   if (section === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
-    return serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry(row)).content
+    return JSON.stringify({
+      content: safeString(row.content).trim(),
+      user: safeString(row.user).trim(),
+    })
   }
   if (section === WORK_REPORT_SECTION_KEYS.checklist) {
     return safeString(row.content).trim()
@@ -3797,7 +3818,7 @@ function isWorkReportRowEmpty(row) {
   }
 
   if (normalizedSection === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
-    return isMeetingMinutesDataEmpty(parseMeetingMinutesFromEntry(row))
+    return !safeString(row.content).trim() && !safeString(row.user).trim()
   }
 
   return safeString(row.content).trim() === ''
@@ -3816,11 +3837,8 @@ function toWorkReportPayload(row, timestamp) {
       safeString(row.destination).trim() || parsed.destination
     )
   } else if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
-    const serialized = serializeMeetingMinutesPatch(
-      parseMeetingMinutesFromEntry({ ...row, content: decodeWorkReportWireText(row.content) })
-    )
-    content = serialized.content
-    user = safeString(serialized.user).trim() || resolvedUser
+    content = safeString(decodeWorkReportWireText(row.content)).trim()
+    user = safeString(row.user).trim() || resolvedUser
   }
 
   content = ensureWorkReportContentSafeForApi(content, sectionNorm)
@@ -7546,24 +7564,41 @@ function App() {
 
     if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
       const weekStart = formatDateInput(getWeekStartMonday(dateKey))
-      const cellKey = getWorkReportCellKey(weekStart, sectionNorm, oi)
-      const stored = pickMeetingMinutesStoredRow(weekStart, workReportRowsRef.current, oi)
-      const hasLocalDraft = Boolean(workReportDraftsRef.current[cellKey])
-      if (!hasLocalDraft) return stored
+      const perRowMatches = workReportRowsRef.current.filter((row) =>
+        workReportRowKeyMatch(row, weekStart, sectionNorm, oi)
+      )
+      const perRowStored = pickLatestWorkReportRow(perRowMatches)
+      if (perRowStored && (oi > 1 || !isLegacyMeetingMinutesEntry(perRowStored))) {
+        return perRowStored
+      }
 
-      const backup = readMeetingMinutesSessionBackup(weekStart)
-      if (!backup) return stored
-      if (!stored) {
+      const legacyAgenda = getLegacyMeetingMinutesAgenda(weekStart, workReportRowsRef.current)
+      if (legacyAgenda && oi >= 1 && oi <= MEETING_MINUTES_AGENDA_FIXED_ROWS) {
+        const slice = legacyAgenda[oi - 1]
+        const legacyRow = pickMeetingMinutesStoredRow(weekStart, workReportRowsRef.current, 1)
+        if (oi === 1 && legacyRow) {
+          return {
+            ...legacyRow,
+            date: weekStart,
+            section: sectionNorm,
+            orderIndex: 1,
+            content: safeString(slice.content),
+            user: safeString(slice.assignee),
+          }
+        }
+        const perRowMatches = workReportRowsRef.current.filter((row) =>
+          workReportRowKeyMatch(row, weekStart, sectionNorm, oi)
+        )
+        const perRow = pickLatestWorkReportRow(perRowMatches)
+        if (perRow) return perRow
         return createWorkReportDraftRow({
           reportDate: weekStart,
           section: sectionNorm,
-          content: backup,
+          content: safeString(slice.content),
+          user: safeString(slice.assignee),
           orderIndex: oi,
         })
       }
-      const storedBody = serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry(stored)).content
-      if (safeString(storedBody).trim() === safeString(backup).trim()) return stored
-      return { ...stored, content: backup }
     }
 
     const matches = workReportRowsRef.current.filter((row) =>
@@ -7886,13 +7921,6 @@ function App() {
       workReportDraftsRef.current = next
       return next
     })
-    if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
-      const draftEntry = workReportDraftsRef.current[cellKey]
-      if (draftEntry) {
-        const mm2 = serializeMeetingMinutesPatch(parseMeetingMinutesFromEntry(draftEntry)).content
-        writeMeetingMinutesSessionBackup(normalizeWorkReportDateKey(date), mm2)
-      }
-    }
   }
 
   const yieldToReactStateFlush = () =>
@@ -7916,8 +7944,6 @@ function App() {
         orderIndex: oi,
       }
       const savedSnapshot = serializeWorkReportEntrySnapshot(targetRow)
-      let intendedMeetingContent = ''
-
       if (isWorkReportRowEmpty(targetRow)) {
         if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
           const idsToRemove = new Set()
@@ -7976,91 +8002,22 @@ function App() {
       try {
         const timestamp = new Date().toISOString()
         const apiPayload = toWorkReportPayload(targetRow, timestamp)
-        if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
-          intendedMeetingContent = safeString(apiPayload.content).trim()
-        }
         const existingStored = getStoredWorkReportEntry(date, sectionNorm, oi)
         const persistedId =
           existingStored?.id ||
           (!isWorkReportDraftRowId(targetRow.id) ? safeString(targetRow.id).trim() : '')
-        const meetingWireVariants =
-          sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes && intendedMeetingContent
-            ? buildWorkReportWireVariants(apiPayload)
-            : null
-        let savedRow = null
-        let activeRowId = persistedId
+        let savedRow
 
-        if (!meetingWireVariants) {
-          if (!activeRowId) {
-            savedRow = await weeklyWorkReportsApi.create({
-              ...apiPayload,
-              createdAt: timestamp,
-            })
-            activeRowId = savedRow?.id
-          } else {
-            savedRow = await weeklyWorkReportsApi.update(activeRowId, apiPayload)
-          }
+        if (!persistedId) {
+          savedRow = await weeklyWorkReportsApi.create({
+            ...apiPayload,
+            createdAt: timestamp,
+          })
         } else {
-          for (let attempt = 0; attempt < meetingWireVariants.length; attempt += 1) {
-            const wirePayload = meetingWireVariants[attempt]
-            if (!activeRowId) {
-              savedRow = await weeklyWorkReportsApi.create(
-                { ...wirePayload, createdAt: timestamp },
-                { alreadyWired: true }
-              )
-              activeRowId = savedRow?.id
-            } else {
-              savedRow = await weeklyWorkReportsApi.update(activeRowId, wirePayload, {
-                alreadyWired: true,
-              })
-            }
-            const responseBody = serializeMeetingMinutesPatch(
-              parseMeetingMinutesFromEntry(normalizeWorkReportRow(savedRow || {}))
-            ).content
-            if (meetingMinutesAgendaMatches(intendedMeetingContent, responseBody)) {
-              break
-            }
-            await fetchWorkReportRows()
-            const weekStart = formatDateInput(getWeekStartMonday(normalizeWorkReportDateKey(date)))
-            const apiRow =
-              workReportRowsRef.current.find((row) => row.id === activeRowId) ||
-              pickMeetingMinutesStoredRow(weekStart, workReportRowsRef.current, oi)
-            const apiBody = serializeMeetingMinutesPatch(
-              parseMeetingMinutesFromEntry(apiRow || { content: '' })
-            ).content
-            if (meetingMinutesAgendaMatches(intendedMeetingContent, apiBody)) {
-              break
-            }
-            if (attempt === meetingWireVariants.length - 1) {
-              showAppAlert(
-                '회의록이 서버에 저장되지 않았습니다.\n\n' +
-                  'NAS contract-backend를 최신으로 재빌드·재시작(body·reportPayloadParts)한 뒤 다시 저장해 주세요.'
-              )
-              return
-            }
-          }
+          savedRow = await weeklyWorkReportsApi.update(persistedId, apiPayload)
         }
 
         let normalizedSaved = normalizeWorkReportRow(savedRow)
-
-        if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes && intendedMeetingContent) {
-          const weekStart = formatDateInput(getWeekStartMonday(normalizeWorkReportDateKey(date)))
-          const apiRow =
-            workReportRowsRef.current.find((row) => row.id === activeRowId) ||
-            pickMeetingMinutesStoredRow(weekStart, workReportRowsRef.current, oi)
-          const apiBody = serializeMeetingMinutesPatch(
-            parseMeetingMinutesFromEntry(apiRow || { content: '' })
-          ).content
-          normalizedSaved = {
-            ...(apiRow || normalizedSaved),
-            content: apiBody || intendedMeetingContent,
-            date: weekStart,
-            section: sectionNorm,
-            orderIndex: oi,
-            id: activeRowId || normalizedSaved.id || apiRow?.id,
-            isDraft: false,
-          }
-        }
 
         const duplicateIds = workReportRowsRef.current
           .filter(
@@ -8096,29 +8053,10 @@ function App() {
 
         trackWorkWeek(targetRow.date, { selectWeek: false })
         setToastMessage('저장되었습니다.')
-        if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes && intendedMeetingContent) {
-          writeMeetingMinutesSessionBackup(normalizeWorkReportDateKey(date), intendedMeetingContent)
-        }
 
         setWorkReportDrafts((prev) => {
           const next = { ...prev }
           const currentDraft = prev[cellKey]
-
-          if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
-            const mergedMeetingEntry = {
-              ...(currentDraft || getWorkReportBoardEntry(date, sectionNorm, oi, prev)),
-              ...normalizedSaved,
-              content: intendedMeetingContent || safeString(normalizedSaved.content),
-              date: normalizeWorkReportDateKey(date),
-              section: sectionNorm,
-              orderIndex: oi,
-              id: normalizedSaved.id || currentDraft?.id,
-              isDraft: false,
-            }
-            next[cellKey] = mergedMeetingEntry
-            workReportDraftsRef.current = next
-            return next
-          }
 
           const serverSnapshot = serializeWorkReportEntrySnapshot({
             ...normalizedSaved,
@@ -11240,11 +11178,7 @@ function App() {
                   weekStartDate={selectedWorkWeekMeta.weekStartDate}
                   getEntry={getWorkReportBoardEntry}
                   updateEntry={updateWorkReportBoardEntry}
-                  onBlur={handleWorkReportBoardBlur(
-                    selectedWorkWeekMeta.weekStartDate,
-                    WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                    1
-                  )}
+                  onBlur={handleWorkReportBoardBlur}
                 />
               </div>
 
