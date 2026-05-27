@@ -8,10 +8,15 @@ export function resolveMaterialsBoardFolderValue({ folder, folderId } = {}) {
 
 function withMaterialsBoardFolderFallback(row, folderValue) {
   if (!row || typeof row !== 'object') return row
-  const resolved = resolveMaterialsBoardFolderValue({
-    folder: row.folder,
-    folderId: row.folderId ?? folderValue,
-  })
+  const rawFolder = String(row.folder ?? '').trim()
+  const rawFolderId = String(row.folderId ?? '').trim()
+  // 서버가 folder 를 내려주면 그것을 신뢰한다. (덮어쓰면 디버깅이 불가능해짐)
+  if (rawFolder || rawFolderId) {
+    const resolved = resolveMaterialsBoardFolderValue({ folder: rawFolder, folderId: rawFolderId })
+    return { ...row, folder: resolved, folderId: resolved }
+  }
+  // 구버전 서버 응답(폴더 없음)만 클라이언트 폴백으로 채운다.
+  const resolved = resolveMaterialsBoardFolderValue({ folderId: folderValue })
   return { ...row, folder: resolved, folderId: resolved }
 }
 
