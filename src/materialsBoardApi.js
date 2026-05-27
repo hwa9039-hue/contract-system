@@ -6,9 +6,26 @@ export function resolveMaterialsBoardFolderValue({ folder, folderId } = {}) {
   return String(folderId ?? folder ?? '기타').trim() || '기타'
 }
 
+function withMaterialsBoardFolderFallback(row, folderValue) {
+  if (!row || typeof row !== 'object') return row
+  const resolved = resolveMaterialsBoardFolderValue({
+    folder: row.folder,
+    folderId: row.folderId ?? folderValue,
+  })
+  return { ...row, folder: resolved, folderId: resolved }
+}
+
 function buildFormData({ title, content, folder, folderId, files = [] }) {
   const form = new FormData()
   const folderValue = resolveMaterialsBoardFolderValue({ folder, folderId })
+  const meta = {
+    title,
+    content: content || '',
+    folder: folderValue,
+    folderId: folderValue,
+  }
+  // 설치사례 /form 과 동일: JSON payload 로 폴더·제목 전달 (multipart 필드 누락 방지)
+  form.append('payload', JSON.stringify(meta))
   form.append('title', title)
   form.append('content', content || '')
   form.append('folder', folderValue)
@@ -140,7 +157,7 @@ export const materialsBoardApi = {
     return requestForm(`${MATERIALS_BOARD_API_PATH}?${query.toString()}`, {
       method: 'POST',
       formData,
-    })
+    }).then((row) => withMaterialsBoardFolderFallback(row, folderValue))
   },
 
   update(id, { title, content, folder, folderId, files }) {
@@ -153,7 +170,7 @@ export const materialsBoardApi = {
         method: 'PATCH',
         formData,
       }
-    )
+    ).then((row) => withMaterialsBoardFolderFallback(row, folderValue))
   },
 
   remove(id) {

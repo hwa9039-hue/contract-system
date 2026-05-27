@@ -5776,8 +5776,14 @@ function App() {
         showAppAlert('게시글이 성공적으로 수정되었습니다.', '알림')
       } else {
         const created = await materialsBoardApi.create(payload)
+        console.log('서버 저장 결과:', created)
         console.log('서버 저장 결과 folder:', created?.folder)
         const savedFolder = safeString(created?.folder).trim() || folderId
+        if (!safeString(created?.folder).trim()) {
+          console.warn(
+            '[게시판] 서버 응답에 folder가 없습니다. NAS 백엔드를 최신으로 재빌드하고 /api/health 에 materialsBoardFolderApiVersion: 2 인지 확인하세요.'
+          )
+        }
         await fetchMaterialsBoardPosts()
         setMaterialsBoardSelectedFolder(savedFolder)
         setMaterialsBoardFile([])

@@ -7,7 +7,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.database import get_connection
@@ -16,6 +16,7 @@ from app.schemas import MaterialsBoardOut, row_to_materials_board_post
 logger = logging.getLogger(__name__)
 
 MATERIALS_BOARD_API_PATH = "/api/materials-board"
+MATERIALS_BOARD_FOLDER_API_VERSION = 2
 router = APIRouter(prefix=MATERIALS_BOARD_API_PATH, tags=["materials-board"])
 
 UPLOAD_ROOT = Path(os.getenv("UPLOAD_DIR", "uploads")).resolve()
@@ -54,6 +55,42 @@ def folder_from_request(request: Request, form) -> str:
                 return text
 
     return DEFAULT_MATERIALS_BOARD_FOLDER
+
+
+def parse_materials_board_submit(request: Request, form) -> tuple[str, str, str]:
+    """title, content, folder — JSON payload(우선) 또는 개별 form 필드."""
+    payload_raw = form.get("payload")
+    if payload_raw is not None:
+        try:
+            text = payload_raw if isinstance(payload_raw, str) else str(payload_raw)
+            data = json.loads(text)
+            if isinstance(data, dict):
+                title = _form_text_value(data.get("title"))
+                content = _form_text_value(data.get("content"))
+                folder = _form_text_value(data.get("folder")) or _form_text_value(
+                    data.get("folderId")
+                )
+                if not folder:
+                    folder = folder_from_request(request, form)
+                if title:
+                    return title, content, folder
+        except (json.JSONDecodeError, TypeError, ValueError):
+            logger.warning("materials board payload JSON parse failed", exc_info=True)
+
+    title = _form_text_value(form.get("title"))
+    content = _form_text_value(form.get("content"))
+    folder = folder_from_request(request, form)
+    return title, content, folder
+
+
+def materials_board_out(row: dict | None, folder_hint: str | None = None) -> dict:
+    """응답 JSON 에 folder 가 항상 포함되도록 보장합니다."""
+    if not row:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Save failed")
+    result = row_to_materials_board_post(row)
+    folder = _form_text_value(folder_hint) or _form_text_value(result.get("folder"))
+    result["folder"] = folder or DEFAULT_MATERIALS_BOARD_FOLDER
+    return result
 
 
 def now_text() -> str:
@@ -170,18 +207,16 @@ def list_post_rows() -> list[dict]:
 
 @router.get("", response_model=list[MaterialsBoardOut])
 def api_list_materials_board_posts():
-    return [row_to_materials_board_post(row) for row in list_post_rows()]
+    return [materials_board_out(row) for row in list_post_rows()]
 
 
 @router.post("", response_model=MaterialsBoardOut, status_code=status.HTTP_201_CREATED)
 async def api_create_materials_board_post(request: Request):
     form = await request.form()
-    trimmed_title = _form_text_value(form.get("title"))
+    trimmed_title, content_value, folder_value = parse_materials_board_submit(request, form)
     if not trimmed_title:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Title is required")
 
-    folder_value = folder_from_request(request, form)
-    content_value = _form_text_value(form.get("content"))
     uploads = form.getlist("files")
 
     logger.info(
@@ -237,7 +272,7 @@ async def api_create_materials_board_post(request: Request):
             created = cursor.fetchone()
         connection.commit()
 
-    return row_to_materials_board_post(created)
+    return materials_board_out(created, folder_hint=folder_value)
 
 
 @router.patch("/{post_id}", response_model=MaterialsBoardOut)
@@ -247,12 +282,10 @@ async def api_update_materials_board_post(post_id: str, request: Request):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
     form = await request.form()
-    trimmed_title = _form_text_value(form.get("title"))
+    trimmed_title, content_value, folder_value = parse_materials_board_submit(request, form)
     if not trimmed_title:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Title is required")
 
-    folder_value = folder_from_request(request, form)
-    content_value = _form_text_value(form.get("content"))
     uploads = form.getlist("files")
 
     logger.info(
@@ -305,7 +338,7 @@ async def api_update_materials_board_post(post_id: str, request: Request):
             updated = cursor.fetchone()
         connection.commit()
 
-    return row_to_materials_board_post(updated)
+    return materials_board_out(updated, folder_hint=folder_value)
 
 
 @router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
