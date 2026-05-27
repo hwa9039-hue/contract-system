@@ -2,13 +2,17 @@ import { API_BASE_URL, apiFetchInit, getAuthHeaders, getAuthToken } from './apiC
 
 export const MATERIALS_BOARD_API_PATH = '/api/materials-board'
 
+export function resolveMaterialsBoardFolderValue({ folder, folderId } = {}) {
+  return String(folderId ?? folder ?? '기타').trim() || '기타'
+}
+
 function buildFormData({ title, content, folder, folderId, files = [] }) {
   const form = new FormData()
+  const folderValue = resolveMaterialsBoardFolderValue({ folder, folderId })
   form.append('title', title)
   form.append('content', content || '')
-  const folderValue =
-    String(folderId ?? folder ?? '기타').trim() || String(folder ?? '기타').trim() || '기타'
   form.append('folder', folderValue)
+  form.append('folderId', folderValue)
   for (const entry of files) {
     const file = entry?.file
     if (file instanceof File) {
@@ -130,19 +134,26 @@ export const materialsBoardApi = {
   },
 
   create({ title, content, folder, folderId, files }) {
-    const formData = buildFormData({ title, content, folder, folderId, files })
-    return requestForm(MATERIALS_BOARD_API_PATH, {
+    const folderValue = resolveMaterialsBoardFolderValue({ folder, folderId })
+    const formData = buildFormData({ title, content, folder: folderValue, folderId: folderValue, files })
+    const query = new URLSearchParams({ folder: folderValue })
+    return requestForm(`${MATERIALS_BOARD_API_PATH}?${query.toString()}`, {
       method: 'POST',
       formData,
     })
   },
 
   update(id, { title, content, folder, folderId, files }) {
-    const formData = buildFormData({ title, content, folder, folderId, files })
-    return requestForm(`${MATERIALS_BOARD_API_PATH}/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      formData,
-    })
+    const folderValue = resolveMaterialsBoardFolderValue({ folder, folderId })
+    const formData = buildFormData({ title, content, folder: folderValue, folderId: folderValue, files })
+    const query = new URLSearchParams({ folder: folderValue })
+    return requestForm(
+      `${MATERIALS_BOARD_API_PATH}/${encodeURIComponent(id)}?${query.toString()}`,
+      {
+        method: 'PATCH',
+        formData,
+      }
+    )
   },
 
   remove(id) {

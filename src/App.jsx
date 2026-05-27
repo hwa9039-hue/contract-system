@@ -1123,15 +1123,6 @@ function getDefaultMaterialsBoardForm() {
   return { title: '' }
 }
 
-function resolveMaterialsBoardRegisterFolder(folderId, selectedFolderId = MATERIALS_BOARD_FOLDER_ALL) {
-  const fromForm = safeString(folderId).trim()
-  if (fromForm) return fromForm
-  if (selectedFolderId !== MATERIALS_BOARD_FOLDER_ALL) {
-    return safeString(selectedFolderId).trim() || '기타'
-  }
-  return '기타'
-}
-
 function formatMaterialsBoardFileSize(bytes) {
   const n = Number(bytes)
   if (!Number.isFinite(n) || n < 0) return '0 B'
@@ -5462,6 +5453,16 @@ function App() {
     persistMaterialsBoardCustomFolders(materialsBoardCustomFolders)
   }, [materialsBoardCustomFolders])
 
+  useEffect(() => {
+    if (!materialsBoardRegisterOpen || materialsBoardEditingId) return
+    if (materialsBoardSelectedFolder === MATERIALS_BOARD_FOLDER_ALL) return
+    setMaterialsBoardRegisterFolderId(materialsBoardSelectedFolder)
+  }, [
+    materialsBoardRegisterOpen,
+    materialsBoardEditingId,
+    materialsBoardSelectedFolder,
+  ])
+
   const filteredMaterialsBoardPosts = useMemo(() => {
     const query = safeString(materialsBoardSearch).trim().toLowerCase()
     let rows = [...materialsBoardPosts].sort(compareMaterialsBoardPosts)
@@ -5751,10 +5752,7 @@ function App() {
       return
     }
     const content = ''
-    const folderId = resolveMaterialsBoardRegisterFolder(
-      materialsBoardRegisterFolderId,
-      materialsBoardSelectedFolder
-    )
+    const folderId = safeString(materialsBoardRegisterFolderId).trim() || '기타'
     const editingId = materialsBoardEditingId
 
     setMaterialsBoardSubmitting(true)
@@ -5769,14 +5767,19 @@ function App() {
       console.log('API로 전송되는 게시글 데이터:', payload)
 
       if (editingId) {
-        await materialsBoardApi.update(editingId, payload)
+        const updated = await materialsBoardApi.update(editingId, payload)
+        console.log('서버 저장 결과 folder:', updated?.folder)
         await fetchMaterialsBoardPosts()
+        setMaterialsBoardSelectedFolder(safeString(updated?.folder).trim() || folderId)
         setMaterialsBoardFile([])
         handleCloseMaterialsBoardRegister()
         showAppAlert('게시글이 성공적으로 수정되었습니다.', '알림')
       } else {
-        await materialsBoardApi.create(payload)
+        const created = await materialsBoardApi.create(payload)
+        console.log('서버 저장 결과 folder:', created?.folder)
+        const savedFolder = safeString(created?.folder).trim() || folderId
         await fetchMaterialsBoardPosts()
+        setMaterialsBoardSelectedFolder(savedFolder)
         setMaterialsBoardFile([])
         handleCloseMaterialsBoardRegister()
         showAppAlert('게시글이 성공적으로 등록되었습니다.', '알림')

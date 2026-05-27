@@ -28,14 +28,32 @@ RETURNING_COLUMNS = """
 DEFAULT_MATERIALS_BOARD_FOLDER = "기타"
 
 
-def folder_from_multipart_form(form, fallback: str = DEFAULT_MATERIALS_BOARD_FOLDER) -> str:
-    """multipart/form-data 에서 folder 필드를 직접 읽어 기본값 덮어쓰기를 방지합니다."""
-    raw = form.get("folder")
-    if raw is None:
-        return fallback
-    text = raw if isinstance(raw, str) else str(raw)
-    trimmed = text.strip()
-    return trimmed or fallback
+def _form_text_value(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    filename = getattr(value, "filename", None)
+    if filename:
+        return ""
+    return str(value).strip()
+
+
+def folder_from_request(request: Request, form) -> str:
+    """쿼리·multipart form 에서 folder 값을 읽습니다 (form 필드 누락 시 쿼리로 보완)."""
+    query_folder = _form_text_value(request.query_params.get("folder"))
+    if query_folder:
+        return query_folder
+
+    for key in ("folder", "folderId"):
+        for sub_key, value in form.multi_items():
+            if sub_key != key:
+                continue
+            text = _form_text_value(value)
+            if text:
+                return text
+
+    return DEFAULT_MATERIALS_BOARD_FOLDER
 
 
 def now_text() -> str:
@@ -158,13 +176,20 @@ def api_list_materials_board_posts():
 @router.post("", response_model=MaterialsBoardOut, status_code=status.HTTP_201_CREATED)
 async def api_create_materials_board_post(request: Request):
     form = await request.form()
-    trimmed_title = (form.get("title") or "").strip()
+    trimmed_title = _form_text_value(form.get("title"))
     if not trimmed_title:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Title is required")
 
-    folder_value = folder_from_multipart_form(form)
-    content_value = (form.get("content") or "").strip()
+    folder_value = folder_from_request(request, form)
+    content_value = _form_text_value(form.get("content"))
     uploads = form.getlist("files")
+
+    logger.info(
+        "materials board create: folder=%r title=%r query_folder=%r",
+        folder_value,
+        trimmed_title,
+        request.query_params.get("folder"),
+    )
 
     post_id = str(uuid4())
     timestamp = now_text()
@@ -222,13 +247,20 @@ async def api_update_materials_board_post(post_id: str, request: Request):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
     form = await request.form()
-    trimmed_title = (form.get("title") or "").strip()
+    trimmed_title = _form_text_value(form.get("title"))
     if not trimmed_title:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Title is required")
 
-    folder_value = folder_from_multipart_form(form)
-    content_value = (form.get("content") or "").strip()
+    folder_value = folder_from_request(request, form)
+    content_value = _form_text_value(form.get("content"))
     uploads = form.getlist("files")
+
+    logger.info(
+        "materials board update: post_id=%s folder=%r title=%r",
+        post_id,
+        folder_value,
+        trimmed_title,
+    )
 
     current_files = normalize_files_json(existing.get("files"))
     new_files: list[dict] = []
