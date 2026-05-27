@@ -4071,6 +4071,51 @@ textarea:focus-visible {
   font-weight: 760;
 }
 
+.top-system-subtitle-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  max-width: min(100%, 920px);
+  font-family: 'Pretendard', sans-serif;
+}
+
+.top-system-subtitle-item {
+  display: inline-flex;
+  align-items: center;
+}
+
+.top-system-subtitle-sep {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+  user-select: none;
+}
+
+.top-system-subtitle-link {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  color: #64748b;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.top-system-subtitle-link:hover {
+  color: #1f4fd1;
+}
+
+.top-system-subtitle-link.active {
+  color: #2563eb;
+  font-weight: 800;
+}
+
 .top-system-subtitle {
   margin-left: auto;
   color: #64748b;
