@@ -3528,6 +3528,52 @@ function matchesRegistrySearch(row, columns, keyword) {
   )
 }
 
+function getRegistryRowDateYmd(row, dateKey) {
+  const normalized = toDbDate(row?.[dateKey])
+  if (normalized) return normalized
+  const parsed = parseDateOnly(row?.[dateKey])
+  return parsed ? formatDateInput(parsed) : ''
+}
+
+/** 기간 검색: startDate/endDate(yyyy-mm-dd) 중 하나라도 있으면 dateKey 기준으로 필터 */
+function matchesDateRangeFilter(row, dateKey, startDate, endDate) {
+  const start = safeString(startDate).trim()
+  const end = safeString(endDate).trim()
+  if (!start && !end) return true
+  if (row?.isDraft) return true
+
+  const rowYmd = getRegistryRowDateYmd(row, dateKey)
+  if (!rowYmd) return false
+
+  if (start && rowYmd < start) return false
+  if (end && rowYmd > end) return false
+  return true
+}
+
+function RegistryDateRangeFilter({ startDate, endDate, onStartChange, onEndChange }) {
+  return (
+    <div className="registry-date-range-filter" role="group" aria-label="기간 검색">
+      <input
+        type="date"
+        className="table-search-input registry-date-input"
+        value={startDate}
+        onChange={(e) => onStartChange(e.target.value)}
+        aria-label="시작일"
+      />
+      <span className="registry-date-range-sep" aria-hidden="true">
+        ~
+      </span>
+      <input
+        type="date"
+        className="table-search-input registry-date-input"
+        value={endDate}
+        onChange={(e) => onEndChange(e.target.value)}
+        aria-label="종료일"
+      />
+    </div>
+  )
+}
+
 function getRegistryCellSignatureValue(column, row) {
   if (column.type === 'amount') {
     return normalizeAmountValue(row[column.key])
@@ -4289,11 +4335,13 @@ function App() {
   const [documentEditSnapshots, setDocumentEditSnapshots] = useState({})
   const [isSavingDocuments, setIsSavingDocuments] = useState(false)
   const [documentSearch, setDocumentSearch] = useState('')
+  const [documentDateRange, setDocumentDateRange] = useState({ startDate: '', endDate: '' })
   const [selectedSalesIds, setSelectedSalesIds] = useState([])
   const [editingSalesIds, setEditingSalesIds] = useState([])
   const [salesEditSnapshots, setSalesEditSnapshots] = useState({})
   const [isSavingSales, setIsSavingSales] = useState(false)
   const [salesSearch, setSalesSearch] = useState('')
+  const [salesDateRange, setSalesDateRange] = useState({ startDate: '', endDate: '' })
   const [salesFilters, setSalesFilters] = useState({
     projectCategory: '',
     manager: '',
@@ -4304,6 +4352,7 @@ function App() {
   const [discoveryEditSnapshots, setDiscoveryEditSnapshots] = useState({})
   const [isSavingDiscovery, setIsSavingDiscovery] = useState(false)
   const [discoverySearch, setDiscoverySearch] = useState('')
+  const [discoveryDateRange, setDiscoveryDateRange] = useState({ startDate: '', endDate: '' })
   const [discoveryFilters, setDiscoveryFilters] = useState({
     manager: '',
     projectCategory: '',
@@ -4313,6 +4362,7 @@ function App() {
   const [excludedEditSnapshots, setExcludedEditSnapshots] = useState({})
   const [isSavingExcluded, setIsSavingExcluded] = useState(false)
   const [excludedSearch, setExcludedSearch] = useState('')
+  const [excludedDateRange, setExcludedDateRange] = useState({ startDate: '', endDate: '' })
   const [excludedFilters, setExcludedFilters] = useState({
     category: '',
     keyword: '',
@@ -4341,6 +4391,7 @@ function App() {
   const [isDocumentGuideCollapsed, setIsDocumentGuideCollapsed] = useState(true)
   const [manualEvents, setManualEvents] = useState([])
   const [search, setSearch] = useState('')
+  const [contractDateRange, setContractDateRange] = useState({ startDate: '', endDate: '' })
   const [filters, setFilters] = useState({
     year: ALL_OPTION,
     contractMethod: ALL_OPTION,
@@ -4941,11 +4992,17 @@ function App() {
         const ownerMatch =
           !filters.salesOwner || item.salesOwner === filters.salesOwner
         const pmMatch = !filters.pm || item.pm === filters.pm
+        const dateMatch = matchesDateRangeFilter(
+          item,
+          'contractDate',
+          contractDateRange.startDate,
+          contractDateRange.endDate
+        )
 
-        return searchMatch && yearMatch && methodMatch && typeMatch && ownerMatch && pmMatch
+        return searchMatch && yearMatch && methodMatch && typeMatch && ownerMatch && pmMatch && dateMatch
       })
     )
-  }, [contracts, filters, search])
+  }, [contractDateRange.endDate, contractDateRange.startDate, contracts, filters, search])
 
   const filteredTotalAmount = useMemo(
     () => filteredContracts.reduce((sum, item) => sum + parseAmount(item.amount), 0),
@@ -4959,8 +5016,19 @@ function App() {
       !safeString(filters.contractMethod).trim() &&
       !safeString(filters.contractType).trim() &&
       !safeString(filters.salesOwner).trim() &&
-      !safeString(filters.pm).trim(),
-    [filters.contractMethod, filters.contractType, filters.pm, filters.salesOwner, filters.year, search]
+      !safeString(filters.pm).trim() &&
+      !safeString(contractDateRange.startDate).trim() &&
+      !safeString(contractDateRange.endDate).trim(),
+    [
+      contractDateRange.endDate,
+      contractDateRange.startDate,
+      filters.contractMethod,
+      filters.contractType,
+      filters.pm,
+      filters.salesOwner,
+      filters.year,
+      search,
+    ]
   )
 
   const remainingSessionMinutes = useMemo(() => {
@@ -5514,12 +5582,30 @@ function App() {
   const contractTableColSpan = isAdmin ? CONTRACT_COLUMNS.length + 2 : CONTRACT_COLUMNS.length + 1
 
   const filteredDocuments = useMemo(() => {
-    return documents.filter((row) => matchesRegistrySearch(row, DOCUMENT_COLUMNS, documentSearch))
-  }, [documentSearch, documents])
+    return documents.filter((row) => {
+      if (!matchesRegistrySearch(row, DOCUMENT_COLUMNS, documentSearch)) return false
+      return matchesDateRangeFilter(
+        row,
+        'docDate',
+        documentDateRange.startDate,
+        documentDateRange.endDate
+      )
+    })
+  }, [documentDateRange.endDate, documentDateRange.startDate, documentSearch, documents])
 
   const filteredSalesRows = useMemo(() => {
     return salesRows.filter((row) => {
       if (!matchesRegistrySearch(row, SALES_COLUMNS, salesSearch)) return false
+      if (
+        !matchesDateRangeFilter(
+          row,
+          'registerDate',
+          salesDateRange.startDate,
+          salesDateRange.endDate
+        )
+      ) {
+        return false
+      }
       if (row.isDraft) return true
       const categoryMatch =
         !salesFilters.projectCategory || row.projectCategory === salesFilters.projectCategory
@@ -5527,11 +5613,29 @@ function App() {
       const stageMatch = !salesFilters.projectStage || row.projectStage === salesFilters.projectStage
       return categoryMatch && managerMatch && stageMatch
     })
-  }, [salesFilters.manager, salesFilters.projectCategory, salesFilters.projectStage, salesRows, salesSearch])
+  }, [
+    salesDateRange.endDate,
+    salesDateRange.startDate,
+    salesFilters.manager,
+    salesFilters.projectCategory,
+    salesFilters.projectStage,
+    salesRows,
+    salesSearch,
+  ])
 
   const filteredDiscoveryRows = useMemo(() => {
     return discoveryRows.filter((row) => {
       if (!matchesRegistrySearch(row, DISCOVERY_COLUMNS, discoverySearch)) return false
+      if (
+        !matchesDateRangeFilter(
+          row,
+          'permitDate',
+          discoveryDateRange.startDate,
+          discoveryDateRange.endDate
+        )
+      ) {
+        return false
+      }
       if (row.isDraft) return true
       const managerMatch = !discoveryFilters.manager || row.manager === discoveryFilters.manager
       const categoryMatch =
@@ -5539,7 +5643,14 @@ function App() {
         row.projectCategory === discoveryFilters.projectCategory
       return managerMatch && categoryMatch
     })
-  }, [discoveryFilters.manager, discoveryFilters.projectCategory, discoveryRows, discoverySearch])
+  }, [
+    discoveryDateRange.endDate,
+    discoveryDateRange.startDate,
+    discoveryFilters.manager,
+    discoveryFilters.projectCategory,
+    discoveryRows,
+    discoverySearch,
+  ])
 
   const filteredDiscoveryTableData = useMemo(() => {
     return discoveryTableData.filter((item) => {
@@ -5561,12 +5672,29 @@ function App() {
   const filteredExcludedRows = useMemo(() => {
     return excludedRows.filter((row) => {
       if (!matchesRegistrySearch(row, EXCLUDED_COLUMNS, excludedSearch)) return false
+      if (
+        !matchesDateRangeFilter(
+          row,
+          'writeDate',
+          excludedDateRange.startDate,
+          excludedDateRange.endDate
+        )
+      ) {
+        return false
+      }
       if (row.isDraft) return true
       const categoryMatch = !excludedFilters.category || row.category === excludedFilters.category
       const keywordMatch = !excludedFilters.keyword || row.keyword === excludedFilters.keyword
       return categoryMatch && keywordMatch
     })
-  }, [excludedFilters.category, excludedFilters.keyword, excludedRows, excludedSearch])
+  }, [
+    excludedDateRange.endDate,
+    excludedDateRange.startDate,
+    excludedFilters.category,
+    excludedFilters.keyword,
+    excludedRows,
+    excludedSearch,
+  ])
 
   const groupedSalesRows = useMemo(
     () => groupSalesRowsByYearWithCompletion(filteredSalesRows, 'registerDate'),
@@ -11376,13 +11504,25 @@ function App() {
               </div>
             )}
 
-            <div className="table-toolbar contract-toolbar-simple">
-              <input
-                className="table-search-input"
-                placeholder="사업명, 발주처, 계약번호, 담당부서 등 검색"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+            <div className="table-toolbar contract-toolbar-simple contract-toolbar-with-date">
+              <div className="registry-search-toolbar-split">
+                <input
+                  className="table-search-input"
+                  placeholder="사업명, 발주처, 계약번호, 담당부서 등 검색"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                <RegistryDateRangeFilter
+                  startDate={contractDateRange.startDate}
+                  endDate={contractDateRange.endDate}
+                  onStartChange={(value) =>
+                    setContractDateRange((prev) => ({ ...prev, startDate: value }))
+                  }
+                  onEndChange={(value) =>
+                    setContractDateRange((prev) => ({ ...prev, endDate: value }))
+                  }
+                />
+              </div>
 
               <div className="table-summary-box">
                 <div className="table-summary-label">필터 결과 합계 금액</div>
@@ -11736,13 +11876,25 @@ function App() {
               </button>
             </div>
 
-            <div className="table-toolbar contract-toolbar-simple">
-              <input
-                className="table-search-input"
-                placeholder="검색어를 입력하세요"
-                value={salesSearch}
-                onChange={(e) => setSalesSearch(e.target.value)}
-              />
+            <div className="table-toolbar registry-toolbar-date-range">
+              <div className="registry-search-toolbar-split">
+                <input
+                  className="table-search-input"
+                  placeholder="검색어를 입력하세요"
+                  value={salesSearch}
+                  onChange={(e) => setSalesSearch(e.target.value)}
+                />
+                <RegistryDateRangeFilter
+                  startDate={salesDateRange.startDate}
+                  endDate={salesDateRange.endDate}
+                  onStartChange={(value) =>
+                    setSalesDateRange((prev) => ({ ...prev, startDate: value }))
+                  }
+                  onEndChange={(value) =>
+                    setSalesDateRange((prev) => ({ ...prev, endDate: value }))
+                  }
+                />
+              </div>
             </div>
 
             <div className="contract-table-panel">
@@ -11862,13 +12014,25 @@ function App() {
               </button>
             </div>
 
-            <div className="table-toolbar contract-toolbar-simple">
-              <input
-                className="table-search-input"
-                placeholder="검색어를 입력하세요"
-                value={discoverySearch}
-                onChange={(e) => setDiscoverySearch(e.target.value)}
-              />
+            <div className="table-toolbar registry-toolbar-date-range">
+              <div className="registry-search-toolbar-split">
+                <input
+                  className="table-search-input"
+                  placeholder="검색어를 입력하세요"
+                  value={discoverySearch}
+                  onChange={(e) => setDiscoverySearch(e.target.value)}
+                />
+                <RegistryDateRangeFilter
+                  startDate={discoveryDateRange.startDate}
+                  endDate={discoveryDateRange.endDate}
+                  onStartChange={(value) =>
+                    setDiscoveryDateRange((prev) => ({ ...prev, startDate: value }))
+                  }
+                  onEndChange={(value) =>
+                    setDiscoveryDateRange((prev) => ({ ...prev, endDate: value }))
+                  }
+                />
+              </div>
             </div>
 
             <div className="contract-table-panel">
@@ -12021,13 +12185,25 @@ function App() {
               </button>
             </div>
 
-            <div className="table-toolbar contract-toolbar-simple">
-              <input
-                className="table-search-input"
-                placeholder="검색어를 입력하세요"
-                value={excludedSearch}
-                onChange={(e) => setExcludedSearch(e.target.value)}
-              />
+            <div className="table-toolbar registry-toolbar-date-range">
+              <div className="registry-search-toolbar-split">
+                <input
+                  className="table-search-input"
+                  placeholder="검색어를 입력하세요"
+                  value={excludedSearch}
+                  onChange={(e) => setExcludedSearch(e.target.value)}
+                />
+                <RegistryDateRangeFilter
+                  startDate={excludedDateRange.startDate}
+                  endDate={excludedDateRange.endDate}
+                  onStartChange={(value) =>
+                    setExcludedDateRange((prev) => ({ ...prev, startDate: value }))
+                  }
+                  onEndChange={(value) =>
+                    setExcludedDateRange((prev) => ({ ...prev, endDate: value }))
+                  }
+                />
+              </div>
             </div>
 
             <div className="contract-table-panel">
@@ -12168,13 +12344,25 @@ function App() {
               </button>
             </div>
 
-            <div className="table-toolbar contract-toolbar-simple">
-              <input
-                className="table-search-input"
-                placeholder="검색어를 입력하세요"
-                value={documentSearch}
-                onChange={(e) => setDocumentSearch(e.target.value)}
-              />
+            <div className="table-toolbar registry-toolbar-date-range">
+              <div className="registry-search-toolbar-split">
+                <input
+                  className="table-search-input"
+                  placeholder="검색어를 입력하세요"
+                  value={documentSearch}
+                  onChange={(e) => setDocumentSearch(e.target.value)}
+                />
+                <RegistryDateRangeFilter
+                  startDate={documentDateRange.startDate}
+                  endDate={documentDateRange.endDate}
+                  onStartChange={(value) =>
+                    setDocumentDateRange((prev) => ({ ...prev, startDate: value }))
+                  }
+                  onEndChange={(value) =>
+                    setDocumentDateRange((prev) => ({ ...prev, endDate: value }))
+                  }
+                />
+              </div>
             </div>
 
             <div className="contract-table-panel">

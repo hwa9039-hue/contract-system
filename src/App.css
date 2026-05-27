@@ -420,6 +420,49 @@ textarea {
   grid-template-columns: minmax(260px, 1fr) 230px;
 }
 
+.contract-toolbar-with-date {
+  grid-template-columns: minmax(0, 1fr) 230px;
+}
+
+.registry-toolbar-date-range {
+  display: block;
+}
+
+.registry-search-toolbar-split {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.registry-search-toolbar-split > .table-search-input {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+
+.registry-date-range-filter {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.registry-date-input {
+  width: 148px;
+  min-width: 132px;
+  flex-shrink: 0;
+}
+
+.registry-date-range-sep {
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  line-height: 1;
+  user-select: none;
+}
+
 .table-search-input {
   min-height: 42px;
   height: 42px;
@@ -3947,8 +3990,26 @@ textarea:focus-visible {
     padding: 14px;
   }
 
-  .contract-toolbar-simple {
+  .contract-toolbar-simple,
+  .contract-toolbar-with-date {
     grid-template-columns: 1fr;
+  }
+
+  .registry-search-toolbar-split {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .registry-date-range-filter {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .registry-date-input {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
   }
 
   .contract-filter-row.five-only {
