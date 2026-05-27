@@ -2539,6 +2539,13 @@ function getWorkReportChecklistCombinedText(date, sectionKey, workReportRows, wo
 
 const WORK_REPORT_CHECKLIST_BULLET_PREFIX = '• '
 
+/** 서버/저장 데이터가 없을 때만 textarea 기본값으로 불릿 접두사 사용 */
+function resolveWorkReportChecklistContent(content, hasPersistedData = false) {
+  const text = safeString(content)
+  if (text) return text
+  return hasPersistedData ? '' : WORK_REPORT_CHECKLIST_BULLET_PREFIX
+}
+
 function getWorkReportChecklistLineBounds(value, cursor) {
   const lineStart = value.lastIndexOf('\n', Math.max(0, cursor - 1)) + 1
   const nextBreak = value.indexOf('\n', cursor)
@@ -2566,13 +2573,6 @@ function setWorkReportChecklistTextareaCursor(el, cursor) {
       }
     })
   })
-}
-
-/** 주요 확인사항 textarea: 포커스 시 빈 칸이면 첫 줄에 "• " 삽입 */
-function handleWorkReportChecklistTextareaFocus(event, currentValue, onContentChange) {
-  if (safeString(currentValue) !== '') return
-  onContentChange(WORK_REPORT_CHECKLIST_BULLET_PREFIX)
-  setWorkReportChecklistTextareaCursor(event.currentTarget, WORK_REPORT_CHECKLIST_BULLET_PREFIX.length)
 }
 
 /** 주요 확인사항 textarea: Enter 시 다음 줄 "• " / 빈 불릿 줄에서는 불릿 제거 후 일반 개행 */
@@ -8464,6 +8464,7 @@ function App() {
       const mergedText = getWorkReportChecklistCombinedText(date, sectionNorm, workReportRowsRef.current, draftsMap)
 
       if (draft1) {
+        const hasPersisted = !!(draft1.id || row1?.id || primary?.id)
         const base =
           row1 ||
           primary ||
@@ -8474,13 +8475,14 @@ function App() {
           date,
           section: sectionNorm,
           orderIndex: WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX,
-          content: safeString(draft1.content),
+          content: resolveWorkReportChecklistContent(draft1.content, hasPersisted),
           id: draft1.id || row1?.id || primary?.id,
-          isDraft: !(draft1.id || row1?.id || primary?.id),
+          isDraft: !hasPersisted,
         }
       }
 
       if (mergedText || row1 || primary) {
+        const hasPersisted = !!(row1?.id || primary?.id)
         const base =
           row1 ||
           primary ||
@@ -8488,12 +8490,12 @@ function App() {
         return {
           ...base,
           id: row1?.id || primary?.id,
-          content: mergedText,
+          content: resolveWorkReportChecklistContent(mergedText, hasPersisted),
           date,
           section: sectionNorm,
           orderIndex: WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX,
           user: row1?.user || primary?.user || '',
-          isDraft: !(row1?.id || primary?.id),
+          isDraft: !hasPersisted,
         }
       }
 
@@ -8501,7 +8503,7 @@ function App() {
         reportDate: date,
         section: sectionNorm,
         user: '',
-        content: '',
+        content: WORK_REPORT_CHECKLIST_BULLET_PREFIX,
         orderIndex: WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX,
       })
     }
@@ -10315,11 +10317,6 @@ function App() {
             value={ckEntry.content}
             placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
             onChange={(e) => updateWorkReportBoardEntry(date, ckSection, 1, { content: e.target.value })}
-            onFocus={(e) =>
-              handleWorkReportChecklistTextareaFocus(e, ckEntry.content, (content) =>
-                updateWorkReportBoardEntry(date, ckSection, 1, { content })
-              )
-            }
             onKeyDown={(e) =>
               handleWorkReportChecklistTextareaKeyDown(e, (content) =>
                 updateWorkReportBoardEntry(date, ckSection, 1, { content })
@@ -10403,14 +10400,6 @@ function App() {
               updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
                 content: e.target.value,
               })
-            }
-            onFocus={(e) =>
-              handleWorkReportChecklistTextareaFocus(
-                e,
-                getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content,
-                (content) =>
-                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
-              )
             }
             onKeyDown={(e) =>
               handleWorkReportChecklistTextareaKeyDown(e, (content) =>
@@ -10622,14 +10611,6 @@ function App() {
               updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
                 content: e.target.value,
               })
-            }
-            onFocus={(e) =>
-              handleWorkReportChecklistTextareaFocus(
-                e,
-                getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content,
-                (content) =>
-                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
-              )
             }
             onKeyDown={(e) =>
               handleWorkReportChecklistTextareaKeyDown(e, (content) =>
@@ -10949,14 +10930,6 @@ function App() {
                 content: e.target.value,
               })
             }
-            onFocus={(e) =>
-              handleWorkReportChecklistTextareaFocus(
-                e,
-                getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content,
-                (content) =>
-                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
-              )
-            }
             onKeyDown={(e) =>
               handleWorkReportChecklistTextareaKeyDown(e, (content) =>
                 updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
@@ -11188,14 +11161,6 @@ function App() {
             updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
               content: e.target.value,
             })
-          }
-          onFocus={(e) =>
-            handleWorkReportChecklistTextareaFocus(
-              e,
-              getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content,
-              (content) =>
-                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
-            )
           }
           onKeyDown={(e) =>
             handleWorkReportChecklistTextareaKeyDown(e, (content) =>
