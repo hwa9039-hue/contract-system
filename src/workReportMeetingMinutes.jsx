@@ -478,8 +478,8 @@ export function WorkReportMeetingMinutesSection({
     <section className="work-report-report-section work-report-meeting-minutes-panel">
       <div className="work-report-report-table work-report-report-table--meeting">
         <div className="work-report-report-table-head work-report-report-table-head-meeting">
-          <div>#</div>
-          <div>회의록</div>
+          <div>구분</div>
+          <div>내용</div>
           <div>담당자</div>
         </div>
         {agendaRows.map((row, index) => (

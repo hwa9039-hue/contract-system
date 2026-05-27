@@ -5929,7 +5929,7 @@ textarea:focus-visible {
 .work-report-report-table-head-meeting,
 .work-report-report-table-row-meeting {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 100px;
+  grid-template-columns: 40px minmax(0, 1fr) 100px;
   width: 100%;
 }
 
@@ -5942,8 +5942,22 @@ textarea:focus-visible {
   color: #315ca8;
 }
 
+.work-report-report-table-head-meeting > div:first-child,
+.work-report-report-table-head-meeting > div:last-child {
+  text-align: center;
+}
+
 .work-report-report-table-head-meeting > div:last-child {
   border-right: none;
+}
+
+.work-report-report-table-row-meeting .work-report-report-line-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  padding-top: 0;
+  min-height: 36px;
 }
 
 .work-report-report-table-row-meeting.editable > * {
@@ -5954,6 +5968,17 @@ textarea:focus-visible {
 
 .work-report-report-table-row-meeting.editable > *:last-child {
   border-right: none;
+}
+
+.work-report-report-table-row-meeting .work-report-report-cell--meeting-assignee {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.work-report-report-table-row-meeting .work-report-report-cell--meeting-assignee .work-report-report-field {
+  width: 100%;
+  text-align: center;
 }
 
 .work-report-report-field--center {
