@@ -12,6 +12,7 @@ function safeString(value) {
 
 export function normalizeStatusForImportance(status) {
   const trimmed = safeString(status).trim()
+  if (!trimmed) return ''
   return trimmed === '완료' ? '마감' : trimmed
 }
 

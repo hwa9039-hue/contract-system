@@ -36,6 +36,7 @@ import {
   getImportanceStatusFromRow,
   getImportanceStyle,
   normalizeStatusForImportance,
+  resolveRegistryImportanceStatus,
 } from './registryImportance.jsx'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
 import { materialsBoardApi, downloadMaterialsBoardBlobUrl, materialsBoardDownloadUrl } from './materialsBoardApi'
