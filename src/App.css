@@ -677,6 +677,36 @@ textarea {
   font-weight: 500;
 }
 
+/* ── 계약현황 전용 강제 오버라이드 (다른 메뉴 영향 X) ── */
+table[data-contract-table-row-key] thead th {
+  font-weight: 700 !important; /* header: font-bold */
+}
+
+table[data-contract-table-row-key] .contract-year-toggle,
+table[data-contract-table-row-key] .contract-category-group-row .contract-year-toggle {
+  font-weight: 700 !important; /* grouping bar: font-bold */
+  color: #0f172a !important;
+}
+
+table[data-contract-table-row-key] tbody td,
+table[data-contract-table-row-key] tbody td .cell-display,
+table[data-contract-table-row-key] tbody td .editable-text-cell-display,
+table[data-contract-table-row-key] tbody td .editable-text-cell-input {
+  font-size: 12px !important; /* data: text-xs */
+  font-weight: 400 !important; /* data: font-normal */
+  vertical-align: middle !important;
+}
+
+/* 계약현황 긴 텍스트 컬럼: 줄바꿈 허용(한 줄 강제 금지) */
+table[data-contract-table-row-key] tbody td.table-col-long,
+table[data-contract-table-row-key] tbody td.table-col-long .cell-display,
+table[data-contract-table-row-key] tbody td.table-col-long .editable-text-cell-display,
+table[data-contract-table-row-key] tbody td.table-col-long .editable-text-cell-input {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+}
+
 .excel-table thead th {
   position: sticky;
   top: 0;
