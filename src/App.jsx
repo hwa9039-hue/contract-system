@@ -11516,61 +11516,22 @@ function App() {
       </aside>
 
       <main className="main-area">
-        <div className="top-system-bar">
-          <div className="top-system-title">
-            <span>스마트DI사업부 통합관리 시스템</span>
-            <div
-              style={{
-                marginLeft: 'auto',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                flexWrap: 'wrap',
-                justifyContent: 'flex-end',
-              }}
-            >
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  minHeight: 30,
-                  padding: '0 10px',
-                  borderRadius: 999,
-                  background: isLongLivedSession
-                    ? '#ecfdf5'
-                    : remainingSessionMinutes <= 1
-                      ? '#fef2f2'
-                      : '#eef5ff',
-                  border: isLongLivedSession
-                    ? '1px solid #bbf7d0'
-                    : remainingSessionMinutes <= 1
-                      ? '1px solid #fecaca'
-                      : '1px solid #cfe0ff',
-                  color: isLongLivedSession
-                    ? '#15803d'
-                    : remainingSessionMinutes <= 1
-                      ? '#b91c1c'
-                      : '#1f4fd1',
-                  fontSize: 12,
-                  fontWeight: 700,
-                }}
-              >
+        <div className="w-full">
+          <div className="header-reset-top-row">
+            <div className="header-reset-system-name">스마트DI사업부 통합관리 시스템</div>
+            <div className="header-reset-actions">
+              <span className="header-reset-session-pill">
                 {isLongLivedSession ? '🟢 자동 로그인' : `남은 시간 ${remainingSessionMinutes}분`}
               </span>
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={handleExtendLogin}
-                style={{ minHeight: 34, padding: '7px 12px' }}
-              >
+              <button className="secondary-btn" type="button" onClick={handleExtendLogin}>
                 로그인 연장
               </button>
             </div>
           </div>
         </div>
 
-        <div className="page-title-bar unified-title-bar">
-          <h1>{PAGE_TITLE_MAP[menu]}</h1>
+        <div className="w-full">
+          <div className="header-reset-menu-name">{PAGE_TITLE_MAP[menu]}</div>
         </div>
 
         <input
