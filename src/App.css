@@ -4815,6 +4815,104 @@ textarea:focus-visible {
   border-color: #d8dee7;
 }
 
+/* 영업관리대장·사업검색이력 — 상태 기반 중요도 */
+.registry-importance-cell {
+  vertical-align: middle;
+}
+
+.cell-display--importance {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.registry-importance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 2px 8px 2px 6px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.registry-importance-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.registry-importance-label {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.registry-importance-badge--red {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.registry-importance-badge--red .registry-importance-dot {
+  background: #ef4444;
+}
+
+.registry-importance-label--red {
+  color: #dc2626;
+}
+
+.registry-importance-badge--yellow {
+  background: #fefce8;
+  border-color: #fde047;
+}
+
+.registry-importance-badge--yellow .registry-importance-dot {
+  background: #facc15;
+}
+
+.registry-importance-label--yellow {
+  color: #ca8a04;
+}
+
+.registry-importance-badge--green {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.registry-importance-badge--green .registry-importance-dot {
+  background: #22c55e;
+}
+
+.registry-importance-label--green {
+  color: #16a34a;
+}
+
+.registry-importance-badge--gray {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.registry-importance-badge--gray .registry-importance-dot {
+  background: #9ca3af;
+}
+
+.registry-importance-label--gray {
+  color: #4b5563;
+}
+
+.registry-importance-badge--none {
+  background: transparent;
+  border-color: transparent;
+  padding: 0;
+}
+
+.registry-importance-empty {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
 .discovery-category-badge {
   display: inline-flex;
   align-items: center;

@@ -31,6 +31,12 @@ import {
   parseManagerMultiSelectValue,
   serializeManagerMultiSelectValue,
 } from './workReportManagerMultiSelect.jsx'
+import {
+  RegistryImportanceBadge,
+  getImportanceStatusFromRow,
+  getImportanceStyle,
+  normalizeStatusForImportance,
+} from './registryImportance.jsx'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
 import { materialsBoardApi, downloadMaterialsBoardBlobUrl, materialsBoardDownloadUrl } from './materialsBoardApi'
 import {
@@ -140,6 +146,14 @@ const SALES_COLUMNS = [
   { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: SALES_CATEGORY_OPTIONS, width: 102 },
   { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_REGISTER_MANAGER_OPTIONS, width: 112 },
   { key: 'projectStage', label: '상태', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 102 },
+  {
+    key: 'importance',
+    label: '중요도',
+    align: 'center',
+    type: 'importance',
+    statusKey: 'projectStage',
+    width: 88,
+  },
   { key: 'department', label: '담당부서', align: 'center', type: 'text', width: 130 },
   { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 310 },
   { key: 'source', label: '출처', align: 'center', type: 'text', width: 140 },
@@ -284,6 +298,14 @@ const EXCLUDED_COLUMNS = [
   { key: 'writeDate', label: '등록일', align: 'center', type: 'date', width: 110 },
   { key: 'openDate', label: '공개일', align: 'center', type: 'date', width: 110 },
   { key: 'category', label: '상태', align: 'center', type: 'select', options: EXCLUDED_CATEGORY_OPTIONS, width: 100 },
+  {
+    key: 'importance',
+    label: '중요도',
+    align: 'center',
+    type: 'importance',
+    statusKey: 'category',
+    width: 88,
+  },
   { key: 'keyword', label: '검색어', align: 'center', type: 'select', options: EXCLUDED_KEYWORD_OPTIONS, width: 180 },
   { key: 'writer', label: '작성자', align: 'center', type: 'text', width: 100 },
   { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 220 },
@@ -3369,7 +3391,10 @@ function normalizeSalesRow(item) {
 }
 
 function isSalesRowEmpty(row) {
-  return SALES_COLUMNS.every((column) => safeString(row[column.key]).trim() === '')
+  return SALES_COLUMNS.every((column) => {
+    if (column.type === 'importance') return true
+    return safeString(row[column.key]).trim() === ''
+  })
 }
 
 function toSalesPayload(row, timestamp) {
@@ -3543,7 +3568,10 @@ function normalizeExcludedRow(item) {
 }
 
 function isExcludedRowEmpty(row) {
-  return EXCLUDED_COLUMNS.every((column) => safeString(row[column.key]).trim() === '')
+  return EXCLUDED_COLUMNS.every((column) => {
+    if (column.type === 'importance') return true
+    return safeString(row[column.key]).trim() === ''
+  })
 }
 
 function toExcludedPayload(row, timestamp) {
@@ -3563,6 +3591,15 @@ function toExcludedPayload(row, timestamp) {
 }
 
 function getRegistryCellSearchValue(column, row) {
+  if (column.type === 'importance') {
+    const status = getImportanceStatusFromRow(row, column)
+    const normalized =
+      column.statusKey === 'projectStage'
+        ? normalizeSalesProjectStage(status)
+        : normalizeStatusForImportance(status)
+    return `${normalized} ${getImportanceStyle(status).label}`.trim().toLowerCase()
+  }
+
   if (column.type === 'amount') {
     const raw = normalizeAmountValue(row[column.key])
     if (!raw) return ''
@@ -7856,6 +7893,8 @@ function App() {
       }
 
       columns.forEach((column) => {
+        if (column.type === 'importance') return
+
         const rawValue = getValueByHeader(sourceRow, getRegistryExcelHeaderCandidates(column), '')
 
         if (column.type === 'date') {
@@ -9863,13 +9902,15 @@ function App() {
         </td>
 
         {columns.map((column) => {
+          const isImportanceCell = column.type === 'importance'
           const isThisCell =
+            !isImportanceCell &&
             useCellMode &&
             !row.isDraft &&
             registryCellEditProp?.scope === cellEditScope &&
             registryCellEditProp.rowId === rowId &&
             registryCellEditProp.columnKey === column.key
-          const showInput = showDraftOrLegacyRow || isThisCell
+          const showInput = !isImportanceCell && (showDraftOrLegacyRow || isThisCell)
           return (
             <td
               key={column.key}
@@ -9880,9 +9921,9 @@ function App() {
                     ? 'td-align-left'
                     : 'td-align-center'
               } ${column.type === 'textarea' ? 'multiline-cell' : ''} ${
-                column.cellClass || ''
-              } ${column.widthClass || ''} ${
-                isAdminForRegistry && !row.isDraft ? 'editable-cell' : ''
+                isImportanceCell ? 'registry-importance-cell' : ''
+              } ${column.cellClass || ''} ${column.widthClass || ''} ${
+                isAdminForRegistry && !row.isDraft && !isImportanceCell ? 'editable-cell' : ''
               }`}
               style={
                 column.widthClass || column.widthPct != null
@@ -9892,6 +9933,7 @@ function App() {
                     : undefined
               }
               onClick={() => {
+                if (isImportanceCell) return
                 if (!isAdminForRegistry) return
                 if (row.isDraft) return
                 if (useCellMode && onRegistryCellStart) {
@@ -9903,7 +9945,11 @@ function App() {
                 }
               }}
             >
-              {showInput ? (
+              {isImportanceCell ? (
+                <div className="cell-display cell-display--importance">
+                  <RegistryImportanceBadge status={resolveRegistryImportanceStatus(row, column)} />
+                </div>
+              ) : showInput ? (
                 isThisCell ? (
                   renderRegistryCellInlineEditor(column)
                 ) : (
