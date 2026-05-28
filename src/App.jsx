@@ -40,7 +40,7 @@ import {
   resolveRegistryImportanceStatus,
 } from './registryImportance.jsx'
 import { ImportanceLegend } from './ImportanceLegend.jsx'
-import { EditableTextCell, isContractEditableTextColumn } from './EditableTextCell.jsx'
+import { EditableTextCell, isContractEditableTextColumn, isEditableTextColumn } from './EditableTextCell.jsx'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
 import { materialsBoardApi, downloadMaterialsBoardBlobUrl, materialsBoardDownloadUrl } from './materialsBoardApi'
 import {
@@ -9695,17 +9695,11 @@ function App() {
     setRegistryCellEditDraft(safeString(value ?? ''))
   }
 
-  const saveRegistryCellEdit = async () => {
-    const snap = registryCellEditRef.current
-    const draft = registryCellEditDraftRef.current
-    if (!snap?.scope || !snap.rowId || !snap.columnKey) return
-
-    const columns = getRegistryColumnsByScope(snap.scope)
-    const colDef = columns.find((c) => c.key === snap.columnKey)
-    if (!colDef) return
+  const persistRegistryCellPatch = async (scope, rowId, column, rawValue) => {
+    if (!scope || !rowId || !column) return false
 
     let rows
-    switch (snap.scope) {
+    switch (scope) {
       case 'sales':
         rows = salesRows
         break
@@ -9719,60 +9713,86 @@ function App() {
         rows = documents
         break
       default:
-        return
+        return false
     }
 
-    const targetRow = rows.find((r) => r.id === snap.rowId)
-    if (!targetRow || targetRow.isDraft) {
-      cancelRegistryCellEdit()
-      return
-    }
+    const targetRow = rows.find((r) => safeString(r.id).trim() === safeString(rowId).trim())
+    if (!targetRow || targetRow.isDraft) return false
 
-    const patch = buildRegistryCellApiPatch(colDef, draft)
-    const patchValue = patch[snap.columnKey]
-    const prevVal = targetRow[snap.columnKey]
+    const patch = buildRegistryCellApiPatch(column, rawValue)
+    const patchValue = patch[column.key]
+    const prevVal = targetRow[column.key]
     const sameAmount =
-      colDef.type === 'amount' &&
-      parseAmount(String(prevVal ?? '')) === parseAmount(String(draft ?? ''))
+      column.type === 'amount' &&
+      parseAmount(String(prevVal ?? '')) === parseAmount(String(rawValue ?? ''))
     const sameText =
-      colDef.type !== 'amount' &&
+      column.type !== 'amount' &&
       safeString(prevVal ?? '').trim() === safeString(patchValue ?? '').trim()
-    if (sameAmount || sameText) {
-      cancelRegistryCellEdit()
-      return
-    }
+    if (sameAmount || sameText) return false
+
+    const previous = targetRow[column.key]
+    applyRegistryRowFieldPatch(scope, rowId, column, rawValue)
 
     try {
-      switch (snap.scope) {
+      switch (scope) {
         case 'sales':
-          await salesRegisterApi.update(snap.rowId, patch)
-          await fetchSalesRows(false)
+          await salesRegisterApi.update(rowId, patch)
           break
         case 'discovery':
-          await projectDiscoveryApi.update(snap.rowId, patch)
-          await fetchDiscoveryRows(false)
+          await projectDiscoveryApi.update(rowId, patch)
           break
         case 'excluded':
-          await excludedProjectsApi.update(snap.rowId, patch)
-          await fetchExcludedRows(false)
+          await excludedProjectsApi.update(rowId, patch)
           break
         case 'documents':
-          await documentRegisterApi.update(snap.rowId, patch)
-          await fetchDocuments(false)
+          await documentRegisterApi.update(rowId, patch)
           break
         default:
-          return
+          return false
       }
+      return true
     } catch (error) {
+      applyRegistryRowFieldPatch(scope, rowId, column, previous)
       const labelMap = {
         sales: '영업관리대장',
         discovery: '건축정보',
         excluded: '사업검색이력',
         documents: '문서수발신대장',
       }
-      const label = labelMap[snap.scope] || '등록'
+      const label = labelMap[scope] || '등록'
       logApiOperationError(`${label} 셀 저장`, error)
       setToastMessage(`저장에 실패했습니다. ${safeString(error?.message)}`)
+      return false
+    }
+  }
+
+  const handleRegistryTextCellSave = useCallback(
+    async (scope, rowId, column, rawValue) => {
+      if (!isEditableTextColumn(column)) return
+      if (
+        registryCellEditRef.current?.scope === scope &&
+        registryCellEditRef.current?.rowId === rowId &&
+        registryCellEditRef.current?.columnKey === column.key
+      ) {
+        cancelRegistryCellEdit()
+      }
+      await persistRegistryCellPatch(scope, rowId, column, rawValue)
+    },
+    [salesRows, discoveryRows, excludedRows, documents]
+  )
+
+  const saveRegistryCellEdit = async () => {
+    const snap = registryCellEditRef.current
+    const draft = registryCellEditDraftRef.current
+    if (!snap?.scope || !snap.rowId || !snap.columnKey) return
+
+    const columns = getRegistryColumnsByScope(snap.scope)
+    const colDef = columns.find((c) => c.key === snap.columnKey)
+    if (!colDef) return
+
+    const saved = await persistRegistryCellPatch(snap.scope, snap.rowId, colDef, draft)
+    if (!saved) {
+      cancelRegistryCellEdit()
       return
     }
 
@@ -10030,14 +10050,23 @@ function App() {
 
         {columns.map((column) => {
           const isImportanceCell = column.type === 'importance'
+          const isEditableText =
+            isEditableTextColumn(column) &&
+            useCellMode &&
+            isAdminForRegistry &&
+            !row.isDraft &&
+            !isImportanceCell
+          const cellAlign =
+            column.align === 'right' ? 'right' : column.align === 'left' ? 'left' : 'center'
           const isThisCell =
             !isImportanceCell &&
+            !isEditableText &&
             useCellMode &&
             !row.isDraft &&
             registryCellEditProp?.scope === cellEditScope &&
             registryCellEditProp.rowId === rowId &&
             registryCellEditProp.columnKey === column.key
-          const showInput = !isImportanceCell && (showDraftOrLegacyRow || isThisCell)
+          const showInput = !isImportanceCell && !isEditableText && (showDraftOrLegacyRow || isThisCell)
           return (
             <td
               key={column.key}
@@ -10060,7 +10089,7 @@ function App() {
                     : undefined
               }
               onClick={() => {
-                if (isImportanceCell) return
+                if (isImportanceCell || isEditableText) return
                 if (!isAdminForRegistry) return
                 if (row.isDraft) return
                 if (useCellMode && onRegistryCellStart) {
@@ -10078,6 +10107,14 @@ function App() {
                     status={resolveRegistryImportanceStatus(displayRow, column)}
                   />
                 </div>
+              ) : isEditableText ? (
+                <EditableTextCell
+                  value={row[column.key]}
+                  align={cellAlign}
+                  onSave={(nextValue) =>
+                    handleRegistryTextCellSave(cellEditScope, rowId, column, nextValue)
+                  }
+                />
               ) : showInput ? (
                 isThisCell ? (
                   renderRegistryCellInlineEditor(column, {

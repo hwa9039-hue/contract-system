@@ -1099,7 +1099,8 @@ textarea {
   text-align: right;
 }
 
-.contract-table-admin td.editable-cell .editable-text-cell-display:hover {
+.contract-table-admin td.editable-cell .editable-text-cell-display:hover,
+.registry-table td.editable-cell .editable-text-cell-display:hover {
   background: rgba(59, 130, 246, 0.06);
 }
 

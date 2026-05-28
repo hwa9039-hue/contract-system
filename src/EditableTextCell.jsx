@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
-/** 계약현황 등 — 날짜·금액·드롭다운·중요도가 아닌 순수 텍스트 컬럼 */
-export function isContractEditableTextColumn(column) {
+/** 날짜·금액·드롭다운·중요도가 아닌 순수 텍스트 컬럼 */
+export function isEditableTextColumn(column) {
   if (!column) return false
   const type = column.type
   if (type === 'date' || type === 'amount' || type === 'select' || type === 'importance') {
@@ -9,6 +9,9 @@ export function isContractEditableTextColumn(column) {
   }
   return type === 'text' || type === 'textarea'
 }
+
+/** @deprecated — use isEditableTextColumn */
+export const isContractEditableTextColumn = isEditableTextColumn
 
 export function EditableTextCell({
   value,
