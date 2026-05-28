@@ -202,58 +202,6 @@ textarea {
 }
 
 /* 상단 헤더(시스템명/메뉴명 1줄 통합) */
-.top-system-bar--unified {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.top-system-left {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  gap: 8px;
-}
-
-.top-system-left--inline {
-  gap: 0;
-  flex-wrap: nowrap;
-}
-
-.top-system-title-text {
-  font-family: 'SUIT', sans-serif;
-  font-size: 18px;
-  font-weight: 600;
-  color: #1e40af;
-  white-space: nowrap;
-}
-
-.top-system-title-gap {
-  display: inline-block;
-  width: 16px; /* mx-4 느낌 */
-  height: 1px;
-}
-
-.top-system-menu-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #eff6ff; /* blue-50 */
-  border: 1px solid #bfdbfe;
-  color: #1d4ed8; /* blue-700 */
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.35;
-  white-space: nowrap;
-}
-
 .top-system-actions {
   display: flex;
   align-items: center;

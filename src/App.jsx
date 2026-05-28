@@ -11516,30 +11516,62 @@ function App() {
       </aside>
 
       <main className="main-area">
-        <header className="top-system-bar top-system-bar--unified">
-          <div className="top-system-left top-system-left--inline">
-            <span className="top-system-title-text">스마트DI사업부 통합관리 시스템</span>
-            <span className="top-system-title-gap" aria-hidden="true" />
-            <span className="top-system-menu-badge">{PAGE_TITLE_MAP[menu]}</span>
-          </div>
-
-          <div className="top-system-actions">
-            <span
-              className={`top-session-pill${
-                isLongLivedSession
-                  ? ' top-session-pill--auto'
-                  : remainingSessionMinutes <= 1
-                    ? ' top-session-pill--danger'
-                    : ' top-session-pill--default'
-              }`}
+        <div className="top-system-bar">
+          <div className="top-system-title">
+            <span>스마트DI사업부 통합관리 시스템</span>
+            <div
+              style={{
+                marginLeft: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                flexWrap: 'wrap',
+                justifyContent: 'flex-end',
+              }}
             >
-              {isLongLivedSession ? '🟢 자동 로그인' : `남은 시간 ${remainingSessionMinutes}분`}
-            </span>
-            <button className="secondary-btn top-extend-btn" type="button" onClick={handleExtendLogin}>
-              로그인 연장
-            </button>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  minHeight: 30,
+                  padding: '0 10px',
+                  borderRadius: 999,
+                  background: isLongLivedSession
+                    ? '#ecfdf5'
+                    : remainingSessionMinutes <= 1
+                      ? '#fef2f2'
+                      : '#eef5ff',
+                  border: isLongLivedSession
+                    ? '1px solid #bbf7d0'
+                    : remainingSessionMinutes <= 1
+                      ? '1px solid #fecaca'
+                      : '1px solid #cfe0ff',
+                  color: isLongLivedSession
+                    ? '#15803d'
+                    : remainingSessionMinutes <= 1
+                      ? '#b91c1c'
+                      : '#1f4fd1',
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                {isLongLivedSession ? '🟢 자동 로그인' : `남은 시간 ${remainingSessionMinutes}분`}
+              </span>
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={handleExtendLogin}
+                style={{ minHeight: 34, padding: '7px 12px' }}
+              >
+                로그인 연장
+              </button>
+            </div>
           </div>
-        </header>
+        </div>
+
+        <div className="page-title-bar unified-title-bar">
+          <h1>{PAGE_TITLE_MAP[menu]}</h1>
+        </div>
 
         <input
           ref={registryUploadInputRef}
