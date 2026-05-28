@@ -98,9 +98,29 @@ const SALES_STAGE_OPTIONS = [
 ]
 const SALES_MANAGER_OPTIONS = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범', '신상준']
 const SALES_REGISTER_MANAGER_OPTIONS = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범']
+/** 영업관리대장: 연도 하위 접이 그룹(마감·계약) 표시명 */
+const SALES_CONTRACT_CLOSED_GROUP_LABEL = '계약&마감'
+const SALES_CONTRACT_CLOSED_STAGES = new Set(['마감', '계약'])
+
 function normalizeSalesProjectStage(stage) {
   const trimmed = safeString(stage).trim()
   return trimmed === '완료' ? '마감' : trimmed
+}
+
+/** API·레거시 그룹명 → 화면 표시명 (마감된 건 / 완료된 건 등 강제 치환) */
+function formatSalesContractClosedGroupLabel(label) {
+  const text = safeString(label).trim()
+  if (
+    !text ||
+    text === '마감된 건' ||
+    text === '완료된 건' ||
+    text === '계약&마감된 건' ||
+    text === '마감' ||
+    text === '완료'
+  ) {
+    return SALES_CONTRACT_CLOSED_GROUP_LABEL
+  }
+  return text
 }
 const DISCOVERY_CATEGORY_TONE_MAP = {
   '장기 사업': 'discovery-category-badge discovery-long',
@@ -3862,23 +3882,39 @@ function groupRegistryRowsByYear(rows, dateKey) {
   })
 }
 
-/** 영업: 계약&마감 그룹 (상태 '마감'·'계약', DB 레거시 '완료'는 마감으로 취급) */
+/** 영업: 계약&마감 접이 그룹 대상 (상태 마감·계약, DB 레거시 완료 포함) */
+function isSalesStageInContractClosedGroup(row) {
+  const stage = normalizeSalesProjectStage(row?.projectStage)
+  if (SALES_CONTRACT_CLOSED_STAGES.has(stage)) return true
+  const raw = safeString(row?.projectStage).trim()
+  return raw === '완료' || raw === '마감' || raw === '계약'
+}
+
 function isSalesStageCompletedForGrouping(row) {
-  const stage = normalizeSalesProjectStage(row.projectStage)
-  return stage === '마감' || stage === '계약'
+  return isSalesStageInContractClosedGroup(row)
+}
+
+function partitionSalesRowsByContractClosed(rows) {
+  const activeItems = []
+  const contractClosedItems = []
+  for (const row of rows) {
+    if (isSalesStageInContractClosedGroup(row)) contractClosedItems.push(row)
+    else activeItems.push(row)
+  }
+  return { activeItems, contractClosedItems }
 }
 
 /** 연도별 1차 그룹 안에서 진행 / 계약&마감 2분할 */
 function groupSalesRowsByYearWithCompletion(rows, dateKey) {
   const baseGroups = groupRegistryRowsByYear(rows, dateKey)
   return baseGroups.map((group) => {
-    const activeItems = []
-    const completedItems = []
-    for (const row of group.items) {
-      if (isSalesStageCompletedForGrouping(row)) completedItems.push(row)
-      else activeItems.push(row)
+    const { activeItems, contractClosedItems } = partitionSalesRowsByContractClosed(group.items)
+    return {
+      ...group,
+      activeItems,
+      completedItems: contractClosedItems,
+      contractClosedSectionLabel: SALES_CONTRACT_CLOSED_GROUP_LABEL,
     }
-    return { ...group, activeItems, completedItems }
   })
 }
 
@@ -10199,9 +10235,20 @@ function App() {
     }
 
     return groups.flatMap((yearBlock) => {
-      const activeItems = yearBlock.activeItems ?? yearBlock.items
-      const completedItems = yearBlock.completedItems ?? []
+      const sourceItems = Array.isArray(yearBlock.items) ? yearBlock.items : []
+      const hasPreSplit =
+        Array.isArray(yearBlock.activeItems) && Array.isArray(yearBlock.completedItems)
+      const { activeItems, contractClosedItems } = hasPreSplit
+        ? {
+            activeItems: yearBlock.activeItems,
+            contractClosedItems: yearBlock.completedItems,
+          }
+        : partitionSalesRowsByContractClosed(sourceItems)
+      const completedItems = contractClosedItems
       const collapsed = !isYearOpen(yearBlock.year)
+      const contractClosedGroupLabel = formatSalesContractClosedGroupLabel(
+        yearBlock.contractClosedSectionLabel ?? yearBlock.groupLabel ?? yearBlock.groupName
+      )
 
       const yearRow = (
         <tr
@@ -10265,7 +10312,7 @@ function App() {
           <td colSpan={columns.length + 1}>
             <div className="contract-year-toggle" aria-hidden="true">
               <span className="contract-year-sign">{completedOpen ? '-' : '+'}</span>
-              <span>마감된 건</span>
+              <span>{contractClosedGroupLabel}</span>
               <span className="contract-year-count">
                 {completedCount.toLocaleString('ko-KR')}건
               </span>
