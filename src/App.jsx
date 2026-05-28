@@ -3862,12 +3862,13 @@ function groupRegistryRowsByYear(rows, dateKey) {
   })
 }
 
-/** 영업: 상태 '마감' 여부 (그룹핑용, DB 레거시 '완료' 포함) */
+/** 영업: 계약&마감 그룹 (상태 '마감'·'계약', DB 레거시 '완료'는 마감으로 취급) */
 function isSalesStageCompletedForGrouping(row) {
-  return normalizeSalesProjectStage(row.projectStage) === '마감'
+  const stage = normalizeSalesProjectStage(row.projectStage)
+  return stage === '마감' || stage === '계약'
 }
 
-/** 연도별 1차 그룹 안에서 진행 / 완료 2분할 */
+/** 연도별 1차 그룹 안에서 진행 / 계약&마감 2분할 */
 function groupSalesRowsByYearWithCompletion(rows, dateKey) {
   const baseGroups = groupRegistryRowsByYear(rows, dateKey)
   return baseGroups.map((group) => {
