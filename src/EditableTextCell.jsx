@@ -58,7 +58,7 @@ export function EditableTextCell({
     return (
       <input
         type="text"
-        className={`editable-text-cell-input editable-text-cell-input--${align} ${className}`.trim()}
+        className={`editable-text-cell-input editable-text-cell-input--${align}`.trim()}
         value={draft}
         autoFocus
         onChange={(e) => setDraft(e.target.value)}

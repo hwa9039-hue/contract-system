@@ -41,8 +41,11 @@ import {
 } from './registryImportance.jsx'
 import { ImportanceLegend } from './ImportanceLegend.jsx'
 import { EditableTextCell, isContractEditableTextColumn, isEditableTextColumn } from './EditableTextCell.jsx'
-import { RegistryResizableHeaderCells, ResizableTableHeadCell } from './ResizableTableHeadCell.jsx'
-import { getTableAlignClass, useTableColumnResize } from './useTableColumnResize.js'
+import {
+  getTableAlignClass,
+  getTableColumnLayoutClass,
+  isLongTextTableColumn,
+} from './tableColumnLayout.js'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
 import { materialsBoardApi, downloadMaterialsBoardBlobUrl, materialsBoardDownloadUrl } from './materialsBoardApi'
 import {
@@ -4449,11 +4452,6 @@ function splitDashboardRecentTitleLabel(fullLabel) {
 
 function App() {
   const { isAdmin, sharedSessionExpiresAt, logout, extendLogin } = useAuth()
-  const contractsColumnResize = useTableColumnResize('contracts', CONTRACT_COLUMNS)
-  const salesColumnResize = useTableColumnResize('sales', SALES_COLUMNS)
-  const discoveryColumnResize = useTableColumnResize('discovery', DISCOVERY_COLUMNS)
-  const excludedColumnResize = useTableColumnResize('excluded', EXCLUDED_COLUMNS)
-  const documentsColumnResize = useTableColumnResize('documents', DOCUMENT_COLUMNS)
   const [contracts, setContracts] = useState([])
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
@@ -10024,7 +10022,6 @@ function App() {
     isAdminForRegistry = false,
     registryCellEdit: registryCellEditProp = null,
     onRegistryCellStart = null,
-    getColumnWidthStyle = null,
   }) => {
     const rowKey = rowKeyProp ?? getRegistryTableRowDomKey(row, index)
     const rowId = safeString(row?.id).trim() || rowKey
@@ -10084,20 +10081,11 @@ function App() {
                   : column.align === 'left'
                     ? 'td-align-left'
                     : 'td-align-center'
-              } ${column.type === 'textarea' ? 'multiline-cell' : ''} ${
+              } ${isLongTextTableColumn(column) ? 'multiline-cell' : ''} ${
                 isImportanceCell ? 'registry-importance-cell' : ''
-              } ${column.cellClass || ''} ${column.widthClass || ''} ${
+              } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${
                 isAdminForRegistry && !row.isDraft && !isImportanceCell ? 'editable-cell' : ''
               }`}
-              style={
-                getColumnWidthStyle
-                  ? getColumnWidthStyle(column)
-                  : column.widthClass || column.widthPct != null
-                    ? undefined
-                    : column.width != null
-                      ? { width: column.width, minWidth: column.minWidth ?? column.width }
-                      : undefined
-              }
               onClick={() => {
                 if (isImportanceCell || isEditableText) return
                 if (!isAdminForRegistry) return
@@ -10121,6 +10109,9 @@ function App() {
                 <EditableTextCell
                   value={row[column.key]}
                   align={cellAlign}
+                  className={
+                    isLongTextTableColumn(column) ? 'table-cell-clamp' : ''
+                  }
                   onSave={(nextValue) =>
                     handleRegistryTextCellSave(cellEditScope, rowId, column, nextValue)
                   }
@@ -10139,18 +10130,9 @@ function App() {
                 )
               ) : (
                 <div
-                  className="cell-display"
-                  style={{
-                    whiteSpace:
-                      column.type === 'textarea' || column.key === 'projectName' || column.key === 'note'
-                        ? 'pre-wrap'
-                        : 'normal',
-                    wordBreak:
-                      column.type === 'textarea' || column.key === 'projectName' || column.key === 'note'
-                        ? 'break-word'
-                        : 'normal',
-                    overflowWrap: 'anywhere',
-                  }}
+                  className={`cell-display${
+                    isLongTextTableColumn(column) ? ' table-cell-clamp' : ''
+                  }`}
                 >
                   {getRegistryPlainDisplayValue(row, column)}
                 </div>
@@ -10175,7 +10157,6 @@ function App() {
     onCancelRow,
     onChange,
     isEmptyRow,
-    getColumnWidthStyle = null,
   }) => {
     if (rows.length === 0) {
       return (
@@ -10202,7 +10183,6 @@ function App() {
         isEmptyRow,
         selectedIds,
         onToggleSelection,
-        getColumnWidthStyle,
       })
     )
   }
@@ -10226,7 +10206,6 @@ function App() {
     isAdminForRegistry = false,
     registryCellEdit: registryCellEditGrouped = null,
     onRegistryCellStart = null,
-    getColumnWidthStyle = null,
   }) => {
     if (groups.length === 0) {
       return (
@@ -10283,7 +10262,6 @@ function App() {
             isAdminForRegistry,
             registryCellEdit: registryCellEditGrouped,
             onRegistryCellStart,
-            getColumnWidthStyle,
           })
         }),
       ]
@@ -10309,7 +10287,6 @@ function App() {
     isAdminForRegistry = false,
     registryCellEdit: registryCellEditGrouped = null,
     onRegistryCellStart = null,
-    getColumnWidthStyle = null,
   }) => {
     if (groups.length === 0) {
       return (
@@ -10378,7 +10355,6 @@ function App() {
           isAdminForRegistry,
           registryCellEdit: registryCellEditGrouped,
           onRegistryCellStart,
-          getColumnWidthStyle,
         })
       })
 
@@ -10431,7 +10407,6 @@ function App() {
               isAdminForRegistry,
               registryCellEdit: registryCellEditGrouped,
               onRegistryCellStart,
-              getColumnWidthStyle,
             })
           })
         : []
@@ -12216,9 +12191,9 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <div className="table-wrap contracts-only-scroll">
+              <div className="table-wrap contracts-only-scroll overflow-x-auto">
                 <table
-                  className={`contract-table excel-table registry-table${
+                  className={`contract-table excel-table registry-table table-layout-auto${
                     isAdmin ? ' contract-table-admin' : ' contract-table-readonly'
                   }`}
                   data-contract-table-row-key="key"
@@ -12250,18 +12225,14 @@ function App() {
                           />
                         </th>
                       )}
-                      <th className="col-dday th-align-center">D-Day</th>
+                      <th className="col-dday th-align-center table-col-tight">D-Day</th>
                       {CONTRACT_COLUMNS.map((column) => (
-                        <ResizableTableHeadCell
+                        <th
                           key={column.key}
-                          label={column.label}
-                          className={column.className}
-                          alignClass={getTableAlignClass(column.align)}
-                          style={contractsColumnResize.getWidthStyle(column)}
-                          onResizeStart={(event) =>
-                            contractsColumnResize.startResize(column.key, event)
-                          }
-                        />
+                          className={`${column.className} ${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align)}`}
+                        >
+                          {column.label}
+                        </th>
                       ))}
                     </tr>
                   </thead>
@@ -12362,7 +12333,7 @@ function App() {
                                   </td>
                                 )}
 
-                                <td className="col-dday td-align-center">
+                                <td className="col-dday td-align-center table-col-tight">
                                   <div className="cell-display dday-cell">{getDdayText(item.dueDate)}</div>
                                 </td>
 
@@ -12389,10 +12360,11 @@ function App() {
                                           : column.align === 'left'
                                           ? 'td-align-left'
                                           : 'td-align-center'
-                                      } ${column.type === 'textarea' ? 'multiline-cell' : ''} ${
+                                      } ${isLongTextTableColumn(column) ? 'multiline-cell' : ''} ${
                                         column.key === 'note' ? 'note-cell' : ''
-                                      } ${isAdmin ? 'editable-cell' : ''}`}
-                                      style={contractsColumnResize.getWidthStyle(column)}
+                                      } ${getTableColumnLayoutClass(column)} ${
+                                        isAdmin ? 'editable-cell' : ''
+                                      }`}
                                       onClick={
                                         isAdmin && !isEditableText
                                           ? () =>
@@ -12410,6 +12382,11 @@ function App() {
                                           value={item[column.key]}
                                           align={cellAlign}
                                           disabled={!isAdmin}
+                                          className={
+                                            isLongTextTableColumn(column)
+                                              ? 'table-cell-clamp'
+                                              : ''
+                                          }
                                           onSave={(nextValue) =>
                                             handleContractTextCellSave(
                                               rowSelectKey,
@@ -12421,7 +12398,13 @@ function App() {
                                       ) : isEditing ? (
                                         renderEditor(item, column, rowSelectKey)
                                       ) : (
-                                        <div className="cell-display">
+                                        <div
+                                          className={`cell-display${
+                                            isLongTextTableColumn(column)
+                                              ? ' table-cell-clamp'
+                                              : ''
+                                          }`}
+                                        >
                                           {column.key === 'amount'
                                             ? formatAmountDisplay(item[column.key])
                                             : item[column.key]}
@@ -12533,11 +12516,11 @@ function App() {
 
             <div className="contract-table-panel">
               <ImportanceLegend />
-              <div className="table-wrap contracts-only-scroll">
-                <table className="contract-table excel-table registry-table">
+              <div className="table-wrap contracts-only-scroll overflow-x-auto">
+                <table className="contract-table excel-table registry-table table-layout-auto">
                   <thead>
                     <tr>
-                      <th className="th-align-center registry-check-header">
+                      <th className="th-align-center registry-check-header table-col-tight">
                         <input
                           className="registry-row-checkbox"
                           type="checkbox"
@@ -12551,10 +12534,14 @@ function App() {
                           }
                         />
                       </th>
-                      <RegistryResizableHeaderCells
-                        columns={SALES_COLUMNS}
-                        columnResize={salesColumnResize}
-                      />
+                      {SALES_COLUMNS.map((column) => (
+                        <th
+                          key={column.key}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align)}`}
+                        >
+                          {column.label}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -12578,7 +12565,6 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('sales', rowId, columnKey, value, row),
-                      getColumnWidthStyle: salesColumnResize.getWidthStyle,
                     })}
                   </tbody>
                 </table>
@@ -12661,17 +12647,11 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <div className="table-wrap contracts-only-scroll">
-                <table className="contract-table excel-table registry-table discovery-registry-table discovery-table-fixed">
-                  <colgroup>
-                    <col className="discovery-w-12" style={{ width: 48, minWidth: 48 }} />
-                    {DISCOVERY_COLUMNS.map((column) => (
-                      <col key={column.key} style={discoveryColumnResize.getWidthStyle(column)} />
-                    ))}
-                  </colgroup>
+              <div className="table-wrap contracts-only-scroll overflow-x-auto">
+                <table className="contract-table excel-table registry-table discovery-registry-table table-layout-auto">
                   <thead>
                     <tr>
-                      <th className="th-align-center registry-check-header discovery-check-col discovery-w-12">
+                      <th className="th-align-center registry-check-header discovery-check-col table-col-tight">
                         <input
                           className="registry-row-checkbox"
                           type="checkbox"
@@ -12685,18 +12665,18 @@ function App() {
                           }
                         />
                       </th>
-                      <RegistryResizableHeaderCells
-                        columns={DISCOVERY_COLUMNS}
-                        columnResize={discoveryColumnResize}
-                        getExtraThClassName={(column) =>
-                          `${column.cellClass || ''} ${column.widthClass || ''}`.trim()
-                        }
-                        getAlignClass={(column) =>
-                          column.key === 'projectAmount'
-                            ? 'th-align-center'
-                            : getTableAlignClass(column.align)
-                        }
-                      />
+                      {DISCOVERY_COLUMNS.map((column) => (
+                        <th
+                          key={column.key}
+                          className={`${getTableColumnLayoutClass(column)} ${
+                            column.key === 'projectAmount'
+                              ? 'th-align-center'
+                              : getTableAlignClass(column.align)
+                          } ${column.cellClass || ''}`}
+                        >
+                          {column.label}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -12720,7 +12700,6 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('discovery', rowId, columnKey, value, row),
-                      getColumnWidthStyle: discoveryColumnResize.getWidthStyle,
                     })}
                   </tbody>
                 </table>
@@ -12830,11 +12809,11 @@ function App() {
 
             <div className="contract-table-panel">
               <ImportanceLegend />
-              <div className="table-wrap contracts-only-scroll">
-                <table className="contract-table excel-table registry-table">
+              <div className="table-wrap contracts-only-scroll overflow-x-auto">
+                <table className="contract-table excel-table registry-table table-layout-auto">
                   <thead>
                     <tr>
-                      <th className="th-align-center registry-check-header">
+                      <th className="th-align-center registry-check-header table-col-tight">
                         <input
                           className="registry-row-checkbox"
                           type="checkbox"
@@ -12848,10 +12827,14 @@ function App() {
                           }
                         />
                       </th>
-                      <RegistryResizableHeaderCells
-                        columns={EXCLUDED_COLUMNS}
-                        columnResize={excludedColumnResize}
-                      />
+                      {EXCLUDED_COLUMNS.map((column) => (
+                        <th
+                          key={column.key}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align)}`}
+                        >
+                          {column.label}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -12875,7 +12858,6 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('excluded', rowId, columnKey, value, row),
-                      getColumnWidthStyle: excludedColumnResize.getWidthStyle,
                     })}
                   </tbody>
                 </table>
@@ -12979,11 +12961,11 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <div className="table-wrap contracts-only-scroll">
-                <table className="contract-table excel-table registry-table">
+              <div className="table-wrap contracts-only-scroll overflow-x-auto">
+                <table className="contract-table excel-table registry-table table-layout-auto">
                   <thead>
                     <tr>
-                      <th className="th-align-center registry-check-header">
+                      <th className="th-align-center registry-check-header table-col-tight">
                         <input
                           className="registry-row-checkbox"
                           type="checkbox"
@@ -12997,10 +12979,14 @@ function App() {
                           }
                         />
                       </th>
-                      <RegistryResizableHeaderCells
-                        columns={DOCUMENT_COLUMNS}
-                        columnResize={documentsColumnResize}
-                      />
+                      {DOCUMENT_COLUMNS.map((column) => (
+                        <th
+                          key={column.key}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align)}`}
+                        >
+                          {column.label}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -13024,7 +13010,6 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('documents', rowId, columnKey, value, row),
-                      getColumnWidthStyle: documentsColumnResize.getWidthStyle,
                     })}
                   </tbody>
                 </table>
