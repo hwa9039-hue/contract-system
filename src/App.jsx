@@ -11518,8 +11518,9 @@ function App() {
       <main className="main-area">
         <header className="top-system-bar top-system-bar--unified">
           <div className="top-system-left top-system-left--inline">
-            <span className="top-system-title-inline">스마트DI사업부 통합관리 시스템</span>
-            <span className="menu-title-inline">{PAGE_TITLE_MAP[menu]}</span>
+            <span className="top-system-title-text">스마트DI사업부 통합관리 시스템</span>
+            <span className="top-system-title-gap" aria-hidden="true" />
+            <span className="top-system-menu-badge">{PAGE_TITLE_MAP[menu]}</span>
           </div>
 
           <div className="top-system-actions">
