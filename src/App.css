@@ -3395,9 +3395,20 @@ textarea:focus-visible {
 }
 
 .dashboard-recent-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
   color: var(--ink);
   font-size: 12px;
   font-weight: 900;
+}
+
+.dashboard-recent-main-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-recent-meta {

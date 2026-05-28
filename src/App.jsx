@@ -6261,6 +6261,7 @@ function App() {
             getTitle: (row) => safeString(row.projectName || row.client).trim() || '검색이력 항목',
             getMeta: (row) =>
               [row.client, row.writer || row.category].filter(Boolean).join(' · ') || '-',
+            getStatus: (row) => row.category,
           }),
         },
         {
@@ -11735,6 +11736,7 @@ function App() {
 
               <div className="dashboard-surface-card">
                 <div className="dashboard-panel">
+                  <DashboardImportanceLegend />
                   <div className="dashboard-recent-grid">
                     {dashboardData.recentGroups.map((group) => {
                       const { base, counts } = splitDashboardRecentTitleLabel(group.label)
@@ -11761,7 +11763,10 @@ function App() {
                                   onClick={() => setMenu(group.menu)}
                                 >
                                   <span className="dashboard-recent-date">{item.date}</span>
-                                  <span className="dashboard-recent-main">{item.title}</span>
+                                  <span className="dashboard-recent-main">
+                                    <RegistryImportanceDot status={item.status} size="sm" />
+                                    <span className="dashboard-recent-main-text">{item.title}</span>
+                                  </span>
                                   <span className="dashboard-recent-meta">{item.meta}</span>
                                 </button>
                               ))
