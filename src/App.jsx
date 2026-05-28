@@ -6442,9 +6442,17 @@ function App() {
       const rows = await contactsManageApi.list()
       setContactsManageRows(Array.isArray(rows) ? rows : [])
     } catch (error) {
-      console.error('연락처 관리 데이터를 불러오지 못했습니다.', error)
-      showAppAlert('연락처 관리 데이터를 불러오지 못했습니다.')
-      setContactsManageRows([])
+      const isNotFound =
+        error?.status === 404 ||
+        error?.response?.status === 404
+      if (isNotFound) {
+        console.warn('연락처 관리 API 미구현(404) — 빈 목록으로 표시합니다.')
+        setContactsManageRows([])
+      } else {
+        console.error('연락처 관리 데이터를 불러오지 못했습니다.', error)
+        showAppAlert('연락처 관리 데이터를 불러오지 못했습니다.')
+        setContactsManageRows([])
+      }
     } finally {
       setIsLoadingContactsManage(false)
     }

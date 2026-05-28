@@ -10,7 +10,11 @@ async function requestJson(path) {
   }))
 
   if (!response.ok) {
-    throw new Error(await readApiErrorMessage(response))
+    const message = await readApiErrorMessage(response)
+    const error = new Error(message)
+    error.status = response.status
+    error.response = { status: response.status }
+    throw error
   }
 
   return response.json()
