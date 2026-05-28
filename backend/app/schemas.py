@@ -1109,7 +1109,6 @@ def _normalize_excel_placeholder_text(val: str) -> str:
     compact = "".join(s.split()).lower()
     if compact in (
         "",
-        "-",
         "—",
         "–",
         "−",

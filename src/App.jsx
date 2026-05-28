@@ -3157,7 +3157,6 @@ function normalizeExcelPlaceholderText(value) {
   const compact = t.replace(/\s+/g, '').toLowerCase()
   if (
     compact === '' ||
-    compact === '-' ||
     compact === '—' ||
     compact === '–' ||
     compact === 'w-w' ||
@@ -6654,19 +6653,7 @@ function App() {
       await fetchContracts()
       const dupLen = Array.isArray(result.duplicateItems) ? result.duplicateItems.length : 0
       const intro = `엑셀 업로드 성공: 신규 ${result.created}건 추가, 중복 ${dupLen}건 제외`
-      let msg = buildExcelImportAlertBody(intro, result.duplicateItems)
-      if (result.usedBulkFallback) {
-        msg += `\n\n※ 구형 API(/bulk)로 저장되어 서버 중복 목록·엑셀 백업은 제공되지 않습니다.`
-      } else if (result.excelBackupPath) {
-        msg += `\n\n[서버 엑셀 백업]\n${result.excelBackupPath}`
-      } else if (result.excelBackupError) {
-        msg += `\n\n※ 서버 엑셀 백업 실패: ${result.excelBackupError}`
-      }
-      const skipKey = Number(result.skippedNoDuplicateKeyRows || 0)
-      if (!result.usedBulkFallback && skipKey > 0) {
-        msg += `\n\n※ 사업명·계약번호가 비어 무시된 행: ${skipKey}건`
-      }
-      showAppAlert(msg)
+      showAppAlert(intro)
     } catch (error) {
       console.error('엑셀 업로드 중 오류가 발생했습니다.', error)
       const raw = safeString(error?.message).trim() || safeString(error)
@@ -6688,8 +6675,8 @@ function App() {
       계약방식: item.contractMethod,
       계약분류: item.contractType,
       식별번호: item.identNo,
-      계약일자: item.contractDate,
-      준공일자: item.dueDate,
+      계약일자: item.contractDate || '-',
+      준공일자: item.dueDate || '-',
       사업명: item.projectName,
       계약금액: formatAmountDisplay(item.amount),
       영업담당자: item.salesOwner,
@@ -8075,7 +8062,7 @@ function App() {
         const { rows: insertedRows, duplicateItems } = await config.importRows(payloadRows)
         const dupCount = Array.isArray(duplicateItems) ? duplicateItems.length : 0
         const intro = `엑셀 업로드 성공: 신규 ${insertedRows.length}건 추가, 중복 ${dupCount}건 제외`
-        const msg = buildExcelImportAlertBody(intro, duplicateItems)
+        const msg = intro
 
         await config.fetchRows(false)
         console.log('[excel-upload] 완료', {
@@ -12364,6 +12351,8 @@ function App() {
                                         >
                                           {column.key === 'amount'
                                             ? formatAmountDisplay(item[column.key])
+                                            : column.type === 'date'
+                                              ? item[column.key] || '-'
                                             : item[column.key]}
                                         </div>
                                       )}
