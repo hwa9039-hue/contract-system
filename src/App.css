@@ -644,10 +644,11 @@ textarea {
 
 .contract-table.excel-table.registry-table tbody td {
   padding: 6px 8px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 400;
   line-height: 1.25;
   color: #374151;
+  vertical-align: middle;
 }
 
 .contract-table.excel-table.registry-table .cell-display,
@@ -707,10 +708,11 @@ textarea {
   height: auto;
   min-height: 0;
   padding: 6px 8px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 400;
   line-height: 1.25;
   color: #374151;
+  vertical-align: middle;
 }
 
 .excel-table tbody td.table-col-long {
@@ -883,7 +885,7 @@ textarea {
   white-space: nowrap;
   word-break: keep-all;
   overflow-wrap: normal;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 400;
   line-height: 1.25;
   color: inherit;
@@ -893,7 +895,7 @@ textarea {
   white-space: normal;
   word-break: break-word;
   overflow-wrap: anywhere;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .td-align-center .cell-display {
@@ -906,7 +908,7 @@ textarea {
 
 .multiline-cell .cell-display,
 .note-cell .cell-display {
-  align-items: flex-start;
+  align-items: center;
   line-height: 1.25;
   min-height: 20px;
 }
