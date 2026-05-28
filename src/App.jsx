@@ -98,22 +98,6 @@ const SALES_STAGE_OPTIONS = [
 ]
 const SALES_MANAGER_OPTIONS = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범', '신상준']
 const SALES_REGISTER_MANAGER_OPTIONS = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범']
-const SALES_STAGE_TONE_MAP = {
-  대기: { className: 'sales-stage-badge stage-waiting', optionStyle: { backgroundColor: '#fff8db', color: '#a16207' } },
-  대응중: { className: 'sales-stage-badge stage-working', optionStyle: { backgroundColor: '#eaf1ff', color: '#1f4fd1' } },
-  확인필요: { className: 'sales-stage-badge stage-alert', optionStyle: { backgroundColor: '#fff1e8', color: '#c2410c' } },
-  보류: { className: 'sales-stage-badge stage-hold', optionStyle: { backgroundColor: '#f3f4f6', color: '#4b5563' } },
-  마감: { className: 'sales-stage-badge stage-done', optionStyle: { backgroundColor: '#e5e7eb', color: '#111827' } },
-  완료: { className: 'sales-stage-badge stage-done', optionStyle: { backgroundColor: '#e5e7eb', color: '#111827' } },
-  계약: {
-    className: 'sales-stage-badge stage-contract',
-    optionStyle: { backgroundColor: '#eef2ff', color: '#4338ca' },
-  },
-  발주계획: { className: 'sales-stage-badge stage-green', optionStyle: { backgroundColor: '#ecfdf3', color: '#166534' } },
-  사전규격: { className: 'sales-stage-badge stage-green', optionStyle: { backgroundColor: '#ecfdf3', color: '#166534' } },
-  입찰공고: { className: 'sales-stage-badge stage-green', optionStyle: { backgroundColor: '#ecfdf3', color: '#166534' } },
-}
-
 function normalizeSalesProjectStage(stage) {
   const trimmed = safeString(stage).trim()
   return trimmed === '완료' ? '마감' : trimmed
@@ -3932,6 +3916,11 @@ function getRegistryPlainDisplayValue(row, column) {
     return amountText || '-'
   }
 
+  if (column.key === 'projectStage') {
+    const stage = normalizeSalesProjectStage(row.projectStage)
+    return stage || '-'
+  }
+
   return registryCellDisplayText(row[column.key]) || '-'
 }
 
@@ -4210,22 +4199,6 @@ function toWorkReportPayload(row, timestamp) {
     order_index: Number(row.orderIndex || 1),
     updatedAt: timestamp,
   }
-}
-
-function getSalesStageClassName(stage) {
-  const key = normalizeSalesProjectStage(stage)
-  return SALES_STAGE_TONE_MAP[key]?.className || 'sales-stage-badge'
-}
-
-function getSalesStageOptionStyle(stage) {
-  const key = normalizeSalesProjectStage(stage)
-  return SALES_STAGE_TONE_MAP[key]?.optionStyle
-}
-
-function renderSalesProjectStageBadge(stage) {
-  const label = normalizeSalesProjectStage(stage)
-  if (!label) return '-'
-  return <span className={getSalesStageClassName(stage)}>{label}</span>
 }
 
 function getDiscoveryCategoryClassName(category) {
@@ -10060,9 +10033,7 @@ function App() {
                     overflowWrap: 'anywhere',
                   }}
                 >
-                  {column.key === 'projectStage' && cellEditScope === 'sales'
-                    ? renderSalesProjectStageBadge(row.projectStage)
-                    : getRegistryPlainDisplayValue(row, column)}
+                  {getRegistryPlainDisplayValue(row, column)}
                 </div>
               )}
             </td>
