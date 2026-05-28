@@ -40,6 +40,7 @@ import {
   resolveRegistryImportanceStatus,
 } from './registryImportance.jsx'
 import { ImportanceLegend } from './ImportanceLegend.jsx'
+import { EditableTextCell, isContractEditableTextColumn } from './EditableTextCell.jsx'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
 import { materialsBoardApi, downloadMaterialsBoardBlobUrl, materialsBoardDownloadUrl } from './materialsBoardApi'
 import {
@@ -9160,6 +9161,46 @@ function App() {
     setContractEditDraft('')
   }
 
+  const handleContractTextCellSave = useCallback(
+    async (rowKey, columnKey, rawValue) => {
+      if (!isAdmin) return
+
+      const record = getContractRowBySelectKey(rowKey)
+      if (!record) return
+
+      const value = normalizeEditValue(columnKey, rawValue)
+      const previous = record[columnKey]
+
+      if (safeString(previous) === safeString(value)) return
+
+      const id = firstUsableContractPathId(record.id, record.key)
+      if (!isUsableContractPathId(id)) {
+        setToastMessage('유효한 ID가 없습니다')
+        return
+      }
+
+      setContracts((prev) =>
+        prev.map((row) =>
+          getContractTableRowKey(row) === rowKey ? { ...row, [columnKey]: value } : row
+        )
+      )
+
+      try {
+        await contractsApi.update(id, { [columnKey]: value })
+      } catch (error) {
+        setContracts((prev) =>
+          prev.map((row) =>
+            getContractTableRowKey(row) === rowKey ? { ...row, [columnKey]: previous } : row
+          )
+        )
+        console.error('[계약현황 PATCH] 텍스트 셀 저장 실패', error)
+        logApiOperationError('계약현황 수정', error)
+        setToastMessage(`저장에 실패했습니다. ${safeString(error?.message)}`)
+      }
+    },
+    [getContractRowBySelectKey, isAdmin]
+  )
+
   const saveEdit = async () => {
     const snap = contractEditRef.current
     const snapDraft = contractEditDraftRef.current
@@ -12275,8 +12316,18 @@ function App() {
                                 </td>
 
                                 {CONTRACT_COLUMNS.map((column) => {
+                                  const isEditableText =
+                                    isContractEditableTextColumn(column)
                                   const isEditing =
-                                    contractEdit?.rowKey === rowSelectKey && contractEdit?.key === column.key
+                                    !isEditableText &&
+                                    contractEdit?.rowKey === rowSelectKey &&
+                                    contractEdit?.key === column.key
+                                  const cellAlign =
+                                    column.align === 'right'
+                                      ? 'right'
+                                      : column.align === 'left'
+                                      ? 'left'
+                                      : 'center'
 
                                   return (
                                     <td
@@ -12292,12 +12343,31 @@ function App() {
                                       } ${isAdmin ? 'editable-cell' : ''}`}
                                       style={column.width ? { width: column.width } : undefined}
                                       onClick={
-                                        isAdmin
-                                          ? () => startEdit(rowSelectKey, column.key, item[column.key], item)
+                                        isAdmin && !isEditableText
+                                          ? () =>
+                                              startEdit(
+                                                rowSelectKey,
+                                                column.key,
+                                                item[column.key],
+                                                item
+                                              )
                                           : undefined
                                       }
                                     >
-                                      {isEditing ? (
+                                      {isEditableText ? (
+                                        <EditableTextCell
+                                          value={item[column.key]}
+                                          align={cellAlign}
+                                          disabled={!isAdmin}
+                                          onSave={(nextValue) =>
+                                            handleContractTextCellSave(
+                                              rowSelectKey,
+                                              column.key,
+                                              nextValue
+                                            )
+                                          }
+                                        />
+                                      ) : isEditing ? (
                                         renderEditor(item, column, rowSelectKey)
                                       ) : (
                                         <div className="cell-display">

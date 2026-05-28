@@ -1,0 +1,98 @@
+import { useEffect, useState } from 'react'
+
+/** 계약현황 등 — 날짜·금액·드롭다운·중요도가 아닌 순수 텍스트 컬럼 */
+export function isContractEditableTextColumn(column) {
+  if (!column) return false
+  const type = column.type
+  if (type === 'date' || type === 'amount' || type === 'select' || type === 'importance') {
+    return false
+  }
+  return type === 'text' || type === 'textarea'
+}
+
+export function EditableTextCell({
+  value,
+  onSave,
+  disabled = false,
+  align = 'left',
+  className = '',
+}) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [draft, setDraft] = useState(() => (value == null ? '' : String(value)))
+
+  useEffect(() => {
+    if (!isEditing) {
+      setDraft(value == null ? '' : String(value))
+    }
+  }, [value, isEditing])
+
+  const displayValue = value == null ? '' : String(value)
+
+  const handleCommit = () => {
+    setIsEditing(false)
+    const next = draft
+    if (next !== displayValue) {
+      onSave?.(next)
+    }
+  }
+
+  const handleCancel = () => {
+    setDraft(displayValue)
+    setIsEditing(false)
+  }
+
+  if (disabled) {
+    return (
+      <div
+        className={`cell-display editable-text-cell-display editable-text-cell-display--${align} ${className}`.trim()}
+      >
+        {displayValue}
+      </div>
+    )
+  }
+
+  if (isEditing) {
+    return (
+      <input
+        type="text"
+        className={`editable-text-cell-input editable-text-cell-input--${align} ${className}`.trim()}
+        value={draft}
+        autoFocus
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={handleCommit}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            handleCommit()
+            return
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault()
+            handleCancel()
+          }
+        }}
+      />
+    )
+  }
+
+  return (
+    <div
+      className={`cell-display editable-text-cell-display editable-text-cell-display--${align} ${className}`.trim()}
+      role="button"
+      tabIndex={0}
+      onClick={(e) => {
+        e.stopPropagation()
+        setIsEditing(true)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          setIsEditing(true)
+        }
+      }}
+    >
+      {displayValue || '\u00a0'}
+    </div>
+  )
+}

@@ -1040,6 +1040,69 @@ textarea {
   text-align: right;
 }
 
+/* 노션 스타일 — 계약현황 텍스트 인라인 편집 */
+.editable-text-cell-display {
+  width: 100%;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  cursor: text;
+  border-radius: 4px;
+  padding: 0 2px;
+}
+
+.editable-text-cell-display--left {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.editable-text-cell-display--center {
+  justify-content: center;
+  text-align: center;
+}
+
+.editable-text-cell-display--right {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.editable-text-cell-input {
+  width: 100%;
+  min-height: 36px;
+  margin: 0;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+  font-size: inherit;
+  font-family: inherit;
+  color: inherit;
+  line-height: 1.35;
+}
+
+.editable-text-cell-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 1px #60a5fa;
+}
+
+.editable-text-cell-input--left {
+  text-align: left;
+}
+
+.editable-text-cell-input--center {
+  text-align: center;
+}
+
+.editable-text-cell-input--right {
+  text-align: right;
+}
+
+.contract-table-admin td.editable-cell .editable-text-cell-display:hover {
+  background: rgba(59, 130, 246, 0.06);
+}
+
 .empty-cell,
 .empty-text {
   padding: 24px;
