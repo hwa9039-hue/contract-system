@@ -63,6 +63,50 @@ export function resolveRegistryImportanceStatus(row, column) {
   }
 }
 
+/** 대시보드 상단 범례 항목 */
+export const DASHBOARD_IMPORTANCE_LEGEND_ITEMS = [
+  { tone: 'red', label: '확인필요' },
+  { tone: 'yellow', label: '대기' },
+  { tone: 'green', label: '공고진행' },
+]
+
+export function RegistryImportanceDot({ status, size = 'md' }) {
+  const normalized = normalizeStatusForImportance(status)
+  if (!normalized) return null
+
+  let tone = 'empty'
+  try {
+    tone = getImportanceStyle(status).tone
+  } catch {
+    return null
+  }
+
+  if (tone === 'empty') return null
+
+  return (
+    <span
+      className={`registry-importance-dot registry-importance-dot--${tone} registry-importance-dot--size-${size}`}
+      aria-hidden="true"
+    />
+  )
+}
+
+export function DashboardImportanceLegend() {
+  return (
+    <div className="dashboard-importance-legend" aria-label="상태 중요도 범례">
+      {DASHBOARD_IMPORTANCE_LEGEND_ITEMS.map((item) => (
+        <span key={item.label} className="dashboard-importance-legend-item">
+          <span
+            className={`registry-importance-dot registry-importance-dot--${item.tone} registry-importance-dot--size-legend`}
+            aria-hidden="true"
+          />
+          <span>{item.label}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export function RegistryImportanceBadge({ status }) {
   let style
   let title = ''

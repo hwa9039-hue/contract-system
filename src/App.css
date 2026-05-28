@@ -3276,11 +3276,52 @@ textarea:focus-visible {
   font-weight: 700;
 }
 
+/* 대시보드 — 상태 중요도 범례 (캘린더 범례 스타일 차용) */
+.dashboard-importance-legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 4px;
+  margin-bottom: 12px;
+  padding: 8px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.dashboard-importance-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+
+.registry-importance-dot--size-sm {
+  width: 8px;
+  height: 8px;
+}
+
+.registry-importance-dot--size-md {
+  width: 12px;
+  height: 12px;
+}
+
+.registry-importance-dot--size-legend {
+  width: 12px;
+  height: 12px;
+}
+
 .dashboard-recent-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 0;
 }
 
 .dashboard-recent-card {

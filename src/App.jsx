@@ -32,7 +32,9 @@ import {
   serializeManagerMultiSelectValue,
 } from './workReportManagerMultiSelect.jsx'
 import {
+  DashboardImportanceLegend,
   RegistryImportanceBadge,
+  RegistryImportanceDot,
   getImportanceStatusFromRow,
   getImportanceStyle,
   normalizeStatusForImportance,
@@ -4394,12 +4396,17 @@ function getDashboardRecentItems(rows, config) {
   return [...rows]
     .sort((a, b) => getDashboardRecentUpdatedTime(b) - getDashboardRecentUpdatedTime(a))
     .slice(0, DASHBOARD_RECENT_ITEM_LIMIT)
-    .map((row) => ({
-      id: row.id,
-      date: getDashboardDisplayDate(row[config.dateKey] || row.createdAt),
-      title: config.getTitle(row),
-      meta: config.getMeta(row),
-    }))
+    .map((row) => {
+      const statusRaw = typeof config.getStatus === 'function' ? config.getStatus(row) : ''
+      const status = normalizeStatusForImportance(statusRaw)
+      return {
+        id: row.id,
+        date: getDashboardDisplayDate(row[config.dateKey] || row.createdAt),
+        title: config.getTitle(row),
+        meta: config.getMeta(row),
+        status,
+      }
+    })
 }
 
 /** 등록일이 이번 주(월요일~일요일, 로컬)에 포함되는 행 수 */
@@ -6231,6 +6238,7 @@ function App() {
             getTitle: (row) => safeString(row.projectName || row.client).trim() || '영업 항목',
             getMeta: (row) =>
               [row.client, row.manager || row.projectStage].filter(Boolean).join(' · ') || '-',
+            getStatus: (row) => row.projectStage,
           }),
         },
         {
