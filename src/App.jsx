@@ -41,6 +41,8 @@ import {
 } from './registryImportance.jsx'
 import { ImportanceLegend } from './ImportanceLegend.jsx'
 import { EditableTextCell, isContractEditableTextColumn, isEditableTextColumn } from './EditableTextCell.jsx'
+import { RegistryResizableHeaderCells, ResizableTableHeadCell } from './ResizableTableHeadCell.jsx'
+import { getTableAlignClass, useTableColumnResize } from './useTableColumnResize.js'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
 import { materialsBoardApi, downloadMaterialsBoardBlobUrl, materialsBoardDownloadUrl } from './materialsBoardApi'
 import {
@@ -4447,6 +4449,11 @@ function splitDashboardRecentTitleLabel(fullLabel) {
 
 function App() {
   const { isAdmin, sharedSessionExpiresAt, logout, extendLogin } = useAuth()
+  const contractsColumnResize = useTableColumnResize('contracts', CONTRACT_COLUMNS)
+  const salesColumnResize = useTableColumnResize('sales', SALES_COLUMNS)
+  const discoveryColumnResize = useTableColumnResize('discovery', DISCOVERY_COLUMNS)
+  const excludedColumnResize = useTableColumnResize('excluded', EXCLUDED_COLUMNS)
+  const documentsColumnResize = useTableColumnResize('documents', DOCUMENT_COLUMNS)
   const [contracts, setContracts] = useState([])
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
@@ -10017,6 +10024,7 @@ function App() {
     isAdminForRegistry = false,
     registryCellEdit: registryCellEditProp = null,
     onRegistryCellStart = null,
+    getColumnWidthStyle = null,
   }) => {
     const rowKey = rowKeyProp ?? getRegistryTableRowDomKey(row, index)
     const rowId = safeString(row?.id).trim() || rowKey
@@ -10082,11 +10090,13 @@ function App() {
                 isAdminForRegistry && !row.isDraft && !isImportanceCell ? 'editable-cell' : ''
               }`}
               style={
-                column.widthClass || column.widthPct != null
-                  ? undefined
-                  : column.width != null
-                    ? { width: column.width, minWidth: column.minWidth ?? column.width }
-                    : undefined
+                getColumnWidthStyle
+                  ? getColumnWidthStyle(column)
+                  : column.widthClass || column.widthPct != null
+                    ? undefined
+                    : column.width != null
+                      ? { width: column.width, minWidth: column.minWidth ?? column.width }
+                      : undefined
               }
               onClick={() => {
                 if (isImportanceCell || isEditableText) return
@@ -10165,6 +10175,7 @@ function App() {
     onCancelRow,
     onChange,
     isEmptyRow,
+    getColumnWidthStyle = null,
   }) => {
     if (rows.length === 0) {
       return (
@@ -10191,6 +10202,7 @@ function App() {
         isEmptyRow,
         selectedIds,
         onToggleSelection,
+        getColumnWidthStyle,
       })
     )
   }
@@ -10214,6 +10226,7 @@ function App() {
     isAdminForRegistry = false,
     registryCellEdit: registryCellEditGrouped = null,
     onRegistryCellStart = null,
+    getColumnWidthStyle = null,
   }) => {
     if (groups.length === 0) {
       return (
@@ -10270,6 +10283,7 @@ function App() {
             isAdminForRegistry,
             registryCellEdit: registryCellEditGrouped,
             onRegistryCellStart,
+            getColumnWidthStyle,
           })
         }),
       ]
@@ -10295,6 +10309,7 @@ function App() {
     isAdminForRegistry = false,
     registryCellEdit: registryCellEditGrouped = null,
     onRegistryCellStart = null,
+    getColumnWidthStyle = null,
   }) => {
     if (groups.length === 0) {
       return (
@@ -10363,6 +10378,7 @@ function App() {
           isAdminForRegistry,
           registryCellEdit: registryCellEditGrouped,
           onRegistryCellStart,
+          getColumnWidthStyle,
         })
       })
 
@@ -10415,6 +10431,7 @@ function App() {
               isAdminForRegistry,
               registryCellEdit: registryCellEditGrouped,
               onRegistryCellStart,
+              getColumnWidthStyle,
             })
           })
         : []
@@ -12235,19 +12252,16 @@ function App() {
                       )}
                       <th className="col-dday th-align-center">D-Day</th>
                       {CONTRACT_COLUMNS.map((column) => (
-                        <th
+                        <ResizableTableHeadCell
                           key={column.key}
-                          className={`${column.className} ${
-                            column.align === 'right'
-                              ? 'th-align-right'
-                              : column.align === 'left'
-                              ? 'th-align-left'
-                              : 'th-align-center'
-                          }`}
-                          style={column.width ? { width: column.width } : undefined}
-                        >
-                          {column.label}
-                        </th>
+                          label={column.label}
+                          className={column.className}
+                          alignClass={getTableAlignClass(column.align)}
+                          style={contractsColumnResize.getWidthStyle(column)}
+                          onResizeStart={(event) =>
+                            contractsColumnResize.startResize(column.key, event)
+                          }
+                        />
                       ))}
                     </tr>
                   </thead>
@@ -12378,7 +12392,7 @@ function App() {
                                       } ${column.type === 'textarea' ? 'multiline-cell' : ''} ${
                                         column.key === 'note' ? 'note-cell' : ''
                                       } ${isAdmin ? 'editable-cell' : ''}`}
-                                      style={column.width ? { width: column.width } : undefined}
+                                      style={contractsColumnResize.getWidthStyle(column)}
                                       onClick={
                                         isAdmin && !isEditableText
                                           ? () =>
@@ -12537,21 +12551,10 @@ function App() {
                           }
                         />
                       </th>
-                      {SALES_COLUMNS.map((column) => (
-                        <th
-                          key={column.key}
-                          className={
-                            column.align === 'right'
-                              ? 'th-align-right'
-                              : column.align === 'left'
-                              ? 'th-align-left'
-                              : 'th-align-center'
-                          }
-                          style={{ width: column.width }}
-                        >
-                          {column.label}
-                        </th>
-                      ))}
+                      <RegistryResizableHeaderCells
+                        columns={SALES_COLUMNS}
+                        columnResize={salesColumnResize}
+                      />
                     </tr>
                   </thead>
                   <tbody>
@@ -12575,6 +12578,7 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('sales', rowId, columnKey, value, row),
+                      getColumnWidthStyle: salesColumnResize.getWidthStyle,
                     })}
                   </tbody>
                 </table>
@@ -12660,9 +12664,9 @@ function App() {
               <div className="table-wrap contracts-only-scroll">
                 <table className="contract-table excel-table registry-table discovery-registry-table discovery-table-fixed">
                   <colgroup>
-                    <col className="discovery-w-12" />
+                    <col className="discovery-w-12" style={{ width: 48, minWidth: 48 }} />
                     {DISCOVERY_COLUMNS.map((column) => (
-                      <col key={column.key} className={column.widthClass} />
+                      <col key={column.key} style={discoveryColumnResize.getWidthStyle(column)} />
                     ))}
                   </colgroup>
                   <thead>
@@ -12681,22 +12685,18 @@ function App() {
                           }
                         />
                       </th>
-                      {DISCOVERY_COLUMNS.map((column) => (
-                        <th
-                          key={column.key}
-                          className={`${
-                            column.key === 'projectAmount'
-                              ? 'th-align-center'
-                              : column.align === 'right'
-                                ? 'th-align-right'
-                                : column.align === 'left'
-                                  ? 'th-align-left'
-                                  : 'th-align-center'
-                          } ${column.cellClass || ''} ${column.widthClass || ''}`}
-                        >
-                          {column.label}
-                        </th>
-                      ))}
+                      <RegistryResizableHeaderCells
+                        columns={DISCOVERY_COLUMNS}
+                        columnResize={discoveryColumnResize}
+                        getExtraThClassName={(column) =>
+                          `${column.cellClass || ''} ${column.widthClass || ''}`.trim()
+                        }
+                        getAlignClass={(column) =>
+                          column.key === 'projectAmount'
+                            ? 'th-align-center'
+                            : getTableAlignClass(column.align)
+                        }
+                      />
                     </tr>
                   </thead>
                   <tbody>
@@ -12720,6 +12720,7 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('discovery', rowId, columnKey, value, row),
+                      getColumnWidthStyle: discoveryColumnResize.getWidthStyle,
                     })}
                   </tbody>
                 </table>
@@ -12847,21 +12848,10 @@ function App() {
                           }
                         />
                       </th>
-                      {EXCLUDED_COLUMNS.map((column) => (
-                        <th
-                          key={column.key}
-                          className={
-                            column.align === 'right'
-                              ? 'th-align-right'
-                              : column.align === 'left'
-                              ? 'th-align-left'
-                              : 'th-align-center'
-                          }
-                          style={{ width: column.width }}
-                        >
-                          {column.label}
-                        </th>
-                      ))}
+                      <RegistryResizableHeaderCells
+                        columns={EXCLUDED_COLUMNS}
+                        columnResize={excludedColumnResize}
+                      />
                     </tr>
                   </thead>
                   <tbody>
@@ -12885,6 +12875,7 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('excluded', rowId, columnKey, value, row),
+                      getColumnWidthStyle: excludedColumnResize.getWidthStyle,
                     })}
                   </tbody>
                 </table>
@@ -13006,21 +12997,10 @@ function App() {
                           }
                         />
                       </th>
-                      {DOCUMENT_COLUMNS.map((column) => (
-                        <th
-                          key={column.key}
-                          className={
-                            column.align === 'right'
-                              ? 'th-align-right'
-                              : column.align === 'left'
-                              ? 'th-align-left'
-                              : 'th-align-center'
-                          }
-                          style={{ width: column.width }}
-                        >
-                          {column.label}
-                        </th>
-                      ))}
+                      <RegistryResizableHeaderCells
+                        columns={DOCUMENT_COLUMNS}
+                        columnResize={documentsColumnResize}
+                      />
                     </tr>
                   </thead>
                   <tbody>
@@ -13044,6 +13024,7 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('documents', rowId, columnKey, value, row),
+                      getColumnWidthStyle: documentsColumnResize.getWidthStyle,
                     })}
                   </tbody>
                 </table>
