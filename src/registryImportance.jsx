@@ -65,9 +65,9 @@ export function resolveRegistryImportanceStatus(row, column) {
 
 /** 대시보드 상단 범례 항목 */
 export const DASHBOARD_IMPORTANCE_LEGEND_ITEMS = [
-  { tone: 'red', label: '확인필요' },
-  { tone: 'yellow', label: '대기' },
-  { tone: 'green', label: '공고진행' },
+  { tone: 'red', label: '검토(확인필요, 보류)' },
+  { tone: 'yellow', label: '대기중(대기, 대응중)' },
+  { tone: 'green', label: '공고진행(발주계획, 사전규격, 입찰공고, 정보공개)' },
 ]
 
 export function RegistryImportanceDot({ status, size = 'md' }) {
@@ -116,17 +116,19 @@ export function RegistryImportanceBadge({ status }) {
     style = getImportanceStyle(status)
   } catch {
     return (
-      <span className="registry-importance-dot-only" aria-label="중요도 없음">
+      <span className="registry-importance-badge" aria-label="중요도 없음">
         <span className="registry-importance-dot registry-importance-dot--empty" aria-hidden="true" />
+        <span className="registry-importance-label">-</span>
       </span>
     )
   }
 
   const tone = style?.tone || 'empty'
+  const label = style?.label || ''
 
   return (
     <span
-      className="registry-importance-dot-only"
+      className="registry-importance-badge"
       title={title || undefined}
       aria-label={title ? `중요도: ${title}` : '중요도 없음'}
     >
@@ -134,6 +136,7 @@ export function RegistryImportanceBadge({ status }) {
         className={`registry-importance-dot registry-importance-dot--${tone}`}
         aria-hidden="true"
       />
+      <span className="registry-importance-label">{label || '-'}</span>
     </span>
   )
 }

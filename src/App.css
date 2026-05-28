@@ -4879,12 +4879,22 @@ textarea:focus-visible {
   min-height: 36px;
 }
 
+.registry-importance-badge,
 .registry-importance-dot-only {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   width: 100%;
   min-height: 36px;
+}
+
+.registry-importance-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .registry-importance-dot {
