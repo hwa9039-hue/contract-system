@@ -191,44 +191,98 @@ textarea {
 }
 
 .main-area > .top-system-bar,
-.main-area > .page-title-bar,
 .main-area > .mode-toast,
 .main-area > .main-area-session-banner {
   flex-shrink: 0;
 }
 
-.top-system-bar,
-.page-title-bar {
+.top-system-bar {
   width: 100%;
   margin-bottom: 8px;
 }
 
-.top-system-title,
-.unified-title-bar h1 {
-  width: 100%;
-  min-height: 54px;
-  margin: 0;
-  border-radius: 12px;
+/* 상단 헤더(시스템명/메뉴명 1줄 통합) */
+.top-system-bar--unified {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.top-system-left {
   display: flex;
   align-items: center;
-  justify-content: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.top-system-name {
   font-family: 'SUIT', sans-serif;
-  font-weight: 900;
-  font-size: 21px;
-  letter-spacing: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
 }
 
-.top-system-title {
-  background: #f7fbff;
-  border: 1px solid #7ca5df;
-  color: #0f2e57;
-  box-shadow: inset 0 -2px 0 rgba(72, 129, 207, 0.12);
+.top-system-sep {
+  color: #94a3b8;
+  font-weight: 500;
+  user-select: none;
 }
 
-.unified-title-bar h1 {
+.top-system-menu {
+  font-family: 'SUIT', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+  white-space: nowrap;
+}
+
+.top-system-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.top-session-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.top-session-pill--auto {
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
+.top-session-pill--danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.top-session-pill--default {
   background: #eef5ff;
-  border: 1px solid #9ab7e8;
-  color: #172f52;
+  border: 1px solid #cfe0ff;
+  color: #1f4fd1;
+}
+
+.top-extend-btn {
+  min-height: 34px;
+  padding: 7px 12px;
 }
 
 .stat-card {
