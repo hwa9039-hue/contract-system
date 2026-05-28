@@ -11516,22 +11516,17 @@ function App() {
       </aside>
 
       <main className="main-area">
-        <div className="w-full">
-          <div className="header-reset-top-row">
-            <div className="header-reset-system-name">스마트DI사업부 통합관리 시스템</div>
-            <div className="header-reset-actions">
-              <span className="header-reset-session-pill">
-                {isLongLivedSession ? '🟢 자동 로그인' : `남은 시간 ${remainingSessionMinutes}분`}
-              </span>
+        <div>
+          <div className="flex justify-between items-center w-full py-4">
+            <div>스마트DI사업부 통합관리 시스템</div>
+            <div className="flex items-center gap-3">
+              <div>{isLongLivedSession ? '🟢 자동 로그인' : `남은 시간 ${remainingSessionMinutes}분`}</div>
               <button className="secondary-btn" type="button" onClick={handleExtendLogin}>
                 로그인 연장
               </button>
             </div>
           </div>
-        </div>
-
-        <div className="w-full">
-          <div className="header-reset-menu-name">{PAGE_TITLE_MAP[menu]}</div>
+          <div className="w-full py-2">{PAGE_TITLE_MAP[menu]}</div>
         </div>
 
         <input

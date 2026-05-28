@@ -244,63 +244,6 @@ textarea {
   padding: 7px 12px;
 }
 
-/* ── 헤더 하드 리셋: 초기 2단 구조 (A: 시스템/버튼, B: 메뉴명) ── */
-.header-reset-top-row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.header-reset-system-name {
-  font-family: 'SUIT', sans-serif;
-  font-size: 18px;
-  font-weight: 800;
-  color: #1e293b;
-  white-space: nowrap;
-}
-
-.header-reset-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.header-reset-session-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: #eef5ff;
-  border: 1px solid #cfe0ff;
-  color: #1f4fd1;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.header-reset-menu-name {
-  width: 100%;
-  min-height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 0 22px;
-  border: 1px solid rgba(220, 227, 237, 0.95);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.76);
-  box-shadow: var(--shadow-sm);
-  font-family: 'SUIT', sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  color: #334155;
-}
-
 .stat-card {
   width: 100%;
   min-height: 500px;
