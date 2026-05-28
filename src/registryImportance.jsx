@@ -28,15 +28,15 @@ export function getImportanceStyle(status) {
   }
 
   if (IMPORTANCE_RED_STATUSES.has(normalized)) {
-    return { tone: 'red', label: '긴급' }
+    return { tone: 'red', label: '검토' }
   }
 
   if (IMPORTANCE_YELLOW_STATUSES.has(normalized)) {
-    return { tone: 'yellow', label: '진행' }
+    return { tone: 'yellow', label: '대기중' }
   }
 
   if (IMPORTANCE_GREEN_STATUSES.has(normalized)) {
-    return { tone: 'green', label: '기회' }
+    return { tone: 'green', label: '사업공고' }
   }
 
   if (IMPORTANCE_GRAY_STATUSES.has(normalized)) {
@@ -67,7 +67,7 @@ export function resolveRegistryImportanceStatus(row, column) {
 export const DASHBOARD_IMPORTANCE_LEGEND_ITEMS = [
   { tone: 'red', label: '검토(확인필요, 보류)' },
   { tone: 'yellow', label: '대기중(대기, 대응중)' },
-  { tone: 'green', label: '공고진행(발주계획, 사전규격, 입찰공고, 정보공개)' },
+  { tone: 'green', label: '사업공고(발주계획, 사전규격, 입찰공고, 정보공개)' },
 ]
 
 export function RegistryImportanceDot({ status, size = 'md' }) {
