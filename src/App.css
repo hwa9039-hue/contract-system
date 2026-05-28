@@ -6236,25 +6236,68 @@ textarea:focus-visible {
   border-right: none;
 }
 
-.work-report-report-table-row-meeting .work-report-report-cell--meeting-assignee {
+.work-report-report-table-row-meeting.editable {
+  align-items: stretch;
+}
+
+.work-report-report-table-row-meeting .work-report-report-cell {
   display: flex;
-  align-items: center;
+  align-items: stretch;
+  align-self: stretch;
+}
+
+.work-report-report-table-row-meeting .work-report-report-cell--meeting-assignee {
   justify-content: stretch;
 }
 
 .work-report-report-table-row-meeting .work-report-report-cell--meeting-assignee .work-report-external-manager-multi {
+  display: flex;
+  align-items: stretch;
   width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  align-self: stretch;
+}
+
+/* 회의록 행: 내용 textarea ↔ 담당자 multi-select 동일 외곽 높이 */
+.work-report-report-table-row-meeting .work-report-report-field--meeting-content,
+.work-report-report-table-row-meeting .work-report-external-manager-multi-trigger {
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  border: 1px solid #cfd8e3;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  align-self: stretch;
+}
+
+.work-report-report-table-row-meeting .work-report-external-manager-multi-trigger {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  flex: 1 1 auto;
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+  color: #1f2937;
 }
 
 .work-report-report-field--meeting-content {
-  min-height: 40px;
-  height: 40px;
-  max-height: 48px;
   resize: none;
   overflow-y: auto;
-  line-height: 1.35;
-  padding-top: 8px;
-  padding-bottom: 8px;
+  overflow-x: hidden;
+  background: #ffffff;
+  color: #1f2937;
+  outline: none;
+}
+
+.work-report-report-table-row-meeting .work-report-report-field--meeting-content:focus,
+.work-report-report-table-row-meeting .work-report-external-manager-multi-trigger:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
 }
 
 .work-report-report-field--center {
