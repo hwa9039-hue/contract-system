@@ -203,10 +203,9 @@ textarea {
 
 /* 상단 헤더(시스템명/메뉴명 1줄 통합) */
 .top-system-bar--unified {
-  display: flex;
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
   border: 1px solid #e2e8f0;
@@ -229,17 +228,20 @@ textarea {
   white-space: nowrap;
 }
 
-.top-system-sep {
-  color: #94a3b8;
-  font-weight: 500;
-  user-select: none;
+.top-system-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
 }
 
-.top-system-menu {
-  font-family: 'SUIT', sans-serif;
+.top-system-menu-pill {
+  padding: 4px 16px;
+  background: #1d4ed8;
+  color: #ffffff;
+  border-radius: 999px;
   font-size: 14px;
   font-weight: 500;
-  color: #1f2937;
   white-space: nowrap;
 }
 
