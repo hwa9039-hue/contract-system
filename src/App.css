@@ -621,6 +621,60 @@ textarea {
   overflow-x: auto;
 }
 
+/* ── 5개 대장 공통 테이블 UI (계약·영업·건축·사업검색·문서) ── */
+.contract-table-panel .table-wrap {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.contract-table.excel-table.registry-table {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.contract-table.excel-table.registry-table thead th {
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+  background: #f8fafc;
+  color: #475569;
+  min-height: 0;
+}
+
+.contract-table.excel-table.registry-table tbody td {
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.25;
+  color: #374151;
+}
+
+.contract-table.excel-table.registry-table .cell-display,
+.contract-table.excel-table.registry-table .editable-text-cell-display,
+.contract-table.excel-table.registry-table .editable-text-cell-input,
+.contract-table.excel-table.registry-table .cell-inline-editor,
+.contract-table.excel-table.registry-table .inline-row-editor {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.contract-table.excel-table.registry-table .contract-year-toggle,
+.contract-table.excel-table.registry-table .contract-category-group-row .contract-year-toggle {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+  height: 32px;
+  min-height: 32px;
+  padding: 6px 8px;
+}
+
+.contract-table.excel-table.registry-table .contract-year-count {
+  font-size: 11px;
+  font-weight: 500;
+}
+
 .excel-table thead th {
   position: sticky;
   top: 0;
@@ -640,10 +694,10 @@ textarea {
 
 .excel-table thead th {
   height: auto;
-  min-height: 32px;
-  padding: 8px 10px;
-  font-size: 12px;
-  font-weight: 600;
+  min-height: 0;
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 500;
   line-height: 1.25;
   color: #475569;
 }
@@ -871,18 +925,18 @@ textarea {
 
 .contract-year-toggle {
   width: 100%;
-  height: 30px;
-  min-height: 30px;
+  height: 32px;
+  min-height: 32px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 10px;
+  padding: 6px 8px;
   border: none;
   background: transparent;
   color: #17345f;
   font-family: 'SUIT', sans-serif;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
   text-align: left;
   line-height: 1.25;
@@ -943,11 +997,11 @@ textarea {
 }
 
 .contract-category-group-row .contract-year-toggle {
-  height: 30px;
-  min-height: 30px;
-  padding: 4px 10px 4px 20px;
+  height: 32px;
+  min-height: 32px;
+  padding: 6px 8px 6px 20px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.25;
 }
 
@@ -1131,12 +1185,13 @@ textarea {
 
 .cell-inline-editor {
   width: 100%;
-  min-height: 24px;
+  min-height: 22px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   padding: 2px 6px;
   background: #ffffff;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 400;
   line-height: 1.25;
   outline: none;
   box-shadow: none;
@@ -1190,7 +1245,7 @@ textarea {
 
 .editable-text-cell-input {
   width: 100%;
-  min-height: 24px;
+  min-height: 22px;
   margin: 0;
   padding: 2px 6px;
   border: none;
@@ -1198,10 +1253,11 @@ textarea {
   background: transparent;
   outline: none;
   box-shadow: none;
-  font-size: inherit;
+  font-size: 13px;
+  font-weight: 400;
   font-family: inherit;
   color: inherit;
-  line-height: 1.35;
+  line-height: 1.25;
 }
 
 .editable-text-cell-input:focus {
@@ -3826,11 +3882,11 @@ textarea:focus-visible {
   background: #f8fafc;
   box-shadow: inset 0 -1px 0 #e2e8f0;
   color: #475569;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   letter-spacing: 0;
-  padding: 8px 10px;
-  min-height: 32px;
+  padding: 10px 8px;
+  min-height: 0;
 }
 
 .excel-table tbody td {
@@ -3897,12 +3953,12 @@ textarea:focus-visible {
 }
 
 .contract-year-toggle {
-  height: 30px;
-  min-height: 30px;
-  padding: 4px 10px;
+  height: 32px;
+  min-height: 32px;
+  padding: 6px 8px;
   color: #183b84;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.25;
 }
 
@@ -4570,8 +4626,12 @@ textarea:focus-visible {
   text-align: center;
   vertical-align: middle;
   line-height: 1.25;
-  padding-top: 8px;
-  padding-bottom: 8px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-left: 8px;
+  padding-right: 8px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .excel-table td.col-client .cell-display,
@@ -5200,7 +5260,7 @@ textarea:focus-visible {
   border-color: #bbf7d0;
 }
 
-.registry-table {
+.registry-table:not(.table-layout-auto) {
   table-layout: fixed;
   min-width: max-content;
 }
@@ -5322,7 +5382,8 @@ textarea:focus-visible {
   overflow-wrap: break-word;
   justify-content: center;
   text-align: center;
-  line-height: 1.35;
+  line-height: 1.25;
+  font-size: 13px;
 }
 
 .discovery-registry-table .discovery-col-project,
@@ -5339,7 +5400,8 @@ textarea:focus-visible {
   word-break: break-word;
   overflow-wrap: break-word;
   align-items: center;
-  line-height: 1.35;
+  line-height: 1.25;
+  font-size: 13px;
 }
 
 .discovery-registry-table thead th.discovery-col-amount {
@@ -5472,19 +5534,19 @@ textarea:focus-visible {
 }
 
 .registry-table thead th {
-  min-height: 32px;
-  padding: 8px 10px;
+  min-height: 0;
+  padding: 10px 8px;
   background: #f8fafc !important;
   color: #475569;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   line-height: 1.25;
   border-bottom: 1px solid #e2e8f0;
 }
 
 .registry-action-header {
   color: #334155;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .registry-action-cell {
