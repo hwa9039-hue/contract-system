@@ -3091,6 +3091,7 @@ function collectContractExcelImportIssues(item, excelRowNum) {
     ['dueDate', '준공일자'],
   ]) {
     const raw = safeString(item[key]).trim()
+    if (raw === '-' || raw === '—' || raw === '–') continue
     if (raw && !isValidCalendarDateYmd(raw)) {
       issues.push(`${rowLabel} ${label}: "${raw}" (존재하지 않는 날짜입니다)`)
     }

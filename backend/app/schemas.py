@@ -51,8 +51,12 @@ class ContractBase(BaseModel):
     def empty_string_dates_to_none(cls, value):
         if value is None:
             return None
-        if isinstance(value, str) and not value.strip():
-            return None
+        if isinstance(value, str):
+            s = value.strip()
+            if not s:
+                return None
+            if s in ("-", "—", "–"):
+                return None
         return value
 
     @field_validator("year", mode="before")
