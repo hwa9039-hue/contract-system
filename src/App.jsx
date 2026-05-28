@@ -3082,24 +3082,6 @@ function toDbDate(value) {
   return isValidCalendarDateYmd(str) ? str : null
 }
 
-/** 구형 DB(varchar 50) 대비 — 마이그레이션 전 업로드 차단용 */
-const CONTRACT_EXCEL_LEGACY_VARCHAR_FIELDS = [
-  ['segment', '구분'],
-  ['refNo', '참고번호'],
-  ['contractNo', '계약번호'],
-  ['client', '발주처'],
-  ['department', '담당부서'],
-  ['contractMethod', '계약방식'],
-  ['contractType', '계약분류'],
-  ['identNo', '식별번호'],
-  ['projectName', '사업명'],
-  ['salesOwner', '영업담당자'],
-  ['pm', '현장PM'],
-  ['note', '비고'],
-]
-
-const CONTRACT_EXCEL_LEGACY_VARCHAR_MAX = 50
-
 function collectContractExcelImportIssues(item, excelRowNum) {
   const issues = []
   const rowLabel = excelRowNum > 0 ? `엑셀 ${excelRowNum}행` : '엑셀 데이터'
@@ -3114,29 +3096,12 @@ function collectContractExcelImportIssues(item, excelRowNum) {
     }
   }
 
-  for (const [key, label] of CONTRACT_EXCEL_LEGACY_VARCHAR_FIELDS) {
-    const text = safeString(item[key])
-    if (text.length > CONTRACT_EXCEL_LEGACY_VARCHAR_MAX) {
-      issues.push(
-        `${rowLabel} ${label}: ${text.length}자 (서버 제한 ${CONTRACT_EXCEL_LEGACY_VARCHAR_MAX}자 초과)`
-      )
-    }
-  }
-
   return issues
 }
 
 function formatContractExcelImportApiError(message) {
   const msg = safeString(message).trim()
   if (!msg) return msg
-
-  if (/value too long for type character varying\(50\)/i.test(msg)) {
-    return (
-      '한 칸에 50자를 넘는 값이 있습니다. (사업명·발주처·계약번호 등)\n' +
-      '서버 DB를 최신으로 올리면 긴 텍스트도 업로드할 수 있습니다.\n' +
-      `원본: ${msg}`
-    )
-  }
 
   const rowMatch = msg.match(/body\.rows\.(\d+)\.(\w+)/i)
   if (rowMatch) {
@@ -6671,12 +6636,12 @@ function App() {
         importIssues.push(...collectContractExcelImportIssues(checkItem, row.excelRow))
       }
 
-      if (importIssues.length) {
+        if (importIssues.length) {
         const preview = importIssues.slice(0, 8).join('\n')
         const more =
           importIssues.length > 8 ? `\n… 외 ${importIssues.length - 8}건` : ''
         showAppAlert(
-          `엑셀 데이터를 확인해 주세요.\n\n${preview}${more}\n\n날짜·긴 텍스트(50자 초과)를 수정한 뒤 다시 업로드하세요.`
+          `엑셀 데이터를 확인해 주세요.\n\n${preview}${more}\n\n날짜 형식을 수정한 뒤 다시 업로드하세요.`
         )
         return
       }
