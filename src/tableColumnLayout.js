@@ -46,10 +46,27 @@ const STRICT_NOWRAP_COLUMN_KEYS = new Set([
   'completionPeriod',
 ])
 
-export function getTableAlignClass(align) {
+export function getTableAlignClass(align, column) {
+  if (column && isLongTextTableColumn(column)) {
+    if (align === 'right') return 'th-align-right'
+    return 'th-align-left'
+  }
+  if (column && isStrictNowrapTableColumn(column)) {
+    return 'th-align-center'
+  }
   if (align === 'right') return 'th-align-right'
   if (align === 'left') return 'th-align-left'
   return 'th-align-center'
+}
+
+/** 본문 셀 정렬 — 고정 포맷은 가운데, 긴 텍스트는 좌측 */
+export function getTableBodyAlignClass(column) {
+  if (!column) return 'td-align-center'
+  if (isLongTextTableColumn(column)) {
+    if (column.align === 'right') return 'td-align-right'
+    return 'td-align-left'
+  }
+  return 'td-align-center'
 }
 
 export function isLongTextTableColumn(column) {

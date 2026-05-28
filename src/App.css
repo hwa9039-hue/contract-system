@@ -625,32 +625,36 @@ textarea {
   position: sticky;
   top: 0;
   z-index: 6;
-  background: linear-gradient(180deg, #eef3f9 0%, #e5ebf3 100%);
-  box-shadow: inset 0 -1px 0 #d8e0ea;
+  background: #f8fafc;
+  box-shadow: inset 0 -1px 0 #e2e8f0;
 }
 
 .excel-table th,
 .excel-table td {
   border-right: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e2e8f0;
   padding: 0;
-  color: #111827;
+  color: #334155;
   vertical-align: middle;
 }
 
 .excel-table thead th {
   height: auto;
-  min-height: 36px;
-  padding: 8px 6px;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.3;
+  min-height: 44px;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #475569;
 }
 
 .excel-table tbody td {
-  height: 28px;
-  font-size: 12px;
-  line-height: 1.25;
+  height: auto;
+  min-height: 40px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #334155;
 }
 
 .excel-table tbody td.table-col-long {
@@ -716,12 +720,22 @@ textarea {
   max-height: none;
 }
 
+.excel-table tbody tr.row-even,
+.excel-table tbody tr.row-odd {
+  transition: background-color 0.15s ease;
+}
+
 .row-even {
   background: #ffffff;
 }
 
 .row-odd {
-  background: #fbfdff;
+  background: rgba(249, 250, 251, 0.5);
+}
+
+.excel-table tbody tr.row-even:not(.contract-year-row):not(.contract-category-group-row):not(.inline-add-row):hover,
+.excel-table tbody tr.row-odd:not(.contract-year-row):not(.contract-category-group-row):not(.inline-add-row):hover {
+  background: rgba(239, 246, 255, 0.5);
 }
 
 .inline-add-row {
@@ -805,16 +819,17 @@ textarea {
 }
 
 .cell-display {
-  min-height: 24px;
-  padding: 2px 6px;
+  min-height: 22px;
+  padding: 0;
   display: flex;
   align-items: center;
   overflow: hidden;
   white-space: nowrap;
   word-break: keep-all;
   overflow-wrap: normal;
-  font-size: 12px;
-  line-height: 1.25;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
 }
 
 .table-col-long .cell-display {
@@ -835,10 +850,8 @@ textarea {
 .multiline-cell .cell-display,
 .note-cell .cell-display {
   align-items: flex-start;
-  line-height: 1.25;
-  min-height: 24px;
-  padding-top: 2px;
-  padding-bottom: 2px;
+  line-height: 1.4;
+  min-height: 22px;
 }
 
 .dday-cell {
@@ -1142,14 +1155,15 @@ textarea {
 /* 노션 스타일 — 계약현황 텍스트 인라인 편집 */
 .editable-text-cell-display {
   width: 100%;
-  min-height: 24px;
+  min-height: 22px;
   display: flex;
   align-items: center;
   cursor: text;
   border-radius: 4px;
-  padding: 0 4px;
-  font-size: 12px;
-  line-height: 1.25;
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
 }
 
 .editable-text-cell-display--left {
@@ -3802,26 +3816,31 @@ textarea:focus-visible {
 }
 
 .excel-table thead th {
-  background: linear-gradient(180deg, #f8fafc 0%, #eef3f8 100%);
-  box-shadow: inset 0 -1px 0 var(--line-strong);
-  color: #334155;
-  font-size: 12px;
+  background: #f8fafc;
+  box-shadow: inset 0 -1px 0 #e2e8f0;
+  color: #475569;
+  font-size: 13px;
   letter-spacing: 0;
+  padding: 12px 16px;
 }
 
 .excel-table tbody td {
-  height: 28px;
-  border-right-color: #e6ebf2;
-  border-bottom-color: #e6ebf2;
+  height: auto;
+  min-height: 40px;
+  padding: 10px 12px;
+  border-right-color: #e5e7eb;
+  border-bottom-color: #e2e8f0;
+  font-size: 14px;
+  color: #334155;
 }
 
 .excel-table thead th {
-  border-right-color: #e6ebf2;
-  border-bottom-color: #e6ebf2;
+  border-right-color: #e5e7eb;
+  border-bottom-color: #e2e8f0;
 }
 
 .excel-table td {
-  color: #1f2937;
+  color: #334155;
 }
 
 .row-even {
@@ -3829,11 +3848,12 @@ textarea:focus-visible {
 }
 
 .row-odd {
-  background: #fbfdff;
+  background: rgba(249, 250, 251, 0.5);
 }
 
-.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row):hover {
-  background: #f4faf9;
+.excel-table tbody tr.row-even:not(.contract-year-row):not(.contract-category-group-row):not(.inline-add-row):hover,
+.excel-table tbody tr.row-odd:not(.contract-year-row):not(.contract-category-group-row):not(.inline-add-row):hover {
+  background: rgba(239, 246, 255, 0.5);
 }
 
 .inline-add-row {
@@ -3841,8 +3861,8 @@ textarea:focus-visible {
 }
 
 .cell-display {
-  min-height: 24px;
-  padding: 2px 6px;
+  min-height: 22px;
+  padding: 0;
 }
 
 .dday-cell {
@@ -5435,12 +5455,11 @@ textarea:focus-visible {
 
 .registry-table thead th {
   min-height: 44px;
-  padding-top: 10px;
-  padding-bottom: 10px;
-  background: #f8fbff !important;
-  color: #334155;
-  font-weight: 800;
-  border-bottom: 1px solid #dbe6f5;
+  padding: 12px 16px;
+  background: #f8fafc !important;
+  color: #475569;
+  font-weight: 700;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .registry-action-header {

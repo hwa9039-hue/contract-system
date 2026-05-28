@@ -43,6 +43,7 @@ import { ImportanceLegend } from './ImportanceLegend.jsx'
 import { EditableTextCell, isContractEditableTextColumn, isEditableTextColumn } from './EditableTextCell.jsx'
 import {
   getTableAlignClass,
+  getTableBodyAlignClass,
   getTableColumnLayoutClass,
   isLongTextTableColumn,
 } from './tableColumnLayout.js'
@@ -10062,7 +10063,7 @@ function App() {
             !row.isDraft &&
             !isImportanceCell
           const cellAlign =
-            column.align === 'right' ? 'right' : column.align === 'left' ? 'left' : 'center'
+            getTableBodyAlignClass(column).replace('td-align-', '') || 'center'
           const isThisCell =
             !isImportanceCell &&
             !isEditableText &&
@@ -10075,13 +10076,9 @@ function App() {
           return (
             <td
               key={column.key}
-              className={`${
-                column.align === 'right'
-                  ? 'td-align-right'
-                  : column.align === 'left'
-                    ? 'td-align-left'
-                    : 'td-align-center'
-              } ${isLongTextTableColumn(column) ? 'multiline-cell' : ''} ${
+              className={`${getTableBodyAlignClass(column)} ${
+                isLongTextTableColumn(column) ? 'multiline-cell' : ''
+              } ${
                 isImportanceCell ? 'registry-importance-cell' : ''
               } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${
                 isAdminForRegistry && !row.isDraft && !isImportanceCell ? 'editable-cell' : ''
@@ -12229,7 +12226,7 @@ function App() {
                       {CONTRACT_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${column.className} ${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align)}`}
+                          className={`${column.className} ${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)}`}
                         >
                           {column.label}
                         </th>
@@ -12344,25 +12341,19 @@ function App() {
                                     !isEditableText &&
                                     contractEdit?.rowKey === rowSelectKey &&
                                     contractEdit?.key === column.key
-                                  const cellAlign =
-                                    column.align === 'right'
-                                      ? 'right'
-                                      : column.align === 'left'
+                                  const bodyAlignClass = getTableBodyAlignClass(column)
+                                  const cellAlign = bodyAlignClass.includes('right')
+                                    ? 'right'
+                                    : bodyAlignClass.includes('left')
                                       ? 'left'
                                       : 'center'
 
                                   return (
                                     <td
                                       key={column.key}
-                                      className={`${column.className} ${
-                                        column.align === 'right'
-                                          ? 'td-align-right'
-                                          : column.align === 'left'
-                                          ? 'td-align-left'
-                                          : 'td-align-center'
-                                      } ${isLongTextTableColumn(column) ? 'multiline-cell' : ''} ${
-                                        column.key === 'note' ? 'note-cell' : ''
-                                      } ${getTableColumnLayoutClass(column)} ${
+                                      className={`${column.className} ${bodyAlignClass} ${
+                                        isLongTextTableColumn(column) ? 'multiline-cell' : ''
+                                      } ${column.key === 'note' ? 'note-cell' : ''} ${getTableColumnLayoutClass(column)} ${
                                         isAdmin ? 'editable-cell' : ''
                                       }`}
                                       onClick={
@@ -12537,7 +12528,7 @@ function App() {
                       {SALES_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align)}`}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)}`}
                         >
                           {column.label}
                         </th>
@@ -12671,7 +12662,7 @@ function App() {
                           className={`${getTableColumnLayoutClass(column)} ${
                             column.key === 'projectAmount'
                               ? 'th-align-center'
-                              : getTableAlignClass(column.align)
+                              : getTableAlignClass(column.align, column)
                           } ${column.cellClass || ''}`}
                         >
                           {column.label}
@@ -12830,7 +12821,7 @@ function App() {
                       {EXCLUDED_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align)}`}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)}`}
                         >
                           {column.label}
                         </th>
@@ -12982,7 +12973,7 @@ function App() {
                       {DOCUMENT_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align)}`}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)}`}
                         >
                           {column.label}
                         </th>
