@@ -640,21 +640,22 @@ textarea {
 
 .excel-table thead th {
   height: auto;
-  min-height: 44px;
-  padding: 12px 16px;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.35;
+  min-height: 32px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
   color: #475569;
 }
 
 .excel-table tbody td {
   height: auto;
-  min-height: 40px;
-  padding: 10px 12px;
-  font-size: 14px;
-  line-height: 1.4;
-  color: #334155;
+  min-height: 0;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.25;
+  color: #374151;
 }
 
 .excel-table tbody td.table-col-long {
@@ -819,7 +820,7 @@ textarea {
 }
 
 .cell-display {
-  min-height: 22px;
+  min-height: 20px;
   padding: 0;
   display: flex;
   align-items: center;
@@ -827,8 +828,9 @@ textarea {
   white-space: nowrap;
   word-break: keep-all;
   overflow-wrap: normal;
-  font-size: inherit;
-  line-height: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.25;
   color: inherit;
 }
 
@@ -850,38 +852,40 @@ textarea {
 .multiline-cell .cell-display,
 .note-cell .cell-display {
   align-items: flex-start;
-  line-height: 1.4;
-  min-height: 22px;
+  line-height: 1.25;
+  min-height: 20px;
 }
 
 .dday-cell {
   color: #1d4ed8;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .contract-year-row td {
   height: auto;
-  min-height: 34px;
+  min-height: 30px;
+  padding: 0;
   background: #f1f6ff;
   border-bottom: 1px solid #ccd9ee;
 }
 
 .contract-year-toggle {
   width: 100%;
-  height: 34px;
+  height: 30px;
+  min-height: 30px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 4px 10px;
   border: none;
   background: transparent;
   color: #17345f;
   font-family: 'SUIT', sans-serif;
-  font-size: 14px;
-  font-weight: 900;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
   text-align: left;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .contract-year-row--toggle {
@@ -927,22 +931,24 @@ textarea {
 .contract-year-count {
   color: #64748b;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .contract-category-group-row td {
   height: auto;
-  min-height: 32px;
+  min-height: 30px;
+  padding: 0;
   background: #e8f0fc;
   border-bottom: 1px solid #d5e3f7;
 }
 
 .contract-category-group-row .contract-year-toggle {
-  height: 32px;
-  min-height: 32px;
-  padding: 5px 12px 5px 24px;
+  height: 30px;
+  min-height: 30px;
+  padding: 4px 10px 4px 20px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .inline-row-actions {
@@ -1155,14 +1161,15 @@ textarea {
 /* 노션 스타일 — 계약현황 텍스트 인라인 편집 */
 .editable-text-cell-display {
   width: 100%;
-  min-height: 22px;
+  min-height: 20px;
   display: flex;
   align-items: center;
   cursor: text;
   border-radius: 4px;
   padding: 0;
-  font-size: inherit;
-  line-height: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.25;
   color: inherit;
 }
 
@@ -3819,19 +3826,23 @@ textarea:focus-visible {
   background: #f8fafc;
   box-shadow: inset 0 -1px 0 #e2e8f0;
   color: #475569;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
   letter-spacing: 0;
-  padding: 12px 16px;
+  padding: 8px 10px;
+  min-height: 32px;
 }
 
 .excel-table tbody td {
   height: auto;
-  min-height: 40px;
-  padding: 10px 12px;
+  min-height: 0;
+  padding: 6px 8px;
   border-right-color: #e5e7eb;
   border-bottom-color: #e2e8f0;
-  font-size: 14px;
-  color: #334155;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.25;
+  color: #374151;
 }
 
 .excel-table thead th {
@@ -3861,31 +3872,38 @@ textarea:focus-visible {
 }
 
 .cell-display {
-  min-height: 22px;
+  min-height: 20px;
   padding: 0;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.25;
 }
 
 .dday-cell {
   color: var(--blue);
+  font-weight: 600;
 }
 
 .contract-year-row td {
   position: sticky;
-  top: 36px;
+  top: 32px;
   z-index: 8;
   height: auto;
-  min-height: 34px;
+  min-height: 30px;
+  padding: 0;
   background: #EAF1FF;
   border-bottom-color: rgba(47, 107, 255, 0.18);
   box-shadow: 0 1px 0 rgba(199, 210, 224, 0.7);
 }
 
 .contract-year-toggle {
-  height: 34px;
-  min-height: 34px;
-  padding: 6px 12px;
+  height: 30px;
+  min-height: 30px;
+  padding: 4px 10px;
   color: #183b84;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .contract-year-toggle:hover {
@@ -5067,7 +5085,7 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 24px;
+  min-height: 20px;
 }
 
 .registry-importance-badge,
@@ -5454,17 +5472,19 @@ textarea:focus-visible {
 }
 
 .registry-table thead th {
-  min-height: 44px;
-  padding: 12px 16px;
+  min-height: 32px;
+  padding: 8px 10px;
   background: #f8fafc !important;
   color: #475569;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
   border-bottom: 1px solid #e2e8f0;
 }
 
 .registry-action-header {
   color: #334155;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .registry-action-cell {
