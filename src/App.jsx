@@ -928,20 +928,6 @@ const PAGE_TITLE_MAP = {
   installCases: '설치사례',
   materialsBoard: '게시판',
 }
-/** 상단 우측 텍스트 메뉴 — 좌측 사이드바와 동일 순서(대시보드 제외) */
-const TOP_HEADER_NAV_ITEMS = [
-  { key: 'workReports', label: '주간업무보고서' },
-  { key: 'meetingMinutes', label: '회의록' },
-  { key: 'calendar', label: '캘린더' },
-  { key: 'contracts', label: '계약현황' },
-  { key: 'sales', label: '영업관리대장' },
-  { key: 'discovery', label: '건축정보' },
-  { key: 'excluded', label: '사업검색이력' },
-  { key: 'documents', label: '문서수발신대장' },
-  { key: 'materialsBoard', label: '게시판' },
-  { key: 'installCases', label: '설치사례' },
-]
-
 function isWorkReportRelatedMenu(menuKey) {
   return menuKey === 'workReports' || menuKey === 'meetingMinutes'
 }
@@ -11515,18 +11501,6 @@ function App() {
                 justifyContent: 'flex-end',
               }}
             >
-              <nav className="top-system-subtitle-nav" aria-label="빠른 메뉴">
-                {TOP_HEADER_NAV_ITEMS.map((item, index) => (
-                  <span key={item.key} className="top-system-subtitle-item">
-                    {index > 0 ? (
-                      <span className="top-system-subtitle-sep" aria-hidden>
-                        {' · '}
-                      </span>
-                    ) : null}
-                    <span className="top-system-subtitle-link">{item.label}</span>
-                  </span>
-                ))}
-              </nav>
               <span
                 style={{
                   display: 'inline-flex',

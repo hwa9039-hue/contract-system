@@ -4351,52 +4351,6 @@ textarea:focus-visible {
   font-weight: 760;
 }
 
-.top-system-subtitle-nav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  max-width: min(100%, 920px);
-  font-family: 'Pretendard', sans-serif;
-}
-
-.top-system-subtitle-item {
-  display: inline-flex;
-  align-items: center;
-}
-
-.top-system-subtitle-sep {
-  color: #94a3b8;
-  font-size: 12px;
-  font-weight: 700;
-  user-select: none;
-}
-
-.top-system-subtitle-link {
-  color: #64748b;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.35;
-  cursor: default;
-  white-space: nowrap;
-}
-
-.top-system-subtitle-link:hover,
-.top-system-subtitle-link.active {
-  color: #64748b;
-  font-weight: 700;
-}
-
-.top-system-subtitle {
-  margin-left: auto;
-  color: #64748b;
-  font-family: 'Pretendard', sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
 .unified-title-bar h1 {
   font-size: 17px;
   font-weight: 700;
@@ -4540,7 +4494,7 @@ textarea:focus-visible {
 /* 네비게이션 / 범례 구분선 */
 .calendar-legend-divider {
   width: 1px;
-  height: 18px;
+  height: 22px;
   background: #d1d5db;
   flex-shrink: 0;
   border-radius: 1px;
