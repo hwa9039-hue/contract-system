@@ -663,11 +663,12 @@ textarea {
 .contract-table.excel-table.registry-table .contract-year-toggle,
 .contract-table.excel-table.registry-table .contract-category-group-row .contract-year-toggle {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.25;
   height: 32px;
   min-height: 32px;
   padding: 6px 8px;
+  color: #0f172a;
 }
 
 .contract-table.excel-table.registry-table .contract-year-count {
@@ -933,10 +934,10 @@ textarea {
   padding: 6px 8px;
   border: none;
   background: transparent;
-  color: #17345f;
+  color: #0f172a;
   font-family: 'SUIT', sans-serif;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   text-align: left;
   line-height: 1.25;
@@ -1001,7 +1002,7 @@ textarea {
   min-height: 32px;
   padding: 6px 8px 6px 20px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.25;
 }
 
