@@ -208,35 +208,38 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 16px;
+  padding: 10px 12px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  background: #ffffff;
+  background: #f8fafc;
 }
 
 .top-system-left {
   display: flex;
   align-items: center;
   min-width: 0;
-  gap: 0;
+  gap: 8px;
 }
 
 .top-system-name {
   font-family: 'SUIT', sans-serif;
-  font-size: 20px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 600;
   color: #0f172a;
   white-space: nowrap;
 }
 
-.top-system-menu-pill {
-  margin-left: 16px;
-  padding: 4px 16px;
-  background: #1d4ed8; /* blue-700 */
-  color: #ffffff;
-  border-radius: 999px;
+.top-system-sep {
+  color: #94a3b8;
+  font-weight: 500;
+  user-select: none;
+}
+
+.top-system-menu {
+  font-family: 'SUIT', sans-serif;
   font-size: 14px;
   font-weight: 500;
+  color: #1f2937;
   white-space: nowrap;
 }
 

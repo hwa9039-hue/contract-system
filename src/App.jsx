@@ -11519,7 +11519,8 @@ function App() {
         <header className="top-system-bar top-system-bar--unified">
           <div className="top-system-left">
             <span className="top-system-name">스마트DI사업부 통합관리 시스템</span>
-            <span className="top-system-menu-pill">{PAGE_TITLE_MAP[menu]}</span>
+            <span className="top-system-sep">/</span>
+            <span className="top-system-menu">{PAGE_TITLE_MAP[menu]}</span>
           </div>
 
           <div className="top-system-actions">
