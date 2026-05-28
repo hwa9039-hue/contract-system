@@ -140,6 +140,14 @@ const DISCOVERY_CATEGORY_TONE_MAP = {
 }
 
 const SALES_COLUMNS = [
+  {
+    key: 'importance',
+    label: '중요도',
+    align: 'center',
+    type: 'importance',
+    statusKey: 'projectStage',
+    width: 52,
+  },
   { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 108 },
   { key: 'client', label: '발주처', align: 'center', type: 'text', width: 170 },
   { key: 'projectName', label: '프로젝트', align: 'left', type: 'textarea', width: 250 },
@@ -147,14 +155,6 @@ const SALES_COLUMNS = [
   { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: SALES_CATEGORY_OPTIONS, width: 102 },
   { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_REGISTER_MANAGER_OPTIONS, width: 112 },
   { key: 'projectStage', label: '상태', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 102 },
-  {
-    key: 'importance',
-    label: '중요도',
-    align: 'center',
-    type: 'importance',
-    statusKey: 'projectStage',
-    width: 88,
-  },
   { key: 'department', label: '담당부서', align: 'center', type: 'text', width: 130 },
   { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 310 },
   { key: 'source', label: '출처', align: 'center', type: 'text', width: 140 },
@@ -296,17 +296,17 @@ const EXCLUDED_WRITER_TONE_MAP = {
   신상준: { background: '#dcfce7', color: '#166534', borderColor: '#86efac' },
 }
 const EXCLUDED_COLUMNS = [
-  { key: 'writeDate', label: '등록일', align: 'center', type: 'date', width: 110 },
-  { key: 'openDate', label: '공개일', align: 'center', type: 'date', width: 110 },
-  { key: 'category', label: '상태', align: 'center', type: 'select', options: EXCLUDED_CATEGORY_OPTIONS, width: 100 },
   {
     key: 'importance',
     label: '중요도',
     align: 'center',
     type: 'importance',
     statusKey: 'category',
-    width: 88,
+    width: 52,
   },
+  { key: 'writeDate', label: '등록일', align: 'center', type: 'date', width: 110 },
+  { key: 'openDate', label: '공개일', align: 'center', type: 'date', width: 110 },
+  { key: 'category', label: '상태', align: 'center', type: 'select', options: EXCLUDED_CATEGORY_OPTIONS, width: 100 },
   { key: 'keyword', label: '검색어', align: 'center', type: 'select', options: EXCLUDED_KEYWORD_OPTIONS, width: 180 },
   { key: 'writer', label: '작성자', align: 'center', type: 'text', width: 100 },
   { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 220 },
@@ -7075,7 +7075,12 @@ function App() {
         row.id === rowId
           ? {
               ...row,
-              [key]: key === 'projectAmount' ? formatAmount(value) : value,
+              [key]:
+                key === 'projectAmount'
+                  ? formatAmount(value)
+                  : key === 'projectStage'
+                    ? normalizeSalesProjectStage(value)
+                    : value,
             }
           : row
       )
@@ -9561,6 +9566,44 @@ function App() {
     }
   }
 
+  const normalizeRegistryCellDraftValue = (column, rawValue) => {
+    if (column.type === 'amount') {
+      return formatAmount(rawValue)
+    }
+    if (column.type === 'date') {
+      return safeString(rawValue).trim()
+    }
+    if (column.key === 'projectStage') {
+      return normalizeSalesProjectStage(rawValue)
+    }
+    return safeString(rawValue ?? '').trim()
+  }
+
+  const applyRegistryRowFieldPatch = (scope, rowId, column, rawValue) => {
+    if (!scope || !rowId || !column || column.type === 'importance') return
+
+    const value = normalizeRegistryCellDraftValue(column, rawValue)
+    const patch = { [column.key]: value }
+    const matchesRow = (row) => safeString(row.id).trim() === safeString(rowId).trim()
+
+    switch (scope) {
+      case 'sales':
+        setSalesRows((prev) => prev.map((row) => (matchesRow(row) ? { ...row, ...patch } : row)))
+        break
+      case 'discovery':
+        setDiscoveryRows((prev) => prev.map((row) => (matchesRow(row) ? { ...row, ...patch } : row)))
+        break
+      case 'excluded':
+        setExcludedRows((prev) => prev.map((row) => (matchesRow(row) ? { ...row, ...patch } : row)))
+        break
+      case 'documents':
+        setDocuments((prev) => prev.map((row) => (matchesRow(row) ? { ...row, ...patch } : row)))
+        break
+      default:
+        break
+    }
+  }
+
   const buildRegistryCellApiPatch = (column, draftStr) => {
     if (column.type === 'amount') {
       return { [column.key]: parseAmount(draftStr) }
@@ -9568,7 +9611,19 @@ function App() {
     if (column.type === 'date') {
       return { [column.key]: toDbDate(draftStr) }
     }
+    if (column.key === 'projectStage') {
+      return { projectStage: normalizeSalesProjectStage(draftStr) }
+    }
     return { [column.key]: safeString(draftStr ?? '').trim() }
+  }
+
+  const findAdjacentEditableRegistryColumn = (columns, startIndex, direction) => {
+    let index = startIndex + (direction === 'prev' ? -1 : 1)
+    while (index >= 0 && index < columns.length) {
+      if (columns[index].type !== 'importance') return columns[index]
+      index += direction === 'prev' ? -1 : 1
+    }
+    return null
   }
 
   const cancelRegistryCellEdit = () => {
@@ -9685,9 +9740,8 @@ function App() {
     if (!snap?.scope) return
     const columns = getRegistryColumnsByScope(snap.scope)
     const idx = columns.findIndex((c) => c.key === snap.columnKey)
-    const nextIdx = direction === 'prev' ? idx - 1 : idx + 1
-    if (nextIdx < 0 || nextIdx >= columns.length) return
-    const nextCol = columns[nextIdx]
+    const nextCol = findAdjacentEditableRegistryColumn(columns, idx, direction)
+    if (!nextCol) return
     let rows
     switch (snap.scope) {
       case 'sales':
@@ -9715,7 +9769,8 @@ function App() {
     }
   }
 
-  const renderRegistryCellInlineEditor = (column) => {
+  const renderRegistryCellInlineEditor = (column, editContext) => {
+    const { scope, rowId } = editContext || {}
     const commonProps = {
       className: `cell-inline-editor ${column.align === 'right' ? 'align-right' : ''}`,
       value: registryCellEditDraft,
@@ -9723,6 +9778,9 @@ function App() {
       onChange: (e) => {
         const value = column.type === 'amount' ? normalizeAmountValue(e.target.value) : e.target.value
         setRegistryCellEditDraft(value)
+        if (scope && rowId) {
+          applyRegistryRowFieldPatch(scope, rowId, column, value)
+        }
       },
       onBlur: () => {
         void saveRegistryCellEdit()
@@ -9756,7 +9814,23 @@ function App() {
     }
     if (column.type === 'select') {
       return (
-        <select {...commonProps}>
+        <select
+          {...commonProps}
+          onBlur={() => {
+            void saveRegistryCellEdit()
+          }}
+          onChange={(e) => {
+            const value = e.target.value
+            setRegistryCellEditDraft(value)
+            registryCellEditDraftRef.current = value
+            if (scope && rowId) {
+              applyRegistryRowFieldPatch(scope, rowId, column, value)
+            }
+            queueMicrotask(() => {
+              void saveRegistryCellEdit()
+            })
+          }}
+        >
           <option value="">선택</option>
           {column.options.map((option) => (
             <option key={option} value={option}>
@@ -9950,11 +10024,16 @@ function App() {
             >
               {isImportanceCell ? (
                 <div className="cell-display cell-display--importance">
-                  <RegistryImportanceBadge status={resolveRegistryImportanceStatus(row, column)} />
+                  <RegistryImportanceBadge
+                    status={resolveRegistryImportanceStatus(displayRow, column)}
+                  />
                 </div>
               ) : showInput ? (
                 isThisCell ? (
-                  renderRegistryCellInlineEditor(column)
+                  renderRegistryCellInlineEditor(column, {
+                    scope: cellEditScope,
+                    rowId,
+                  })
                 ) : (
                   renderRegistryEditor(displayRow, column, onChange, {
                     onSave: onSaveRow,

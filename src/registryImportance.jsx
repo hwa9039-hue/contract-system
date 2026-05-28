@@ -18,70 +18,32 @@ export function normalizeStatusForImportance(status) {
 
 /**
  * @param {string} status
- * @returns {{ tone: 'red'|'yellow'|'green'|'gray'|'none', label: string, badgeClass: string, dotClass: string, textClass: string }}
+ * @returns {{ tone: 'red'|'yellow'|'green'|'gray'|'empty', label: string }}
  */
-const IMPORTANCE_STYLE_FALLBACK = {
-  tone: 'gray',
-  label: '기타',
-  badgeClass: 'registry-importance-badge registry-importance-badge--gray',
-  dotClass: 'registry-importance-dot',
-  textClass: 'registry-importance-label registry-importance-label--gray',
-}
-
 export function getImportanceStyle(status) {
   const normalized = normalizeStatusForImportance(status)
 
   if (!normalized) {
-    return {
-      tone: 'none',
-      label: '',
-      badgeClass: 'registry-importance-badge registry-importance-badge--none',
-      dotClass: 'registry-importance-dot',
-      textClass: 'registry-importance-label',
-    }
+    return { tone: 'empty', label: '' }
   }
 
   if (IMPORTANCE_RED_STATUSES.has(normalized)) {
-    return {
-      tone: 'red',
-      label: '긴급',
-      badgeClass: 'registry-importance-badge registry-importance-badge--red',
-      dotClass: 'registry-importance-dot',
-      textClass: 'registry-importance-label registry-importance-label--red',
-    }
+    return { tone: 'red', label: '긴급' }
   }
 
   if (IMPORTANCE_YELLOW_STATUSES.has(normalized)) {
-    return {
-      tone: 'yellow',
-      label: '진행',
-      badgeClass: 'registry-importance-badge registry-importance-badge--yellow',
-      dotClass: 'registry-importance-dot',
-      textClass: 'registry-importance-label registry-importance-label--yellow',
-    }
+    return { tone: 'yellow', label: '진행' }
   }
 
   if (IMPORTANCE_GREEN_STATUSES.has(normalized)) {
-    return {
-      tone: 'green',
-      label: '기회',
-      badgeClass: 'registry-importance-badge registry-importance-badge--green',
-      dotClass: 'registry-importance-dot',
-      textClass: 'registry-importance-label registry-importance-label--green',
-    }
+    return { tone: 'green', label: '기회' }
   }
 
   if (IMPORTANCE_GRAY_STATUSES.has(normalized)) {
-    return {
-      tone: 'gray',
-      label: '종료',
-      badgeClass: 'registry-importance-badge registry-importance-badge--gray',
-      dotClass: 'registry-importance-dot',
-      textClass: 'registry-importance-label registry-importance-label--gray',
-    }
+    return { tone: 'gray', label: '종료' }
   }
 
-  return { ...IMPORTANCE_STYLE_FALLBACK }
+  return { tone: 'gray', label: '기타' }
 }
 
 export function getImportanceStatusFromRow(row, column) {
@@ -109,17 +71,25 @@ export function RegistryImportanceBadge({ status }) {
     title = normalizeStatusForImportance(status)
     style = getImportanceStyle(status)
   } catch {
-    return <span className="registry-importance-empty">-</span>
+    return (
+      <span className="registry-importance-dot-only" aria-label="중요도 없음">
+        <span className="registry-importance-dot registry-importance-dot--empty" aria-hidden="true" />
+      </span>
+    )
   }
 
-  if (!style?.label) {
-    return <span className="registry-importance-empty">-</span>
-  }
+  const tone = style?.tone || 'empty'
 
   return (
-    <span className={style.badgeClass} title={title || undefined}>
-      <span className={style.dotClass} aria-hidden="true" />
-      <span className={style.textClass}>{style.label}</span>
+    <span
+      className="registry-importance-dot-only"
+      title={title || undefined}
+      aria-label={title ? `중요도: ${title}` : '중요도 없음'}
+    >
+      <span
+        className={`registry-importance-dot registry-importance-dot--${tone}`}
+        aria-hidden="true"
+      />
     </span>
   )
 }
