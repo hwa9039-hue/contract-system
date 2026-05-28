@@ -1,5 +1,4 @@
 ﻿import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import {
   Archive,
   Download,
@@ -26,6 +25,12 @@ import {
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import { decodeWorkReportWireText } from './workReportWire.js'
+import {
+  WORK_REPORT_MANAGER_OPTIONS,
+  WorkReportExternalManagerMultiSelect,
+  parseManagerMultiSelectValue,
+  serializeManagerMultiSelectValue,
+} from './workReportManagerMultiSelect.jsx'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
 import { materialsBoardApi, downloadMaterialsBoardBlobUrl, materialsBoardDownloadUrl } from './materialsBoardApi'
 import {
@@ -298,18 +303,6 @@ const WORK_REPORT_SUPPORT_NUMBER_GUIDE = Array.from(
   { length: WORK_REPORT_SUPPORT_ITEM_COUNT },
   (_, index) => String(index + 1)
 )
-const WORK_REPORT_MANAGER_OPTIONS = [
-  '전기웅',
-  '유영무',
-  '김성수',
-  '이재승',
-  '이용자',
-  '박재범',
-  '전재우',
-  '정화영',
-  '정주희',
-  '신상준',
-]
 const WORK_REPORT_EXTERNAL_USER_OPTIONS = WORK_REPORT_MANAGER_OPTIONS
 const WORK_REPORT_SECTION_KEYS = {
   checklist: '주요확인사항',
@@ -2750,130 +2743,6 @@ function safeString(value) {
   return String(value)
 }
 
-function toggleExternalManagerCsv(currentCsv, managerName, optionList) {
-  const parts = safeString(currentCsv)
-    .split(',')
-    .map((x) => x.trim())
-    .filter(Boolean)
-  const set = new Set(parts)
-  if (set.has(managerName)) set.delete(managerName)
-  else set.add(managerName)
-  return optionList.filter((o) => set.has(o)).join(', ')
-}
-
-function WorkReportExternalManagerMultiSelect({ value, onChange, options }) {
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef(null)
-  const triggerRef = useRef(null)
-  const [menuStyle, setMenuStyle] = useState({ top: 0, left: 0, width: 0 })
-  const selected = useMemo(
-    () => safeString(value).split(',').map((s) => s.trim()).filter(Boolean),
-    [value]
-  )
-
-  const updateMenuPosition = useCallback(() => {
-    const el = triggerRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    setMenuStyle({
-      top: rect.bottom + 4,
-      left: rect.left,
-      width: Math.max(rect.width, 140),
-    })
-  }, [])
-
-  useLayoutEffect(() => {
-    if (!open) return
-    updateMenuPosition()
-    const onReposition = () => updateMenuPosition()
-    window.addEventListener('resize', onReposition)
-    window.addEventListener('scroll', onReposition, true)
-    return () => {
-      window.removeEventListener('resize', onReposition)
-      window.removeEventListener('scroll', onReposition, true)
-    }
-  }, [open, updateMenuPosition])
-
-  useEffect(() => {
-    if (!open) return
-    const onDocDown = (e) => {
-      const target = e.target
-      if (rootRef.current?.contains(target)) return
-      if (target instanceof Element && target.closest('.work-report-external-manager-multi-menu--portal')) {
-        return
-      }
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', onDocDown)
-    return () => document.removeEventListener('mousedown', onDocDown)
-  }, [open])
-
-  const menu =
-    open && typeof document !== 'undefined'
-      ? createPortal(
-          <div
-            className="work-report-external-manager-multi-menu work-report-external-manager-multi-menu--portal"
-            role="listbox"
-            aria-multiselectable="true"
-            style={{
-              top: `${menuStyle.top}px`,
-              left: `${menuStyle.left}px`,
-              width: `${menuStyle.width}px`,
-            }}
-          >
-            {options.map((option) => {
-              const isOn = selected.includes(option)
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  role="option"
-                  aria-selected={isOn}
-                  className={`work-report-external-manager-multi-item${isOn ? ' is-selected' : ''}`}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => onChange(toggleExternalManagerCsv(value, option, options))}
-                >
-                  <span className="work-report-external-manager-multi-tick" aria-hidden>
-                    {isOn ? '✓' : ''}
-                  </span>
-                  {option}
-                </button>
-              )
-            })}
-          </div>,
-          document.body
-        )
-      : null
-
-  return (
-    <div className="work-report-external-manager-multi" ref={rootRef}>
-      <button
-        ref={triggerRef}
-        type="button"
-        className="work-report-external-manager-multi-trigger"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <span className="work-report-external-manager-multi-value">
-          {selected.length ? (
-            selected.map((n) => (
-              <span key={n} className="work-report-external-manager-multi-chip">
-                {n}
-              </span>
-            ))
-          ) : (
-            <span className="work-report-external-manager-multi-placeholder">담당자 선택</span>
-          )}
-        </span>
-        <span className="work-report-external-manager-multi-chevron" aria-hidden>
-          {open ? '▲' : '▼'}
-        </span>
-      </button>
-      {menu}
-    </div>
-  )
-}
-
 function normalizeRegistryRowId(id) {
   if (id === null || id === undefined) return ''
   if (typeof id === 'string') return id.trim()
@@ -4204,7 +4073,9 @@ function toWorkReportPayload(row, timestamp) {
     )
   } else if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
     content = safeString(decodeWorkReportWireText(row.content)).trim()
-    user = safeString(row.user).trim() || resolvedUser
+    user = serializeManagerMultiSelectValue(
+      row.assignees ?? parseManagerMultiSelectValue(row.user || resolvedUser)
+    )
   }
 
   content = ensureWorkReportContentSafeForApi(content, sectionNorm)

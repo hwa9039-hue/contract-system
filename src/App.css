@@ -4513,19 +4513,20 @@ textarea:focus-visible {
 .calendar-legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #4b5563;
+  gap: 7px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
   white-space: nowrap;
   user-select: none;
+  line-height: 1.25;
 }
 
 /* 도트 공통 */
 .calendar-legend-dot {
   display: inline-block;
-  width: 9px;
-  height: 9px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -6198,7 +6199,7 @@ textarea:focus-visible {
 .work-report-report-table-head-meeting,
 .work-report-report-table-row-meeting {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 100px;
+  grid-template-columns: 40px minmax(0, 1fr) minmax(140px, 0.95fr);
   width: 100%;
 }
 
@@ -6222,7 +6223,7 @@ textarea:focus-visible {
   justify-content: center;
   align-self: stretch;
   padding-top: 0;
-  min-height: 36px;
+  min-height: 40px;
 }
 
 .work-report-report-table-row-meeting.editable > * {
@@ -6238,12 +6239,22 @@ textarea:focus-visible {
 .work-report-report-table-row-meeting .work-report-report-cell--meeting-assignee {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: stretch;
 }
 
-.work-report-report-table-row-meeting .work-report-report-cell--meeting-assignee .work-report-report-field {
+.work-report-report-table-row-meeting .work-report-report-cell--meeting-assignee .work-report-external-manager-multi {
   width: 100%;
-  text-align: center;
+}
+
+.work-report-report-field--meeting-content {
+  min-height: 40px;
+  height: 40px;
+  max-height: 48px;
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.35;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .work-report-report-field--center {

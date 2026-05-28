@@ -1,5 +1,11 @@
 ﻿import { useMemo } from 'react'
 import { decodeWorkReportWireText } from './workReportWire.js'
+import {
+  WORK_REPORT_MANAGER_OPTIONS,
+  WorkReportExternalManagerMultiSelect,
+  parseManagerMultiSelectValue,
+  serializeManagerMultiSelectValue,
+} from './workReportManagerMultiSelect.jsx'
 
 export const MEETING_MINUTES_AGENDA_FIXED_ROWS = 20
 
@@ -49,20 +55,31 @@ function safeString(value) {
   return String(value)
 }
 
+function meetingMinutesAssigneeKey(value) {
+  return parseManagerMultiSelectValue(value)
+    .slice()
+    .sort()
+    .join('\u0001')
+}
+
 export function normalizeMeetingMinutesAgenda(agenda) {
   const rows = Array.isArray(agenda) ? agenda : []
   return Array.from({ length: MEETING_MINUTES_AGENDA_FIXED_ROWS }, (_, index) => {
     const row = rows[index]
     if (Array.isArray(row)) {
+      const assignees = parseManagerMultiSelectValue(row[1])
       return {
         content: safeString(row[0]),
-        assignee: safeString(row[1]),
+        assignee: serializeManagerMultiSelectValue(assignees),
+        assignees,
         dueDate: safeString(row[2]),
       }
     }
+    const assignees = parseManagerMultiSelectValue(row?.assignees ?? row?.assignee ?? row?.person)
     return {
       content: safeString(row?.content ?? row?.text),
-      assignee: safeString(row?.assignee ?? row?.person),
+      assignee: serializeManagerMultiSelectValue(assignees),
+      assignees,
       dueDate: safeString(row?.dueDate ?? row?.due),
     }
   })
@@ -185,20 +202,26 @@ function parseMeetingMinutesTextRows(raw) {
     for (const row of parsed) {
       const idx = row.rowIndex
       if (idx == null || idx < 0 || idx >= MEETING_MINUTES_AGENDA_FIXED_ROWS) continue
+      const assignees = parseManagerMultiSelectValue(row.assignee)
       agenda[idx] = {
         content: safeString(row.content).trim(),
-        assignee: safeString(row.assignee).trim(),
+        assignee: serializeManagerMultiSelectValue(assignees),
+        assignees,
         dueDate: '',
       }
     }
     return agenda
   }
 
-  return parsed.map((row) => ({
-    content: safeString(row.content).trim(),
-    assignee: safeString(row.assignee).trim(),
-    dueDate: '',
-  }))
+  return parsed.map((row) => {
+    const assignees = parseManagerMultiSelectValue(row.assignee)
+    return {
+      content: safeString(row.content).trim(),
+      assignee: serializeManagerMultiSelectValue(assignees),
+      assignees,
+      dueDate: '',
+    }
+  })
 }
 
 export function parseMeetingMinutesFromEntry(entry) {
@@ -284,7 +307,9 @@ export function meetingMinutesAgendaMatches(leftContent, rightContent) {
     const rightAssignee = safeString(right.assignee).trim()
     if (!leftContent && !leftAssignee && !rightContent && !rightAssignee) continue
     if (leftContent !== rightContent) return false
-    if (leftAssignee !== rightAssignee) return false
+    if (meetingMinutesAssigneeKey(left.assignees ?? left.assignee) !== meetingMinutesAssigneeKey(right.assignees ?? right.assignee)) {
+      return false
+    }
   }
   return true
 }
@@ -294,7 +319,9 @@ function serializeMeetingMinutesTextBody(agenda) {
   const lines = []
   for (let index = 0; index < rows.length; index += 1) {
     const text = sanitizeMeetingMinutesCell(rows[index].content)
-    const person = sanitizeMeetingMinutesCell(rows[index].assignee)
+    const person = sanitizeMeetingMinutesCell(
+      serializeManagerMultiSelectValue(rows[index].assignees ?? rows[index].assignee)
+    )
     if (!text && !person) continue
     lines.push(
       `${index}${MEETING_MINUTES_FIELD_SEP}${text}${MEETING_MINUTES_FIELD_SEP}${person}`
@@ -372,9 +399,11 @@ export function loadMeetingMinutesAgenda(weekStartDate, getEntry) {
   const agenda = getDefaultMeetingMinutesAgenda()
   for (let index = 0; index < MEETING_MINUTES_AGENDA_FIXED_ROWS; index += 1) {
     const entry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, index + 1)
+    const assignees = parseManagerMultiSelectValue(entry?.user)
     agenda[index] = {
       content: safeString(entry?.content),
-      assignee: safeString(entry?.user),
+      assignee: serializeManagerMultiSelectValue(assignees),
+      assignees,
       dueDate: '',
     }
   }
@@ -463,13 +492,21 @@ export function WorkReportMeetingMinutesSection({
           content: '',
           user: '',
         })
+      const prevAssignees = parseManagerMultiSelectValue(base.user)
+      const nextAssignees =
+        patch.assignees !== undefined
+          ? parseManagerMultiSelectValue(patch.assignees)
+          : patch.assignee !== undefined
+            ? parseManagerMultiSelectValue(patch.assignee)
+            : prevAssignees
       return {
         ...base,
         date: weekStartDate,
         section: WORK_REPORT_MEETING_MINUTES_SECTION,
         orderIndex,
         content: patch.content !== undefined ? patch.content : base.content,
-        user: patch.assignee !== undefined ? patch.assignee : base.user,
+        assignees: nextAssignees,
+        user: serializeManagerMultiSelectValue(nextAssignees),
       }
     })
   }
@@ -495,20 +532,20 @@ export function WorkReportMeetingMinutesSection({
             <div className="work-report-report-line-number">{index + 1}</div>
             <div className="work-report-report-cell">
               <textarea
-                className="work-report-report-field work-report-report-field--grow"
-                rows={2}
+                className="work-report-report-field work-report-report-field--meeting-content"
+                rows={1}
                 value={row.content}
                 placeholder="내용 입력"
                 onChange={(e) => patchAgendaRow(index, { content: e.target.value })}
               />
             </div>
             <div className="work-report-report-cell work-report-report-cell--meeting-assignee">
-              <input
-                type="text"
-                className="work-report-report-field work-report-report-field--center"
-                value={row.assignee}
-                placeholder="담당자"
-                onChange={(e) => patchAgendaRow(index, { assignee: e.target.value })}
+              <WorkReportExternalManagerMultiSelect
+                value={row.assignees ?? row.assignee}
+                options={WORK_REPORT_MANAGER_OPTIONS}
+                onChange={(nextCsv) =>
+                  patchAgendaRow(index, { assignees: parseManagerMultiSelectValue(nextCsv) })
+                }
               />
             </div>
           </div>
