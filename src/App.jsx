@@ -12193,7 +12193,7 @@ function App() {
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
                 <table
-                  className={`contract-table excel-table registry-table table-layout-auto${
+                  className={`contract-table excel-table registry-table table-layout-auto table-w-full-min${
                     isAdmin ? ' contract-table-admin' : ' contract-table-readonly'
                   }`}
                   data-contract-table-row-key="key"
@@ -12517,7 +12517,7 @@ function App() {
             <div className="contract-table-panel">
               <ImportanceLegend />
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table table-layout-auto">
+                <table className="contract-table excel-table registry-table table-layout-auto table-w-full-min">
                   <thead>
                     <tr>
                       <th className="th-align-center registry-check-header table-col-tight">
@@ -12648,7 +12648,7 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table discovery-registry-table table-layout-auto">
+                <table className="contract-table excel-table registry-table discovery-registry-table table-layout-auto table-w-full-min">
                   <thead>
                     <tr>
                       <th className="th-align-center registry-check-header discovery-check-col table-col-tight">
@@ -12810,7 +12810,7 @@ function App() {
             <div className="contract-table-panel">
               <ImportanceLegend />
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table table-layout-auto">
+                <table className="contract-table excel-table registry-table table-layout-auto table-w-full-min">
                   <thead>
                     <tr>
                       <th className="th-align-center registry-check-header table-col-tight">
@@ -12962,7 +12962,7 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table table-layout-auto">
+                <table className="contract-table excel-table registry-table table-layout-auto table-w-full-min">
                   <thead>
                     <tr>
                       <th className="th-align-center registry-check-header table-col-tight">

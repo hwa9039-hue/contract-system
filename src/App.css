@@ -609,8 +609,12 @@ textarea {
 .contract-table.table-layout-auto,
 .registry-table.table-layout-auto {
   table-layout: auto;
-  width: max-content;
-  min-width: 100%;
+}
+
+/* w-full + min-w-max — 표가 브라우저 폭에 눌려 찌그러지지 않음 */
+.table-w-full-min {
+  width: 100%;
+  min-width: max-content;
 }
 
 .overflow-x-auto {
@@ -656,16 +660,35 @@ textarea {
 
 .excel-table th.table-col-tight,
 .excel-table td.table-col-tight {
-  white-space: nowrap;
-  width: 1%;
+  white-space: nowrap !important;
+  width: auto;
+  min-width: max-content;
+}
+
+.table-col-tight .cell-display,
+.table-col-tight .editable-text-cell-display,
+.table-col-tight .editable-text-cell-input,
+.table-col-tight .cell-display--importance,
+.table-col-tight .registry-importance-badge,
+.table-col-tight .registry-importance-label,
+.table-col-tight .dday-cell {
+  white-space: nowrap !important;
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
 
 .excel-table th.table-col-long,
 .excel-table td.table-col-long {
   white-space: normal;
-  min-width: 200px;
-  max-width: 350px;
-  width: auto;
+  min-width: 280px;
+  max-width: 420px;
+  width: auto !important;
+}
+
+.excel-table th.table-col-long[class*='col-'],
+.excel-table td.table-col-long[class*='col-'] {
+  min-width: 280px;
+  max-width: 420px;
 }
 
 .table-cell-clamp {
@@ -787,11 +810,18 @@ textarea {
   display: flex;
   align-items: center;
   overflow: hidden;
-  white-space: pre-wrap;
+  white-space: nowrap;
   word-break: keep-all;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
   font-size: 12px;
   line-height: 1.25;
+}
+
+.table-col-long .cell-display {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  align-items: flex-start;
 }
 
 .td-align-center .cell-display {
@@ -3767,8 +3797,8 @@ textarea:focus-visible {
   height: calc(100vh - 340px);
 }
 
-.contract-table.table-layout-auto {
-  min-width: 100%;
+.contract-table.table-layout-auto.table-w-full-min {
+  min-width: max-content;
 }
 
 .excel-table thead th {
@@ -5162,9 +5192,10 @@ textarea:focus-visible {
   max-width: none !important;
 }
 
-.discovery-registry-table.excel-table td.table-col-long {
-  min-width: 200px;
-  max-width: 350px;
+.discovery-registry-table.excel-table td.table-col-long,
+.discovery-registry-table.excel-table th.table-col-long {
+  min-width: 280px;
+  max-width: 420px;
 }
 
 .discovery-registry-table col.discovery-w-12,
