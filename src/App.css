@@ -228,7 +228,7 @@ textarea {
 
 .top-system-title-text {
   font-family: 'SUIT', sans-serif;
-  font-size: 20px;
+  font-size: 13px;
   font-weight: 800;
   color: #0f172a;
   white-space: nowrap;
@@ -245,9 +245,9 @@ textarea {
   align-items: center;
   padding: 2px 8px; /* px-2 py-0.5 */
   border-radius: 999px;
-  background: #fffbeb; /* yellow-100 */
-  border: 1px solid #fde68a;
-  color: #a16207;
+  background: #eff6ff; /* blue-50 */
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8; /* blue-700 */
   font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
