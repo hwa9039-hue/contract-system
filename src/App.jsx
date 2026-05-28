@@ -3593,12 +3593,9 @@ function toExcludedPayload(row, timestamp) {
 
 function getRegistryCellSearchValue(column, row) {
   if (column.type === 'importance') {
-    const status = getImportanceStatusFromRow(row, column)
-    const normalized =
-      column.statusKey === 'projectStage'
-        ? normalizeSalesProjectStage(status)
-        : normalizeStatusForImportance(status)
-    return `${normalized} ${getImportanceStyle(status).label}`.trim().toLowerCase()
+    const normalized = resolveRegistryImportanceStatus(row, column)
+    const { label } = getImportanceStyle(normalized)
+    return `${normalized} ${label}`.trim().toLowerCase()
   }
 
   if (column.type === 'amount') {
@@ -3844,6 +3841,11 @@ function getRegistryPlainDisplayValue(row, column) {
   if (column.type === 'amount') {
     const amountText = registryCellDisplayText(formatAmountDisplay(row[column.key]))
     return amountText || '-'
+  }
+
+  if (column.type === 'importance') {
+    const { label } = getImportanceStyle(resolveRegistryImportanceStatus(row, column))
+    return label || '-'
   }
 
   if (column.key === 'projectStage') {

@@ -20,6 +20,14 @@ export function normalizeStatusForImportance(status) {
  * @param {string} status
  * @returns {{ tone: 'red'|'yellow'|'green'|'gray'|'none', label: string, badgeClass: string, dotClass: string, textClass: string }}
  */
+const IMPORTANCE_STYLE_FALLBACK = {
+  tone: 'gray',
+  label: '기타',
+  badgeClass: 'registry-importance-badge registry-importance-badge--gray',
+  dotClass: 'registry-importance-dot',
+  textClass: 'registry-importance-label registry-importance-label--gray',
+}
+
 export function getImportanceStyle(status) {
   const normalized = normalizeStatusForImportance(status)
 
@@ -73,29 +81,43 @@ export function getImportanceStyle(status) {
     }
   }
 
-  return {
-    tone: 'none',
-    label: '-',
-    badgeClass: 'registry-importance-badge registry-importance-badge--none',
-    dotClass: 'registry-importance-dot',
-    textClass: 'registry-importance-label',
-  }
+  return { ...IMPORTANCE_STYLE_FALLBACK }
 }
 
 export function getImportanceStatusFromRow(row, column) {
-  const statusKey = column?.statusKey || column?.importanceStatusKey
-  if (!statusKey || !row) return ''
+  if (!column || !row) return ''
+  const statusKey = column.statusKey || column.importanceStatusKey
+  if (!statusKey) return ''
   return safeString(row[statusKey]).trim()
 }
 
+/** 테이블 행·컬럼 정의에서 중요도 계산용 상태 문자열 추출 */
+export function resolveRegistryImportanceStatus(row, column) {
+  try {
+    const raw = getImportanceStatusFromRow(row, column)
+    return normalizeStatusForImportance(raw)
+  } catch {
+    return ''
+  }
+}
+
 export function RegistryImportanceBadge({ status }) {
-  const style = getImportanceStyle(status)
-  if (!style.label) {
+  let style
+  let title = ''
+
+  try {
+    title = normalizeStatusForImportance(status)
+    style = getImportanceStyle(status)
+  } catch {
+    return <span className="registry-importance-empty">-</span>
+  }
+
+  if (!style?.label) {
     return <span className="registry-importance-empty">-</span>
   }
 
   return (
-    <span className={style.badgeClass} title={normalizeStatusForImportance(status) || undefined}>
+    <span className={style.badgeClass} title={title || undefined}>
       <span className={style.dotClass} aria-hidden="true" />
       <span className={style.textClass}>{style.label}</span>
     </span>
