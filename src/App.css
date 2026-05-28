@@ -4884,15 +4884,54 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  width: 100%;
+  gap: 6px;
   min-height: 36px;
 }
 
+.registry-importance-badge {
+  justify-content: flex-start;
+  width: max-content;
+  max-width: 100%;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: #f9fafb;
+}
+
+.registry-importance-badge--red {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.registry-importance-badge--yellow {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #a16207;
+}
+
+.registry-importance-badge--green {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
+.registry-importance-badge--gray {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #374151;
+}
+
+.registry-importance-badge--empty {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #6b7280;
+}
+
 .registry-importance-label {
-  font-size: 12px;
-  font-weight: 800;
-  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+  color: currentColor;
   line-height: 1.2;
   white-space: nowrap;
 }
@@ -4909,7 +4948,7 @@ textarea:focus-visible {
 }
 
 .registry-importance-dot--yellow {
-  background: #facc15;
+  background: #fbbf24;
 }
 
 .registry-importance-dot--green {

@@ -32,7 +32,6 @@ import {
   serializeManagerMultiSelectValue,
 } from './workReportManagerMultiSelect.jsx'
 import {
-  DashboardImportanceLegend,
   RegistryImportanceBadge,
   RegistryImportanceDot,
   getImportanceStatusFromRow,
@@ -40,6 +39,7 @@ import {
   normalizeStatusForImportance,
   resolveRegistryImportanceStatus,
 } from './registryImportance.jsx'
+import { ImportanceLegend } from './ImportanceLegend.jsx'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
 import { materialsBoardApi, downloadMaterialsBoardBlobUrl, materialsBoardDownloadUrl } from './materialsBoardApi'
 import {
@@ -11736,7 +11736,7 @@ function App() {
 
               <div className="dashboard-surface-card">
                 <div className="dashboard-panel">
-                  <DashboardImportanceLegend />
+                  <ImportanceLegend />
                   <div className="dashboard-recent-grid">
                     {dashboardData.recentGroups.map((group) => {
                       const { base, counts } = splitDashboardRecentTitleLabel(group.label)
@@ -12411,6 +12411,7 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
+              <ImportanceLegend />
               <div className="table-wrap contracts-only-scroll">
                 <table className="contract-table excel-table registry-table">
                   <thead>
@@ -12720,6 +12721,7 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
+              <ImportanceLegend />
               <div className="table-wrap contracts-only-scroll">
                 <table className="contract-table excel-table registry-table">
                   <thead>
