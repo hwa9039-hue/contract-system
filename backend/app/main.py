@@ -14,6 +14,7 @@ from app.routers import excluded_projects
 from app.routers import project_discovery
 from app.routers import sales_register
 from app.routers import weekly_work_reports
+from app.routers.contacts_manage import router as contacts_manage_router
 from app.routers.install_cases import INSTALL_CASES_API_PATH, router as install_cases_router
 from app.routers.materials_board import (
     MATERIALS_BOARD_API_PATH,
@@ -145,6 +146,7 @@ app.include_router(project_discovery.router)
 app.include_router(excluded_projects.router)
 app.include_router(document_register.router)
 app.include_router(weekly_work_reports.router)
+app.include_router(contacts_manage_router)
 app.include_router(install_cases_router)
 app.include_router(materials_board_router)
 app.include_router(calendar_events_router)

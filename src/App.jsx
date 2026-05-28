@@ -13,6 +13,7 @@ import {
 import * as XLSX from 'xlsx'
 import './App.css'
 import { contractsApi } from './contractsApi'
+import { contactsManageApi } from './contactsManageApi.js'
 import { documentRegisterApi } from './documentRegisterApi'
 import { excludedProjectsApi } from './excludedProjectsApi'
 import { buildExcelImportAlertBody } from './excelImportResponse.js'
@@ -950,6 +951,7 @@ const PAGE_TITLE_MAP = {
   discovery: '건축정보',
   excluded: '사업검색이력',
   documents: '문서수발신대장',
+  contactsManage: '연락처 관리',
   installCases: '설치사례',
   materialsBoard: '게시판',
 }
@@ -979,6 +981,7 @@ const SIDEBAR_MENU_GROUPS = [
       { key: 'discovery', label: '건축정보' },
       { key: 'excluded', label: '사업검색이력' },
       { key: 'documents', label: '문서수발신대장' },
+      { key: 'contactsManage', label: '연락처 관리' },
     ],
   },
 ]
@@ -4418,6 +4421,8 @@ function splitDashboardRecentTitleLabel(fullLabel) {
 
 function App() {
   const { isAdmin, sharedSessionExpiresAt, logout, extendLogin } = useAuth()
+  const [contactsManageRows, setContactsManageRows] = useState([])
+  const [isLoadingContactsManage, setIsLoadingContactsManage] = useState(false)
   const [contracts, setContracts] = useState([])
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
@@ -4618,6 +4623,12 @@ function App() {
   useEffect(() => {
     icImagePreviewRef.current = icImagePreview
   }, [icImagePreview])
+
+  useEffect(() => {
+    if (menu !== 'contactsManage') return
+    if (!isAdmin) return
+    void fetchContactsManageRows()
+  }, [isAdmin, menu])
 
   const applyInstallCaseFormDraftSnapshot = useCallback((snap) => {
     if (!snap?.form) return
@@ -6423,6 +6434,20 @@ function App() {
     const expiresAt = await extendLogin()
     setRemainingTime(Math.max(0, expiresAt - Date.now()))
     setShowSessionWarning(false)
+  }
+
+  const fetchContactsManageRows = async () => {
+    setIsLoadingContactsManage(true)
+    try {
+      const rows = await contactsManageApi.list()
+      setContactsManageRows(Array.isArray(rows) ? rows : [])
+    } catch (error) {
+      console.error('연락처 관리 데이터를 불러오지 못했습니다.', error)
+      showAppAlert('연락처 관리 데이터를 불러오지 못했습니다.')
+      setContactsManageRows([])
+    } finally {
+      setIsLoadingContactsManage(false)
+    }
   }
 
   const handleAppLogout = () => {
@@ -11467,12 +11492,14 @@ function App() {
                         <li key={item.key} className="menu-group-item">
                           <button
                             type="button"
-                            className={
-                              menu === item.key
-                                ? 'menu-btn menu-btn--child active'
-                                : 'menu-btn menu-btn--child'
-                            }
-                            onClick={() => setMenu(item.key)}
+                            className={`${menu === item.key ? 'menu-btn menu-btn--child active' : 'menu-btn menu-btn--child'}${
+                              item.key === 'contactsManage' && !isAdmin ? ' menu-btn--disabled' : ''
+                            }`}
+                            disabled={item.key === 'contactsManage' && !isAdmin}
+                            onClick={() => {
+                              if (item.key === 'contactsManage' && !isAdmin) return
+                              setMenu(item.key)
+                            }}
                           >
                             {item.label}
                           </button>
@@ -12957,6 +12984,84 @@ function App() {
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('documents', rowId, columnKey, value, row),
                     })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {menu === 'contactsManage' && (
+          <section className="stat-card">
+            <div className="contracts-header-actions">
+              <div style={{ fontWeight: 800 }}>{PAGE_TITLE_MAP.contactsManage}</div>
+              {!isAdmin && (
+                <div style={{ color: '#94a3b8', fontSize: 12 }}>
+                  권한이 없습니다. 관리자 계정으로만 접근할 수 있습니다.
+                </div>
+              )}
+            </div>
+
+            <div className="contract-table-panel">
+              <div className="table-wrap contracts-only-scroll overflow-x-auto">
+                <table className="contract-table excel-table registry-table table-layout-auto table-w-full-min">
+                  <thead>
+                    <tr>
+                      <th className="th-align-center">구분</th>
+                      <th className="th-align-left">사업내용</th>
+                      <th className="th-align-center">담당자</th>
+                      <th className="th-align-center">직위</th>
+                      <th className="th-align-center">전화번호</th>
+                      <th className="th-align-left">이메일</th>
+                      <th className="th-align-left">비고</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!isAdmin ? (
+                      <tr>
+                        <td colSpan={7} className="empty-cell">
+                          관리자만 확인할 수 있습니다.
+                        </td>
+                      </tr>
+                    ) : isLoadingContactsManage ? (
+                      <tr>
+                        <td colSpan={7} className="empty-cell">
+                          불러오는 중...
+                        </td>
+                      </tr>
+                    ) : contactsManageRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="empty-cell">
+                          등록된 데이터가 없습니다.
+                        </td>
+                      </tr>
+                    ) : (
+                      contactsManageRows.map((row) => (
+                        <tr key={row.id ?? `${row.category}-${row.manager_name}-${row.phone}`}>
+                          <td className="td-align-center">
+                            <div className="cell-display">{row.category}</div>
+                          </td>
+                          <td className="td-align-left">
+                            <div className="cell-display table-cell-clamp">{row.business_content}</div>
+                          </td>
+                          <td className="td-align-center">
+                            <div className="cell-display">{row.manager_name}</div>
+                          </td>
+                          <td className="td-align-center">
+                            <div className="cell-display">{row.position}</div>
+                          </td>
+                          <td className="td-align-center">
+                            <div className="cell-display">{row.phone}</div>
+                          </td>
+                          <td className="td-align-left">
+                            <div className="cell-display">{row.email}</div>
+                          </td>
+                          <td className="td-align-left">
+                            <div className="cell-display table-cell-clamp">{row.notes}</div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
