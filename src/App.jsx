@@ -1,13 +1,8 @@
 ﻿import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
-  Archive,
   Download,
-  File,
-  FileSpreadsheet,
   FileText,
-  MoreHorizontal,
   Pencil,
-  Presentation,
   Trash2,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
@@ -49,7 +44,7 @@ import {
   isLongTextTableColumn,
 } from './tableColumnLayout.js'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
-import { materialsBoardApi, downloadMaterialsBoardBlobUrl, materialsBoardDownloadUrl } from './materialsBoardApi'
+import { materialsBoardApi, downloadMaterialsBoardBlobUrl } from './materialsBoardApi'
 import {
   calendarEventsApi,
   calendarManualEventToPayload,
@@ -1241,189 +1236,6 @@ function revokeMaterialsBoardPostUrls(row) {
   })
   const legacy = safeString(row?.downloadUrl).trim()
   if (legacy) URL.revokeObjectURL(legacy)
-}
-
-const MATERIALS_BOARD_VIEW_MODE_KEY = 'materials_board_view_mode'
-
-function loadMaterialsBoardViewMode() {
-  try {
-    return localStorage.getItem(MATERIALS_BOARD_VIEW_MODE_KEY) === 'card' ? 'card' : 'list'
-  } catch {
-    return 'list'
-  }
-}
-
-function persistMaterialsBoardViewMode(mode) {
-  try {
-    localStorage.setItem(MATERIALS_BOARD_VIEW_MODE_KEY, mode === 'card' ? 'card' : 'list')
-  } catch {
-    // no-op
-  }
-}
-
-function getMaterialsBoardPrimaryFile(row) {
-  const files = Array.isArray(row?.files) ? row.files : []
-  return files.find((file) => safeString(file?.name).trim()) || null
-}
-
-function isMaterialsBoardImageFileName(name) {
-  return /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(safeString(name).trim())
-}
-
-function getMaterialsBoardFileKindClass(name) {
-  const ext = safeString(name).trim().split('.').pop()?.toLowerCase() || ''
-  if (ext === 'pdf') return 'pdf'
-  if (['doc', 'docx', 'hwp', 'hwpx'].includes(ext)) return 'doc'
-  if (['xls', 'xlsx', 'csv'].includes(ext)) return 'xls'
-  if (['ppt', 'pptx'].includes(ext)) return 'ppt'
-  if (['zip', 'rar', '7z'].includes(ext)) return 'zip'
-  return 'file'
-}
-
-function MaterialsBoardFileIcon({ kindClass }) {
-  const iconProps = {
-    size: 28,
-    strokeWidth: 1.75,
-    'aria-hidden': true,
-  }
-
-  switch (kindClass) {
-    case 'pdf':
-      return <FileText {...iconProps} className="materials-board-file-icon materials-board-file-icon--pdf" />
-    case 'doc':
-      return <FileText {...iconProps} className="materials-board-file-icon materials-board-file-icon--doc" />
-    case 'xls':
-      return (
-        <FileSpreadsheet
-          {...iconProps}
-          className="materials-board-file-icon materials-board-file-icon--xls"
-        />
-      )
-    case 'ppt':
-      return (
-        <Presentation
-          {...iconProps}
-          className="materials-board-file-icon materials-board-file-icon--ppt"
-        />
-      )
-    case 'zip':
-      return <Archive {...iconProps} className="materials-board-file-icon materials-board-file-icon--zip" />
-    default:
-      return <File {...iconProps} className="materials-board-file-icon materials-board-file-icon--file" />
-  }
-}
-
-function MaterialsBoardCardThumb({ row }) {
-  const file = getMaterialsBoardPrimaryFile(row)
-  const fileName = safeString(file?.name).trim()
-  const postId = safeString(row?.id).trim()
-  const fileId = safeString(file?.id).trim()
-  const kindClass = getMaterialsBoardFileKindClass(fileName)
-  const isImage = postId && fileId && isMaterialsBoardImageFileName(fileName)
-
-  return (
-    <div className="materials-board-card-thumb">
-      {isImage ? (
-        <img src={materialsBoardDownloadUrl(postId, fileId)} alt="" loading="lazy" />
-      ) : (
-        <div className="materials-board-card-thumb-icon-wrap" aria-hidden>
-          <MaterialsBoardFileIcon kindClass={kindClass} />
-        </div>
-      )}
-    </div>
-  )
-}
-
-function MaterialsBoardCardItem({
-  row,
-  isAdmin,
-  isDownloading,
-  onDownload,
-  onEdit,
-  onDelete,
-}) {
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef(null)
-
-  useEffect(() => {
-    if (!menuOpen) return undefined
-    const handlePointerDown = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handlePointerDown)
-    return () => document.removeEventListener('mousedown', handlePointerDown)
-  }, [menuOpen])
-
-  return (
-    <article className={`materials-board-card${menuOpen ? ' materials-board-card--menu-open' : ''}`}>
-      {isAdmin && (
-        <div className="materials-board-card-menu" ref={menuRef}>
-          <button
-            type="button"
-            className="materials-board-card-menu-trigger"
-            aria-label="더보기"
-            aria-expanded={menuOpen}
-            onClick={(event) => {
-              event.stopPropagation()
-              setMenuOpen((open) => !open)
-            }}
-          >
-            <MoreHorizontal size={18} strokeWidth={1.75} />
-          </button>
-          {menuOpen ? (
-            <div className="materials-board-card-menu-panel" role="menu">
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setMenuOpen(false)
-                  onEdit(row)
-                }}
-              >
-                수정
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="materials-board-card-menu-item--danger"
-                onClick={(event) => {
-                  setMenuOpen(false)
-                  onDelete(row, event)
-                }}
-              >
-                삭제
-              </button>
-            </div>
-          ) : null}
-        </div>
-      )}
-      <button
-        type="button"
-        className="materials-board-card-main"
-        disabled={isDownloading}
-        onClick={(event) => {
-          void onDownload(row, event)
-        }}
-      >
-        <MaterialsBoardCardThumb row={row} />
-        <div className="materials-board-card-body">
-          <div className="materials-board-card-title">{row.title}</div>
-          <div className="materials-board-card-meta">
-            <span>{row.registeredAt}</span>
-            <span className="materials-board-download-count">
-              다운로드 {Number(row.downloadCount) || 0}
-            </span>
-          </div>
-          <div className="materials-board-card-download-hint">
-            <Download size={14} strokeWidth={1.75} aria-hidden />
-            <span>{isDownloading ? '다운로드 중…' : '클릭하여 다운로드'}</span>
-          </div>
-        </div>
-      </button>
-    </article>
-  )
 }
 
 function getMaterialsBoardAttachSummary(row) {
@@ -4499,7 +4311,6 @@ function App() {
   const [materialsBoardCustomFolders, setMaterialsBoardCustomFolders] = useState(() =>
     loadMaterialsBoardCustomFolders()
   )
-  const [materialsBoardViewMode, setMaterialsBoardViewMode] = useState(() => loadMaterialsBoardViewMode())
   const [materialsBoardDownloadingId, setMaterialsBoardDownloadingId] = useState('')
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
@@ -5513,7 +5324,7 @@ function App() {
 
   const handleDownloadMaterialsBoardFile = useCallback(
     async (row, event) => {
-      if (event?.target?.closest?.('.materials-board-row-actions, .materials-board-card-actions')) {
+      if (event?.target?.closest?.('.materials-board-row-actions')) {
         return
       }
       if (!row || materialsBoardDownloadingId === row.id) return
@@ -5575,12 +5386,6 @@ function App() {
     },
     [materialsBoardDownloadingId, showAppAlert]
   )
-
-  const handleMaterialsBoardViewModeChange = useCallback((mode) => {
-    const nextMode = mode === 'card' ? 'card' : 'list'
-    setMaterialsBoardViewMode(nextMode)
-    persistMaterialsBoardViewMode(nextMode)
-  }, [])
 
   const handleAddMaterialsBoardFolder = useCallback(() => {
     setContractConfirmDialog({
@@ -5777,8 +5582,16 @@ function App() {
       return
     }
     const content = ''
-    const folderId = safeString(materialsBoardRegisterFolderId).trim() || '기타'
     const editingId = materialsBoardEditingId
+    const selectedFolderAtSave =
+      materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL
+        ? materialsBoardSelectedFolder
+        : ''
+    const formFolderId = safeString(materialsBoardRegisterFolderId).trim()
+    const folderId =
+      (editingId
+        ? formFolderId || safeString(selectedFolderAtSave).trim()
+        : safeString(selectedFolderAtSave).trim() || formFolderId) || '기타'
 
     setMaterialsBoardSubmitting(true)
     try {
@@ -13358,30 +13171,6 @@ function App() {
                     onChange={(e) => setMaterialsBoardSearch(e.target.value)}
                   />
                   <div className="materials-board-toolbar-right">
-                    <div className="materials-board-view-toggle" role="group" aria-label="게시판 보기 방식">
-                      <button
-                        type="button"
-                        className={
-                          materialsBoardViewMode === 'list'
-                            ? 'materials-board-view-toggle-btn active'
-                            : 'materials-board-view-toggle-btn'
-                        }
-                        onClick={() => handleMaterialsBoardViewModeChange('list')}
-                      >
-                        리스트
-                      </button>
-                      <button
-                        type="button"
-                        className={
-                          materialsBoardViewMode === 'card'
-                            ? 'materials-board-view-toggle-btn active'
-                            : 'materials-board-view-toggle-btn'
-                        }
-                        onClick={() => handleMaterialsBoardViewModeChange('card')}
-                      >
-                        카드
-                      </button>
-                    </div>
                     {isAdmin && (
                       <button
                         type="button"
@@ -13394,146 +13183,120 @@ function App() {
                   </div>
                 </div>
 
-                {materialsBoardViewMode === 'list' ? (
-              <div className="materials-board-table-panel">
-                <table className="materials-board-table">
-                  <thead>
-                    <tr>
-                      <th className="materials-board-th materials-board-th--no">No</th>
-                      <th className="materials-board-th materials-board-th--title">제목</th>
-                      <th className="materials-board-th materials-board-th--attach">첨부</th>
-                      <th className="materials-board-th materials-board-th--downloads">다운로드</th>
-                      <th className="materials-board-th materials-board-th--date">등록일</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredMaterialsBoardPosts.length === 0 ? (
+                <div className="materials-board-table-panel">
+                  <table className="materials-board-table">
+                    <thead>
                       <tr>
-                        <td colSpan={5} className="materials-board-empty">
-                          {materialsBoardPosts.length === 0
-                            ? '등록된 글이 없습니다.'
-                            : materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL
-                              ? '이 폴더에 등록된 글이 없습니다.'
-                              : '검색 결과가 없습니다.'}
-                        </td>
+                        <th className="materials-board-th materials-board-th--no">No</th>
+                        <th className="materials-board-th materials-board-th--title">제목</th>
+                        <th className="materials-board-th materials-board-th--attach">첨부</th>
+                        <th className="materials-board-th materials-board-th--downloads">다운로드</th>
+                        <th className="materials-board-th materials-board-th--date">등록일</th>
                       </tr>
-                    ) : (
-                      filteredMaterialsBoardPosts.map((row, index) => (
-                        <tr
-                          key={row.id}
-                          className="materials-board-row materials-board-row--clickable"
-                          onClick={(event) => {
-                            void handleDownloadMaterialsBoardFile(row, event)
-                          }}
-                        >
-                          <td className="materials-board-td materials-board-td--no">{index + 1}</td>
-                          <td className="materials-board-td materials-board-td--title materials-board-td--download">
-                            <div className="materials-board-title-cell">
-                              <span className="materials-board-title-text">{row.title}</span>
-                              <button
-                                type="button"
-                                className="materials-board-inline-download-btn"
-                                disabled={materialsBoardDownloadingId === row.id}
-                                onClick={(event) => {
-                                  event.stopPropagation()
-                                  void handleDownloadMaterialsBoardFile(row, event)
-                                }}
-                              >
-                                {materialsBoardDownloadingId === row.id ? '다운로드 중…' : '다운로드'}
-                              </button>
-                            </div>
-                          </td>
-                          <td className="materials-board-td materials-board-td--attach">
-                            {(() => {
-                              const attach = getMaterialsBoardAttachSummary(row)
-                              if (!attach) {
-                                return (
-                                  <span className="materials-board-attach materials-board-attach--empty">
-                                    —
-                                  </span>
-                                )
-                              }
-                              return (
-                                <span
-                                  className="materials-board-attach"
-                                  title={attach.title}
-                                  aria-label={`첨부 ${attach.count}개: ${attach.title}`}
-                                >
-                                  <span className="materials-board-attach-icon" aria-hidden>
-                                    📎
-                                  </span>
-                                  {attach.count > 1 ? (
-                                    <span className="materials-board-attach-count">{attach.count}</span>
-                                  ) : null}
-                                </span>
-                              )
-                            })()}
-                          </td>
-                          <td className="materials-board-td materials-board-td--downloads">
-                            <span className="materials-board-download-count">
-                              {Number(row.downloadCount) || 0}
-                            </span>
-                          </td>
-                          <td className="materials-board-td materials-board-td--date">
-                            <div className="materials-board-date-cell">
-                              <span className="materials-board-date-text">{row.registeredAt}</span>
-                              {isAdmin && (
-                                <div
-                                  className="materials-board-row-actions"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <button
-                                    type="button"
-                                    className="materials-board-row-btn"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleOpenMaterialsBoardEdit(row)
-                                    }}
-                                  >
-                                    수정
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="materials-board-row-btn materials-board-row-btn--danger"
-                                    onClick={(e) => handleDeleteMaterialsBoardPost(row, e)}
-                                  >
-                                    삭제
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                    </thead>
+                    <tbody>
+                      {filteredMaterialsBoardPosts.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="materials-board-empty">
+                            {materialsBoardPosts.length === 0
+                              ? '등록된 글이 없습니다.'
+                              : materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL
+                                ? '이 폴더에 등록된 글이 없습니다.'
+                                : '검색 결과가 없습니다.'}
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="materials-board-card-grid">
-                {filteredMaterialsBoardPosts.length === 0 ? (
-                  <div className="materials-board-empty materials-board-empty--card">
-                    {materialsBoardPosts.length === 0
-                      ? '등록된 글이 없습니다.'
-                      : materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL
-                        ? '이 폴더에 등록된 글이 없습니다.'
-                        : '검색 결과가 없습니다.'}
-                  </div>
-                ) : (
-                  filteredMaterialsBoardPosts.map((row) => (
-                    <MaterialsBoardCardItem
-                      key={row.id}
-                      row={row}
-                      isAdmin={isAdmin}
-                      isDownloading={materialsBoardDownloadingId === row.id}
-                      onDownload={handleDownloadMaterialsBoardFile}
-                      onEdit={handleOpenMaterialsBoardEdit}
-                      onDelete={handleDeleteMaterialsBoardPost}
-                    />
-                  ))
-                )}
-              </div>
-            )}
+                      ) : (
+                        filteredMaterialsBoardPosts.map((row, index) => (
+                          <tr
+                            key={row.id}
+                            className="materials-board-row materials-board-row--clickable"
+                            onClick={(event) => {
+                              void handleDownloadMaterialsBoardFile(row, event)
+                            }}
+                          >
+                            <td className="materials-board-td materials-board-td--no">{index + 1}</td>
+                            <td className="materials-board-td materials-board-td--title materials-board-td--download">
+                              <div className="materials-board-title-cell">
+                                <span className="materials-board-title-text">{row.title}</span>
+                                <button
+                                  type="button"
+                                  className="materials-board-inline-download-btn"
+                                  disabled={materialsBoardDownloadingId === row.id}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    void handleDownloadMaterialsBoardFile(row, event)
+                                  }}
+                                >
+                                  {materialsBoardDownloadingId === row.id ? '다운로드 중…' : '다운로드'}
+                                </button>
+                              </div>
+                            </td>
+                            <td className="materials-board-td materials-board-td--attach">
+                              {(() => {
+                                const attach = getMaterialsBoardAttachSummary(row)
+                                if (!attach) {
+                                  return (
+                                    <span className="materials-board-attach materials-board-attach--empty">
+                                      —
+                                    </span>
+                                  )
+                                }
+                                return (
+                                  <span
+                                    className="materials-board-attach"
+                                    title={attach.title}
+                                    aria-label={`첨부 ${attach.count}개: ${attach.title}`}
+                                  >
+                                    <span className="materials-board-attach-icon" aria-hidden>
+                                      📎
+                                    </span>
+                                    {attach.count > 1 ? (
+                                      <span className="materials-board-attach-count">{attach.count}</span>
+                                    ) : null}
+                                  </span>
+                                )
+                              })()}
+                            </td>
+                            <td className="materials-board-td materials-board-td--downloads">
+                              <span className="materials-board-download-count">
+                                {Number(row.downloadCount) || 0}
+                              </span>
+                            </td>
+                            <td className="materials-board-td materials-board-td--date">
+                              <div className="materials-board-date-cell">
+                                <span className="materials-board-date-text">{row.registeredAt}</span>
+                                {isAdmin && (
+                                  <div
+                                    className="materials-board-row-actions"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <button
+                                      type="button"
+                                      className="materials-board-row-btn"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleOpenMaterialsBoardEdit(row)
+                                      }}
+                                    >
+                                      수정
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="materials-board-row-btn materials-board-row-btn--danger"
+                                      onClick={(e) => handleDeleteMaterialsBoardPost(row, e)}
+                                    >
+                                      삭제
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </section>
