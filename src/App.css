@@ -3338,15 +3338,15 @@ textarea:focus-visible {
   max-height: none;
   display: flex;
   flex-direction: column;
-  overflow: visible;
+  overflow: hidden;
   margin-bottom: 16px;
 }
 
-.main-area > section.stat-card .work-report-week-board-area .work-report-week-table-scroll {
-  flex: 0 0 auto;
+.main-area > section.stat-card .work-report-week-board-area .work-report-week-grid {
+  flex: 1 1 auto;
   min-height: 0;
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: auto;
 }
 
 .main-area > section.stat-card.stat-card--work-reports .work-report-meeting-minutes-block {
@@ -3393,11 +3393,11 @@ textarea:focus-visible {
   margin: 0;
 }
 
-.main-area > section.stat-card .work-report-week-table-scroll {
-  flex: 0 0 auto;
+.main-area > section.stat-card .work-report-week-grid {
+  flex: 1 1 auto;
   min-height: 0;
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: auto;
 }
 
 .main-area > section.stat-card .work-report-saving-indicator,
@@ -7165,8 +7165,9 @@ textarea:focus-visible {
 
 .work-report-week-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(180px, 1fr));
+  grid-template-columns: repeat(6, minmax(400px, 1fr));
   gap: 0;
+  margin: 0;
   overflow-x: auto;
   padding-bottom: 0;
   border: 1px solid #d1d5db;
@@ -7353,8 +7354,9 @@ textarea:focus-visible {
 
 .work-report-week-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(400px, 1fr));
+  grid-template-columns: repeat(6, minmax(400px, 1fr));
   gap: 0;
+  margin: 0;
   overflow-x: auto;
   align-items: stretch;
   border: 1px solid #d1d5db;
@@ -7600,8 +7602,9 @@ textarea:focus-visible {
 
 .work-report-week-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(400px, 1fr));
+  grid-template-columns: repeat(6, minmax(400px, 1fr));
   gap: 0;
+  margin: 0;
   overflow-x: auto;
   align-items: stretch;
   border: 1px solid #d1d5db;

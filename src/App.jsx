@@ -11681,54 +11681,52 @@ function App() {
     ))
   }
 
-  const renderWorkReportChecklistCell = (date) => (
-    <div
-      className="work-report-report-checklist-single-wrap"
-      onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.checklist, 1)}
-    >
-      <textarea
-        className="work-report-report-checklist-combined-textarea work-report-report-field"
-        value={getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content}
-        placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
-        onChange={(e) =>
-          updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
-            content: e.target.value,
-          })
-        }
-        onKeyDown={(e) =>
-          handleWorkReportChecklistTextareaKeyDown(e, (content) =>
-            updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
-          )
-        }
-      />
-    </div>
+  const renderWorkReportChecklistSectionV5 = (date) => (
+    <section className="work-report-report-section">
+      <div className="work-report-report-section-title">주요 확인사항</div>
+      <div
+        className="work-report-report-checklist-single-wrap"
+        onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.checklist, 1)}
+      >
+        <textarea
+          className="work-report-report-checklist-combined-textarea"
+          value={getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content}
+          placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
+          onChange={(e) =>
+            updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
+              content: e.target.value,
+            })
+          }
+          onKeyDown={(e) =>
+            handleWorkReportChecklistTextareaKeyDown(e, (content) =>
+              updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+            )
+          }
+        />
+      </div>
+    </section>
   )
 
-  const renderWorkReportExternalCell = (date) => (
-    <table className="work-report-week-cell-table work-report-week-cell-table--external">
-      <colgroup>
-        <col />
-        <col />
-        <col />
-      </colgroup>
-      <thead>
-        <tr>
-          <th scope="col">담당자</th>
-          <th scope="col">내용</th>
-          <th scope="col">목적지</th>
-        </tr>
-      </thead>
-      <tbody>
+  const renderWorkReportExternalSectionV5 = (date) => (
+    <section className="work-report-report-section">
+      <div className="work-report-report-section-title">외부일정</div>
+      <div className="work-report-report-table work-report-report-table--external">
+        <div className="work-report-report-table-head work-report-report-table-head--external">
+          <div>담당자</div>
+          <div>내용</div>
+          <div>목적지</div>
+        </div>
         {Array.from({ length: WORK_REPORT_EXTERNAL_ROW_COUNT }, (_, index) => {
           const orderIndex = index + 1
           const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
 
           return (
-            <tr
-              key={`external-cell-${date}-${orderIndex}`}
+            <div
+              key={`external-v5-${date}-${orderIndex}`}
+              className="work-report-report-table-row editable work-report-report-table-row--external"
               onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
             >
-              <td className="work-report-report-cell work-report-report-cell--manager">
+              <div className="work-report-report-cell work-report-report-cell--manager">
                 <WorkReportExternalManagerMultiSelect
                   value={entry.user}
                   onChange={(next) =>
@@ -11738,8 +11736,8 @@ function App() {
                   }
                   options={WORK_REPORT_EXTERNAL_USER_OPTIONS}
                 />
-              </td>
-              <td className="work-report-report-cell">
+              </div>
+              <div className="work-report-report-cell">
                 <textarea
                   className="work-report-report-field work-report-report-field--grow"
                   rows={2}
@@ -11751,8 +11749,8 @@ function App() {
                     })
                   }
                 />
-              </td>
-              <td className="work-report-report-cell">
+              </div>
+              <div className="work-report-report-cell">
                 <input
                   className="work-report-report-field"
                   type="text"
@@ -11764,198 +11762,137 @@ function App() {
                     })
                   }
                 />
-              </td>
-            </tr>
+              </div>
+            </div>
           )
         })}
-      </tbody>
-    </table>
+      </div>
+    </section>
   )
 
-  const renderWorkReportManagedJournalCell = (date, title, section, rowCount) => (
+  const renderWorkReportManagedSectionV5 = (date, title, section, rowCount) => (
     <div className="work-report-report-journal-block">
       <div className="work-report-report-subtitle">{title}</div>
-      <table className="work-report-week-cell-table work-report-week-cell-table--journal">
-        <colgroup>
-          <col />
-          <col />
-          <col />
-        </colgroup>
-        <thead>
-          <tr>
-            <th scope="col">#</th>
-            <th scope="col">담당자</th>
-            <th scope="col">내용</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from({ length: rowCount }, (_, index) => {
-            const orderIndex = index + 1
-            const entry = getWorkReportBoardEntry(date, section, orderIndex)
+      <div className="work-report-report-table work-report-report-table--journal">
+        <div className="work-report-report-table-head work-report-report-table-head-journal">
+          <div>#</div>
+          <div>담당자</div>
+          <div>내용</div>
+        </div>
+        {Array.from({ length: rowCount }, (_, index) => {
+          const orderIndex = index + 1
+          const entry = getWorkReportBoardEntry(date, section, orderIndex)
 
-            return (
-              <tr
-                key={`journal-cell-${section}-${date}-${orderIndex}`}
-                onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
-              >
-                <td className="work-report-report-line-number">{orderIndex}</td>
-                <td className="work-report-report-cell">
-                  <input
-                    className="work-report-report-field"
-                    type="text"
-                    value={entry.user}
-                    placeholder="담당자"
-                    onChange={(e) =>
-                      updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
-                    }
-                  />
-                </td>
-                <td className="work-report-report-cell">
-                  <textarea
-                    className="work-report-report-field work-report-report-field--grow"
-                    rows={2}
-                    value={entry.content}
-                    placeholder="내용 입력"
-                    onChange={(e) =>
-                      updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
-                    }
-                  />
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+          return (
+            <div
+              key={`journal-v5-${section}-${date}-${orderIndex}`}
+              className="work-report-report-table-row editable work-report-report-table-row-journal"
+              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
+            >
+              <div className="work-report-report-line-number">{orderIndex}</div>
+              <div className="work-report-report-cell">
+                <input
+                  className="work-report-report-field"
+                  type="text"
+                  value={entry.user}
+                  placeholder="담당자"
+                  onChange={(e) =>
+                    updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
+                  }
+                />
+              </div>
+              <div className="work-report-report-cell">
+                <textarea
+                  className="work-report-report-field work-report-report-field--grow"
+                  rows={2}
+                  value={entry.content}
+                  placeholder="내용 입력"
+                  onChange={(e) =>
+                    updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 
-  const renderWorkReportSupportListCell = (date, title, section) => (
+  const renderWorkReportSupportListV5 = (date, title, section) => (
     <div className="work-report-report-support-block">
       <div className="work-report-report-subtitle">{title}</div>
-      <table className="work-report-week-cell-table work-report-week-cell-table--support">
-        <colgroup>
-          <col />
-          <col />
-        </colgroup>
-        <tbody>
-          {Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
-            const orderIndex = index + 1
-            const entry = getWorkReportBoardEntry(date, section, orderIndex)
+      <div className="work-report-report-line-list support">
+        {Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
+          const orderIndex = index + 1
+          const entry = getWorkReportBoardEntry(date, section, orderIndex)
 
-            return (
-              <tr
-                key={`support-cell-${date}-${section}-${orderIndex}`}
-                onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
-              >
-                <td className="work-report-report-line-number">{orderIndex}.</td>
-                <td className="work-report-report-cell">
-                  <input
-                    className="work-report-report-field"
-                    type="text"
-                    value={entry.content}
-                    placeholder="내용 입력"
-                    onChange={(e) =>
-                      updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
-                    }
-                  />
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+          return (
+            <div
+              key={`support-v5-${date}-${section}-${orderIndex}`}
+              className="work-report-report-line-edit"
+              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
+            >
+              <span className="work-report-report-line-number">{orderIndex}.</span>
+              <input
+                className="work-report-report-field"
+                type="text"
+                value={entry.content}
+                placeholder="내용 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
+                }
+              />
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 
-  const renderWorkReportJournalCell = (date) => (
-    <div className="work-report-report-journal-wrap">
-      {renderWorkReportManagedJournalCell(
-        date,
-        'DI사업',
-        WORK_REPORT_SECTION_KEYS.di,
-        WORK_REPORT_DI_ROW_COUNT
-      )}
-      {renderWorkReportManagedJournalCell(
-        date,
-        '도로사업',
-        WORK_REPORT_SECTION_KEYS.road,
-        WORK_REPORT_ROAD_ROW_COUNT
-      )}
+  const renderWorkReportSupportSectionV5 = (date) => (
+    <section className="work-report-report-section">
+      <div className="work-report-report-section-title">영업지원</div>
       <div className="work-report-report-support-wrap">
-        {renderWorkReportSupportListCell(date, '진행업무', WORK_REPORT_SECTION_KEYS.supportProgress)}
-        {renderWorkReportSupportListCell(date, '완료업무', WORK_REPORT_SECTION_KEYS.supportDone)}
+        {renderWorkReportSupportListV5(date, '진행업무', WORK_REPORT_SECTION_KEYS.supportProgress)}
+        {renderWorkReportSupportListV5(date, '완료업무', WORK_REPORT_SECTION_KEYS.supportDone)}
+      </div>
+    </section>
+  )
+
+  const renderWorkReportDayBoardV5 = (day) => (
+    <div
+      key={day.date}
+      className={`work-report-day-board work-report-day-board-dense report-mode${day.isToday ? ' is-today' : ''}`}
+    >
+      <div className="work-report-day-head report-mode">
+        <div className="work-report-day-weekday">{day.label}</div>
+        <div className="work-report-day-date">{day.date}</div>
+      </div>
+      <div className="work-report-day-sections work-report-day-sections-dense report-mode">
+        {renderWorkReportChecklistSectionV5(day.date)}
+        {renderWorkReportExternalSectionV5(day.date)}
+        <section className="work-report-report-section">
+          <div className="work-report-report-section-title">업무일지</div>
+          <div className="work-report-report-journal-wrap">
+            {renderWorkReportManagedSectionV5(
+              day.date,
+              'DI사업',
+              WORK_REPORT_SECTION_KEYS.di,
+              WORK_REPORT_DI_ROW_COUNT
+            )}
+            {renderWorkReportManagedSectionV5(
+              day.date,
+              '도로사업',
+              WORK_REPORT_SECTION_KEYS.road,
+              WORK_REPORT_ROAD_ROW_COUNT
+            )}
+            {renderWorkReportSupportSectionV5(day.date)}
+          </div>
+        </section>
       </div>
     </div>
   )
-
-  const renderWorkReportWeekTable = () => {
-    const days = selectedWorkWeekDays.slice(0, WORK_REPORT_WEEK_TABLE_DAYS)
-
-    return (
-      <div className="work-report-week-table-scroll">
-        <table className="work-report-week-table">
-          <colgroup>
-            <col className="work-report-week-table-col-label" />
-            {days.map((day) => (
-              <col key={day.date} className="work-report-week-table-col-day" />
-            ))}
-          </colgroup>
-          <thead>
-            <tr>
-              <th scope="col" className="work-report-week-table-corner">
-                구분
-              </th>
-              {days.map((day) => (
-                <th
-                  key={day.date}
-                  scope="col"
-                  className={`work-report-week-table-day-head${day.isToday ? ' is-today' : ''}`}
-                >
-                  <span className="work-report-week-table-day-label">{day.label}</span>
-                  <span className="work-report-week-table-day-date">{day.monthDay}</span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="work-report-week-table-row work-report-week-table-row--checklist">
-              <th scope="row" className="work-report-week-table-row-label">
-                주요 확인사항
-              </th>
-              {days.map((day) => (
-                <td key={`checklist-${day.date}`} className="work-report-week-table-cell">
-                  {renderWorkReportChecklistCell(day.date)}
-                </td>
-              ))}
-            </tr>
-            <tr className="work-report-week-table-row work-report-week-table-row--external">
-              <th scope="row" className="work-report-week-table-row-label">
-                외부일정
-              </th>
-              {days.map((day) => (
-                <td key={`external-${day.date}`} className="work-report-week-table-cell">
-                  {renderWorkReportExternalCell(day.date)}
-                </td>
-              ))}
-            </tr>
-            <tr className="work-report-week-table-row work-report-week-table-row--journal">
-              <th scope="row" className="work-report-week-table-row-label">
-                업무일지
-              </th>
-              {days.map((day) => (
-                <td
-                  key={`journal-${day.date}`}
-                  className="work-report-week-table-cell work-report-week-table-cell--journal"
-                >
-                  {renderWorkReportJournalCell(day.date)}
-                </td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    )
-  }
 
 
   return (
@@ -12429,7 +12366,11 @@ function App() {
               </div>
 
               <div className="work-report-week-board-area">
-                {renderWorkReportWeekTable()}
+                <div className="work-report-week-grid">
+                  {selectedWorkWeekDays
+                    .slice(0, WORK_REPORT_WEEK_TABLE_DAYS)
+                    .map((day) => renderWorkReportDayBoardV5(day))}
+                </div>
               </div>
 
               {isSavingWorkReports && (
