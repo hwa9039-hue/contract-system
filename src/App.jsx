@@ -172,7 +172,8 @@ const SALES_COLUMNS = [
     align: 'center',
     type: 'text',
     width: 380,
-    cellClass: 'sales-wrap-cell sales-department-cell',
+    cellClass: 'sales-modal-text-cell sales-department-cell',
+    modalEditor: true,
   },
   {
     key: 'detail',
@@ -180,7 +181,8 @@ const SALES_COLUMNS = [
     align: 'left',
     type: 'textarea',
     width: 920,
-    cellClass: 'sales-wrap-cell sales-detail-cell',
+    cellClass: 'sales-modal-text-cell sales-detail-cell',
+    modalEditor: true,
   },
   { key: 'source', label: '출처', align: 'center', type: 'text', width: 140 },
 ]
@@ -4285,6 +4287,7 @@ function App() {
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
   const [salesRecordModal, setSalesRecordModal] = useState(null)
+  const [salesLongTextModal, setSalesLongTextModal] = useState(null)
   const [discoveryRows, setDiscoveryRows] = useState([])
   const [discoveryTableData, setDiscoveryTableData] = useState([])
   const [excludedRows, setExcludedRows] = useState([])
@@ -9660,6 +9663,57 @@ function App() {
     }
   }
 
+  const openSalesLongTextModal = (rowId, column, row) => {
+    if (!rowId || !column || !row || row.isDraft) return
+    if (!column.modalEditor) return
+    setSalesLongTextModal({
+      rowId,
+      columnKey: column.key,
+      columnLabel: column.label,
+      projectName: safeString(row.projectName).trim() || '(사업명 없음)',
+      draft: safeString(row[column.key] ?? ''),
+      saving: false,
+    })
+  }
+
+  const closeSalesLongTextModal = () => {
+    setSalesLongTextModal(null)
+  }
+
+  const saveSalesLongTextModal = async () => {
+    if (!salesLongTextModal?.rowId || salesLongTextModal.saving) return
+    const column = SALES_COLUMNS.find((col) => col.key === salesLongTextModal.columnKey)
+    if (!column) return
+
+    const rowId = salesLongTextModal.rowId
+    const targetRow = salesRows.find((row) => safeString(row.id).trim() === safeString(rowId).trim())
+    if (!targetRow || targetRow.isDraft) {
+      closeSalesLongTextModal()
+      return
+    }
+
+    const patch = buildRegistryCellApiPatch(column, salesLongTextModal.draft)
+    const patchValue = patch[column.key]
+    const previous = targetRow[column.key]
+    if (safeString(previous ?? '').trim() === safeString(patchValue ?? '').trim()) {
+      closeSalesLongTextModal()
+      return
+    }
+
+    setSalesLongTextModal((prev) => (prev ? { ...prev, saving: true } : prev))
+    applyRegistryRowFieldPatch('sales', rowId, column, salesLongTextModal.draft)
+
+    try {
+      await salesRegisterApi.update(rowId, patch)
+      closeSalesLongTextModal()
+    } catch (error) {
+      applyRegistryRowFieldPatch('sales', rowId, column, previous)
+      logApiOperationError('영업관리대장 긴 텍스트 저장', error)
+      showAppAlert(error?.message || '저장에 실패했습니다.', '알림')
+      setSalesLongTextModal((prev) => (prev ? { ...prev, saving: false } : prev))
+    }
+  }
+
   const handleRegistryTextCellSave = useCallback(
     async (scope, rowId, column, rawValue) => {
       if (!isEditableTextColumn(column)) return
@@ -9945,12 +9999,21 @@ function App() {
 
         {columns.map((column) => {
           const isImportanceCell = column.type === 'importance'
-          const isEditableText =
+          const canUseSalesModalEditor =
+            cellEditScope === 'sales' &&
+            column.modalEditor &&
             isEditableTextColumn(column) &&
             useCellMode &&
             isAdminForRegistry &&
             !row.isDraft &&
             !isImportanceCell
+          const isEditableText =
+            isEditableTextColumn(column) &&
+            useCellMode &&
+            isAdminForRegistry &&
+            !row.isDraft &&
+            !isImportanceCell &&
+            !canUseSalesModalEditor
           const cellAlign =
             getTableBodyAlignClass(column).replace('td-align-', '') || 'center'
           const isThisCell =
@@ -9976,6 +10039,10 @@ function App() {
                 if (isImportanceCell || isEditableText) return
                 if (!isAdminForRegistry) return
                 if (row.isDraft) return
+                if (canUseSalesModalEditor) {
+                  openSalesLongTextModal(rowId, column, row)
+                  return
+                }
                 if (useCellMode && onRegistryCellStart) {
                   onRegistryCellStart(rowId, column.key, row[column.key], row)
                   return
@@ -9990,6 +10057,24 @@ function App() {
                   <RegistryImportanceBadge
                     status={resolveRegistryImportanceStatus(displayRow, column)}
                   />
+                </div>
+              ) : canUseSalesModalEditor ? (
+                <div
+                  className="cell-display table-cell-clamp sales-modal-text-display"
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openSalesLongTextModal(rowId, column, row)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      openSalesLongTextModal(rowId, column, row)
+                    }
+                  }}
+                >
+                  {getRegistryPlainDisplayValue(row, column) || '\u00a0'}
                 </div>
               ) : isEditableText ? (
                 <EditableTextCell
@@ -13792,6 +13877,81 @@ function App() {
                   등록
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {salesLongTextModal && (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            if (!salesLongTextModal.saving) closeSalesLongTextModal()
+          }}
+        >
+          <div
+            className="sales-long-text-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sales-long-text-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sales-record-modal-header">
+              <div>
+                <p className="sales-long-text-modal-eyebrow">
+                  {salesLongTextModal.columnLabel}
+                </p>
+                <h3 id="sales-long-text-modal-title" className="sales-record-modal-title">
+                  {salesLongTextModal.projectName}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={closeSalesLongTextModal}
+                aria-label="닫기"
+                disabled={salesLongTextModal.saving}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="sales-record-modal-body">
+              <textarea
+                className="sales-long-text-textarea"
+                rows={10}
+                autoFocus
+                value={salesLongTextModal.draft}
+                onChange={(e) =>
+                  setSalesLongTextModal((prev) =>
+                    prev ? { ...prev, draft: e.target.value } : prev
+                  )
+                }
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault()
+                    void saveSalesLongTextModal()
+                  }
+                }}
+                disabled={salesLongTextModal.saving}
+              />
+            </div>
+            <div className="sales-record-modal-actions">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={closeSalesLongTextModal}
+                disabled={salesLongTextModal.saving}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => void saveSalesLongTextModal()}
+                disabled={salesLongTextModal.saving}
+              >
+                {salesLongTextModal.saving ? '저장 중...' : '저장'}
+              </button>
             </div>
           </div>
         </div>

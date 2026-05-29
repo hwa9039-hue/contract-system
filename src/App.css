@@ -1580,6 +1580,24 @@ table[data-contract-table-row-key] tbody td.table-col-long .editable-text-cell-i
   overflow: hidden;
 }
 
+.sales-long-text-modal {
+  width: min(860px, calc(100vw - 32px));
+  max-height: min(90vh, 820px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+}
+
+.sales-long-text-modal-eyebrow {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #2563eb;
+}
+
 .sales-record-modal-header {
   display: flex;
   align-items: flex-start;
@@ -1620,7 +1638,28 @@ table[data-contract-table-row-key] tbody td.table-col-long .editable-text-cell-i
   background: #fff;
 }
 
+.sales-long-text-textarea {
+  width: 100%;
+  min-height: 360px;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  font-family: inherit;
+  color: #111827;
+  background: #fff;
+}
+
 .sales-record-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.sales-long-text-textarea:focus {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
@@ -5488,24 +5527,27 @@ textarea:focus-visible {
   justify-content: flex-end;
 }
 
-.sales-registry-table .sales-wrap-cell {
-  overflow: visible;
+.sales-registry-table .sales-modal-text-cell {
+  cursor: pointer;
   white-space: normal !important;
-  word-break: break-word;
-  overflow-wrap: anywhere;
 }
 
-.sales-registry-table .sales-wrap-cell .cell-display,
-.sales-registry-table .sales-wrap-cell .editable-text-cell-display {
-  display: block;
-  overflow: visible;
-  text-overflow: clip;
+.sales-registry-table .sales-modal-text-cell:hover {
+  background: rgba(59, 130, 246, 0.08);
+  outline: 1px solid rgba(59, 130, 246, 0.24);
+}
+
+.sales-registry-table .sales-modal-text-cell .sales-modal-text-display {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: normal !important;
   word-break: break-word;
   overflow-wrap: anywhere;
-  -webkit-line-clamp: unset;
-  line-clamp: unset;
-  -webkit-box-orient: initial;
+  cursor: pointer;
 }
 
 .registry-action-header,
