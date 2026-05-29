@@ -6111,6 +6111,16 @@ textarea:focus-visible {
 }
 
 /* 사업검색이력 표: table-fixed + colgroup 고정 너비 (아코디언 토글 시 열 흔들림 방지) */
+.excluded-registry-table.excel-table thead th.contract-th-filterable {
+  overflow: visible;
+  white-space: nowrap;
+}
+
+.excluded-registry-table.excel-table thead th.contract-th-filterable .contract-th-label {
+  overflow: visible;
+  text-overflow: clip;
+}
+
 .excluded-registry-table {
   table-layout: fixed !important;
   width: 100%;

@@ -20,6 +20,12 @@ import {
   normalizeDiscoveryColumnFilterSelection,
 } from './discoveryColumnFilter.js'
 import {
+  buildExcludedColumnFilterOptions,
+  excludedMatchesColumnFilters,
+  filterExcludedRowsByActiveFilters,
+  normalizeExcludedColumnFilterSelection,
+} from './excludedColumnFilter.js'
+import {
   buildSalesColumnFilterOptions,
   filterSalesRowsByActiveFilters,
   normalizeSalesColumnFilterSelection,
@@ -4533,11 +4539,8 @@ function App() {
   const [isSavingExcluded, setIsSavingExcluded] = useState(false)
   const [excludedSearch, setExcludedSearch] = useState('')
   const [excludedDateRange, setExcludedDateRange] = useState({ startDate: '', endDate: '' })
-  const [excludedFilters, setExcludedFilters] = useState({
-    category: '',
-    keyword: '',
-    writer: '',
-  })
+  const [excludedActiveFilters, setExcludedActiveFilters] = useState({})
+  const [openExcludedColumnFilterKey, setOpenExcludedColumnFilterKey] = useState(null)
   const [editingWorkCellKey, setEditingWorkCellKey] = useState('')
   const [editingWorkCellData, setEditingWorkCellData] = useState(null)
   const [workReportDrafts, setWorkReportDrafts] = useState({})
@@ -6075,32 +6078,70 @@ function App() {
     [discoveryRawData.length, filteredDiscoveryRows.length]
   )
 
-  const filteredExcludedRows = useMemo(() => {
-    return excludedRows.filter((row) => {
-      if (!matchesRegistrySearch(row, EXCLUDED_COLUMNS, excludedSearch)) return false
-      if (
-        !matchesDateRangeFilter(
+  const excludedRawData = excludedRows
+
+  const excludedColumnFilterOptionsMap = useMemo(() => {
+    const basePool = excludedRawData.filter(
+      (row) =>
+        matchesRegistrySearch(row, EXCLUDED_COLUMNS, excludedSearch) &&
+        matchesDateRangeFilter(
           row,
           'writeDate',
           excludedDateRange.startDate,
           excludedDateRange.endDate
         )
-      ) {
-        return false
-      }
-      if (row.isDraft) return true
-      const categoryMatch = !excludedFilters.category || row.category === excludedFilters.category
-      const keywordMatch = !excludedFilters.keyword || row.keyword === excludedFilters.keyword
-      return categoryMatch && keywordMatch
+    )
+    const map = {}
+    EXCLUDED_COLUMNS.forEach(({ key: columnKey }) => {
+      const pool = basePool.filter((row) =>
+        row.isDraft || excludedMatchesColumnFilters(row, excludedActiveFilters, columnKey)
+      )
+      map[columnKey] = buildExcludedColumnFilterOptions(pool, columnKey)
     })
+    return map
   }, [
+    excludedActiveFilters,
     excludedDateRange.endDate,
     excludedDateRange.startDate,
-    excludedFilters.category,
-    excludedFilters.keyword,
-    excludedRows,
+    excludedRawData,
     excludedSearch,
   ])
+
+  const handleExcludedActiveFiltersApply = useCallback((columnKey, selected) => {
+    setExcludedActiveFilters((prev) => {
+      const next = { ...prev }
+      const values = Array.isArray(selected) ? [...selected] : []
+      if (values.length === 0) delete next[columnKey]
+      else next[columnKey] = values
+      return next
+    })
+  }, [])
+
+  /** [1단계] rawData → 검색·기간·헤더 열 필터(AND) → filteredData */
+  const filteredExcludedRows = useMemo(() => {
+    const toolbarFiltered = excludedRawData.filter(
+      (row) =>
+        matchesRegistrySearch(row, EXCLUDED_COLUMNS, excludedSearch) &&
+        matchesDateRangeFilter(
+          row,
+          'writeDate',
+          excludedDateRange.startDate,
+          excludedDateRange.endDate
+        )
+    )
+    return filterExcludedRowsByActiveFilters(toolbarFiltered, excludedActiveFilters)
+  }, [
+    excludedActiveFilters,
+    excludedDateRange.endDate,
+    excludedDateRange.startDate,
+    excludedRawData,
+    excludedSearch,
+  ])
+
+  const isExcludedTableFilterResultEmpty = useMemo(
+    () => excludedRawData.length > 0 && filteredExcludedRows.length === 0,
+    [excludedRawData.length, filteredExcludedRows.length]
+  )
 
   /** [2단계] filteredData만 그룹화 — 원본 salesRows 미사용 */
   const groupedSalesRows = useMemo(
@@ -12821,32 +12862,6 @@ function App() {
               >
                 선택 삭제
               </button>
-              <select
-                className="contract-filter-select"
-                value={excludedFilters.category}
-                onChange={(e) => setExcludedFilters((prev) => ({ ...prev, category: e.target.value }))}
-                style={{ width: 132 }}
-              >
-                <option value="">상태</option>
-                {EXCLUDED_CATEGORY_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="contract-filter-select"
-                value={excludedFilters.keyword}
-                onChange={(e) => setExcludedFilters((prev) => ({ ...prev, keyword: e.target.value }))}
-                style={{ width: 180 }}
-              >
-                <option value="">검색어</option>
-                {EXCLUDED_KEYWORD_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
               <button className="secondary-btn" type="button" onClick={handleExcludedExcelDownload}>
                 엑셀 다운로드
               </button>
@@ -12902,15 +12917,46 @@ function App() {
                       {EXCLUDED_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''}`}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
+                          style={column.widthClass ? { minWidth: 'max(3rem, 100%)' } : undefined}
                         >
-                          {column.label}
+                          <div className="contract-th-filter-wrap">
+                            <span className="contract-th-label">{column.label}</span>
+                            <ContractColumnHeaderFilter
+                              columnKey={column.key}
+                              options={excludedColumnFilterOptionsMap[column.key] ?? []}
+                              selected={excludedActiveFilters[column.key] ?? []}
+                              onApply={handleExcludedActiveFiltersApply}
+                              isOpen={openExcludedColumnFilterKey === column.key}
+                              onOpenChange={setOpenExcludedColumnFilterKey}
+                              normalizeSelection={normalizeExcludedColumnFilterSelection}
+                            />
+                          </div>
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {renderGroupedRegistryRows({
+                    {excludedRawData.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={EXCLUDED_COLUMNS.length + 1}
+                          className="empty-cell"
+                        >
+                          등록된 데이터가 없습니다.
+                        </td>
+                      </tr>
+                    ) : isExcludedTableFilterResultEmpty ? (
+                      <tr>
+                        <td
+                          colSpan={EXCLUDED_COLUMNS.length + 1}
+                          className="empty-cell"
+                        >
+                          필터 조건에 맞는 데이터가 없습니다.
+                        </td>
+                      </tr>
+                    ) : (
+                    renderGroupedRegistryRows({
                       groups: groupedExcludedRows,
                       columns: EXCLUDED_COLUMNS,
                       emptyMessage: '등록된 데이터가 없습니다.',
@@ -12930,7 +12976,8 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('excluded', rowId, columnKey, value, row),
-                    })}
+                    })
+                    )}
                   </tbody>
                 </table>
               </div>
