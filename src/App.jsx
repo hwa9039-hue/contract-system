@@ -80,14 +80,14 @@ const CONTRACT_COLUMNS = [
   { key: 'department', label: '담당부서', className: 'col-dept', align: 'center', type: 'textarea', width: 130 },
   { key: 'contractMethod', label: '계약방식', className: 'col-method', align: 'center', type: 'text', width: 108 },
   { key: 'contractType', label: '계약분류', className: 'col-type', align: 'center', type: 'text', width: 110 },
-  { key: 'identNo', label: '식별번호', className: 'col-ident-no', align: 'center', type: 'text', widthFit: true },
+  { key: 'identNo', label: '식별번호', className: 'col-ident-no', align: 'center', type: 'text', widthTight: true },
   { key: 'contractDate', label: '계약일자', className: 'col-date', align: 'center', type: 'date', width: 112 },
   { key: 'dueDate', label: '준공일자', className: 'col-date', align: 'center', type: 'date', width: 112 },
-  { key: 'projectName', label: '사업명', className: 'col-project', align: 'left', type: 'textarea', width: 360 },
+  { key: 'projectName', label: '사업명', className: 'col-project', align: 'left', type: 'textarea', width: 360, widthGrow: true },
   { key: 'amount', label: '계약금액', className: 'col-amount', align: 'right', type: 'amount', width: 126 },
   { key: 'salesOwner', label: '영업담당자', className: 'col-owner', align: 'center', type: 'text', width: 112 },
   { key: 'pm', label: '현장 PM', className: 'col-pm', align: 'center', type: 'text', width: 112 },
-  { key: 'note', label: '비고', className: 'col-note', align: 'left', type: 'textarea', width: 190 },
+  { key: 'note', label: '비고', className: 'col-note', align: 'left', type: 'textarea', width: 190, widthGrow: true },
 ]
 
 const DOCUMENT_COLUMNS = [
@@ -12085,9 +12085,11 @@ function App() {
                         key={column.key}
                         className={`contract-col-${column.key}`}
                         style={
-                          column.widthFit
-                            ? { width: 'max-content' }
-                            : { width: column.width, minWidth: column.width }
+                          column.widthTight
+                            ? { width: '1%', maxWidth: 200 }
+                            : column.widthGrow
+                              ? { minWidth: column.width }
+                              : { width: column.width, minWidth: column.width }
                         }
                       />
                     ))}
