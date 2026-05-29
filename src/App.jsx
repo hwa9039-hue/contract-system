@@ -7,7 +7,6 @@ import {
 } from 'lucide-react'
 import { ContractColumnHeaderFilter } from './ContractColumnHeaderFilter.jsx'
 import {
-  CONTRACT_FILTERABLE_COLUMN_KEYS,
   buildContractColumnFilterOptions,
   contractMatchesColumnFilters,
   contractMatchesSearch,
@@ -5097,7 +5096,7 @@ function App() {
         )
     )
     const map = {}
-    CONTRACT_FILTERABLE_COLUMN_KEYS.forEach((columnKey) => {
+    CONTRACT_COLUMNS.forEach(({ key: columnKey }) => {
       const pool = basePool.filter((item) =>
         contractMatchesColumnFilters(item, contractColumnFilters, columnKey)
       )
@@ -5121,7 +5120,7 @@ function App() {
     })
   }, [])
 
-  const filteredContracts = useMemo(() => {
+  const filteredData = useMemo(() => {
     return sortContracts(
       contracts.filter((item) => {
         const searchMatch = contractMatchesSearch(item, search)
@@ -5139,8 +5138,8 @@ function App() {
   }, [contractColumnFilters, contractDateRange.endDate, contractDateRange.startDate, contracts, search])
 
   const filteredTotalAmount = useMemo(
-    () => filteredContracts.reduce((sum, item) => sum + parseAmount(item.amount), 0),
-    [filteredContracts]
+    () => filteredData.reduce((sum, item) => sum + parseAmount(item.amount), 0),
+    [filteredData]
   )
 
   const isContractsTableDefaultFilterState = useMemo(
@@ -5168,7 +5167,7 @@ function App() {
   const groupedContracts = useMemo(() => {
     const groups = new Map()
 
-    filteredContracts.forEach((item) => {
+    filteredData.forEach((item) => {
       const year = getYearLabel(item.year) || '미분류'
       if (!groups.has(year)) groups.set(year, [])
       groups.get(year).push(item)
@@ -5201,7 +5200,7 @@ function App() {
           totalAmount: sumContractAmounts(items),
         }
       })
-  }, [filteredContracts])
+  }, [filteredData])
 
   const contractPageSummaryFocusYear = useMemo(() => {
     const yearFilter = contractColumnFilters.year
@@ -5212,8 +5211,8 @@ function App() {
   const contractPageSummaryRows = useMemo(() => {
     const y = contractPageSummaryFocusYear
     if (!y) return []
-    return filteredContracts.filter((item) => (getYearLabel(item.year) || '미분류') === y)
-  }, [filteredContracts, contractPageSummaryFocusYear])
+    return filteredData.filter((item) => (getYearLabel(item.year) || '미분류') === y)
+  }, [filteredData, contractPageSummaryFocusYear])
 
   const contractPageYearSummaryBlock = useMemo(() => {
     const y = contractPageSummaryFocusYear
@@ -12187,38 +12186,33 @@ function App() {
                         </th>
                       )}
                       <th className="col-dday th-align-center table-col-tight">D-Day</th>
-                      {CONTRACT_COLUMNS.map((column) => {
-                        const isFilterable = CONTRACT_FILTERABLE_COLUMN_KEYS.includes(column.key)
-                        return (
+                      {CONTRACT_COLUMNS.map((column) => (
                           <th
                             key={column.key}
                             className={`${column.className} ${getTableColumnLayoutClass(column)} ${
                               column.key === 'amount'
                                 ? 'th-align-center'
                                 : getTableAlignClass(column.align, column)
-                            }${isFilterable ? ' contract-th-filterable' : ''}`}
+                            } contract-th-filterable`}
                           >
                             <div className="contract-th-filter-wrap">
                               <span className="contract-th-label">{column.label}</span>
-                              {isFilterable ? (
-                                <ContractColumnHeaderFilter
-                                  columnKey={column.key}
-                                  options={contractColumnFilterOptionsMap[column.key] ?? []}
-                                  selected={contractColumnFilters[column.key] ?? []}
-                                  onApply={handleContractColumnFilterApply}
-                                  isOpen={openContractColumnFilterKey === column.key}
-                                  onOpenChange={setOpenContractColumnFilterKey}
-                                />
-                              ) : null}
+                              <ContractColumnHeaderFilter
+                                columnKey={column.key}
+                                options={contractColumnFilterOptionsMap[column.key] ?? []}
+                                selected={contractColumnFilters[column.key] ?? []}
+                                onApply={handleContractColumnFilterApply}
+                                isOpen={openContractColumnFilterKey === column.key}
+                                onOpenChange={setOpenContractColumnFilterKey}
+                              />
                             </div>
                           </th>
-                        )
-                      })}
+                        ))}
                     </tr>
                   </thead>
 
                   <tbody>
-                    {filteredContracts.length === 0 ? (
+                    {filteredData.length === 0 ? (
                       <tr>
                         <td colSpan={contractTableColSpan} className="empty-cell">
                           등록된 데이터가 없습니다.

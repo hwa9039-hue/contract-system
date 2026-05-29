@@ -2,15 +2,26 @@
 
 export const CONTRACT_FILTERABLE_COLUMN_KEYS = Object.freeze([
   'year',
+  'refNo',
+  'client',
+  'department',
   'contractMethod',
   'contractType',
+  'identNo',
+  'contractDate',
+  'dueDate',
+  'projectName',
+  'amount',
   'salesOwner',
   'pm',
+  'note',
 ])
 
 export const CONTRACT_COLUMN_FILTER_BLANK = '(비어 있음)'
 
 const HIDDEN_CONTRACT_FILTER_VALUES = Object.freeze(['전유찬', '전유찬 대리'])
+
+const NUMERIC_SORT_COLUMN_KEYS = new Set(['year', 'amount'])
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -24,6 +35,14 @@ function getYearLabel(value) {
   return match ? match[0] : s
 }
 
+function formatAmountForFilter(value) {
+  const raw = safeString(value).replace(/[^\d]/g, '')
+  if (!raw) return ''
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return safeString(value).trim()
+  return n.toLocaleString('ko-KR')
+}
+
 function compareKoreanText(a, b) {
   return safeString(a).localeCompare(safeString(b), 'ko-KR', {
     numeric: true,
@@ -31,19 +50,45 @@ function compareKoreanText(a, b) {
   })
 }
 
-/** 행·컬럼 → 필터 비교용 표시값 */
-export function getContractColumnFilterCellValue(item, columnKey) {
+function compareNumericColumnValues(a, b, columnKey) {
   if (columnKey === 'year') {
-    const label = getYearLabel(item?.year)
+    const ya = Number(getYearLabel(a)) || 0
+    const yb = Number(getYearLabel(b)) || 0
+    if (ya !== yb) return yb - ya
+    return compareKoreanText(a, b)
+  }
+  if (columnKey === 'amount') {
+    const na = Number(safeString(a).replace(/[^\d]/g, '')) || 0
+    const nb = Number(safeString(b).replace(/[^\d]/g, '')) || 0
+    if (na !== nb) return nb - na
+    return compareKoreanText(a, b)
+  }
+  return compareKoreanText(a, b)
+}
+
+/** 행·컬럼 → 필터 비교용 표시값 (테이블 셀 표시와 동일 기준) */
+export function getContractColumnFilterCellValue(item, columnKey) {
+  const row = item && typeof item === 'object' ? item : {}
+
+  if (columnKey === 'year') {
+    const label = getYearLabel(row.year)
     return label || CONTRACT_COLUMN_FILTER_BLANK
   }
-  const raw = safeString(item?.[columnKey]).trim()
+
+  if (columnKey === 'amount') {
+    const displayed = formatAmountForFilter(row.amount)
+    return displayed || CONTRACT_COLUMN_FILTER_BLANK
+  }
+
+  const raw = safeString(row[columnKey]).trim()
   return raw || CONTRACT_COLUMN_FILTER_BLANK
 }
 
 export function buildContractColumnFilterOptions(items, columnKey) {
+  const list = Array.isArray(items) ? items : []
   const values = new Set()
-  items.forEach((item) => {
+
+  list.forEach((item) => {
     const cell = getContractColumnFilterCellValue(item, columnKey)
     if (cell === CONTRACT_COLUMN_FILTER_BLANK) return
     if (HIDDEN_CONTRACT_FILTER_VALUES.includes(cell)) return
@@ -51,18 +96,15 @@ export function buildContractColumnFilterOptions(items, columnKey) {
   })
 
   let sorted = [...values]
-  if (columnKey === 'year') {
-    sorted.sort((a, b) => {
-      const ya = Number(a) || 0
-      const yb = Number(b) || 0
-      if (ya !== yb) return yb - ya
-      return compareKoreanText(a, b)
-    })
+  if (NUMERIC_SORT_COLUMN_KEYS.has(columnKey)) {
+    sorted.sort((a, b) => compareNumericColumnValues(a, b, columnKey))
   } else {
     sorted.sort(compareKoreanText)
   }
 
-  const hasBlank = items.some((item) => getContractColumnFilterCellValue(item, columnKey) === CONTRACT_COLUMN_FILTER_BLANK)
+  const hasBlank = list.some(
+    (item) => getContractColumnFilterCellValue(item, columnKey) === CONTRACT_COLUMN_FILTER_BLANK
+  )
   if (hasBlank) sorted = [CONTRACT_COLUMN_FILTER_BLANK, ...sorted]
   return sorted
 }
@@ -70,13 +112,18 @@ export function buildContractColumnFilterOptions(items, columnKey) {
 export function contractMatchesColumnFilters(item, columnFilters, excludeKey = null) {
   if (!columnFilters || typeof columnFilters !== 'object') return true
 
-  for (const key of CONTRACT_FILTERABLE_COLUMN_KEYS) {
-    if (excludeKey && key === excludeKey) continue
+  const activeKeys = Object.keys(columnFilters).filter((key) => {
+    if (excludeKey && key === excludeKey) return false
     const selected = columnFilters[key]
-    if (!Array.isArray(selected) || selected.length === 0) continue
+    return Array.isArray(selected) && selected.length > 0
+  })
+
+  for (const key of activeKeys) {
+    const selected = columnFilters[key]
     const cellValue = getContractColumnFilterCellValue(item, key)
     if (!selected.includes(cellValue)) return false
   }
+
   return true
 }
 
@@ -84,23 +131,14 @@ export function contractMatchesSearch(item, search) {
   const q = safeString(search).trim().toLowerCase()
   if (!q) return true
 
-  const text = [
-    item?.year,
-    item?.segment,
-    item?.refNo,
-    item?.contractNo,
-    item?.client,
-    item?.department,
-    item?.contractMethod,
-    item?.contractType,
-    item?.contractDate,
-    item?.dueDate,
-    item?.projectName,
-    item?.amount,
-    item?.salesOwner,
-    item?.pm,
-    item?.note,
-  ]
+  const row = item && typeof item === 'object' ? item : {}
+  const text = CONTRACT_FILTERABLE_COLUMN_KEYS.map((key) =>
+    getContractColumnFilterCellValue(row, key)
+  )
+    .concat([
+      row?.segment,
+      row?.contractNo,
+    ])
     .join(' ')
     .toLowerCase()
 
@@ -118,7 +156,7 @@ export function normalizeContractColumnFilterSelection(selected, options) {
 
 export function hasActiveContractColumnFilters(columnFilters) {
   if (!columnFilters || typeof columnFilters !== 'object') return false
-  return CONTRACT_FILTERABLE_COLUMN_KEYS.some(
+  return Object.keys(columnFilters).some(
     (key) => Array.isArray(columnFilters[key]) && columnFilters[key].length > 0
   )
 }
