@@ -3767,8 +3767,43 @@ textarea:focus-visible {
   font-weight: 700;
 }
 
-.dashboard-briefing-external-item .dashboard-briefing-due-title {
+.dashboard-briefing-external-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-briefing-external-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
   color: #1e293b;
+  line-height: 1.4;
+}
+
+.dashboard-briefing-external-label {
+  flex-shrink: 0;
+  color: #475569;
+  font-weight: 800;
+}
+
+.dashboard-briefing-external-content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-briefing-external-meta {
+  margin-top: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .dashboard-work-report-briefing-split {

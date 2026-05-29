@@ -12596,20 +12596,30 @@ function App() {
                                 .split(',')
                                 .map((s) => s.trim())
                                 .filter(Boolean)
+                              const managerLabel = managers.length ? managers.join(', ') : '—'
+                              const contentText = row.content || '—'
+                              const destinationText = safeString(row.destination).trim() || '—'
                               return (
                                 <li
                                   key={`ext-brief-${idx}`}
                                   className="dashboard-briefing-due-item dashboard-briefing-external-item"
                                 >
-                                  <div className="dashboard-briefing-due-title">
-                                    {managers.length ? managers.join(', ') : '—'}
+                                  <div className="dashboard-briefing-external-main">
+                                    <span className="dashboard-briefing-external-label">
+                                      [{managerLabel}]
+                                    </span>
+                                    <span
+                                      className="dashboard-briefing-external-content"
+                                      title={contentText !== '—' ? contentText : undefined}
+                                    >
+                                      {contentText}
+                                    </span>
                                   </div>
-                                  <p className="dashboard-briefing-due-sub">{row.content || '—'}</p>
                                   <div
-                                    className="dashboard-briefing-due-meta"
-                                    title={safeString(row.destination).trim() || undefined}
+                                    className="dashboard-briefing-due-meta dashboard-briefing-external-meta"
+                                    title={destinationText !== '—' ? destinationText : undefined}
                                   >
-                                    <span>{safeString(row.destination).trim() || '—'}</span>
+                                    <span>{destinationText}</span>
                                   </div>
                                 </li>
                               )
