@@ -158,7 +158,7 @@ export const materialsBoardApi = {
   create({ title, content, folder, folderId, files }) {
     const folderValue = resolveMaterialsBoardFolderValue({ folder, folderId })
     const formData = buildFormData({ title, content, folder: folderValue, folderId: folderValue, files })
-    const query = new URLSearchParams({ folder: folderValue })
+    const query = new URLSearchParams({ folder: folderValue, folderId: folderValue })
     return requestForm(`${MATERIALS_BOARD_API_PATH}?${query.toString()}`, {
       method: 'POST',
       formData,
@@ -168,7 +168,7 @@ export const materialsBoardApi = {
   update(id, { title, content, folder, folderId, files }) {
     const folderValue = resolveMaterialsBoardFolderValue({ folder, folderId })
     const formData = buildFormData({ title, content, folder: folderValue, folderId: folderValue, files })
-    const query = new URLSearchParams({ folder: folderValue })
+    const query = new URLSearchParams({ folder: folderValue, folderId: folderValue })
     return requestForm(
       `${MATERIALS_BOARD_API_PATH}/${encodeURIComponent(id)}?${query.toString()}`,
       {

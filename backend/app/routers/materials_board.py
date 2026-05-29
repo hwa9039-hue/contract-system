@@ -44,16 +44,17 @@ def _str(value) -> str:
 def _resolve_folder(request: Request, form) -> str:
     """
     folder 값 우선순위:
-    1) URL 쿼리 ?folder=xxx  (프론트가 항상 붙여 보냄 — 가장 신뢰)
-    2) multipart payload JSON  { folder: xxx }
+    1) URL 쿼리 ?folder=xxx / ?folderId=xxx  (프론트가 항상 붙여 보냄 — 가장 신뢰)
+    2) multipart payload JSON  { folder: xxx, folderId: xxx }
     3) multipart 텍스트 필드   folder / folderId
     4) 기본값 '기타'
     """
     # 1) 쿼리 파라미터
-    qf = _str(request.query_params.get("folder"))
-    if qf:
-        logger.info("folder from query: %r", qf)
-        return qf
+    for key in ("folder", "folderId"):
+        qf = _str(request.query_params.get(key))
+        if qf:
+            logger.info("folder from query %r: %r", key, qf)
+            return qf
 
     # 2) JSON payload 필드
     payload_raw = form.get("payload")
@@ -107,7 +108,7 @@ def materials_board_out(row: dict | None, folder_hint: str | None = None) -> dic
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Save failed")
     result = row_to_materials_board_post(row)
     # DB 반환값 우선 → folder_hint(저장 시 사용한 값) → 기본값
-    db_folder = _str(result.get("folder"))
+    db_folder = _str(row.get("folder"))
     result["folder"] = db_folder or _str(folder_hint) or DEFAULT_MATERIALS_BOARD_FOLDER
     return result
 

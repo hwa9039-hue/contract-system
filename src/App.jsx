@@ -5589,9 +5589,7 @@ function App() {
         : ''
     const formFolderId = safeString(materialsBoardRegisterFolderId).trim()
     const folderId =
-      (editingId
-        ? formFolderId || safeString(selectedFolderAtSave).trim()
-        : safeString(selectedFolderAtSave).trim() || formFolderId) || '기타'
+      formFolderId || safeString(selectedFolderAtSave).trim() || '기타'
 
     setMaterialsBoardSubmitting(true)
     try {
