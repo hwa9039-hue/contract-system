@@ -1533,6 +1533,120 @@ table[data-contract-table-row-key] tbody td.table-col-long .editable-text-cell-i
   width: min(920px, calc(100vw - 24px));
 }
 
+.sales-summary-header {
+  width: 56px;
+  min-width: 56px;
+}
+
+.sales-summary-cell {
+  width: 56px;
+  min-width: 56px;
+  vertical-align: middle;
+}
+
+.sales-summary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #3b82f6;
+  cursor: pointer;
+  line-height: 0;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.sales-summary-btn:hover {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.sales-summary-btn--has-content {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.sales-summary-modal {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(88vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+
+.sales-summary-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.sales-summary-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.sales-summary-modal-subtitle {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.sales-summary-modal-body {
+  padding: 16px 20px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.sales-summary-modal-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.sales-summary-textarea {
+  width: 100%;
+  min-height: 220px;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.55;
+  resize: vertical;
+  font-family: inherit;
+  color: #111827;
+  background: #fff;
+}
+
+.sales-summary-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.sales-summary-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px 18px;
+  border-top: 1px solid #e5e7eb;
+}
+
 .materials-board-register-modal {
   width: min(560px, calc(100vw - 40px));
 }

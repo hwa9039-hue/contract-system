@@ -266,9 +266,16 @@ def init_db():
                   source text not null default '',
                   "salesNote" text not null default '',
                   "actionRequest" text not null default '',
+                  summary text,
                   "createdAt" timestamptz not null default now(),
                   "updatedAt" timestamptz not null default now()
                 )
+                """
+            )
+            cursor.execute(
+                """
+                alter table sales_register_rows
+                  add column if not exists summary text
                 """
             )
             cursor.execute(

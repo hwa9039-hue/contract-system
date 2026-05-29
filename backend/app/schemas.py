@@ -162,6 +162,7 @@ class SalesRegisterBase(BaseModel):
     source: Optional[Any] = ""
     salesNote: Optional[Any] = ""
     actionRequest: Optional[Any] = ""
+    summary: Optional[Any] = None
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
 
@@ -184,6 +185,7 @@ class SalesRegisterPatch(BaseModel):
     source: Optional[Any] = None
     salesNote: Optional[Any] = None
     actionRequest: Optional[Any] = None
+    summary: Optional[Any] = None
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
 
@@ -651,6 +653,7 @@ def row_to_sales_register(row) -> dict:
         "source": to_response_value(row["source"]),
         "salesNote": to_response_value(row["salesNote"]),
         "actionRequest": to_response_value(row["actionRequest"]),
+        "summary": to_response_value(row.get("summary")),
         "createdAt": to_response_value(row["createdAt"]),
         "updatedAt": to_response_value(row["updatedAt"]),
     }
@@ -894,6 +897,7 @@ TABLE_COLUMN_MAPPINGS = {
         "source": "source",
         "salesNote": "salesNote",
         "actionRequest": "actionRequest",
+        "summary": "summary",
         "createdAt": "createdAt",
         "updatedAt": "updatedAt",
     },

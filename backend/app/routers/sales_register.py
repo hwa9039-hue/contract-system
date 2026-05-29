@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/sales-register", tags=["sales-register"])
 RETURNING_COLUMNS = """
   id, "registerDate", client, "projectName", "projectAmount",
   "projectCategory", "projectStage", manager, "projectType",
-  department, detail, source, "salesNote", "actionRequest",
+  department, detail, source, "salesNote", "actionRequest", summary,
   "createdAt", "updatedAt"
 """
 
