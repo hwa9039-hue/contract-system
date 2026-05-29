@@ -2696,6 +2696,31 @@ function handleWorkReportTextEditKeyDown(event, { multiline = true, onSave } = {
   }
 }
 
+/** 주요 확인사항 textarea: 포커스 시 빈 칸이면 첫 줄에 "• " 삽입 */
+function handleWorkReportChecklistTextareaFocus(event, currentValue, onContentChange) {
+  if (safeString(currentValue) !== '') return
+  onContentChange(WORK_REPORT_CHECKLIST_BULLET_PREFIX)
+  setWorkReportChecklistTextareaCursor(event.currentTarget, WORK_REPORT_CHECKLIST_BULLET_PREFIX.length)
+}
+
+/** 주요 확인사항 textarea: 빈 값에서 첫 글자 입력 시 "• " 접두사 자동 추가 */
+function applyWorkReportChecklistInputValue(prevValue, rawNext) {
+  const prev = safeString(prevValue)
+  const next = safeString(rawNext)
+  if (prev !== '' || next === '' || next.startsWith(WORK_REPORT_CHECKLIST_BULLET_PREFIX)) return next
+  return `${WORK_REPORT_CHECKLIST_BULLET_PREFIX}${next}`
+}
+
+/** 주요 확인사항 textarea: Enter 저장 + Shift+Enter 줄바꿈(•) 통합 */
+function handleWorkReportChecklistTextEditKeyDown(event, onContentChange, { onSave } = {}) {
+  if (event.key === 'Escape') return
+  if (event.key === 'Enter' && event.shiftKey) {
+    handleWorkReportChecklistTextareaKeyDown(event, onContentChange)
+    return
+  }
+  handleWorkReportTextEditKeyDown(event, { multiline: true, onSave })
+}
+
 function normalizeWorkReportDeadlineForDateInput(value) {
   const raw = safeString(value).trim()
   if (!raw) return ''
@@ -2703,9 +2728,12 @@ function normalizeWorkReportDeadlineForDateInput(value) {
   return parsed ? formatDateInput(parsed) : ''
 }
 
-/** 주요 확인사항 textarea: Enter 시 다음 줄 "• " / 빈 불릿 줄에서는 불릿 제거 후 일반 개행 */
-function handleWorkReportChecklistTextareaKeyDown(event, onContentChange) {
-  if (event.key !== 'Enter') return
+/** 주요 확인사항 textarea: Shift+Enter 시 다음 줄 "• " / 빈 불릿 줄에서는 불릿 제거 후 일반 개행 */
+function handleWorkReportChecklistTextareaKeyDown(event, onContentChange, { useShiftEnter = true } = {}) {
+  const isTrigger = useShiftEnter
+    ? event.key === 'Enter' && event.shiftKey
+    : event.key === 'Enter' && !event.shiftKey
+  if (!isTrigger) return
 
   const el = event.currentTarget
   const value = safeString(el.value)
@@ -9418,7 +9446,9 @@ function App() {
       contextTitle,
       draft: isDeadlineField
         ? normalizeWorkReportDeadlineForDateInput(entry?.[fieldKey])
-        : safeString(entry?.[fieldKey] ?? ''),
+        : checklistMode
+          ? resolveWorkReportChecklistContent(entry?.[fieldKey], !!entry?.id)
+          : safeString(entry?.[fieldKey] ?? ''),
       multiline: isDeadlineField ? false : multiline,
       inputMode: isDeadlineField ? 'date' : multiline ? 'multiline' : 'text',
       checklistMode,
@@ -11150,8 +11180,21 @@ function App() {
             className="work-report-section-textarea work-report-section-textarea-checklist-combined"
             value={ckEntry.content}
             placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
-            onChange={(e) => updateWorkReportBoardEntry(date, ckSection, 1, { content: e.target.value })}
-            onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
+            onChange={(e) =>
+              updateWorkReportBoardEntry(date, ckSection, 1, {
+                content: applyWorkReportChecklistInputValue(ckEntry.content, e.target.value),
+              })
+            }
+            onFocus={(e) =>
+              handleWorkReportChecklistTextareaFocus(e, ckEntry.content, (content) =>
+                updateWorkReportBoardEntry(date, ckSection, 1, { content })
+              )
+            }
+            onKeyDown={(e) =>
+              handleWorkReportChecklistTextEditKeyDown(e, (content) =>
+                updateWorkReportBoardEntry(date, ckSection, 1, { content })
+              )
+            }
           />
         </div>
       )
@@ -11231,12 +11274,23 @@ function App() {
             className="work-report-board-textarea work-report-board-textarea-checklist-combined"
             value={getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content}
             placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
-            onChange={(e) =>
+            onChange={(e) => {
+              const current = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content
               updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
-                content: e.target.value,
+                content: applyWorkReportChecklistInputValue(current, e.target.value),
               })
+            }}
+            onFocus={(e) => {
+              const current = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content
+              handleWorkReportChecklistTextareaFocus(e, current, (content) =>
+                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              )
+            }}
+            onKeyDown={(e) =>
+              handleWorkReportChecklistTextEditKeyDown(e, (content) =>
+                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              )
             }
-            onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
           />
         </div>
       </div>
@@ -11460,12 +11514,23 @@ function App() {
             className="work-report-board-textarea work-report-board-textarea-checklist-combined"
             value={getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content}
             placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
-            onChange={(e) =>
+            onChange={(e) => {
+              const current = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content
               updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
-                content: e.target.value,
+                content: applyWorkReportChecklistInputValue(current, e.target.value),
               })
+            }}
+            onFocus={(e) => {
+              const current = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content
+              handleWorkReportChecklistTextareaFocus(e, current, (content) =>
+                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              )
+            }}
+            onKeyDown={(e) =>
+              handleWorkReportChecklistTextEditKeyDown(e, (content) =>
+                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              )
             }
-            onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
           />
         </div>
       </div>
@@ -11780,12 +11845,23 @@ function App() {
             className="work-report-board-textarea work-report-board-textarea-checklist-combined"
             value={getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content}
             placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
-            onChange={(e) =>
+            onChange={(e) => {
+              const current = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content
               updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
-                content: e.target.value,
+                content: applyWorkReportChecklistInputValue(current, e.target.value),
               })
+            }}
+            onFocus={(e) => {
+              const current = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content
+              handleWorkReportChecklistTextareaFocus(e, current, (content) =>
+                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              )
+            }}
+            onKeyDown={(e) =>
+              handleWorkReportChecklistTextEditKeyDown(e, (content) =>
+                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              )
             }
-            onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
           />
         </div>
       </div>
@@ -15047,17 +15123,37 @@ function App() {
                   rows={10}
                   autoFocus
                   value={workReportTextModal.draft}
-                  onChange={(e) => setWorkReportTextModalDraft(e.target.value)}
+                  onChange={(e) => {
+                    const next = workReportTextModal.checklistMode
+                      ? applyWorkReportChecklistInputValue(workReportTextModal.draft, e.target.value)
+                      : e.target.value
+                    setWorkReportTextModalDraft(next)
+                  }}
+                  onFocus={(e) => {
+                    if (workReportTextModal.checklistMode) {
+                      handleWorkReportChecklistTextareaFocus(
+                        e,
+                        workReportTextModal.draft,
+                        setWorkReportTextModalDraft
+                      )
+                    }
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') {
                       e.preventDefault()
                       if (!workReportTextModal.saving) closeWorkReportTextModal()
                       return
                     }
-                    handleWorkReportTextEditKeyDown(e, {
-                      multiline: true,
-                      onSave: () => void saveWorkReportTextModal(),
-                    })
+                    if (workReportTextModal.checklistMode) {
+                      handleWorkReportChecklistTextEditKeyDown(e, setWorkReportTextModalDraft, {
+                        onSave: () => void saveWorkReportTextModal(),
+                      })
+                    } else {
+                      handleWorkReportTextEditKeyDown(e, {
+                        multiline: true,
+                        onSave: () => void saveWorkReportTextModal(),
+                      })
+                    }
                   }}
                   disabled={workReportTextModal.saving}
                 />
@@ -15150,8 +15246,11 @@ function App() {
                   )
                 }
                 onKeyDown={(e) =>
-                  handleWorkReportChecklistTextareaKeyDown(e, (next) =>
-                    setSalesRecordModal((prev) => (prev ? { ...prev, summary: next } : prev))
+                  handleWorkReportChecklistTextareaKeyDown(
+                    e,
+                    (next) =>
+                      setSalesRecordModal((prev) => (prev ? { ...prev, summary: next } : prev)),
+                    { useShiftEnter: false }
                   )
                 }
                 disabled={salesRecordModal.saving}
