@@ -4996,6 +4996,26 @@ textarea:focus-visible {
   line-height: 1.25;
 }
 
+/* 캘린더 상단 월 라벨과 범례 폰트 크기/정렬을 동일하게 고정 */
+.calendar-main-toolbar .calendar-legend {
+  align-items: center;
+}
+
+.calendar-main-toolbar .calendar-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.calendar-main-toolbar .calendar-legend-item .calendar-legend-dot {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
+
 /* 도트 공통 */
 .calendar-legend-dot {
   display: inline-block;
