@@ -10,6 +10,7 @@ import {
   buildContractColumnFilterOptions,
   contractMatchesColumnFilters,
   contractMatchesSearch,
+  filterContractRowsByActiveFilters,
   hasActiveContractColumnFilters,
 } from './contractColumnFilter.js'
 import * as XLSX from 'xlsx'
@@ -3267,6 +3268,45 @@ function sortContracts(items) {
   })
 }
 
+/** [2단계] 필터링된 계약 목록 → 연도·카테고리 아코디언 그룹 (원본 데이터 사용 금지) */
+function groupContractsForAccordion(filteredData) {
+  const groups = new Map()
+
+  filteredData.forEach((item) => {
+    const year = getYearLabel(item.year) || '미분류'
+    if (!groups.has(year)) groups.set(year, [])
+    groups.get(year).push(item)
+  })
+
+  return [...groups.entries()]
+    .sort(([a], [b]) => Number(b) - Number(a))
+    .map(([year, yearItems]) => {
+      const buckets = { signboard: [], maintenance: [] }
+      yearItems.forEach((item) => {
+        buckets[getContractCategorySubgroupId(item.contractType)].push(item)
+      })
+
+      const subGroups = CONTRACT_CATEGORY_SUBGROUPS.map(({ groupId, label }) => {
+        const items = [...buckets[groupId]].sort(compareContractsByContractDateDesc)
+        return {
+          groupId,
+          label,
+          items,
+          totalAmount: sumContractAmounts(items),
+        }
+      })
+
+      const items = subGroups.flatMap((g) => g.items)
+
+      return {
+        year,
+        subGroups,
+        items,
+        totalAmount: sumContractAmounts(items),
+      }
+    })
+}
+
 function getDateDiffFromToday(dateString) {
   const targetDate = parseDateOnly(dateString)
   if (!targetDate) return null
@@ -4515,7 +4555,7 @@ function App() {
   const [manualEvents, setManualEvents] = useState([])
   const [search, setSearch] = useState('')
   const [contractDateRange, setContractDateRange] = useState({ startDate: '', endDate: '' })
-  const [contractColumnFilters, setContractColumnFilters] = useState({})
+  const [activeFilters, setActiveFilters] = useState({})
   const [openContractColumnFilterKey, setOpenContractColumnFilterKey] = useState(null)
   const [contractRegisterModalOpen, setContractRegisterModalOpen] = useState(false)
   const [newRow, setNewRow] = useState({ ...emptyContract })
@@ -5084,8 +5124,10 @@ function App() {
     }
   }, [])
 
+  const contractsRawData = contracts
+
   const contractColumnFilterOptionsMap = useMemo(() => {
-    const basePool = contracts.filter(
+    const basePool = contractsRawData.filter(
       (item) =>
         contractMatchesSearch(item, search) &&
         matchesDateRangeFilter(
@@ -5098,44 +5140,50 @@ function App() {
     const map = {}
     CONTRACT_COLUMNS.forEach(({ key: columnKey }) => {
       const pool = basePool.filter((item) =>
-        contractMatchesColumnFilters(item, contractColumnFilters, columnKey)
+        contractMatchesColumnFilters(item, activeFilters, columnKey)
       )
       map[columnKey] = buildContractColumnFilterOptions(pool, columnKey)
     })
     return map
   }, [
-    contractColumnFilters,
+    activeFilters,
     contractDateRange.endDate,
     contractDateRange.startDate,
-    contracts,
+    contractsRawData,
     search,
   ])
 
-  const handleContractColumnFilterApply = useCallback((columnKey, selected) => {
-    setContractColumnFilters((prev) => {
+  const handleActiveFiltersApply = useCallback((columnKey, selected) => {
+    setActiveFilters((prev) => {
       const next = { ...prev }
-      if (!selected?.length) delete next[columnKey]
-      else next[columnKey] = selected
+      const values = Array.isArray(selected) ? [...selected] : []
+      if (values.length === 0) delete next[columnKey]
+      else next[columnKey] = values
       return next
     })
   }, [])
 
+  /** [1단계] rawData → 검색·기간·헤더 열 필터(AND) → filteredData */
   const filteredData = useMemo(() => {
-    return sortContracts(
-      contracts.filter((item) => {
-        const searchMatch = contractMatchesSearch(item, search)
-        const columnMatch = contractMatchesColumnFilters(item, contractColumnFilters)
-        const dateMatch = matchesDateRangeFilter(
+    const toolbarFiltered = contractsRawData.filter(
+      (item) =>
+        contractMatchesSearch(item, search) &&
+        matchesDateRangeFilter(
           item,
           'contractDate',
           contractDateRange.startDate,
           contractDateRange.endDate
         )
-
-        return searchMatch && columnMatch && dateMatch
-      })
     )
-  }, [contractColumnFilters, contractDateRange.endDate, contractDateRange.startDate, contracts, search])
+    const columnFiltered = filterContractRowsByActiveFilters(toolbarFiltered, activeFilters)
+    return sortContracts(columnFiltered)
+  }, [
+    activeFilters,
+    contractDateRange.endDate,
+    contractDateRange.startDate,
+    contractsRawData,
+    search,
+  ])
 
   const filteredTotalAmount = useMemo(
     () => filteredData.reduce((sum, item) => sum + parseAmount(item.amount), 0),
@@ -5145,15 +5193,20 @@ function App() {
   const isContractsTableDefaultFilterState = useMemo(
     () =>
       !safeString(search).trim() &&
-      !hasActiveContractColumnFilters(contractColumnFilters) &&
+      !hasActiveContractColumnFilters(activeFilters) &&
       !safeString(contractDateRange.startDate).trim() &&
       !safeString(contractDateRange.endDate).trim(),
     [
-      contractColumnFilters,
+      activeFilters,
       contractDateRange.endDate,
       contractDateRange.startDate,
       search,
     ]
+  )
+
+  const isContractTableFilterResultEmpty = useMemo(
+    () => contractsRawData.length > 0 && filteredData.length === 0,
+    [contractsRawData.length, filteredData.length]
   )
 
   const remainingSessionMinutes = useMemo(() => {
@@ -5164,49 +5217,17 @@ function App() {
   /** 자동 로그인(30일) 등 24시간 초과 세션 — 분 단위 타이머 대신 문구 표시 */
   const isLongLivedSession = remainingSessionMinutes > 24 * 60
 
-  const groupedContracts = useMemo(() => {
-    const groups = new Map()
-
-    filteredData.forEach((item) => {
-      const year = getYearLabel(item.year) || '미분류'
-      if (!groups.has(year)) groups.set(year, [])
-      groups.get(year).push(item)
-    })
-
-    return [...groups.entries()]
-      .sort(([a], [b]) => Number(b) - Number(a))
-      .map(([year, yearItems]) => {
-        const buckets = { signboard: [], maintenance: [] }
-        yearItems.forEach((item) => {
-          buckets[getContractCategorySubgroupId(item.contractType)].push(item)
-        })
-
-        const subGroups = CONTRACT_CATEGORY_SUBGROUPS.map(({ groupId, label }) => {
-          const items = [...buckets[groupId]].sort(compareContractsByContractDateDesc)
-          return {
-            groupId,
-            label,
-            items,
-            totalAmount: sumContractAmounts(items),
-          }
-        })
-
-        const items = subGroups.flatMap((g) => g.items)
-
-        return {
-          year,
-          subGroups,
-          items,
-          totalAmount: sumContractAmounts(items),
-        }
-      })
-  }, [filteredData])
+  /** [2단계] filteredData만 그룹화 — 원본 contracts 미사용 */
+  const groupedContracts = useMemo(
+    () => groupContractsForAccordion(filteredData),
+    [filteredData]
+  )
 
   const contractPageSummaryFocusYear = useMemo(() => {
-    const yearFilter = contractColumnFilters.year
+    const yearFilter = activeFilters.year
     if (Array.isArray(yearFilter) && yearFilter.length === 1) return yearFilter[0]
     return groupedContracts[0]?.year ?? ''
-  }, [contractColumnFilters.year, groupedContracts])
+  }, [activeFilters.year, groupedContracts])
 
   const contractPageSummaryRows = useMemo(() => {
     const y = contractPageSummaryFocusYear
@@ -12200,8 +12221,8 @@ function App() {
                               <ContractColumnHeaderFilter
                                 columnKey={column.key}
                                 options={contractColumnFilterOptionsMap[column.key] ?? []}
-                                selected={contractColumnFilters[column.key] ?? []}
-                                onApply={handleContractColumnFilterApply}
+                                selected={activeFilters[column.key] ?? []}
+                                onApply={handleActiveFiltersApply}
                                 isOpen={openContractColumnFilterKey === column.key}
                                 onOpenChange={setOpenContractColumnFilterKey}
                               />
@@ -12212,10 +12233,16 @@ function App() {
                   </thead>
 
                   <tbody>
-                    {filteredData.length === 0 ? (
+                    {contractsRawData.length === 0 ? (
                       <tr>
                         <td colSpan={contractTableColSpan} className="empty-cell">
                           등록된 데이터가 없습니다.
+                        </td>
+                      </tr>
+                    ) : isContractTableFilterResultEmpty ? (
+                      <tr>
+                        <td colSpan={contractTableColSpan} className="empty-cell">
+                          필터 조건에 맞는 데이터가 없습니다.
                         </td>
                       </tr>
                     ) : (

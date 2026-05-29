@@ -120,11 +120,19 @@ export function contractMatchesColumnFilters(item, columnFilters, excludeKey = n
 
   for (const key of activeKeys) {
     const selected = columnFilters[key]
+    if (!Array.isArray(selected) || selected.length === 0) continue
     const cellValue = getContractColumnFilterCellValue(item, key)
     if (!selected.includes(cellValue)) return false
   }
 
   return true
+}
+
+/** [1단계] 원본 행 배열에 헤더 열 필터(AND) 적용 */
+export function filterContractRowsByActiveFilters(rows, activeFilters) {
+  const list = Array.isArray(rows) ? rows : []
+  if (!hasActiveContractColumnFilters(activeFilters)) return list
+  return list.filter((item) => contractMatchesColumnFilters(item, activeFilters))
 }
 
 export function contractMatchesSearch(item, search) {
@@ -147,11 +155,16 @@ export function contractMatchesSearch(item, search) {
 
 export function normalizeContractColumnFilterSelection(selected, options) {
   if (!Array.isArray(selected) || selected.length === 0) return []
-  if (!Array.isArray(options) || options.length === 0) return selected
-  if (selected.length >= options.length && options.every((option) => selected.includes(option))) {
+  if (!Array.isArray(options) || options.length === 0) return [...selected]
+  // 옵션이 1개뿐일 때도 선택값은 유효한 필터로 유지 (전체 선택=해제는 2개 이상일 때만)
+  if (
+    options.length > 1 &&
+    selected.length >= options.length &&
+    options.every((option) => selected.includes(option))
+  ) {
     return []
   }
-  return selected
+  return [...selected]
 }
 
 export function hasActiveContractColumnFilters(columnFilters) {

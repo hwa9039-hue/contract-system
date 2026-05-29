@@ -15,11 +15,20 @@ export function ContractColumnHeaderFilter({
   const triggerRef = useRef(null)
   const [menuStyle, setMenuStyle] = useState({ top: 0, left: 0, minWidth: 0 })
   const [draft, setDraft] = useState(selected)
+  const draftRef = useRef(draft)
   const isActive = Array.isArray(selected) && selected.length > 0
 
   useEffect(() => {
-    if (isOpen) setDraft(selected)
-  }, [isOpen, selected])
+    draftRef.current = draft
+  }, [draft])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const initialDraft =
+      Array.isArray(selected) && selected.length > 0 ? [...selected] : [...options]
+    setDraft(initialDraft)
+    draftRef.current = initialDraft
+  }, [isOpen, options, selected])
 
   const updateMenuPosition = useCallback(() => {
     const el = triggerRef.current
@@ -46,7 +55,8 @@ export function ContractColumnHeaderFilter({
 
   const applyAndClose = useCallback(
     (nextDraft) => {
-      const normalized = normalizeContractColumnFilterSelection(nextDraft, options)
+      const draftValues = Array.isArray(nextDraft) ? [...nextDraft] : []
+      const normalized = normalizeContractColumnFilterSelection(draftValues, options)
       onApply(columnKey, normalized)
       onOpenChange(null)
     },
@@ -59,11 +69,11 @@ export function ContractColumnHeaderFilter({
       const target = e.target
       if (rootRef.current?.contains(target)) return
       if (target instanceof Element && target.closest('.contract-column-filter-menu--portal')) return
-      applyAndClose(draft)
+      applyAndClose(draftRef.current)
     }
     document.addEventListener('mousedown', onDocDown)
     return () => document.removeEventListener('mousedown', onDocDown)
-  }, [applyAndClose, draft, isOpen])
+  }, [applyAndClose, isOpen])
 
   const toggleOption = (option) => {
     setDraft((prev) => {
@@ -131,7 +141,7 @@ export function ContractColumnHeaderFilter({
               <button
                 type="button"
                 className="contract-column-filter-menu-btn contract-column-filter-menu-btn--primary"
-                onClick={() => applyAndClose(draft)}
+                onClick={() => applyAndClose(draftRef.current)}
               >
                 적용
               </button>
