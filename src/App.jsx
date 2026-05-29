@@ -2855,13 +2855,28 @@ function getDashboardWeekWorkSectionLabel(section) {
   return ''
 }
 
-/** 대시보드 금주 업무 말머리: [카테고리 - 담당자] (담당자 미입력 시 미지정) */
+const DASHBOARD_WEEK_WORK_ASSIGNEE_ORDER = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범']
+
+/** 대시보드 금주 업무 말머리: [카테고리 - 담당자] (담당자 미입력 시 미지정, 영업지원은 카테고리만) */
 function formatDashboardWeekWorkPrefixLabel(sectionLabel, assigneeRaw) {
   const category = safeString(sectionLabel).trim()
   if (!category) return ''
+  if (category === '영업지원') return '[영업지원]'
   const assignee = safeString(assigneeRaw).trim()
   if (assignee) return `[${category} - ${assignee}]`
   return `[${category} - 미지정]`
+}
+
+function getDashboardWeekWorkAssigneeSortRank(assigneeRaw) {
+  const assignee = safeString(assigneeRaw).trim()
+  const index = DASHBOARD_WEEK_WORK_ASSIGNEE_ORDER.indexOf(assignee)
+  return index === -1 ? DASHBOARD_WEEK_WORK_ASSIGNEE_ORDER.length : index
+}
+
+function sortDashboardWeekWorkRowsByAssignee(rows) {
+  return [...rows].sort(
+    (a, b) => getDashboardWeekWorkAssigneeSortRank(a.assignee) - getDashboardWeekWorkAssigneeSortRank(b.assignee)
+  )
 }
 
 function formatDashboardBriefDeadlineLabel(deadlineYmd) {
@@ -2945,7 +2960,11 @@ function collectDashboardWeekWorkRows(workReportRows, workReportDrafts, weekAnch
     [WORK_REPORT_SUPPORT_ITEM_COUNT, WORK_REPORT_SUPPORT_ITEM_COUNT]
   )
 
-  return [...diRows, ...roadRows, ...supportRows]
+  return [
+    ...sortDashboardWeekWorkRowsByAssignee(diRows),
+    ...sortDashboardWeekWorkRowsByAssignee(roadRows),
+    ...supportRows,
+  ]
 }
 
 /** 대시보드 브리핑: 주요 확인사항 텍스트 → 표시용 줄 목록 */
