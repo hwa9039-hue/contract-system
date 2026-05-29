@@ -101,7 +101,6 @@ const DOCUMENT_COLUMNS = [
   { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 260 },
 ]
 
-const SALES_CATEGORY_OPTIONS = ['DI사업', '도로사업']
 const SALES_STAGE_OPTIONS = [
   '대기',
   '대응중',
@@ -155,16 +154,13 @@ const SALES_COLUMNS = [
   },
   { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 108 },
   { key: 'client', label: '발주처', align: 'center', type: 'text', width: 170 },
-  { key: 'projectName', label: '프로젝트', align: 'left', type: 'textarea', width: 250 },
+  { key: 'projectName', label: '사업명', align: 'left', type: 'textarea', width: 300 },
   { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 138 },
-  { key: 'projectCategory', label: '사업구분', align: 'center', type: 'select', options: SALES_CATEGORY_OPTIONS, width: 102 },
   { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_REGISTER_MANAGER_OPTIONS, width: 112 },
   { key: 'projectStage', label: '상태', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 102 },
   { key: 'department', label: '담당부서', align: 'center', type: 'text', width: 130 },
-  { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 310 },
+  { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 360 },
   { key: 'source', label: '출처', align: 'center', type: 'text', width: 140 },
-  { key: 'salesNote', label: '영업매칭', align: 'left', type: 'textarea', width: 250 },
-  { key: 'actionRequest', label: '영업 요청사항', align: 'left', type: 'textarea', width: 270 },
 ]
 
 const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
@@ -4333,7 +4329,6 @@ function App() {
   const [salesSearch, setSalesSearch] = useState('')
   const [salesDateRange, setSalesDateRange] = useState({ startDate: '', endDate: '' })
   const [salesFilters, setSalesFilters] = useState({
-    projectCategory: '',
     manager: '',
     projectStage: '',
   })
@@ -5812,19 +5807,16 @@ function App() {
         return false
       }
       if (row.isDraft) return true
-      const categoryMatch =
-        !salesFilters.projectCategory || row.projectCategory === salesFilters.projectCategory
       const managerMatch = !salesFilters.manager || row.manager === salesFilters.manager
       const stageMatch =
         !salesFilters.projectStage ||
         normalizeSalesProjectStage(row.projectStage) === salesFilters.projectStage
-      return categoryMatch && managerMatch && stageMatch
+      return managerMatch && stageMatch
     })
   }, [
     salesDateRange.endDate,
     salesDateRange.startDate,
     salesFilters.manager,
-    salesFilters.projectCategory,
     salesFilters.projectStage,
     salesRows,
     salesSearch,
@@ -7179,16 +7171,13 @@ function App() {
     const rows = filteredSalesRows.filter((row) => !row.isDraft).map((row) => ({
       등록일: row.registerDate,
       발주처: row.client,
-      프로젝트: row.projectName,
+      사업명: row.projectName,
       사업금액: formatAmountDisplay(row.projectAmount),
-      사업구분: row.projectCategory,
       담당자: row.manager,
       상태: normalizeSalesProjectStage(row.projectStage),
       담당부서: row.department,
       세부내용: row.detail,
       출처: row.source,
-      영업매칭: row.salesNote,
-      '영업 요청사항': row.actionRequest,
     }))
 
     const worksheet = XLSX.utils.json_to_sheet(rows)
@@ -12331,21 +12320,6 @@ function App() {
               </button>
               <select
                 className="contract-filter-select"
-                value={salesFilters.projectCategory}
-                onChange={(e) =>
-                  setSalesFilters((prev) => ({ ...prev, projectCategory: e.target.value }))
-                }
-                style={{ width: 132 }}
-              >
-                <option value="">사업구분</option>
-                {SALES_CATEGORY_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="contract-filter-select"
                 value={salesFilters.manager}
                 onChange={(e) => setSalesFilters((prev) => ({ ...prev, manager: e.target.value }))}
                 style={{ width: 150 }}
@@ -12401,7 +12375,22 @@ function App() {
             <div className="contract-table-panel">
               <ImportanceLegend />
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table ledger-table-ui table-layout-auto table-w-full-min">
+                <table className="contract-table excel-table registry-table sales-registry-table ledger-table-ui table-w-full-min">
+                  <colgroup>
+                    <col className="sales-registry-check-col" />
+                    {SALES_COLUMNS.flatMap((column) => {
+                      const cols = [
+                        <col
+                          key={column.key}
+                          style={{ width: column.width, minWidth: column.width }}
+                        />,
+                      ]
+                      if (column.key === 'importance') {
+                        cols.push(<col key="sales-record" className="sales-record-col" />)
+                      }
+                      return cols
+                    })}
+                  </colgroup>
                   <thead>
                     <tr>
                       <th className="th-align-center registry-check-header table-col-tight">

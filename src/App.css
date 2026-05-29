@@ -5439,6 +5439,41 @@ textarea:focus-visible {
   min-width: max-content;
 }
 
+.sales-registry-table {
+  table-layout: fixed !important;
+  width: 1780px;
+  min-width: 1780px;
+}
+
+.sales-registry-table.excel-table thead th,
+.sales-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.sales-registry-table.excel-table th.table-col-tight,
+.sales-registry-table.excel-table td.table-col-tight {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+}
+
+.sales-registry-table col.sales-registry-check-col,
+.sales-registry-table .registry-check-header,
+.sales-registry-table .registry-check-cell {
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+}
+
+.sales-registry-table col.sales-record-col,
+.sales-registry-table .sales-record-header,
+.sales-registry-table .sales-record-cell {
+  width: 56px;
+  min-width: 56px;
+  max-width: 56px;
+}
+
 .registry-action-header,
 .registry-action-cell {
   width: 88px;
