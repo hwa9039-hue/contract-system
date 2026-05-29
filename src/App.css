@@ -1415,8 +1415,8 @@ table[data-contract-table-row-key] tbody td.table-col-long .editable-text-cell-i
   max-width: none;
   overflow: visible;
   text-overflow: clip;
-  font-size: 20px;
-  font-weight: 800;
+  font-size: 17px;
+  font-weight: 700;
   color: #1f2937;
   line-height: 1.2;
 }
@@ -2606,7 +2606,7 @@ table[data-contract-table-row-key] tbody td.table-col-long .editable-text-cell-i
   .calendar-main-toolbar .calendar-month-title {
     max-width: none;
     min-width: 8rem;
-    font-size: 18px;
+    font-size: 17px;
   }
 
   .calendar-input-date {
@@ -4209,7 +4209,8 @@ textarea:focus-visible {
   min-width: 0;
   max-width: 240px;
   color: var(--ink);
-  font-size: 22px;
+  font-size: 17px;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4919,10 +4920,16 @@ textarea:focus-visible {
 .month-nav-btn {
   width: 38px;
   height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  font-size: 14px;
 }
 
 .calendar-month-title {
-  font-size: 21px;
+  font-size: 17px;
   font-weight: 700;
 }
 
@@ -4981,8 +4988,8 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 700;
   color: #374151;
   white-space: nowrap;
   user-select: none;
