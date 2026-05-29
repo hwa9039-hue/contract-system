@@ -26,6 +26,12 @@ import {
   normalizeExcludedColumnFilterSelection,
 } from './excludedColumnFilter.js'
 import {
+  buildDocumentColumnFilterOptions,
+  documentMatchesColumnFilters,
+  filterDocumentRowsByActiveFilters,
+  normalizeDocumentColumnFilterSelection,
+} from './documentColumnFilter.js'
+import {
   buildSalesColumnFilterOptions,
   filterSalesRowsByActiveFilters,
   normalizeSalesColumnFilterSelection,
@@ -4517,6 +4523,8 @@ function App() {
   const [isSavingDocuments, setIsSavingDocuments] = useState(false)
   const [documentSearch, setDocumentSearch] = useState('')
   const [documentDateRange, setDocumentDateRange] = useState({ startDate: '', endDate: '' })
+  const [documentActiveFilters, setDocumentActiveFilters] = useState({})
+  const [openDocumentColumnFilterKey, setOpenDocumentColumnFilterKey] = useState(null)
   const [selectedSalesIds, setSelectedSalesIds] = useState([])
   const [editingSalesIds, setEditingSalesIds] = useState([])
   const [salesEditSnapshots, setSalesEditSnapshots] = useState({})
@@ -5937,17 +5945,70 @@ function App() {
 
   const contractTableColSpan = isAdmin ? CONTRACT_COLUMNS.length + 2 : CONTRACT_COLUMNS.length + 1
 
-  const filteredDocuments = useMemo(() => {
-    return documents.filter((row) => {
-      if (!matchesRegistrySearch(row, DOCUMENT_COLUMNS, documentSearch)) return false
-      return matchesDateRangeFilter(
-        row,
-        'docDate',
-        documentDateRange.startDate,
-        documentDateRange.endDate
+  const documentsRawData = documents
+
+  const documentColumnFilterOptionsMap = useMemo(() => {
+    const basePool = documentsRawData.filter(
+      (row) =>
+        matchesRegistrySearch(row, DOCUMENT_COLUMNS, documentSearch) &&
+        matchesDateRangeFilter(
+          row,
+          'docDate',
+          documentDateRange.startDate,
+          documentDateRange.endDate
+        )
+    )
+    const map = {}
+    DOCUMENT_COLUMNS.forEach(({ key: columnKey }) => {
+      const pool = basePool.filter((row) =>
+        row.isDraft || documentMatchesColumnFilters(row, documentActiveFilters, columnKey)
       )
+      map[columnKey] = buildDocumentColumnFilterOptions(pool, columnKey)
     })
-  }, [documentDateRange.endDate, documentDateRange.startDate, documentSearch, documents])
+    return map
+  }, [
+    documentActiveFilters,
+    documentDateRange.endDate,
+    documentDateRange.startDate,
+    documentsRawData,
+    documentSearch,
+  ])
+
+  const handleDocumentActiveFiltersApply = useCallback((columnKey, selected) => {
+    setDocumentActiveFilters((prev) => {
+      const next = { ...prev }
+      const values = Array.isArray(selected) ? [...selected] : []
+      if (values.length === 0) delete next[columnKey]
+      else next[columnKey] = values
+      return next
+    })
+  }, [])
+
+  /** [1단계] rawData → 검색·기간·헤더 열 필터(AND) → filteredData */
+  const filteredDocuments = useMemo(() => {
+    const toolbarFiltered = documentsRawData.filter(
+      (row) =>
+        matchesRegistrySearch(row, DOCUMENT_COLUMNS, documentSearch) &&
+        matchesDateRangeFilter(
+          row,
+          'docDate',
+          documentDateRange.startDate,
+          documentDateRange.endDate
+        )
+    )
+    return filterDocumentRowsByActiveFilters(toolbarFiltered, documentActiveFilters)
+  }, [
+    documentActiveFilters,
+    documentDateRange.endDate,
+    documentDateRange.startDate,
+    documentsRawData,
+    documentSearch,
+  ])
+
+  const isDocumentTableFilterResultEmpty = useMemo(
+    () => documentsRawData.length > 0 && filteredDocuments.length === 0,
+    [documentsRawData.length, filteredDocuments.length]
+  )
 
   const salesRawData = salesRows
 
@@ -6160,6 +6221,7 @@ function App() {
     [filteredExcludedRows]
   )
 
+  /** [2단계] filteredData만 그룹화 — 원본 documents 미사용 */
   const groupedDocumentRows = useMemo(
     () => groupRegistryRowsByYear(filteredDocuments, 'docDate'),
     [filteredDocuments]
@@ -13107,15 +13169,46 @@ function App() {
                       {DOCUMENT_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''}`}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
+                          style={column.widthClass ? { minWidth: 'max(3rem, 100%)' } : undefined}
                         >
-                          {column.label}
+                          <div className="contract-th-filter-wrap">
+                            <span className="contract-th-label">{column.label}</span>
+                            <ContractColumnHeaderFilter
+                              columnKey={column.key}
+                              options={documentColumnFilterOptionsMap[column.key] ?? []}
+                              selected={documentActiveFilters[column.key] ?? []}
+                              onApply={handleDocumentActiveFiltersApply}
+                              isOpen={openDocumentColumnFilterKey === column.key}
+                              onOpenChange={setOpenDocumentColumnFilterKey}
+                              normalizeSelection={normalizeDocumentColumnFilterSelection}
+                            />
+                          </div>
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {renderGroupedRegistryRows({
+                    {documentsRawData.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={DOCUMENT_COLUMNS.length + 1}
+                          className="empty-cell"
+                        >
+                          등록된 데이터가 없습니다.
+                        </td>
+                      </tr>
+                    ) : isDocumentTableFilterResultEmpty ? (
+                      <tr>
+                        <td
+                          colSpan={DOCUMENT_COLUMNS.length + 1}
+                          className="empty-cell"
+                        >
+                          필터 조건에 맞는 데이터가 없습니다.
+                        </td>
+                      </tr>
+                    ) : (
+                    renderGroupedRegistryRows({
                       groups: groupedDocumentRows,
                       columns: DOCUMENT_COLUMNS,
                       emptyMessage: '등록된 데이터가 없습니다.',
@@ -13135,7 +13228,8 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('documents', rowId, columnKey, value, row),
-                    })}
+                    })
+                    )}
                   </tbody>
                 </table>
               </div>
