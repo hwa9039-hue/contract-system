@@ -2682,6 +2682,27 @@ function setWorkReportChecklistTextareaCursor(el, cursor) {
   })
 }
 
+/** 주간업무보고서 텍스트 편집: Enter 저장, textarea는 Shift+Enter만 줄바꿈 */
+function handleWorkReportTextEditKeyDown(event, { multiline = true, onSave } = {}) {
+  if (event.key === 'Escape') return
+  if (multiline && event.key === 'Enter' && event.shiftKey) return
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault()
+    if (typeof onSave === 'function') {
+      onSave()
+      return
+    }
+    event.currentTarget?.blur?.()
+  }
+}
+
+function normalizeWorkReportDeadlineForDateInput(value) {
+  const raw = safeString(value).trim()
+  if (!raw) return ''
+  const parsed = parseDateOnly(raw)
+  return parsed ? formatDateInput(parsed) : ''
+}
+
 /** 주요 확인사항 textarea: Enter 시 다음 줄 "• " / 빈 불릿 줄에서는 불릿 제거 후 일반 개행 */
 function handleWorkReportChecklistTextareaKeyDown(event, onContentChange) {
   if (event.key !== 'Enter') return
@@ -9239,6 +9260,7 @@ function App() {
     checklistMode = false,
   }) => {
     const entry = getWorkReportBoardEntry(date, section, orderIndex)
+    const isDeadlineField = fieldKey === 'deadline'
     setWorkReportTextModal({
       date,
       section,
@@ -9246,8 +9268,11 @@ function App() {
       fieldKey,
       fieldLabel,
       contextTitle,
-      draft: safeString(entry?.[fieldKey] ?? ''),
-      multiline,
+      draft: isDeadlineField
+        ? normalizeWorkReportDeadlineForDateInput(entry?.[fieldKey])
+        : safeString(entry?.[fieldKey] ?? ''),
+      multiline: isDeadlineField ? false : multiline,
+      inputMode: isDeadlineField ? 'date' : multiline ? 'multiline' : 'text',
       checklistMode,
       saving: false,
     })
@@ -9258,7 +9283,11 @@ function App() {
     if (!snap || snap.saving) return
 
     setWorkReportTextModal((prev) => (prev ? { ...prev, saving: true } : prev))
-    updateWorkReportBoardEntry(snap.date, snap.section, snap.orderIndex, { [snap.fieldKey]: snap.draft })
+    const draftValue =
+      snap.fieldKey === 'deadline'
+        ? normalizeWorkReportDeadlineForDateInput(snap.draft)
+        : snap.draft
+    updateWorkReportBoardEntry(snap.date, snap.section, snap.orderIndex, { [snap.fieldKey]: draftValue })
     await saveWorkReportBoardEntry(snap.date, snap.section, snap.orderIndex)
     closeWorkReportTextModal()
   }
@@ -10972,11 +11001,7 @@ function App() {
             value={ckEntry.content}
             placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
             onChange={(e) => updateWorkReportBoardEntry(date, ckSection, 1, { content: e.target.value })}
-            onKeyDown={(e) =>
-              handleWorkReportChecklistTextareaKeyDown(e, (content) =>
-                updateWorkReportBoardEntry(date, ckSection, 1, { content })
-              )
-            }
+            onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
           />
         </div>
       )
@@ -11019,7 +11044,12 @@ function App() {
               if (e.key === 'Escape') {
                 e.preventDefault()
                 cancelWorkReportEdit()
+                return
               }
+              handleWorkReportTextEditKeyDown(e, {
+                multiline: true,
+                onSave: () => commitWorkReportEdit(),
+              })
             }}
           />
         </div>
@@ -11056,11 +11086,7 @@ function App() {
                 content: e.target.value,
               })
             }
-            onKeyDown={(e) =>
-              handleWorkReportChecklistTextareaKeyDown(e, (content) =>
-                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
-              )
-            }
+            onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
           />
         </div>
       </div>
@@ -11115,6 +11141,7 @@ function App() {
                 onChange={(e) =>
                   updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
                 }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
             </div>
           )
@@ -11169,6 +11196,7 @@ function App() {
                     content: e.target.value,
                   })
                 }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
               <textarea
                 className="work-report-board-textarea work-report-board-textarea-destination"
@@ -11179,6 +11207,7 @@ function App() {
                     destination: e.target.value,
                   })
                 }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
             </div>
           )
@@ -11204,6 +11233,7 @@ function App() {
             value={entry.content}
             placeholder="내용 입력"
             onChange={(e) => updateWorkReportBoardEntry(date, section, 1, { content: e.target.value })}
+            onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
           />
         </div>
       </div>
@@ -11242,6 +11272,7 @@ function App() {
                 onChange={(e) =>
                   updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
                 }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
             </div>
           )
@@ -11267,11 +11298,7 @@ function App() {
                 content: e.target.value,
               })
             }
-            onKeyDown={(e) =>
-              handleWorkReportChecklistTextareaKeyDown(e, (content) =>
-                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
-              )
-            }
+            onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
           />
         </div>
       </div>
@@ -11324,6 +11351,7 @@ function App() {
                     content: e.target.value,
                   })
                 }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
               <textarea
                 className="work-report-board-textarea work-report-board-textarea-destination"
@@ -11334,6 +11362,7 @@ function App() {
                     destination: e.target.value,
                   })
                 }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
             </div>
           )
@@ -11379,6 +11408,7 @@ function App() {
                     content: e.target.value,
                   })
                 }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
             </div>
           )
@@ -11409,6 +11439,7 @@ function App() {
                 onChange={(e) =>
                   updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
                 }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
             </div>
           )
@@ -11464,6 +11495,7 @@ function App() {
                     content: e.target.value,
                   })
                 }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
             </div>
           )
@@ -11494,6 +11526,7 @@ function App() {
                 onChange={(e) =>
                   updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
                 }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
             </div>
           )
@@ -11585,11 +11618,7 @@ function App() {
                 content: e.target.value,
               })
             }
-            onKeyDown={(e) =>
-              handleWorkReportChecklistTextareaKeyDown(e, (content) =>
-                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
-              )
-            }
+            onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
           />
         </div>
       </div>
@@ -11640,6 +11669,7 @@ function App() {
                     content: e.target.value,
                   })
                 }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
               <textarea
                 className="work-report-board-textarea work-report-board-textarea-destination"
@@ -11650,6 +11680,7 @@ function App() {
                     destination: e.target.value,
                   })
                 }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
             </div>
           )
@@ -11693,6 +11724,7 @@ function App() {
                     content: e.target.value,
                   })
                 }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
             </div>
           )
@@ -11723,6 +11755,7 @@ function App() {
                 onChange={(e) =>
                   updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
                 }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
             </div>
           )
@@ -11775,17 +11808,16 @@ function App() {
       .map((item) => item.trim())
       .filter(Boolean)
 
-  const handleWorkReportInlineKeyDown = (e, { multiline = false } = {}) => {
+  const handleWorkReportInlineKeyDown = (e, { multiline = false, onSave } = {}) => {
     if (e.key === 'Escape') {
       e.preventDefault()
       cancelWorkReportEdit()
       return
     }
-
-    if (e.key === 'Enter' && (!multiline || e.ctrlKey)) {
-      e.preventDefault()
-      e.currentTarget.blur()
-    }
+    handleWorkReportTextEditKeyDown(e, {
+      multiline,
+      onSave: onSave ?? (() => e.currentTarget.blur()),
+    })
   }
 
   const renderWorkReportManagerBadges = (value) => {
@@ -14784,7 +14816,31 @@ function App() {
               </button>
             </div>
             <div className="sales-record-modal-body">
-              {workReportTextModal.multiline ? (
+              {workReportTextModal.inputMode === 'date' ? (
+                <input
+                  type="date"
+                  className="sales-long-text-textarea work-report-text-modal-input work-report-text-modal-date-input"
+                  autoFocus
+                  value={workReportTextModal.draft}
+                  onChange={(e) =>
+                    setWorkReportTextModal((prev) =>
+                      prev ? { ...prev, draft: e.target.value } : prev
+                    )
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      e.preventDefault()
+                      if (!workReportTextModal.saving) closeWorkReportTextModal()
+                      return
+                    }
+                    handleWorkReportTextEditKeyDown(e, {
+                      multiline: false,
+                      onSave: () => void saveWorkReportTextModal(),
+                    })
+                  }}
+                  disabled={workReportTextModal.saving}
+                />
+              ) : workReportTextModal.multiline ? (
                 <textarea
                   className="sales-long-text-textarea"
                   rows={10}
@@ -14796,20 +14852,15 @@ function App() {
                     )
                   }
                   onKeyDown={(e) => {
-                    if (workReportTextModal.checklistMode) {
-                      handleWorkReportChecklistTextareaKeyDown(e, (content) =>
-                        setWorkReportTextModal((prev) => (prev ? { ...prev, draft: content } : prev))
-                      )
-                    }
                     if (e.key === 'Escape') {
                       e.preventDefault()
                       if (!workReportTextModal.saving) closeWorkReportTextModal()
                       return
                     }
-                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                      e.preventDefault()
-                      void saveWorkReportTextModal()
-                    }
+                    handleWorkReportTextEditKeyDown(e, {
+                      multiline: true,
+                      onSave: () => void saveWorkReportTextModal(),
+                    })
                   }}
                   disabled={workReportTextModal.saving}
                 />
@@ -14830,16 +14881,20 @@ function App() {
                       if (!workReportTextModal.saving) closeWorkReportTextModal()
                       return
                     }
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      void saveWorkReportTextModal()
-                    }
+                    handleWorkReportTextEditKeyDown(e, {
+                      multiline: false,
+                      onSave: () => void saveWorkReportTextModal(),
+                    })
                   }}
                   disabled={workReportTextModal.saving}
                 />
               )}
               <p className="contract-edit-modal-hint">
-                {workReportTextModal.multiline ? 'Ctrl+Enter' : 'Enter'}로 저장할 수 있습니다.
+                {workReportTextModal.inputMode === 'date'
+                  ? 'Enter로 저장할 수 있습니다.'
+                  : workReportTextModal.multiline
+                    ? 'Enter로 저장 · Shift+Enter로 줄바꿈'
+                    : 'Enter로 저장할 수 있습니다.'}
               </p>
             </div>
             <div className="sales-record-modal-actions">

@@ -3336,14 +3336,17 @@ textarea:focus-visible {
   max-height: none;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
   margin-bottom: 16px;
 }
 
 .main-area > section.stat-card .work-report-week-board-area .work-report-week-grid {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-x: auto;
+  overflow-x: visible;
   overflow-y: auto;
 }
 
@@ -7008,14 +7011,17 @@ textarea:focus-visible {
 
 .work-report-week-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(180px, 1fr));
+  grid-template-columns: repeat(7, minmax(400px, 400px));
   gap: 10px;
-  overflow-x: auto;
+  width: max-content;
+  min-width: 100%;
+  align-items: start;
   padding-bottom: 4px;
 }
 
 .work-report-day-board {
-  min-width: 180px;
+  min-width: 400px;
+  flex-shrink: 0;
   border: 1px solid #d9dee6;
   border-radius: 10px;
   background: #f5f6f8;
@@ -7188,14 +7194,17 @@ textarea:focus-visible {
 
 .work-report-week-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(400px, 1fr));
+  grid-template-columns: repeat(7, minmax(400px, 400px));
   gap: 10px;
-  overflow-x: auto;
+  width: max-content;
+  min-width: 100%;
   align-items: start;
 }
 
 .work-report-day-board-dense {
   min-width: 400px;
+  width: 400px;
+  flex-shrink: 0;
   background: #f8fafc;
 }
 
@@ -7414,6 +7423,8 @@ textarea:focus-visible {
 
 .work-report-day-board-dense {
   min-width: 400px;
+  width: 400px;
+  flex-shrink: 0;
 }
 
 .work-report-board-header-row-no-index,
@@ -7575,7 +7586,7 @@ textarea:focus-visible {
 .work-report-report-line-button,
 .work-report-report-line-edit {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) 84px;
+  grid-template-columns: 24px minmax(0, 1fr) 120px;
   align-items: start;
   gap: 8px;
   width: 100%;
@@ -7680,7 +7691,7 @@ textarea:focus-visible {
 .work-report-report-table-head-journal,
 .work-report-report-table-row-journal {
   display: grid;
-  grid-template-columns: 32px minmax(0, 0.7fr) minmax(0, 1fr) 84px;
+  grid-template-columns: 32px minmax(0, 0.7fr) minmax(0, 1fr) 120px;
   width: 100%;
 }
 
@@ -8078,16 +8089,18 @@ textarea:focus-visible {
 }
 
 .work-report-report-cell--deadline {
-  flex: 0 0 84px;
-  width: 84px;
-  max-width: 84px;
+  flex: 0 0 120px;
+  width: 120px;
+  max-width: 120px;
+  min-width: 120px;
 }
 
 .work-report-report-deadline-cell,
 .work-report-report-line-deadline {
-  flex: 0 0 84px;
-  width: 84px;
-  max-width: 84px;
+  flex: 0 0 120px;
+  width: 120px;
+  max-width: 120px;
+  min-width: 120px;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -8101,10 +8114,10 @@ textarea:focus-visible {
 }
 
 .work-report-report-line-edit .work-report-report-line-deadline {
-  flex: 0 0 84px;
-  width: 84px;
-  max-width: 84px;
-  min-width: 84px;
+  flex: 0 0 120px;
+  width: 120px;
+  max-width: 120px;
+  min-width: 120px;
   padding: 2px 4px;
 }
 
@@ -8112,6 +8125,11 @@ textarea:focus-visible {
   height: auto;
   min-height: 44px;
   resize: none;
+}
+
+.work-report-text-modal-date-input {
+  max-width: 100%;
+  font-size: 14px;
 }
 
 .work-report-report-support-block {
