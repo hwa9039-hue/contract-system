@@ -4057,6 +4057,14 @@ function isWorkReportJournalSection(section) {
   return WORK_REPORT_JOURNAL_SECTIONS.has(safeString(section).trim())
 }
 
+function isWorkReportManagedJournalSection(section) {
+  const sectionNorm = safeString(section).trim()
+  return (
+    sectionNorm === WORK_REPORT_SECTION_KEYS.di ||
+    sectionNorm === WORK_REPORT_SECTION_KEYS.road
+  )
+}
+
 function parseExternalScheduleContent(value) {
   const raw = safeString(value).trim()
   if (!raw) {
@@ -4328,9 +4336,13 @@ function isWorkReportRowEmpty(row) {
   }
 
   if (isWorkReportJournalSection(normalizedSection)) {
-    return (
-      safeString(row.content).trim() === '' && safeString(row.deadline).trim() === ''
-    )
+    const hasContent = safeString(row.content).trim() !== ''
+    const hasDeadline = safeString(row.deadline).trim() !== ''
+    if (isWorkReportManagedJournalSection(normalizedSection)) {
+      const hasUser = safeString(row.user).trim() !== ''
+      return !hasContent && !hasDeadline && !hasUser
+    }
+    return !hasContent && !hasDeadline
   }
 
   if (normalizedSection === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
@@ -4820,6 +4832,7 @@ function App() {
   const [contractEdit, setContractEdit] = useState(null)
   const [contractEditDraft, setContractEditDraft] = useState('')
   const [workReportTextModal, setWorkReportTextModal] = useState(null)
+  const workReportTextModalRef = useRef(null)
   /** 영업·건축·사업검색이력·문서 — 계약현황과 동일한 셀 단위 인라인 편집 */
   const [registryCellEdit, setRegistryCellEdit] = useState(null)
   const [registryCellEditDraft, setRegistryCellEditDraft] = useState('')
@@ -9328,7 +9341,23 @@ function App() {
     )
   }
 
-  const closeWorkReportTextModal = () => setWorkReportTextModal(null)
+  const closeWorkReportTextModal = () => {
+    workReportTextModalRef.current = null
+    setWorkReportTextModal(null)
+  }
+
+  useEffect(() => {
+    workReportTextModalRef.current = workReportTextModal
+  }, [workReportTextModal])
+
+  const setWorkReportTextModalDraft = (draft) => {
+    setWorkReportTextModal((prev) => {
+      if (!prev) return prev
+      const next = { ...prev, draft }
+      workReportTextModalRef.current = next
+      return next
+    })
+  }
 
   const openWorkReportTextModal = ({
     date,
@@ -9342,7 +9371,7 @@ function App() {
   }) => {
     const entry = getWorkReportBoardEntry(date, section, orderIndex)
     const isDeadlineField = fieldKey === 'deadline'
-    setWorkReportTextModal({
+    const nextModal = {
       date,
       section,
       orderIndex,
@@ -9356,11 +9385,13 @@ function App() {
       inputMode: isDeadlineField ? 'date' : multiline ? 'multiline' : 'text',
       checklistMode,
       saving: false,
-    })
+    }
+    workReportTextModalRef.current = nextModal
+    setWorkReportTextModal(nextModal)
   }
 
   const saveWorkReportTextModal = async () => {
-    const snap = workReportTextModal
+    const snap = workReportTextModalRef.current
     if (!snap || snap.saving) return
 
     setWorkReportTextModal((prev) => (prev ? { ...prev, saving: true } : prev))
@@ -11185,10 +11216,11 @@ function App() {
     <section className="work-report-board-section">
       <div className="work-report-board-section-title">{title}</div>
       <div className="work-report-board-table">
-        <div className="work-report-board-header-row">
+        <div className="work-report-board-header-row work-report-board-header-row-journal">
           <div className="work-report-board-index">#</div>
           <div className="work-report-board-manager-header">담당자</div>
           <div className="work-report-board-content-header">내용</div>
+          <div className="work-report-board-deadline-header">기한</div>
         </div>
         {Array.from({ length: rowCount }, (_, index) => {
           const orderIndex = index + 1
@@ -11197,7 +11229,7 @@ function App() {
           return (
             <div
               key={`${date}-${section}-${orderIndex}`}
-              className="work-report-board-row"
+              className="work-report-board-row work-report-board-row-journal"
               onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
             >
               <div className="work-report-board-index">{orderIndex}</div>
@@ -11223,6 +11255,22 @@ function App() {
                   updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
                 }
                 onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
+              />
+              <input
+                type="date"
+                className="work-report-board-date-input"
+                value={normalizeWorkReportDeadlineForDateInput(entry.deadline)}
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, {
+                    deadline: normalizeWorkReportDeadlineForDateInput(e.target.value),
+                  })
+                }
+                onKeyDown={(e) =>
+                  handleWorkReportTextEditKeyDown(e, {
+                    multiline: false,
+                    onSave: () => e.currentTarget.blur(),
+                  })
+                }
               />
             </div>
           )
@@ -12056,6 +12104,7 @@ function App() {
             <div
               key={`journal-v5-${section}-${date}-${orderIndex}`}
               className="work-report-report-table-row editable work-report-report-table-row-journal"
+              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
             >
               <div className="work-report-report-line-number">{orderIndex}</div>
               <div className="work-report-report-cell">
@@ -12128,6 +12177,7 @@ function App() {
             <div
               key={`support-v5-${date}-${section}-${orderIndex}`}
               className="work-report-report-line-edit"
+              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
             >
               <span className="work-report-report-line-number">{orderIndex}.</span>
               {renderWorkReportReadTextCell({
@@ -14919,11 +14969,7 @@ function App() {
                   className="sales-long-text-textarea work-report-text-modal-input work-report-text-modal-date-input"
                   autoFocus
                   value={workReportTextModal.draft}
-                  onChange={(e) =>
-                    setWorkReportTextModal((prev) =>
-                      prev ? { ...prev, draft: e.target.value } : prev
-                    )
-                  }
+                  onChange={(e) => setWorkReportTextModalDraft(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') {
                       e.preventDefault()
@@ -14943,11 +14989,7 @@ function App() {
                   rows={10}
                   autoFocus
                   value={workReportTextModal.draft}
-                  onChange={(e) =>
-                    setWorkReportTextModal((prev) =>
-                      prev ? { ...prev, draft: e.target.value } : prev
-                    )
-                  }
+                  onChange={(e) => setWorkReportTextModalDraft(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') {
                       e.preventDefault()
@@ -14967,11 +15009,7 @@ function App() {
                   className="sales-long-text-textarea work-report-text-modal-input"
                   autoFocus
                   value={workReportTextModal.draft}
-                  onChange={(e) =>
-                    setWorkReportTextModal((prev) =>
-                      prev ? { ...prev, draft: e.target.value } : prev
-                    )
-                  }
+                  onChange={(e) => setWorkReportTextModalDraft(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') {
                       e.preventDefault()
