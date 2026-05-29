@@ -3,6 +3,7 @@
 const LONG_TEXT_COLUMN_KEYS = new Set([
   'client',
   'department',
+  'identNo',
   'projectName',
   'detail',
   'source',
@@ -19,7 +20,6 @@ const STRICT_NOWRAP_COLUMN_KEYS = new Set([
   'year',
   'refNo',
   'contractNo',
-  'identNo',
   'contractDate',
   'dueDate',
   'amount',
@@ -64,6 +64,7 @@ export function getTableBodyAlignClass(column) {
   if (!column) return 'td-align-center'
   if (isLongTextTableColumn(column)) {
     if (column.align === 'right') return 'td-align-right'
+    if (column.align === 'center') return 'td-align-center'
     return 'td-align-left'
   }
   return 'td-align-center'

@@ -693,11 +693,11 @@ textarea {
 /* ── 계약현황 전용 강제 오버라이드 (다른 메뉴 영향 X) ── */
 table[data-contract-table-row-key].contracts-fixed-table {
   table-layout: fixed !important;
-  min-width: 1946px;
+  min-width: 2114px;
 }
 
 table[data-contract-table-row-key].contracts-fixed-table.contract-table-admin {
-  min-width: 1990px;
+  min-width: 2158px;
 }
 
 table[data-contract-table-row-key].contracts-fixed-table thead th,
@@ -731,12 +731,24 @@ table[data-contract-table-row-key] .col-ref {
   max-width: 82px !important;
 }
 
-/* 식별번호: 1% + nowrap으로 최소 너비만, 팽창은 max-width로 차단 */
+/* 식별번호: 고정 250px — 데이터가 잘리지 않도록 넉넉한 최소 너비 */
 table[data-contract-table-row-key] .col-ident-no {
-  width: 1% !important;
-  min-width: 0 !important;
-  max-width: 200px !important;
-  white-space: nowrap !important;
+  width: 250px !important;
+  min-width: 250px !important;
+  max-width: 250px !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+table[data-contract-table-row-key] thead th.col-ident-no,
+table[data-contract-table-row-key] tbody td.col-ident-no,
+table[data-contract-table-row-key] tbody td.col-ident-no .cell-display,
+table[data-contract-table-row-key] tbody td.col-ident-no .editable-text-cell-display,
+table[data-contract-table-row-key] tbody td.col-ident-no .editable-text-cell-input {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
 }
 
 table[data-contract-table-row-key] .col-client {
@@ -1003,10 +1015,12 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
 }
 
 .col-ident-no {
-  width: 1%;
-  min-width: 0;
-  max-width: 200px;
-  white-space: nowrap;
+  width: 250px;
+  min-width: 250px;
+  max-width: 250px;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .col-contractno {
