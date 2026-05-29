@@ -3342,7 +3342,7 @@ textarea:focus-visible {
   margin-bottom: 16px;
 }
 
-.main-area > section.stat-card .work-report-week-board-area .work-report-week-grid {
+.main-area > section.stat-card .work-report-week-board-area .work-report-week-table-scroll {
   flex: 0 0 auto;
   min-height: 0;
   overflow-x: auto;
@@ -3393,7 +3393,7 @@ textarea:focus-visible {
   margin: 0;
 }
 
-.main-area > section.stat-card .work-report-week-grid {
+.main-area > section.stat-card .work-report-week-table-scroll {
   flex: 0 0 auto;
   min-height: 0;
   overflow-x: auto;
@@ -7007,6 +7007,160 @@ textarea:focus-visible {
   color: #64748b;
   font-size: 12px;
   font-weight: 700;
+}
+
+.work-report-week-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.work-report-week-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+}
+
+.work-report-week-table-col-label {
+  width: 96px;
+}
+
+.work-report-week-table-col-day {
+  width: calc((100% - 96px) / 6);
+}
+
+.work-report-week-table th,
+.work-report-week-table td {
+  border: 1px solid #d1d5db;
+  padding: 8px;
+  vertical-align: top;
+  min-width: 0;
+}
+
+.work-report-week-table thead th {
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.work-report-week-table-corner {
+  width: 96px;
+  background: #f9fafb;
+  color: #475569;
+}
+
+.work-report-week-table-day-head {
+  padding: 6px 8px;
+}
+
+.work-report-week-table-day-head.is-today {
+  box-shadow: inset 0 -3px 0 #3b82f6;
+}
+
+.work-report-week-table-day-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.work-report-week-table-day-date {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.work-report-week-table-row-label {
+  width: 96px;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.work-report-week-table-cell {
+  padding: 0;
+  background: #ffffff;
+}
+
+.work-report-week-table-cell--journal {
+  padding: 0;
+}
+
+.work-report-week-cell-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border: 0;
+  background: transparent;
+}
+
+.work-report-week-cell-table th,
+.work-report-week-cell-table td {
+  border: 1px solid #e5eaf1;
+  padding: 0;
+  vertical-align: top;
+  min-width: 0;
+}
+
+.work-report-week-cell-table thead th {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+  padding: 4px 6px;
+}
+
+.work-report-week-cell-table--external col:nth-child(1) {
+  width: 28%;
+}
+
+.work-report-week-cell-table--external col:nth-child(2) {
+  width: 44%;
+}
+
+.work-report-week-cell-table--external col:nth-child(3) {
+  width: 28%;
+}
+
+.work-report-week-cell-table--journal col:nth-child(1) {
+  width: 10%;
+}
+
+.work-report-week-cell-table--journal col:nth-child(2) {
+  width: 24%;
+}
+
+.work-report-week-cell-table--journal col:nth-child(3) {
+  width: 66%;
+}
+
+.work-report-week-cell-table--support col:nth-child(1) {
+  width: 28px;
+}
+
+.work-report-week-cell-table--support col:nth-child(2) {
+  width: auto;
+}
+
+.work-report-week-cell-table tbody tr:last-child td,
+.work-report-week-cell-table tbody tr:last-child th {
+  border-bottom: 0;
+}
+
+.work-report-week-table-row--checklist .work-report-report-checklist-single-wrap {
+  padding: 8px;
+}
+
+.work-report-week-table-row--checklist .work-report-report-checklist-combined-textarea {
+  min-height: 120px;
 }
 
 .work-report-week-grid {
