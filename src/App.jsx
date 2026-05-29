@@ -14,6 +14,12 @@ import {
   hasActiveContractColumnFilters,
 } from './contractColumnFilter.js'
 import {
+  buildDiscoveryColumnFilterOptions,
+  discoveryMatchesColumnFilters,
+  filterDiscoveryRowsByActiveFilters,
+  normalizeDiscoveryColumnFilterSelection,
+} from './discoveryColumnFilter.js'
+import {
   buildSalesColumnFilterOptions,
   filterSalesRowsByActiveFilters,
   normalizeSalesColumnFilterSelection,
@@ -254,7 +260,6 @@ const SALES_COLUMNS = [
 
 const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
 const DISCOVERY_SALES_TARGET_OPTIONS = SALES_MANAGER_OPTIONS
-const DISCOVERY_MANAGER_FILTER_OPTIONS = SALES_MANAGER_OPTIONS.filter((name) => name !== '신상준')
 const DISCOVERY_COLUMNS = [
   {
     key: 'permitDate',
@@ -4520,10 +4525,8 @@ function App() {
   const [isSavingDiscovery, setIsSavingDiscovery] = useState(false)
   const [discoverySearch, setDiscoverySearch] = useState('')
   const [discoveryDateRange, setDiscoveryDateRange] = useState({ startDate: '', endDate: '' })
-  const [discoveryFilters, setDiscoveryFilters] = useState({
-    manager: '',
-    projectCategory: '',
-  })
+  const [discoveryActiveFilters, setDiscoveryActiveFilters] = useState({})
+  const [openDiscoveryColumnFilterKey, setOpenDiscoveryColumnFilterKey] = useState(null)
   const [selectedExcludedIds, setSelectedExcludedIds] = useState([])
   const [editingExcludedIds, setEditingExcludedIds] = useState([])
   const [excludedEditSnapshots, setExcludedEditSnapshots] = useState({})
@@ -5982,6 +5985,45 @@ function App() {
     })
   }, [])
 
+  const discoveryRawData = discoveryRows
+
+  const discoveryColumnFilterOptionsMap = useMemo(() => {
+    const basePool = discoveryRawData.filter(
+      (row) =>
+        matchesRegistrySearch(row, DISCOVERY_COLUMNS, discoverySearch) &&
+        matchesDateRangeFilter(
+          row,
+          'permitDate',
+          discoveryDateRange.startDate,
+          discoveryDateRange.endDate
+        )
+    )
+    const map = {}
+    DISCOVERY_COLUMNS.forEach(({ key: columnKey }) => {
+      const pool = basePool.filter((row) =>
+        row.isDraft || discoveryMatchesColumnFilters(row, discoveryActiveFilters, columnKey)
+      )
+      map[columnKey] = buildDiscoveryColumnFilterOptions(pool, columnKey)
+    })
+    return map
+  }, [
+    discoveryActiveFilters,
+    discoveryDateRange.endDate,
+    discoveryDateRange.startDate,
+    discoveryRawData,
+    discoverySearch,
+  ])
+
+  const handleDiscoveryActiveFiltersApply = useCallback((columnKey, selected) => {
+    setDiscoveryActiveFilters((prev) => {
+      const next = { ...prev }
+      const values = Array.isArray(selected) ? [...selected] : []
+      if (values.length === 0) delete next[columnKey]
+      else next[columnKey] = values
+      return next
+    })
+  }, [])
+
   /** [1단계] rawData → 검색·기간·헤더 열 필터(AND) → filteredData */
   const filteredSalesRows = useMemo(() => {
     const toolbarFiltered = salesRawData.filter(
@@ -6009,50 +6051,29 @@ function App() {
   )
 
   const filteredDiscoveryRows = useMemo(() => {
-    return discoveryRows.filter((row) => {
-      if (!matchesRegistrySearch(row, DISCOVERY_COLUMNS, discoverySearch)) return false
-      if (
-        !matchesDateRangeFilter(
+    const toolbarFiltered = discoveryRawData.filter(
+      (row) =>
+        matchesRegistrySearch(row, DISCOVERY_COLUMNS, discoverySearch) &&
+        matchesDateRangeFilter(
           row,
           'permitDate',
           discoveryDateRange.startDate,
           discoveryDateRange.endDate
         )
-      ) {
-        return false
-      }
-      if (row.isDraft) return true
-      const managerMatch = !discoveryFilters.manager || row.manager === discoveryFilters.manager
-      const categoryMatch =
-        !discoveryFilters.projectCategory ||
-        row.projectCategory === discoveryFilters.projectCategory
-      return managerMatch && categoryMatch
-    })
+    )
+    return filterDiscoveryRowsByActiveFilters(toolbarFiltered, discoveryActiveFilters)
   }, [
+    discoveryActiveFilters,
     discoveryDateRange.endDate,
     discoveryDateRange.startDate,
-    discoveryFilters.manager,
-    discoveryFilters.projectCategory,
-    discoveryRows,
+    discoveryRawData,
     discoverySearch,
   ])
 
-  const filteredDiscoveryTableData = useMemo(() => {
-    return discoveryTableData.filter((item) => {
-      if (!matchesDiscoveryExcelTableSearch(item, discoverySearch)) return false
-      const managerMatch =
-        !discoveryFilters.manager || discoveryExcelCellDisplay(item.담당자) === discoveryFilters.manager
-      const categoryMatch =
-        !discoveryFilters.projectCategory ||
-        discoveryExcelCellDisplay(item.사업구분) === discoveryFilters.projectCategory
-      return managerMatch && categoryMatch
-    })
-  }, [
-    discoveryFilters.manager,
-    discoveryFilters.projectCategory,
-    discoverySearch,
-    discoveryTableData,
-  ])
+  const isDiscoveryTableFilterResultEmpty = useMemo(
+    () => discoveryRawData.length > 0 && filteredDiscoveryRows.length === 0,
+    [discoveryRawData.length, filteredDiscoveryRows.length]
+  )
 
   const filteredExcludedRows = useMemo(() => {
     return excludedRows.filter((row) => {
@@ -6087,6 +6108,7 @@ function App() {
     [filteredSalesRows]
   )
 
+  /** [2단계] filteredData만 그룹화 — 원본 discoveryRows 미사용 */
   const groupedDiscoveryRows = useMemo(
     () => groupRegistryRowsByYear(filteredDiscoveryRows, 'permitDate'),
     [filteredDiscoveryRows]
@@ -12631,36 +12653,6 @@ function App() {
               >
                 선택 삭제
               </button>
-              <select
-                className="contract-filter-select"
-                value={discoveryFilters.projectCategory}
-                onChange={(e) =>
-                  setDiscoveryFilters((prev) => ({ ...prev, projectCategory: e.target.value }))
-                }
-                style={{ width: 132 }}
-              >
-                <option value="">사업구분</option>
-                {DISCOVERY_CATEGORY_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="contract-filter-select"
-                value={discoveryFilters.manager}
-                onChange={(e) =>
-                  setDiscoveryFilters((prev) => ({ ...prev, manager: e.target.value }))
-                }
-                style={{ width: 150 }}
-              >
-                <option value="">담당자</option>
-                {DISCOVERY_MANAGER_FILTER_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
               <button className="secondary-btn" type="button" onClick={handleDiscoveryExcelDownload}>
                 엑셀 다운로드
               </button>
@@ -12715,15 +12707,45 @@ function App() {
                       {DISCOVERY_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''}`}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
                         >
-                          {column.label}
+                          <div className="contract-th-filter-wrap">
+                            <span className="contract-th-label">{column.label}</span>
+                            <ContractColumnHeaderFilter
+                              columnKey={column.key}
+                              options={discoveryColumnFilterOptionsMap[column.key] ?? []}
+                              selected={discoveryActiveFilters[column.key] ?? []}
+                              onApply={handleDiscoveryActiveFiltersApply}
+                              isOpen={openDiscoveryColumnFilterKey === column.key}
+                              onOpenChange={setOpenDiscoveryColumnFilterKey}
+                              normalizeSelection={normalizeDiscoveryColumnFilterSelection}
+                            />
+                          </div>
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {renderGroupedRegistryRows({
+                    {discoveryRawData.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={DISCOVERY_COLUMNS.length + 1}
+                          className="empty-cell"
+                        >
+                          등록된 데이터가 없습니다.
+                        </td>
+                      </tr>
+                    ) : isDiscoveryTableFilterResultEmpty ? (
+                      <tr>
+                        <td
+                          colSpan={DISCOVERY_COLUMNS.length + 1}
+                          className="empty-cell"
+                        >
+                          필터 조건에 맞는 데이터가 없습니다.
+                        </td>
+                      </tr>
+                    ) : (
+                    renderGroupedRegistryRows({
                       groups: groupedDiscoveryRows,
                       columns: DISCOVERY_COLUMNS,
                       emptyMessage: '등록된 데이터가 없습니다.',
@@ -12743,7 +12765,8 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('discovery', rowId, columnKey, value, row),
-                    })}
+                    })
+                    )}
                   </tbody>
                 </table>
               </div>

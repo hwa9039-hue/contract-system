@@ -5935,6 +5935,16 @@ textarea:focus-visible {
   min-width: 1280px;
 }
 
+.discovery-registry-table.excel-table thead th.contract-th-filterable {
+  overflow: visible;
+  white-space: nowrap;
+}
+
+.discovery-registry-table.excel-table thead th.contract-th-filterable .contract-th-label {
+  overflow: visible;
+  text-overflow: clip;
+}
+
 .discovery-registry-table.excel-table thead th,
 .discovery-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
   box-sizing: border-box;
