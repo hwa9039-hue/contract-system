@@ -13,8 +13,9 @@ export function ContractColumnHeaderFilter({
 }) {
   const rootRef = useRef(null)
   const triggerRef = useRef(null)
+  const wasOpenRef = useRef(false)
   const [menuStyle, setMenuStyle] = useState({ top: 0, left: 0, minWidth: 0 })
-  const [draft, setDraft] = useState(selected)
+  const [draft, setDraft] = useState(() => (Array.isArray(selected) ? [...selected] : []))
   const draftRef = useRef(draft)
   const isActive = Array.isArray(selected) && selected.length > 0
 
@@ -23,12 +24,13 @@ export function ContractColumnHeaderFilter({
   }, [draft])
 
   useEffect(() => {
-    if (!isOpen) return
-    const initialDraft =
-      Array.isArray(selected) && selected.length > 0 ? [...selected] : [...options]
+    const justOpened = isOpen && !wasOpenRef.current
+    wasOpenRef.current = isOpen
+    if (!justOpened) return
+    const initialDraft = Array.isArray(selected) ? [...selected] : []
     setDraft(initialDraft)
     draftRef.current = initialDraft
-  }, [isOpen, options, selected])
+  }, [isOpen, selected])
 
   const updateMenuPosition = useCallback(() => {
     const el = triggerRef.current
