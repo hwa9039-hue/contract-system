@@ -2814,6 +2814,82 @@ function collectDashboardWeekDueRows(calendarItems, weekAnchorDate = new Date())
     .map(mapDashboardWeekDueRow)
 }
 
+function getDashboardWeekWorkSectionLabel(section) {
+  const sectionNorm = safeString(section).trim()
+  if (sectionNorm === WORK_REPORT_SECTION_KEYS.di) return 'DI'
+  if (sectionNorm === WORK_REPORT_SECTION_KEYS.road) return '도로'
+  if (
+    sectionNorm === WORK_REPORT_SECTION_KEYS.supportProgress ||
+    sectionNorm === WORK_REPORT_SECTION_KEYS.supportDone
+  ) {
+    return '영업지원'
+  }
+  return ''
+}
+
+function formatDashboardBriefDeadlineLabel(deadlineYmd) {
+  const normalized = safeString(deadlineYmd).trim().slice(0, 10)
+  if (normalized.length < 10) return ''
+  return normalized.slice(5, 10)
+}
+
+/** 대시보드 브리핑: 금주(월~일) 기한 — 주간업무보고서 DI/도로/영업지원 */
+function collectDashboardWeekWorkRows(workReportRows, workReportDrafts, weekAnchorDate = new Date()) {
+  const weekStart = getWeekStartMonday(weekAnchorDate)
+  const startYmd = formatDateInput(weekStart)
+  const endYmd = formatDateInput(addDays(weekStart, 6))
+  const cellMap = new Map()
+
+  for (const row of Array.isArray(workReportRows) ? workReportRows : []) {
+    if (!isWorkReportJournalSection(row?.section) || isWorkReportRowEmpty(row)) continue
+    const cellKey = `${normalizeWorkReportDateKey(row.date)}__${safeString(row.section).trim()}__${Number(row.orderIndex || 1)}`
+    const existing = cellMap.get(cellKey)
+    cellMap.set(cellKey, pickLatestWorkReportRow(existing ? [existing, row] : [row]))
+  }
+
+  for (const [cellKey, draftEntry] of Object.entries(workReportDrafts || {})) {
+    const parsed = parseWorkReportCellKey(cellKey)
+    if (!parsed || !isWorkReportJournalSection(parsed.section)) continue
+    const stored = cellMap.get(cellKey)
+    const merged = {
+      ...(stored || {}),
+      ...draftEntry,
+      date: parsed.date,
+      section: parsed.section,
+      orderIndex: parsed.orderIndex,
+    }
+    if (!isWorkReportRowEmpty(merged)) {
+      cellMap.set(cellKey, merged)
+    }
+  }
+
+  const results = []
+  for (const [cellKey, entry] of cellMap) {
+    const sectionLabel = getDashboardWeekWorkSectionLabel(entry.section)
+    if (!sectionLabel) continue
+
+    const content = safeString(entry.content).trim()
+    if (!content) continue
+
+    const deadlineYmd = normalizeWorkReportDeadlineForDateInput(entry.deadline)
+    if (!deadlineYmd || deadlineYmd < startYmd || deadlineYmd > endYmd) continue
+
+    results.push({
+      id: cellKey,
+      sectionLabel,
+      content,
+      deadlineYmd,
+      deadlineLabel: formatDashboardBriefDeadlineLabel(deadlineYmd),
+    })
+  }
+
+  return results.sort((a, b) => {
+    const byDeadline = safeString(a.deadlineYmd).localeCompare(safeString(b.deadlineYmd))
+    if (byDeadline !== 0) return byDeadline
+    return safeString(a.sectionLabel).localeCompare(safeString(b.sectionLabel), 'ko')
+  })
+}
+
 /** 대시보드: 오늘이 속한 주(weekStart)의 회의록 agenda 행 목록 */
 function getDashboardWeekMeetingMinutesRows(weekStartDate, workReportRows, workReportDrafts) {
   const weekStart = formatDateInput(getWeekStartMonday(normalizeWorkReportDateKey(weekStartDate)))
@@ -6712,6 +6788,11 @@ function App() {
   const dashboardWeekDueRows = useMemo(
     () => collectDashboardWeekDueRows(calendarItems, new Date()),
     [calendarItems]
+  )
+
+  const dashboardWeekWorkRows = useMemo(
+    () => collectDashboardWeekWorkRows(workReportRows, workReportDrafts, new Date()),
+    [workReportRows, workReportDrafts]
   )
 
   const monthDays = useMemo(() => {
@@ -12384,11 +12465,27 @@ function App() {
                     </div>
 
                     <div className="dashboard-briefing-box">
-                      <h3 className="dashboard-briefing-box-title">개선중</h3>
+                      <h3 className="dashboard-briefing-box-title">금주 업무</h3>
                       <div className="dashboard-briefing-box-body">
-                        <p className="dashboard-briefing-box-empty dashboard-briefing-box-empty--placeholder">
-                          내용이 없습니다.
-                        </p>
+                        {dashboardWeekWorkRows.length > 0 ? (
+                          <ul className="dashboard-briefing-due-list">
+                            {dashboardWeekWorkRows.map((item) => (
+                              <li key={item.id} className="dashboard-briefing-due-item dashboard-briefing-week-work-item">
+                                <div className="dashboard-briefing-week-work-main">
+                                  <span className="dashboard-briefing-week-work-label">
+                                    [{item.sectionLabel}]
+                                  </span>
+                                  <span className="dashboard-briefing-week-work-content">{item.content}</span>
+                                </div>
+                                <div className="dashboard-briefing-due-meta dashboard-briefing-week-work-meta">
+                                  <span>{item.deadlineLabel}</span>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="dashboard-briefing-box-empty">이번 주 기한인 업무가 없습니다.</p>
+                        )}
                       </div>
                     </div>
 
