@@ -3347,145 +3347,6 @@ textarea:focus-visible {
   overflow-y: auto;
 }
 
-.main-area > section.stat-card .work-report-week-board-area--flat {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.work-report-flat-board {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  overflow: hidden;
-}
-
-.work-report-flat-add-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.work-report-flat-add-select {
-  min-width: 148px;
-}
-
-.work-report-flat-panel {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.work-report-flat-panel .table-wrap {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-x: auto;
-  overflow-y: auto;
-}
-
-table.work-report-flat-table {
-  table-layout: fixed;
-  width: 100%;
-}
-
-table.work-report-flat-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: #f1f5f9;
-  border-bottom: 1px solid #dbe4ee;
-  font-size: 12px;
-  font-weight: 800;
-  color: #334155;
-  padding: 10px 8px;
-  white-space: nowrap;
-}
-
-table.work-report-flat-table tbody td {
-  vertical-align: top;
-  padding: 8px;
-  border-bottom: 1px solid #e8edf3;
-  background: #ffffff;
-}
-
-table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td {
-  background: #f8fbff;
-}
-
-table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td:first-child {
-  box-shadow: inset 3px 0 0 #3b82f6;
-}
-
-.work-report-flat-date-cell {
-  white-space: nowrap;
-}
-
-.work-report-flat-date {
-  display: block;
-  font-size: 12px;
-  font-weight: 800;
-  color: #1e293b;
-}
-
-.work-report-flat-weekday {
-  display: block;
-  margin-top: 2px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #64748b;
-}
-
-.work-report-flat-category-cell {
-  font-size: 12px;
-  font-weight: 700;
-  color: #475569;
-}
-
-.work-report-flat-manager-cell .work-report-external-manager-multi {
-  width: 100%;
-  min-width: 0;
-}
-
-.work-report-flat-field {
-  width: 100%;
-  min-width: 0;
-  border: none;
-  background: transparent;
-  box-shadow: none;
-  outline: none;
-  resize: vertical;
-  font: inherit;
-  color: #1f2937;
-  padding: 2px 0;
-  line-height: 1.45;
-}
-
-.work-report-flat-field:focus {
-  background: rgba(59, 130, 246, 0.06);
-  border-radius: 4px;
-}
-
-.work-report-flat-field--textarea {
-  min-height: 52px;
-}
-
-.work-report-flat-field--checklist {
-  min-height: 72px;
-}
-
-.work-report-flat-empty {
-  color: #94a3b8;
-  font-size: 12px;
-}
-
 .main-area > section.stat-card.stat-card--work-reports .work-report-meeting-minutes-block {
   flex: 2 1 0;
   min-height: 320px;
@@ -7148,28 +7009,36 @@ table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td:first-c
 .work-report-week-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(180px, 1fr));
-  gap: 10px;
+  gap: 0;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding-bottom: 0;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
 }
 
 .work-report-day-board {
   min-width: 180px;
-  border: 1px solid #d9dee6;
-  border-radius: 10px;
-  background: #f5f6f8;
+  border: 0;
+  border-right: 1px solid #d1d5db;
+  border-radius: 0;
+  background: #ffffff;
   overflow: hidden;
+  box-shadow: none;
+}
+
+.work-report-day-board:last-child {
+  border-right: 0;
 }
 
 .work-report-day-board.is-today {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.18);
+  border-color: #d1d5db;
+  box-shadow: none;
 }
 
 .work-report-day-head {
-  padding: 10px 12px 9px;
-  border-bottom: 1px solid #e2e8f0;
-  background: #ffffff;
+  padding: 6px 8px;
+  border-bottom: 1px solid #d1d5db;
+  background: #f9fafb;
 }
 
 .work-report-day-weekday {
@@ -7188,8 +7057,8 @@ table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td:first-c
 .work-report-day-sections {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px;
+  gap: 0;
+  padding: 0;
 }
 
 .work-report-section-card {
@@ -7328,24 +7197,27 @@ table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td:first-c
 .work-report-week-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(400px, 1fr));
-  gap: 10px;
+  gap: 0;
   overflow-x: auto;
-  align-items: start;
+  align-items: stretch;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
 }
 
 .work-report-day-board-dense {
   min-width: 400px;
-  background: #f8fafc;
+  background: #ffffff;
 }
 
 .work-report-day-sections-dense {
-  gap: 10px;
-  padding: 10px;
+  gap: 0;
+  padding: 0;
 }
 
 .work-report-board-section {
-  border: 1px solid #d5dee8;
-  border-radius: 8px;
+  border: 0;
+  border-bottom: 1px solid #d1d5db;
+  border-radius: 0;
   background: #ffffff;
   overflow: hidden;
 }
@@ -7515,14 +7387,19 @@ table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td:first-c
 .work-report-board-support-wrap {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 10px;
+  gap: 0;
+  padding: 0;
 }
 
 .work-report-board-support-block {
-  border: 1px solid #dbe4ee;
-  border-radius: 8px;
+  border: 0;
+  border-top: 1px solid #d1d5db;
+  border-radius: 0;
   overflow: hidden;
+}
+
+.work-report-board-support-block:first-child {
+  border-top: 0;
 }
 
 .work-report-board-support-title {
@@ -7546,9 +7423,11 @@ table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td:first-c
 .work-report-week-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(400px, 1fr));
-  gap: 10px;
+  gap: 0;
   overflow-x: auto;
-  align-items: start;
+  align-items: stretch;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
 }
 
 .work-report-day-board-dense {
@@ -7641,20 +7520,22 @@ table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td:first-c
 }
 
 .work-report-report-checklist-single-wrap {
-  padding: 10px;
+  padding: 4px 6px;
   background: #ffffff;
 }
 
 .work-report-report-checklist-combined-textarea {
   width: 100%;
-  min-height: 150px;
+  min-height: 120px;
   resize: vertical;
-  padding: 10px 12px;
+  padding: 6px 8px;
   box-sizing: border-box;
   font-size: 13px;
   line-height: 1.45;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
+  border-radius: 0;
+  border: 0;
+  background: #ffffff;
+  outline: none;
 }
 
 .work-report-board-textarea-support-line {
@@ -7669,37 +7550,51 @@ table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td:first-c
 
 .work-report-day-board.report-mode {
   background: #ffffff;
-  border: 1px solid #d9e2ec;
-  border-radius: 12px;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  border: 0;
+  border-right: 1px solid #d1d5db;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.work-report-day-board.report-mode:last-child {
+  border-right: 0;
+}
+
+.work-report-day-board.report-mode.is-today {
+  box-shadow: inset 3px 0 0 #3b82f6;
 }
 
 .work-report-day-head.report-mode {
-  padding: 10px 12px 8px;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fbff;
+  padding: 6px 8px;
+  border-bottom: 1px solid #d1d5db;
+  background: #f9fafb;
 }
 
 .work-report-day-sections.report-mode {
-  gap: 10px;
-  padding: 10px;
+  gap: 0;
+  padding: 0;
 }
 
 .work-report-report-section {
-  border: 1px solid #dde5ef;
-  border-radius: 10px;
+  border: 0;
+  border-bottom: 1px solid #d1d5db;
+  border-radius: 0;
   background: #ffffff;
   overflow: hidden;
 }
 
+.work-report-report-section:last-child {
+  border-bottom: 0;
+}
+
 .work-report-report-section-title,
 .work-report-report-subtitle {
-  padding: 7px 10px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  padding: 5px 8px;
+  background: #f3f4f6;
+  color: #374151;
   font-size: 11px;
-  font-weight: 800;
-  border-bottom: 1px solid #dbe5f0;
+  font-weight: 700;
+  border-bottom: 1px solid #d1d5db;
 }
 
 .work-report-report-line-list {
@@ -7965,8 +7860,8 @@ table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td:first-c
 .work-report-report-table-row--external.editable > *,
 .work-report-report-table-row-journal.editable > * {
   min-width: 0;
-  padding: 4px;
-  border-right: 1px solid #e5eaf1;
+  padding: 3px 4px;
+  border-right: 1px solid #d1d5db;
 }
 
 .work-report-report-table-row--external.editable > *:last-child,
@@ -8007,15 +7902,15 @@ table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td:first-c
 
 
 .work-report-report-table-head {
-  background: #eef4ff;
-  border-bottom: 1px solid #dde5ef;
+  background: #f9fafb;
+  border-bottom: 1px solid #d1d5db;
 }
 
 .work-report-report-table-head > div,
 .work-report-report-table-row > div {
   min-width: 0;
-  padding: 7px 8px;
-  border-right: 1px solid #e5eaf1;
+  padding: 4px 6px;
+  border-right: 1px solid #d1d5db;
   font-size: 11px;
 }
 
@@ -8100,8 +7995,8 @@ table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td:first-c
 .work-report-report-journal-wrap {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 8px;
+  gap: 0;
+  padding: 0;
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
@@ -8110,14 +8005,19 @@ table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td:first-c
 .work-report-report-journal-block {
   width: 100%;
   min-width: 0;
+  border-top: 1px solid #d1d5db;
+}
+
+.work-report-report-journal-block:first-child {
+  border-top: 0;
 }
 
 .work-report-report-manager-list,
 .work-report-report-support-wrap {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 8px;
+  gap: 0;
+  padding: 0;
 }
 
 .work-report-report-manager-block {
@@ -8159,10 +8059,15 @@ table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td:first-c
 }
 
 .work-report-report-support-block {
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border: 0;
+  border-top: 1px solid #d1d5db;
+  border-radius: 0;
   overflow: hidden;
   background: #ffffff;
+}
+
+.work-report-report-support-block:first-child {
+  border-top: 0;
 }
 
 .work-report-report-table-scroll {

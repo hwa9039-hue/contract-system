@@ -566,64 +566,6 @@ const WORK_REPORT_SECTION_KEYS = {
   meetingMinutes: '회의록',
 }
 
-/** 주간업무보고서 평면 테이블 — 요일·분류별 행 정의 */
-const WORK_REPORT_FLAT_SECTION_CONFIG = [
-  {
-    section: WORK_REPORT_SECTION_KEYS.checklist,
-    categoryLabel: '주요확인사항',
-    defaultRows: 1,
-    managerType: 'none',
-    contentKind: 'checklist',
-    hasDestination: false,
-    allowAddRow: false,
-  },
-  {
-    section: WORK_REPORT_SECTION_KEYS.external,
-    categoryLabel: '외부일정',
-    defaultRows: WORK_REPORT_EXTERNAL_ROW_COUNT,
-    managerType: 'multi',
-    contentKind: 'textarea',
-    hasDestination: true,
-    allowAddRow: true,
-  },
-  {
-    section: WORK_REPORT_SECTION_KEYS.di,
-    categoryLabel: 'DI사업',
-    defaultRows: WORK_REPORT_DI_ROW_COUNT,
-    managerType: 'text',
-    contentKind: 'textarea',
-    hasDestination: false,
-    allowAddRow: true,
-  },
-  {
-    section: WORK_REPORT_SECTION_KEYS.road,
-    categoryLabel: '도로사업',
-    defaultRows: WORK_REPORT_ROAD_ROW_COUNT,
-    managerType: 'text',
-    contentKind: 'textarea',
-    hasDestination: false,
-    allowAddRow: true,
-  },
-  {
-    section: WORK_REPORT_SECTION_KEYS.supportProgress,
-    categoryLabel: '진행업무',
-    defaultRows: WORK_REPORT_SUPPORT_ITEM_COUNT,
-    managerType: 'none',
-    contentKind: 'input',
-    hasDestination: false,
-    allowAddRow: true,
-  },
-  {
-    section: WORK_REPORT_SECTION_KEYS.supportDone,
-    categoryLabel: '완료업무',
-    defaultRows: WORK_REPORT_SUPPORT_ITEM_COUNT,
-    managerType: 'none',
-    contentKind: 'input',
-    hasDestination: false,
-    allowAddRow: true,
-  },
-]
-
 /** 주간업무보고서 PDF/인쇄 팝업 공통 스타일 */
 const WORK_REPORT_PDF_PRINT_STYLES = `
   @page { size: A4 landscape; margin: 10mm; }
@@ -4694,11 +4636,6 @@ function App() {
   const [selectedWorkWeek, setSelectedWorkWeek] = useState(() =>
     buildWorkReportWeekMeta(new Date()).weekStartDate
   )
-  const [workReportRowSlotLimits, setWorkReportRowSlotLimits] = useState({})
-  const [workReportAddRowDate, setWorkReportAddRowDate] = useState('')
-  const [workReportAddRowSection, setWorkReportAddRowSection] = useState(
-    WORK_REPORT_SECTION_KEYS.external
-  )
   const [workReportFilters, setWorkReportFilters] = useState({
     assignee: '',
   })
@@ -6443,16 +6380,6 @@ function App() {
     () => getWorkReportWeekDays(selectedWorkWeekMeta.weekStartDate),
     [selectedWorkWeekMeta.weekStartDate]
   )
-
-  useEffect(() => {
-    if (!selectedWorkWeekDays.length) return
-    const preferred =
-      selectedWorkWeekDays.find((day) => day.isToday) || selectedWorkWeekDays[0]
-    setWorkReportAddRowDate((prev) => {
-      if (prev && selectedWorkWeekDays.some((day) => day.date === prev)) return prev
-      return preferred.date
-    })
-  }, [selectedWorkWeekDays])
 
   const filteredWorkReportRows = useMemo(() => {
     return workReportRows.filter((row) => {
@@ -11965,280 +11892,6 @@ function App() {
     </div>
   )
 
-  const isWorkReportFlatEntryEmpty = (entry, sectionConfig) => {
-    if (sectionConfig.section === WORK_REPORT_SECTION_KEYS.checklist) {
-      const content = safeString(entry?.content).trim()
-      return !content || content === WORK_REPORT_CHECKLIST_BULLET_PREFIX.trim()
-    }
-    if (sectionConfig.hasDestination) {
-      return (
-        !safeString(entry?.user).trim() &&
-        !safeString(entry?.content).trim() &&
-        !safeString(entry?.destination).trim()
-      )
-    }
-    if (sectionConfig.managerType !== 'none') {
-      return !safeString(entry?.user).trim() && !safeString(entry?.content).trim()
-    }
-    return !safeString(entry?.content).trim()
-  }
-
-  const workReportFlatRowMatchesAssigneeFilter = (entry, sectionConfig) => {
-    if (!workReportFilters.assignee) return true
-    if (sectionConfig.managerType === 'none') return true
-    const user = safeString(entry?.user).trim()
-    if (!user) return true
-    return user.toLowerCase().includes(workReportFilters.assignee.toLowerCase())
-  }
-
-  const getWorkReportFlatRowCount = (date, sectionConfig) => {
-    const section = sectionConfig.section
-    const slotKey = `${normalizeWorkReportDateKey(date)}__${section}`
-    const limitFromState = Number(workReportRowSlotLimits[slotKey]) || 0
-    let maxUsed = 0
-    const scanMax = Math.max(sectionConfig.defaultRows, limitFromState) + 30
-    for (let orderIndex = 1; orderIndex <= scanMax; orderIndex += 1) {
-      const entry = getWorkReportBoardEntry(date, section, orderIndex)
-      if (!isWorkReportFlatEntryEmpty(entry, sectionConfig)) {
-        maxUsed = orderIndex
-      }
-    }
-    return Math.max(sectionConfig.defaultRows, limitFromState, maxUsed)
-  }
-
-  const buildWorkReportFlatRowDescriptors = () => {
-    const descriptors = []
-    for (const day of selectedWorkWeekDays) {
-      for (const sectionConfig of WORK_REPORT_FLAT_SECTION_CONFIG) {
-        const rowCount = getWorkReportFlatRowCount(day.date, sectionConfig)
-        for (let orderIndex = 1; orderIndex <= rowCount; orderIndex += 1) {
-          const entry = getWorkReportBoardEntry(day.date, sectionConfig.section, orderIndex)
-          if (!workReportFlatRowMatchesAssigneeFilter(entry, sectionConfig)) continue
-          descriptors.push({
-            rowKey: `${day.date}__${sectionConfig.section}__${orderIndex}`,
-            day,
-            sectionConfig,
-            orderIndex,
-            entry,
-          })
-        }
-      }
-    }
-    return descriptors
-  }
-
-  const handleAddWorkReportFlatRow = () => {
-    const date = workReportAddRowDate || selectedWorkWeekDays[0]?.date
-    const section = workReportAddRowSection
-    if (!date || !section) return
-    const sectionConfig = WORK_REPORT_FLAT_SECTION_CONFIG.find((item) => item.section === section)
-    if (!sectionConfig?.allowAddRow) return
-    const slotKey = `${normalizeWorkReportDateKey(date)}__${section}`
-    const nextCount = getWorkReportFlatRowCount(date, sectionConfig) + 1
-    setWorkReportRowSlotLimits((prev) => ({ ...prev, [slotKey]: nextCount }))
-  }
-
-  const renderWorkReportFlatTableManagerCell = (date, sectionConfig, orderIndex, entry) => {
-    const { section, managerType } = sectionConfig
-    if (managerType === 'multi') {
-      return (
-        <WorkReportExternalManagerMultiSelect
-          value={entry.user}
-          onChange={(next) =>
-            updateWorkReportBoardEntry(date, section, orderIndex, {
-              user: next,
-            })
-          }
-          options={WORK_REPORT_EXTERNAL_USER_OPTIONS}
-        />
-      )
-    }
-    if (managerType === 'text') {
-      return (
-        <input
-          className="work-report-flat-field"
-          type="text"
-          value={entry.user}
-          placeholder="담당자"
-          onChange={(e) =>
-            updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
-          }
-        />
-      )
-    }
-    return <span className="work-report-flat-empty">-</span>
-  }
-
-  const renderWorkReportFlatTableContentCell = (date, sectionConfig, orderIndex, entry) => {
-    const { section, contentKind } = sectionConfig
-    if (contentKind === 'checklist') {
-      return (
-        <textarea
-          className="work-report-flat-field work-report-flat-field--textarea work-report-flat-field--checklist"
-          rows={3}
-          value={entry.content}
-          placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
-          onChange={(e) =>
-            updateWorkReportBoardEntry(date, section, orderIndex, {
-              content: e.target.value,
-            })
-          }
-          onKeyDown={(e) =>
-            handleWorkReportChecklistTextareaKeyDown(e, (content) =>
-              updateWorkReportBoardEntry(date, section, orderIndex, { content })
-            )
-          }
-        />
-      )
-    }
-    if (contentKind === 'textarea') {
-      return (
-        <textarea
-          className="work-report-flat-field work-report-flat-field--textarea"
-          rows={2}
-          value={entry.content}
-          placeholder="내용 입력"
-          onChange={(e) =>
-            updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
-          }
-        />
-      )
-    }
-    return (
-      <input
-        className="work-report-flat-field"
-        type="text"
-        value={entry.content}
-        placeholder="내용 입력"
-        onChange={(e) =>
-          updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
-        }
-      />
-    )
-  }
-
-  const renderWorkReportFlatTableDestinationCell = (date, sectionConfig, orderIndex, entry) => {
-    if (!sectionConfig.hasDestination) {
-      return <span className="work-report-flat-empty">-</span>
-    }
-    return (
-      <input
-        className="work-report-flat-field"
-        type="text"
-        value={entry.destination}
-        placeholder="목적지 입력"
-        onChange={(e) =>
-          updateWorkReportBoardEntry(date, sectionConfig.section, orderIndex, {
-            destination: e.target.value,
-          })
-        }
-      />
-    )
-  }
-
-  const renderWorkReportFlatTable = () => {
-    const flatRows = buildWorkReportFlatRowDescriptors()
-    const addableSections = WORK_REPORT_FLAT_SECTION_CONFIG.filter((item) => item.allowAddRow)
-
-    return (
-      <div className="work-report-flat-board">
-        <div className="work-report-flat-add-bar">
-          <select
-            className="contract-filter-select work-report-flat-add-select"
-            value={workReportAddRowDate}
-            onChange={(e) => setWorkReportAddRowDate(e.target.value)}
-            aria-label="행 추가 일자"
-          >
-            {selectedWorkWeekDays.map((day) => (
-              <option key={day.date} value={day.date}>
-                {day.date}({day.label})
-              </option>
-            ))}
-          </select>
-          <select
-            className="contract-filter-select work-report-flat-add-select"
-            value={workReportAddRowSection}
-            onChange={(e) => setWorkReportAddRowSection(e.target.value)}
-            aria-label="행 추가 분류"
-          >
-            {addableSections.map((item) => (
-              <option key={item.section} value={item.section}>
-                {item.categoryLabel}
-              </option>
-            ))}
-          </select>
-          <button className="secondary-btn" type="button" onClick={handleAddWorkReportFlatRow}>
-            + 행 추가
-          </button>
-        </div>
-
-        <div className="contract-table-panel work-report-flat-panel">
-          <div className="table-wrap contracts-only-scroll overflow-x-auto">
-            <table className="contract-table excel-table registry-table ledger-table-ui work-report-flat-table table-w-full-min table-fixed">
-              <colgroup>
-                <col style={{ width: '12%', minWidth: 108 }} />
-                <col style={{ width: '10%', minWidth: 96 }} />
-                <col style={{ width: '14%', minWidth: 120 }} />
-                <col style={{ width: '44%', minWidth: 220 }} />
-                <col style={{ width: '20%', minWidth: 140 }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th className="th-align-center">일자(요일)</th>
-                  <th className="th-align-center">분류</th>
-                  <th className="th-align-center">담당자</th>
-                  <th className="th-align-left">내용</th>
-                  <th className="th-align-left">목적지(비고)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {flatRows.map(({ rowKey, day, sectionConfig, orderIndex, entry }) => (
-                    <tr
-                      key={rowKey}
-                      className={`work-report-flat-row${day.isToday ? ' is-today' : ''}`}
-                      onBlur={handleWorkReportBoardBlur(day.date, sectionConfig.section, orderIndex)}
-                    >
-                      <td className="td-align-center work-report-flat-date-cell">
-                        <span className="work-report-flat-date">{day.date}</span>
-                        <span className="work-report-flat-weekday">({day.label})</span>
-                      </td>
-                      <td className="td-align-center work-report-flat-category-cell">
-                        {sectionConfig.categoryLabel}
-                      </td>
-                      <td className="td-align-center work-report-flat-manager-cell">
-                        {renderWorkReportFlatTableManagerCell(
-                          day.date,
-                          sectionConfig,
-                          orderIndex,
-                          entry
-                        )}
-                      </td>
-                      <td className="td-align-left work-report-flat-content-cell">
-                        {renderWorkReportFlatTableContentCell(
-                          day.date,
-                          sectionConfig,
-                          orderIndex,
-                          entry
-                        )}
-                      </td>
-                      <td className="td-align-left work-report-flat-destination-cell">
-                        {renderWorkReportFlatTableDestinationCell(
-                          day.date,
-                          sectionConfig,
-                          orderIndex,
-                          entry
-                        )}
-                      </td>
-                    </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
 
   return (
     <div className="app-shell">
@@ -12710,8 +12363,10 @@ function App() {
                 </div>
               </div>
 
-              <div className="work-report-week-board-area work-report-week-board-area--flat">
-                {renderWorkReportFlatTable()}
+              <div className="work-report-week-board-area">
+                <div className="work-report-week-grid">
+                  {selectedWorkWeekDays.map((day) => renderWorkReportDayBoardV5(day))}
+                </div>
               </div>
 
               {isSavingWorkReports && (
