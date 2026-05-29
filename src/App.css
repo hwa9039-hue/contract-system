@@ -2917,6 +2917,7 @@ textarea:focus-visible {
 }
 
 .main-area > section.stat-card.stat-card--work-reports .work-report-toolbar {
+  margin-top: 0;
   margin-bottom: 10px;
 }
 

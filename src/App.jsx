@@ -11981,7 +11981,6 @@ function App() {
         {menu === 'workReports' && (
           <section className="stat-card stat-card--work-reports">
             <div className="work-report-page-body">
-              <h2 className="work-report-page-section-title">주간업무보고서</h2>
               <div className="contracts-header-actions work-report-toolbar">
                 <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
                   이전 주
@@ -12041,7 +12040,6 @@ function App() {
         {menu === 'meetingMinutes' && (
           <section className="stat-card stat-card--work-reports stat-card--meeting-minutes">
             <div className="work-report-page-body">
-              <h2 className="work-report-page-section-title">회의록</h2>
               <div className="contracts-header-actions work-report-toolbar">
                 <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
                   이전 주
