@@ -10,4 +10,4 @@
 window.__CMS_FORCE_SAME_ORIGIN_API__ = false
 
 /** 운영 API 베이스 — 프로덕션 빌드에서만 apiClient.js 가 참조합니다. */
-window.__CMS_API_BASE_URL__ = 'https://api.signtelecom-smartdi.com'
+window.__CMS_API_BASE_URL__ = 'http://localhost:8000'
