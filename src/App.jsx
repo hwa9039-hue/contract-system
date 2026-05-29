@@ -951,7 +951,7 @@ const PAGE_TITLE_MAP = {
   discovery: '건축정보',
   excluded: '사업검색이력',
   documents: '문서수발신대장',
-  contactsManage: '연락처 관리',
+  contactsManage: '연락처',
   installCases: '설치사례',
   materialsBoard: '게시판',
 }
@@ -981,7 +981,7 @@ const SIDEBAR_MENU_GROUPS = [
       { key: 'discovery', label: '건축정보' },
       { key: 'excluded', label: '사업검색이력' },
       { key: 'documents', label: '문서수발신대장' },
-      { key: 'contactsManage', label: '연락처 관리' },
+      { key: 'contactsManage', label: '연락처' },
     ],
   },
 ]
@@ -6475,11 +6475,11 @@ function App() {
         error?.status === 404 ||
         error?.response?.status === 404
       if (isNotFound) {
-        console.warn('연락처 관리 API 미구현(404) — 빈 목록으로 표시합니다.')
+        console.warn('연락처 API 미구현(404) — 빈 목록으로 표시합니다.')
         setContactsManageRows([])
       } else {
-        console.error('연락처 관리 데이터를 불러오지 못했습니다.', error)
-        showAppAlert('연락처 관리 데이터를 불러오지 못했습니다.')
+        console.error('연락처 데이터를 불러오지 못했습니다.', error)
+        showAppAlert('연락처 데이터를 불러오지 못했습니다.')
         setContactsManageRows([])
       }
     } finally {

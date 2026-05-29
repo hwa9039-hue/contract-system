@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/contacts-manage", tags=["contacts-manage"])
 
 @router.get("")
 def list_contacts():
-    """연락처 관리 목록.
+    """연락처 목록.
 
     - 우선은 GET 뼈대 + 빈 DB면 목업 데이터 반환(프론트 렌더링 확인용)
     """
