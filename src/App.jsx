@@ -545,7 +545,6 @@ const EXCLUDED_COLUMNS = [
 ]
 
 const WORK_REPORT_WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
-const WORK_REPORT_WEEK_TABLE_DAYS = 6
 const WORK_REPORT_MAIN_CHECK_COUNT = 5
 const WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX = 1
 const WORK_REPORT_EXTERNAL_ROW_COUNT = 5
@@ -11716,61 +11715,61 @@ function App() {
           <div>내용</div>
           <div>목적지</div>
         </div>
-        {Array.from({ length: WORK_REPORT_EXTERNAL_ROW_COUNT }, (_, index) => {
-          const orderIndex = index + 1
-          const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
+          {Array.from({ length: WORK_REPORT_EXTERNAL_ROW_COUNT }, (_, index) => {
+            const orderIndex = index + 1
+            const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
 
-          return (
-            <div
-              key={`external-v5-${date}-${orderIndex}`}
-              className="work-report-report-table-row editable work-report-report-table-row--external"
-              onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
-            >
-              <div className="work-report-report-cell work-report-report-cell--manager">
-                <WorkReportExternalManagerMultiSelect
-                  value={entry.user}
-                  onChange={(next) =>
-                    updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
-                      user: next,
-                    })
-                  }
-                  options={WORK_REPORT_EXTERNAL_USER_OPTIONS}
-                />
+            return (
+              <div
+                key={`external-v5-${date}-${orderIndex}`}
+                className="work-report-report-table-row editable work-report-report-table-row--external"
+                onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
+              >
+                <div className="work-report-report-cell work-report-report-cell--manager">
+                  <WorkReportExternalManagerMultiSelect
+                    value={entry.user}
+                    onChange={(next) =>
+                      updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                        user: next,
+                      })
+                    }
+                    options={WORK_REPORT_EXTERNAL_USER_OPTIONS}
+                  />
+                </div>
+                <div className="work-report-report-cell">
+                  <textarea
+                    className="work-report-report-field work-report-report-field--grow"
+                    rows={2}
+                    value={entry.content}
+                    placeholder="내용 입력"
+                    onChange={(e) =>
+                      updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                        content: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="work-report-report-cell">
+                  <input
+                    className="work-report-report-field"
+                    type="text"
+                    value={entry.destination}
+                    placeholder="목적지 입력"
+                    onChange={(e) =>
+                      updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                        destination: e.target.value,
+                      })
+                    }
+                  />
+                </div>
               </div>
-              <div className="work-report-report-cell">
-                <textarea
-                  className="work-report-report-field work-report-report-field--grow"
-                  rows={2}
-                  value={entry.content}
-                  placeholder="내용 입력"
-                  onChange={(e) =>
-                    updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
-                      content: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="work-report-report-cell">
-                <input
-                  className="work-report-report-field"
-                  type="text"
-                  value={entry.destination}
-                  placeholder="목적지 입력"
-                  onChange={(e) =>
-                    updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
-                      destination: e.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-          )
-        })}
+            )
+          })}
       </div>
     </section>
   )
 
-  const renderWorkReportManagedSectionV5 = (date, title, section, rowCount) => (
+  const renderWorkReportManagedSectionV5 = (date, title, section, rowCount, contentClassName) => (
     <div className="work-report-report-journal-block">
       <div className="work-report-report-subtitle">{title}</div>
       <div className="work-report-report-table work-report-report-table--journal">
@@ -11861,10 +11860,7 @@ function App() {
   )
 
   const renderWorkReportDayBoardV5 = (day) => (
-    <div
-      key={day.date}
-      className={`work-report-day-board work-report-day-board-dense report-mode${day.isToday ? ' is-today' : ''}`}
-    >
+    <div key={day.date} className={`work-report-day-board work-report-day-board-dense report-mode ${day.isToday ? 'is-today' : ''}`}>
       <div className="work-report-day-head report-mode">
         <div className="work-report-day-weekday">{day.label}</div>
         <div className="work-report-day-date">{day.date}</div>
@@ -11879,13 +11875,15 @@ function App() {
               day.date,
               'DI사업',
               WORK_REPORT_SECTION_KEYS.di,
-              WORK_REPORT_DI_ROW_COUNT
+              WORK_REPORT_DI_ROW_COUNT,
+              'di'
             )}
             {renderWorkReportManagedSectionV5(
               day.date,
               '도로사업',
               WORK_REPORT_SECTION_KEYS.road,
-              WORK_REPORT_ROAD_ROW_COUNT
+              WORK_REPORT_ROAD_ROW_COUNT,
+              'road'
             )}
             {renderWorkReportSupportSectionV5(day.date)}
           </div>
@@ -12367,9 +12365,7 @@ function App() {
 
               <div className="work-report-week-board-area">
                 <div className="work-report-week-grid">
-                  {selectedWorkWeekDays
-                    .slice(0, WORK_REPORT_WEEK_TABLE_DAYS)
-                    .map((day) => renderWorkReportDayBoardV5(day))}
+                  {selectedWorkWeekDays.map((day) => renderWorkReportDayBoardV5(day))}
                 </div>
               </div>
 
