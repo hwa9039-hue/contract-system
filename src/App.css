@@ -3369,6 +3369,8 @@ textarea:focus-visible {
   min-height: 0;
   max-height: none;
   margin-top: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .main-area > section.stat-card.stat-card--meeting-minutes .work-report-meeting-minutes-header {
@@ -7919,6 +7921,152 @@ textarea:focus-visible {
 
 .work-report-meeting-minutes-panel {
   margin: 0;
+}
+
+/* 회의록: 노션 스타일 자유 문서 */
+.meeting-minutes-doc {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  padding: 8px 12px 16px;
+  box-sizing: border-box;
+}
+
+.meeting-minutes-doc__title {
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 4px 4px 8px;
+  border: none;
+  background: transparent;
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #111827;
+  outline: none;
+  box-shadow: none;
+}
+
+.meeting-minutes-doc__title:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.meeting-minutes-doc__title::placeholder {
+  color: #9ca3af;
+}
+
+.meeting-minutes-doc__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+  margin-bottom: 16px;
+  padding: 0 4px;
+}
+
+.meeting-minutes-doc__meta-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  min-width: 0;
+}
+
+.meeting-minutes-doc__meta-field--attendees {
+  flex: 1 1 220px;
+  max-width: 420px;
+}
+
+.meeting-minutes-doc__meta-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.meeting-minutes-doc__meta-input {
+  border: none;
+  border-bottom: 1px solid #e5e7eb;
+  background: transparent;
+  padding: 4px 2px;
+  font-size: 13px;
+  color: #374151;
+  outline: none;
+  box-shadow: none;
+}
+
+.meeting-minutes-doc__meta-input:focus {
+  border-bottom-color: #93c5fd;
+  outline: none;
+  box-shadow: none;
+}
+
+.meeting-minutes-doc__meta-field--attendees .work-report-external-manager-multi {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.meeting-minutes-doc__meta-field--attendees .work-report-external-manager-multi-trigger {
+  min-height: 32px;
+  padding: 4px 8px;
+  border: none;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 0;
+  background: transparent;
+  font-size: 13px;
+  box-shadow: none;
+}
+
+.meeting-minutes-doc__meta-field--attendees .work-report-external-manager-multi-trigger:focus {
+  border-bottom-color: #93c5fd;
+  box-shadow: none;
+}
+
+.meeting-minutes-doc__body {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 500px;
+  margin: 0;
+  padding: 16px;
+  border: none;
+  background: transparent;
+  resize: none;
+  font-size: 1.125rem;
+  line-height: 1.65;
+  color: #1f2937;
+  outline: none;
+  box-shadow: none;
+  box-sizing: border-box;
+}
+
+.meeting-minutes-doc__body:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.meeting-minutes-doc__body::placeholder {
+  color: #9ca3af;
+}
+
+.meeting-minutes-doc__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 4px 0;
+  flex-shrink: 0;
+}
+
+.pdf-meeting-minutes--document .pdf-meeting-meta {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.pdf-meeting-minutes--document .pdf-meeting-body {
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .work-report-report-table-head--external > div,

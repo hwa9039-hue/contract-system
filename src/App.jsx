@@ -101,13 +101,8 @@ import {
 import {
   WorkReportMeetingMinutesSection,
   buildMeetingMinutesPdfMarkup,
-  MEETING_MINUTES_AGENDA_FIXED_ROWS,
   isMeetingMinutesDataEmpty,
-  getLegacyMeetingMinutesAgenda,
-  isLegacyMeetingMinutesEntry,
-  normalizeMeetingMinutesAgenda,
   parseMeetingMinutesFromEntry,
-  serializeMeetingMinutesPatch,
   getDashboardMeetingMinutesDisplayRows,
 } from './workReportMeetingMinutes.jsx'
 
@@ -2975,44 +2970,18 @@ function splitDashboardBriefingChecklistLines(text) {
     .filter((line) => line.trim() && !isWorkReportChecklistEmptyBulletLine(line))
 }
 
-/** 대시보드: 오늘이 속한 주(weekStart)의 회의록 agenda 행 목록 */
+/** 대시보드: 오늘이 속한 주(weekStart)의 회의록 요약 */
 function getDashboardWeekMeetingMinutesRows(weekStartDate, workReportRows, workReportDrafts) {
   const weekStart = formatDateInput(getWeekStartMonday(normalizeWorkReportDateKey(weekStartDate)))
   if (!weekStart) return []
-  const getEntry = (date, section, orderIndex) => {
-    const cellKey = `${normalizeWorkReportDateKey(date)}__${safeString(section).trim()}__${Number(orderIndex || 1)}`
+  const getEntry = (date, section, orderIndex = 1) => {
+    const sectionNorm = safeString(section).trim()
+    const oi = Number(orderIndex || 1)
+    const cellKey = `${normalizeWorkReportDateKey(date)}__${sectionNorm}__${oi}`
     const draftEntry = workReportDrafts?.[cellKey]
-    const storedEntry = (() => {
-      const sectionNorm = safeString(section).trim()
-      const oi = Number(orderIndex || 1)
-      const perRowMatches = workReportRows.filter((row) =>
-        workReportRowKeyMatch(row, weekStart, sectionNorm, oi)
-      )
-      const perRowStored = pickLatestWorkReportRow(perRowMatches)
-      if (perRowStored && (oi > 1 || !isLegacyMeetingMinutesEntry(perRowStored))) {
-        return perRowStored
-      }
-
-      const legacyAgenda = getLegacyMeetingMinutesAgenda(weekStart, workReportRows)
-      if (legacyAgenda && oi >= 1 && oi <= MEETING_MINUTES_AGENDA_FIXED_ROWS) {
-        const slice = legacyAgenda[oi - 1]
-        const legacyRow = pickMeetingMinutesStoredRow(weekStart, workReportRows, 1)
-        if (oi === 1 && legacyRow) {
-          return { ...legacyRow, content: slice.content, user: slice.assignee, orderIndex: 1 }
-        }
-        return {
-          date: weekStart,
-          section: sectionNorm,
-          orderIndex: oi,
-          content: slice.content,
-          user: slice.assignee,
-        }
-      }
-      const matches = workReportRows.filter((row) =>
-        workReportRowKeyMatch(row, weekStart, sectionNorm, oi)
-      )
-      return pickLatestWorkReportRow(matches)
-    })()
+    const storedEntry = pickLatestWorkReportRow(
+      workReportRows.filter((row) => workReportRowKeyMatch(row, weekStart, sectionNorm, oi))
+    )
     if (!draftEntry) return storedEntry
     return {
       ...(storedEntry || {}),
@@ -8800,45 +8769,6 @@ function App() {
     const dateKey = normalizeWorkReportDateKey(date)
     const oi = Number(orderIndex || 1)
 
-    if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
-      const weekStart = formatDateInput(getWeekStartMonday(dateKey))
-      const perRowMatches = workReportRowsRef.current.filter((row) =>
-        workReportRowKeyMatch(row, weekStart, sectionNorm, oi)
-      )
-      const perRowStored = pickLatestWorkReportRow(perRowMatches)
-      if (perRowStored && (oi > 1 || !isLegacyMeetingMinutesEntry(perRowStored))) {
-        return perRowStored
-      }
-
-      const legacyAgenda = getLegacyMeetingMinutesAgenda(weekStart, workReportRowsRef.current)
-      if (legacyAgenda && oi >= 1 && oi <= MEETING_MINUTES_AGENDA_FIXED_ROWS) {
-        const slice = legacyAgenda[oi - 1]
-        const legacyRow = pickMeetingMinutesStoredRow(weekStart, workReportRowsRef.current, 1)
-        if (oi === 1 && legacyRow) {
-          return {
-            ...legacyRow,
-            date: weekStart,
-            section: sectionNorm,
-            orderIndex: 1,
-            content: safeString(slice.content),
-            user: safeString(slice.assignee),
-          }
-        }
-        const perRowMatches = workReportRowsRef.current.filter((row) =>
-          workReportRowKeyMatch(row, weekStart, sectionNorm, oi)
-        )
-        const perRow = pickLatestWorkReportRow(perRowMatches)
-        if (perRow) return perRow
-        return createWorkReportDraftRow({
-          reportDate: weekStart,
-          section: sectionNorm,
-          content: safeString(slice.content),
-          user: safeString(slice.assignee),
-          orderIndex: oi,
-        })
-      }
-    }
-
     const matches = workReportRowsRef.current.filter((row) =>
       workReportRowKeyMatch(row, date, section, orderIndex)
     )
@@ -12937,6 +12867,20 @@ function App() {
                 <button className="secondary-btn" type="button" onClick={handleMeetingMinutesPdfDownload}>
                   PDF 다운로드
                 </button>
+                <button
+                  className="primary-btn"
+                  type="button"
+                  disabled={isSavingWorkReports}
+                  onClick={() =>
+                    flushWorkReportEntrySave(
+                      selectedWorkWeekMeta.weekStartDate,
+                      WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                      1
+                    )
+                  }
+                >
+                  저장
+                </button>
               </div>
 
               <div className="work-report-summary-card">
@@ -12954,7 +12898,14 @@ function App() {
                   weekStartDate={selectedWorkWeekMeta.weekStartDate}
                   getEntry={getWorkReportBoardEntry}
                   updateEntry={updateWorkReportBoardEntry}
-                  onBlur={handleWorkReportBoardBlur}
+                  isSaving={isSavingWorkReports}
+                  onSave={() =>
+                    flushWorkReportEntrySave(
+                      selectedWorkWeekMeta.weekStartDate,
+                      WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                      1
+                    )
+                  }
                 />
               </div>
 

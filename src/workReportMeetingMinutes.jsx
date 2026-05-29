@@ -14,7 +14,14 @@ export const MEETING_MINUTES_AGENDA_DEFAULT_ROWS = MEETING_MINUTES_AGENDA_FIXED_
 
 export const WORK_REPORT_MEETING_MINUTES_SECTION = '회의록'
 
-const MEETING_MINUTES_SESSION_KEY_PREFIX = 'cms-meeting-mm2:'
+const MEETING_MINUTES_SESSION_KEY_PREFIX = 'cms-meeting-mm3:'
+const MEETING_MINUTES_DOC_PREFIX = 'mm3\n'
+const MEETING_MINUTES_DOC_VERSION = 3
+
+/** Cloudflare WAF 회피 + 탭 혼동 방지 (회의내용·담당자 구분) */
+const MEETING_MINUTES_STORAGE_VERSION = 2
+const MEETING_MINUTES_TEXT_PREFIX = 'mm2\n'
+const MEETING_MINUTES_FIELD_SEP = '\u001f'
 
 export function getMeetingMinutesSessionStorageKey(weekStartDate) {
   const date = safeString(weekStartDate).trim().slice(0, 10)
@@ -45,14 +52,51 @@ export function writeMeetingMinutesSessionBackup(weekStartDate, content) {
   }
 }
 
-/** Cloudflare WAF 회피 + 탭 혼동 방지 (회의내용·담당자 구분) */
-const MEETING_MINUTES_STORAGE_VERSION = 2
-const MEETING_MINUTES_TEXT_PREFIX = 'mm2\n'
-const MEETING_MINUTES_FIELD_SEP = '\u001f'
-
 function safeString(value) {
   if (value === null || value === undefined) return ''
   return String(value)
+}
+
+export function getDefaultMeetingMinutesDocument() {
+  return {
+    title: '',
+    meetingDate: '',
+    attendees: [],
+    body: '',
+  }
+}
+
+function normalizeMeetingMinutesDocument(raw = {}, entry) {
+  const attendees = parseManagerMultiSelectValue(
+    raw.attendees ?? raw.attendee ?? entry?.user ?? entry?.assignees
+  )
+  return {
+    title: safeString(raw.title ?? raw.meetingTitle).trim(),
+    meetingDate: safeString(raw.meetingDate ?? raw.meetingDateTime ?? raw.date).trim(),
+    attendees,
+    body: safeString(raw.body ?? raw.content ?? raw.text),
+  }
+}
+
+function tryParseMeetingMinutesDocJson(decoded) {
+  const trimmed = safeString(decoded).trim()
+  if (!trimmed) return null
+
+  let jsonText = trimmed
+  if (trimmed.startsWith(MEETING_MINUTES_DOC_PREFIX)) {
+    jsonText = trimmed.slice(MEETING_MINUTES_DOC_PREFIX.length).trim()
+  }
+  if (!jsonText.startsWith('{')) return null
+
+  try {
+    const parsed = JSON.parse(jsonText)
+    if (parsed?.v === MEETING_MINUTES_DOC_VERSION) {
+      return normalizeMeetingMinutesDocument(parsed, null)
+    }
+  } catch {
+    return null
+  }
+  return null
 }
 
 function meetingMinutesAssigneeKey(value) {
@@ -118,7 +162,6 @@ function sanitizeMeetingMinutesCell(value) {
     .trim()
 }
 
-/** `0↟내용↟담당자` — 마지막 구분자 기준으로 담당자 분리(내용에 탭이 있어도 안전) */
 function parseIndexedTabLine(trimmed) {
   const firstTab = trimmed.indexOf('\t')
   if (firstTab <= 0 || !/^\d+$/.test(trimmed.slice(0, firstTab))) return null
@@ -228,6 +271,14 @@ export function parseMeetingMinutesFromEntry(entry) {
   const raw = safeString(entry?.content).trim()
   const decoded = decodeWorkReportWireText(raw)
 
+  const docFromWire = tryParseMeetingMinutesDocJson(decoded)
+  if (docFromWire) {
+    return {
+      meta: getDefaultMeetingMinutesData().meta,
+      agenda: documentToLegacyAgenda(docFromWire),
+    }
+  }
+
   const textRows = parseMeetingMinutesTextRows(decoded)
   if (textRows) {
     const agenda =
@@ -243,6 +294,13 @@ export function parseMeetingMinutesFromEntry(entry) {
   if (decoded.startsWith('{')) {
     try {
       const parsed = JSON.parse(decoded)
+      if (parsed?.v === MEETING_MINUTES_DOC_VERSION) {
+        const doc = normalizeMeetingMinutesDocument(parsed, entry)
+        return {
+          meta: getDefaultMeetingMinutesData().meta,
+          agenda: documentToLegacyAgenda(doc),
+        }
+      }
       if (parsed?.v === MEETING_MINUTES_STORAGE_VERSION && Array.isArray(parsed.rows)) {
         return {
           meta: getDefaultMeetingMinutesData().meta,
@@ -284,34 +342,83 @@ export function parseMeetingMinutesFromEntry(entry) {
   }
 }
 
-export function isMeetingMinutesDataEmpty(data) {
-  return !normalizeMeetingMinutesAgenda(data?.agenda).some(
-    (row) => safeString(row.content).trim() || safeString(row.assignee).trim()
+function documentToLegacyAgenda(doc) {
+  const body = safeString(doc.body).trim()
+  if (!body) return getDefaultMeetingMinutesAgenda()
+  return normalizeMeetingMinutesAgenda([{ content: body, assignee: '', dueDate: '' }])
+}
+
+function migrateLegacyParsedToDocument(parsed, entry) {
+  const meta = parsed?.meta || getDefaultMeetingMinutesData().meta
+  const agenda = normalizeMeetingMinutesAgenda(parsed?.agenda)
+  const lines = []
+  for (let index = 0; index < agenda.length; index += 1) {
+    const row = agenda[index]
+    const content = safeString(row.content).trim()
+    const assignee = safeString(row.assignee).trim()
+    if (!content && !assignee) continue
+    lines.push(assignee ? `${content} (담당: ${assignee})` : content)
+  }
+  const attendees = parseManagerMultiSelectValue(entry?.user ?? entry?.assignees)
+  const metaDate = safeString(meta.meetingDateTime).trim()
+  return normalizeMeetingMinutesDocument(
+    {
+      title: metaDate ? '' : '',
+      meetingDate: metaDate,
+      attendees: attendees.length ? attendees : parseManagerMultiSelectValue(meta.attendees),
+      body: lines.join('\n'),
+    },
+    entry
   )
 }
 
-/** 저장 검증: 행 단위 내용·담당자가 동일한지 (mm2 직렬화 문자열 차이 무시) */
-export function meetingMinutesAgendaMatches(leftContent, rightContent) {
-  const leftAgenda = normalizeMeetingMinutesAgenda(
-    parseMeetingMinutesFromEntry({ content: leftContent }).agenda
-  )
-  const rightAgenda = normalizeMeetingMinutesAgenda(
-    parseMeetingMinutesFromEntry({ content: rightContent }).agenda
-  )
-  for (let index = 0; index < MEETING_MINUTES_AGENDA_FIXED_ROWS; index += 1) {
-    const left = leftAgenda[index] || {}
-    const right = rightAgenda[index] || {}
-    const leftContent = safeString(left.content).trim()
-    const leftAssignee = safeString(left.assignee).trim()
-    const rightContent = safeString(right.content).trim()
-    const rightAssignee = safeString(right.assignee).trim()
-    if (!leftContent && !leftAssignee && !rightContent && !rightAssignee) continue
-    if (leftContent !== rightContent) return false
-    if (meetingMinutesAssigneeKey(left.assignees ?? left.assignee) !== meetingMinutesAssigneeKey(right.assignees ?? right.assignee)) {
-      return false
-    }
+export function parseMeetingMinutesDocumentFromEntry(entry) {
+  const raw = safeString(entry?.content).trim()
+  const decoded = decodeWorkReportWireText(raw)
+  const direct = tryParseMeetingMinutesDocJson(decoded)
+  if (direct) return normalizeMeetingMinutesDocument(direct, entry)
+  return migrateLegacyParsedToDocument(parseMeetingMinutesFromEntry(entry), entry)
+}
+
+export function serializeMeetingMinutesDocumentContent(doc) {
+  const normalized = normalizeMeetingMinutesDocument(doc, null)
+  if (isMeetingMinutesDocumentEmpty(normalized)) return ''
+  const payload = {
+    v: MEETING_MINUTES_DOC_VERSION,
+    title: normalized.title,
+    meetingDate: normalized.meetingDate,
+    body: normalized.body,
   }
-  return true
+  return `${MEETING_MINUTES_DOC_PREFIX}${JSON.stringify(payload)}`
+}
+
+export function isMeetingMinutesDocumentEmpty(doc) {
+  const normalized = normalizeMeetingMinutesDocument(doc, null)
+  return (
+    !safeString(normalized.title).trim() &&
+    !safeString(normalized.meetingDate).trim() &&
+    !safeString(normalized.body).trim() &&
+    !normalized.attendees.length
+  )
+}
+
+export function isMeetingMinutesDataEmpty(data) {
+  if (!data) return true
+  if (data.title !== undefined || data.body !== undefined || data.meetingDate !== undefined) {
+    return isMeetingMinutesDocumentEmpty(data)
+  }
+  return isMeetingMinutesDocumentEmpty(migrateLegacyParsedToDocument(data, null))
+}
+
+export function meetingMinutesAgendaMatches(leftContent, rightContent) {
+  const leftDoc = parseMeetingMinutesDocumentFromEntry({ content: leftContent })
+  const rightDoc = parseMeetingMinutesDocumentFromEntry({ content: rightContent })
+  return (
+    safeString(leftDoc.title).trim() === safeString(rightDoc.title).trim() &&
+    safeString(leftDoc.meetingDate).trim() === safeString(rightDoc.meetingDate).trim() &&
+    safeString(leftDoc.body) === safeString(rightDoc.body) &&
+    meetingMinutesAssigneeKey(leftDoc.attendees) === meetingMinutesAssigneeKey(rightDoc.attendees)
+  )
 }
 
 function serializeMeetingMinutesTextBody(agenda) {
@@ -331,19 +438,26 @@ function serializeMeetingMinutesTextBody(agenda) {
 }
 
 export function serializeMeetingMinutesPatch(data) {
-  const textBody = serializeMeetingMinutesTextBody(data.agenda)
+  const doc = data?.title !== undefined || data?.body !== undefined
+    ? normalizeMeetingMinutesDocument(data, null)
+    : migrateLegacyParsedToDocument(data, null)
   return {
-    content: textBody ? `${MEETING_MINUTES_TEXT_PREFIX}${textBody}` : '',
-    user: safeString(data.meta?.author),
-    destination: safeString(data.meta?.meetingDateTime),
+    content: serializeMeetingMinutesDocumentContent(doc),
+    user: serializeManagerMultiSelectValue(doc.attendees),
+    destination: safeString(doc.meetingDate),
   }
 }
 
 export function isLegacyMeetingMinutesEntry(entry) {
-  return safeString(entry?.content).trim().startsWith(MEETING_MINUTES_TEXT_PREFIX)
+  const raw = safeString(entry?.content).trim()
+  return raw.startsWith(MEETING_MINUTES_TEXT_PREFIX)
 }
 
-/** 예전 mm2 한 줄 저장(주차·order_index 1) */
+export function isMeetingMinutesDocEntry(entry) {
+  const raw = safeString(entry?.content).trim()
+  return raw.startsWith(MEETING_MINUTES_DOC_PREFIX)
+}
+
 export function getLegacyMeetingMinutesAgenda(weekStartDate, workReportRows) {
   const rows = Array.isArray(workReportRows) ? workReportRows : []
   const section = WORK_REPORT_MEETING_MINUTES_SECTION
@@ -385,29 +499,8 @@ function weekHasPerRowMeetingMinutes(weekStartDate, getEntry) {
   }
   const row1 = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
   if (!row1) return false
-  if (isLegacyMeetingMinutesEntry(row1)) return false
+  if (isLegacyMeetingMinutesEntry(row1) || isMeetingMinutesDocEntry(row1)) return false
   return Boolean(safeString(row1.content).trim() || safeString(row1.user).trim())
-}
-
-/** 칸별(order_index 1~20) + 구 mm2 호환 */
-export function loadMeetingMinutesAgenda(weekStartDate, getEntry) {
-  if (!weekHasPerRowMeetingMinutes(weekStartDate, getEntry)) {
-    const legacyAgenda = getLegacyMeetingMinutesAgendaFromGetEntry(weekStartDate, getEntry)
-    if (legacyAgenda) return legacyAgenda
-  }
-
-  const agenda = getDefaultMeetingMinutesAgenda()
-  for (let index = 0; index < MEETING_MINUTES_AGENDA_FIXED_ROWS; index += 1) {
-    const entry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, index + 1)
-    const assignees = parseManagerMultiSelectValue(entry?.user)
-    agenda[index] = {
-      content: safeString(entry?.content),
-      assignee: serializeManagerMultiSelectValue(assignees),
-      assignees,
-      dueDate: '',
-    }
-  }
-  return agenda
 }
 
 function getLegacyMeetingMinutesAgendaFromGetEntry(weekStartDate, getEntry) {
@@ -416,14 +509,72 @@ function getLegacyMeetingMinutesAgendaFromGetEntry(weekStartDate, getEntry) {
   return normalizeMeetingMinutesAgenda(parseMeetingMinutesFromEntry(entry).agenda)
 }
 
+export function loadMeetingMinutesAgenda(weekStartDate, getEntry) {
+  const doc = loadMeetingMinutesDocument(weekStartDate, getEntry)
+  return documentToLegacyAgenda(doc)
+}
+
+export function loadMeetingMinutesDocument(weekStartDate, getEntry) {
+  const entry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
+  if (entry && isMeetingMinutesDocEntry(entry)) {
+    return parseMeetingMinutesDocumentFromEntry(entry)
+  }
+
+  if (!weekHasPerRowMeetingMinutes(weekStartDate, getEntry)) {
+    const legacyAgenda = getLegacyMeetingMinutesAgendaFromGetEntry(weekStartDate, getEntry)
+    if (legacyAgenda) {
+      return migrateLegacyParsedToDocument(
+        { meta: getDefaultMeetingMinutesData().meta, agenda: legacyAgenda },
+        entry
+      )
+    }
+  }
+
+  if (weekHasPerRowMeetingMinutes(weekStartDate, getEntry)) {
+    const lines = []
+    const attendeeSet = new Set()
+    for (let index = 0; index < MEETING_MINUTES_AGENDA_FIXED_ROWS; index += 1) {
+      const rowEntry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, index + 1)
+      const content = safeString(rowEntry?.content).trim()
+      const assignees = parseManagerMultiSelectValue(rowEntry?.user)
+      assignees.forEach((name) => attendeeSet.add(name))
+      const assigneeLabel = serializeManagerMultiSelectValue(assignees)
+      if (!content && !assigneeLabel) continue
+      lines.push(assigneeLabel ? `${content} (담당: ${assigneeLabel})` : content)
+    }
+    return normalizeMeetingMinutesDocument(
+      {
+        title: '',
+        meetingDate: '',
+        attendees: [...attendeeSet],
+        body: lines.join('\n'),
+      },
+      entry
+    )
+  }
+
+  if (entry) return parseMeetingMinutesDocumentFromEntry(entry)
+  return getDefaultMeetingMinutesDocument()
+}
+
 export function getDashboardMeetingMinutesDisplayRows(weekStartDate, getEntry) {
-  const agenda = loadMeetingMinutesAgenda(weekStartDate, getEntry)
-  return normalizeMeetingMinutesAgenda(agenda)
-    .map((row) => ({
-      assignee: safeString(row.assignee).trim(),
-      content: safeString(row.content).trim(),
-    }))
-    .filter((row) => row.assignee || row.content)
+  const doc = loadMeetingMinutesDocument(weekStartDate, getEntry)
+  if (isMeetingMinutesDocumentEmpty(doc)) return []
+  const preview =
+    safeString(doc.title).trim() ||
+    safeString(doc.body)
+      .trim()
+      .split('\n')
+      .map((line) => line.trim())
+      .find(Boolean) ||
+    ''
+  if (!preview) return []
+  return [
+    {
+      content: preview,
+      assignee: serializeManagerMultiSelectValue(doc.attendees),
+    },
+  ]
 }
 
 export function buildMeetingMinutesPdfMarkup(
@@ -432,39 +583,23 @@ export function buildMeetingMinutesPdfMarkup(
   escapeHtml,
   { includeHeading = true } = {}
 ) {
-  const agenda = loadMeetingMinutesAgenda(weekStartDate, getBoardEntry)
-  const data = { agenda, meta: getDefaultMeetingMinutesData().meta }
-  if (isMeetingMinutesDataEmpty(data)) return ''
+  const doc = loadMeetingMinutesDocument(weekStartDate, getBoardEntry)
+  if (isMeetingMinutesDocumentEmpty(doc)) return ''
 
-  const agendaRows = normalizeMeetingMinutesAgenda(agenda)
-    .map((row, index) => {
-      const content = safeString(row.content).trim()
-      const assignee = safeString(row.assignee).trim()
-      return `
-        <tr>
-          <td class="pdf-meeting-index">${index + 1}</td>
-          <td class="pdf-meeting-content">${escapeHtml(content).replaceAll('\n', '<br />') || '&nbsp;'}</td>
-          <td class="pdf-meeting-assignee">${escapeHtml(assignee) || '&nbsp;'}</td>
-        </tr>
-      `
-    })
-    .join('')
+  const title = safeString(doc.title).trim() || '회의록'
+  const meetingDate = safeString(doc.meetingDate).trim()
+  const attendees = serializeManagerMultiSelectValue(doc.attendees)
+  const bodyHtml = escapeHtml(safeString(doc.body)).replaceAll('\n', '<br />') || '&nbsp;'
+
+  const metaParts = []
+  if (meetingDate) metaParts.push(`일시: ${escapeHtml(meetingDate)}`)
+  if (attendees) metaParts.push(`참석자: ${escapeHtml(attendees)}`)
 
   return `
-    <section class="pdf-meeting-minutes">
-      ${includeHeading ? '<h3 class="pdf-meeting-title">회의록</h3>' : ''}
-      <table class="pdf-table pdf-meeting-agenda-table">
-        <thead>
-          <tr>
-            <th class="pdf-meeting-index">#</th>
-            <th>회의록</th>
-            <th class="pdf-meeting-assignee">담당자</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${agendaRows}
-        </tbody>
-      </table>
+    <section class="pdf-meeting-minutes pdf-meeting-minutes--document">
+      <h3 class="pdf-meeting-title">${escapeHtml(title)}</h3>
+      ${metaParts.length ? `<div class="pdf-meeting-meta">${metaParts.join(' · ')}</div>` : ''}
+      <div class="pdf-meeting-body">${bodyHtml}</div>
     </section>
   `
 }
@@ -473,84 +608,89 @@ export function WorkReportMeetingMinutesSection({
   weekStartDate,
   getEntry,
   updateEntry,
-  onBlur,
+  onSave,
+  isSaving = false,
 }) {
-  const agendaRows = useMemo(
-    () => loadMeetingMinutesAgenda(weekStartDate, getEntry),
+  const document = useMemo(
+    () => loadMeetingMinutesDocument(weekStartDate, getEntry),
     [weekStartDate, getEntry]
   )
 
-  const patchAgendaRow = (index, patch) => {
-    const orderIndex = index + 1
-    updateEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, orderIndex, (prevEntry) => {
+  const patchDocument = (patch) => {
+    const next = normalizeMeetingMinutesDocument({ ...document, ...patch }, null)
+    updateEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1, (prevEntry) => {
       const base =
         prevEntry ||
         ({
           date: weekStartDate,
           section: WORK_REPORT_MEETING_MINUTES_SECTION,
-          orderIndex,
+          orderIndex: 1,
           content: '',
           user: '',
         })
-      const prevAssignees = parseManagerMultiSelectValue(base.user)
-      const nextAssignees =
-        patch.assignees !== undefined
-          ? parseManagerMultiSelectValue(patch.assignees)
-          : patch.assignee !== undefined
-            ? parseManagerMultiSelectValue(patch.assignee)
-            : prevAssignees
       return {
         ...base,
         date: weekStartDate,
         section: WORK_REPORT_MEETING_MINUTES_SECTION,
-        orderIndex,
-        content: patch.content !== undefined ? patch.content : base.content,
-        assignees: nextAssignees,
-        user: serializeManagerMultiSelectValue(nextAssignees),
+        orderIndex: 1,
+        content: serializeMeetingMinutesDocumentContent(next),
+        user: serializeManagerMultiSelectValue(next.attendees),
+        assignees: next.attendees,
       }
     })
   }
 
   return (
-    <section className="work-report-report-section work-report-meeting-minutes-panel">
-      <div className="work-report-report-table work-report-report-table--meeting">
-        <div className="work-report-report-table-head work-report-report-table-head-meeting">
-          <div>구분</div>
-          <div>내용</div>
-          <div>담당자</div>
-        </div>
-        {agendaRows.map((row, index) => (
-          <div
-            key={`meeting-agenda-${index + 1}`}
-            className="work-report-report-table-row editable work-report-report-table-row-meeting"
-            onBlur={(e) => {
-              if (typeof onBlur === 'function') {
-                onBlur(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, index + 1)(e)
-              }
-            }}
-          >
-            <div className="work-report-report-line-number">{index + 1}</div>
-            <div className="work-report-report-cell">
-              <textarea
-                className="work-report-report-field work-report-report-field--meeting-content"
-                rows={1}
-                value={row.content}
-                placeholder="내용 입력"
-                onChange={(e) => patchAgendaRow(index, { content: e.target.value })}
-              />
-            </div>
-            <div className="work-report-report-cell work-report-report-cell--meeting-assignee">
-              <WorkReportExternalManagerMultiSelect
-                value={row.assignees ?? row.assignee}
-                options={WORK_REPORT_MANAGER_OPTIONS}
-                onChange={(nextCsv) =>
-                  patchAgendaRow(index, { assignees: parseManagerMultiSelectValue(nextCsv) })
-                }
-              />
-            </div>
-          </div>
-        ))}
+    <section className="work-report-report-section work-report-meeting-minutes-panel meeting-minutes-doc">
+      <input
+        className="meeting-minutes-doc__title"
+        type="text"
+        value={document.title}
+        placeholder="회의 제목"
+        onChange={(e) => patchDocument({ title: e.target.value })}
+      />
+
+      <div className="meeting-minutes-doc__meta">
+        <label className="meeting-minutes-doc__meta-field">
+          <span className="meeting-minutes-doc__meta-label">일시</span>
+          <input
+            className="meeting-minutes-doc__meta-input"
+            type="date"
+            value={document.meetingDate}
+            onChange={(e) => patchDocument({ meetingDate: e.target.value })}
+          />
+        </label>
+        <label className="meeting-minutes-doc__meta-field meeting-minutes-doc__meta-field--attendees">
+          <span className="meeting-minutes-doc__meta-label">참석자</span>
+          <WorkReportExternalManagerMultiSelect
+            value={document.attendees}
+            options={WORK_REPORT_MANAGER_OPTIONS}
+            onChange={(nextCsv) =>
+              patchDocument({ attendees: parseManagerMultiSelectValue(nextCsv) })
+            }
+          />
+        </label>
       </div>
+
+      <textarea
+        className="meeting-minutes-doc__body"
+        value={document.body}
+        placeholder="회의 내용을 자유롭게 작성하세요."
+        onChange={(e) => patchDocument({ body: e.target.value })}
+      />
+
+      {typeof onSave === 'function' && (
+        <div className="meeting-minutes-doc__actions">
+          <button
+            className="primary-btn"
+            type="button"
+            disabled={isSaving}
+            onClick={() => onSave()}
+          >
+            저장
+          </button>
+        </div>
+      )}
     </section>
   )
 }
