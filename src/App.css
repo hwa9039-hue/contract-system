@@ -1588,18 +1588,12 @@ table[data-contract-table-row-key] tbody td.table-col-long .editable-text-cell-i
   border-bottom: 1px solid #e5e7eb;
 }
 
-.sales-record-modal-header h3 {
+.sales-record-modal-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 1.25rem;
   font-weight: 800;
+  line-height: 1.35;
   color: #111827;
-}
-
-.sales-record-modal-subtitle {
-  margin: 6px 0 0;
-  font-size: 13px;
-  color: #6b7280;
-  line-height: 1.4;
   word-break: break-word;
 }
 

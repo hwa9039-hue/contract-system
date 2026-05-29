@@ -43,6 +43,12 @@ export const salesRegisterApi = {
       body: JSON.stringify(patch),
     })
   },
+  updateSummary(id, summary) {
+    return requestJson(`/api/sales-register/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ summary: summary ?? '' }),
+    })
+  },
   remove(id) {
     return requestJson(`/api/sales-register/${encodeURIComponent(id)}`, {
       method: 'DELETE',

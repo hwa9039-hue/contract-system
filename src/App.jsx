@@ -2600,7 +2600,7 @@ function normalizeSalesRecordForSave(text) {
   const hasMeaningfulLine = lines.some(
     (line) => !isWorkReportChecklistEmptyBulletLine(line) && safeString(line).trim() !== ''
   )
-  if (!hasMeaningfulLine) return null
+  if (!hasMeaningfulLine) return ''
   return raw.trimEnd()
 }
 
@@ -7123,7 +7123,7 @@ function App() {
   const openSalesRecordModal = (row) => {
     const rowId = safeString(row?.id).trim()
     if (!rowId || row.isDraft || rowId.startsWith('sales-draft-')) {
-      showAppAlert('행을 저장한 뒤 기록을 작성할 수 있습니다.', '알림')
+      showAppAlert('행을 저장한 뒤 요약을 작성할 수 있습니다.', '알림')
       return
     }
     setSalesRecordModal({
@@ -7159,8 +7159,8 @@ function App() {
       className={`sales-record-btn${
         hasSalesRecordStoredContent(row.summary) ? ' sales-record-btn--has-content' : ''
       }`}
-      title="기록"
-      aria-label="기록 보기 및 작성"
+      title="요약"
+      aria-label="요약 보기 및 작성"
       onClick={(e) => {
         e.stopPropagation()
         openSalesRecordModal(row)
@@ -14038,8 +14038,9 @@ function App() {
           >
             <div className="sales-record-modal-header">
               <div>
-                <h3 id="sales-record-modal-title">기록</h3>
-                <p className="sales-record-modal-subtitle">{salesRecordModal.projectName}</p>
+                <h3 id="sales-record-modal-title" className="sales-record-modal-title">
+                  {salesRecordModal.projectName}
+                </h3>
               </div>
               <button
                 type="button"
@@ -14056,7 +14057,7 @@ function App() {
                 id="sales-record-textarea"
                 className="sales-record-textarea"
                 rows={10}
-                placeholder="기록을 입력하세요."
+                placeholder="요약을 입력하세요."
                 value={salesRecordModal.summary}
                 onChange={(e) =>
                   setSalesRecordModal((prev) =>

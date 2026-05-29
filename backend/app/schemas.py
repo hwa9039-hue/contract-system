@@ -1017,6 +1017,19 @@ def sales_register_to_db_values(row: SalesRegisterBase) -> dict:
     }
 
 
+def sales_register_patch_to_db_values(patch: SalesRegisterPatch) -> dict:
+    """PATCH 본문 — summary 등 null·빈 문자열도 명시적으로 반영."""
+    data = patch.model_dump(exclude_unset=True)
+    fields_set = getattr(patch, "model_fields_set", None) or set()
+    values: dict = {}
+    for api_key, db_key in SALES_REGISTER_DB_COLUMNS.items():
+        if api_key in data:
+            values[db_key] = data[api_key]
+        elif api_key in fields_set:
+            values[db_key] = data.get(api_key)
+    return values
+
+
 def budget_progress_to_db_values(row: BudgetProgressBase) -> dict:
     data = row.model_dump(exclude_unset=True)
     return {

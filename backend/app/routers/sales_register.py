@@ -12,6 +12,7 @@ from app.schemas import (
     SalesRegisterOut,
     SalesRegisterPatch,
     row_to_sales_register,
+    sales_register_patch_to_db_values,
     sales_register_to_db_values,
 )
 
@@ -85,7 +86,11 @@ def create_sales_register_row(row: SalesRegisterCreate):
 
 @router.patch("/{row_id}", response_model=SalesRegisterOut)
 def update_sales_register_row(row_id: str, patch: SalesRegisterPatch):
-    values = sales_register_to_db_values(patch)
+    values = sales_register_patch_to_db_values(patch)
+    patch_data = patch.model_dump(exclude_unset=True)
+    fields_set = getattr(patch, "model_fields_set", None) or set()
+    if "summary" in patch_data or "summary" in fields_set:
+        values["summary"] = patch_data.get("summary")
     if not values:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
 
