@@ -12898,14 +12898,6 @@ function App() {
                   weekStartDate={selectedWorkWeekMeta.weekStartDate}
                   getEntry={getWorkReportBoardEntry}
                   updateEntry={updateWorkReportBoardEntry}
-                  isSaving={isSavingWorkReports}
-                  onSave={() =>
-                    flushWorkReportEntrySave(
-                      selectedWorkWeekMeta.weekStartDate,
-                      WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                      1
-                    )
-                  }
                 />
               </div>
 

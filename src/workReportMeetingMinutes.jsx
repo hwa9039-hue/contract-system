@@ -62,19 +62,38 @@ export function getDefaultMeetingMinutesDocument() {
     title: '',
     meetingDate: '',
     attendees: [],
-    body: '',
+    agenda: getDefaultMeetingMinutesAgenda(),
   }
+}
+
+function bodyLinesToAgenda(body) {
+  const lines = safeString(body).split('\n')
+  const rows = lines.map((line) => {
+    const trimmed = line.trim()
+    if (!trimmed) return { content: '', assignee: '', dueDate: '' }
+    const match = trimmed.match(/^(.+?)\s*\(담당:\s*(.+)\)\s*$/)
+    if (match) {
+      return { content: match[1].trim(), assignee: match[2].trim(), dueDate: '' }
+    }
+    return { content: trimmed, assignee: '', dueDate: '' }
+  })
+  return normalizeMeetingMinutesAgenda(rows)
 }
 
 function normalizeMeetingMinutesDocument(raw = {}, entry) {
   const attendees = parseManagerMultiSelectValue(
     raw.attendees ?? raw.attendee ?? entry?.user ?? entry?.assignees
   )
+  const agendaFromRaw = Array.isArray(raw.agenda)
+    ? normalizeMeetingMinutesAgenda(raw.agenda)
+    : null
+  const legacyBody = safeString(raw.body ?? raw.content ?? raw.text)
+  const agenda = agendaFromRaw || (legacyBody.trim() ? bodyLinesToAgenda(legacyBody) : getDefaultMeetingMinutesAgenda())
   return {
     title: safeString(raw.title ?? raw.meetingTitle).trim(),
     meetingDate: safeString(raw.meetingDate ?? raw.meetingDateTime ?? raw.date).trim(),
     attendees,
-    body: safeString(raw.body ?? raw.content ?? raw.text),
+    agenda,
   }
 }
 
@@ -343,30 +362,20 @@ export function parseMeetingMinutesFromEntry(entry) {
 }
 
 function documentToLegacyAgenda(doc) {
-  const body = safeString(doc.body).trim()
-  if (!body) return getDefaultMeetingMinutesAgenda()
-  return normalizeMeetingMinutesAgenda([{ content: body, assignee: '', dueDate: '' }])
+  return normalizeMeetingMinutesAgenda(doc?.agenda)
 }
 
 function migrateLegacyParsedToDocument(parsed, entry) {
   const meta = parsed?.meta || getDefaultMeetingMinutesData().meta
   const agenda = normalizeMeetingMinutesAgenda(parsed?.agenda)
-  const lines = []
-  for (let index = 0; index < agenda.length; index += 1) {
-    const row = agenda[index]
-    const content = safeString(row.content).trim()
-    const assignee = safeString(row.assignee).trim()
-    if (!content && !assignee) continue
-    lines.push(assignee ? `${content} (담당: ${assignee})` : content)
-  }
   const attendees = parseManagerMultiSelectValue(entry?.user ?? entry?.assignees)
   const metaDate = safeString(meta.meetingDateTime).trim()
   return normalizeMeetingMinutesDocument(
     {
-      title: metaDate ? '' : '',
+      title: '',
       meetingDate: metaDate,
       attendees: attendees.length ? attendees : parseManagerMultiSelectValue(meta.attendees),
-      body: lines.join('\n'),
+      agenda,
     },
     entry
   )
@@ -387,27 +396,55 @@ export function serializeMeetingMinutesDocumentContent(doc) {
     v: MEETING_MINUTES_DOC_VERSION,
     title: normalized.title,
     meetingDate: normalized.meetingDate,
-    body: normalized.body,
+    agenda: normalized.agenda.map((row) => ({
+      content: safeString(row.content),
+      assignee: safeString(row.assignee),
+      dueDate: safeString(row.dueDate),
+    })),
   }
   return `${MEETING_MINUTES_DOC_PREFIX}${JSON.stringify(payload)}`
 }
 
+function isMeetingMinutesAgendaRowEmpty(row) {
+  return (
+    !safeString(row?.content).trim() &&
+    !safeString(row?.assignee).trim() &&
+    !safeString(row?.dueDate).trim() &&
+    !parseManagerMultiSelectValue(row?.assignees ?? row?.assignee).length
+  )
+}
+
 export function isMeetingMinutesDocumentEmpty(doc) {
   const normalized = normalizeMeetingMinutesDocument(doc, null)
+  const hasAgendaContent = normalized.agenda.some((row) => !isMeetingMinutesAgendaRowEmpty(row))
   return (
     !safeString(normalized.title).trim() &&
     !safeString(normalized.meetingDate).trim() &&
-    !safeString(normalized.body).trim() &&
+    !hasAgendaContent &&
     !normalized.attendees.length
   )
 }
 
 export function isMeetingMinutesDataEmpty(data) {
   if (!data) return true
-  if (data.title !== undefined || data.body !== undefined || data.meetingDate !== undefined) {
+  if (data.title !== undefined || data.agenda !== undefined || data.body !== undefined || data.meetingDate !== undefined) {
     return isMeetingMinutesDocumentEmpty(data)
   }
   return isMeetingMinutesDocumentEmpty(migrateLegacyParsedToDocument(data, null))
+}
+
+function meetingMinutesAgendaRowsMatch(leftAgenda, rightAgenda) {
+  const left = normalizeMeetingMinutesAgenda(leftAgenda)
+  const right = normalizeMeetingMinutesAgenda(rightAgenda)
+  return left.every((row, index) => {
+    const other = right[index]
+    return (
+      safeString(row.content) === safeString(other.content) &&
+      meetingMinutesAssigneeKey(row.assignees ?? row.assignee) ===
+        meetingMinutesAssigneeKey(other.assignees ?? other.assignee) &&
+      safeString(row.dueDate) === safeString(other.dueDate)
+    )
+  })
 }
 
 export function meetingMinutesAgendaMatches(leftContent, rightContent) {
@@ -416,7 +453,7 @@ export function meetingMinutesAgendaMatches(leftContent, rightContent) {
   return (
     safeString(leftDoc.title).trim() === safeString(rightDoc.title).trim() &&
     safeString(leftDoc.meetingDate).trim() === safeString(rightDoc.meetingDate).trim() &&
-    safeString(leftDoc.body) === safeString(rightDoc.body) &&
+    meetingMinutesAgendaRowsMatch(leftDoc.agenda, rightDoc.agenda) &&
     meetingMinutesAssigneeKey(leftDoc.attendees) === meetingMinutesAssigneeKey(rightDoc.attendees)
   )
 }
@@ -429,16 +466,17 @@ function serializeMeetingMinutesTextBody(agenda) {
     const person = sanitizeMeetingMinutesCell(
       serializeManagerMultiSelectValue(rows[index].assignees ?? rows[index].assignee)
     )
-    if (!text && !person) continue
+    const due = sanitizeMeetingMinutesCell(rows[index].dueDate)
+    if (!text && !person && !due) continue
     lines.push(
-      `${index}${MEETING_MINUTES_FIELD_SEP}${text}${MEETING_MINUTES_FIELD_SEP}${person}`
+      `${index}${MEETING_MINUTES_FIELD_SEP}${text}${MEETING_MINUTES_FIELD_SEP}${person}${MEETING_MINUTES_FIELD_SEP}${due}`
     )
   }
   return lines.join('\n')
 }
 
 export function serializeMeetingMinutesPatch(data) {
-  const doc = data?.title !== undefined || data?.body !== undefined
+  const doc = data?.title !== undefined || data?.agenda !== undefined || data?.body !== undefined
     ? normalizeMeetingMinutesDocument(data, null)
     : migrateLegacyParsedToDocument(data, null)
   return {
@@ -531,23 +569,25 @@ export function loadMeetingMinutesDocument(weekStartDate, getEntry) {
   }
 
   if (weekHasPerRowMeetingMinutes(weekStartDate, getEntry)) {
-    const lines = []
+    const agenda = getDefaultMeetingMinutesAgenda()
     const attendeeSet = new Set()
     for (let index = 0; index < MEETING_MINUTES_AGENDA_FIXED_ROWS; index += 1) {
       const rowEntry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, index + 1)
-      const content = safeString(rowEntry?.content).trim()
       const assignees = parseManagerMultiSelectValue(rowEntry?.user)
       assignees.forEach((name) => attendeeSet.add(name))
-      const assigneeLabel = serializeManagerMultiSelectValue(assignees)
-      if (!content && !assigneeLabel) continue
-      lines.push(assigneeLabel ? `${content} (담당: ${assigneeLabel})` : content)
+      agenda[index] = {
+        content: safeString(rowEntry?.content),
+        assignee: serializeManagerMultiSelectValue(assignees),
+        assignees,
+        dueDate: safeString(rowEntry?.destination ?? rowEntry?.deadline),
+      }
     }
     return normalizeMeetingMinutesDocument(
       {
         title: '',
         meetingDate: '',
         attendees: [...attendeeSet],
-        body: lines.join('\n'),
+        agenda,
       },
       entry
     )
@@ -560,19 +600,23 @@ export function loadMeetingMinutesDocument(weekStartDate, getEntry) {
 export function getDashboardMeetingMinutesDisplayRows(weekStartDate, getEntry) {
   const doc = loadMeetingMinutesDocument(weekStartDate, getEntry)
   if (isMeetingMinutesDocumentEmpty(doc)) return []
-  const preview =
-    safeString(doc.title).trim() ||
-    safeString(doc.body)
-      .trim()
-      .split('\n')
-      .map((line) => line.trim())
-      .find(Boolean) ||
-    ''
+  const filledRows = normalizeMeetingMinutesAgenda(doc.agenda).filter(
+    (row) => !isMeetingMinutesAgendaRowEmpty(row)
+  )
+  if (filledRows.length) {
+    return filledRows.slice(0, 3).map((row) => ({
+      content: safeString(row.content).trim(),
+      assignee: safeString(row.assignee).trim(),
+      dueDate: safeString(row.dueDate).trim(),
+    }))
+  }
+  const preview = safeString(doc.title).trim()
   if (!preview) return []
   return [
     {
       content: preview,
       assignee: serializeManagerMultiSelectValue(doc.attendees),
+      dueDate: '',
     },
   ]
 }
@@ -589,17 +633,49 @@ export function buildMeetingMinutesPdfMarkup(
   const title = safeString(doc.title).trim() || '회의록'
   const meetingDate = safeString(doc.meetingDate).trim()
   const attendees = serializeManagerMultiSelectValue(doc.attendees)
-  const bodyHtml = escapeHtml(safeString(doc.body)).replaceAll('\n', '<br />') || '&nbsp;'
+  const agendaRows = normalizeMeetingMinutesAgenda(doc.agenda)
+    .map((row, index) => {
+      const content = safeString(row.content).trim()
+      const assignee = safeString(row.assignee).trim()
+      const dueDate = safeString(row.dueDate).trim()
+      if (!content && !assignee && !dueDate) return ''
+      return `
+        <tr>
+          <td class="pdf-meeting-index">${index + 1}</td>
+          <td class="pdf-meeting-content">${escapeHtml(content).replaceAll('\n', '<br />') || '&nbsp;'}</td>
+          <td class="pdf-meeting-assignee">${escapeHtml(assignee) || '&nbsp;'}</td>
+          <td class="pdf-meeting-due">${escapeHtml(dueDate) || '&nbsp;'}</td>
+        </tr>
+      `
+    })
+    .filter(Boolean)
+    .join('')
 
   const metaParts = []
   if (meetingDate) metaParts.push(`일시: ${escapeHtml(meetingDate)}`)
   if (attendees) metaParts.push(`참석자: ${escapeHtml(attendees)}`)
 
+  const agendaTable = agendaRows
+    ? `
+      <table class="pdf-table pdf-meeting-agenda-table">
+        <thead>
+          <tr>
+            <th class="pdf-meeting-index">#</th>
+            <th>회의 내용</th>
+            <th class="pdf-meeting-assignee">담당자</th>
+            <th class="pdf-meeting-due">기한</th>
+          </tr>
+        </thead>
+        <tbody>${agendaRows}</tbody>
+      </table>
+    `
+    : ''
+
   return `
     <section class="pdf-meeting-minutes pdf-meeting-minutes--document">
       <h3 class="pdf-meeting-title">${escapeHtml(title)}</h3>
       ${metaParts.length ? `<div class="pdf-meeting-meta">${metaParts.join(' · ')}</div>` : ''}
-      <div class="pdf-meeting-body">${bodyHtml}</div>
+      ${agendaTable}
     </section>
   `
 }
@@ -608,12 +684,14 @@ export function WorkReportMeetingMinutesSection({
   weekStartDate,
   getEntry,
   updateEntry,
-  onSave,
-  isSaving = false,
 }) {
   const document = useMemo(
     () => loadMeetingMinutesDocument(weekStartDate, getEntry),
     [weekStartDate, getEntry]
+  )
+  const agendaRows = useMemo(
+    () => normalizeMeetingMinutesAgenda(document.agenda),
+    [document.agenda]
   )
 
   const patchDocument = (patch) => {
@@ -638,6 +716,26 @@ export function WorkReportMeetingMinutesSection({
         assignees: next.attendees,
       }
     })
+  }
+
+  const patchAgendaRow = (index, patch) => {
+    const nextAgenda = agendaRows.map((row, rowIndex) => {
+      if (rowIndex !== index) return row
+      const nextAssignees =
+        patch.assignees !== undefined
+          ? parseManagerMultiSelectValue(patch.assignees)
+          : patch.assignee !== undefined
+            ? parseManagerMultiSelectValue(patch.assignee)
+            : row.assignees
+      return {
+        ...row,
+        content: patch.content !== undefined ? patch.content : row.content,
+        assignee: serializeManagerMultiSelectValue(nextAssignees),
+        assignees: nextAssignees,
+        dueDate: patch.dueDate !== undefined ? patch.dueDate : row.dueDate,
+      }
+    })
+    patchDocument({ agenda: nextAgenda })
   }
 
   return (
@@ -672,25 +770,41 @@ export function WorkReportMeetingMinutesSection({
         </label>
       </div>
 
-      <textarea
-        className="meeting-minutes-doc__body"
-        value={document.body}
-        placeholder="회의 내용을 자유롭게 작성하세요."
-        onChange={(e) => patchDocument({ body: e.target.value })}
-      />
-
-      {typeof onSave === 'function' && (
-        <div className="meeting-minutes-doc__actions">
-          <button
-            className="primary-btn"
-            type="button"
-            disabled={isSaving}
-            onClick={() => onSave()}
-          >
-            저장
-          </button>
+      <div className="meeting-minutes-doc__agenda">
+        <div className="meeting-minutes-doc__agenda-head" aria-hidden="true">
+          <span className="meeting-minutes-doc__agenda-head-num">#</span>
+          <span className="meeting-minutes-doc__agenda-head-content">회의 내용</span>
+          <span className="meeting-minutes-doc__agenda-head-assignee">담당자</span>
+          <span className="meeting-minutes-doc__agenda-head-due">기한</span>
         </div>
-      )}
+        {agendaRows.map((row, index) => (
+          <div key={`meeting-agenda-${index + 1}`} className="meeting-minutes-doc__agenda-row">
+            <span className="meeting-minutes-doc__agenda-num">{index + 1}</span>
+            <textarea
+              className="meeting-minutes-doc__agenda-content"
+              rows={1}
+              value={row.content}
+              placeholder="내용 입력"
+              onChange={(e) => patchAgendaRow(index, { content: e.target.value })}
+            />
+            <div className="meeting-minutes-doc__agenda-assignee">
+              <WorkReportExternalManagerMultiSelect
+                value={row.assignees ?? row.assignee}
+                options={WORK_REPORT_MANAGER_OPTIONS}
+                onChange={(nextCsv) =>
+                  patchAgendaRow(index, { assignees: parseManagerMultiSelectValue(nextCsv) })
+                }
+              />
+            </div>
+            <input
+              className="meeting-minutes-doc__agenda-due"
+              type="date"
+              value={row.dueDate}
+              onChange={(e) => patchAgendaRow(index, { dueDate: e.target.value })}
+            />
+          </div>
+        ))}
+      </div>
     </section>
   )
 }
