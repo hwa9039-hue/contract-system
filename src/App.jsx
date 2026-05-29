@@ -2814,10 +2814,17 @@ function collectDashboardWeekDueRows(calendarItems, weekAnchorDate = new Date())
     .map(mapDashboardWeekDueRow)
 }
 
+const DASHBOARD_WEEK_WORK_CATEGORY_ORDER = ['DI사업', '도로사업', '영업지원']
+
+function getDashboardWeekWorkCategorySortIndex(sectionLabel) {
+  const idx = DASHBOARD_WEEK_WORK_CATEGORY_ORDER.indexOf(sectionLabel)
+  return idx >= 0 ? idx : DASHBOARD_WEEK_WORK_CATEGORY_ORDER.length
+}
+
 function getDashboardWeekWorkSectionLabel(section) {
   const sectionNorm = safeString(section).trim()
-  if (sectionNorm === WORK_REPORT_SECTION_KEYS.di) return 'DI'
-  if (sectionNorm === WORK_REPORT_SECTION_KEYS.road) return '도로'
+  if (sectionNorm === WORK_REPORT_SECTION_KEYS.di) return 'DI사업'
+  if (sectionNorm === WORK_REPORT_SECTION_KEYS.road) return '도로사업'
   if (
     sectionNorm === WORK_REPORT_SECTION_KEYS.supportProgress ||
     sectionNorm === WORK_REPORT_SECTION_KEYS.supportDone
@@ -2884,9 +2891,11 @@ function collectDashboardWeekWorkRows(workReportRows, workReportDrafts, weekAnch
   }
 
   return results.sort((a, b) => {
-    const byDeadline = safeString(a.deadlineYmd).localeCompare(safeString(b.deadlineYmd))
-    if (byDeadline !== 0) return byDeadline
-    return safeString(a.sectionLabel).localeCompare(safeString(b.sectionLabel), 'ko')
+    const byCategory =
+      getDashboardWeekWorkCategorySortIndex(a.sectionLabel) -
+      getDashboardWeekWorkCategorySortIndex(b.sectionLabel)
+    if (byCategory !== 0) return byCategory
+    return safeString(a.deadlineYmd).localeCompare(safeString(b.deadlineYmd))
   })
 }
 
