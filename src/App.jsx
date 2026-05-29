@@ -329,17 +329,69 @@ const EXCLUDED_COLUMNS = [
     align: 'center',
     type: 'importance',
     statusKey: 'category',
-    width: 120,
+    widthClass: 'excluded-w-28',
+    cellClass: 'excluded-col-tight excluded-w-28',
   },
-  { key: 'writeDate', label: '등록일', align: 'center', type: 'date', width: 110 },
-  { key: 'openDate', label: '공개일', align: 'center', type: 'date', width: 110 },
-  { key: 'category', label: '상태', align: 'center', type: 'select', options: EXCLUDED_CATEGORY_OPTIONS, width: 100 },
-  { key: 'keyword', label: '검색어', align: 'center', type: 'select', options: EXCLUDED_KEYWORD_OPTIONS, width: 180 },
-  { key: 'writer', label: '작성자', align: 'center', type: 'text', width: 100 },
-  { key: 'projectName', label: '사업명', align: 'left', type: 'text', width: 220 },
-  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 150 },
-  { key: 'projectAmount', label: '사업금액', align: 'right', type: 'amount', width: 130 },
-  { key: 'exclusionReason', label: '제외 사유', align: 'left', type: 'textarea', width: 300 },
+  {
+    key: 'writeDate',
+    label: '등록일',
+    align: 'center',
+    type: 'date',
+    widthClass: 'excluded-w-28',
+    cellClass: 'excluded-col-tight excluded-w-28',
+  },
+  {
+    key: 'category',
+    label: '상태',
+    align: 'center',
+    type: 'select',
+    options: EXCLUDED_CATEGORY_OPTIONS,
+    widthClass: 'excluded-w-24',
+    cellClass: 'excluded-col-tight excluded-w-24',
+  },
+  {
+    key: 'writer',
+    label: '작성자',
+    align: 'center',
+    type: 'text',
+    widthClass: 'excluded-w-24',
+    cellClass: 'excluded-col-tight excluded-w-24',
+  },
+  {
+    key: 'projectName',
+    label: '사업명',
+    align: 'left',
+    type: 'text',
+    widthClass: 'excluded-w-p18',
+    cellClass: 'excluded-modal-text-cell excluded-col-project excluded-w-p18',
+    modalEditor: true,
+  },
+  {
+    key: 'client',
+    label: '발주처',
+    align: 'center',
+    type: 'text',
+    widthClass: 'excluded-w-32',
+    cellClass: 'excluded-col-tight excluded-w-32',
+  },
+  {
+    key: 'projectAmount',
+    label: '사업금액',
+    align: 'right',
+    type: 'amount',
+    widthClass: 'excluded-w-36',
+    headerClass: 'excluded-amount-header th-align-center',
+    cellClass: 'excluded-col-amount excluded-w-36 excluded-amount-cell td-align-right',
+  },
+  {
+    key: 'exclusionReason',
+    label: '제외 사유',
+    align: 'left',
+    type: 'textarea',
+    widthClass: 'excluded-w-p38',
+    cellClass: 'excluded-modal-text-cell excluded-col-reason excluded-w-p38',
+    modalEditor: true,
+  },
 ]
 
 const WORK_REPORT_WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
@@ -9590,7 +9642,9 @@ function App() {
         ? salesRows
         : scope === 'discovery'
           ? discoveryRows
-          : []
+          : scope === 'excluded'
+            ? excludedRows
+            : []
     const targetRow = rows.find((row) => safeString(row.id).trim() === safeString(rowId).trim())
     if (!targetRow || targetRow.isDraft) {
       closeRegistryLongTextModal()
@@ -9608,6 +9662,7 @@ function App() {
     const labelMap = {
       sales: '영업관리대장',
       discovery: '건축정보',
+      excluded: '사업검색이력',
     }
     const label = labelMap[scope] || '등록'
 
@@ -9619,6 +9674,8 @@ function App() {
         await salesRegisterApi.update(rowId, patch)
       } else if (scope === 'discovery') {
         await projectDiscoveryApi.update(rowId, patch)
+      } else if (scope === 'excluded') {
+        await excludedProjectsApi.update(rowId, patch)
       }
       closeRegistryLongTextModal()
     } catch (error) {
@@ -9913,7 +9970,9 @@ function App() {
         {columns.map((column) => {
           const isImportanceCell = column.type === 'importance'
           const canUseRegistryModalEditor =
-            (cellEditScope === 'sales' || cellEditScope === 'discovery') &&
+            (cellEditScope === 'sales' ||
+              cellEditScope === 'discovery' ||
+              cellEditScope === 'excluded') &&
             column.modalEditor &&
             isEditableTextColumn(column) &&
             useCellMode &&
@@ -9975,7 +10034,7 @@ function App() {
                 <div
                   className={`cell-display table-cell-clamp sales-modal-text-display${
                     cellEditScope === 'discovery' ? ' discovery-modal-text-display' : ''
-                  }`}
+                  }${cellEditScope === 'excluded' ? ' excluded-modal-text-display' : ''}`}
                   role="button"
                   tabIndex={0}
                   onClick={(e) => {
@@ -12728,7 +12787,13 @@ function App() {
             <div className="contract-table-panel">
               <ImportanceLegend />
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table ledger-table-ui table-layout-auto table-w-full-min">
+                <table className="contract-table excel-table registry-table excluded-registry-table ledger-table-ui table-w-full-min">
+                  <colgroup>
+                    <col className="registry-check-col" />
+                    {EXCLUDED_COLUMNS.map((column) => (
+                      <col key={column.key} className={column.widthClass || ''} />
+                    ))}
+                  </colgroup>
                   <thead>
                     <tr>
                       <th className="th-align-center registry-check-header table-col-tight">
@@ -12748,7 +12813,7 @@ function App() {
                       {EXCLUDED_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)}`}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''}`}
                         >
                           {column.label}
                         </th>
