@@ -5846,6 +5846,16 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
+.sales-registry-table.excel-table thead th.contract-th-filterable {
+  overflow: visible;
+  white-space: nowrap;
+}
+
+.sales-registry-table.excel-table thead th.contract-th-filterable .contract-th-label {
+  overflow: visible;
+  text-overflow: clip;
+}
+
 .sales-registry-table.excel-table th.table-col-tight,
 .sales-registry-table.excel-table td.table-col-tight {
   width: auto;

@@ -10,6 +10,7 @@ export function ContractColumnHeaderFilter({
   onApply,
   isOpen,
   onOpenChange,
+  normalizeSelection = normalizeContractColumnFilterSelection,
 }) {
   const rootRef = useRef(null)
   const triggerRef = useRef(null)
@@ -58,11 +59,11 @@ export function ContractColumnHeaderFilter({
   const applyAndClose = useCallback(
     (nextDraft) => {
       const draftValues = Array.isArray(nextDraft) ? [...nextDraft] : []
-      const normalized = normalizeContractColumnFilterSelection(draftValues, options)
+      const normalized = normalizeSelection(draftValues, options)
       onApply(columnKey, normalized)
       onOpenChange(null)
     },
-    [columnKey, onApply, onOpenChange, options]
+    [columnKey, normalizeSelection, onApply, onOpenChange, options]
   )
 
   useEffect(() => {

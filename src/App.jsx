@@ -13,6 +13,12 @@ import {
   filterContractRowsByActiveFilters,
   hasActiveContractColumnFilters,
 } from './contractColumnFilter.js'
+import {
+  buildSalesColumnFilterOptions,
+  filterSalesRowsByActiveFilters,
+  normalizeSalesColumnFilterSelection,
+  salesMatchesColumnFilters,
+} from './salesColumnFilter.js'
 import * as XLSX from 'xlsx'
 import './App.css'
 import { contractsApi } from './contractsApi'
@@ -4506,10 +4512,8 @@ function App() {
   const [isSavingSales, setIsSavingSales] = useState(false)
   const [salesSearch, setSalesSearch] = useState('')
   const [salesDateRange, setSalesDateRange] = useState({ startDate: '', endDate: '' })
-  const [salesFilters, setSalesFilters] = useState({
-    manager: '',
-    projectStage: '',
-  })
+  const [salesActiveFilters, setSalesActiveFilters] = useState({})
+  const [openSalesColumnFilterKey, setOpenSalesColumnFilterKey] = useState(null)
   const [selectedDiscoveryIds, setSelectedDiscoveryIds] = useState([])
   const [editingDiscoveryIds, setEditingDiscoveryIds] = useState([])
   const [discoveryEditSnapshots, setDiscoveryEditSnapshots] = useState({})
@@ -5939,34 +5943,70 @@ function App() {
     })
   }, [documentDateRange.endDate, documentDateRange.startDate, documentSearch, documents])
 
-  const filteredSalesRows = useMemo(() => {
-    return salesRows.filter((row) => {
-      if (!matchesRegistrySearch(row, SALES_COLUMNS, salesSearch)) return false
-      if (
-        !matchesDateRangeFilter(
+  const salesRawData = salesRows
+
+  const salesColumnFilterOptionsMap = useMemo(() => {
+    const basePool = salesRawData.filter(
+      (row) =>
+        matchesRegistrySearch(row, SALES_COLUMNS, salesSearch) &&
+        matchesDateRangeFilter(
           row,
           'registerDate',
           salesDateRange.startDate,
           salesDateRange.endDate
         )
-      ) {
-        return false
-      }
-      if (row.isDraft) return true
-      const managerMatch = !salesFilters.manager || row.manager === salesFilters.manager
-      const stageMatch =
-        !salesFilters.projectStage ||
-        normalizeSalesProjectStage(row.projectStage) === salesFilters.projectStage
-      return managerMatch && stageMatch
+    )
+    const map = {}
+    SALES_COLUMNS.forEach(({ key: columnKey }) => {
+      const pool = basePool.filter((row) =>
+        row.isDraft || salesMatchesColumnFilters(row, salesActiveFilters, columnKey)
+      )
+      map[columnKey] = buildSalesColumnFilterOptions(pool, columnKey)
     })
+    return map
   }, [
+    salesActiveFilters,
     salesDateRange.endDate,
     salesDateRange.startDate,
-    salesFilters.manager,
-    salesFilters.projectStage,
-    salesRows,
+    salesRawData,
     salesSearch,
   ])
+
+  const handleSalesActiveFiltersApply = useCallback((columnKey, selected) => {
+    setSalesActiveFilters((prev) => {
+      const next = { ...prev }
+      const values = Array.isArray(selected) ? [...selected] : []
+      if (values.length === 0) delete next[columnKey]
+      else next[columnKey] = values
+      return next
+    })
+  }, [])
+
+  /** [1단계] rawData → 검색·기간·헤더 열 필터(AND) → filteredData */
+  const filteredSalesRows = useMemo(() => {
+    const toolbarFiltered = salesRawData.filter(
+      (row) =>
+        matchesRegistrySearch(row, SALES_COLUMNS, salesSearch) &&
+        matchesDateRangeFilter(
+          row,
+          'registerDate',
+          salesDateRange.startDate,
+          salesDateRange.endDate
+        )
+    )
+    return filterSalesRowsByActiveFilters(toolbarFiltered, salesActiveFilters)
+  }, [
+    salesActiveFilters,
+    salesDateRange.endDate,
+    salesDateRange.startDate,
+    salesRawData,
+    salesSearch,
+  ])
+
+  const isSalesTableFilterResultEmpty = useMemo(
+    () => salesRawData.length > 0 && filteredSalesRows.length === 0,
+    [filteredSalesRows.length, salesRawData.length]
+  )
 
   const filteredDiscoveryRows = useMemo(() => {
     return discoveryRows.filter((row) => {
@@ -6041,6 +6081,7 @@ function App() {
     excludedSearch,
   ])
 
+  /** [2단계] filteredData만 그룹화 — 원본 salesRows 미사용 */
   const groupedSalesRows = useMemo(
     () => groupSalesRowsByYearWithCompletion(filteredSalesRows, 'registerDate'),
     [filteredSalesRows]
@@ -12426,34 +12467,6 @@ function App() {
               >
                 선택 삭제
               </button>
-              <select
-                className="contract-filter-select"
-                value={salesFilters.manager}
-                onChange={(e) => setSalesFilters((prev) => ({ ...prev, manager: e.target.value }))}
-                style={{ width: 150 }}
-              >
-                <option value="">담당자</option>
-                {SALES_REGISTER_MANAGER_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="contract-filter-select"
-                value={salesFilters.projectStage}
-                onChange={(e) =>
-                  setSalesFilters((prev) => ({ ...prev, projectStage: e.target.value }))
-                }
-                style={{ width: 132 }}
-              >
-                <option value="">상태</option>
-                {SALES_STAGE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
               <button className="secondary-btn" type="button" onClick={handleSalesExcelDownload}>
                 엑셀 다운로드
               </button>
@@ -12520,10 +12533,21 @@ function App() {
                         const headerCells = [
                           <th
                             key={column.key}
-                            className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''}`}
-                            style={{ width: column.width, minWidth: column.width }}
+                            className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} contract-th-filterable`}
+                            style={{ minWidth: column.width }}
                           >
-                            {column.label}
+                            <div className="contract-th-filter-wrap">
+                              <span className="contract-th-label">{column.label}</span>
+                              <ContractColumnHeaderFilter
+                                columnKey={column.key}
+                                options={salesColumnFilterOptionsMap[column.key] ?? []}
+                                selected={salesActiveFilters[column.key] ?? []}
+                                onApply={handleSalesActiveFiltersApply}
+                                isOpen={openSalesColumnFilterKey === column.key}
+                                onOpenChange={setOpenSalesColumnFilterKey}
+                                normalizeSelection={normalizeSalesColumnFilterSelection}
+                              />
+                            </div>
                           </th>,
                         ]
                         if (column.key === 'importance') {
@@ -12541,7 +12565,26 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {renderSalesGroupedRegistryRows({
+                    {salesRawData.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={SALES_COLUMNS.length + 2}
+                          className="empty-cell"
+                        >
+                          등록된 데이터가 없습니다.
+                        </td>
+                      </tr>
+                    ) : isSalesTableFilterResultEmpty ? (
+                      <tr>
+                        <td
+                          colSpan={SALES_COLUMNS.length + 2}
+                          className="empty-cell"
+                        >
+                          필터 조건에 맞는 데이터가 없습니다.
+                        </td>
+                      </tr>
+                    ) : (
+                      renderSalesGroupedRegistryRows({
                       groups: groupedSalesRows,
                       columns: SALES_COLUMNS,
                       emptyMessage: '등록된 데이터가 없습니다.',
@@ -12562,7 +12605,8 @@ function App() {
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('sales', rowId, columnKey, value, row),
                       renderAfterImportanceCell: renderSalesRecordCell,
-                    })}
+                    })
+                    )}
                   </tbody>
                 </table>
               </div>
