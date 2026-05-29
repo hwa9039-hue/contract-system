@@ -27,6 +27,7 @@ from app.routers.calendar_events import CALENDAR_EVENTS_API_PATH, router as cale
 DEFAULT_CORS_ORIGINS = (
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://192.168.0.131:5173",
     "https://contract-system-2ev.pages.dev",
     "https://contract.signtelecom-smartdi.com",
     "http://contract.signtelecom-smartdi.com",
