@@ -707,6 +707,10 @@ const WORK_REPORT_PDF_PRINT_STYLES = `
   .pdf-destination {
     width: 20%;
   }
+  .pdf-deadline {
+    width: 14%;
+    text-align: center;
+  }
   .pdf-support-title {
     margin: 6px 0 4px;
     font-size: 9px;
@@ -2579,6 +2583,7 @@ function createWorkReportDraftRow({
   user = '',
   content = '',
   destination = '',
+  deadline = '',
   orderIndex = 1,
 }) {
   return {
@@ -2588,6 +2593,7 @@ function createWorkReportDraftRow({
     section,
     content,
     destination,
+    deadline,
     orderIndex,
     createdAt: '',
     updatedAt: '',
@@ -3940,6 +3946,20 @@ function getRegistryPlainDisplayValue(row, column) {
 const EXTERNAL_SCHEDULE_FIELD_SEP = '\u001f'
 const EXTERNAL_SCHEDULE_STORAGE_VERSION = 3
 
+/** 업무일지(DI/도로/영업지원) 본문·기한 구분자 */
+const WORK_REPORT_JOURNAL_FIELD_SEP = '\u001e'
+
+const WORK_REPORT_JOURNAL_SECTIONS = new Set([
+  WORK_REPORT_SECTION_KEYS.di,
+  WORK_REPORT_SECTION_KEYS.road,
+  WORK_REPORT_SECTION_KEYS.supportProgress,
+  WORK_REPORT_SECTION_KEYS.supportDone,
+])
+
+function isWorkReportJournalSection(section) {
+  return WORK_REPORT_JOURNAL_SECTIONS.has(safeString(section).trim())
+}
+
 function parseExternalScheduleContent(value) {
   const raw = safeString(value).trim()
   if (!raw) {
@@ -4004,6 +4024,38 @@ function serializeExternalScheduleContent(content, destination) {
   }
 
   return `${normalizedContent}${EXTERNAL_SCHEDULE_FIELD_SEP}${normalizedDestination}`
+}
+
+function parseWorkReportJournalContent(value) {
+  const raw = safeString(value).trim()
+  if (!raw) {
+    return { content: '', deadline: '' }
+  }
+
+  if (raw.includes(WORK_REPORT_JOURNAL_FIELD_SEP)) {
+    const sepIndex = raw.indexOf(WORK_REPORT_JOURNAL_FIELD_SEP)
+    return {
+      content: safeString(raw.slice(0, sepIndex)).trim(),
+      deadline: safeString(raw.slice(sepIndex + 1)).trim(),
+    }
+  }
+
+  return { content: raw, deadline: '' }
+}
+
+function serializeWorkReportJournalContent(content, deadline) {
+  const normalizedContent = safeString(content).trim()
+  const normalizedDeadline = safeString(deadline).trim()
+
+  if (!normalizedContent && !normalizedDeadline) {
+    return ''
+  }
+
+  if (!normalizedDeadline) {
+    return normalizedContent
+  }
+
+  return `${normalizedContent}${WORK_REPORT_JOURNAL_FIELD_SEP}${normalizedDeadline}`
 }
 
 function isWafRiskyWorkReportContent(content) {
@@ -4123,6 +4175,13 @@ function serializeWorkReportEntrySnapshot(row) {
   if (section === WORK_REPORT_SECTION_KEYS.checklist) {
     return safeString(row.content).trim()
   }
+  if (isWorkReportJournalSection(section)) {
+    return JSON.stringify({
+      user: safeString(row.user).trim(),
+      content: safeString(row.content).trim(),
+      deadline: safeString(row.deadline).trim(),
+    })
+  }
   return JSON.stringify({
     user: safeString(row.user).trim(),
     content: safeString(row.content).trim(),
@@ -4138,6 +4197,9 @@ function normalizeWorkReportRow(item) {
     section === WORK_REPORT_SECTION_KEYS.external
       ? parseExternalScheduleContent(decodedContent)
       : { content: safeString(decodedContent), destination: '' }
+  const parsedJournalContent = isWorkReportJournalSection(section)
+    ? parseWorkReportJournalContent(decodedContent)
+    : { content: safeString(decodedContent), deadline: '' }
 
   return {
     id: safeString(item.id),
@@ -4146,8 +4208,11 @@ function normalizeWorkReportRow(item) {
     ),
     user: safeString(item.user ?? item.assignee).trim(),
     section,
-    content: parsedExternalContent.content,
+    content: isWorkReportJournalSection(section)
+      ? parsedJournalContent.content
+      : parsedExternalContent.content,
     destination: parsedExternalContent.destination,
+    deadline: parsedJournalContent.deadline,
     orderIndex,
     createdAt: safeString(item.createdAt ?? item.createdat),
     updatedAt: safeString(item.updatedAt ?? item.updatedat),
@@ -4165,11 +4230,10 @@ function isWorkReportRowEmpty(row) {
     )
   }
 
-  if (
-    normalizedSection === WORK_REPORT_SECTION_KEYS.di ||
-    normalizedSection === WORK_REPORT_SECTION_KEYS.road
-  ) {
-    return safeString(row.content).trim() === ''
+  if (isWorkReportJournalSection(normalizedSection)) {
+    return (
+      safeString(row.content).trim() === '' && safeString(row.deadline).trim() === ''
+    )
   }
 
   if (normalizedSection === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
@@ -4195,6 +4259,11 @@ function toWorkReportPayload(row, timestamp) {
     content = safeString(decodeWorkReportWireText(row.content)).trim()
     user = serializeManagerMultiSelectValue(
       row.assignees ?? parseManagerMultiSelectValue(row.user || resolvedUser)
+    )
+  } else if (isWorkReportJournalSection(sectionNorm)) {
+    content = serializeWorkReportJournalContent(
+      safeString(row.content).trim(),
+      safeString(row.deadline).trim()
     )
   }
 
@@ -9202,7 +9271,7 @@ function App() {
     }
 
     const renderPdfText = (value) => escapeHtml(value || '-').replaceAll('\n', '<br />')
-    const renderPdfRows = (date, section, rowCount, includeDestination = false) =>
+    const renderPdfRows = (date, section, rowCount, includeDestination = false, includeDeadline = false) =>
       Array.from({ length: rowCount }, (_, index) => {
         const entry = getWorkReportBoardEntry(date, section, index + 1)
         return `
@@ -9211,6 +9280,7 @@ function App() {
             <td class="pdf-manager">${escapeHtml(entry.user || '-')}</td>
             <td>${renderPdfText(entry.content || '-')}</td>
             ${includeDestination ? `<td class="pdf-destination">${renderPdfText(entry.destination || '-')}</td>` : ''}
+            ${includeDeadline ? `<td class="pdf-deadline">${escapeHtml(entry.deadline || '-')}</td>` : ''}
           </tr>
         `
       }).join('')
@@ -9231,28 +9301,20 @@ function App() {
           .map((line) => `<li>${escapeHtml(line) || '&nbsp;'}</li>`)
           .join('')
 
-        const supportProgressRows = Array.from(
-          { length: WORK_REPORT_SUPPORT_ITEM_COUNT },
-          (_, index) => `
-            <tr>
-              <td class="pdf-index">${index + 1}</td>
-              <td>${renderPdfText(
-                getWorkReportBoardEntry(day.date, WORK_REPORT_SECTION_KEYS.supportProgress, index + 1).content || '-'
-              )}</td>
-            </tr>
-          `
-        ).join('')
-        const supportDoneRows = Array.from(
-          { length: WORK_REPORT_SUPPORT_ITEM_COUNT },
-          (_, index) => `
-            <tr>
-              <td class="pdf-index">${index + 1}</td>
-              <td>${renderPdfText(
-                getWorkReportBoardEntry(day.date, WORK_REPORT_SECTION_KEYS.supportDone, index + 1).content || '-'
-              )}</td>
-            </tr>
-          `
-        ).join('')
+        const renderPdfSupportRows = (sectionKey) =>
+          Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
+            const entry = getWorkReportBoardEntry(day.date, sectionKey, index + 1)
+            return `
+              <tr>
+                <td class="pdf-index">${index + 1}</td>
+                <td>${renderPdfText(entry.content || '-')}</td>
+                <td class="pdf-deadline">${escapeHtml(entry.deadline || '-')}</td>
+              </tr>
+            `
+          }).join('')
+
+        const supportProgressRows = renderPdfSupportRows(WORK_REPORT_SECTION_KEYS.supportProgress)
+        const supportDoneRows = renderPdfSupportRows(WORK_REPORT_SECTION_KEYS.supportDone)
 
         return `
           <section class="pdf-day-card">
@@ -9277,26 +9339,32 @@ function App() {
               <div class="pdf-section-title">DI사업</div>
               <table class="pdf-table">
                 <thead>
-                  <tr><th class="pdf-index">#</th><th class="pdf-manager">담당자</th><th>내용</th></tr>
+                  <tr><th class="pdf-index">#</th><th class="pdf-manager">담당자</th><th>내용</th><th class="pdf-deadline">기한</th></tr>
                 </thead>
-                <tbody>${renderPdfRows(day.date, WORK_REPORT_SECTION_KEYS.di, WORK_REPORT_DI_ROW_COUNT, false)}</tbody>
+                <tbody>${renderPdfRows(day.date, WORK_REPORT_SECTION_KEYS.di, WORK_REPORT_DI_ROW_COUNT, false, true)}</tbody>
               </table>
             </div>
             <div class="pdf-section">
               <div class="pdf-section-title">도로사업</div>
               <table class="pdf-table">
                 <thead>
-                  <tr><th class="pdf-index">#</th><th class="pdf-manager">담당자</th><th>내용</th></tr>
+                  <tr><th class="pdf-index">#</th><th class="pdf-manager">담당자</th><th>내용</th><th class="pdf-deadline">기한</th></tr>
                 </thead>
-                <tbody>${renderPdfRows(day.date, WORK_REPORT_SECTION_KEYS.road, WORK_REPORT_ROAD_ROW_COUNT, false)}</tbody>
+                <tbody>${renderPdfRows(day.date, WORK_REPORT_SECTION_KEYS.road, WORK_REPORT_ROAD_ROW_COUNT, false, true)}</tbody>
               </table>
             </div>
             <div class="pdf-section">
               <div class="pdf-section-title">영업지원</div>
               <div class="pdf-support-title">진행업무</div>
-              <table class="pdf-table pdf-support-table"><tbody>${supportProgressRows}</tbody></table>
+              <table class="pdf-table pdf-support-table">
+                <thead><tr><th class="pdf-index">#</th><th>내용</th><th class="pdf-deadline">기한</th></tr></thead>
+                <tbody>${supportProgressRows}</tbody>
+              </table>
               <div class="pdf-support-title">완료업무</div>
-              <table class="pdf-table pdf-support-table"><tbody>${supportDoneRows}</tbody></table>
+              <table class="pdf-table pdf-support-table">
+                <thead><tr><th class="pdf-index">#</th><th>내용</th><th class="pdf-deadline">기한</th></tr></thead>
+                <tbody>${supportDoneRows}</tbody>
+              </table>
             </div>
           </section>
         `
@@ -11864,6 +11932,7 @@ function App() {
           <div>#</div>
           <div>담당자</div>
           <div>내용</div>
+          <div>기한</div>
         </div>
         {Array.from({ length: rowCount }, (_, index) => {
           const orderIndex = index + 1
@@ -11892,7 +11961,7 @@ function App() {
                     }),
                 })}
               </div>
-              <div className="work-report-report-cell">
+              <div className="work-report-report-cell work-report-report-cell--content">
                 {renderWorkReportReadTextCell({
                   value: entry.content,
                   placeholder: '내용 입력',
@@ -11906,6 +11975,23 @@ function App() {
                       fieldLabel: '내용',
                       contextTitle: `${dayLabel} · ${title} #${orderIndex}`,
                       multiline: true,
+                    }),
+                })}
+              </div>
+              <div className="work-report-report-cell work-report-report-cell--deadline">
+                {renderWorkReportReadTextCell({
+                  value: entry.deadline,
+                  placeholder: '기한',
+                  className: 'work-report-report-deadline-cell',
+                  onClick: () =>
+                    openWorkReportTextModal({
+                      date,
+                      section,
+                      orderIndex,
+                      fieldKey: 'deadline',
+                      fieldLabel: '기한',
+                      contextTitle: `${dayLabel} · ${title} #${orderIndex}`,
+                      multiline: false,
                     }),
                 })}
               </div>
@@ -11944,6 +12030,21 @@ function App() {
                     fieldLabel: '내용',
                     contextTitle: `${dayLabel} · 영업지원 · ${title} #${orderIndex}`,
                     multiline: true,
+                  }),
+              })}
+              {renderWorkReportReadTextCell({
+                value: entry.deadline,
+                placeholder: '기한',
+                className: 'work-report-report-deadline-cell work-report-report-line-deadline',
+                onClick: () =>
+                  openWorkReportTextModal({
+                    date,
+                    section,
+                    orderIndex,
+                    fieldKey: 'deadline',
+                    fieldLabel: '기한',
+                    contextTitle: `${dayLabel} · 영업지원 · ${title} #${orderIndex}`,
+                    multiline: false,
                   }),
               })}
             </div>

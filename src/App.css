@@ -7575,7 +7575,7 @@ textarea:focus-visible {
 .work-report-report-line-button,
 .work-report-report-line-edit {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: 24px minmax(0, 1fr) 84px;
   align-items: start;
   gap: 8px;
   width: 100%;
@@ -7617,6 +7617,7 @@ textarea:focus-visible {
 .work-report-report-line-text.is-empty,
 .work-report-report-content-cell.is-empty,
 .work-report-report-destination-cell.is-empty,
+.work-report-report-deadline-cell.is-empty,
 .work-report-report-block-content.is-empty {
   color: #c0cad6;
 }
@@ -7624,6 +7625,7 @@ textarea:focus-visible {
 .work-report-report-line-text.is-empty::after,
 .work-report-report-content-cell.is-empty::after,
 .work-report-report-destination-cell.is-empty::after,
+.work-report-report-deadline-cell.is-empty::after,
 .work-report-report-block-content.is-empty::after {
   content: '';
   display: block;
@@ -7678,7 +7680,7 @@ textarea:focus-visible {
 .work-report-report-table-head-journal,
 .work-report-report-table-row-journal {
   display: grid;
-  grid-template-columns: 32px minmax(0, 0.75fr) minmax(0, 1.35fr);
+  grid-template-columns: 32px minmax(0, 0.7fr) minmax(0, 1fr) 84px;
   width: 100%;
 }
 
@@ -7817,6 +7819,10 @@ textarea:focus-visible {
 .work-report-report-table-head--external > div:last-child,
 .work-report-report-table-head-journal > div:last-child {
   border-right: none;
+}
+
+.work-report-report-table-head-journal > div:last-child {
+  text-align: center;
 }
 
 .work-report-report-table-row-journal.editable {
@@ -8064,6 +8070,42 @@ textarea:focus-visible {
   min-width: 0;
   min-height: 20px;
   padding: 2px 0;
+}
+
+.work-report-report-cell--content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.work-report-report-cell--deadline {
+  flex: 0 0 84px;
+  width: 84px;
+  max-width: 84px;
+}
+
+.work-report-report-deadline-cell,
+.work-report-report-line-deadline {
+  flex: 0 0 84px;
+  width: 84px;
+  max-width: 84px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.work-report-report-table-row-journal .work-report-report-cell--deadline .work-report-read-cell-btn {
+  text-align: center;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.work-report-report-line-edit .work-report-report-line-deadline {
+  flex: 0 0 84px;
+  width: 84px;
+  max-width: 84px;
+  min-width: 84px;
+  padding: 2px 4px;
 }
 
 .work-report-text-modal-input {
