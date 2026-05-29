@@ -691,6 +691,101 @@ textarea {
 }
 
 /* ── 계약현황 전용 강제 오버라이드 (다른 메뉴 영향 X) ── */
+table[data-contract-table-row-key].contracts-fixed-table {
+  table-layout: fixed !important;
+  min-width: 1946px;
+}
+
+table[data-contract-table-row-key].contracts-fixed-table.contract-table-admin {
+  min-width: 1990px;
+}
+
+table[data-contract-table-row-key].contracts-fixed-table thead th,
+table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+table[data-contract-table-row-key] .registry-check-header,
+table[data-contract-table-row-key] .registry-check-cell {
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+}
+
+table[data-contract-table-row-key] .col-dday {
+  width: 74px !important;
+  min-width: 74px !important;
+  max-width: 74px !important;
+}
+
+table[data-contract-table-row-key] .col-year {
+  width: 86px !important;
+  min-width: 86px !important;
+  max-width: 86px !important;
+}
+
+table[data-contract-table-row-key] .col-ref {
+  width: 82px !important;
+  min-width: 82px !important;
+  max-width: 82px !important;
+}
+
+table[data-contract-table-row-key] .col-client {
+  width: 150px !important;
+  min-width: 150px !important;
+  max-width: 150px !important;
+}
+
+table[data-contract-table-row-key] .col-dept {
+  width: 130px !important;
+  min-width: 130px !important;
+  max-width: 130px !important;
+}
+
+table[data-contract-table-row-key] .col-method {
+  width: 108px !important;
+  min-width: 108px !important;
+  max-width: 108px !important;
+}
+
+table[data-contract-table-row-key] .col-type {
+  width: 110px !important;
+  min-width: 110px !important;
+  max-width: 110px !important;
+}
+
+table[data-contract-table-row-key] .col-date {
+  width: 112px !important;
+  min-width: 112px !important;
+  max-width: 112px !important;
+}
+
+table[data-contract-table-row-key] .col-project {
+  width: 360px !important;
+  min-width: 360px !important;
+  max-width: 360px !important;
+}
+
+table[data-contract-table-row-key] .col-amount {
+  width: 126px !important;
+  min-width: 126px !important;
+  max-width: 126px !important;
+}
+
+table[data-contract-table-row-key] .col-owner,
+table[data-contract-table-row-key] .col-pm {
+  width: 112px !important;
+  min-width: 112px !important;
+  max-width: 112px !important;
+}
+
+table[data-contract-table-row-key] .col-note {
+  width: 190px !important;
+  min-width: 190px !important;
+  max-width: 190px !important;
+}
+
 table[data-contract-table-row-key] thead th {
   font-weight: 700 !important; /* header: font-bold */
 }
@@ -718,6 +813,27 @@ table[data-contract-table-row-key] tbody td.table-col-long .editable-text-cell-i
   white-space: normal !important;
   word-break: break-word !important;
   overflow-wrap: anywhere !important;
+}
+
+table[data-contract-table-row-key] .contract-modal-text-display.table-cell-clamp {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  max-height: calc(1.3em * 2);
+  cursor: pointer;
+}
+
+table[data-contract-table-row-key] thead th.col-amount {
+  text-align: center !important;
+  padding-right: 8px !important;
+}
+
+table[data-contract-table-row-key] tbody td.col-amount {
+  text-align: right !important;
+  padding-right: 16px !important;
+}
+
+table[data-contract-table-row-key] tbody td.col-amount .cell-display {
+  justify-content: flex-end;
 }
 
 .excel-table thead th {
@@ -1651,6 +1767,25 @@ table[data-contract-table-row-key] tbody td.table-col-long .editable-text-cell-i
   font-family: inherit;
   color: #111827;
   background: #fff;
+}
+
+.contract-edit-modal {
+  width: min(920px, calc(100vw - 32px));
+}
+
+.contract-edit-textarea {
+  min-height: 380px;
+}
+
+.contract-edit-textarea--amount {
+  text-align: right;
+  padding-right: 18px;
+}
+
+.contract-edit-modal-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #64748b;
 }
 
 .sales-record-textarea:focus {

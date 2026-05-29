@@ -36,7 +36,7 @@ import {
   resolveRegistryImportanceStatus,
 } from './registryImportance.jsx'
 import { ImportanceLegend } from './ImportanceLegend.jsx'
-import { EditableTextCell, isContractEditableTextColumn, isEditableTextColumn } from './EditableTextCell.jsx'
+import { EditableTextCell, isEditableTextColumn } from './EditableTextCell.jsx'
 import {
   getTableAlignClass,
   getTableBodyAlignClass,
@@ -74,21 +74,20 @@ import {
 } from './workReportMeetingMinutes.jsx'
 
 const CONTRACT_COLUMNS = [
-  { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text' },
-  { key: 'refNo', label: '참고번호', className: 'col-ref', align: 'center', type: 'text' },
-  { key: 'contractNo', label: '계약번호', className: 'col-contractno', align: 'center', type: 'text' },
-  { key: 'client', label: '발주처', className: 'col-client', align: 'center', type: 'textarea' },
-  { key: 'department', label: '담당부서', className: 'col-dept', align: 'center', type: 'textarea' },
-  { key: 'contractMethod', label: '계약방식', className: 'col-method', align: 'center', type: 'text' },
-  { key: 'contractType', label: '계약분류', className: 'col-type', align: 'center', type: 'text' },
-  { key: 'identNo', label: '식별번호', className: 'col-ref', align: 'center', type: 'text' },
-  { key: 'contractDate', label: '계약일자', className: 'col-date', align: 'center', type: 'date' },
-  { key: 'dueDate', label: '준공일자', className: 'col-date', align: 'center', type: 'date' },
-  { key: 'projectName', label: '사업명', className: 'col-project', align: 'left', type: 'textarea' },
-  { key: 'amount', label: '계약금액', className: 'col-amount', align: 'right', type: 'amount' },
-  { key: 'salesOwner', label: '영업담당자', className: 'col-owner', align: 'center', type: 'text' },
-  { key: 'pm', label: '현장 PM', className: 'col-pm', align: 'center', type: 'text' },
-  { key: 'note', label: '비고', className: 'col-note', align: 'left', type: 'textarea' },
+  { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text', width: 86 },
+  { key: 'refNo', label: '참고번호', className: 'col-ref', align: 'center', type: 'text', width: 82 },
+  { key: 'client', label: '발주처', className: 'col-client', align: 'center', type: 'textarea', width: 150 },
+  { key: 'department', label: '담당부서', className: 'col-dept', align: 'center', type: 'textarea', width: 130 },
+  { key: 'contractMethod', label: '계약방식', className: 'col-method', align: 'center', type: 'text', width: 108 },
+  { key: 'contractType', label: '계약분류', className: 'col-type', align: 'center', type: 'text', width: 110 },
+  { key: 'identNo', label: '식별번호', className: 'col-ref', align: 'center', type: 'text', width: 82 },
+  { key: 'contractDate', label: '계약일자', className: 'col-date', align: 'center', type: 'date', width: 112 },
+  { key: 'dueDate', label: '준공일자', className: 'col-date', align: 'center', type: 'date', width: 112 },
+  { key: 'projectName', label: '사업명', className: 'col-project', align: 'left', type: 'textarea', width: 360 },
+  { key: 'amount', label: '계약금액', className: 'col-amount', align: 'right', type: 'amount', width: 126 },
+  { key: 'salesOwner', label: '영업담당자', className: 'col-owner', align: 'center', type: 'text', width: 112 },
+  { key: 'pm', label: '현장 PM', className: 'col-pm', align: 'center', type: 'text', width: 112 },
+  { key: 'note', label: '비고', className: 'col-note', align: 'left', type: 'textarea', width: 190 },
 ]
 
 const DOCUMENT_COLUMNS = [
@@ -9058,50 +9057,11 @@ function App() {
     setContractEditDraft('')
   }
 
-  const handleContractTextCellSave = useCallback(
-    async (rowKey, columnKey, rawValue) => {
-      if (!isAdmin) return
-
-      const record = getContractRowBySelectKey(rowKey)
-      if (!record) return
-
-      const value = normalizeEditValue(columnKey, rawValue)
-      const previous = record[columnKey]
-
-      if (safeString(previous) === safeString(value)) return
-
-      const id = firstUsableContractPathId(record.id, record.key)
-      if (!isUsableContractPathId(id)) {
-        setToastMessage('유효한 ID가 없습니다')
-        return
-      }
-
-      setContracts((prev) =>
-        prev.map((row) =>
-          getContractTableRowKey(row) === rowKey ? { ...row, [columnKey]: value } : row
-        )
-      )
-
-      try {
-        await contractsApi.update(id, { [columnKey]: value })
-      } catch (error) {
-        setContracts((prev) =>
-          prev.map((row) =>
-            getContractTableRowKey(row) === rowKey ? { ...row, [columnKey]: previous } : row
-          )
-        )
-        console.error('[계약현황 PATCH] 텍스트 셀 저장 실패', error)
-        logApiOperationError('계약현황 수정', error)
-        setToastMessage(`저장에 실패했습니다. ${safeString(error?.message)}`)
-      }
-    },
-    [getContractRowBySelectKey, isAdmin]
-  )
-
   const saveEdit = async () => {
     const snap = contractEditRef.current
     const snapDraft = contractEditDraftRef.current
     if (!snap) return
+    if (snap.saving) return
 
     const rowLookup = getContractRowBySelectKey(snap.rowKey)
     const record = rowLookup
@@ -9128,6 +9088,10 @@ function App() {
 
     const value = normalizeEditValue(snap.key, snapDraft)
 
+    setContractEdit((prev) =>
+      prev?.rowKey === snap.rowKey && prev?.key === snap.key ? { ...prev, saving: true } : prev
+    )
+
     try {
       await contractsApi.update(id, { [snap.key]: value })
     } catch (error) {
@@ -9135,6 +9099,9 @@ function App() {
       console.error('[계약현황 PATCH] stack:', error?.stack)
       logApiOperationError('계약현황 수정', error)
       setToastMessage(`저장에 실패했습니다. ${safeString(error?.message)}`)
+      setContractEdit((prev) =>
+        prev?.rowKey === snap.rowKey && prev?.key === snap.key ? { ...prev, saving: false } : prev
+      )
       return
     }
 
@@ -9147,80 +9114,6 @@ function App() {
       setContractEdit(null)
       setContractEditDraft('')
     }
-  }
-
-  const moveEdit = (rowKey, key, direction) => {
-    const currentIndex = CONTRACT_COLUMNS.findIndex((column) => column.key === key)
-    if (currentIndex < 0) return
-
-    const nextIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1
-    if (nextIndex < 0 || nextIndex >= CONTRACT_COLUMNS.length) return
-
-    const targetRow = getContractRowBySelectKey(rowKey)
-    if (!targetRow) return
-
-    const nextColumn = CONTRACT_COLUMNS[nextIndex]
-    const nextValue = targetRow[nextColumn.key]
-
-    setContractEdit((prev) => {
-      if (!prev || prev.rowKey !== rowKey) return prev
-      const nextSid = firstUsableContractPathId(targetRow.id, targetRow.key, prev.serverRowId) || null
-      return { ...prev, key: nextColumn.key, serverRowId: nextSid || null }
-    })
-    if (nextColumn.key === 'amount') {
-      setContractEditDraft(normalizeAmountValue(nextValue))
-      return
-    }
-
-    setContractEditDraft(safeString(nextValue ?? ''))
-  }
-
-  const renderEditor = (row, column, rowKey) => {
-    const isEditing = contractEdit?.rowKey === rowKey && contractEdit?.key === column.key
-    if (!isEditing) return null
-
-    const commonProps = {
-      className: `cell-inline-editor ${column.align === 'right' ? 'align-right' : ''}`,
-      value: contractEditDraft,
-      autoFocus: true,
-      onChange: (e) => {
-        const value = column.key === 'amount' ? normalizeAmountValue(e.target.value) : e.target.value
-        setContractEditDraft(value)
-      },
-      onBlur: saveEdit,
-      onKeyDown: (e) => {
-        if (e.key === 'Escape') {
-          e.preventDefault()
-          cancelEdit()
-          return
-        }
-
-        if (e.key === 'Tab') {
-          e.preventDefault()
-          moveEdit(rowKey, column.key, e.shiftKey ? 'prev' : 'next')
-          return
-        }
-
-        if (column.type === 'textarea' && e.shiftKey && e.key === 'Enter') {
-          return
-        }
-
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault()
-          saveEdit()
-        }
-      },
-    }
-
-    if (column.type === 'date') {
-      return <input {...commonProps} type="date" />
-    }
-
-    if (column.type === 'textarea') {
-      return <textarea {...commonProps} rows={2} />
-    }
-
-    return <input {...commonProps} type="text" />
   }
 
   const addManualEvent = async () => {
@@ -12075,7 +11968,7 @@ function App() {
               <div className="registry-search-toolbar-split">
                 <input
                   className="table-search-input"
-                  placeholder="사업명, 발주처, 계약번호, 담당부서 등 검색"
+                  placeholder="사업명, 발주처, 담당부서 등 검색"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -12177,11 +12070,24 @@ function App() {
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
                 <table
-                  className={`contract-table excel-table registry-table ledger-table-ui table-layout-auto table-w-full-min${
+                  className={`contract-table excel-table registry-table ledger-table-ui contracts-fixed-table table-w-full-min${
                     isAdmin ? ' contract-table-admin' : ' contract-table-readonly'
                   }`}
                   data-contract-table-row-key="key"
                 >
+                  <colgroup>
+                    {isAdmin && (
+                      <col className="contract-check-col" style={{ width: 44, minWidth: 44 }} />
+                    )}
+                    <col className="contract-dday-col" style={{ width: 74, minWidth: 74 }} />
+                    {CONTRACT_COLUMNS.map((column) => (
+                      <col
+                        key={column.key}
+                        className={`contract-col-${column.key}`}
+                        style={{ width: column.width, minWidth: column.width }}
+                      />
+                    ))}
+                  </colgroup>
                   <thead>
                     <tr>
                       {isAdmin && (
@@ -12213,7 +12119,11 @@ function App() {
                       {CONTRACT_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${column.className} ${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)}`}
+                          className={`${column.className} ${getTableColumnLayoutClass(column)} ${
+                            column.key === 'amount'
+                              ? 'th-align-center'
+                              : getTableAlignClass(column.align, column)
+                          }`}
                         >
                           {column.label}
                         </th>
@@ -12322,13 +12232,10 @@ function App() {
                                 </td>
 
                                 {CONTRACT_COLUMNS.map((column) => {
-                                  const isEditableText =
-                                    isContractEditableTextColumn(column)
-                                  const isEditing =
-                                    !isEditableText &&
-                                    contractEdit?.rowKey === rowSelectKey &&
-                                    contractEdit?.key === column.key
-                                  const bodyAlignClass = getTableBodyAlignClass(column)
+                                  const isContractAmountColumn = column.key === 'amount'
+                                  const bodyAlignClass = isContractAmountColumn
+                                    ? 'td-align-right'
+                                    : getTableBodyAlignClass(column)
                                   const cellAlign = bodyAlignClass.includes('right')
                                     ? 'right'
                                     : bodyAlignClass.includes('left')
@@ -12344,52 +12251,39 @@ function App() {
                                         isAdmin ? 'editable-cell' : ''
                                       }`}
                                       onClick={
-                                        isAdmin && !isEditableText
+                                        isAdmin
                                           ? () =>
-                                              startEdit(
-                                                rowSelectKey,
-                                                column.key,
-                                                item[column.key],
-                                                item
-                                              )
+                                              startEdit(rowSelectKey, column.key, item[column.key], item)
                                           : undefined
                                       }
                                     >
-                                      {isEditableText ? (
-                                        <EditableTextCell
-                                          value={item[column.key]}
-                                          align={cellAlign}
-                                          disabled={!isAdmin}
-                                          className={
-                                            isLongTextTableColumn(column)
-                                              ? 'table-cell-clamp'
-                                              : ''
+                                      <div
+                                        className={`cell-display editable-text-cell-display editable-text-cell-display--${cellAlign}${
+                                          isLongTextTableColumn(column)
+                                            ? ' table-cell-clamp contract-modal-text-display'
+                                            : ''
+                                        }`}
+                                        role={isAdmin ? 'button' : undefined}
+                                        tabIndex={isAdmin ? 0 : undefined}
+                                        onClick={(e) => {
+                                          if (!isAdmin) return
+                                          e.stopPropagation()
+                                          startEdit(rowSelectKey, column.key, item[column.key], item)
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (!isAdmin) return
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault()
+                                            startEdit(rowSelectKey, column.key, item[column.key], item)
                                           }
-                                          onSave={(nextValue) =>
-                                            handleContractTextCellSave(
-                                              rowSelectKey,
-                                              column.key,
-                                              nextValue
-                                            )
-                                          }
-                                        />
-                                      ) : isEditing ? (
-                                        renderEditor(item, column, rowSelectKey)
-                                      ) : (
-                                        <div
-                                          className={`cell-display${
-                                            isLongTextTableColumn(column)
-                                              ? ' table-cell-clamp'
-                                              : ''
-                                          }`}
-                                        >
-                                          {column.key === 'amount'
-                                            ? formatAmountDisplay(item[column.key])
-                                            : column.type === 'date'
-                                              ? item[column.key] || '-'
-                                            : item[column.key]}
-                                        </div>
-                                      )}
+                                        }}
+                                      >
+                                        {column.key === 'amount'
+                                          ? formatAmountDisplay(item[column.key]) || '\u00a0'
+                                          : column.type === 'date'
+                                            ? item[column.key] || '-'
+                                            : item[column.key] || '\u00a0'}
+                                      </div>
                                     </td>
                                   )
                                 })}
@@ -13956,6 +13850,96 @@ function App() {
           </div>
         </div>
       )}
+
+      {contractEdit &&
+        (() => {
+          const column = CONTRACT_COLUMNS.find((col) => col.key === contractEdit.key)
+          const row = getContractRowBySelectKey(contractEdit.rowKey)
+          if (!column || !row) return null
+          const modalTitle = safeString(row.projectName).trim() || '(사업명 없음)'
+          const saving = Boolean(contractEdit.saving)
+
+          return (
+            <div
+              className="modal-backdrop"
+              onClick={() => {
+                if (!saving) cancelEdit()
+              }}
+            >
+              <div
+                className="sales-long-text-modal contract-edit-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="contract-edit-modal-title"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="sales-record-modal-header">
+                  <div>
+                    <p className="sales-long-text-modal-eyebrow">{column.label}</p>
+                    <h3 id="contract-edit-modal-title" className="sales-record-modal-title">
+                      {modalTitle}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    className="modal-close-btn"
+                    onClick={cancelEdit}
+                    aria-label="닫기"
+                    disabled={saving}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="sales-record-modal-body">
+                  <textarea
+                    className={`sales-long-text-textarea contract-edit-textarea${
+                      column.key === 'amount' ? ' contract-edit-textarea--amount' : ''
+                    }`}
+                    rows={10}
+                    autoFocus
+                    value={contractEditDraft}
+                    onChange={(e) => {
+                      const value =
+                        column.key === 'amount' ? normalizeAmountValue(e.target.value) : e.target.value
+                      setContractEditDraft(value)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        e.preventDefault()
+                        if (!saving) cancelEdit()
+                        return
+                      }
+                      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                        e.preventDefault()
+                        void saveEdit()
+                      }
+                    }}
+                    disabled={saving}
+                  />
+                  <p className="contract-edit-modal-hint">Ctrl+Enter로 저장할 수 있습니다.</p>
+                </div>
+                <div className="sales-record-modal-actions">
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={cancelEdit}
+                    disabled={saving}
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => void saveEdit()}
+                    disabled={saving}
+                  >
+                    {saving ? '저장 중...' : '저장'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
 
       {salesRecordModal && (
         <div className="modal-backdrop" onClick={closeSalesRecordModal}>
