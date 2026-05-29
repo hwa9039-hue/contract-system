@@ -22,6 +22,7 @@ body {
   padding: 0;
   width: 100%;
   height: 100%;
+  zoom: 0.8;
   overflow: hidden;
   font-family: 'Pretendard', sans-serif;
   background: #f4f6fb;
@@ -2643,6 +2644,7 @@ table[data-contract-table-row-key] tbody td.table-col-long .editable-text-cell-i
 }
 
 body {
+  zoom: 0.8;
   overflow: hidden;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(243, 246, 250, 0.92) 36%),
@@ -5006,7 +5008,7 @@ textarea:focus-visible {
   align-items: center;
   gap: 7px;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.2;
 }
 
