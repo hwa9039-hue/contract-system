@@ -5441,8 +5441,8 @@ textarea:focus-visible {
 
 .sales-registry-table {
   table-layout: fixed !important;
-  width: 1780px;
-  min-width: 1780px;
+  width: 2202px;
+  min-width: 2202px;
 }
 
 .sales-registry-table.excel-table thead th,
@@ -5472,6 +5472,16 @@ textarea:focus-visible {
   width: 56px;
   min-width: 56px;
   max-width: 56px;
+}
+
+.sales-registry-table .sales-amount-header,
+.sales-registry-table .sales-amount-cell {
+  text-align: right !important;
+  padding-right: 16px !important;
+}
+
+.sales-registry-table .sales-amount-cell .cell-display {
+  justify-content: flex-end;
 }
 
 .registry-action-header,
