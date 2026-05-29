@@ -80,7 +80,7 @@ const CONTRACT_COLUMNS = [
   { key: 'department', label: '담당부서', className: 'col-dept', align: 'center', type: 'textarea', width: 130 },
   { key: 'contractMethod', label: '계약방식', className: 'col-method', align: 'center', type: 'text', width: 108 },
   { key: 'contractType', label: '계약분류', className: 'col-type', align: 'center', type: 'text', width: 110 },
-  { key: 'identNo', label: '식별번호', className: 'col-ref', align: 'center', type: 'text', width: 82 },
+  { key: 'identNo', label: '식별번호', className: 'col-ident-no', align: 'center', type: 'text', widthFit: true },
   { key: 'contractDate', label: '계약일자', className: 'col-date', align: 'center', type: 'date', width: 112 },
   { key: 'dueDate', label: '준공일자', className: 'col-date', align: 'center', type: 'date', width: 112 },
   { key: 'projectName', label: '사업명', className: 'col-project', align: 'left', type: 'textarea', width: 360 },
@@ -12084,7 +12084,11 @@ function App() {
                       <col
                         key={column.key}
                         className={`contract-col-${column.key}`}
-                        style={{ width: column.width, minWidth: column.width }}
+                        style={
+                          column.widthFit
+                            ? { width: 'max-content' }
+                            : { width: column.width, minWidth: column.width }
+                        }
                       />
                     ))}
                   </colgroup>

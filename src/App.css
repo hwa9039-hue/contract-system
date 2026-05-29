@@ -731,6 +731,22 @@ table[data-contract-table-row-key] .col-ref {
   max-width: 82px !important;
 }
 
+/* 식별번호: 데이터·헤더 길이에 맞춰 타이트하게 (고정 82px 미사용) */
+table[data-contract-table-row-key] .col-ident-no {
+  width: max-content !important;
+  min-width: max-content !important;
+  max-width: none !important;
+  white-space: nowrap !important;
+}
+
+table[data-contract-table-row-key] thead th.col-ident-no,
+table[data-contract-table-row-key]
+  tbody
+  tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.col-ident-no {
+  overflow: visible !important;
+}
+
 table[data-contract-table-row-key] .col-client {
   width: 150px !important;
   min-width: 150px !important;
@@ -992,6 +1008,12 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
 
 .col-ref {
   width: 82px;
+}
+
+.col-ident-no {
+  width: max-content;
+  min-width: max-content;
+  white-space: nowrap;
 }
 
 .col-contractno {
