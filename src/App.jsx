@@ -5,6 +5,14 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react'
+import { ContractColumnHeaderFilter } from './ContractColumnHeaderFilter.jsx'
+import {
+  CONTRACT_FILTERABLE_COLUMN_KEYS,
+  buildContractColumnFilterOptions,
+  contractMatchesColumnFilters,
+  contractMatchesSearch,
+  hasActiveContractColumnFilters,
+} from './contractColumnFilter.js'
 import * as XLSX from 'xlsx'
 import './App.css'
 import { contractsApi } from './contractsApi'
@@ -4508,13 +4516,8 @@ function App() {
   const [manualEvents, setManualEvents] = useState([])
   const [search, setSearch] = useState('')
   const [contractDateRange, setContractDateRange] = useState({ startDate: '', endDate: '' })
-  const [filters, setFilters] = useState({
-    year: ALL_OPTION,
-    contractMethod: ALL_OPTION,
-    contractType: ALL_OPTION,
-    salesOwner: ALL_OPTION,
-    pm: ALL_OPTION,
-  })
+  const [contractColumnFilters, setContractColumnFilters] = useState({})
+  const [openContractColumnFilterKey, setOpenContractColumnFilterKey] = useState(null)
   const [contractRegisterModalOpen, setContractRegisterModalOpen] = useState(false)
   const [newRow, setNewRow] = useState({ ...emptyContract })
   const [registryCreateModal, setRegistryCreateModal] = useState(null)
@@ -5082,39 +5085,47 @@ function App() {
     }
   }, [])
 
+  const contractColumnFilterOptionsMap = useMemo(() => {
+    const basePool = contracts.filter(
+      (item) =>
+        contractMatchesSearch(item, search) &&
+        matchesDateRangeFilter(
+          item,
+          'contractDate',
+          contractDateRange.startDate,
+          contractDateRange.endDate
+        )
+    )
+    const map = {}
+    CONTRACT_FILTERABLE_COLUMN_KEYS.forEach((columnKey) => {
+      const pool = basePool.filter((item) =>
+        contractMatchesColumnFilters(item, contractColumnFilters, columnKey)
+      )
+      map[columnKey] = buildContractColumnFilterOptions(pool, columnKey)
+    })
+    return map
+  }, [
+    contractColumnFilters,
+    contractDateRange.endDate,
+    contractDateRange.startDate,
+    contracts,
+    search,
+  ])
+
+  const handleContractColumnFilterApply = useCallback((columnKey, selected) => {
+    setContractColumnFilters((prev) => {
+      const next = { ...prev }
+      if (!selected?.length) delete next[columnKey]
+      else next[columnKey] = selected
+      return next
+    })
+  }, [])
+
   const filteredContracts = useMemo(() => {
     return sortContracts(
       contracts.filter((item) => {
-        const text = [
-          item.year,
-          item.segment,
-          item.refNo,
-          item.contractNo,
-          item.client,
-          item.department,
-          item.contractMethod,
-          item.contractType,
-          item.contractDate,
-          item.dueDate,
-          item.projectName,
-          item.amount,
-          item.salesOwner,
-          item.pm,
-          item.note,
-        ]
-          .join(' ')
-          .toLowerCase()
-
-        const searchMatch = text.includes(search.toLowerCase())
-        const yearMatch =
-          !filters.year || getYearLabel(item.year) === getYearLabel(filters.year)
-        const methodMatch =
-          !filters.contractMethod || item.contractMethod === filters.contractMethod
-        const typeMatch =
-          !filters.contractType || item.contractType === filters.contractType
-        const ownerMatch =
-          !filters.salesOwner || item.salesOwner === filters.salesOwner
-        const pmMatch = !filters.pm || item.pm === filters.pm
+        const searchMatch = contractMatchesSearch(item, search)
+        const columnMatch = contractMatchesColumnFilters(item, contractColumnFilters)
         const dateMatch = matchesDateRangeFilter(
           item,
           'contractDate',
@@ -5122,10 +5133,10 @@ function App() {
           contractDateRange.endDate
         )
 
-        return searchMatch && yearMatch && methodMatch && typeMatch && ownerMatch && pmMatch && dateMatch
+        return searchMatch && columnMatch && dateMatch
       })
     )
-  }, [contractDateRange.endDate, contractDateRange.startDate, contracts, filters, search])
+  }, [contractColumnFilters, contractDateRange.endDate, contractDateRange.startDate, contracts, search])
 
   const filteredTotalAmount = useMemo(
     () => filteredContracts.reduce((sum, item) => sum + parseAmount(item.amount), 0),
@@ -5135,21 +5146,13 @@ function App() {
   const isContractsTableDefaultFilterState = useMemo(
     () =>
       !safeString(search).trim() &&
-      !safeString(filters.year).trim() &&
-      !safeString(filters.contractMethod).trim() &&
-      !safeString(filters.contractType).trim() &&
-      !safeString(filters.salesOwner).trim() &&
-      !safeString(filters.pm).trim() &&
+      !hasActiveContractColumnFilters(contractColumnFilters) &&
       !safeString(contractDateRange.startDate).trim() &&
       !safeString(contractDateRange.endDate).trim(),
     [
+      contractColumnFilters,
       contractDateRange.endDate,
       contractDateRange.startDate,
-      filters.contractMethod,
-      filters.contractType,
-      filters.pm,
-      filters.salesOwner,
-      filters.year,
       search,
     ]
   )
@@ -5201,9 +5204,10 @@ function App() {
   }, [filteredContracts])
 
   const contractPageSummaryFocusYear = useMemo(() => {
-    if (safeString(filters.year).trim()) return getYearLabel(filters.year)
+    const yearFilter = contractColumnFilters.year
+    if (Array.isArray(yearFilter) && yearFilter.length === 1) return yearFilter[0]
     return groupedContracts[0]?.year ?? ''
-  }, [filters.year, groupedContracts])
+  }, [contractColumnFilters.year, groupedContracts])
 
   const contractPageSummaryRows = useMemo(() => {
     const y = contractPageSummaryFocusYear
@@ -5220,15 +5224,6 @@ function App() {
     if (fromData) return fromData
     return buildEmptyContractYearSummaryBlock(y)
   }, [contractPageSummaryFocusYear, contractPageSummaryRows])
-
-  const contractYearFilterOptions = useMemo(() => {
-    return [...getOptions(contracts, 'year')].sort((a, b) => {
-      const ya = Number(getYearLabel(a)) || 0
-      const yb = Number(getYearLabel(b)) || 0
-      if (ya !== yb) return yb - ya
-      return compareKoreanText(a, b)
-    })
-  }, [contracts])
 
   const filteredInstallCases = useMemo(() => {
     return installCases.filter((row) => {
@@ -12139,79 +12134,6 @@ function App() {
               </div>
             </div>
 
-            <div className="contract-filter-row five-only">
-              <select
-                className="contract-filter-select"
-                value={filters.year}
-                onChange={(e) => setFilters((prev) => ({ ...prev, year: e.target.value }))}
-              >
-                <option value="">{getContractColumnLabel('year')}</option>
-                {contractYearFilterOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {getYearLabel(option)}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                className="contract-filter-select"
-                value={filters.contractMethod}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, contractMethod: e.target.value }))
-                }
-              >
-                <option value="">{getContractColumnLabel('contractMethod')}</option>
-                {getOptions(contracts, 'contractMethod').map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                className="contract-filter-select"
-                value={filters.contractType}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, contractType: e.target.value }))
-                }
-              >
-                <option value="">{getContractColumnLabel('contractType')}</option>
-                {getOptions(contracts, 'contractType').map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                className="contract-filter-select"
-                value={filters.salesOwner}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, salesOwner: e.target.value }))
-                }
-              >
-                <option value="">{getContractColumnLabel('salesOwner')}</option>
-                {getOptions(contracts, 'salesOwner').map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                className="contract-filter-select"
-                value={filters.pm}
-                onChange={(e) => setFilters((prev) => ({ ...prev, pm: e.target.value }))}
-              >
-                <option value="">{getContractColumnLabel('pm')}</option>
-                {getOptions(contracts, 'pm').map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
                 <table
@@ -12265,18 +12187,33 @@ function App() {
                         </th>
                       )}
                       <th className="col-dday th-align-center table-col-tight">D-Day</th>
-                      {CONTRACT_COLUMNS.map((column) => (
-                        <th
-                          key={column.key}
-                          className={`${column.className} ${getTableColumnLayoutClass(column)} ${
-                            column.key === 'amount'
-                              ? 'th-align-center'
-                              : getTableAlignClass(column.align, column)
-                          }`}
-                        >
-                          {column.label}
-                        </th>
-                      ))}
+                      {CONTRACT_COLUMNS.map((column) => {
+                        const isFilterable = CONTRACT_FILTERABLE_COLUMN_KEYS.includes(column.key)
+                        return (
+                          <th
+                            key={column.key}
+                            className={`${column.className} ${getTableColumnLayoutClass(column)} ${
+                              column.key === 'amount'
+                                ? 'th-align-center'
+                                : getTableAlignClass(column.align, column)
+                            }${isFilterable ? ' contract-th-filterable' : ''}`}
+                          >
+                            <div className="contract-th-filter-wrap">
+                              <span className="contract-th-label">{column.label}</span>
+                              {isFilterable ? (
+                                <ContractColumnHeaderFilter
+                                  columnKey={column.key}
+                                  options={contractColumnFilterOptionsMap[column.key] ?? []}
+                                  selected={contractColumnFilters[column.key] ?? []}
+                                  onApply={handleContractColumnFilterApply}
+                                  isOpen={openContractColumnFilterKey === column.key}
+                                  onOpenChange={setOpenContractColumnFilterKey}
+                                />
+                              ) : null}
+                            </div>
+                          </th>
+                        )
+                      })}
                     </tr>
                   </thead>
 
