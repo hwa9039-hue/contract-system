@@ -3347,6 +3347,145 @@ textarea:focus-visible {
   overflow-y: auto;
 }
 
+.main-area > section.stat-card .work-report-week-board-area--flat {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.work-report-flat-board {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.work-report-flat-add-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.work-report-flat-add-select {
+  min-width: 148px;
+}
+
+.work-report-flat-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.work-report-flat-panel .table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+table.work-report-flat-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+table.work-report-flat-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f1f5f9;
+  border-bottom: 1px solid #dbe4ee;
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+  padding: 10px 8px;
+  white-space: nowrap;
+}
+
+table.work-report-flat-table tbody td {
+  vertical-align: top;
+  padding: 8px;
+  border-bottom: 1px solid #e8edf3;
+  background: #ffffff;
+}
+
+table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td {
+  background: #f8fbff;
+}
+
+table.work-report-flat-table tbody tr.work-report-flat-row.is-today > td:first-child {
+  box-shadow: inset 3px 0 0 #3b82f6;
+}
+
+.work-report-flat-date-cell {
+  white-space: nowrap;
+}
+
+.work-report-flat-date {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.work-report-flat-weekday {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.work-report-flat-category-cell {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.work-report-flat-manager-cell .work-report-external-manager-multi {
+  width: 100%;
+  min-width: 0;
+}
+
+.work-report-flat-field {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  resize: vertical;
+  font: inherit;
+  color: #1f2937;
+  padding: 2px 0;
+  line-height: 1.45;
+}
+
+.work-report-flat-field:focus {
+  background: rgba(59, 130, 246, 0.06);
+  border-radius: 4px;
+}
+
+.work-report-flat-field--textarea {
+  min-height: 52px;
+}
+
+.work-report-flat-field--checklist {
+  min-height: 72px;
+}
+
+.work-report-flat-empty {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
 .main-area > section.stat-card.stat-card--work-reports .work-report-meeting-minutes-block {
   flex: 2 1 0;
   min-height: 320px;
