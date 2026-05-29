@@ -246,7 +246,8 @@ const DISCOVERY_COLUMNS = [
     align: 'right',
     type: 'amount',
     widthClass: 'discovery-w-40',
-    cellClass: 'discovery-col-amount discovery-w-40',
+    headerClass: 'discovery-amount-header th-align-center',
+    cellClass: 'discovery-col-amount discovery-w-40 discovery-amount-cell td-align-right',
   },
   {
     key: 'completionPeriod',
@@ -261,16 +262,18 @@ const DISCOVERY_COLUMNS = [
     label: '담당자',
     align: 'center',
     type: 'text',
-    widthClass: 'discovery-w-48',
-    cellClass: 'discovery-col-manager discovery-w-48',
+    widthClass: 'discovery-w-40',
+    cellClass: 'discovery-modal-text-cell discovery-col-manager discovery-w-40',
+    modalEditor: true,
   },
   {
     key: 'note',
-    label: '비고',
+    label: '세부내용',
     align: 'left',
     type: 'textarea',
-    widthClass: 'discovery-w-p35',
-    cellClass: 'discovery-col-note discovery-w-p35',
+    widthClass: 'discovery-w-p42',
+    cellClass: 'discovery-modal-text-cell discovery-col-detail discovery-w-p42',
+    modalEditor: true,
   },
 ]
 
@@ -3304,7 +3307,7 @@ const DISCOVERY_EXCEL_TABLE_FIELDS = [
   '사업금액',
   '준공시기',
   '담당자',
-  '비고',
+  '세부내용',
 ]
 
 function discoveryRowToExcelTableItem(row) {
@@ -3318,7 +3321,7 @@ function discoveryRowToExcelTableItem(row) {
     사업금액: safeString(row.projectAmount).trim(),
     준공시기: safeString(row.completionPeriod).trim(),
     담당자: safeString(row.manager).trim(),
-    비고: safeString(row.note).trim(),
+    세부내용: safeString(row.note).trim(),
   }
 }
 
@@ -3342,7 +3345,7 @@ function excelTableItemToDiscoveryRow(item, index) {
       projectAmount: item.사업금액,
       completionPeriod: item.준공시기,
       manager: item.담당자,
-      note: item.비고,
+      note: item.세부내용 ?? item.비고,
     },
     index
   )
@@ -4286,7 +4289,7 @@ function App() {
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
   const [salesRecordModal, setSalesRecordModal] = useState(null)
-  const [salesLongTextModal, setSalesLongTextModal] = useState(null)
+  const [registryLongTextModal, setRegistryLongTextModal] = useState(null)
   const [discoveryRows, setDiscoveryRows] = useState([])
   const [discoveryTableData, setDiscoveryTableData] = useState([])
   const [excludedRows, setExcludedRows] = useState([])
@@ -7441,7 +7444,7 @@ function App() {
       사업금액: formatAmountDisplay(row.projectAmount),
       준공시기: row.completionPeriod,
       담당자: row.manager,
-      비고: row.note,
+      세부내용: row.note,
     }))
 
     const worksheet = XLSX.utils.json_to_sheet(rows)
@@ -7764,7 +7767,7 @@ function App() {
     projectAmount: ['사업금액', '금액', '사업 금액', '계약금액'],
     completionPeriod: ['준공시기', '준공', '납기'],
     manager: ['담당자', '담당', 'PM'],
-    note: ['비고', '메모', '참고'],
+    note: ['세부내용', '비고', '메모', '참고'],
     docDate: ['문서일자', '일자', '날짜'],
     docNo: ['문서번호', '문서 번호', '번호'],
     senderReceiver: ['발신수신', '발신/수신', '상대방'],
@@ -9556,10 +9559,11 @@ function App() {
     }
   }
 
-  const openSalesLongTextModal = (rowId, column, row) => {
-    if (!rowId || !column || !row || row.isDraft) return
+  const openRegistryLongTextModal = (scope, rowId, column, row) => {
+    if (!scope || !rowId || !column || !row || row.isDraft) return
     if (!column.modalEditor) return
-    setSalesLongTextModal({
+    setRegistryLongTextModal({
+      scope,
       rowId,
       columnKey: column.key,
       columnLabel: column.label,
@@ -9569,41 +9573,59 @@ function App() {
     })
   }
 
-  const closeSalesLongTextModal = () => {
-    setSalesLongTextModal(null)
+  const closeRegistryLongTextModal = () => {
+    setRegistryLongTextModal(null)
   }
 
-  const saveSalesLongTextModal = async () => {
-    if (!salesLongTextModal?.rowId || salesLongTextModal.saving) return
-    const column = SALES_COLUMNS.find((col) => col.key === salesLongTextModal.columnKey)
+  const saveRegistryLongTextModal = async () => {
+    if (!registryLongTextModal?.rowId || registryLongTextModal.saving) return
+    const scope = registryLongTextModal.scope
+    const columns = getRegistryColumnsByScope(scope)
+    const column = columns.find((col) => col.key === registryLongTextModal.columnKey)
     if (!column) return
 
-    const rowId = salesLongTextModal.rowId
-    const targetRow = salesRows.find((row) => safeString(row.id).trim() === safeString(rowId).trim())
+    const rowId = registryLongTextModal.rowId
+    const rows =
+      scope === 'sales'
+        ? salesRows
+        : scope === 'discovery'
+          ? discoveryRows
+          : []
+    const targetRow = rows.find((row) => safeString(row.id).trim() === safeString(rowId).trim())
     if (!targetRow || targetRow.isDraft) {
-      closeSalesLongTextModal()
+      closeRegistryLongTextModal()
       return
     }
 
-    const patch = buildRegistryCellApiPatch(column, salesLongTextModal.draft)
+    const patch = buildRegistryCellApiPatch(column, registryLongTextModal.draft)
     const patchValue = patch[column.key]
     const previous = targetRow[column.key]
     if (safeString(previous ?? '').trim() === safeString(patchValue ?? '').trim()) {
-      closeSalesLongTextModal()
+      closeRegistryLongTextModal()
       return
     }
 
-    setSalesLongTextModal((prev) => (prev ? { ...prev, saving: true } : prev))
-    applyRegistryRowFieldPatch('sales', rowId, column, salesLongTextModal.draft)
+    const labelMap = {
+      sales: '영업관리대장',
+      discovery: '건축정보',
+    }
+    const label = labelMap[scope] || '등록'
+
+    setRegistryLongTextModal((prev) => (prev ? { ...prev, saving: true } : prev))
+    applyRegistryRowFieldPatch(scope, rowId, column, registryLongTextModal.draft)
 
     try {
-      await salesRegisterApi.update(rowId, patch)
-      closeSalesLongTextModal()
+      if (scope === 'sales') {
+        await salesRegisterApi.update(rowId, patch)
+      } else if (scope === 'discovery') {
+        await projectDiscoveryApi.update(rowId, patch)
+      }
+      closeRegistryLongTextModal()
     } catch (error) {
-      applyRegistryRowFieldPatch('sales', rowId, column, previous)
-      logApiOperationError('영업관리대장 긴 텍스트 저장', error)
+      applyRegistryRowFieldPatch(scope, rowId, column, previous)
+      logApiOperationError(`${label} 긴 텍스트 저장`, error)
       showAppAlert(error?.message || '저장에 실패했습니다.', '알림')
-      setSalesLongTextModal((prev) => (prev ? { ...prev, saving: false } : prev))
+      setRegistryLongTextModal((prev) => (prev ? { ...prev, saving: false } : prev))
     }
   }
 
@@ -9878,9 +9900,7 @@ function App() {
         }
       >
         <td
-          className={`td-align-center registry-check-cell${
-            cellEditScope === 'discovery' ? ' discovery-check-col discovery-w-12' : ''
-          }`}
+          className="td-align-center registry-check-cell discovery-check-col"
         >
           <input
             className="registry-row-checkbox"
@@ -9892,8 +9912,8 @@ function App() {
 
         {columns.map((column) => {
           const isImportanceCell = column.type === 'importance'
-          const canUseSalesModalEditor =
-            cellEditScope === 'sales' &&
+          const canUseRegistryModalEditor =
+            (cellEditScope === 'sales' || cellEditScope === 'discovery') &&
             column.modalEditor &&
             isEditableTextColumn(column) &&
             useCellMode &&
@@ -9906,7 +9926,7 @@ function App() {
             isAdminForRegistry &&
             !row.isDraft &&
             !isImportanceCell &&
-            !canUseSalesModalEditor
+            !canUseRegistryModalEditor
           const cellAlign =
             getTableBodyAlignClass(column).replace('td-align-', '') || 'center'
           const isThisCell =
@@ -9932,8 +9952,8 @@ function App() {
                 if (isImportanceCell || isEditableText) return
                 if (!isAdminForRegistry) return
                 if (row.isDraft) return
-                if (canUseSalesModalEditor) {
-                  openSalesLongTextModal(rowId, column, row)
+                if (canUseRegistryModalEditor) {
+                  openRegistryLongTextModal(cellEditScope, rowId, column, row)
                   return
                 }
                 if (useCellMode && onRegistryCellStart) {
@@ -9951,19 +9971,21 @@ function App() {
                     status={resolveRegistryImportanceStatus(displayRow, column)}
                   />
                 </div>
-              ) : canUseSalesModalEditor ? (
+              ) : canUseRegistryModalEditor ? (
                 <div
-                  className="cell-display table-cell-clamp sales-modal-text-display"
+                  className={`cell-display table-cell-clamp sales-modal-text-display${
+                    cellEditScope === 'discovery' ? ' discovery-modal-text-display' : ''
+                  }`}
                   role="button"
                   tabIndex={0}
                   onClick={(e) => {
                     e.stopPropagation()
-                    openSalesLongTextModal(rowId, column, row)
+                    openRegistryLongTextModal(cellEditScope, rowId, column, row)
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
-                      openSalesLongTextModal(rowId, column, row)
+                      openRegistryLongTextModal(cellEditScope, rowId, column, row)
                     }
                   }}
                 >
@@ -12542,10 +12564,16 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui table-layout-auto table-w-full-min">
+                <table className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui table-w-full-min">
+                  <colgroup>
+                    <col className="registry-check-col" />
+                    {DISCOVERY_COLUMNS.map((column) => (
+                      <col key={column.key} className={column.widthClass || ''} />
+                    ))}
+                  </colgroup>
                   <thead>
                     <tr>
-                      <th className="th-align-center registry-check-header discovery-check-col table-col-tight">
+                      <th className="th-align-center registry-check-header discovery-check-col">
                         <input
                           className="registry-row-checkbox"
                           type="checkbox"
@@ -12562,11 +12590,7 @@ function App() {
                       {DISCOVERY_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${
-                            column.key === 'projectAmount'
-                              ? 'th-align-center'
-                              : getTableAlignClass(column.align, column)
-                          } ${column.cellClass || ''}`}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''}`}
                         >
                           {column.label}
                         </th>
@@ -13780,35 +13804,35 @@ function App() {
         </div>
       )}
 
-      {salesLongTextModal && (
+      {registryLongTextModal && (
         <div
           className="modal-backdrop"
           onClick={() => {
-            if (!salesLongTextModal.saving) closeSalesLongTextModal()
+            if (!registryLongTextModal.saving) closeRegistryLongTextModal()
           }}
         >
           <div
             className="sales-long-text-modal"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="sales-long-text-modal-title"
+            aria-labelledby="registry-long-text-modal-title"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sales-record-modal-header">
               <div>
                 <p className="sales-long-text-modal-eyebrow">
-                  {salesLongTextModal.columnLabel}
+                  {registryLongTextModal.columnLabel}
                 </p>
-                <h3 id="sales-long-text-modal-title" className="sales-record-modal-title">
-                  {salesLongTextModal.projectName}
+                <h3 id="registry-long-text-modal-title" className="sales-record-modal-title">
+                  {registryLongTextModal.projectName}
                 </h3>
               </div>
               <button
                 type="button"
                 className="modal-close-btn"
-                onClick={closeSalesLongTextModal}
+                onClick={closeRegistryLongTextModal}
                 aria-label="닫기"
-                disabled={salesLongTextModal.saving}
+                disabled={registryLongTextModal.saving}
               >
                 ✕
               </button>
@@ -13818,37 +13842,37 @@ function App() {
                 className="sales-long-text-textarea"
                 rows={10}
                 autoFocus
-                value={salesLongTextModal.draft}
+                value={registryLongTextModal.draft}
                 onChange={(e) =>
-                  setSalesLongTextModal((prev) =>
+                  setRegistryLongTextModal((prev) =>
                     prev ? { ...prev, draft: e.target.value } : prev
                   )
                 }
                 onKeyDown={(e) => {
                   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                     e.preventDefault()
-                    void saveSalesLongTextModal()
+                    void saveRegistryLongTextModal()
                   }
                 }}
-                disabled={salesLongTextModal.saving}
+                disabled={registryLongTextModal.saving}
               />
             </div>
             <div className="sales-record-modal-actions">
               <button
                 type="button"
                 className="secondary-btn"
-                onClick={closeSalesLongTextModal}
-                disabled={salesLongTextModal.saving}
+                onClick={closeRegistryLongTextModal}
+                disabled={registryLongTextModal.saving}
               >
                 취소
               </button>
               <button
                 type="button"
                 className="primary-btn"
-                onClick={() => void saveSalesLongTextModal()}
-                disabled={salesLongTextModal.saving}
+                onClick={() => void saveRegistryLongTextModal()}
+                disabled={registryLongTextModal.saving}
               >
-                {salesLongTextModal.saving ? '저장 중...' : '저장'}
+                {registryLongTextModal.saving ? '저장 중...' : '저장'}
               </button>
             </div>
           </div>
