@@ -7137,18 +7137,17 @@ function App() {
   const saveSalesRecordModal = async () => {
     if (!salesRecordModal?.rowId) return
     const rowId = salesRecordModal.rowId
+    const summaryPayload = normalizeSalesRecordForSave(salesRecordModal.summary)
     setSalesRecordModal((prev) => (prev ? { ...prev, saving: true } : prev))
     try {
-      const updated = await salesRegisterApi.update(rowId, {
-        summary: normalizeSalesRecordForSave(salesRecordModal.summary),
-      })
+      const updated = await salesRegisterApi.updateSummary(rowId, summaryPayload)
       setSalesRows((prev) =>
         prev.map((row) => (row.id === rowId ? { ...row, ...updated } : row))
       )
       closeSalesRecordModal()
     } catch (error) {
-      console.error('영업관리대장 기록 저장 실패', error)
-      showAppAlert(error?.message || '기록 저장에 실패했습니다.', '알림')
+      console.error('영업관리대장 요약 저장 실패', error)
+      showAppAlert(error?.message || '요약 저장에 실패했습니다.', '알림')
       setSalesRecordModal((prev) => (prev ? { ...prev, saving: false } : prev))
     }
   }
@@ -12625,7 +12624,7 @@ function App() {
                               key="sales-record"
                               className="th-align-center sales-record-header table-col-tight"
                             >
-                              기록
+                              요약
                             </th>
                           )
                         }

@@ -1590,9 +1590,9 @@ table[data-contract-table-row-key] tbody td.table-col-long .editable-text-cell-i
 
 .sales-record-modal-title {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 800;
-  line-height: 1.35;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.45;
   color: #111827;
   word-break: break-word;
 }

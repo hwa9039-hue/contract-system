@@ -204,6 +204,10 @@ class SalesRegisterBulkDelete(BaseModel):
     ids: list[Any]
 
 
+class SalesRegisterSummaryUpdate(BaseModel):
+    summary: Optional[str] = ""
+
+
 class BudgetProgressBase(BaseModel):
     registerDate: Optional[Any] = None
     localGov: Optional[Any] = ""

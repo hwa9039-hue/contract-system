@@ -11,6 +11,7 @@ from app.schemas import (
     SalesRegisterImport,
     SalesRegisterOut,
     SalesRegisterPatch,
+    SalesRegisterSummaryUpdate,
     row_to_sales_register,
     sales_register_patch_to_db_values,
     sales_register_to_db_values,
@@ -82,6 +83,36 @@ def create_sales_register_row(row: SalesRegisterCreate):
         connection.commit()
 
     return created
+
+
+@router.patch("/{row_id}/summary", response_model=SalesRegisterOut)
+def update_sales_register_summary(row_id: str, body: SalesRegisterSummaryUpdate):
+    """영업관리대장 요약 전용 — summary 필드만 갱신."""
+    summary_value = body.summary if body.summary is not None else None
+    values = {
+        "id": row_id,
+        "summary": summary_value,
+        "updatedAt": now_text(),
+    }
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                update sales_register_rows
+                set summary = %(summary)s, "updatedAt" = %(updatedAt)s
+                where id::text = %(id)s
+                returning {RETURNING_COLUMNS}
+                """,
+                values,
+            )
+            updated = cursor.fetchone()
+        connection.commit()
+
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sales row not found")
+
+    return row_to_sales_register(updated)
 
 
 @router.patch("/{row_id}", response_model=SalesRegisterOut)

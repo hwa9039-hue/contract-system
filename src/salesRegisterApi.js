@@ -44,9 +44,10 @@ export const salesRegisterApi = {
     })
   },
   updateSummary(id, summary) {
-    return requestJson(`/api/sales-register/${encodeURIComponent(id)}`, {
+    const summaryValue = summary == null ? '' : String(summary)
+    return requestJson(`/api/sales-register/${encodeURIComponent(id)}/summary`, {
       method: 'PATCH',
-      body: JSON.stringify({ summary: summary ?? '' }),
+      body: JSON.stringify({ summary: summaryValue }),
     })
   },
   remove(id) {
