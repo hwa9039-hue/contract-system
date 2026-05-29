@@ -154,7 +154,7 @@ const SALES_COLUMNS = [
   },
   { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 108 },
   { key: 'client', label: '발주처', align: 'center', type: 'text', width: 170 },
-  { key: 'projectName', label: '사업명', align: 'left', type: 'textarea', width: 320 },
+  { key: 'projectName', label: '사업명', align: 'left', type: 'textarea', width: 340 },
   {
     key: 'projectAmount',
     label: '사업금액',
@@ -166,8 +166,22 @@ const SALES_COLUMNS = [
   },
   { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_REGISTER_MANAGER_OPTIONS, width: 112 },
   { key: 'projectStage', label: '상태', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 102 },
-  { key: 'department', label: '담당부서', align: 'center', type: 'text', width: 260 },
-  { key: 'detail', label: '세부내용', align: 'left', type: 'textarea', width: 620 },
+  {
+    key: 'department',
+    label: '담당부서',
+    align: 'center',
+    type: 'text',
+    width: 380,
+    cellClass: 'sales-wrap-cell sales-department-cell',
+  },
+  {
+    key: 'detail',
+    label: '세부내용',
+    align: 'left',
+    type: 'textarea',
+    width: 920,
+    cellClass: 'sales-wrap-cell sales-detail-cell',
+  },
   { key: 'source', label: '출처', align: 'center', type: 'text', width: 140 },
 ]
 
@@ -12390,6 +12404,7 @@ function App() {
                       const cols = [
                         <col
                           key={column.key}
+                          className={`sales-col-${column.key}`}
                           style={{ width: column.width, minWidth: column.width }}
                         />,
                       ]

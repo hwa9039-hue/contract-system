@@ -5441,8 +5441,8 @@ textarea:focus-visible {
 
 .sales-registry-table {
   table-layout: fixed !important;
-  width: 2202px;
-  min-width: 2202px;
+  width: 100%;
+  min-width: 2642px;
 }
 
 .sales-registry-table.excel-table thead th,
@@ -5474,7 +5474,11 @@ textarea:focus-visible {
   max-width: 56px;
 }
 
-.sales-registry-table .sales-amount-header,
+.sales-registry-table .sales-amount-header {
+  text-align: center !important;
+  padding-right: 8px !important;
+}
+
 .sales-registry-table .sales-amount-cell {
   text-align: right !important;
   padding-right: 16px !important;
@@ -5482,6 +5486,26 @@ textarea:focus-visible {
 
 .sales-registry-table .sales-amount-cell .cell-display {
   justify-content: flex-end;
+}
+
+.sales-registry-table .sales-wrap-cell {
+  overflow: visible;
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.sales-registry-table .sales-wrap-cell .cell-display,
+.sales-registry-table .sales-wrap-cell .editable-text-cell-display {
+  display: block;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  -webkit-box-orient: initial;
 }
 
 .registry-action-header,
