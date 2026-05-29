@@ -4653,6 +4653,7 @@ function App() {
   /** 계약 셀 편집: UI 행 키(rowKey) + 컬럼 + PATCH용 serverRowId(행의 서버 PK) */
   const [contractEdit, setContractEdit] = useState(null)
   const [contractEditDraft, setContractEditDraft] = useState('')
+  const [workReportTextModal, setWorkReportTextModal] = useState(null)
   /** 영업·건축·사업검색이력·문서 — 계약현황과 동일한 셀 단위 인라인 편집 */
   const [registryCellEdit, setRegistryCellEdit] = useState(null)
   const [registryCellEditDraft, setRegistryCellEditDraft] = useState('')
@@ -9141,6 +9142,58 @@ function App() {
     await flushWorkReportEntrySave(date, section, orderIndex)
   }
 
+  const getWorkReportDayLabel = (dateYmd) => {
+    const dateKey = normalizeWorkReportDateKey(dateYmd)
+    const days = getWorkReportWeekDays(selectedWorkWeekMeta.weekStartDate)
+    const match = days.find((day) => day.date === dateKey)
+    return match ? `${match.label} (${match.monthDay})` : dateKey
+  }
+
+  const isWorkReportChecklistDisplayEmpty = (content) => {
+    const text = safeString(content).trim()
+    if (!text) return true
+    return !text.split('\n').some(
+      (line) => !isWorkReportChecklistEmptyBulletLine(line) && safeString(line).trim() !== ''
+    )
+  }
+
+  const closeWorkReportTextModal = () => setWorkReportTextModal(null)
+
+  const openWorkReportTextModal = ({
+    date,
+    section,
+    orderIndex = 1,
+    fieldKey,
+    fieldLabel,
+    contextTitle,
+    multiline = true,
+    checklistMode = false,
+  }) => {
+    const entry = getWorkReportBoardEntry(date, section, orderIndex)
+    setWorkReportTextModal({
+      date,
+      section,
+      orderIndex,
+      fieldKey,
+      fieldLabel,
+      contextTitle,
+      draft: safeString(entry?.[fieldKey] ?? ''),
+      multiline,
+      checklistMode,
+      saving: false,
+    })
+  }
+
+  const saveWorkReportTextModal = async () => {
+    const snap = workReportTextModal
+    if (!snap || snap.saving) return
+
+    setWorkReportTextModal((prev) => (prev ? { ...prev, saving: true } : prev))
+    updateWorkReportBoardEntry(snap.date, snap.section, snap.orderIndex, { [snap.fieldKey]: snap.draft })
+    await saveWorkReportBoardEntry(snap.date, snap.section, snap.orderIndex)
+    closeWorkReportTextModal()
+  }
+
   const handleWorkReportBoardPdfDownload = () => {
     const popup = window.open('', '_blank', 'width=1680,height=980')
     if (!popup) {
@@ -11680,31 +11733,57 @@ function App() {
     ))
   }
 
-  const renderWorkReportChecklistSectionV5 = (date) => (
-    <section className="work-report-report-section">
-      <div className="work-report-report-section-title">주요 확인사항</div>
-      <div
-        className="work-report-report-checklist-single-wrap"
-        onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.checklist, 1)}
+  const renderWorkReportReadTextCell = ({
+    value,
+    placeholder,
+    onClick,
+    className = 'work-report-report-content-cell',
+    checklist = false,
+  }) => {
+    const isEmpty = checklist
+      ? isWorkReportChecklistDisplayEmpty(value)
+      : !safeString(value).trim()
+    const displayText = isEmpty ? '' : safeString(value).trim()
+
+    return (
+      <button
+        type="button"
+        className={`work-report-read-cell-btn ${className} work-report-read-cell-clamp${isEmpty ? ' is-empty' : ''}`}
+        onClick={onClick}
       >
-        <textarea
-          className="work-report-report-checklist-combined-textarea"
-          value={getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content}
-          placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
-          onChange={(e) =>
-            updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
-              content: e.target.value,
-            })
-          }
-          onKeyDown={(e) =>
-            handleWorkReportChecklistTextareaKeyDown(e, (content) =>
-              updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
-            )
-          }
-        />
-      </div>
-    </section>
-  )
+        {displayText || placeholder}
+      </button>
+    )
+  }
+
+  const renderWorkReportChecklistSectionV5 = (date) => {
+    const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1)
+
+    return (
+      <section className="work-report-report-section">
+        <div className="work-report-report-section-title">주요 확인사항</div>
+        <div className="work-report-report-checklist-single-wrap">
+          {renderWorkReportReadTextCell({
+            value: entry.content,
+            placeholder: '주요 확인사항 입력 (여러 줄 입력 가능)',
+            checklist: true,
+            className: 'work-report-report-block-content',
+            onClick: () =>
+              openWorkReportTextModal({
+                date,
+                section: WORK_REPORT_SECTION_KEYS.checklist,
+                orderIndex: 1,
+                fieldKey: 'content',
+                fieldLabel: '주요 확인사항',
+                contextTitle: getWorkReportDayLabel(date),
+                multiline: true,
+                checklistMode: true,
+              }),
+          })}
+        </div>
+      </section>
+    )
+  }
 
   const renderWorkReportExternalSectionV5 = (date) => (
     <section className="work-report-report-section">
@@ -11718,6 +11797,7 @@ function App() {
           {Array.from({ length: WORK_REPORT_EXTERNAL_ROW_COUNT }, (_, index) => {
             const orderIndex = index + 1
             const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
+            const dayLabel = getWorkReportDayLabel(date)
 
             return (
               <div
@@ -11737,30 +11817,37 @@ function App() {
                   />
                 </div>
                 <div className="work-report-report-cell">
-                  <textarea
-                    className="work-report-report-field work-report-report-field--grow"
-                    rows={2}
-                    value={entry.content}
-                    placeholder="내용 입력"
-                    onChange={(e) =>
-                      updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
-                        content: e.target.value,
-                      })
-                    }
-                  />
+                  {renderWorkReportReadTextCell({
+                    value: entry.content,
+                    placeholder: '내용 입력',
+                    onClick: () =>
+                      openWorkReportTextModal({
+                        date,
+                        section: WORK_REPORT_SECTION_KEYS.external,
+                        orderIndex,
+                        fieldKey: 'content',
+                        fieldLabel: '내용',
+                        contextTitle: `${dayLabel} · 외부일정 #${orderIndex}`,
+                        multiline: true,
+                      }),
+                  })}
                 </div>
                 <div className="work-report-report-cell">
-                  <input
-                    className="work-report-report-field"
-                    type="text"
-                    value={entry.destination}
-                    placeholder="목적지 입력"
-                    onChange={(e) =>
-                      updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
-                        destination: e.target.value,
-                      })
-                    }
-                  />
+                  {renderWorkReportReadTextCell({
+                    value: entry.destination,
+                    placeholder: '목적지 입력',
+                    className: 'work-report-report-destination-cell',
+                    onClick: () =>
+                      openWorkReportTextModal({
+                        date,
+                        section: WORK_REPORT_SECTION_KEYS.external,
+                        orderIndex,
+                        fieldKey: 'destination',
+                        fieldLabel: '목적지',
+                        contextTitle: `${dayLabel} · 외부일정 #${orderIndex}`,
+                        multiline: true,
+                      }),
+                  })}
                 </div>
               </div>
             )
@@ -11781,35 +11868,46 @@ function App() {
         {Array.from({ length: rowCount }, (_, index) => {
           const orderIndex = index + 1
           const entry = getWorkReportBoardEntry(date, section, orderIndex)
+          const dayLabel = getWorkReportDayLabel(date)
 
           return (
             <div
               key={`journal-v5-${section}-${date}-${orderIndex}`}
               className="work-report-report-table-row editable work-report-report-table-row-journal"
-              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
             >
               <div className="work-report-report-line-number">{orderIndex}</div>
               <div className="work-report-report-cell">
-                <input
-                  className="work-report-report-field"
-                  type="text"
-                  value={entry.user}
-                  placeholder="담당자"
-                  onChange={(e) =>
-                    updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
-                  }
-                />
+                {renderWorkReportReadTextCell({
+                  value: entry.user,
+                  placeholder: '담당자',
+                  onClick: () =>
+                    openWorkReportTextModal({
+                      date,
+                      section,
+                      orderIndex,
+                      fieldKey: 'user',
+                      fieldLabel: '담당자',
+                      contextTitle: `${dayLabel} · ${title} #${orderIndex}`,
+                      multiline: false,
+                    }),
+                })}
               </div>
               <div className="work-report-report-cell">
-                <textarea
-                  className="work-report-report-field work-report-report-field--grow"
-                  rows={2}
-                  value={entry.content}
-                  placeholder="내용 입력"
-                  onChange={(e) =>
-                    updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
-                  }
-                />
+                {renderWorkReportReadTextCell({
+                  value: entry.content,
+                  placeholder: '내용 입력',
+                  className: `work-report-report-content-cell ${contentClassName}`.trim(),
+                  onClick: () =>
+                    openWorkReportTextModal({
+                      date,
+                      section,
+                      orderIndex,
+                      fieldKey: 'content',
+                      fieldLabel: '내용',
+                      contextTitle: `${dayLabel} · ${title} #${orderIndex}`,
+                      multiline: true,
+                    }),
+                })}
               </div>
             </div>
           )
@@ -11825,23 +11923,29 @@ function App() {
         {Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
           const orderIndex = index + 1
           const entry = getWorkReportBoardEntry(date, section, orderIndex)
+          const dayLabel = getWorkReportDayLabel(date)
 
           return (
             <div
               key={`support-v5-${date}-${section}-${orderIndex}`}
               className="work-report-report-line-edit"
-              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
             >
               <span className="work-report-report-line-number">{orderIndex}.</span>
-              <input
-                className="work-report-report-field"
-                type="text"
-                value={entry.content}
-                placeholder="내용 입력"
-                onChange={(e) =>
-                  updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
-                }
-              />
+              {renderWorkReportReadTextCell({
+                value: entry.content,
+                placeholder: '내용 입력',
+                className: 'work-report-report-line-text',
+                onClick: () =>
+                  openWorkReportTextModal({
+                    date,
+                    section,
+                    orderIndex,
+                    fieldKey: 'content',
+                    fieldLabel: '내용',
+                    contextTitle: `${dayLabel} · 영업지원 · ${title} #${orderIndex}`,
+                    multiline: true,
+                  }),
+              })}
             </div>
           )
         })}
@@ -14546,6 +14650,118 @@ function App() {
             </div>
           )
         })()}
+
+      {workReportTextModal && (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            if (!workReportTextModal.saving) closeWorkReportTextModal()
+          }}
+        >
+          <div
+            className="sales-long-text-modal contract-edit-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="work-report-text-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sales-record-modal-header">
+              <div>
+                <p className="sales-long-text-modal-eyebrow">{workReportTextModal.fieldLabel}</p>
+                <h3 id="work-report-text-modal-title" className="sales-record-modal-title">
+                  {workReportTextModal.contextTitle}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={closeWorkReportTextModal}
+                aria-label="닫기"
+                disabled={workReportTextModal.saving}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="sales-record-modal-body">
+              {workReportTextModal.multiline ? (
+                <textarea
+                  className="sales-long-text-textarea"
+                  rows={10}
+                  autoFocus
+                  value={workReportTextModal.draft}
+                  onChange={(e) =>
+                    setWorkReportTextModal((prev) =>
+                      prev ? { ...prev, draft: e.target.value } : prev
+                    )
+                  }
+                  onKeyDown={(e) => {
+                    if (workReportTextModal.checklistMode) {
+                      handleWorkReportChecklistTextareaKeyDown(e, (content) =>
+                        setWorkReportTextModal((prev) => (prev ? { ...prev, draft: content } : prev))
+                      )
+                    }
+                    if (e.key === 'Escape') {
+                      e.preventDefault()
+                      if (!workReportTextModal.saving) closeWorkReportTextModal()
+                      return
+                    }
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                      e.preventDefault()
+                      void saveWorkReportTextModal()
+                    }
+                  }}
+                  disabled={workReportTextModal.saving}
+                />
+              ) : (
+                <input
+                  type="text"
+                  className="sales-long-text-textarea work-report-text-modal-input"
+                  autoFocus
+                  value={workReportTextModal.draft}
+                  onChange={(e) =>
+                    setWorkReportTextModal((prev) =>
+                      prev ? { ...prev, draft: e.target.value } : prev
+                    )
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      e.preventDefault()
+                      if (!workReportTextModal.saving) closeWorkReportTextModal()
+                      return
+                    }
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      void saveWorkReportTextModal()
+                    }
+                  }}
+                  disabled={workReportTextModal.saving}
+                />
+              )}
+              <p className="contract-edit-modal-hint">
+                {workReportTextModal.multiline ? 'Ctrl+Enter' : 'Enter'}로 저장할 수 있습니다.
+              </p>
+            </div>
+            <div className="sales-record-modal-actions">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={closeWorkReportTextModal}
+                disabled={workReportTextModal.saving}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => void saveWorkReportTextModal()}
+                disabled={workReportTextModal.saving}
+              >
+                {workReportTextModal.saving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {salesRecordModal && (
         <div className="modal-backdrop" onClick={closeSalesRecordModal}>

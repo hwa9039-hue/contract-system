@@ -8019,6 +8019,59 @@ textarea:focus-visible {
   line-height: 1.5;
 }
 
+.work-report-read-cell-btn {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  margin: 0;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #1f2937;
+  box-sizing: border-box;
+}
+
+.work-report-read-cell-btn:hover {
+  background: #f8fbff;
+}
+
+.work-report-read-cell-btn.is-empty {
+  color: #c0cad6;
+}
+
+.work-report-read-cell-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+.work-report-report-checklist-single-wrap .work-report-read-cell-btn {
+  min-height: 52px;
+}
+
+.work-report-report-line-edit .work-report-read-cell-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 20px;
+  padding: 2px 0;
+}
+
+.work-report-text-modal-input {
+  height: auto;
+  min-height: 44px;
+  resize: none;
+}
+
 .work-report-report-support-block {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
