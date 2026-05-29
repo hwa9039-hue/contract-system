@@ -13109,14 +13109,13 @@ function App() {
 
         {menu === 'contactsManage' && (
           <section className="stat-card">
-            <div className="contracts-header-actions">
-              <div style={{ fontWeight: 800 }}>{PAGE_TITLE_MAP.contactsManage}</div>
-              {!isAdmin && (
+            {!isAdmin && (
+              <div className="contracts-header-actions">
                 <div style={{ color: '#94a3b8', fontSize: 12 }}>
                   권한이 없습니다. 관리자 계정으로만 접근할 수 있습니다.
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
