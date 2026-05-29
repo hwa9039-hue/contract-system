@@ -6027,6 +6027,127 @@ textarea:focus-visible {
   cursor: pointer;
 }
 
+/* 문서수발신대장 표: table-fixed + colgroup 고정 너비 (아코디언 토글 시 열 흔들림 방지) */
+.documents-registry-table {
+  table-layout: fixed !important;
+  width: 100%;
+  min-width: 1180px;
+}
+
+.documents-registry-table.excel-table thead th,
+.documents-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.documents-registry-table col.registry-check-col,
+.documents-registry-table .registry-check-header,
+.documents-registry-table .registry-check-cell {
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+}
+
+.documents-registry-table col.documents-w-28,
+.documents-registry-table th.documents-w-28,
+.documents-registry-table td.documents-w-28 {
+  width: 7rem;
+  min-width: 7rem;
+  max-width: 7rem;
+}
+
+.documents-registry-table col.documents-w-32,
+.documents-registry-table th.documents-w-32,
+.documents-registry-table td.documents-w-32 {
+  width: 8rem;
+  min-width: 8rem;
+  max-width: 8rem;
+}
+
+.documents-registry-table col.documents-w-36,
+.documents-registry-table th.documents-w-36,
+.documents-registry-table td.documents-w-36 {
+  width: 9rem;
+  min-width: 9rem;
+  max-width: 9rem;
+}
+
+.documents-registry-table col.documents-w-p12,
+.documents-registry-table th.documents-w-p12,
+.documents-registry-table td.documents-w-p12 {
+  width: 12%;
+  min-width: 0;
+}
+
+.documents-registry-table col.documents-w-p16,
+.documents-registry-table th.documents-w-p16,
+.documents-registry-table td.documents-w-p16 {
+  width: 16%;
+  min-width: 0;
+}
+
+.documents-registry-table col.documents-w-p30,
+.documents-registry-table th.documents-w-p30,
+.documents-registry-table td.documents-w-p30 {
+  width: 30%;
+  min-width: 0;
+}
+
+.documents-registry-table .documents-col-tight {
+  white-space: nowrap;
+}
+
+.documents-registry-table .documents-col-tight .cell-display {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  justify-content: center;
+}
+
+.documents-registry-table .documents-col-party,
+.documents-registry-table .documents-col-title {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.documents-registry-table .documents-note-header,
+.documents-registry-table .documents-col-note {
+  text-align: center !important;
+}
+
+.documents-registry-table .documents-col-note .cell-display {
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.documents-registry-table .documents-modal-text-cell {
+  cursor: pointer;
+  white-space: normal !important;
+}
+
+.documents-registry-table .documents-modal-text-cell:hover {
+  background: rgba(59, 130, 246, 0.08);
+  outline: 1px solid rgba(59, 130, 246, 0.24);
+}
+
+.documents-registry-table .documents-modal-text-cell .documents-modal-text-display,
+.documents-registry-table .documents-modal-text-cell .sales-modal-text-display {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
 .registry-table td .cell-display {
   width: 100%;
   overflow-wrap: anywhere;

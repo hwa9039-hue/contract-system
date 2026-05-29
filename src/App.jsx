@@ -91,13 +91,65 @@ const CONTRACT_COLUMNS = [
 ]
 
 const DOCUMENT_COLUMNS = [
-  { key: 'docDate', label: '등록일', align: 'center', type: 'date', width: 110 },
-  { key: 'docNo', label: '문서번호', align: 'center', type: 'text', width: 220 },
-  { key: 'senderReceiver', label: '수신처 또는 발신처', align: 'center', type: 'textarea', width: 220 },
-  { key: 'title', label: '문서명 또는 제목', align: 'left', type: 'textarea', width: 320 },
-  { key: 'method', label: '접수 또는 발송형태', align: 'center', type: 'text', width: 170 },
-  { key: 'writer', label: '수신자 또는 작성자', align: 'center', type: 'text', width: 160 },
-  { key: 'note', label: '비고', align: 'left', type: 'textarea', width: 260 },
+  {
+    key: 'docDate',
+    label: '등록일',
+    align: 'center',
+    type: 'date',
+    widthClass: 'documents-w-28',
+    cellClass: 'documents-col-tight documents-w-28',
+  },
+  {
+    key: 'docNo',
+    label: '문서번호',
+    align: 'center',
+    type: 'text',
+    widthClass: 'documents-w-p12',
+    cellClass: 'documents-col-tight documents-w-p12',
+  },
+  {
+    key: 'senderReceiver',
+    label: '수신처 또는 발신처',
+    align: 'center',
+    type: 'textarea',
+    widthClass: 'documents-w-p16',
+    cellClass: 'documents-modal-text-cell documents-col-party documents-w-p16',
+    modalEditor: true,
+  },
+  {
+    key: 'title',
+    label: '문서명 또는 제목',
+    align: 'left',
+    type: 'textarea',
+    widthClass: 'documents-w-p30',
+    cellClass: 'documents-modal-text-cell documents-col-title documents-w-p30',
+    modalEditor: true,
+  },
+  {
+    key: 'method',
+    label: '접수 또는 발송형태',
+    align: 'center',
+    type: 'text',
+    widthClass: 'documents-w-36',
+    cellClass: 'documents-col-tight documents-w-36',
+  },
+  {
+    key: 'writer',
+    label: '수신자 또는 작성자',
+    align: 'center',
+    type: 'text',
+    widthClass: 'documents-w-32',
+    cellClass: 'documents-col-tight documents-w-32',
+  },
+  {
+    key: 'note',
+    label: '비고',
+    align: 'center',
+    type: 'text',
+    widthClass: 'documents-w-28',
+    headerClass: 'documents-note-header th-align-center',
+    cellClass: 'documents-col-note documents-w-28',
+  },
 ]
 
 const SALES_STAGE_OPTIONS = [
@@ -9614,12 +9666,16 @@ function App() {
   const openRegistryLongTextModal = (scope, rowId, column, row) => {
     if (!scope || !rowId || !column || !row || row.isDraft) return
     if (!column.modalEditor) return
+    const modalContextLabel =
+      scope === 'documents'
+        ? safeString(row.title).trim() || safeString(row.docNo).trim() || '(문서 없음)'
+        : safeString(row.projectName).trim() || '(사업명 없음)'
     setRegistryLongTextModal({
       scope,
       rowId,
       columnKey: column.key,
       columnLabel: column.label,
-      projectName: safeString(row.projectName).trim() || '(사업명 없음)',
+      projectName: modalContextLabel,
       draft: safeString(row[column.key] ?? ''),
       saving: false,
     })
@@ -9644,7 +9700,9 @@ function App() {
           ? discoveryRows
           : scope === 'excluded'
             ? excludedRows
-            : []
+            : scope === 'documents'
+              ? documents
+              : []
     const targetRow = rows.find((row) => safeString(row.id).trim() === safeString(rowId).trim())
     if (!targetRow || targetRow.isDraft) {
       closeRegistryLongTextModal()
@@ -9663,6 +9721,7 @@ function App() {
       sales: '영업관리대장',
       discovery: '건축정보',
       excluded: '사업검색이력',
+      documents: '문서수발신대장',
     }
     const label = labelMap[scope] || '등록'
 
@@ -9676,6 +9735,8 @@ function App() {
         await projectDiscoveryApi.update(rowId, patch)
       } else if (scope === 'excluded') {
         await excludedProjectsApi.update(rowId, patch)
+      } else if (scope === 'documents') {
+        await documentRegisterApi.update(rowId, patch)
       }
       closeRegistryLongTextModal()
     } catch (error) {
@@ -9972,7 +10033,8 @@ function App() {
           const canUseRegistryModalEditor =
             (cellEditScope === 'sales' ||
               cellEditScope === 'discovery' ||
-              cellEditScope === 'excluded') &&
+              cellEditScope === 'excluded' ||
+              cellEditScope === 'documents') &&
             column.modalEditor &&
             isEditableTextColumn(column) &&
             useCellMode &&
@@ -10034,7 +10096,9 @@ function App() {
                 <div
                   className={`cell-display table-cell-clamp sales-modal-text-display${
                     cellEditScope === 'discovery' ? ' discovery-modal-text-display' : ''
-                  }${cellEditScope === 'excluded' ? ' excluded-modal-text-display' : ''}`}
+                  }${cellEditScope === 'excluded' ? ' excluded-modal-text-display' : ''}${
+                    cellEditScope === 'documents' ? ' documents-modal-text-display' : ''
+                  }`}
                   role="button"
                   tabIndex={0}
                   onClick={(e) => {
@@ -12945,7 +13009,13 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table ledger-table-ui table-layout-auto table-w-full-min">
+                <table className="contract-table excel-table registry-table documents-registry-table ledger-table-ui table-w-full-min">
+                  <colgroup>
+                    <col className="registry-check-col" />
+                    {DOCUMENT_COLUMNS.map((column) => (
+                      <col key={column.key} className={column.widthClass || ''} />
+                    ))}
+                  </colgroup>
                   <thead>
                     <tr>
                       <th className="th-align-center registry-check-header table-col-tight">
@@ -12965,7 +13035,7 @@ function App() {
                       {DOCUMENT_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)}`}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''}`}
                         >
                           {column.label}
                         </th>
