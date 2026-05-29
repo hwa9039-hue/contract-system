@@ -37,6 +37,12 @@ import {
   normalizeSalesColumnFilterSelection,
   salesMatchesColumnFilters,
 } from './salesColumnFilter.js'
+import {
+  buildContactsManageColumnFilterOptions,
+  contactsManageMatchesColumnFilters,
+  filterContactsManageRowsByActiveFilters,
+  normalizeContactsManageColumnFilterSelection,
+} from './contactsManageColumnFilter.js'
 import * as XLSX from 'xlsx'
 import './App.css'
 import { contractsApi } from './contractsApi'
@@ -181,6 +187,67 @@ const DOCUMENT_COLUMNS = [
     widthClass: 'documents-w-28',
     headerClass: 'documents-note-header th-align-center',
     cellClass: 'documents-col-note documents-w-28',
+  },
+]
+
+const CONTACTS_MANAGE_COLUMNS = [
+  {
+    key: 'category',
+    label: '구분',
+    align: 'center',
+    type: 'text',
+    widthClass: 'contacts-w-category',
+    cellClass: 'contacts-col-tight contacts-w-category',
+  },
+  {
+    key: 'business_content',
+    label: '사업내용',
+    align: 'left',
+    type: 'textarea',
+    widthClass: 'contacts-w-business',
+    cellClass: 'contacts-modal-text-cell contacts-w-business',
+    modalEditor: true,
+  },
+  {
+    key: 'manager_name',
+    label: '담당자',
+    align: 'center',
+    type: 'text',
+    widthClass: 'contacts-w-manager',
+    cellClass: 'contacts-col-tight contacts-w-manager',
+  },
+  {
+    key: 'position',
+    label: '직위',
+    align: 'center',
+    type: 'text',
+    widthClass: 'contacts-w-position',
+    cellClass: 'contacts-col-tight contacts-w-position',
+  },
+  {
+    key: 'phone',
+    label: '전화번호',
+    align: 'center',
+    type: 'text',
+    widthClass: 'contacts-w-phone',
+    cellClass: 'contacts-col-tight contacts-w-phone',
+  },
+  {
+    key: 'email',
+    label: '이메일',
+    align: 'left',
+    type: 'text',
+    widthClass: 'contacts-w-email',
+    cellClass: 'contacts-col-tight contacts-w-email',
+  },
+  {
+    key: 'notes',
+    label: '비고',
+    align: 'left',
+    type: 'textarea',
+    widthClass: 'contacts-w-notes',
+    cellClass: 'contacts-modal-text-cell contacts-w-notes',
+    modalEditor: true,
   },
 ]
 
@@ -4459,6 +4526,10 @@ function App() {
   const { isAdmin, sharedSessionExpiresAt, logout, extendLogin } = useAuth()
   const [contactsManageRows, setContactsManageRows] = useState([])
   const [isLoadingContactsManage, setIsLoadingContactsManage] = useState(false)
+  const [selectedContactsIds, setSelectedContactsIds] = useState([])
+  const [contactsSearch, setContactsSearch] = useState('')
+  const [contactsActiveFilters, setContactsActiveFilters] = useState({})
+  const [openContactsColumnFilterKey, setOpenContactsColumnFilterKey] = useState(null)
   const [contracts, setContracts] = useState([])
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
@@ -6010,6 +6081,44 @@ function App() {
     [documentsRawData.length, filteredDocuments.length]
   )
 
+  const contactsRawData = contactsManageRows
+
+  const contactsColumnFilterOptionsMap = useMemo(() => {
+    const basePool = contactsRawData.filter((row) =>
+      matchesRegistrySearch(row, CONTACTS_MANAGE_COLUMNS, contactsSearch)
+    )
+    const map = {}
+    CONTACTS_MANAGE_COLUMNS.forEach(({ key: columnKey }) => {
+      const pool = basePool.filter((row) =>
+        row.isDraft || contactsManageMatchesColumnFilters(row, contactsActiveFilters, columnKey)
+      )
+      map[columnKey] = buildContactsManageColumnFilterOptions(pool, columnKey)
+    })
+    return map
+  }, [contactsActiveFilters, contactsRawData, contactsSearch])
+
+  const handleContactsActiveFiltersApply = useCallback((columnKey, selected) => {
+    setContactsActiveFilters((prev) => {
+      const next = { ...prev }
+      const values = Array.isArray(selected) ? [...selected] : []
+      if (values.length === 0) delete next[columnKey]
+      else next[columnKey] = values
+      return next
+    })
+  }, [])
+
+  const filteredContactsRows = useMemo(() => {
+    const toolbarFiltered = contactsRawData.filter((row) =>
+      matchesRegistrySearch(row, CONTACTS_MANAGE_COLUMNS, contactsSearch)
+    )
+    return filterContactsManageRowsByActiveFilters(toolbarFiltered, contactsActiveFilters)
+  }, [contactsActiveFilters, contactsRawData, contactsSearch])
+
+  const isContactsTableFilterResultEmpty = useMemo(
+    () => contactsRawData.length > 0 && filteredContactsRows.length === 0,
+    [contactsRawData.length, filteredContactsRows.length]
+  )
+
   const salesRawData = salesRows
 
   const salesColumnFilterOptionsMap = useMemo(() => {
@@ -6449,6 +6558,10 @@ function App() {
     selectedExcludedIds
   )
   const allDocumentsSelected = isAllVisibleRegistryRowsSelected(filteredDocuments, selectedDocumentIds)
+  const allContactsSelected = isAllVisibleRegistryRowsSelected(
+    filteredContactsRows,
+    selectedContactsIds
+  )
 
   const calendarItems = useMemo(() => {
     const contractDateItems = contracts
@@ -6600,6 +6713,67 @@ function App() {
     } finally {
       setIsLoadingContactsManage(false)
     }
+  }
+
+  const handleAddContactsRow = () => {
+    showAppAlert('연락처 등록 기능은 준비 중입니다.')
+  }
+
+  const handleContactsExcelUpload = () => {
+    showAppAlert('연락처 엑셀 업로드 기능은 준비 중입니다.')
+  }
+
+  const toggleContactsSelection = (rowId) => {
+    setSelectedContactsIds((prev) =>
+      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
+    )
+  }
+
+  const deleteSelectedContactsRows = () => {
+    const validSelectedIds = selectedContactsIds.filter((id) => safeString(id).trim() !== '')
+
+    if (validSelectedIds.length === 0) {
+      showAppAlert('삭제할 행을 선택해주세요.')
+      return
+    }
+
+    setContractConfirmDialog({
+      title: '선택 삭제',
+      message: '선택한 연락처를 삭제하시겠습니까?',
+      destructive: true,
+      confirmLabel: '삭제',
+      onConfirm: () => {
+        setContactsManageRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
+        setSelectedContactsIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+        setToastMessage('선택한 항목이 삭제되었습니다. (로컬만 반영)')
+      },
+    })
+  }
+
+  const handleContactsExcelDownload = () => {
+    const rows = filteredContactsRows.filter((row) => !row.isDraft).map((row) => ({
+      구분: row.category,
+      사업내용: row.business_content,
+      담당자: row.manager_name,
+      직위: row.position,
+      전화번호: row.phone,
+      이메일: row.email,
+      비고: row.notes,
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, '연락처')
+
+    const now = new Date()
+    const filename = `연락처_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
+    XLSX.writeFile(workbook, filename)
+  }
+
+  const handleContactsCellChange = (rowId, key, value) => {
+    setContactsManageRows((prev) =>
+      prev.map((row) => (row.id === rowId ? { ...row, [key]: value } : row))
+    )
   }
 
   const handleAppLogout = () => {
@@ -9689,6 +9863,8 @@ function App() {
         return EXCLUDED_COLUMNS
       case 'documents':
         return DOCUMENT_COLUMNS
+      case 'contactsManage':
+        return CONTACTS_MANAGE_COLUMNS
       default:
         return []
     }
@@ -9726,6 +9902,9 @@ function App() {
         break
       case 'documents':
         setDocuments((prev) => prev.map((row) => (matchesRow(row) ? { ...row, ...patch } : row)))
+        break
+      case 'contactsManage':
+        setContactsManageRows((prev) => prev.map((row) => (matchesRow(row) ? { ...row, ...patch } : row)))
         break
       default:
         break
@@ -9790,6 +9969,9 @@ function App() {
       case 'documents':
         rows = documents
         break
+      case 'contactsManage':
+        rows = contactsManageRows
+        break
       default:
         return false
     }
@@ -9810,6 +9992,10 @@ function App() {
 
     const previous = targetRow[column.key]
     applyRegistryRowFieldPatch(scope, rowId, column, rawValue)
+
+    if (scope === 'contactsManage') {
+      return true
+    }
 
     try {
       switch (scope) {
@@ -9836,6 +10022,7 @@ function App() {
         discovery: '건축정보',
         excluded: '사업검색이력',
         documents: '문서수발신대장',
+        contactsManage: '연락처',
       }
       const label = labelMap[scope] || '등록'
       logApiOperationError(`${label} 셀 저장`, error)
@@ -9848,9 +10035,13 @@ function App() {
     if (!scope || !rowId || !column || !row || row.isDraft) return
     if (!column.modalEditor) return
     const modalContextLabel =
-      scope === 'documents'
-        ? safeString(row.title).trim() || safeString(row.docNo).trim() || '(문서 없음)'
-        : safeString(row.projectName).trim() || '(사업명 없음)'
+      scope === 'contactsManage'
+        ? safeString(row.manager_name).trim() ||
+          safeString(row.category).trim() ||
+          '(연락처 없음)'
+        : scope === 'documents'
+          ? safeString(row.title).trim() || safeString(row.docNo).trim() || '(문서 없음)'
+          : safeString(row.projectName).trim() || '(사업명 없음)'
     setRegistryLongTextModal({
       scope,
       rowId,
@@ -9883,7 +10074,9 @@ function App() {
             ? excludedRows
             : scope === 'documents'
               ? documents
-              : []
+              : scope === 'contactsManage'
+                ? contactsManageRows
+                : []
     const targetRow = rows.find((row) => safeString(row.id).trim() === safeString(rowId).trim())
     if (!targetRow || targetRow.isDraft) {
       closeRegistryLongTextModal()
@@ -9903,11 +10096,17 @@ function App() {
       discovery: '건축정보',
       excluded: '사업검색이력',
       documents: '문서수발신대장',
+      contactsManage: '연락처',
     }
     const label = labelMap[scope] || '등록'
 
     setRegistryLongTextModal((prev) => (prev ? { ...prev, saving: true } : prev))
     applyRegistryRowFieldPatch(scope, rowId, column, registryLongTextModal.draft)
+
+    if (scope === 'contactsManage') {
+      closeRegistryLongTextModal()
+      return
+    }
 
     try {
       if (scope === 'sales') {
@@ -9940,7 +10139,7 @@ function App() {
       }
       await persistRegistryCellPatch(scope, rowId, column, rawValue)
     },
-    [salesRows, discoveryRows, excludedRows, documents]
+    [salesRows, discoveryRows, excludedRows, documents, contactsManageRows]
   )
 
   const saveRegistryCellEdit = async () => {
@@ -9987,6 +10186,9 @@ function App() {
         break
       case 'documents':
         rows = documents
+        break
+      case 'contactsManage':
+        rows = contactsManageRows
         break
       default:
         return
@@ -10215,7 +10417,8 @@ function App() {
             (cellEditScope === 'sales' ||
               cellEditScope === 'discovery' ||
               cellEditScope === 'excluded' ||
-              cellEditScope === 'documents') &&
+              cellEditScope === 'documents' ||
+              cellEditScope === 'contactsManage') &&
             column.modalEditor &&
             isEditableTextColumn(column) &&
             useCellMode &&
@@ -10275,11 +10478,13 @@ function App() {
                 </div>
               ) : canUseRegistryModalEditor ? (
                 <div
-                  className={`cell-display table-cell-clamp sales-modal-text-display${
+                  className={`cell-display table-cell-clamp${
+                    cellEditScope === 'contactsManage' ? ' table-cell-clamp-2' : ''
+                  } sales-modal-text-display${
                     cellEditScope === 'discovery' ? ' discovery-modal-text-display' : ''
                   }${cellEditScope === 'excluded' ? ' excluded-modal-text-display' : ''}${
                     cellEditScope === 'documents' ? ' documents-modal-text-display' : ''
-                  }`}
+                  }${cellEditScope === 'contactsManage' ? ' contacts-modal-text-display' : ''}`}
                   role="button"
                   tabIndex={0}
                   onClick={(e) => {
@@ -10355,6 +10560,10 @@ function App() {
     onCancelRow,
     onChange,
     isEmptyRow,
+    cellEditScope = null,
+    isAdminForRegistry = false,
+    registryCellEdit: registryCellEditFlat = null,
+    onRegistryCellStart = null,
   }) => {
     if (rows.length === 0) {
       return (
@@ -10381,6 +10590,10 @@ function App() {
         isEmptyRow,
         selectedIds,
         onToggleSelection,
+        cellEditScope,
+        isAdminForRegistry,
+        registryCellEdit: registryCellEditFlat,
+        onRegistryCellStart,
       })
     )
   }
@@ -13239,73 +13452,137 @@ function App() {
 
         {menu === 'contactsManage' && (
           <section className="stat-card">
-            {!isAdmin && (
+            {!isAdmin ? (
               <div className="contracts-header-actions">
                 <div style={{ color: '#94a3b8', fontSize: 12 }}>
                   권한이 없습니다. 관리자 계정으로만 접근할 수 있습니다.
                 </div>
               </div>
+            ) : (
+              <div className="contracts-header-actions">
+                <button className="primary-btn" type="button" onClick={handleAddContactsRow}>
+                  등록
+                </button>
+                <button className="secondary-btn" type="button" onClick={handleContactsExcelUpload}>
+                  엑셀 업로드
+                </button>
+                <button
+                  className="secondary-btn"
+                  type="button"
+                  onClick={deleteSelectedContactsRows}
+                  disabled={selectedContactsIds.length === 0}
+                >
+                  선택 삭제
+                </button>
+                <button className="secondary-btn" type="button" onClick={handleContactsExcelDownload}>
+                  엑셀 다운로드
+                </button>
+              </div>
+            )}
+
+            {isAdmin && (
+              <div className="table-toolbar">
+                <input
+                  className="table-search-input"
+                  placeholder="검색어를 입력하세요"
+                  value={contactsSearch}
+                  onChange={(e) => setContactsSearch(e.target.value)}
+                />
+              </div>
             )}
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table table-layout-auto table-w-full-min">
+                <table className="contract-table excel-table registry-table contacts-registry-table ledger-table-ui table-w-full-min">
+                  <colgroup>
+                    <col className="registry-check-col" />
+                    {CONTACTS_MANAGE_COLUMNS.map((column) => (
+                      <col key={column.key} className={column.widthClass || ''} />
+                    ))}
+                  </colgroup>
                   <thead>
                     <tr>
-                      <th className="th-align-center">구분</th>
-                      <th className="th-align-left">사업내용</th>
-                      <th className="th-align-center">담당자</th>
-                      <th className="th-align-center">직위</th>
-                      <th className="th-align-center">전화번호</th>
-                      <th className="th-align-left">이메일</th>
-                      <th className="th-align-left">비고</th>
+                      <th className="th-align-center registry-check-header table-col-tight">
+                        <input
+                          className="registry-row-checkbox"
+                          type="checkbox"
+                          checked={isAdmin && allContactsSelected}
+                          disabled={!isAdmin}
+                          onChange={() =>
+                            setSelectedContactsIds((prev) =>
+                              allContactsSelected
+                                ? prev.filter((id) => !filteredContactsRows.some((row) => row.id === id))
+                                : [...new Set([...prev, ...filteredContactsRows.map((row) => row.id)])]
+                            )
+                          }
+                        />
+                      </th>
+                      {CONTACTS_MANAGE_COLUMNS.map((column) => (
+                        <th
+                          key={column.key}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
+                        >
+                          <div className="contract-th-filter-wrap">
+                            <span className="contract-th-label">{column.label}</span>
+                            <ContractColumnHeaderFilter
+                              columnKey={column.key}
+                              options={contactsColumnFilterOptionsMap[column.key] ?? []}
+                              selected={contactsActiveFilters[column.key] ?? []}
+                              onApply={handleContactsActiveFiltersApply}
+                              isOpen={openContactsColumnFilterKey === column.key}
+                              onOpenChange={setOpenContactsColumnFilterKey}
+                              normalizeSelection={normalizeContactsManageColumnFilterSelection}
+                            />
+                          </div>
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {!isAdmin ? (
                       <tr>
-                        <td colSpan={7} className="empty-cell">
+                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + 1} className="empty-cell">
                           관리자만 확인할 수 있습니다.
                         </td>
                       </tr>
                     ) : isLoadingContactsManage ? (
                       <tr>
-                        <td colSpan={7} className="empty-cell">
+                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + 1} className="empty-cell">
                           불러오는 중...
                         </td>
                       </tr>
-                    ) : contactsManageRows.length === 0 ? (
+                    ) : contactsRawData.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="empty-cell">
+                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + 1} className="empty-cell">
                           등록된 데이터가 없습니다.
                         </td>
                       </tr>
+                    ) : isContactsTableFilterResultEmpty ? (
+                      <tr>
+                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + 1} className="empty-cell">
+                          필터 조건에 맞는 데이터가 없습니다.
+                        </td>
+                      </tr>
                     ) : (
-                      contactsManageRows.map((row) => (
-                        <tr key={row.id ?? `${row.category}-${row.manager_name}-${row.phone}`}>
-                          <td className="td-align-center">
-                            <div className="cell-display">{row.category}</div>
-                          </td>
-                          <td className="td-align-left">
-                            <div className="cell-display table-cell-clamp">{row.business_content}</div>
-                          </td>
-                          <td className="td-align-center">
-                            <div className="cell-display">{row.manager_name}</div>
-                          </td>
-                          <td className="td-align-center">
-                            <div className="cell-display">{row.position}</div>
-                          </td>
-                          <td className="td-align-center">
-                            <div className="cell-display">{row.phone}</div>
-                          </td>
-                          <td className="td-align-left">
-                            <div className="cell-display">{row.email}</div>
-                          </td>
-                          <td className="td-align-left">
-                            <div className="cell-display table-cell-clamp">{row.notes}</div>
-                          </td>
-                        </tr>
-                      ))
+                      renderFlatRegistryRows({
+                        rows: filteredContactsRows,
+                        columns: CONTACTS_MANAGE_COLUMNS,
+                        emptyMessage: '등록된 데이터가 없습니다.',
+                        selectedIds: selectedContactsIds,
+                        onToggleSelection: toggleContactsSelection,
+                        editingIds: [],
+                        isSaving: false,
+                        onStartEdit: () => {},
+                        onSaveRow: () => {},
+                        onCancelRow: () => {},
+                        onChange: handleContactsCellChange,
+                        isEmptyRow: () => false,
+                        cellEditScope: 'contactsManage',
+                        isAdminForRegistry: true,
+                        registryCellEdit,
+                        onRegistryCellStart: (rowId, columnKey, value, row) =>
+                          startRegistryCellEdit('contactsManage', rowId, columnKey, value, row),
+                      })
                     )}
                   </tbody>
                 </table>

@@ -1126,6 +1126,19 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
   max-height: calc(1.3em * 3);
 }
 
+.table-cell-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+  max-height: calc(1.3em * 2);
+}
+
 .table-col-long .editable-text-cell-display.table-cell-clamp {
   align-items: flex-start;
   min-height: 24px;
@@ -6367,6 +6380,104 @@ textarea:focus-visible {
   white-space: normal !important;
   word-break: break-word;
   overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+/* 연락처 표: 문서수발신대장과 동일한 레지스트리 UI */
+.contacts-registry-table {
+  table-layout: fixed !important;
+  width: 100%;
+  min-width: 1080px;
+}
+
+.contacts-registry-table.excel-table thead th,
+.contacts-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.contacts-registry-table col.registry-check-col,
+.contacts-registry-table .registry-check-header,
+.contacts-registry-table .registry-check-cell {
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+}
+
+.contacts-registry-table col.contacts-w-category,
+.contacts-registry-table th.contacts-w-category,
+.contacts-registry-table td.contacts-w-category {
+  width: 7rem;
+  min-width: 7rem;
+  max-width: 7rem;
+}
+
+.contacts-registry-table col.contacts-w-manager,
+.contacts-registry-table th.contacts-w-manager,
+.contacts-registry-table td.contacts-w-manager {
+  width: 6.5rem;
+  min-width: 6.5rem;
+  max-width: 6.5rem;
+}
+
+.contacts-registry-table col.contacts-w-position,
+.contacts-registry-table th.contacts-w-position,
+.contacts-registry-table td.contacts-w-position {
+  width: 5.5rem;
+  min-width: 5.5rem;
+  max-width: 5.5rem;
+}
+
+.contacts-registry-table col.contacts-w-phone,
+.contacts-registry-table th.contacts-w-phone,
+.contacts-registry-table td.contacts-w-phone {
+  width: 9.5rem;
+  min-width: 9.5rem;
+  max-width: 9.5rem;
+}
+
+.contacts-registry-table col.contacts-w-business,
+.contacts-registry-table th.contacts-w-business,
+.contacts-registry-table td.contacts-w-business {
+  width: 28%;
+  min-width: 0;
+}
+
+.contacts-registry-table col.contacts-w-email,
+.contacts-registry-table th.contacts-w-email,
+.contacts-registry-table td.contacts-w-email {
+  width: 16%;
+  min-width: 0;
+}
+
+.contacts-registry-table col.contacts-w-notes,
+.contacts-registry-table th.contacts-w-notes,
+.contacts-registry-table td.contacts-w-notes {
+  width: 18%;
+  min-width: 0;
+}
+
+.contacts-registry-table .contacts-col-tight {
+  white-space: nowrap;
+}
+
+.contacts-registry-table .contacts-col-tight .cell-display {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contacts-registry-table .contacts-modal-text-cell {
+  cursor: pointer;
+  white-space: normal !important;
+}
+
+.contacts-registry-table .contacts-modal-text-cell:hover {
+  background: rgba(59, 130, 246, 0.08);
+  outline: 1px solid rgba(59, 130, 246, 0.24);
+}
+
+.contacts-registry-table .contacts-modal-text-cell .contacts-modal-text-display {
   cursor: pointer;
 }
 
