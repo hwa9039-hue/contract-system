@@ -2578,6 +2578,32 @@ function getWorkReportChecklistCombinedText(date, sectionKey, workReportRows, wo
 
 const WORK_REPORT_CHECKLIST_BULLET_PREFIX = '• '
 
+/** 영업관리대장 기록 모달: 저장된 내용이 없으면 불릿 접두사로 시작 */
+function resolveSalesRecordModalContent(summary) {
+  const text = safeString(summary)
+  if (text.trim()) return text
+  return WORK_REPORT_CHECKLIST_BULLET_PREFIX
+}
+
+function hasSalesRecordStoredContent(summary) {
+  const raw = safeString(summary)
+  if (!raw.trim()) return false
+  const lines = raw.split('\n')
+  return lines.some(
+    (line) => !isWorkReportChecklistEmptyBulletLine(line) && safeString(line).trim() !== ''
+  )
+}
+
+function normalizeSalesRecordForSave(text) {
+  const raw = safeString(text)
+  const lines = raw.split('\n')
+  const hasMeaningfulLine = lines.some(
+    (line) => !isWorkReportChecklistEmptyBulletLine(line) && safeString(line).trim() !== ''
+  )
+  if (!hasMeaningfulLine) return null
+  return raw.trimEnd()
+}
+
 /** 서버/저장 데이터가 없을 때만 textarea 기본값으로 불릿 접두사 사용 */
 function resolveWorkReportChecklistContent(content, hasPersistedData = false) {
   const text = safeString(content)
@@ -4428,7 +4454,7 @@ function App() {
   const [contracts, setContracts] = useState([])
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
-  const [salesSummaryModal, setSalesSummaryModal] = useState(null)
+  const [salesRecordModal, setSalesRecordModal] = useState(null)
   const [discoveryRows, setDiscoveryRows] = useState([])
   const [discoveryTableData, setDiscoveryTableData] = useState([])
   const [excludedRows, setExcludedRows] = useState([])
@@ -7092,51 +7118,52 @@ function App() {
     )
   }
 
-  const closeSalesSummaryModal = () => setSalesSummaryModal(null)
+  const closeSalesRecordModal = () => setSalesRecordModal(null)
 
-  const openSalesSummaryModal = (row) => {
+  const openSalesRecordModal = (row) => {
     const rowId = safeString(row?.id).trim()
     if (!rowId || row.isDraft || rowId.startsWith('sales-draft-')) {
-      showAppAlert('행을 저장한 뒤 요약을 작성할 수 있습니다.', '알림')
+      showAppAlert('행을 저장한 뒤 기록을 작성할 수 있습니다.', '알림')
       return
     }
-    setSalesSummaryModal({
+    setSalesRecordModal({
       rowId,
       projectName: safeString(row.projectName).trim() || '(프로젝트명 없음)',
-      summary: safeString(row.summary),
+      summary: resolveSalesRecordModalContent(row.summary),
       saving: false,
     })
   }
 
-  const saveSalesSummaryModal = async () => {
-    if (!salesSummaryModal?.rowId) return
-    const rowId = salesSummaryModal.rowId
-    const summaryText = safeString(salesSummaryModal.summary)
-    setSalesSummaryModal((prev) => (prev ? { ...prev, saving: true } : prev))
+  const saveSalesRecordModal = async () => {
+    if (!salesRecordModal?.rowId) return
+    const rowId = salesRecordModal.rowId
+    setSalesRecordModal((prev) => (prev ? { ...prev, saving: true } : prev))
     try {
       const updated = await salesRegisterApi.update(rowId, {
-        summary: summaryText.trim() || null,
+        summary: normalizeSalesRecordForSave(salesRecordModal.summary),
       })
       setSalesRows((prev) =>
         prev.map((row) => (row.id === rowId ? { ...row, ...updated } : row))
       )
-      closeSalesSummaryModal()
+      closeSalesRecordModal()
     } catch (error) {
-      console.error('영업관리대장 요약 저장 실패', error)
-      showAppAlert(error?.message || '요약 저장에 실패했습니다.', '알림')
-      setSalesSummaryModal((prev) => (prev ? { ...prev, saving: false } : prev))
+      console.error('영업관리대장 기록 저장 실패', error)
+      showAppAlert(error?.message || '기록 저장에 실패했습니다.', '알림')
+      setSalesRecordModal((prev) => (prev ? { ...prev, saving: false } : prev))
     }
   }
 
-  const renderSalesSummaryCell = (row) => (
+  const renderSalesRecordCell = (row) => (
     <button
       type="button"
-      className={`sales-summary-btn${safeString(row.summary).trim() ? ' sales-summary-btn--has-content' : ''}`}
-      title="요약"
-      aria-label="요약 보기 및 기록"
+      className={`sales-record-btn${
+        hasSalesRecordStoredContent(row.summary) ? ' sales-record-btn--has-content' : ''
+      }`}
+      title="기록"
+      aria-label="기록 보기 및 작성"
       onClick={(e) => {
         e.stopPropagation()
-        openSalesSummaryModal(row)
+        openSalesRecordModal(row)
       }}
     >
       <FileText size={18} aria-hidden />
@@ -10063,7 +10090,7 @@ function App() {
     isAdminForRegistry = false,
     registryCellEdit: registryCellEditProp = null,
     onRegistryCellStart = null,
-    renderTrailingCell = null,
+    renderAfterImportanceCell = null,
   }) => {
     const rowKey = rowKeyProp ?? getRegistryTableRowDomKey(row, index)
     const rowId = safeString(row?.id).trim() || rowKey
@@ -10114,7 +10141,7 @@ function App() {
             registryCellEditProp.rowId === rowId &&
             registryCellEditProp.columnKey === column.key
           const showInput = !isImportanceCell && !isEditableText && (showDraftOrLegacyRow || isThisCell)
-          return (
+          const cells = [
             <td
               key={column.key}
               className={`${getTableBodyAlignClass(column)} ${
@@ -10175,12 +10202,17 @@ function App() {
                   {getRegistryPlainDisplayValue(row, column)}
                 </div>
               )}
-            </td>
-          )
+            </td>,
+          ]
+          if (isImportanceCell && renderAfterImportanceCell) {
+            cells.push(
+              <td key={`${column.key}-record`} className="td-align-center sales-record-cell">
+                {renderAfterImportanceCell(displayRow)}
+              </td>
+            )
+          }
+          return cells
         })}
-        {renderTrailingCell ? (
-          <td className="td-align-center sales-summary-cell">{renderTrailingCell(displayRow)}</td>
-        ) : null}
       </tr>
     )
   }
@@ -10328,9 +10360,9 @@ function App() {
     isAdminForRegistry = false,
     registryCellEdit: registryCellEditGrouped = null,
     onRegistryCellStart = null,
-    renderTrailingCell = null,
+    renderAfterImportanceCell = null,
   }) => {
-    const tableColSpan = columns.length + 1 + (renderTrailingCell ? 1 : 0)
+    const tableColSpan = columns.length + 1 + (renderAfterImportanceCell ? 1 : 0)
 
     if (groups.length === 0) {
       return (
@@ -10399,7 +10431,7 @@ function App() {
           isAdminForRegistry,
           registryCellEdit: registryCellEditGrouped,
           onRegistryCellStart,
-          renderTrailingCell,
+          renderAfterImportanceCell,
         })
       })
 
@@ -10452,7 +10484,7 @@ function App() {
               isAdminForRegistry,
               registryCellEdit: registryCellEditGrouped,
               onRegistryCellStart,
-              renderTrailingCell,
+              renderAfterImportanceCell,
             })
           })
         : []
@@ -12578,15 +12610,27 @@ function App() {
                           }
                         />
                       </th>
-                      {SALES_COLUMNS.map((column) => (
-                        <th
-                          key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)}`}
-                        >
-                          {column.label}
-                        </th>
-                      ))}
-                      <th className="th-align-center sales-summary-header table-col-tight">요약</th>
+                      {SALES_COLUMNS.flatMap((column) => {
+                        const headerCells = [
+                          <th
+                            key={column.key}
+                            className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)}`}
+                          >
+                            {column.label}
+                          </th>,
+                        ]
+                        if (column.key === 'importance') {
+                          headerCells.push(
+                            <th
+                              key="sales-record"
+                              className="th-align-center sales-record-header table-col-tight"
+                            >
+                              기록
+                            </th>
+                          )
+                        }
+                        return headerCells
+                      })}
                     </tr>
                   </thead>
                   <tbody>
@@ -12610,7 +12654,7 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('sales', rowId, columnKey, value, row),
-                      renderTrailingCell: renderSalesSummaryCell,
+                      renderAfterImportanceCell: renderSalesRecordCell,
                     })}
                   </tbody>
                 </table>
@@ -13983,64 +14027,66 @@ function App() {
         </div>
       )}
 
-      {salesSummaryModal && (
-        <div className="modal-backdrop" onClick={closeSalesSummaryModal}>
+      {salesRecordModal && (
+        <div className="modal-backdrop" onClick={closeSalesRecordModal}>
           <div
-            className="sales-summary-modal"
+            className="sales-record-modal"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="sales-summary-modal-title"
+            aria-labelledby="sales-record-modal-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sales-summary-modal-header">
+            <div className="sales-record-modal-header">
               <div>
-                <h3 id="sales-summary-modal-title">요약</h3>
-                <p className="sales-summary-modal-subtitle">{salesSummaryModal.projectName}</p>
+                <h3 id="sales-record-modal-title">기록</h3>
+                <p className="sales-record-modal-subtitle">{salesRecordModal.projectName}</p>
               </div>
               <button
                 type="button"
                 className="modal-close-btn"
-                onClick={closeSalesSummaryModal}
+                onClick={closeSalesRecordModal}
                 aria-label="닫기"
-                disabled={salesSummaryModal.saving}
+                disabled={salesRecordModal.saving}
               >
                 ✕
               </button>
             </div>
-            <div className="sales-summary-modal-body">
-              <label className="sales-summary-modal-label" htmlFor="sales-summary-textarea">
-                요약 내용
-              </label>
+            <div className="sales-record-modal-body">
               <textarea
-                id="sales-summary-textarea"
-                className="sales-summary-textarea"
+                id="sales-record-textarea"
+                className="sales-record-textarea"
                 rows={10}
-                placeholder="요약 내용을 입력하세요."
-                value={salesSummaryModal.summary}
+                placeholder="기록을 입력하세요."
+                value={salesRecordModal.summary}
                 onChange={(e) =>
-                  setSalesSummaryModal((prev) =>
+                  setSalesRecordModal((prev) =>
                     prev ? { ...prev, summary: e.target.value } : prev
                   )
                 }
-                disabled={salesSummaryModal.saving}
+                onKeyDown={(e) =>
+                  handleWorkReportChecklistTextareaKeyDown(e, (next) =>
+                    setSalesRecordModal((prev) => (prev ? { ...prev, summary: next } : prev))
+                  )
+                }
+                disabled={salesRecordModal.saving}
               />
             </div>
-            <div className="sales-summary-modal-actions">
+            <div className="sales-record-modal-actions">
               <button
                 type="button"
                 className="secondary-btn"
-                onClick={closeSalesSummaryModal}
-                disabled={salesSummaryModal.saving}
+                onClick={closeSalesRecordModal}
+                disabled={salesRecordModal.saving}
               >
                 취소
               </button>
               <button
                 type="button"
                 className="primary-btn"
-                onClick={() => void saveSalesSummaryModal()}
-                disabled={salesSummaryModal.saving}
+                onClick={() => void saveSalesRecordModal()}
+                disabled={salesRecordModal.saving}
               >
-                {salesSummaryModal.saving ? '저장 중...' : '저장'}
+                {salesRecordModal.saving ? '저장 중...' : '저장'}
               </button>
             </div>
           </div>
