@@ -3316,8 +3316,10 @@ textarea:focus-visible {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   margin-top: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .main-area > section.stat-card.stat-card--work-reports .work-report-page-section-title {
@@ -3331,20 +3333,20 @@ textarea:focus-visible {
 }
 
 .main-area > section.stat-card .work-report-week-board-area {
-  flex: 3 1 0;
-  min-height: 300px;
+  flex: 1 1 auto;
+  min-height: 0;
   max-height: none;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   margin-bottom: 16px;
 }
 
 .main-area > section.stat-card .work-report-week-board-area .work-report-week-grid {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   overflow-x: auto;
-  overflow-y: auto;
+  overflow-y: visible;
 }
 
 .main-area > section.stat-card.stat-card--work-reports .work-report-meeting-minutes-block {
@@ -3392,9 +3394,10 @@ textarea:focus-visible {
 }
 
 .main-area > section.stat-card .work-report-week-grid {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow-y: auto;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .main-area > section.stat-card .work-report-saving-indicator,
@@ -7022,7 +7025,7 @@ textarea:focus-visible {
   border-right: 1px solid #d1d5db;
   border-radius: 0;
   background: #ffffff;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: none;
 }
 
@@ -7044,7 +7047,7 @@ textarea:focus-visible {
 .work-report-day-weekday {
   font-size: 13px;
   font-weight: 800;
-  color: #2563eb;
+  color: #1e40af;
   margin-bottom: 4px;
 }
 
@@ -7301,15 +7304,22 @@ textarea:focus-visible {
 
 .work-report-board-select {
   width: 100%;
+  height: 100%;
   min-height: 100%;
   padding: 8px 8px;
   border: 0;
   border-right: 1px solid #dbe4ee;
   border-radius: 0;
-  background: #ffffff;
+  box-shadow: none;
+  background: transparent;
   font-size: 11px;
   color: #1f2937;
   outline: none;
+}
+
+.work-report-board-select:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 .work-report-board-fixed-manager {
@@ -7326,15 +7336,23 @@ textarea:focus-visible {
 
 .work-report-board-textarea {
   width: 100%;
+  height: 100%;
   padding: 8px;
   border: 0;
   border-right: 1px solid #dbe4ee;
-  background: #ffffff;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
   resize: vertical;
   font-size: 12px;
   color: #1f2937;
   line-height: 1.5;
   outline: none;
+}
+
+.work-report-board-textarea:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 .work-report-board-row-simple .work-report-board-textarea,
@@ -7351,32 +7369,38 @@ textarea:focus-visible {
   height: 100%;
   min-height: 72px;
   box-sizing: border-box;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   padding: 8px;
   resize: vertical;
   outline: none;
   font-size: 13px;
   line-height: 1.45;
+  background: transparent;
 }
 
 .work-report-board-textarea-external:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22);
+  border: 0;
+  box-shadow: none;
+  outline: none;
 }
 
 .work-report-board-textarea-destination {
   min-height: 40px;
   padding: 6px 8px;
   box-sizing: border-box;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   outline: none;
+  background: transparent;
 }
 
 .work-report-board-textarea-destination:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22);
+  border: 0;
+  box-shadow: none;
+  outline: none;
 }
 
 .work-report-board-textarea-di,
@@ -7502,8 +7526,11 @@ textarea:focus-visible {
   box-sizing: border-box;
   font-size: 13px;
   line-height: 1.45;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  outline: none;
 }
 
 .work-report-section-textarea-checklist-combined {
@@ -7566,8 +7593,8 @@ textarea:focus-visible {
 
 .work-report-day-head.report-mode {
   padding: 6px 8px;
-  border-bottom: 1px solid #d1d5db;
-  background: #f9fafb;
+  border-bottom: 1px solid #bfdbfe;
+  background: #eff6ff;
 }
 
 .work-report-day-sections.report-mode {
@@ -7580,7 +7607,7 @@ textarea:focus-visible {
   border-bottom: 1px solid #d1d5db;
   border-radius: 0;
   background: #ffffff;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .work-report-report-section:last-child {
@@ -7590,11 +7617,11 @@ textarea:focus-visible {
 .work-report-report-section-title,
 .work-report-report-subtitle {
   padding: 5px 8px;
-  background: #f3f4f6;
-  color: #374151;
+  background: #eff6ff;
+  color: #1e40af;
   font-size: 11px;
-  font-weight: 700;
-  border-bottom: 1px solid #d1d5db;
+  font-weight: 800;
+  border-bottom: 1px solid #bfdbfe;
 }
 
 .work-report-report-line-list {
@@ -7610,10 +7637,10 @@ textarea:focus-visible {
 .work-report-report-line-edit {
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr);
-  align-items: start;
-  gap: 8px;
+  align-items: stretch;
+  gap: 0;
   width: 100%;
-  padding: 4px 8px;
+  padding: 0;
   border: 0;
   border-bottom: 1px solid #eef2f7;
   background: #ffffff;
@@ -7671,23 +7698,26 @@ textarea:focus-visible {
 .work-report-report-textarea,
 .work-report-report-multiselect {
   width: 100%;
-  min-height: 36px;
+  height: 100%;
+  min-height: 0;
   padding: 6px 8px;
-  border: 1px solid #cfd8e3;
-  border-radius: 6px;
-  background: #ffffff;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #1f2937;
   font-size: 12px;
   line-height: 1.45;
   outline: none;
+  box-shadow: none;
   box-sizing: border-box;
 }
 
 .work-report-report-field:focus,
 .work-report-report-input:focus,
 .work-report-report-textarea:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+  border: 0;
+  box-shadow: none;
+  outline: none;
 }
 
 .work-report-report-field--grow {
@@ -7748,7 +7778,7 @@ textarea:focus-visible {
 
 .work-report-report-table-row-meeting.editable > * {
   min-width: 0;
-  padding: 4px;
+  padding: 0;
   border-right: 1px solid #e5eaf1;
 }
 
@@ -7782,13 +7812,14 @@ textarea:focus-visible {
 /* 회의록 행: 내용 textarea ↔ 담당자 multi-select 동일 외곽 높이 */
 .work-report-report-table-row-meeting .work-report-report-field--meeting-content,
 .work-report-report-table-row-meeting .work-report-external-manager-multi-trigger {
-  height: 40px;
+  height: 100%;
   min-height: 40px;
-  max-height: 40px;
+  max-height: none;
   padding: 6px 8px;
   box-sizing: border-box;
-  border: 1px solid #cfd8e3;
-  border-radius: 6px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   font-size: 12px;
   line-height: 1.45;
   align-self: stretch;
@@ -7799,7 +7830,7 @@ textarea:focus-visible {
   align-items: center;
   width: 100%;
   flex: 1 1 auto;
-  background: #ffffff;
+  background: transparent;
   cursor: pointer;
   text-align: left;
   color: #1f2937;
@@ -7809,15 +7840,16 @@ textarea:focus-visible {
   resize: none;
   overflow-y: auto;
   overflow-x: hidden;
-  background: #ffffff;
+  background: transparent;
   color: #1f2937;
   outline: none;
 }
 
 .work-report-report-table-row-meeting .work-report-report-field--meeting-content:focus,
 .work-report-report-table-row-meeting .work-report-external-manager-multi-trigger:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+  border: 0;
+  box-shadow: none;
+  outline: none;
 }
 
 .work-report-report-field--center {
@@ -7860,7 +7892,7 @@ textarea:focus-visible {
 .work-report-report-table-row--external.editable > *,
 .work-report-report-table-row-journal.editable > * {
   min-width: 0;
-  padding: 3px 4px;
+  padding: 0;
   border-right: 1px solid #d1d5db;
 }
 
@@ -7902,8 +7934,8 @@ textarea:focus-visible {
 
 
 .work-report-report-table-head {
-  background: #f9fafb;
-  border-bottom: 1px solid #d1d5db;
+  background: #eff6ff;
+  border-bottom: 1px solid #bfdbfe;
 }
 
 .work-report-report-table-head > div,
@@ -8077,7 +8109,7 @@ textarea:focus-visible {
 }
 
 .work-report-day-sections.report-mode .work-report-report-section {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .work-report-page-section-title {
@@ -8116,25 +8148,28 @@ textarea:focus-visible {
   justify-content: space-between;
   gap: 8px;
   width: 100%;
-  min-height: 34px;
-  padding: 4px 8px;
-  border: 1px solid #cfd8e3;
-  border-radius: 6px;
-  background: #ffffff;
+  height: 100%;
+  min-height: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
   cursor: pointer;
   text-align: left;
   font-size: 12px;
   color: #1f2937;
+  outline: none;
 }
 
 .work-report-external-manager-multi-trigger:hover {
-  border-color: #94a3b8;
+  background: transparent;
 }
 
 .work-report-external-manager-multi-trigger:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  border: 0;
+  box-shadow: none;
 }
 
 .work-report-external-manager-multi-value {
