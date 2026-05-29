@@ -82,19 +82,19 @@ import {
 } from './workReportMeetingMinutes.jsx'
 
 const CONTRACT_COLUMNS = [
-  { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text', width: 86 },
-  { key: 'refNo', label: '참고번호', className: 'col-ref', align: 'center', type: 'text', width: 82 },
+  { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text', width: 112 },
+  { key: 'refNo', label: '참고번호', className: 'col-ref', align: 'center', type: 'text', width: 110 },
   { key: 'client', label: '발주처', className: 'col-client', align: 'center', type: 'textarea', width: 150 },
   { key: 'department', label: '담당부서', className: 'col-dept', align: 'center', type: 'textarea', width: 130 },
-  { key: 'contractMethod', label: '계약방식', className: 'col-method', align: 'center', type: 'text', width: 108 },
-  { key: 'contractType', label: '계약분류', className: 'col-type', align: 'center', type: 'text', width: 110 },
+  { key: 'contractMethod', label: '계약방식', className: 'col-method', align: 'center', type: 'text', width: 132 },
+  { key: 'contractType', label: '계약분류', className: 'col-type', align: 'center', type: 'text', width: 122 },
   { key: 'identNo', label: '식별번호', className: 'col-ident-no', align: 'center', type: 'text', width: 250 },
-  { key: 'contractDate', label: '계약일자', className: 'col-date', align: 'center', type: 'date', width: 112 },
-  { key: 'dueDate', label: '준공일자', className: 'col-date', align: 'center', type: 'date', width: 112 },
+  { key: 'contractDate', label: '계약일자', className: 'col-date', align: 'center', type: 'date', width: 128 },
+  { key: 'dueDate', label: '준공일자', className: 'col-date', align: 'center', type: 'date', width: 128 },
   { key: 'projectName', label: '사업명', className: 'col-project', align: 'left', type: 'textarea', width: 360, widthGrow: true },
-  { key: 'amount', label: '계약금액', className: 'col-amount', align: 'right', type: 'amount', width: 126 },
-  { key: 'salesOwner', label: '영업담당자', className: 'col-owner', align: 'center', type: 'text', width: 112 },
-  { key: 'pm', label: '현장 PM', className: 'col-pm', align: 'center', type: 'text', width: 112 },
+  { key: 'amount', label: '계약금액', className: 'col-amount', align: 'right', type: 'amount', width: 146 },
+  { key: 'salesOwner', label: '영업담당자', className: 'col-owner', align: 'center', type: 'text', width: 136 },
+  { key: 'pm', label: '현장 PM', className: 'col-pm', align: 'center', type: 'text', width: 124 },
   { key: 'note', label: '비고', className: 'col-note', align: 'left', type: 'textarea', width: 190, widthGrow: true },
 ]
 

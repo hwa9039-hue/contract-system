@@ -598,19 +598,24 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  max-width: 100%;
+  gap: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .contract-th-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex-shrink: 0;
   white-space: nowrap;
 }
 
 .contract-th-filterable .contract-th-filter-wrap {
-  width: 100%;
+  width: max-content;
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-filterable {
+  overflow: visible;
 }
 
 .contract-column-filter {
@@ -864,11 +869,11 @@ textarea {
 /* ── 계약현황 전용 강제 오버라이드 (다른 메뉴 영향 X) ── */
 table[data-contract-table-row-key].contracts-fixed-table {
   table-layout: fixed !important;
-  min-width: 2114px;
+  min-width: 2296px;
 }
 
 table[data-contract-table-row-key].contracts-fixed-table.contract-table-admin {
-  min-width: 2158px;
+  min-width: 2340px;
 }
 
 table[data-contract-table-row-key].contracts-fixed-table thead th,
@@ -891,15 +896,15 @@ table[data-contract-table-row-key] .col-dday {
 }
 
 table[data-contract-table-row-key] .col-year {
-  width: 86px !important;
-  min-width: 86px !important;
-  max-width: 86px !important;
+  width: 112px !important;
+  min-width: 112px !important;
+  max-width: 112px !important;
 }
 
 table[data-contract-table-row-key] .col-ref {
-  width: 82px !important;
-  min-width: 82px !important;
-  max-width: 82px !important;
+  width: 110px !important;
+  min-width: 110px !important;
+  max-width: 110px !important;
 }
 
 /* 식별번호: 고정 250px — 데이터가 잘리지 않도록 넉넉한 최소 너비 */
@@ -935,21 +940,21 @@ table[data-contract-table-row-key] .col-dept {
 }
 
 table[data-contract-table-row-key] .col-method {
-  width: 108px !important;
-  min-width: 108px !important;
-  max-width: 108px !important;
+  width: 132px !important;
+  min-width: 132px !important;
+  max-width: 132px !important;
 }
 
 table[data-contract-table-row-key] .col-type {
-  width: 110px !important;
-  min-width: 110px !important;
-  max-width: 110px !important;
+  width: 122px !important;
+  min-width: 122px !important;
+  max-width: 122px !important;
 }
 
 table[data-contract-table-row-key] .col-date {
-  width: 112px !important;
-  min-width: 112px !important;
-  max-width: 112px !important;
+  width: 128px !important;
+  min-width: 128px !important;
+  max-width: 128px !important;
 }
 
 table[data-contract-table-row-key] .col-project {
@@ -959,16 +964,21 @@ table[data-contract-table-row-key] .col-project {
 }
 
 table[data-contract-table-row-key] .col-amount {
-  width: 126px !important;
-  min-width: 126px !important;
-  max-width: 126px !important;
+  width: 146px !important;
+  min-width: 146px !important;
+  max-width: 146px !important;
 }
 
-table[data-contract-table-row-key] .col-owner,
+table[data-contract-table-row-key] .col-owner {
+  width: 136px !important;
+  min-width: 136px !important;
+  max-width: 136px !important;
+}
+
 table[data-contract-table-row-key] .col-pm {
-  width: 112px !important;
-  min-width: 112px !important;
-  max-width: 112px !important;
+  width: 124px !important;
+  min-width: 124px !important;
+  max-width: 124px !important;
 }
 
 table[data-contract-table-row-key] .col-note {
@@ -1174,7 +1184,8 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
 }
 
 .col-year {
-  width: 86px;
+  width: 112px;
+  min-width: 112px;
 }
 
 .col-segment {
@@ -1182,7 +1193,8 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
 }
 
 .col-ref {
-  width: 82px;
+  width: 110px;
+  min-width: 110px;
 }
 
 .col-ident-no {
@@ -1207,15 +1219,18 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
 }
 
 .col-method {
-  width: 108px;
+  width: 132px;
+  min-width: 132px;
 }
 
 .col-type {
-  width: 110px;
+  width: 122px;
+  min-width: 122px;
 }
 
 .col-date {
-  width: 112px;
+  width: 128px;
+  min-width: 128px;
 }
 
 .col-project {
@@ -1223,12 +1238,18 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
 }
 
 .col-amount {
-  width: 126px;
+  width: 146px;
+  min-width: 146px;
 }
 
-.col-owner,
+.col-owner {
+  width: 136px;
+  min-width: 136px;
+}
+
 .col-pm {
-  width: 112px;
+  width: 124px;
+  min-width: 124px;
 }
 
 .col-note {
