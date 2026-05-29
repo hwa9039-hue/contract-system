@@ -2814,13 +2814,6 @@ function collectDashboardWeekDueRows(calendarItems, weekAnchorDate = new Date())
     .map(mapDashboardWeekDueRow)
 }
 
-const DASHBOARD_WEEK_WORK_CATEGORY_ORDER = ['DI사업', '도로사업', '영업지원']
-
-function getDashboardWeekWorkCategorySortIndex(sectionLabel) {
-  const idx = DASHBOARD_WEEK_WORK_CATEGORY_ORDER.indexOf(sectionLabel)
-  return idx >= 0 ? idx : DASHBOARD_WEEK_WORK_CATEGORY_ORDER.length
-}
-
 function getDashboardWeekWorkSectionLabel(section) {
   const sectionNorm = safeString(section).trim()
   if (sectionNorm === WORK_REPORT_SECTION_KEYS.di) return 'DI사업'
@@ -2879,19 +2872,18 @@ function collectDashboardWeekWorkRows(workReportRows, workReportDrafts, weekAnch
     }
   }
 
-  const results = []
-  for (const [cellKey, entry] of cellMap) {
+  const pushWeekWorkRow = (bucket, cellKey, entry) => {
     const sectionLabel = getDashboardWeekWorkSectionLabel(entry.section)
-    if (!sectionLabel) continue
+    if (!sectionLabel) return
 
     const content = safeString(entry.content).trim()
-    if (!content) continue
+    if (!content) return
 
     const deadlineYmd = normalizeWorkReportDeadlineForDateInput(entry.deadline)
-    if (!deadlineYmd || deadlineYmd < startYmd || deadlineYmd > endYmd) continue
+    if (!deadlineYmd || deadlineYmd < startYmd || deadlineYmd > endYmd) return
 
     const assignee = safeString(entry.user).trim()
-    results.push({
+    bucket.push({
       id: cellKey,
       sectionLabel,
       assignee,
@@ -2902,13 +2894,38 @@ function collectDashboardWeekWorkRows(workReportRows, workReportDrafts, weekAnch
     })
   }
 
-  return results.sort((a, b) => {
-    const byCategory =
-      getDashboardWeekWorkCategorySortIndex(a.sectionLabel) -
-      getDashboardWeekWorkCategorySortIndex(b.sectionLabel)
-    if (byCategory !== 0) return byCategory
-    return safeString(a.deadlineYmd).localeCompare(safeString(b.deadlineYmd))
-  })
+  const collectCategoryRows = (sectionKeys, rowCounts) => {
+    const bucket = []
+    const weekDays = getWorkReportWeekDays(startYmd)
+    for (const day of weekDays) {
+      sectionKeys.forEach((sectionKey, sectionIdx) => {
+        const rowCount = rowCounts[sectionIdx] ?? rowCounts[0]
+        for (let oi = 1; oi <= rowCount; oi += 1) {
+          const cellKey = `${normalizeWorkReportDateKey(day.date)}__${safeString(sectionKey).trim()}__${oi}`
+          const entry = cellMap.get(cellKey)
+          if (entry) pushWeekWorkRow(bucket, cellKey, entry)
+        }
+      })
+    }
+    return bucket
+  }
+
+  const diRows = collectCategoryRows([WORK_REPORT_SECTION_KEYS.di], [WORK_REPORT_DI_ROW_COUNT])
+  const roadRows = collectCategoryRows([WORK_REPORT_SECTION_KEYS.road], [WORK_REPORT_ROAD_ROW_COUNT])
+  const supportRows = collectCategoryRows(
+    [WORK_REPORT_SECTION_KEYS.supportProgress, WORK_REPORT_SECTION_KEYS.supportDone],
+    [WORK_REPORT_SUPPORT_ITEM_COUNT, WORK_REPORT_SUPPORT_ITEM_COUNT]
+  )
+
+  return [...diRows, ...roadRows, ...supportRows]
+}
+
+/** 대시보드 브리핑: 주요 확인사항 텍스트 → 표시용 줄 목록 */
+function splitDashboardBriefingChecklistLines(text) {
+  return safeString(text)
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim() && !isWorkReportChecklistEmptyBulletLine(line))
 }
 
 /** 대시보드: 오늘이 속한 주(weekStart)의 회의록 agenda 행 목록 */
@@ -12526,9 +12543,18 @@ function App() {
                       <h3 className="dashboard-briefing-box-title">주요 확인사항</h3>
                       <div className="dashboard-briefing-box-body">
                         {dashboardTodayWorkBrief.hasChecklist ? (
-                          <div className="dashboard-work-report-briefing-checklist">
-                            {dashboardTodayWorkBrief.checklistText}
-                          </div>
+                          <ul className="dashboard-briefing-due-list">
+                            {splitDashboardBriefingChecklistLines(dashboardTodayWorkBrief.checklistText).map(
+                              (line, idx) => (
+                                <li
+                                  key={`checklist-brief-${idx}`}
+                                  className="dashboard-briefing-due-item dashboard-briefing-checklist-item"
+                                >
+                                  <div className="dashboard-briefing-due-title">{line}</div>
+                                </li>
+                              )
+                            )}
+                          </ul>
                         ) : (
                           <p className="dashboard-briefing-box-empty">등록된 주요 확인사항이 없습니다.</p>
                         )}
@@ -12564,25 +12590,26 @@ function App() {
                       <h3 className="dashboard-briefing-box-title">외부일정</h3>
                       <div className="dashboard-briefing-box-body">
                         {dashboardTodayWorkBrief.hasExternal ? (
-                          <ul className="dashboard-work-report-briefing-external-list">
+                          <ul className="dashboard-briefing-due-list">
                             {dashboardTodayWorkBrief.externalRows.map((row, idx) => {
                               const managers = safeString(row.user)
                                 .split(',')
                                 .map((s) => s.trim())
                                 .filter(Boolean)
                               return (
-                                <li key={`ext-brief-${idx}`} className="dashboard-work-report-briefing-external-item">
-                                  <div className="dashboard-work-report-briefing-external-managers">
+                                <li
+                                  key={`ext-brief-${idx}`}
+                                  className="dashboard-briefing-due-item dashboard-briefing-external-item"
+                                >
+                                  <div className="dashboard-briefing-due-title">
                                     {managers.length ? managers.join(', ') : '—'}
                                   </div>
-                                  <div className="dashboard-work-report-briefing-external-content">
-                                    {row.content || '—'}
-                                  </div>
+                                  <p className="dashboard-briefing-due-sub">{row.content || '—'}</p>
                                   <div
-                                    className="dashboard-work-report-briefing-external-destination"
+                                    className="dashboard-briefing-due-meta"
                                     title={safeString(row.destination).trim() || undefined}
                                   >
-                                    {safeString(row.destination).trim() || '—'}
+                                    <span>{safeString(row.destination).trim() || '—'}</span>
                                   </div>
                                 </li>
                               )

@@ -3763,6 +3763,14 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
+.dashboard-briefing-checklist-item .dashboard-briefing-due-title {
+  font-weight: 700;
+}
+
+.dashboard-briefing-external-item .dashboard-briefing-due-title {
+  color: #1e293b;
+}
+
 .dashboard-work-report-briefing-split {
   display: grid;
   grid-template-columns: 1fr 1fr;
