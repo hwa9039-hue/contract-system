@@ -2834,6 +2834,15 @@ function getDashboardWeekWorkSectionLabel(section) {
   return ''
 }
 
+/** 대시보드 금주 업무 말머리: [카테고리 - 담당자] (담당자 미입력 시 미지정) */
+function formatDashboardWeekWorkPrefixLabel(sectionLabel, assigneeRaw) {
+  const category = safeString(sectionLabel).trim()
+  if (!category) return ''
+  const assignee = safeString(assigneeRaw).trim()
+  if (assignee) return `[${category} - ${assignee}]`
+  return `[${category} - 미지정]`
+}
+
 function formatDashboardBriefDeadlineLabel(deadlineYmd) {
   const normalized = safeString(deadlineYmd).trim().slice(0, 10)
   if (normalized.length < 10) return ''
@@ -2881,9 +2890,12 @@ function collectDashboardWeekWorkRows(workReportRows, workReportDrafts, weekAnch
     const deadlineYmd = normalizeWorkReportDeadlineForDateInput(entry.deadline)
     if (!deadlineYmd || deadlineYmd < startYmd || deadlineYmd > endYmd) continue
 
+    const assignee = safeString(entry.user).trim()
     results.push({
       id: cellKey,
       sectionLabel,
+      assignee,
+      prefixLabel: formatDashboardWeekWorkPrefixLabel(sectionLabel, assignee),
       content,
       deadlineYmd,
       deadlineLabel: formatDashboardBriefDeadlineLabel(deadlineYmd),
@@ -12532,7 +12544,7 @@ function App() {
                               <li key={item.id} className="dashboard-briefing-due-item dashboard-briefing-week-work-item">
                                 <div className="dashboard-briefing-week-work-main">
                                   <span className="dashboard-briefing-week-work-label">
-                                    [{item.sectionLabel}]
+                                    {item.prefixLabel}
                                   </span>
                                   <span className="dashboard-briefing-week-work-content">{item.content}</span>
                                 </div>
