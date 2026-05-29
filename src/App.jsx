@@ -4470,6 +4470,7 @@ function App() {
     return { [currentYear]: true }
   })
   const [openContractYears, setOpenContractYears] = useState({})
+  const [isContractPageYearSummaryOpen, setIsContractPageYearSummaryOpen] = useState(false)
   const [installCaseEnvFilter, setInstallCaseEnvFilter] = useState('')
   const [installCaseMiddleFilter, setInstallCaseMiddleFilter] = useState('')
   const [installCaseAudienceFilter, setInstallCaseAudienceFilter] = useState('')
@@ -12090,153 +12091,31 @@ function App() {
 
         {menu === 'contracts' && (
           <section className="stat-card">
-            <div className="contracts-control-panel">
-              <div className="contracts-control-row contracts-control-row--top">
-                <div className="contracts-control-actions">
-                  {isAdmin && (
-                    <>
-                      <button className="primary-btn" type="button" onClick={openContractRegisterModal}>
-                        등록
-                      </button>
-
-                      <button className="secondary-btn" type="button" onClick={handleExcelImportClick}>
-                        엑셀 업로드
-                      </button>
-
-                      <button
-                        className="secondary-btn"
-                        type="button"
-                        onClick={handleDeleteSelected}
-                        disabled={selectedContractRowKeys.size === 0}
-                      >
-                        선택 삭제
-                      </button>
-                    </>
-                  )}
-
-                  <button className="secondary-btn" type="button" onClick={handleExcelDownload}>
-                    엑셀로 내려받기
+            <div className="contracts-header-actions">
+              {isAdmin && (
+                <>
+                  <button className="primary-btn" type="button" onClick={openContractRegisterModal}>
+                    등록
                   </button>
-                </div>
 
-                <div className="contracts-control-search">
-                  <input
-                    className="table-search-input"
-                    placeholder="사업명, 발주처, 계약번호, 담당부서 등 검색"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                  <RegistryDateRangeFilter
-                    startDate={contractDateRange.startDate}
-                    endDate={contractDateRange.endDate}
-                    onStartChange={(value) =>
-                      setContractDateRange((prev) => ({ ...prev, startDate: value }))
-                    }
-                    onEndChange={(value) =>
-                      setContractDateRange((prev) => ({ ...prev, endDate: value }))
-                    }
-                  />
-                </div>
-              </div>
+                  <button className="secondary-btn" type="button" onClick={handleExcelImportClick}>
+                    엑셀 업로드
+                  </button>
 
-              <div className="contracts-control-row contracts-control-row--bottom">
-                <div className="contract-filter-row five-only contracts-control-filters">
-                  <select
-                    className="contract-filter-select"
-                    value={filters.year}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, year: e.target.value }))}
+                  <button
+                    className="secondary-btn"
+                    type="button"
+                    onClick={handleDeleteSelected}
+                    disabled={selectedContractRowKeys.size === 0}
                   >
-                    <option value="">{getContractColumnLabel('year')}</option>
-                    {contractYearFilterOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {getYearLabel(option)}
-                      </option>
-                    ))}
-                  </select>
+                    선택 삭제
+                  </button>
+                </>
+              )}
 
-                  <select
-                    className="contract-filter-select"
-                    value={filters.contractMethod}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, contractMethod: e.target.value }))
-                    }
-                  >
-                    <option value="">{getContractColumnLabel('contractMethod')}</option>
-                    {getOptions(contracts, 'contractMethod').map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    className="contract-filter-select"
-                    value={filters.contractType}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, contractType: e.target.value }))
-                    }
-                  >
-                    <option value="">{getContractColumnLabel('contractType')}</option>
-                    {getOptions(contracts, 'contractType').map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    className="contract-filter-select"
-                    value={filters.salesOwner}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, salesOwner: e.target.value }))
-                    }
-                  >
-                    <option value="">{getContractColumnLabel('salesOwner')}</option>
-                    {getOptions(contracts, 'salesOwner').map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    className="contract-filter-select"
-                    value={filters.pm}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, pm: e.target.value }))}
-                  >
-                    <option value="">{getContractColumnLabel('pm')}</option>
-                    {getOptions(contracts, 'pm').map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="contracts-control-summary">
-                  <div className="contracts-control-summary-item">
-                    <span className="contracts-control-summary-label">
-                      전체 총액
-                    </span>
-                    <span className="contracts-control-summary-value">
-                      {contractPageYearSummaryBlock
-                        ? `${contractPageSummaryFocusYear}년 · ${contractPageYearSummaryBlock.totalAmount.toLocaleString('ko-KR')}원`
-                        : '-원'}
-                    </span>
-                  </div>
-                  <div className="contracts-control-summary-divider" aria-hidden="true" />
-                  <div className="contracts-control-summary-item">
-                    <span className="contracts-control-summary-label">
-                      필터 결과 합계
-                    </span>
-                    <span className="contracts-control-summary-value">
-                      {isContractsTableDefaultFilterState
-                        ? '-원'
-                        : `${filteredTotalAmount.toLocaleString('ko-KR')}원`}
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <button className="secondary-btn" type="button" onClick={handleExcelDownload}>
+                엑셀로 내려받기
+              </button>
 
               <input
                 ref={fileInputRef}
@@ -12245,6 +12124,147 @@ function App() {
                 onChange={handleExcelUpload}
                 style={{ display: 'none' }}
               />
+            </div>
+
+            {contractPageYearSummaryBlock && (
+              <div className="contracts-year-summary-embed" aria-label="연도별 계약금액 현황 요약">
+                <div
+                  className="contracts-year-summary-embed-head contracts-year-summary-embed-head--toggle"
+                  aria-label={
+                    isContractPageYearSummaryOpen
+                      ? '연도별 계약금액 요약 접기'
+                      : '연도별 계약금액 요약 펼치기'
+                  }
+                  {...bindExpandCollapseRow(
+                    () => setIsContractPageYearSummaryOpen((prev) => !prev),
+                    isContractPageYearSummaryOpen
+                  )}
+                >
+                  <span className="contracts-year-summary-embed-total">
+                    {contractPageSummaryFocusYear}년 · 총{' '}
+                    {contractPageYearSummaryBlock.totalAmount.toLocaleString('ko-KR')}원
+                  </span>
+                  <span className="panel-toggle-btn panel-toggle-btn--decor" aria-hidden="true">
+                    {isContractPageYearSummaryOpen ? '-' : '+'}
+                  </span>
+                </div>
+                <div
+                  className={`contracts-year-summary-embed-panel${
+                    isContractPageYearSummaryOpen ? '' : ' is-collapsed'
+                  }`}
+                >
+                  <div className="contracts-year-summary-embed-panel-inner">
+                    <YearContractAmountCategoryCards
+                      items={contractPageYearSummaryBlock.items}
+                      keyPrefix={`contracts-${contractPageSummaryFocusYear}`}
+                      formatCategoryTitle={getContractPageSummaryCategoryTitle}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="table-toolbar contract-toolbar-simple contract-toolbar-with-date">
+              <div className="registry-search-toolbar-split">
+                <input
+                  className="table-search-input"
+                  placeholder="사업명, 발주처, 계약번호, 담당부서 등 검색"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                <RegistryDateRangeFilter
+                  startDate={contractDateRange.startDate}
+                  endDate={contractDateRange.endDate}
+                  onStartChange={(value) =>
+                    setContractDateRange((prev) => ({ ...prev, startDate: value }))
+                  }
+                  onEndChange={(value) =>
+                    setContractDateRange((prev) => ({ ...prev, endDate: value }))
+                  }
+                />
+              </div>
+
+              <div className="table-summary-box">
+                <div className="table-summary-label">필터 결과 합계 금액</div>
+                <div className="table-summary-value">
+                  {isContractsTableDefaultFilterState
+                    ? '-원'
+                    : `${filteredTotalAmount.toLocaleString('ko-KR')}원`}
+                </div>
+              </div>
+            </div>
+
+            <div className="contract-filter-row five-only">
+              <select
+                className="contract-filter-select"
+                value={filters.year}
+                onChange={(e) => setFilters((prev) => ({ ...prev, year: e.target.value }))}
+              >
+                <option value="">{getContractColumnLabel('year')}</option>
+                {contractYearFilterOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {getYearLabel(option)}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="contract-filter-select"
+                value={filters.contractMethod}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, contractMethod: e.target.value }))
+                }
+              >
+                <option value="">{getContractColumnLabel('contractMethod')}</option>
+                {getOptions(contracts, 'contractMethod').map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="contract-filter-select"
+                value={filters.contractType}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, contractType: e.target.value }))
+                }
+              >
+                <option value="">{getContractColumnLabel('contractType')}</option>
+                {getOptions(contracts, 'contractType').map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="contract-filter-select"
+                value={filters.salesOwner}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, salesOwner: e.target.value }))
+                }
+              >
+                <option value="">{getContractColumnLabel('salesOwner')}</option>
+                {getOptions(contracts, 'salesOwner').map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="contract-filter-select"
+                value={filters.pm}
+                onChange={(e) => setFilters((prev) => ({ ...prev, pm: e.target.value }))}
+              >
+                <option value="">{getContractColumnLabel('pm')}</option>
+                {getOptions(contracts, 'pm').map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="contract-table-panel">
