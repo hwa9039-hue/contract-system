@@ -772,7 +772,7 @@ export function WorkReportMeetingMinutesSection({
 
       <div className="meeting-minutes-doc__agenda">
         <div className="meeting-minutes-doc__agenda-head" aria-hidden="true">
-          <span className="meeting-minutes-doc__agenda-head-num">#</span>
+          <span className="meeting-minutes-doc__agenda-head-num">구분</span>
           <span className="meeting-minutes-doc__agenda-head-content">회의 내용</span>
           <span className="meeting-minutes-doc__agenda-head-assignee">담당자</span>
           <span className="meeting-minutes-doc__agenda-head-due">기한</span>

@@ -8034,22 +8034,40 @@ textarea:focus-visible {
 
 .meeting-minutes-doc__agenda-head {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) minmax(120px, 0.85fr) 130px;
-  gap: 8px;
-  padding: 0 4px 6px;
+  grid-template-columns: 40px minmax(0, 1fr) 128px 112px;
+  gap: 0;
+  padding: 0 0 6px;
   font-size: 11px;
   font-weight: 600;
-  color: #9ca3af;
+  color: #374151;
   letter-spacing: 0.02em;
+}
+
+.meeting-minutes-doc__agenda-head > span {
+  padding: 4px 10px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.meeting-minutes-doc__agenda-head-num,
+.meeting-minutes-doc__agenda-head-content,
+.meeting-minutes-doc__agenda-head-assignee {
+  border-right: 1px solid #f3f4f6;
 }
 
 .meeting-minutes-doc__agenda-row {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) minmax(120px, 0.85fr) 130px;
-  gap: 8px;
+  grid-template-columns: 40px minmax(0, 1fr) 128px 112px;
+  gap: 0;
   align-items: center;
-  padding: 6px 4px;
+  padding: 0;
   border-bottom: 1px solid #f3f4f6;
+}
+
+.meeting-minutes-doc__agenda-num,
+.meeting-minutes-doc__agenda-content,
+.meeting-minutes-doc__agenda-assignee {
+  border-right: 1px solid #f3f4f6;
 }
 
 .meeting-minutes-doc__agenda-row:last-child {
@@ -8060,6 +8078,7 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 6px 4px;
   font-size: 12px;
   font-weight: 500;
   color: #9ca3af;
