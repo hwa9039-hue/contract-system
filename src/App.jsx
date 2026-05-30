@@ -2623,20 +2623,20 @@ function formatSalesRecordDateStamp(date = new Date()) {
   return `[${yy}-${mm}-${dd}]`
 }
 
-function getSalesRecordHistoryForDisplay(summary) {
-  return safeString(summary).trim()
+function getSalesRecordHistoryForDisplay(detail) {
+  return safeString(detail).trim()
 }
 
-function buildSalesRecordSummaryWithNewEntry(existingSummary, newEntryText) {
+function buildSalesRecordDetailWithNewEntry(existingDetail, newEntryText) {
   const trimmed = safeString(newEntryText).trim()
   if (!trimmed) return null
   const stamped = `${formatSalesRecordDateStamp()} ${trimmed}`
-  const existing = getSalesRecordHistoryForDisplay(existingSummary)
+  const existing = getSalesRecordHistoryForDisplay(existingDetail)
   return existing ? `${stamped}\n\n${existing}` : stamped
 }
 
-function hasSalesRecordStoredContent(summary) {
-  const raw = safeString(summary)
+function hasSalesRecordStoredContent(detail) {
+  const raw = safeString(detail)
   if (!raw.trim()) return false
   const lines = raw.split('\n')
   return lines.some(
@@ -7673,7 +7673,7 @@ function App() {
       projectName: safeString(sourceRow.projectName).trim(),
       manager: safeString(sourceRow.manager).trim(),
       department: safeString(sourceRow.department).trim(),
-      history: getSalesRecordHistoryForDisplay(sourceRow.summary),
+      history: getSalesRecordHistoryForDisplay(sourceRow.detail),
       newEntry: '',
       saving: false,
     })
@@ -7686,7 +7686,7 @@ function App() {
       showAppAlert('저장 경로를 찾을 수 없거나 서버 통신에 실패했습니다.', '알림')
       return
     }
-    const merged = buildSalesRecordSummaryWithNewEntry(
+    const merged = buildSalesRecordDetailWithNewEntry(
       salesRecordModal.history,
       salesRecordModal.newEntry
     )
@@ -7694,10 +7694,10 @@ function App() {
       showAppAlert('추가할 내용을 입력해 주세요.', '알림')
       return
     }
-    const summaryPayload = normalizeSalesRecordForSave(merged)
+    const detailPayload = normalizeSalesRecordForSave(merged)
     setSalesRecordModal((prev) => (prev ? { ...prev, saving: true } : prev))
     try {
-      const updated = await salesRegisterApi.updateSummary(rowId, summaryPayload)
+      const updated = await salesRegisterApi.updateDetail(rowId, detailPayload)
       setSalesRows((prev) =>
         prev.map((row) =>
           row.id === rowId ? normalizeSalesRow({ ...row, ...updated }) : row
@@ -7706,9 +7706,9 @@ function App() {
       closeSalesRecordModal()
       await fetchSalesRows(true)
     } catch (error) {
-      console.error('영업관리대장 요약 저장 실패', {
+      console.error('영업관리대장 세부내용 저장 실패', {
         rowId,
-        summaryLength: summaryPayload.length,
+        detailLength: detailPayload.length,
         error,
       })
       const errorMessage = safeString(error?.message).trim()
@@ -7728,7 +7728,7 @@ function App() {
     <button
       type="button"
       className={`sales-record-btn${
-        hasSalesRecordStoredContent(row.summary) ? ' sales-record-btn--has-content' : ''
+        hasSalesRecordStoredContent(row.detail) ? ' sales-record-btn--has-content' : ''
       }`}
       title="요약"
       aria-label="요약 보기 및 작성"

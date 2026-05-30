@@ -43,16 +43,17 @@ export const salesRegisterApi = {
       body: JSON.stringify(patch),
     })
   },
-  updateSummary(id, summary) {
+  /** 영업관리대장 세부내용( detail ) 히스토리 전용 갱신 */
+  updateDetail(id, detail) {
     const rowId = String(id ?? '').trim()
     if (!rowId) {
       return Promise.reject(new Error('유효하지 않은 행 ID'))
     }
-    const summaryValue = summary == null ? '' : String(summary)
+    const detailValue = detail == null ? '' : String(detail)
     const path = `/api/sales-register/${encodeURIComponent(rowId)}`
     return requestJson(path, {
       method: 'PATCH',
-      body: JSON.stringify({ summary: summaryValue }),
+      body: JSON.stringify({ detail: detailValue }),
     })
   },
   remove(id) {
