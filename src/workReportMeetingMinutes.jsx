@@ -810,63 +810,65 @@ export function WorkReportMeetingMinutesSection({
   )
 
   return (
-    <section className="work-report-report-section work-report-meeting-minutes-panel meeting-minutes-doc">
-      <div className="meeting-minutes-doc__agenda">
-        <table className="meeting-minutes-doc__table contract-table excel-table registry-table">
-          <colgroup>
-            <col className="meeting-minutes-doc__col-num" />
-            <col className="meeting-minutes-doc__col-content" />
-            <col className="meeting-minutes-doc__col-assignee" />
-            <col className="meeting-minutes-doc__col-due" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th className="th-align-center meeting-minutes-doc__col-num">구분</th>
-              <th className="th-align-center meeting-minutes-doc__col-content">회의 내용</th>
-              <th className="th-align-center meeting-minutes-doc__col-assignee">담당자</th>
-              <th className="th-align-center meeting-minutes-doc__col-due">기한</th>
-            </tr>
-          </thead>
-          <tbody>
-            {agendaRows.map((row, index) => (
-              <tr
-                key={`meeting-agenda-${index + 1}`}
-                className="meeting-minutes-doc__agenda-row"
-                onBlur={handleRowBlur}
-              >
-                <td className="meeting-minutes-doc__agenda-num meeting-minutes-doc__col-num">
-                  {index + 1}
-                </td>
-                <td className="meeting-minutes-doc__agenda-content-cell meeting-minutes-doc__col-content">
-                  <textarea
-                    className="meeting-minutes-doc__agenda-content"
-                    rows={1}
-                    value={row.content}
-                    placeholder="내용 입력"
-                    onChange={(e) => patchAgendaRow(index, { content: e.target.value })}
-                  />
-                </td>
-                <td className="meeting-minutes-doc__agenda-assignee meeting-minutes-doc__col-assignee">
-                  <WorkReportExternalManagerMultiSelect
-                    value={row.assignees ?? row.assignee}
-                    options={WORK_REPORT_MANAGER_OPTIONS}
-                    onChange={(nextCsv) =>
-                      patchAgendaRow(index, { assignees: parseManagerMultiSelectValue(nextCsv) })
-                    }
-                  />
-                </td>
-                <td className="meeting-minutes-doc__agenda-due-cell meeting-minutes-doc__col-due">
-                  <input
-                    className="meeting-minutes-doc__agenda-due"
-                    type="date"
-                    value={row.dueDate}
-                    onChange={(e) => patchAgendaRow(index, { dueDate: e.target.value })}
-                  />
-                </td>
+    <section className="work-report-meeting-minutes-panel meeting-minutes-doc">
+      <div className="contract-table-panel meeting-minutes-doc__table-panel">
+        <div className="table-wrap meeting-minutes-table-wrap overflow-x-auto">
+          <table className="meeting-minutes-doc__table contract-table excel-table registry-table">
+            <colgroup>
+              <col style={{ width: 64, minWidth: 64 }} />
+              <col />
+              <col style={{ width: 256, minWidth: 256 }} />
+              <col style={{ width: 160, minWidth: 160 }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th className="th-align-center">구분</th>
+                <th className="th-align-center">회의 내용</th>
+                <th className="th-align-center">담당자</th>
+                <th className="th-align-center meeting-minutes-doc__col-due">기한</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {agendaRows.map((row, index) => (
+                <tr
+                  key={`meeting-agenda-${index + 1}`}
+                  className="meeting-minutes-doc__agenda-row"
+                  onBlur={handleRowBlur}
+                >
+                  <td className="th-align-center meeting-minutes-doc__agenda-num">
+                    {index + 1}
+                  </td>
+                  <td className="meeting-minutes-doc__agenda-content-cell">
+                    <textarea
+                      className="meeting-minutes-doc__agenda-content"
+                      rows={1}
+                      value={row.content}
+                      placeholder="내용 입력"
+                      onChange={(e) => patchAgendaRow(index, { content: e.target.value })}
+                    />
+                  </td>
+                  <td className="meeting-minutes-doc__agenda-assignee">
+                    <WorkReportExternalManagerMultiSelect
+                      value={row.assignees ?? row.assignee}
+                      options={WORK_REPORT_MANAGER_OPTIONS}
+                      onChange={(nextCsv) =>
+                        patchAgendaRow(index, { assignees: parseManagerMultiSelectValue(nextCsv) })
+                      }
+                    />
+                  </td>
+                  <td className="meeting-minutes-doc__agenda-due-cell meeting-minutes-doc__col-due">
+                    <input
+                      className="meeting-minutes-doc__agenda-due"
+                      type="date"
+                      value={row.dueDate}
+                      onChange={(e) => patchAgendaRow(index, { dueDate: e.target.value })}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   )
