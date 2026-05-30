@@ -2672,9 +2672,9 @@ function isSalesDetailHistoryColumn(column, scope) {
 
 function buildSalesRecordDetailWithNewEntry(existingDetail, newEntryText) {
   const trimmed = safeString(newEntryText).trim()
-  if (!trimmed) return null
-  const stamped = `${formatSalesRecordDateStamp()} ${trimmed}`
   const existing = getSalesRecordRawHistory(existingDetail)
+  if (!trimmed) return existing
+  const stamped = `${formatSalesRecordDateStamp()} ${trimmed}`
   return existing ? `${stamped}\n\n${existing}` : stamped
 }
 
@@ -7711,14 +7711,21 @@ function App() {
       return
     }
     const sourceRow = salesRows.find((item) => item.id === rowId) || row
+    const historyDisplay = getSalesRecordHistoryForDisplay(
+      sourceRow.detail,
+      sourceRow.registerDate
+    )
     setSalesRecordModal({
       rowId,
       client: safeString(sourceRow.client).trim(),
       projectName: safeString(sourceRow.projectName).trim(),
       manager: safeString(sourceRow.manager).trim(),
       department: safeString(sourceRow.department).trim(),
-      history: getSalesRecordHistoryForDisplay(sourceRow.detail, sourceRow.registerDate),
+      history: historyDisplay,
       historyRaw: getSalesRecordRawHistory(sourceRow.detail),
+      historyDraft: historyDisplay,
+      historyDisplayInitial: historyDisplay,
+      isEditingHistory: false,
       newEntry: '',
       saving: false,
     })
@@ -7731,14 +7738,18 @@ function App() {
       showAppAlert('저장 경로를 찾을 수 없거나 서버 통신에 실패했습니다.', '알림')
       return
     }
-    const merged = buildSalesRecordDetailWithNewEntry(
-      salesRecordModal.historyRaw,
-      salesRecordModal.newEntry
-    )
-    if (!merged) {
-      showAppAlert('추가할 내용을 입력해 주세요.', '알림')
+    const hasNewEntry = safeString(salesRecordModal.newEntry).trim().length > 0
+    const historyEdited =
+      safeString(salesRecordModal.historyDraft).trim() !==
+      safeString(salesRecordModal.historyDisplayInitial).trim()
+    if (!hasNewEntry && !historyEdited) {
+      showAppAlert('변경된 내용이 없습니다.', '알림')
       return
     }
+    const baseHistory = historyEdited
+      ? salesRecordModal.historyDraft
+      : salesRecordModal.historyRaw
+    const merged = buildSalesRecordDetailWithNewEntry(baseHistory, salesRecordModal.newEntry)
     const detailPayload = normalizeSalesRecordForSave(merged)
     setSalesRecordModal((prev) => (prev ? { ...prev, saving: true } : prev))
     try {
@@ -15343,24 +15354,59 @@ function App() {
               </div>
               <div className="sales-record-modal-timeline">
                 <div className="sales-record-modal-section">
-                  <span className="sales-record-modal-section-label" id="sales-record-history-label">
-                    지난 기록
-                  </span>
-                  <div
-                    className="sales-record-modal-history"
-                    role="region"
-                    aria-labelledby="sales-record-history-label"
-                  >
-                    {salesRecordModal.history ? (
-                      <div className="sales-record-modal-history-text">
-                        {salesRecordModal.history}
-                      </div>
-                    ) : (
-                      <p className="sales-record-modal-history-empty">
-                        기록된 세부내용이 없습니다.
-                      </p>
-                    )}
+                  <div className="sales-record-modal-section-label-row">
+                    <span
+                      className="sales-record-modal-section-label"
+                      id="sales-record-history-label"
+                    >
+                      지난 기록
+                    </span>
+                    <button
+                      type="button"
+                      className="sales-record-modal-history-edit-toggle"
+                      onClick={() =>
+                        setSalesRecordModal((prev) =>
+                          prev
+                            ? { ...prev, isEditingHistory: !prev.isEditingHistory }
+                            : prev
+                        )
+                      }
+                      disabled={salesRecordModal.saving}
+                      aria-pressed={salesRecordModal.isEditingHistory}
+                    >
+                      {salesRecordModal.isEditingHistory ? '완료' : '수정'}
+                    </button>
                   </div>
+                  {salesRecordModal.isEditingHistory ? (
+                    <textarea
+                      className="sales-record-modal-history-edit"
+                      rows={6}
+                      aria-labelledby="sales-record-history-label"
+                      value={salesRecordModal.historyDraft}
+                      onChange={(e) =>
+                        setSalesRecordModal((prev) =>
+                          prev ? { ...prev, historyDraft: e.target.value } : prev
+                        )
+                      }
+                      disabled={salesRecordModal.saving}
+                    />
+                  ) : (
+                    <div
+                      className="sales-record-modal-history"
+                      role="region"
+                      aria-labelledby="sales-record-history-label"
+                    >
+                      {salesRecordModal.historyDraft ? (
+                        <div className="sales-record-modal-history-text">
+                          {salesRecordModal.historyDraft}
+                        </div>
+                      ) : (
+                        <p className="sales-record-modal-history-empty">
+                          기록된 세부내용이 없습니다.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="sales-record-modal-section">
                   <label
