@@ -3634,6 +3634,7 @@ function normalizeSalesRow(item) {
     source: safeString(item.source),
     salesNote: safeString(item.salesNote ?? item.salesnote),
     actionRequest: safeString(item.actionRequest ?? item.actionrequest),
+    summary: safeString(item.summary).trim(),
     createdAt: safeString(item.createdAt ?? item.createdat),
     updatedAt: safeString(item.updatedAt ?? item.updatedat),
     isDraft: false,
@@ -7661,17 +7662,18 @@ function App() {
 
   const openSalesRecordModal = (row) => {
     const rowId = safeString(row?.id).trim()
-    if (!rowId || row.isDraft || rowId.startsWith('sales-draft-')) {
+    if (!rowId || rowId === 'undefined' || row.isDraft || rowId.startsWith('sales-draft-')) {
       showAppAlert('행을 저장한 뒤 요약을 작성할 수 있습니다.', '알림')
       return
     }
+    const sourceRow = salesRows.find((item) => item.id === rowId) || row
     setSalesRecordModal({
       rowId,
-      client: safeString(row.client).trim(),
-      projectName: safeString(row.projectName).trim(),
-      manager: safeString(row.manager).trim(),
-      department: safeString(row.department).trim(),
-      history: getSalesRecordHistoryForDisplay(row.summary),
+      client: safeString(sourceRow.client).trim(),
+      projectName: safeString(sourceRow.projectName).trim(),
+      manager: safeString(sourceRow.manager).trim(),
+      department: safeString(sourceRow.department).trim(),
+      history: getSalesRecordHistoryForDisplay(sourceRow.summary),
       newEntry: '',
       saving: false,
     })
@@ -7679,7 +7681,11 @@ function App() {
 
   const saveSalesRecordModal = async () => {
     if (!salesRecordModal?.rowId) return
-    const rowId = salesRecordModal.rowId
+    const rowId = safeString(salesRecordModal.rowId).trim()
+    if (!rowId || rowId === 'undefined') {
+      showAppAlert('저장 경로를 찾을 수 없거나 서버 통신에 실패했습니다.', '알림')
+      return
+    }
     const merged = buildSalesRecordSummaryWithNewEntry(
       salesRecordModal.history,
       salesRecordModal.newEntry
@@ -7693,12 +7699,27 @@ function App() {
     try {
       const updated = await salesRegisterApi.updateSummary(rowId, summaryPayload)
       setSalesRows((prev) =>
-        prev.map((row) => (row.id === rowId ? { ...row, ...updated } : row))
+        prev.map((row) =>
+          row.id === rowId ? normalizeSalesRow({ ...row, ...updated }) : row
+        )
       )
       closeSalesRecordModal()
+      await fetchSalesRows(true)
     } catch (error) {
-      console.error('영업관리대장 요약 저장 실패', error)
-      showAppAlert(error?.message || '요약 저장에 실패했습니다.', '알림')
+      console.error('영업관리대장 요약 저장 실패', {
+        rowId,
+        summaryLength: summaryPayload.length,
+        error,
+      })
+      const errorMessage = safeString(error?.message).trim()
+      const isRouteOrRowMissing =
+        /not found/i.test(errorMessage) || errorMessage === 'Sales row not found'
+      showAppAlert(
+        isRouteOrRowMissing
+          ? '저장 경로를 찾을 수 없거나 서버 통신에 실패했습니다.'
+          : errorMessage || '요약 저장에 실패했습니다.',
+        '알림'
+      )
       setSalesRecordModal((prev) => (prev ? { ...prev, saving: false } : prev))
     }
   }

@@ -44,8 +44,13 @@ export const salesRegisterApi = {
     })
   },
   updateSummary(id, summary) {
+    const rowId = String(id ?? '').trim()
+    if (!rowId) {
+      return Promise.reject(new Error('유효하지 않은 행 ID'))
+    }
     const summaryValue = summary == null ? '' : String(summary)
-    return requestJson(`/api/sales-register/${encodeURIComponent(id)}/summary`, {
+    const path = `/api/sales-register/${encodeURIComponent(rowId)}`
+    return requestJson(path, {
       method: 'PATCH',
       body: JSON.stringify({ summary: summaryValue }),
     })
