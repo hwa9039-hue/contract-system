@@ -59,7 +59,6 @@ function safeString(value) {
 
 export function getDefaultMeetingMinutesDocument() {
   return {
-    title: '',
     meetingDate: '',
     attendees: [],
     agenda: getDefaultMeetingMinutesAgenda(),
@@ -97,7 +96,6 @@ function normalizeMeetingMinutesDocument(raw = {}, entry) {
   const legacyBody = safeString(raw.body ?? raw.content ?? raw.text)
   const agenda = agendaFromRaw || (legacyBody.trim() ? bodyLinesToAgenda(legacyBody) : getDefaultMeetingMinutesAgenda())
   return {
-    title: safeString(raw.title ?? raw.meetingTitle).trim(),
     meetingDate: safeString(raw.meetingDate ?? raw.meetingDateTime ?? raw.date).trim(),
     attendees,
     agenda,
@@ -379,7 +377,6 @@ function migrateLegacyParsedToDocument(parsed, entry) {
   const metaDate = safeString(meta.meetingDateTime).trim()
   return normalizeMeetingMinutesDocument(
     {
-      title: '',
       meetingDate: metaDate,
       attendees: attendees.length ? attendees : parseManagerMultiSelectValue(meta.attendees),
       agenda,
@@ -401,7 +398,6 @@ export function serializeMeetingMinutesDocumentContent(doc) {
   if (isMeetingMinutesDocumentEmpty(normalized)) return ''
   const payload = {
     v: MEETING_MINUTES_DOC_VERSION,
-    title: normalized.title,
     meetingDate: normalized.meetingDate,
     attendees: normalized.attendees,
     agenda: normalized.agenda.map((row) => ({
@@ -426,7 +422,6 @@ export function isMeetingMinutesDocumentEmpty(doc) {
   const normalized = normalizeMeetingMinutesDocument(doc, null)
   const hasAgendaContent = normalized.agenda.some((row) => !isMeetingMinutesAgendaRowEmpty(row))
   return (
-    !safeString(normalized.title).trim() &&
     !safeString(normalized.meetingDate).trim() &&
     !hasAgendaContent &&
     !normalized.attendees.length
@@ -435,7 +430,7 @@ export function isMeetingMinutesDocumentEmpty(doc) {
 
 export function isMeetingMinutesDataEmpty(data) {
   if (!data) return true
-  if (data.title !== undefined || data.agenda !== undefined || data.body !== undefined || data.meetingDate !== undefined) {
+  if (data.agenda !== undefined || data.body !== undefined || data.meetingDate !== undefined || data.attendees !== undefined) {
     return isMeetingMinutesDocumentEmpty(data)
   }
   return isMeetingMinutesDocumentEmpty(migrateLegacyParsedToDocument(data, null))
@@ -459,7 +454,6 @@ export function meetingMinutesAgendaMatches(leftContent, rightContent) {
   const leftDoc = parseMeetingMinutesDocumentFromEntry({ content: leftContent })
   const rightDoc = parseMeetingMinutesDocumentFromEntry({ content: rightContent })
   return (
-    safeString(leftDoc.title).trim() === safeString(rightDoc.title).trim() &&
     safeString(leftDoc.meetingDate).trim() === safeString(rightDoc.meetingDate).trim() &&
     meetingMinutesAgendaRowsMatch(leftDoc.agenda, rightDoc.agenda) &&
     meetingMinutesAssigneeKey(leftDoc.attendees) === meetingMinutesAssigneeKey(rightDoc.attendees)
@@ -484,7 +478,7 @@ function serializeMeetingMinutesTextBody(agenda) {
 }
 
 export function serializeMeetingMinutesPatch(data) {
-  const doc = data?.title !== undefined || data?.agenda !== undefined || data?.body !== undefined
+  const doc = data?.agenda !== undefined || data?.body !== undefined || data?.meetingDate !== undefined || data?.attendees !== undefined
     ? normalizeMeetingMinutesDocument(data, null)
     : migrateLegacyParsedToDocument(data, null)
   return {
@@ -592,7 +586,6 @@ export function loadMeetingMinutesDocument(weekStartDate, getEntry) {
     }
     return normalizeMeetingMinutesDocument(
       {
-        title: '',
         meetingDate: '',
         attendees: [...attendeeSet],
         agenda,
@@ -618,15 +611,7 @@ export function getDashboardMeetingMinutesDisplayRows(weekStartDate, getEntry) {
       dueDate: safeString(row.dueDate).trim(),
     }))
   }
-  const preview = safeString(doc.title).trim()
-  if (!preview) return []
-  return [
-    {
-      content: preview,
-      assignee: serializeManagerMultiSelectValue(doc.attendees),
-      dueDate: '',
-    },
-  ]
+  return []
 }
 
 export function buildMeetingMinutesPdfMarkup(
@@ -638,7 +623,6 @@ export function buildMeetingMinutesPdfMarkup(
   const doc = loadMeetingMinutesDocument(weekStartDate, getBoardEntry)
   if (isMeetingMinutesDocumentEmpty(doc)) return ''
 
-  const title = safeString(doc.title).trim() || '회의록'
   const meetingDate = safeString(doc.meetingDate).trim()
   const attendees = serializeManagerMultiSelectValue(doc.attendees)
   const agendaRows = normalizeMeetingMinutesAgenda(doc.agenda)
@@ -681,7 +665,6 @@ export function buildMeetingMinutesPdfMarkup(
 
   return `
     <section class="pdf-meeting-minutes pdf-meeting-minutes--document">
-      <h3 class="pdf-meeting-title">${escapeHtml(title)}</h3>
       ${metaParts.length ? `<div class="pdf-meeting-meta">${metaParts.join(' · ')}</div>` : ''}
       ${agendaTable}
     </section>
@@ -749,14 +732,6 @@ export function WorkReportMeetingMinutesSection({
 
   return (
     <section className="work-report-report-section work-report-meeting-minutes-panel meeting-minutes-doc">
-      <input
-        className="meeting-minutes-doc__title"
-        type="text"
-        value={document.title}
-        placeholder="회의 제목"
-        onChange={(e) => patchDocument({ title: e.target.value })}
-      />
-
       <div className="meeting-minutes-doc__meta">
         <label className="meeting-minutes-doc__meta-field">
           <span className="meeting-minutes-doc__meta-label">일시</span>
