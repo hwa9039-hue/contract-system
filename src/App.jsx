@@ -2102,18 +2102,43 @@ function InstallCaseHeroMedia({
   const mediaSrc = safeString(src).trim() || fallback
   const isVideo = isInstallCaseVideo(mediaSrc)
 
+  if (variant === 'card') {
+    return (
+      <div className="install-case-card-media">
+        {isVideo ? (
+          <video
+            className={className}
+            src={mediaSrc}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            aria-hidden
+            tabIndex={-1}
+          />
+        ) : (
+          <img
+            className={className}
+            src={mediaSrc}
+            alt=""
+            loading={loading}
+          />
+        )}
+        <div className="install-case-card-media-overlay" aria-hidden />
+      </div>
+    )
+  }
+
   if (isVideo) {
     return (
       <video
         className={className}
         src={mediaSrc}
         controls
-        muted
-        preload="metadata"
         playsInline
+        preload="metadata"
         aria-label="설치사례 동영상"
-        onClick={variant === 'card' ? (e) => e.stopPropagation() : undefined}
-        onKeyDown={variant === 'card' ? (e) => e.stopPropagation() : undefined}
       />
     )
   }

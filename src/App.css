@@ -8987,14 +8987,34 @@ textarea:focus-visible {
   aspect-ratio: 16 / 10;
   background: #f1f5f9;
   overflow: hidden;
+  position: relative;
+}
+
+.install-case-card-media {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.install-case-card-media-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  cursor: pointer;
 }
 
 .install-case-card-thumb img,
-.install-case-card-thumb video {
+.install-case-card-thumb video,
+.install-case-card-media img,
+.install-case-card-media video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.install-case-card-media video {
+  pointer-events: none;
 }
 
 .install-case-card-body {
