@@ -595,6 +595,7 @@ textarea {
 
 /* 계약현황 — 엑셀 스타일 헤더 컬럼 필터 */
 .contract-th-filter-wrap {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -621,6 +622,11 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
 .contract-column-filter {
   position: relative;
   flex-shrink: 0;
+  z-index: 1;
+}
+
+.contract-column-filter.is-open {
+  z-index: 1201;
 }
 
 .contract-column-filter-trigger {
@@ -652,8 +658,11 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
   color: #1d4ed8;
 }
 
-.contract-column-filter-menu,
-.contract-column-filter-menu--portal {
+.contract-column-filter-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
   z-index: 1200;
   min-width: 168px;
   max-width: 260px;
@@ -664,8 +673,18 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
 }
 
-.contract-column-filter-menu--portal {
-  position: fixed;
+.excel-table thead th.contract-th-filterable {
+  overflow: visible;
+  white-space: nowrap;
+}
+
+.excel-table thead th.contract-th-filterable:has(.contract-column-filter.is-open) {
+  z-index: 1202;
+}
+
+.excel-table thead th.contract-th-filterable .contract-th-label {
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .contract-column-filter-menu-actions {
