@@ -14450,7 +14450,7 @@ function App() {
         )}
 
         {menu === 'unitPrice' && (
-          <section className="stat-card">
+          <section className="stat-card stat-card--unit-price">
             {!isAdmin ? (
               <div className="contracts-header-actions">
                 <div style={{ color: '#94a3b8', fontSize: 12 }}>

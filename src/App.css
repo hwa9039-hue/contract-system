@@ -10477,6 +10477,34 @@ textarea:focus-visible {
 }
 
 /* ── 단가관리 ── */
+.main-area > section.stat-card.stat-card--unit-price {
+  flex: 0 0 auto;
+  min-height: auto;
+  height: fit-content;
+  overflow: visible;
+  display: block;
+}
+
+.stat-card.stat-card--unit-price {
+  min-height: auto;
+}
+
+.main-area > section.stat-card.stat-card--unit-price .unit-price-management,
+.main-area > section.stat-card.stat-card--unit-price .unit-price-table-panel,
+.main-area > section.stat-card.stat-card--unit-price .contract-table-panel {
+  flex: none;
+  min-height: auto;
+  height: auto;
+}
+
+.unit-price-management.h-fit {
+  height: fit-content;
+}
+
+.unit-price-table-panel.h-fit {
+  height: fit-content;
+}
+
 .unit-price-table-panel {
   margin-top: 0;
 }
@@ -10491,10 +10519,15 @@ textarea:focus-visible {
   font-size: 13px;
 }
 
-.unit-price-table-scroll {
+.unit-price-table-scroll.max-h-viewport-scroll {
   max-height: calc(100vh - 250px);
   overflow-y: auto;
   overflow-x: auto;
+  height: auto;
+}
+
+.unit-price-table-scroll {
+  height: auto;
 }
 
 .unit-price-table {
@@ -10572,7 +10605,15 @@ textarea:focus-visible {
 }
 
 .unit-price-table .bg-yellow-100 {
-  background: #fef9c3;
+  background-color: #fef9c3;
+}
+
+.unit-price-table .text-gray-800 {
+  color: #1f2937;
+}
+
+.unit-price-table .h-fit {
+  height: fit-content;
 }
 
 .unit-price-table .max-h-viewport-scroll {
@@ -10617,9 +10658,10 @@ textarea:focus-visible {
   z-index: 50;
 }
 
-.unit-price-table thead th.unit-price-th.bg-yellow-100 {
-  background: #fef9c3;
-  color: #475569;
+.unit-price-table thead th.unit-price-th.bg-yellow-100,
+.unit-price-table thead th.unit-price-design-header {
+  background-color: #fef9c3 !important;
+  color: #1f2937 !important;
   z-index: 10;
 }
 

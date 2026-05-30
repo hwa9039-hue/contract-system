@@ -9,6 +9,16 @@ import {
 
 const CONTRACT_TYPE_FILTER = '55121903'
 
+/** 백엔드 contracts_rows / ContractPatch 컬럼명과 100% 일치 */
+const UNIT_PRICE_PATCH_KEYS = Object.freeze([
+  'costService',
+  'itemName',
+  'designUnitPrice',
+  'pitch',
+  'capW',
+  'capH',
+])
+
 const FILTERABLE_COLUMNS = [
   { key: 'year', label: '사업년도', headerClass: 'unit-price-col-year' },
   { key: 'client', label: '발주처', headerClass: 'unit-price-col-client' },
@@ -20,18 +30,20 @@ const EDITABLE_COLUMNS = [
     key: 'costService',
     label: '원가용역',
     headerClass: 'unit-price-col-editable',
+    cellClass: 'unit-price-col-editable',
     inputClass: 'editable-text-cell-input--center text-center',
   },
   {
     key: 'itemName',
     label: '품명',
     headerClass: 'unit-price-col-editable',
+    cellClass: 'unit-price-col-editable',
     inputClass: 'editable-text-cell-input--center text-center',
   },
   {
     key: 'designUnitPrice',
     label: '설계단가',
-    headerClass: 'unit-price-col-design bg-yellow-100',
+    headerClass: 'unit-price-col-design',
     cellClass: 'unit-price-col-design',
     inputClass: 'editable-text-cell-input--right text-right pr-4',
   },
@@ -39,18 +51,21 @@ const EDITABLE_COLUMNS = [
     key: 'pitch',
     label: 'Pitch',
     headerClass: 'unit-price-col-narrow',
+    cellClass: 'unit-price-col-narrow',
     inputClass: 'editable-text-cell-input--center text-center',
   },
   {
     key: 'capW',
     label: 'W',
     headerClass: 'unit-price-col-narrow',
+    cellClass: 'unit-price-col-narrow',
     inputClass: 'editable-text-cell-input--center text-center',
   },
   {
     key: 'capH',
     label: 'H',
     headerClass: 'unit-price-col-narrow',
+    cellClass: 'unit-price-col-narrow',
     inputClass: 'editable-text-cell-input--center text-center',
   },
 ]
@@ -119,6 +134,7 @@ function applyPatchToEditableFields(saved, patch) {
   }
   return next
 }
+
 function buildUnitPriceApiPatchDiff(current, saved) {
   const cur = current || createEmptyEditableFields()
   const sav = saved || createEmptyEditableFields()
@@ -143,7 +159,9 @@ function buildUnitPriceApiPatchDiff(current, saved) {
     patch.capH = safeString(cur.capH).trim()
   }
 
-  return patch
+  return Object.fromEntries(
+    Object.entries(patch).filter(([key]) => UNIT_PRICE_PATCH_KEYS.includes(key))
+  )
 }
 
 function isEditableFieldEqual(fieldKey, left, right) {
@@ -159,6 +177,10 @@ function areEditableFieldsEqual(left, right) {
   return EDITABLE_COLUMNS.every((column) => isEditableFieldEqual(column.key, left, right))
 }
 
+function getFocusCacheKey(rowId, fieldKey) {
+  return `${safeString(rowId).trim()}:${fieldKey}`
+}
+
 export default function UnitPriceManagement() {
   const [rows, setRows] = useState([])
   const [editableByRowId, setEditableByRowId] = useState({})
@@ -171,6 +193,7 @@ export default function UnitPriceManagement() {
   const savedByRowIdRef = useRef({})
   const editableByRowIdRef = useRef({})
   const savingRowIdsRef = useRef(new Set())
+  const focusValueByCellRef = useRef({})
 
   useEffect(() => {
     editableByRowIdRef.current = editableByRowId
@@ -266,7 +289,8 @@ export default function UnitPriceManagement() {
     if (areEditableFieldsEqual(current, saved)) return
 
     const patch = buildUnitPriceApiPatchDiff(current, saved)
-    if (Object.keys(patch).length === 0) return
+    const patchKeys = Object.keys(patch)
+    if (patchKeys.length === 0) return
 
     savingRowIdsRef.current.add(normalizedRowId)
     const previousSaved = { ...saved }
@@ -309,13 +333,21 @@ export default function UnitPriceManagement() {
     })
   }
 
-  const handleEditableBlur = (rowId, fieldKey) => {
+  const handleEditableFocus = (rowId, fieldKey, originalValue) => {
+    focusValueByCellRef.current[getFocusCacheKey(rowId, fieldKey)] = originalValue
+  }
+
+  const handleEditableBlur = (rowId, fieldKey, currentValue) => {
     const normalizedRowId = safeString(rowId).trim()
     if (!normalizedRowId || normalizedRowId.startsWith('__ROW__')) return
 
+    const cacheKey = getFocusCacheKey(normalizedRowId, fieldKey)
+    const originalValue = focusValueByCellRef.current[cacheKey] ?? currentValue
+
+    if (currentValue === originalValue) return
+
     const current = editableByRowIdRef.current[normalizedRowId] || createEmptyEditableFields()
     const saved = savedByRowIdRef.current[normalizedRowId] || createEmptyEditableFields()
-
     if (isEditableFieldEqual(fieldKey, current, saved)) return
     if (areEditableFieldsEqual(current, saved)) return
 
@@ -325,14 +357,14 @@ export default function UnitPriceManagement() {
   const totalColumnCount = FILTERABLE_COLUMNS.length + EDITABLE_COLUMNS.length
 
   return (
-    <div className="unit-price-management">
+    <div className="unit-price-management h-fit">
       {saveError ? (
         <div className="unit-price-save-error" role="alert">
           {saveError}
         </div>
       ) : null}
-      <div className="contract-table-panel unit-price-table-panel">
-        <div className="table-wrap unit-price-table-scroll overflow-y-auto overflow-x-auto">
+      <div className="contract-table-panel unit-price-table-panel h-fit">
+        <div className="table-wrap unit-price-table-scroll max-h-viewport-scroll overflow-y-auto overflow-x-auto">
           <table className="contract-table excel-table registry-table unit-price-table w-full table-fixed">
             <thead>
               <tr>
@@ -357,7 +389,11 @@ export default function UnitPriceManagement() {
                 {EDITABLE_COLUMNS.map((column) => (
                   <th
                     key={column.key}
-                    className={`unit-price-th text-center sticky top-0 z-10 relative bg-gray-100 ${column.headerClass || ''}`}
+                    className={
+                      column.key === 'designUnitPrice'
+                        ? 'unit-price-th unit-price-design-header text-center sticky top-0 z-10 bg-yellow-100 text-gray-800 relative unit-price-col-design'
+                        : `unit-price-th text-center sticky top-0 z-10 bg-gray-100 relative ${column.headerClass || ''}`
+                    }
                   >
                     {column.label}
                   </th>
@@ -399,20 +435,30 @@ export default function UnitPriceManagement() {
                     <td className="unit-price-readonly unit-price-col-project unit-price-cell-truncate text-left pl-4">
                       {row.projectName || '-'}
                     </td>
-                    {EDITABLE_COLUMNS.map((column) => (
-                      <td
-                        key={column.key}
-                        className={`unit-price-editable-cell ${column.cellClass || column.headerClass || ''}`}
-                      >
-                        <input
-                          type="text"
-                          className={`editable-text-cell-input unit-price-cell-input ${column.inputClass || ''}`}
-                          value={editableByRowId[row.id]?.[column.key] ?? ''}
-                          onChange={(event) => handleEditableChange(row.id, column.key, event.target.value)}
-                          onBlur={() => handleEditableBlur(row.id, column.key)}
-                        />
-                      </td>
-                    ))}
+                    {EDITABLE_COLUMNS.map((column) => {
+                      const cellValue = editableByRowId[row.id]?.[column.key] ?? ''
+                      return (
+                        <td
+                          key={column.key}
+                          className={`unit-price-editable-cell ${column.cellClass || ''}`}
+                        >
+                          <input
+                            type="text"
+                            className={`editable-text-cell-input unit-price-cell-input ${column.inputClass || ''}`}
+                            value={cellValue}
+                            onFocus={(event) =>
+                              handleEditableFocus(row.id, column.key, event.target.value)
+                            }
+                            onChange={(event) =>
+                              handleEditableChange(row.id, column.key, event.target.value)
+                            }
+                            onBlur={(event) =>
+                              handleEditableBlur(row.id, column.key, event.target.value)
+                            }
+                          />
+                        </td>
+                      )
+                    })}
                   </tr>
                 ))
               )}
