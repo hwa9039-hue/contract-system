@@ -10336,3 +10336,17 @@ textarea:focus-visible {
     flex-wrap: wrap;
   }
 }
+
+/* Tailwind-compatible single-line ellipsis (영업관리대장 세부내용 셀) */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sales-detail-history-display {
+  width: 100%;
+  min-width: 0;
+  cursor: pointer;
+  text-align: left;
+}

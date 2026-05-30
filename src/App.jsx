@@ -324,10 +324,9 @@ const SALES_COLUMNS = [
     key: 'detail',
     label: '세부내용',
     align: 'left',
-    type: 'textarea',
+    type: 'salesDetailHistory',
     width: 920,
     cellClass: 'sales-modal-text-cell sales-detail-cell',
-    modalEditor: true,
   },
   { key: 'source', label: '출처', align: 'center', type: 'text', width: 140 },
 ]
@@ -2623,15 +2622,59 @@ function formatSalesRecordDateStamp(date = new Date()) {
   return `[${yy}-${mm}-${dd}]`
 }
 
-function getSalesRecordHistoryForDisplay(detail) {
+function formatSalesRegisterDateStamp(registerDate) {
+  const ymd = toDbDate(registerDate) || safeString(registerDate).trim()
+  if (!ymd) return formatSalesRecordDateStamp()
+  const match = ymd.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (match) {
+    return `[${match[1].slice(-2)}-${match[2]}-${match[3]}]`
+  }
+  const parsed = new Date(ymd)
+  if (!Number.isNaN(parsed.getTime())) return formatSalesRecordDateStamp(parsed)
+  return formatSalesRecordDateStamp()
+}
+
+/** 테이블 세부내용 셀 — 누적 히스토리 중 최신 1건만 */
+function extractLatestSalesDetailEntry(detail) {
+  const raw = safeString(detail).trim()
+  if (!raw) return ''
+  const parts = raw.split(/\n\n+/)
+  return safeString(parts[0]).trim()
+}
+
+function formatSalesRecordHistoryForDisplay(detail, registerDate) {
+  const raw = safeString(detail).trim()
+  if (!raw) return ''
+  const stamp = formatSalesRegisterDateStamp(registerDate)
+  return raw
+    .split(/\n\n+/)
+    .map((chunk) => {
+      const trimmed = safeString(chunk).trim()
+      if (!trimmed) return ''
+      if (trimmed.startsWith('[')) return trimmed
+      return `${stamp} ${trimmed}`
+    })
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+function getSalesRecordRawHistory(detail) {
   return safeString(detail).trim()
+}
+
+function getSalesRecordHistoryForDisplay(detail, registerDate) {
+  return formatSalesRecordHistoryForDisplay(detail, registerDate)
+}
+
+function isSalesDetailHistoryColumn(column, scope) {
+  return scope === 'sales' && column?.key === 'detail'
 }
 
 function buildSalesRecordDetailWithNewEntry(existingDetail, newEntryText) {
   const trimmed = safeString(newEntryText).trim()
   if (!trimmed) return null
   const stamped = `${formatSalesRecordDateStamp()} ${trimmed}`
-  const existing = getSalesRecordHistoryForDisplay(existingDetail)
+  const existing = getSalesRecordRawHistory(existingDetail)
   return existing ? `${stamped}\n\n${existing}` : stamped
 }
 
@@ -7641,6 +7684,7 @@ function App() {
   }
 
   const handleSalesCellChange = (rowId, key, value) => {
+    if (key === 'detail') return
     setSalesRows((prev) =>
       prev.map((row) =>
         row.id === rowId
@@ -7673,7 +7717,8 @@ function App() {
       projectName: safeString(sourceRow.projectName).trim(),
       manager: safeString(sourceRow.manager).trim(),
       department: safeString(sourceRow.department).trim(),
-      history: getSalesRecordHistoryForDisplay(sourceRow.detail),
+      history: getSalesRecordHistoryForDisplay(sourceRow.detail, sourceRow.registerDate),
+      historyRaw: getSalesRecordRawHistory(sourceRow.detail),
       newEntry: '',
       saving: false,
     })
@@ -7687,7 +7732,7 @@ function App() {
       return
     }
     const merged = buildSalesRecordDetailWithNewEntry(
-      salesRecordModal.history,
+      salesRecordModal.historyRaw,
       salesRecordModal.newEntry
     )
     if (!merged) {
@@ -10270,6 +10315,7 @@ function App() {
 
   const startRegistryCellEdit = (scope, rowId, columnKey, value, row) => {
     if (!row || row.isDraft) return
+    if (scope === 'sales' && columnKey === 'detail') return
     const columns = getRegistryColumnsByScope(scope)
     const col = columns.find((c) => c.key === columnKey)
     if (!col) return
@@ -10284,6 +10330,7 @@ function App() {
 
   const persistRegistryCellPatch = async (scope, rowId, column, rawValue) => {
     if (!scope || !rowId || !column) return false
+    if (isSalesDetailHistoryColumn(column, scope)) return false
 
     let rows
     switch (scope) {
@@ -10743,7 +10790,9 @@ function App() {
 
         {columns.map((column) => {
           const isImportanceCell = column.type === 'importance'
+          const isSalesDetailHistoryCell = isSalesDetailHistoryColumn(column, cellEditScope)
           const canUseRegistryModalEditor =
+            !isSalesDetailHistoryCell &&
             (cellEditScope === 'sales' ||
               cellEditScope === 'discovery' ||
               cellEditScope === 'excluded' ||
@@ -10756,6 +10805,7 @@ function App() {
             !row.isDraft &&
             !isImportanceCell
           const isEditableText =
+            !isSalesDetailHistoryCell &&
             isEditableTextColumn(column) &&
             useCellMode &&
             isAdminForRegistry &&
@@ -10772,7 +10822,11 @@ function App() {
             registryCellEditProp?.scope === cellEditScope &&
             registryCellEditProp.rowId === rowId &&
             registryCellEditProp.columnKey === column.key
-          const showInput = !isImportanceCell && !isEditableText && (showDraftOrLegacyRow || isThisCell)
+          const showInput =
+            !isImportanceCell &&
+            !isEditableText &&
+            !isSalesDetailHistoryCell &&
+            (showDraftOrLegacyRow || isThisCell)
           const cells = [
             <td
               key={column.key}
@@ -10785,6 +10839,10 @@ function App() {
               }`}
               onClick={() => {
                 if (isImportanceCell || isEditableText) return
+                if (isSalesDetailHistoryCell) {
+                  if (!row.isDraft) openSalesRecordModal(row)
+                  return
+                }
                 if (!isAdminForRegistry) return
                 if (row.isDraft) return
                 if (canUseRegistryModalEditor) {
@@ -10805,6 +10863,25 @@ function App() {
                   <RegistryImportanceBadge
                     status={resolveRegistryImportanceStatus(displayRow, column)}
                   />
+                </div>
+              ) : isSalesDetailHistoryCell ? (
+                <div
+                  className="cell-display sales-detail-history-display truncate"
+                  role="button"
+                  tabIndex={0}
+                  title={extractLatestSalesDetailEntry(row.detail) || '요약'}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openSalesRecordModal(row)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      openSalesRecordModal(row)
+                    }
+                  }}
+                >
+                  {extractLatestSalesDetailEntry(row.detail) || '\u00a0'}
                 </div>
               ) : canUseRegistryModalEditor ? (
                 <div

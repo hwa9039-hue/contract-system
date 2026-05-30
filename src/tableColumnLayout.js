@@ -72,7 +72,13 @@ export function getTableBodyAlignClass(column) {
 
 export function isLongTextTableColumn(column) {
   if (!column) return false
-  if (column.type === 'date' || column.type === 'amount' || column.type === 'select' || column.type === 'importance') {
+  if (
+    column.type === 'date' ||
+    column.type === 'amount' ||
+    column.type === 'select' ||
+    column.type === 'importance' ||
+    column.type === 'salesDetailHistory'
+  ) {
     return false
   }
   if (STRICT_NOWRAP_COLUMN_KEYS.has(column.key)) {
