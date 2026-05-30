@@ -4420,9 +4420,7 @@ function toWorkReportPayload(row, timestamp) {
     )
   } else if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
     content = safeString(decodeWorkReportWireText(row.content)).trim()
-    user = serializeManagerMultiSelectValue(
-      row.assignees ?? parseManagerMultiSelectValue(row.user || resolvedUser)
-    )
+    user = ''
   } else if (isWorkReportJournalSection(sectionNorm)) {
     content = serializeWorkReportJournalContent(
       safeString(row.content).trim(),
