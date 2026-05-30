@@ -708,11 +708,12 @@ export function WorkReportMeetingMinutesSection({
   weekStartDate,
   getEntry,
   updateEntry,
+  onEntryBlur,
 }) {
   const boardEntry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
   const document = useMemo(
     () => loadMeetingMinutesDocument(weekStartDate, getEntry),
-    [weekStartDate, getEntry, boardEntry?.content]
+    [weekStartDate, getEntry, boardEntry?.content, boardEntry?.id, boardEntry?.updatedAt]
   )
   const agendaRows = useMemo(
     () => normalizeMeetingMinutesAgenda(document.agenda),
@@ -773,7 +774,11 @@ export function WorkReportMeetingMinutesSection({
           <span className="meeting-minutes-doc__agenda-head-due">기한</span>
         </div>
         {agendaRows.map((row, index) => (
-          <div key={`meeting-agenda-${index + 1}`} className="meeting-minutes-doc__agenda-row">
+          <div
+            key={`meeting-agenda-${index + 1}`}
+            className="meeting-minutes-doc__agenda-row"
+            onBlur={onEntryBlur}
+          >
             <span className="meeting-minutes-doc__agenda-num">{index + 1}</span>
             <textarea
               className="meeting-minutes-doc__agenda-content"

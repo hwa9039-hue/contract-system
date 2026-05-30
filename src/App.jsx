@@ -4400,7 +4400,7 @@ function isWorkReportRowEmpty(row) {
   }
 
   if (normalizedSection === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
-    return !safeString(row.content).trim() && !safeString(row.user).trim()
+    return isMeetingMinutesDataEmpty(parseMeetingMinutesFromEntry(row))
   }
 
   return safeString(row.content).trim() === ''
@@ -8764,8 +8764,11 @@ function App() {
 
   const getStoredWorkReportEntry = (date, section, orderIndex = 1) => {
     const sectionNorm = safeString(section).trim()
-    const dateKey = normalizeWorkReportDateKey(date)
     const oi = Number(orderIndex || 1)
+
+    if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
+      return pickMeetingMinutesStoredRow(date, workReportRowsRef.current, oi)
+    }
 
     const matches = workReportRowsRef.current.filter((row) =>
       workReportRowKeyMatch(row, date, section, orderIndex)
@@ -12869,20 +12872,6 @@ function App() {
                 <button className="secondary-btn" type="button" onClick={handleMeetingMinutesPdfDownload}>
                   PDF 다운로드
                 </button>
-                <button
-                  className="primary-btn"
-                  type="button"
-                  disabled={isSavingWorkReports}
-                  onClick={() =>
-                    flushWorkReportEntrySave(
-                      selectedWorkWeekMeta.weekStartDate,
-                      WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                      1
-                    )
-                  }
-                >
-                  저장
-                </button>
               </div>
 
               <div className="work-report-summary-card">
@@ -12900,6 +12889,11 @@ function App() {
                   weekStartDate={selectedWorkWeekMeta.weekStartDate}
                   getEntry={getWorkReportBoardEntry}
                   updateEntry={updateWorkReportBoardEntry}
+                  onEntryBlur={handleWorkReportBoardBlur(
+                    selectedWorkWeekMeta.weekStartDate,
+                    WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                    1
+                  )}
                 />
               </div>
 
