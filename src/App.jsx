@@ -2615,11 +2615,24 @@ function getWorkReportChecklistCombinedText(date, sectionKey, workReportRows, wo
 
 const WORK_REPORT_CHECKLIST_BULLET_PREFIX = '• '
 
-/** 영업관리대장 기록 모달: 저장된 내용이 없으면 불릿 접두사로 시작 */
-function resolveSalesRecordModalContent(summary) {
-  const text = safeString(summary)
-  if (text.trim()) return text
-  return WORK_REPORT_CHECKLIST_BULLET_PREFIX
+/** 영업관리대장 요약 모달 — 신규 기록 날짜 스탬프 [YY-MM-DD] */
+function formatSalesRecordDateStamp(date = new Date()) {
+  const yy = String(date.getFullYear()).slice(-2)
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return `[${yy}-${mm}-${dd}]`
+}
+
+function getSalesRecordHistoryForDisplay(summary) {
+  return safeString(summary).trim()
+}
+
+function buildSalesRecordSummaryWithNewEntry(existingSummary, newEntryText) {
+  const trimmed = safeString(newEntryText).trim()
+  if (!trimmed) return null
+  const stamped = `${formatSalesRecordDateStamp()} ${trimmed}`
+  const existing = getSalesRecordHistoryForDisplay(existingSummary)
+  return existing ? `${stamped}\n\n${existing}` : stamped
 }
 
 function hasSalesRecordStoredContent(summary) {
@@ -7658,7 +7671,8 @@ function App() {
       projectName: safeString(row.projectName).trim(),
       manager: safeString(row.manager).trim(),
       department: safeString(row.department).trim(),
-      summary: resolveSalesRecordModalContent(row.summary),
+      history: getSalesRecordHistoryForDisplay(row.summary),
+      newEntry: '',
       saving: false,
     })
   }
@@ -7666,7 +7680,15 @@ function App() {
   const saveSalesRecordModal = async () => {
     if (!salesRecordModal?.rowId) return
     const rowId = salesRecordModal.rowId
-    const summaryPayload = normalizeSalesRecordForSave(salesRecordModal.summary)
+    const merged = buildSalesRecordSummaryWithNewEntry(
+      salesRecordModal.history,
+      salesRecordModal.newEntry
+    )
+    if (!merged) {
+      showAppAlert('추가할 내용을 입력해 주세요.', '알림')
+      return
+    }
+    const summaryPayload = normalizeSalesRecordForSave(merged)
     setSalesRecordModal((prev) => (prev ? { ...prev, saving: true } : prev))
     try {
       const updated = await salesRegisterApi.updateSummary(rowId, summaryPayload)
@@ -15221,27 +15243,49 @@ function App() {
                   </span>
                 </div>
               </div>
-              <textarea
-                id="sales-record-textarea"
-                className="sales-record-textarea"
-                rows={10}
-                placeholder="요약을 입력하세요."
-                value={salesRecordModal.summary}
-                onChange={(e) =>
-                  setSalesRecordModal((prev) =>
-                    prev ? { ...prev, summary: e.target.value } : prev
-                  )
-                }
-                onKeyDown={(e) =>
-                  handleWorkReportChecklistTextareaKeyDown(
-                    e,
-                    (next) =>
-                      setSalesRecordModal((prev) => (prev ? { ...prev, summary: next } : prev)),
-                    { useShiftEnter: false }
-                  )
-                }
-                disabled={salesRecordModal.saving}
-              />
+              <div className="sales-record-modal-timeline">
+                <div className="sales-record-modal-section">
+                  <span className="sales-record-modal-section-label" id="sales-record-history-label">
+                    지난 기록
+                  </span>
+                  <div
+                    className="sales-record-modal-history"
+                    role="region"
+                    aria-labelledby="sales-record-history-label"
+                  >
+                    {salesRecordModal.history ? (
+                      <div className="sales-record-modal-history-text">
+                        {salesRecordModal.history}
+                      </div>
+                    ) : (
+                      <p className="sales-record-modal-history-empty">
+                        기록된 세부내용이 없습니다.
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="sales-record-modal-section">
+                  <label
+                    className="sales-record-modal-section-label"
+                    htmlFor="sales-record-new-entry"
+                  >
+                    새 업데이트
+                  </label>
+                  <textarea
+                    id="sales-record-new-entry"
+                    className="sales-record-modal-entry"
+                    rows={3}
+                    placeholder="오늘 날짜로 추가할 업데이트 내용을 입력하세요."
+                    value={salesRecordModal.newEntry}
+                    onChange={(e) =>
+                      setSalesRecordModal((prev) =>
+                        prev ? { ...prev, newEntry: e.target.value } : prev
+                      )
+                    }
+                    disabled={salesRecordModal.saving}
+                  />
+                </div>
+              </div>
             </div>
             <div className="sales-record-modal-actions">
               <button
