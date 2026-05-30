@@ -10487,6 +10487,38 @@ textarea:focus-visible {
   table-layout: fixed;
 }
 
+.unit-price-table.w-full {
+  width: 100%;
+}
+
+.unit-price-table.table-fixed {
+  table-layout: fixed;
+}
+
+.unit-price-table .unit-price-col-year {
+  width: 8%;
+}
+
+.unit-price-table .unit-price-col-client {
+  width: 15%;
+}
+
+.unit-price-table .unit-price-col-project {
+  width: 28%;
+}
+
+.unit-price-table .unit-price-col-editable {
+  width: 10%;
+}
+
+.unit-price-table .unit-price-col-design {
+  width: 10%;
+}
+
+.unit-price-table .unit-price-col-narrow {
+  width: 6%;
+}
+
 .unit-price-table thead th.unit-price-th {
   padding: 10px 8px;
   font-size: 13px;
@@ -10496,6 +10528,25 @@ textarea:focus-visible {
   color: #475569;
   text-align: center;
   white-space: nowrap;
+}
+
+.unit-price-table thead th.unit-price-th.contract-th-filterable {
+  overflow: visible;
+  position: relative;
+  z-index: 20;
+}
+
+.unit-price-table thead th.unit-price-th.contract-th-filterable:has(.contract-column-filter.is-open) {
+  z-index: 30;
+}
+
+.unit-price-table thead th.unit-price-th.contract-th-filterable .contract-th-label {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.unit-price-table .contract-column-filter-menu {
+  z-index: 50;
 }
 
 .unit-price-table thead th.unit-price-th-design {
@@ -10514,6 +10565,13 @@ textarea:focus-visible {
 
 .unit-price-table tbody td.unit-price-readonly-project {
   text-align: left;
+}
+
+.unit-price-table tbody td.unit-price-cell-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 0;
 }
 
 .unit-price-table tbody td.unit-price-editable-cell {
