@@ -10492,7 +10492,7 @@ textarea:focus-visible {
 }
 
 .unit-price-table-scroll {
-  height: calc(100vh - 250px);
+  max-height: calc(100vh - 250px);
   overflow-y: auto;
   overflow-x: auto;
 }
@@ -10571,8 +10571,12 @@ textarea:focus-visible {
   background: #f3f4f6;
 }
 
-.unit-price-table .bg-yellow-300 {
-  background: #fde047;
+.unit-price-table .bg-yellow-100 {
+  background: #fef9c3;
+}
+
+.unit-price-table .max-h-viewport-scroll {
+  max-height: calc(100vh - 250px);
 }
 
 .unit-price-table .overflow-y-auto {
@@ -10613,10 +10617,9 @@ textarea:focus-visible {
   z-index: 50;
 }
 
-.unit-price-table thead th.unit-price-th-design,
-.unit-price-table thead th.unit-price-th.bg-yellow-300 {
-  background: #fde047;
-  color: #713f12;
+.unit-price-table thead th.unit-price-th.bg-yellow-100 {
+  background: #fef9c3;
+  color: #475569;
   z-index: 10;
 }
 

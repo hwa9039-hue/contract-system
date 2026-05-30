@@ -31,9 +31,9 @@ const EDITABLE_COLUMNS = [
   {
     key: 'designUnitPrice',
     label: '설계단가',
-    headerClass: 'unit-price-col-design unit-price-th-design',
+    headerClass: 'unit-price-col-design bg-yellow-100',
+    cellClass: 'unit-price-col-design',
     inputClass: 'editable-text-cell-input--right text-right pr-4',
-    isAmount: true,
   },
   {
     key: 'pitch',
@@ -97,26 +97,66 @@ function extractEditableFields(item) {
   }
 }
 
-function buildUnitPriceApiPatch(fields) {
-  return {
-    costService: safeString(fields?.costService).trim(),
-    itemName: safeString(fields?.itemName).trim(),
-    designUnitPrice: parseDesignUnitPrice(fields?.designUnitPrice),
-    pitch: safeString(fields?.pitch).trim(),
-    capW: safeString(fields?.capW).trim(),
-    capH: safeString(fields?.capH).trim(),
+function applyPatchToEditableFields(saved, patch) {
+  const next = { ...(saved || createEmptyEditableFields()) }
+  if (Object.prototype.hasOwnProperty.call(patch, 'costService')) {
+    next.costService = safeString(patch.costService).trim()
   }
+  if (Object.prototype.hasOwnProperty.call(patch, 'itemName')) {
+    next.itemName = safeString(patch.itemName).trim()
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'designUnitPrice')) {
+    next.designUnitPrice = formatDesignUnitPrice(patch.designUnitPrice)
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'pitch')) {
+    next.pitch = safeString(patch.pitch).trim()
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'capW')) {
+    next.capW = safeString(patch.capW).trim()
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'capH')) {
+    next.capH = safeString(patch.capH).trim()
+  }
+  return next
+}
+function buildUnitPriceApiPatchDiff(current, saved) {
+  const cur = current || createEmptyEditableFields()
+  const sav = saved || createEmptyEditableFields()
+  const patch = {}
+
+  if (safeString(cur.costService).trim() !== safeString(sav.costService).trim()) {
+    patch.costService = safeString(cur.costService).trim()
+  }
+  if (safeString(cur.itemName).trim() !== safeString(sav.itemName).trim()) {
+    patch.itemName = safeString(cur.itemName).trim()
+  }
+  if (parseDesignUnitPrice(cur.designUnitPrice) !== parseDesignUnitPrice(sav.designUnitPrice)) {
+    patch.designUnitPrice = parseDesignUnitPrice(cur.designUnitPrice)
+  }
+  if (safeString(cur.pitch).trim() !== safeString(sav.pitch).trim()) {
+    patch.pitch = safeString(cur.pitch).trim()
+  }
+  if (safeString(cur.capW).trim() !== safeString(sav.capW).trim()) {
+    patch.capW = safeString(cur.capW).trim()
+  }
+  if (safeString(cur.capH).trim() !== safeString(sav.capH).trim()) {
+    patch.capH = safeString(cur.capH).trim()
+  }
+
+  return patch
+}
+
+function isEditableFieldEqual(fieldKey, left, right) {
+  const a = left || createEmptyEditableFields()
+  const b = right || createEmptyEditableFields()
+  if (fieldKey === 'designUnitPrice') {
+    return parseDesignUnitPrice(a[fieldKey]) === parseDesignUnitPrice(b[fieldKey])
+  }
+  return safeString(a[fieldKey]).trim() === safeString(b[fieldKey]).trim()
 }
 
 function areEditableFieldsEqual(left, right) {
-  const a = left || createEmptyEditableFields()
-  const b = right || createEmptyEditableFields()
-  return EDITABLE_COLUMNS.every((column) => {
-    if (column.key === 'designUnitPrice') {
-      return parseDesignUnitPrice(a[column.key]) === parseDesignUnitPrice(b[column.key])
-    }
-    return safeString(a[column.key]).trim() === safeString(b[column.key]).trim()
-  })
+  return EDITABLE_COLUMNS.every((column) => isEditableFieldEqual(column.key, left, right))
 }
 
 export default function UnitPriceManagement() {
@@ -225,20 +265,22 @@ export default function UnitPriceManagement() {
     const saved = savedByRowIdRef.current[normalizedRowId] || createEmptyEditableFields()
     if (areEditableFieldsEqual(current, saved)) return
 
+    const patch = buildUnitPriceApiPatchDiff(current, saved)
+    if (Object.keys(patch).length === 0) return
+
     savingRowIdsRef.current.add(normalizedRowId)
-    const patch = buildUnitPriceApiPatch(current)
     const previousSaved = { ...saved }
 
     try {
       await contractsApi.update(normalizedRowId, patch)
-      const normalizedFields = extractEditableFields(patch)
+      const mergedFields = applyPatchToEditableFields(saved, patch)
       savedByRowIdRef.current = {
         ...savedByRowIdRef.current,
-        [normalizedRowId]: { ...normalizedFields },
+        [normalizedRowId]: { ...mergedFields },
       }
       setEditableByRowId((prev) => ({
         ...prev,
-        [normalizedRowId]: normalizedFields,
+        [normalizedRowId]: mergedFields,
       }))
       setSaveError(null)
     } catch (saveErr) {
@@ -256,17 +298,28 @@ export default function UnitPriceManagement() {
   const handleEditableChange = (rowId, fieldKey, value) => {
     const nextValue =
       fieldKey === 'designUnitPrice' ? formatDesignUnitPrice(value) : value
-    setEditableByRowId((prev) => ({
-      ...prev,
-      [rowId]: {
+    setEditableByRowId((prev) => {
+      const nextRow = {
         ...(prev[rowId] || createEmptyEditableFields()),
         [fieldKey]: nextValue,
-      },
-    }))
+      }
+      const next = { ...prev, [rowId]: nextRow }
+      editableByRowIdRef.current = next
+      return next
+    })
   }
 
-  const handleEditableBlur = (rowId) => {
-    void persistUnitPriceRow(rowId)
+  const handleEditableBlur = (rowId, fieldKey) => {
+    const normalizedRowId = safeString(rowId).trim()
+    if (!normalizedRowId || normalizedRowId.startsWith('__ROW__')) return
+
+    const current = editableByRowIdRef.current[normalizedRowId] || createEmptyEditableFields()
+    const saved = savedByRowIdRef.current[normalizedRowId] || createEmptyEditableFields()
+
+    if (isEditableFieldEqual(fieldKey, current, saved)) return
+    if (areEditableFieldsEqual(current, saved)) return
+
+    void persistUnitPriceRow(normalizedRowId)
   }
 
   const totalColumnCount = FILTERABLE_COLUMNS.length + EDITABLE_COLUMNS.length
@@ -304,9 +357,7 @@ export default function UnitPriceManagement() {
                 {EDITABLE_COLUMNS.map((column) => (
                   <th
                     key={column.key}
-                    className={`unit-price-th text-center sticky top-0 z-10 relative ${column.headerClass || ''} ${
-                      column.key === 'designUnitPrice' ? 'bg-yellow-300' : 'bg-gray-100'
-                    }`}
+                    className={`unit-price-th text-center sticky top-0 z-10 relative bg-gray-100 ${column.headerClass || ''}`}
                   >
                     {column.label}
                   </th>
@@ -349,13 +400,16 @@ export default function UnitPriceManagement() {
                       {row.projectName || '-'}
                     </td>
                     {EDITABLE_COLUMNS.map((column) => (
-                      <td key={column.key} className={`unit-price-editable-cell ${column.headerClass || ''}`}>
+                      <td
+                        key={column.key}
+                        className={`unit-price-editable-cell ${column.cellClass || column.headerClass || ''}`}
+                      >
                         <input
                           type="text"
                           className={`editable-text-cell-input unit-price-cell-input ${column.inputClass || ''}`}
                           value={editableByRowId[row.id]?.[column.key] ?? ''}
                           onChange={(event) => handleEditableChange(row.id, column.key, event.target.value)}
-                          onBlur={() => handleEditableBlur(row.id)}
+                          onBlur={() => handleEditableBlur(row.id, column.key)}
                         />
                       </td>
                     ))}
