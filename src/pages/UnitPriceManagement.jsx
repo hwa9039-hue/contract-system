@@ -16,12 +16,42 @@ const FILTERABLE_COLUMNS = [
 ]
 
 const EDITABLE_COLUMNS = [
-  { key: 'costService', label: '원가용역', headerClass: 'unit-price-col-editable' },
-  { key: 'itemName', label: '품명', headerClass: 'unit-price-col-editable' },
-  { key: 'designUnitPrice', label: '설계단가', headerClass: 'unit-price-col-design unit-price-th-design' },
-  { key: 'pitch', label: 'Pitch', headerClass: 'unit-price-col-narrow' },
-  { key: 'capW', label: 'W', headerClass: 'unit-price-col-narrow' },
-  { key: 'capH', label: 'H', headerClass: 'unit-price-col-narrow' },
+  {
+    key: 'costService',
+    label: '원가용역',
+    headerClass: 'unit-price-col-editable',
+    inputClass: 'editable-text-cell-input--center text-center',
+  },
+  {
+    key: 'itemName',
+    label: '품명',
+    headerClass: 'unit-price-col-editable',
+    inputClass: 'editable-text-cell-input--center text-center',
+  },
+  {
+    key: 'designUnitPrice',
+    label: '설계단가',
+    headerClass: 'unit-price-col-design unit-price-th-design',
+    inputClass: 'editable-text-cell-input--right text-right pr-4',
+  },
+  {
+    key: 'pitch',
+    label: 'Pitch',
+    headerClass: 'unit-price-col-narrow',
+    inputClass: 'editable-text-cell-input--center text-center',
+  },
+  {
+    key: 'capW',
+    label: 'W',
+    headerClass: 'unit-price-col-narrow',
+    inputClass: 'editable-text-cell-input--center text-center',
+  },
+  {
+    key: 'capH',
+    label: 'H',
+    headerClass: 'unit-price-col-narrow',
+    inputClass: 'editable-text-cell-input--center text-center',
+  },
 ]
 
 const FILTERABLE_COLUMN_KEYS = FILTERABLE_COLUMNS.map((column) => column.key)
@@ -140,7 +170,7 @@ export default function UnitPriceManagement() {
                 {FILTERABLE_COLUMNS.map((column) => (
                   <th
                     key={column.key}
-                    className={`unit-price-th contract-th-filterable relative ${column.headerClass}`}
+                    className={`unit-price-th text-center contract-th-filterable relative ${column.headerClass}`}
                   >
                     <div className="contract-th-filter-wrap">
                       <span className="contract-th-label">{column.label}</span>
@@ -158,7 +188,7 @@ export default function UnitPriceManagement() {
                 {EDITABLE_COLUMNS.map((column) => (
                   <th
                     key={column.key}
-                    className={`unit-price-th relative ${column.headerClass || ''}`}
+                    className={`unit-price-th text-center relative ${column.headerClass || ''}`}
                   >
                     {column.label}
                   </th>
@@ -193,18 +223,18 @@ export default function UnitPriceManagement() {
               ) : (
                 filteredRows.map((row) => (
                   <tr key={row.id}>
-                    <td className="unit-price-readonly unit-price-col-year">{row.year || '-'}</td>
-                    <td className="unit-price-readonly unit-price-col-client unit-price-cell-truncate">
+                    <td className="unit-price-readonly unit-price-col-year text-center">{row.year || '-'}</td>
+                    <td className="unit-price-readonly unit-price-col-client unit-price-cell-truncate text-center">
                       {row.client || '-'}
                     </td>
-                    <td className="unit-price-readonly unit-price-col-project unit-price-cell-truncate">
+                    <td className="unit-price-readonly unit-price-col-project unit-price-cell-truncate text-left pl-4">
                       {row.projectName || '-'}
                     </td>
                     {EDITABLE_COLUMNS.map((column) => (
                       <td key={column.key} className={`unit-price-editable-cell ${column.headerClass || ''}`}>
                         <input
                           type="text"
-                          className="editable-text-cell-input editable-text-cell-input--left unit-price-cell-input"
+                          className={`editable-text-cell-input unit-price-cell-input ${column.inputClass || ''}`}
                           value={editableByRowId[row.id]?.[column.key] ?? ''}
                           onChange={(event) => handleEditableChange(row.id, column.key, event.target.value)}
                         />

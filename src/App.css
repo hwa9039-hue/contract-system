@@ -10519,6 +10519,26 @@ textarea:focus-visible {
   width: 6%;
 }
 
+.unit-price-table .text-center {
+  text-align: center;
+}
+
+.unit-price-table .text-left {
+  text-align: left;
+}
+
+.unit-price-table .text-right {
+  text-align: right;
+}
+
+.unit-price-table .pl-4 {
+  padding-left: 1rem;
+}
+
+.unit-price-table .pr-4 {
+  padding-right: 1rem;
+}
+
 .unit-price-table thead th.unit-price-th {
   padding: 10px 8px;
   font-size: 13px;
@@ -10563,8 +10583,8 @@ textarea:focus-visible {
   background: #ffffff;
 }
 
-.unit-price-table tbody td.unit-price-readonly-project {
-  text-align: left;
+.unit-price-table tbody td.unit-price-readonly.pl-4 {
+  padding-left: 1rem;
 }
 
 .unit-price-table tbody td.unit-price-cell-truncate {
@@ -10586,6 +10606,10 @@ textarea:focus-visible {
   min-height: 32px;
   padding: 6px 8px;
   box-sizing: border-box;
+}
+
+.unit-price-table .unit-price-cell-input.pr-4 {
+  padding-right: 1rem;
 }
 
 .unit-price-empty-cell {
