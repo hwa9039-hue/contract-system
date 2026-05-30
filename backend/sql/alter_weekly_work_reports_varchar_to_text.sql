@@ -10,6 +10,10 @@ ALTER TABLE weekly_work_reports_rows
   USING (CASE WHEN section IS NULL THEN NULL::text ELSE trim(section::text) END);
 
 ALTER TABLE weekly_work_reports_rows
+  ALTER COLUMN content TYPE text
+  USING (CASE WHEN content IS NULL THEN NULL::text ELSE trim(content::text) END);
+
+ALTER TABLE weekly_work_reports_rows
   ALTER COLUMN assignee TYPE text
   USING (CASE WHEN assignee IS NULL THEN NULL::text ELSE trim(assignee::text) END);
 

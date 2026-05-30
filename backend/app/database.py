@@ -96,6 +96,7 @@ def _migrate_weekly_work_reports_text_columns(cursor) -> None:
     text_columns = (
         "user",
         "section",
+        "content",
         "assignee",
         "team",
         "category",

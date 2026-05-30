@@ -9248,12 +9248,16 @@ function App() {
           return next
         })
       } catch (error) {
-        logApiOperationError('주간업무보고서 저장', error)
+        const saveFailureLabel =
+          sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes
+            ? '회의록'
+            : '주간업무보고서'
+        logApiOperationError(`${saveFailureLabel} 저장`, error)
         const message = safeString(error?.message || error)
         const hint = /failed to fetch|networkerror|load failed|500/i.test(message)
           ? 'Cloudflare 보안(WAF)이 긴 저장 요청을 막았을 수 있습니다. 페이지를 새로고침(Ctrl+Shift+R)한 뒤 다시 저장해 보세요. 계속되면 NAS 백엔드를 최신으로 재시작해 주세요.'
           : '로그인 상태를 확인한 뒤 다시 시도해주세요.'
-        showAppAlert(`주간업무보고서 저장에 실패했습니다.\n${message.slice(0, 200)}\n\n${hint}`)
+        showAppAlert(`${saveFailureLabel} 저장에 실패했습니다.\n${message.slice(0, 200)}\n\n${hint}`)
       } finally {
         setIsSavingWorkReports(false)
       }
