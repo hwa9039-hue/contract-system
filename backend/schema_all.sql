@@ -156,6 +156,23 @@ UPDATE weekly_work_reports_rows SET order_index = 1 WHERE order_index IS NULL;
 ALTER TABLE weekly_work_reports_rows
   ALTER COLUMN order_index SET DEFAULT 1;
 
+-- 구형 NAS: varchar(50) → text (회의록 참석자·담당자 다중 선택)
+ALTER TABLE weekly_work_reports_rows
+  ALTER COLUMN "user" TYPE text
+  USING (CASE WHEN "user" IS NULL THEN NULL::text ELSE trim("user"::text) END);
+ALTER TABLE weekly_work_reports_rows
+  ALTER COLUMN section TYPE text
+  USING (CASE WHEN section IS NULL THEN NULL::text ELSE trim(section::text) END);
+ALTER TABLE weekly_work_reports_rows
+  ALTER COLUMN assignee TYPE text
+  USING (CASE WHEN assignee IS NULL THEN NULL::text ELSE trim(assignee::text) END);
+ALTER TABLE weekly_work_reports_rows
+  ALTER COLUMN team TYPE text
+  USING (CASE WHEN team IS NULL THEN NULL::text ELSE trim(team::text) END);
+ALTER TABLE weekly_work_reports_rows
+  ALTER COLUMN category TYPE text
+  USING (CASE WHEN category IS NULL THEN NULL::text ELSE trim(category::text) END);
+
 ALTER TABLE contracts_rows
   ADD COLUMN IF NOT EXISTS "identNo" text NOT NULL DEFAULT '';
 

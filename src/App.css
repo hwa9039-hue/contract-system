@@ -7980,6 +7980,8 @@ textarea:focus-visible {
 .meeting-minutes-doc__meta-field--attendees {
   flex: 1 1 220px;
   max-width: 420px;
+  overflow: visible;
+  position: relative;
 }
 
 .meeting-minutes-doc__meta-label {
@@ -8137,6 +8139,8 @@ textarea:focus-visible {
   min-height: 36px;
   padding: 6px 8px;
   box-sizing: border-box;
+  overflow: visible;
+  position: relative;
 }
 
 .meeting-minutes-doc__agenda-assignee .work-report-external-manager-multi {
@@ -8578,6 +8582,27 @@ textarea:focus-visible {
   min-width: 0;
 }
 
+.work-report-external-manager-multi.relative {
+  position: relative;
+}
+
+.work-report-external-manager-multi-menu.absolute {
+  position: absolute;
+}
+
+.work-report-external-manager-multi-menu.top-full {
+  top: calc(100% + 4px);
+}
+
+.work-report-external-manager-multi-menu.left-0 {
+  left: 0;
+  right: auto;
+}
+
+.work-report-external-manager-multi-menu.z-50 {
+  z-index: 50;
+}
+
 .work-report-external-manager-multi-trigger {
   display: flex;
   align-items: center;
@@ -8642,10 +8667,11 @@ textarea:focus-visible {
 
 .work-report-external-manager-multi-menu {
   position: absolute;
-  z-index: 20;
+  z-index: 50;
   left: 0;
-  right: 0;
+  right: auto;
   top: calc(100% + 4px);
+  min-width: 100%;
   max-height: 15rem;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -8658,15 +8684,7 @@ textarea:focus-visible {
 }
 
 .work-report-external-manager-multi-menu--portal {
-  position: fixed;
-  z-index: 10050;
-  right: auto;
-  top: 0;
-  left: 0;
-  max-height: 15rem;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
+  display: none;
 }
 
 .work-report-external-manager-multi-item {

@@ -80,10 +80,17 @@ function bodyLinesToAgenda(body) {
   return normalizeMeetingMinutesAgenda(rows)
 }
 
+function resolveMeetingMinutesAttendees(raw = {}, entry) {
+  const fromRaw = raw.attendees ?? raw.attendee
+  if (fromRaw !== undefined && fromRaw !== null && fromRaw !== '') {
+    const parsed = parseManagerMultiSelectValue(fromRaw)
+    if (parsed.length) return parsed
+  }
+  return parseManagerMultiSelectValue(entry?.user ?? entry?.assignees)
+}
+
 function normalizeMeetingMinutesDocument(raw = {}, entry) {
-  const attendees = parseManagerMultiSelectValue(
-    raw.attendees ?? raw.attendee ?? entry?.user ?? entry?.assignees
-  )
+  const attendees = resolveMeetingMinutesAttendees(raw, entry)
   const agendaFromRaw = Array.isArray(raw.agenda)
     ? normalizeMeetingMinutesAgenda(raw.agenda)
     : null
@@ -396,6 +403,7 @@ export function serializeMeetingMinutesDocumentContent(doc) {
     v: MEETING_MINUTES_DOC_VERSION,
     title: normalized.title,
     meetingDate: normalized.meetingDate,
+    attendees: normalized.attendees,
     agenda: normalized.agenda.map((row) => ({
       content: safeString(row.content),
       assignee: safeString(row.assignee),
@@ -685,9 +693,10 @@ export function WorkReportMeetingMinutesSection({
   getEntry,
   updateEntry,
 }) {
+  const boardEntry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
   const document = useMemo(
     () => loadMeetingMinutesDocument(weekStartDate, getEntry),
-    [weekStartDate, getEntry]
+    [weekStartDate, getEntry, boardEntry?.content, boardEntry?.user, boardEntry?.assignees]
   )
   const agendaRows = useMemo(
     () => normalizeMeetingMinutesAgenda(document.agenda),
@@ -764,7 +773,9 @@ export function WorkReportMeetingMinutesSection({
             value={document.attendees}
             options={WORK_REPORT_MANAGER_OPTIONS}
             onChange={(nextCsv) =>
-              patchDocument({ attendees: parseManagerMultiSelectValue(nextCsv) })
+              patchDocument({
+                attendees: parseManagerMultiSelectValue(nextCsv),
+              })
             }
           />
         </label>

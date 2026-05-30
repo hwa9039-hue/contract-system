@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 export const WORK_REPORT_MANAGER_OPTIONS = [
   '전기웅',
@@ -47,88 +46,26 @@ export function toggleManagerMultiSelectCsv(currentValue, managerName, optionLis
 export function WorkReportExternalManagerMultiSelect({ value, onChange, options = WORK_REPORT_MANAGER_OPTIONS }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
-  const triggerRef = useRef(null)
-  const [menuStyle, setMenuStyle] = useState({ top: 0, left: 0, width: 0 })
   const selected = useMemo(() => parseManagerMultiSelectValue(value), [value])
 
-  const updateMenuPosition = useCallback(() => {
-    const el = triggerRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    setMenuStyle({
-      top: rect.bottom + 4,
-      left: rect.left,
-      width: Math.max(rect.width, 140),
-    })
-  }, [])
-
-  useLayoutEffect(() => {
-    if (!open) return
-    updateMenuPosition()
-    const onReposition = () => updateMenuPosition()
-    window.addEventListener('resize', onReposition)
-    window.addEventListener('scroll', onReposition, true)
-    return () => {
-      window.removeEventListener('resize', onReposition)
-      window.removeEventListener('scroll', onReposition, true)
-    }
-  }, [open, updateMenuPosition])
+  const handleToggleOption = (option) => {
+    onChange(toggleManagerMultiSelectCsv(value, option, options))
+  }
 
   useEffect(() => {
     if (!open) return
     const onDocDown = (e) => {
       const target = e.target
       if (rootRef.current?.contains(target)) return
-      if (target instanceof Element && target.closest('.work-report-external-manager-multi-menu--portal')) {
-        return
-      }
       setOpen(false)
     }
     document.addEventListener('mousedown', onDocDown)
     return () => document.removeEventListener('mousedown', onDocDown)
   }, [open])
 
-  const menu =
-    open && typeof document !== 'undefined'
-      ? createPortal(
-          <div
-            className="work-report-external-manager-multi-menu work-report-external-manager-multi-menu--portal"
-            role="listbox"
-            aria-multiselectable="true"
-            style={{
-              top: `${menuStyle.top}px`,
-              left: `${menuStyle.left}px`,
-              width: `${menuStyle.width}px`,
-            }}
-          >
-            {options.map((option) => {
-              const isOn = selected.includes(option)
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  role="option"
-                  aria-selected={isOn}
-                  className={`work-report-external-manager-multi-item${isOn ? ' is-selected' : ''}`}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => onChange(toggleManagerMultiSelectCsv(value, option, options))}
-                >
-                  <span className="work-report-external-manager-multi-tick" aria-hidden>
-                    {isOn ? '✓' : ''}
-                  </span>
-                  {option}
-                </button>
-              )
-            })}
-          </div>,
-          document.body
-        )
-      : null
-
   return (
-    <div className="work-report-external-manager-multi" ref={rootRef}>
+    <div className="work-report-external-manager-multi relative" ref={rootRef}>
       <button
-        ref={triggerRef}
         type="button"
         className="work-report-external-manager-multi-trigger"
         aria-expanded={open}
@@ -149,7 +86,33 @@ export function WorkReportExternalManagerMultiSelect({ value, onChange, options 
           {open ? '▲' : '▼'}
         </span>
       </button>
-      {menu}
+      {open ? (
+        <div
+          className="work-report-external-manager-multi-menu absolute top-full left-0 z-50"
+          role="listbox"
+          aria-multiselectable="true"
+        >
+          {options.map((option) => {
+            const isOn = selected.includes(option)
+            return (
+              <button
+                key={option}
+                type="button"
+                role="option"
+                aria-selected={isOn}
+                className={`work-report-external-manager-multi-item${isOn ? ' is-selected' : ''}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleToggleOption(option)}
+              >
+                <span className="work-report-external-manager-multi-tick" aria-hidden>
+                  {isOn ? '✓' : ''}
+                </span>
+                {option}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
     </div>
   )
 }
