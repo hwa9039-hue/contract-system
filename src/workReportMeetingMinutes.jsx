@@ -1,4 +1,4 @@
-﻿import { useMemo } from 'react'
+﻿import { useCallback, useEffect, useRef, useState } from 'react'
 import { decodeWorkReportWireText } from './workReportWire.js'
 import {
   WORK_REPORT_MANAGER_OPTIONS,
@@ -213,6 +213,40 @@ export function normalizeMeetingMinutesAgenda(agenda) {
 
 export function getDefaultMeetingMinutesAgenda() {
   return normalizeMeetingMinutesAgenda([])
+}
+
+/** 서버/저장소 agenda를 20행 템플릿 위에 병합 */
+export function mergeMeetingMinutesAgendaForState(agenda) {
+  const template = getDefaultMeetingMinutesAgenda()
+  const source = Array.isArray(agenda) ? agenda : []
+  return template.map((emptyRow, index) => {
+    const row = source[index]
+    if (row === null || row === undefined) return { ...emptyRow }
+    return normalizeMeetingMinutesAgenda([row])[0]
+  })
+}
+
+export function buildMeetingMinutesBoardEntry(weekStartDate, prevEntry, agendaRows) {
+  const agenda = mergeMeetingMinutesAgendaForState(agendaRows)
+  const content = serializeMeetingMinutesDocumentContent({ agenda })
+  const base =
+    prevEntry ||
+    ({
+      date: weekStartDate,
+      section: WORK_REPORT_MEETING_MINUTES_SECTION,
+      orderIndex: 1,
+      content: '',
+      user: '',
+    })
+  return {
+    ...base,
+    date: weekStartDate,
+    section: WORK_REPORT_MEETING_MINUTES_SECTION,
+    orderIndex: 1,
+    content,
+    user: '',
+    assignees: [],
+  }
 }
 
 export function getDefaultMeetingMinutesData() {
@@ -594,7 +628,9 @@ export function loadMeetingMinutesAgenda(weekStartDate, getEntry) {
 
 export function loadMeetingMinutesDocument(weekStartDate, getEntry) {
   try {
-    return loadMeetingMinutesDocumentUnsafe(weekStartDate, getEntry)
+    const doc = loadMeetingMinutesDocumentUnsafe(weekStartDate, getEntry)
+    const agenda = mergeMeetingMinutesAgendaForState(doc.agenda)
+    return { agenda }
   } catch {
     return getDefaultMeetingMinutesDocument()
   }
@@ -711,58 +747,67 @@ export function WorkReportMeetingMinutesSection({
   onEntryBlur,
 }) {
   const boardEntry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
-  const document = useMemo(
-    () => loadMeetingMinutesDocument(weekStartDate, getEntry),
-    [weekStartDate, getEntry, boardEntry?.content, boardEntry?.id, boardEntry?.updatedAt]
-  )
-  const agendaRows = useMemo(
-    () => normalizeMeetingMinutesAgenda(document.agenda),
-    [document.agenda]
+  const agendaRowsRef = useRef(getDefaultMeetingMinutesAgenda())
+  const [agendaRows, setAgendaRows] = useState(() => getDefaultMeetingMinutesAgenda())
+  const loadSyncKey = [
+    weekStartDate,
+    safeString(boardEntry?.id),
+    safeString(boardEntry?.updatedAt || boardEntry?.createdAt),
+  ].join('|')
+
+  useEffect(() => {
+    const doc = loadMeetingMinutesDocument(weekStartDate, getEntry)
+    const merged = mergeMeetingMinutesAgendaForState(doc.agenda)
+    agendaRowsRef.current = merged
+    setAgendaRows(merged)
+  }, [loadSyncKey, weekStartDate])
+
+  const commitAgendaRows = useCallback(
+    (nextAgenda) => {
+      const merged = mergeMeetingMinutesAgendaForState(nextAgenda)
+      agendaRowsRef.current = merged
+      setAgendaRows(merged)
+      updateEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1, (prevEntry) =>
+        buildMeetingMinutesBoardEntry(weekStartDate, prevEntry, merged)
+      )
+      return merged
+    },
+    [updateEntry, weekStartDate]
   )
 
-  const patchDocument = (patch) => {
-    const next = normalizeMeetingMinutesDocument({ ...document, ...patch })
-    updateEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1, (prevEntry) => {
-      const base =
-        prevEntry ||
-        ({
-          date: weekStartDate,
-          section: WORK_REPORT_MEETING_MINUTES_SECTION,
-          orderIndex: 1,
-          content: '',
-          user: '',
-        })
-      return {
-        ...base,
-        date: weekStartDate,
-        section: WORK_REPORT_MEETING_MINUTES_SECTION,
-        orderIndex: 1,
-        content: serializeMeetingMinutesDocumentContent(next),
-        user: '',
-        assignees: [],
-      }
-    })
-  }
+  const patchAgendaRow = useCallback(
+    (index, patch) => {
+      const nextAgenda = agendaRowsRef.current.map((row, rowIndex) => {
+        if (rowIndex !== index) return row
+        const nextAssignees =
+          patch.assignees !== undefined
+            ? parseManagerMultiSelectValue(patch.assignees)
+            : patch.assignee !== undefined
+              ? parseManagerMultiSelectValue(patch.assignee)
+              : row.assignees
+        return {
+          ...row,
+          content: patch.content !== undefined ? patch.content : row.content,
+          assignee: serializeManagerMultiSelectValue(nextAssignees),
+          assignees: nextAssignees,
+          dueDate: patch.dueDate !== undefined ? patch.dueDate : row.dueDate,
+        }
+      })
+      commitAgendaRows(nextAgenda)
+    },
+    [commitAgendaRows]
+  )
 
-  const patchAgendaRow = (index, patch) => {
-    const nextAgenda = agendaRows.map((row, rowIndex) => {
-      if (rowIndex !== index) return row
-      const nextAssignees =
-        patch.assignees !== undefined
-          ? parseManagerMultiSelectValue(patch.assignees)
-          : patch.assignee !== undefined
-            ? parseManagerMultiSelectValue(patch.assignee)
-            : row.assignees
-      return {
-        ...row,
-        content: patch.content !== undefined ? patch.content : row.content,
-        assignee: serializeManagerMultiSelectValue(nextAssignees),
-        assignees: nextAssignees,
-        dueDate: patch.dueDate !== undefined ? patch.dueDate : row.dueDate,
-      }
-    })
-    patchDocument({ agenda: nextAgenda })
-  }
+  const handleRowBlur = useCallback(
+    (event) => {
+      if (event.currentTarget.contains(event.relatedTarget)) return
+      updateEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1, (prevEntry) =>
+        buildMeetingMinutesBoardEntry(weekStartDate, prevEntry, agendaRowsRef.current)
+      )
+      onEntryBlur?.(event)
+    },
+    [onEntryBlur, updateEntry, weekStartDate]
+  )
 
   return (
     <section className="work-report-report-section work-report-meeting-minutes-panel meeting-minutes-doc">
@@ -777,7 +822,7 @@ export function WorkReportMeetingMinutesSection({
           <div
             key={`meeting-agenda-${index + 1}`}
             className="meeting-minutes-doc__agenda-row"
-            onBlur={onEntryBlur}
+            onBlur={handleRowBlur}
           >
             <span className="meeting-minutes-doc__agenda-num">{index + 1}</span>
             <textarea
