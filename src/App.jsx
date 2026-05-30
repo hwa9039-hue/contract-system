@@ -2133,7 +2133,7 @@ function InstallCaseHeroMedia({
   if (isVideo) {
     return (
       <video
-        className={className}
+        className={`install-case-detail-media${className ? ` ${className}` : ''}`}
         src={mediaSrc}
         controls
         playsInline
@@ -2145,7 +2145,7 @@ function InstallCaseHeroMedia({
 
   return (
     <img
-      className={className}
+      className={`install-case-detail-media${className ? ` ${className}` : ''}`}
       src={mediaSrc}
       alt=""
       loading={loading}
