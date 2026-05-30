@@ -673,13 +673,27 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
 }
 
+.excel-table thead {
+  position: relative;
+  z-index: 20;
+}
+
+.excel-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #f8fafc;
+  box-shadow: inset 0 -1px 0 #e2e8f0;
+}
+
 .excel-table thead th.contract-th-filterable {
   overflow: visible;
   white-space: nowrap;
+  z-index: 20;
 }
 
 .excel-table thead th.contract-th-filterable:has(.contract-column-filter.is-open) {
-  z-index: 1202;
+  z-index: 30;
 }
 
 .excel-table thead th.contract-th-filterable .contract-th-label {
@@ -1059,7 +1073,7 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
 .excel-table thead th {
   position: sticky;
   top: 0;
-  z-index: 6;
+  z-index: 20;
   background: #f8fafc;
   box-shadow: inset 0 -1px 0 #e2e8f0;
 }
@@ -1172,6 +1186,8 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
 
 .excel-table tbody tr.row-even,
 .excel-table tbody tr.row-odd {
+  position: relative;
+  z-index: 0;
   transition: background-color 0.15s ease;
 }
 
@@ -6523,10 +6539,31 @@ textarea:focus-visible {
   min-width: 1180px;
 }
 
-.documents-registry-table.excel-table thead th,
 .documents-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
   box-sizing: border-box;
   overflow: hidden;
+  position: relative;
+  z-index: 0;
+}
+
+.documents-registry-table.excel-table thead th {
+  box-sizing: border-box;
+}
+
+.documents-registry-table.excel-table thead th.contract-th-filterable {
+  overflow: visible;
+  white-space: nowrap;
+  position: sticky;
+  z-index: 20;
+}
+
+.documents-registry-table.excel-table thead th.contract-th-filterable:has(.contract-column-filter.is-open) {
+  z-index: 30;
+}
+
+.documents-registry-table.excel-table thead th.contract-th-filterable .contract-th-label {
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .documents-registry-table col.registry-check-col,
