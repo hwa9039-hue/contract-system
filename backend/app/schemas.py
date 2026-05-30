@@ -41,10 +41,16 @@ class ContractBase(BaseModel):
     contractDate: Optional[date] = None
     dueDate: Optional[date] = None
     projectName: str = ""
-    amount: int = 0
-    salesOwner: str = ""
-    pm: str = ""
-    note: str = ""
+  amount: int = 0
+  salesOwner: str = ""
+  pm: str = ""
+  note: str = ""
+  costService: str = ""
+  itemName: str = ""
+  designUnitPrice: int = 0
+  pitch: str = ""
+  capW: str = ""
+  capH: str = ""
 
     @field_validator("contractDate", "dueDate", mode="before")
     @classmethod
@@ -97,6 +103,12 @@ class ContractPatch(BaseModel):
     salesOwner: Optional[str] = None
     pm: Optional[str] = None
     note: Optional[str] = None
+    costService: Optional[str] = None
+    itemName: Optional[str] = None
+    designUnitPrice: Optional[int] = None
+    pitch: Optional[str] = None
+    capW: Optional[str] = None
+    capH: Optional[str] = None
 
 
 def coerce_contract_api_id(value: Any) -> str:
@@ -131,6 +143,12 @@ class ContractOut(BaseModel):
     salesOwner: Optional[Any] = None
     pm: Optional[Any] = None
     note: Optional[Any] = None
+    costService: Optional[Any] = None
+    itemName: Optional[Any] = None
+    designUnitPrice: Optional[Any] = None
+    pitch: Optional[Any] = None
+    capW: Optional[Any] = None
+    capH: Optional[Any] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -638,6 +656,12 @@ def row_to_contract(row) -> dict:
         "salesOwner": to_response_value(row["salesOwner"]),
         "pm": to_response_value(row["pm"]),
         "note": to_response_value(row["note"]),
+        "costService": to_response_value(row.get("costService", "")),
+        "itemName": to_response_value(row.get("itemName", "")),
+        "designUnitPrice": to_response_value(row.get("designUnitPrice", 0)),
+        "pitch": to_response_value(row.get("pitch", "")),
+        "capW": to_response_value(row.get("capW", "")),
+        "capH": to_response_value(row.get("capH", "")),
     }
 
 
@@ -883,6 +907,12 @@ CONTRACT_DB_COLUMNS = {
     "salesOwner": "salesOwner",
     "pm": "pm",
     "note": "note",
+    "costService": "costService",
+    "itemName": "itemName",
+    "designUnitPrice": "designUnitPrice",
+    "pitch": "pitch",
+    "capW": "capW",
+    "capH": "capH",
 }
 
 TABLE_COLUMN_MAPPINGS = {
@@ -1201,6 +1231,27 @@ def contract_to_db_values(contract: ContractBase) -> dict:
             else:
                 try:
                     v = int(Decimal(str(val)))
+                    out[db_key] = v if v >= 0 else 0
+                except Exception:
+                    out[db_key] = 0
+            continue
+
+        if api_key == "designUnitPrice":
+            if val is None:
+                out[db_key] = 0
+            elif isinstance(val, bool):
+                out[db_key] = 0
+            elif isinstance(val, (int, float)):
+                v = int(val)
+                out[db_key] = v if v >= 0 else 0
+            elif isinstance(val, Decimal):
+                try:
+                    out[db_key] = int(val)
+                except Exception:
+                    out[db_key] = 0
+            else:
+                try:
+                    v = int(Decimal(str(val).replace(",", "")))
                     out[db_key] = v if v >= 0 else 0
                 except Exception:
                     out[db_key] = 0

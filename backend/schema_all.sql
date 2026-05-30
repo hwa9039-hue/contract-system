@@ -22,7 +22,13 @@ CREATE TABLE IF NOT EXISTS contracts_rows (
   amount numeric(18, 0) NOT NULL DEFAULT 0,
   "salesOwner" text NOT NULL DEFAULT '',
   pm text NOT NULL DEFAULT '',
-  note text NOT NULL DEFAULT ''
+  note text NOT NULL DEFAULT '',
+  "costService" text NOT NULL DEFAULT '',
+  "itemName" text NOT NULL DEFAULT '',
+  "designUnitPrice" numeric(18, 0) NOT NULL DEFAULT 0,
+  pitch text NOT NULL DEFAULT '',
+  "capW" text NOT NULL DEFAULT '',
+  "capH" text NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS sales_register_rows (

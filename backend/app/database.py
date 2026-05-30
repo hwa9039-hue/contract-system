@@ -278,7 +278,13 @@ def init_db():
                   amount numeric(18, 0) not null default 0,
                   "salesOwner" text not null default '',
                   pm text not null default '',
-                  note text not null default ''
+                  note text not null default '',
+                  "costService" text not null default '',
+                  "itemName" text not null default '',
+                  "designUnitPrice" numeric(18, 0) not null default 0,
+                  pitch text not null default '',
+                  "capW" text not null default '',
+                  "capH" text not null default ''
                 )
                 """
             )
@@ -475,6 +481,42 @@ def init_db():
                 """
                 alter table contracts_rows
                   add column if not exists "identNo" text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table contracts_rows
+                  add column if not exists "costService" text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table contracts_rows
+                  add column if not exists "itemName" text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table contracts_rows
+                  add column if not exists "designUnitPrice" numeric(18, 0) not null default 0
+                """
+            )
+            cursor.execute(
+                """
+                alter table contracts_rows
+                  add column if not exists pitch text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table contracts_rows
+                  add column if not exists "capW" text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table contracts_rows
+                  add column if not exists "capH" text not null default ''
                 """
             )
             _migrate_contracts_text_columns(cursor)

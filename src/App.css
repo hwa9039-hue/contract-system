@@ -10481,6 +10481,22 @@ textarea:focus-visible {
   margin-top: 0;
 }
 
+.unit-price-save-error {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.unit-price-table-scroll {
+  height: calc(100vh - 250px);
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
 .unit-price-table {
   width: 100%;
   min-width: 1120px;
@@ -10496,7 +10512,7 @@ textarea:focus-visible {
 }
 
 .unit-price-table .unit-price-col-year {
-  width: 8%;
+  width: 5%;
 }
 
 .unit-price-table .unit-price-col-client {
@@ -10504,7 +10520,7 @@ textarea:focus-visible {
 }
 
 .unit-price-table .unit-price-col-project {
-  width: 28%;
+  width: 31%;
 }
 
 .unit-price-table .unit-price-col-editable {
@@ -10539,15 +10555,43 @@ textarea:focus-visible {
   padding-right: 1rem;
 }
 
+.unit-price-table .sticky {
+  position: sticky;
+}
+
+.unit-price-table .top-0 {
+  top: 0;
+}
+
+.unit-price-table .z-10 {
+  z-index: 10;
+}
+
+.unit-price-table .bg-gray-100 {
+  background: #f3f4f6;
+}
+
+.unit-price-table .bg-yellow-300 {
+  background: #fde047;
+}
+
+.unit-price-table .overflow-y-auto {
+  overflow-y: auto;
+}
+
 .unit-price-table thead th.unit-price-th {
   padding: 10px 8px;
   font-size: 13px;
   font-weight: 700;
   line-height: 1.25;
-  background: #f3f4f6;
   color: #475569;
   text-align: center;
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #f3f4f6;
+  box-shadow: inset 0 -1px 0 #e2e8f0;
 }
 
 .unit-price-table thead th.unit-price-th.contract-th-filterable {
@@ -10569,9 +10613,11 @@ textarea:focus-visible {
   z-index: 50;
 }
 
-.unit-price-table thead th.unit-price-th-design {
+.unit-price-table thead th.unit-price-th-design,
+.unit-price-table thead th.unit-price-th.bg-yellow-300 {
   background: #fde047;
   color: #713f12;
+  z-index: 10;
 }
 
 .unit-price-table tbody td.unit-price-readonly {

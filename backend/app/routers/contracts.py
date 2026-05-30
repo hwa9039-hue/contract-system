@@ -28,7 +28,8 @@ router = APIRouter(prefix="/api/contracts", tags=["contracts"])
 RETURNING_COLUMNS = """
   id::text as id, year, segment, "refNo", "contractNo", client, department,
   "contractMethod", "contractType", "identNo", "contractDate", "dueDate",
-  "projectName", amount, "salesOwner", pm, note
+  "projectName", amount, "salesOwner", pm, note,
+  "costService", "itemName", "designUnitPrice", pitch, "capW", "capH"
 """
 
 
@@ -226,6 +227,16 @@ def update_contract(contract_id: str, patch: ContractPatch):
         db_key = CONTRACT_DB_COLUMNS.get(api_key)
         if not db_key:
             continue
+        if api_key == "designUnitPrice" and value is not None:
+            if isinstance(value, bool):
+                value = 0
+            elif isinstance(value, (int, float)):
+                value = max(int(value), 0)
+            else:
+                try:
+                    value = max(int(str(value).replace(",", "")), 0)
+                except ValueError:
+                    value = 0
         values[db_key] = value
         assignments.append(f"{quote_identifier(db_key)} = %({db_key})s")
 

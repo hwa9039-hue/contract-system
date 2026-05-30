@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { contractsApi } from '../contractsApi.js'
 import {
@@ -33,6 +33,7 @@ const EDITABLE_COLUMNS = [
     label: '설계단가',
     headerClass: 'unit-price-col-design unit-price-th-design',
     inputClass: 'editable-text-cell-input--right text-right pr-4',
+    isAmount: true,
   },
   {
     key: 'pitch',
@@ -61,6 +62,23 @@ function safeString(value) {
   return String(value)
 }
 
+function normalizeDesignUnitPriceValue(value) {
+  if (value === null || value === undefined || value === '') return ''
+  return safeString(value).replace(/[^0-9]/g, '')
+}
+
+function formatDesignUnitPrice(value) {
+  const raw = normalizeDesignUnitPriceValue(value)
+  if (!raw) return ''
+  return Number(raw).toLocaleString('ko-KR')
+}
+
+function parseDesignUnitPrice(value) {
+  const raw = normalizeDesignUnitPriceValue(value)
+  const n = raw ? Number(raw) : 0
+  return Number.isFinite(n) ? n : 0
+}
+
 function createEmptyEditableFields() {
   return EDITABLE_COLUMNS.reduce((acc, column) => {
     acc[column.key] = ''
@@ -68,13 +86,55 @@ function createEmptyEditableFields() {
   }, {})
 }
 
+function extractEditableFields(item) {
+  return {
+    costService: safeString(item?.costService).trim(),
+    itemName: safeString(item?.itemName).trim(),
+    designUnitPrice: formatDesignUnitPrice(item?.designUnitPrice),
+    pitch: safeString(item?.pitch).trim(),
+    capW: safeString(item?.capW).trim(),
+    capH: safeString(item?.capH).trim(),
+  }
+}
+
+function buildUnitPriceApiPatch(fields) {
+  return {
+    costService: safeString(fields?.costService).trim(),
+    itemName: safeString(fields?.itemName).trim(),
+    designUnitPrice: parseDesignUnitPrice(fields?.designUnitPrice),
+    pitch: safeString(fields?.pitch).trim(),
+    capW: safeString(fields?.capW).trim(),
+    capH: safeString(fields?.capH).trim(),
+  }
+}
+
+function areEditableFieldsEqual(left, right) {
+  const a = left || createEmptyEditableFields()
+  const b = right || createEmptyEditableFields()
+  return EDITABLE_COLUMNS.every((column) => {
+    if (column.key === 'designUnitPrice') {
+      return parseDesignUnitPrice(a[column.key]) === parseDesignUnitPrice(b[column.key])
+    }
+    return safeString(a[column.key]).trim() === safeString(b[column.key]).trim()
+  })
+}
+
 export default function UnitPriceManagement() {
   const [rows, setRows] = useState([])
   const [editableByRowId, setEditableByRowId] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [saveError, setSaveError] = useState(null)
   const [activeFilters, setActiveFilters] = useState({})
   const [openColumnFilterKey, setOpenColumnFilterKey] = useState(null)
+
+  const savedByRowIdRef = useRef({})
+  const editableByRowIdRef = useRef({})
+  const savingRowIdsRef = useRef(new Set())
+
+  useEffect(() => {
+    editableByRowIdRef.current = editableByRowId
+  }, [editableByRowId])
 
   useEffect(() => {
     let cancelled = false
@@ -82,6 +142,7 @@ export default function UnitPriceManagement() {
     void (async () => {
       setLoading(true)
       setError(null)
+      setSaveError(null)
 
       try {
         const data = await contractsApi.list()
@@ -89,29 +150,36 @@ export default function UnitPriceManagement() {
           .filter((item) => safeString(item.contractType).trim() === CONTRACT_TYPE_FILTER)
           .map((item, index) => {
             const serverId = safeString(item.id ?? item._id ?? item.contract_id ?? item.ID).trim()
+            const id = serverId || `__ROW__${index}`
             return {
-              id: serverId || `__ROW__${index}`,
+              id,
               year: safeString(item.year).trim(),
               client: safeString(item.client).trim(),
               projectName: safeString(item.projectName).trim(),
+              editableFields: extractEditableFields(item),
             }
           })
 
         if (cancelled) return
 
-        setRows(filtered)
-        setEditableByRowId(
-          filtered.reduce((acc, row) => {
-            acc[row.id] = createEmptyEditableFields()
-            return acc
-          }, {})
+        const nextEditable = filtered.reduce((acc, row) => {
+          acc[row.id] = { ...row.editableFields }
+          return acc
+        }, {})
+
+        savedByRowIdRef.current = Object.fromEntries(
+          Object.entries(nextEditable).map(([rowId, fields]) => [rowId, { ...fields }])
         )
+
+        setRows(filtered.map(({ id, year, client, projectName }) => ({ id, year, client, projectName })))
+        setEditableByRowId(nextEditable)
       } catch (fetchError) {
         if (cancelled) return
         console.error('[단가관리] 계약현황 API fetch failed', fetchError)
         setError(fetchError?.message || '계약현황 데이터를 불러오지 못했습니다.')
         setRows([])
         setEditableByRowId({})
+        savedByRowIdRef.current = {}
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -148,29 +216,77 @@ export default function UnitPriceManagement() {
     })
   }, [])
 
+  const persistUnitPriceRow = useCallback(async (rowId) => {
+    const normalizedRowId = safeString(rowId).trim()
+    if (!normalizedRowId || normalizedRowId.startsWith('__ROW__')) return
+    if (savingRowIdsRef.current.has(normalizedRowId)) return
+
+    const current = editableByRowIdRef.current[normalizedRowId] || createEmptyEditableFields()
+    const saved = savedByRowIdRef.current[normalizedRowId] || createEmptyEditableFields()
+    if (areEditableFieldsEqual(current, saved)) return
+
+    savingRowIdsRef.current.add(normalizedRowId)
+    const patch = buildUnitPriceApiPatch(current)
+    const previousSaved = { ...saved }
+
+    try {
+      await contractsApi.update(normalizedRowId, patch)
+      const normalizedFields = extractEditableFields(patch)
+      savedByRowIdRef.current = {
+        ...savedByRowIdRef.current,
+        [normalizedRowId]: { ...normalizedFields },
+      }
+      setEditableByRowId((prev) => ({
+        ...prev,
+        [normalizedRowId]: normalizedFields,
+      }))
+      setSaveError(null)
+    } catch (saveErr) {
+      console.error('[단가관리] 행 저장 실패', saveErr)
+      setEditableByRowId((prev) => ({
+        ...prev,
+        [normalizedRowId]: previousSaved,
+      }))
+      setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
+    } finally {
+      savingRowIdsRef.current.delete(normalizedRowId)
+    }
+  }, [])
+
   const handleEditableChange = (rowId, fieldKey, value) => {
+    const nextValue =
+      fieldKey === 'designUnitPrice' ? formatDesignUnitPrice(value) : value
     setEditableByRowId((prev) => ({
       ...prev,
       [rowId]: {
         ...(prev[rowId] || createEmptyEditableFields()),
-        [fieldKey]: value,
+        [fieldKey]: nextValue,
       },
     }))
+  }
+
+  const handleEditableBlur = (rowId) => {
+    void persistUnitPriceRow(rowId)
   }
 
   const totalColumnCount = FILTERABLE_COLUMNS.length + EDITABLE_COLUMNS.length
 
   return (
     <div className="unit-price-management">
+      {saveError ? (
+        <div className="unit-price-save-error" role="alert">
+          {saveError}
+        </div>
+      ) : null}
       <div className="contract-table-panel unit-price-table-panel">
-        <div className="table-wrap overflow-x-auto">
+        <div className="table-wrap unit-price-table-scroll overflow-y-auto overflow-x-auto">
           <table className="contract-table excel-table registry-table unit-price-table w-full table-fixed">
             <thead>
               <tr>
                 {FILTERABLE_COLUMNS.map((column) => (
                   <th
                     key={column.key}
-                    className={`unit-price-th text-center contract-th-filterable relative ${column.headerClass}`}
+                    className={`unit-price-th text-center sticky top-0 z-10 bg-gray-100 contract-th-filterable relative ${column.headerClass}`}
                   >
                     <div className="contract-th-filter-wrap">
                       <span className="contract-th-label">{column.label}</span>
@@ -188,7 +304,9 @@ export default function UnitPriceManagement() {
                 {EDITABLE_COLUMNS.map((column) => (
                   <th
                     key={column.key}
-                    className={`unit-price-th text-center relative ${column.headerClass || ''}`}
+                    className={`unit-price-th text-center sticky top-0 z-10 relative ${column.headerClass || ''} ${
+                      column.key === 'designUnitPrice' ? 'bg-yellow-300' : 'bg-gray-100'
+                    }`}
                   >
                     {column.label}
                   </th>
@@ -237,6 +355,7 @@ export default function UnitPriceManagement() {
                           className={`editable-text-cell-input unit-price-cell-input ${column.inputClass || ''}`}
                           value={editableByRowId[row.id]?.[column.key] ?? ''}
                           onChange={(event) => handleEditableChange(row.id, column.key, event.target.value)}
+                          onBlur={() => handleEditableBlur(row.id)}
                         />
                       </td>
                     ))}
