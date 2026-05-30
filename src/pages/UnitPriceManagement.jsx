@@ -9,17 +9,22 @@ import {
 
 const CONTRACT_TYPE_FILTER = '55121903'
 
-/** 백엔드 contracts_rows / ContractPatch 컬럼명과 100% 일치 */
-const UNIT_PRICE_PATCH_KEYS = Object.freeze([
-  'costService',
-  'itemName',
-  'designUnitPrice',
-  'pitch',
-  'capW',
-  'capH',
-])
+/**
+ * UI 편집 필드 → PATCH API 키 (= contracts_rows / ContractPatch / CONTRACT_DB_COLUMNS)
+ * 한글 라벨(원가용역 등)은 절대 payload에 넣지 않음.
+ */
+const UNIT_PRICE_API_COLUMN_MAP = Object.freeze({
+  costService: 'costService',
+  itemName: 'itemName',
+  designUnitPrice: 'designUnitPrice',
+  pitch: 'pitch',
+  capW: 'capW',
+  capH: 'capH',
+})
 
-const FILTERABLE_COLUMNS = [
+const UNIT_PRICE_PATCH_KEYS = Object.freeze(Object.keys(UNIT_PRICE_API_COLUMN_MAP))
+
+const READONLY_COLUMNS = [
   { key: 'year', label: '사업년도', headerClass: 'unit-price-col-year' },
   { key: 'client', label: '발주처', headerClass: 'unit-price-col-client' },
   { key: 'projectName', label: '사업명', headerClass: 'unit-price-col-project' },
@@ -70,7 +75,10 @@ const EDITABLE_COLUMNS = [
   },
 ]
 
-const FILTERABLE_COLUMN_KEYS = FILTERABLE_COLUMNS.map((column) => column.key)
+/** 필터 드롭다운을 붙일 9개 열(사업년도 ~ H) */
+const ALL_TABLE_COLUMNS = [...READONLY_COLUMNS, ...EDITABLE_COLUMNS]
+
+const ALL_TABLE_COLUMN_KEYS = ALL_TABLE_COLUMNS.map((column) => column.key)
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -101,14 +109,28 @@ function createEmptyEditableFields() {
   }, {})
 }
 
+function readContractField(item, ...keys) {
+  if (!item || typeof item !== 'object') return ''
+  for (const key of keys) {
+    if (item[key] !== undefined && item[key] !== null) {
+      return item[key]
+    }
+  }
+  return ''
+}
+
 function extractEditableFields(item) {
   return {
-    costService: safeString(item?.costService).trim(),
-    itemName: safeString(item?.itemName).trim(),
-    designUnitPrice: formatDesignUnitPrice(item?.designUnitPrice),
-    pitch: safeString(item?.pitch).trim(),
-    capW: safeString(item?.capW).trim(),
-    capH: safeString(item?.capH).trim(),
+    costService: safeString(
+      readContractField(item, 'costService', 'cost_service', 'costservice')
+    ).trim(),
+    itemName: safeString(readContractField(item, 'itemName', 'item_name', 'itemname')).trim(),
+    designUnitPrice: formatDesignUnitPrice(
+      readContractField(item, 'designUnitPrice', 'design_unit_price', 'designunitprice')
+    ),
+    pitch: safeString(readContractField(item, 'pitch')).trim(),
+    capW: safeString(readContractField(item, 'capW', 'cap_w', 'capw', 'width')).trim(),
+    capH: safeString(readContractField(item, 'capH', 'cap_h', 'caph', 'height')).trim(),
   }
 }
 
@@ -135,33 +157,49 @@ function applyPatchToEditableFields(saved, patch) {
   return next
 }
 
+function editableFieldToApiValue(fieldKey, fields) {
+  const cur = fields || createEmptyEditableFields()
+  switch (fieldKey) {
+    case 'designUnitPrice':
+      return parseDesignUnitPrice(cur.designUnitPrice)
+    case 'costService':
+    case 'itemName':
+    case 'pitch':
+    case 'capW':
+    case 'capH':
+      return safeString(cur[fieldKey]).trim()
+    default:
+      return undefined
+  }
+}
+
+/** 편집 필드 → ContractPatch payload (DB 컬럼명 = API 키) */
+function mapEditableFieldsToContractApiPatch(fields, fieldKeys = UNIT_PRICE_PATCH_KEYS) {
+  const cur = fields || createEmptyEditableFields()
+  const patch = {}
+  for (const fieldKey of fieldKeys) {
+    const apiKey = UNIT_PRICE_API_COLUMN_MAP[fieldKey]
+    if (!apiKey) continue
+    const value = editableFieldToApiValue(fieldKey, cur)
+    if (value === undefined) continue
+    patch[apiKey] = value
+  }
+  return patch
+}
+
 function buildUnitPriceApiPatchDiff(current, saved) {
   const cur = current || createEmptyEditableFields()
   const sav = saved || createEmptyEditableFields()
-  const patch = {}
-
-  if (safeString(cur.costService).trim() !== safeString(sav.costService).trim()) {
-    patch.costService = safeString(cur.costService).trim()
-  }
-  if (safeString(cur.itemName).trim() !== safeString(sav.itemName).trim()) {
-    patch.itemName = safeString(cur.itemName).trim()
-  }
-  if (parseDesignUnitPrice(cur.designUnitPrice) !== parseDesignUnitPrice(sav.designUnitPrice)) {
-    patch.designUnitPrice = parseDesignUnitPrice(cur.designUnitPrice)
-  }
-  if (safeString(cur.pitch).trim() !== safeString(sav.pitch).trim()) {
-    patch.pitch = safeString(cur.pitch).trim()
-  }
-  if (safeString(cur.capW).trim() !== safeString(sav.capW).trim()) {
-    patch.capW = safeString(cur.capW).trim()
-  }
-  if (safeString(cur.capH).trim() !== safeString(sav.capH).trim()) {
-    patch.capH = safeString(cur.capH).trim()
-  }
-
-  return Object.fromEntries(
-    Object.entries(patch).filter(([key]) => UNIT_PRICE_PATCH_KEYS.includes(key))
+  const changedKeys = UNIT_PRICE_PATCH_KEYS.filter(
+    (fieldKey) => !isEditableFieldEqual(fieldKey, cur, sav)
   )
+  return mapEditableFieldsToContractApiPatch(cur, changedKeys)
+}
+
+function buildUnitPriceFieldApiPatch(fieldKey, current, saved) {
+  if (!UNIT_PRICE_PATCH_KEYS.includes(fieldKey)) return {}
+  if (isEditableFieldEqual(fieldKey, current, saved)) return {}
+  return mapEditableFieldsToContractApiPatch(current, [fieldKey])
 }
 
 function isEditableFieldEqual(fieldKey, left, right) {
@@ -171,10 +209,6 @@ function isEditableFieldEqual(fieldKey, left, right) {
     return parseDesignUnitPrice(a[fieldKey]) === parseDesignUnitPrice(b[fieldKey])
   }
   return safeString(a[fieldKey]).trim() === safeString(b[fieldKey]).trim()
-}
-
-function areEditableFieldsEqual(left, right) {
-  return EDITABLE_COLUMNS.every((column) => isEditableFieldEqual(column.key, left, right))
 }
 
 function getFocusCacheKey(rowId, fieldKey) {
@@ -253,20 +287,29 @@ export default function UnitPriceManagement() {
     }
   }, [])
 
+  const filterSourceRows = useMemo(
+    () =>
+      rows.map((row) => ({
+        ...row,
+        ...(editableByRowId[row.id] || createEmptyEditableFields()),
+      })),
+    [rows, editableByRowId]
+  )
+
   const columnFilterOptionsMap = useMemo(() => {
     const map = {}
-    FILTERABLE_COLUMN_KEYS.forEach((columnKey) => {
-      const pool = rows.filter((item) =>
+    ALL_TABLE_COLUMN_KEYS.forEach((columnKey) => {
+      const pool = filterSourceRows.filter((item) =>
         contractMatchesColumnFilters(item, activeFilters, columnKey)
       )
       map[columnKey] = buildContractColumnFilterOptions(pool, columnKey)
     })
     return map
-  }, [activeFilters, rows])
+  }, [activeFilters, filterSourceRows])
 
   const filteredRows = useMemo(
-    () => filterContractRowsByActiveFilters(rows, activeFilters),
-    [activeFilters, rows]
+    () => filterContractRowsByActiveFilters(filterSourceRows, activeFilters),
+    [activeFilters, filterSourceRows]
   )
 
   const handleActiveFiltersApply = useCallback((columnKey, selected) => {
@@ -279,20 +322,22 @@ export default function UnitPriceManagement() {
     })
   }, [])
 
-  const persistUnitPriceRow = useCallback(async (rowId) => {
+  const persistUnitPriceRow = useCallback(async (rowId, explicitPayload = null) => {
     const normalizedRowId = safeString(rowId).trim()
     if (!normalizedRowId || normalizedRowId.startsWith('__ROW__')) return
     if (savingRowIdsRef.current.has(normalizedRowId)) return
 
     const current = editableByRowIdRef.current[normalizedRowId] || createEmptyEditableFields()
     const saved = savedByRowIdRef.current[normalizedRowId] || createEmptyEditableFields()
-    if (areEditableFieldsEqual(current, saved)) return
 
-    const payload = buildUnitPriceApiPatchDiff(current, saved)
+    const payload =
+      explicitPayload && typeof explicitPayload === 'object'
+        ? explicitPayload
+        : buildUnitPriceApiPatchDiff(current, saved)
+
     if (Object.keys(payload).length === 0) return
 
     savingRowIdsRef.current.add(normalizedRowId)
-    const previousSaved = { ...saved }
 
     try {
       if (Object.keys(payload).length === 0) return
@@ -304,15 +349,11 @@ export default function UnitPriceManagement() {
       }
       setEditableByRowId((prev) => ({
         ...prev,
-        [normalizedRowId]: mergedFields,
+        [normalizedRowId]: { ...mergedFields },
       }))
       setSaveError(null)
     } catch (saveErr) {
       console.error('[단가관리] 행 저장 실패', saveErr)
-      setEditableByRowId((prev) => ({
-        ...prev,
-        [normalizedRowId]: previousSaved,
-      }))
       setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
     } finally {
       savingRowIdsRef.current.delete(normalizedRowId)
@@ -343,18 +384,20 @@ export default function UnitPriceManagement() {
 
     const cacheKey = getFocusCacheKey(normalizedRowId, fieldKey)
     const originalValue = focusValueByCellRef.current[cacheKey] ?? currentValue
+    delete focusValueByCellRef.current[cacheKey]
 
     if (currentValue === originalValue) return
 
     const current = editableByRowIdRef.current[normalizedRowId] || createEmptyEditableFields()
     const saved = savedByRowIdRef.current[normalizedRowId] || createEmptyEditableFields()
-    if (isEditableFieldEqual(fieldKey, current, saved)) return
-    if (areEditableFieldsEqual(current, saved)) return
 
-    void persistUnitPriceRow(normalizedRowId)
+    const payload = buildUnitPriceFieldApiPatch(fieldKey, current, saved)
+    if (Object.keys(payload).length === 0) return
+
+    void persistUnitPriceRow(normalizedRowId, payload)
   }
 
-  const totalColumnCount = FILTERABLE_COLUMNS.length + EDITABLE_COLUMNS.length
+  const totalColumnCount = ALL_TABLE_COLUMNS.length
 
   return (
     <div className="unit-price-management h-full min-h-0">
@@ -368,10 +411,10 @@ export default function UnitPriceManagement() {
           <table className="contract-table excel-table registry-table unit-price-table w-full table-fixed">
             <thead>
               <tr>
-                {FILTERABLE_COLUMNS.map((column) => (
+                {ALL_TABLE_COLUMNS.map((column) => (
                   <th
                     key={column.key}
-                    className={`unit-price-th text-center sticky top-0 z-10 bg-gray-100 contract-th-filterable relative ${column.headerClass}`}
+                    className={`unit-price-th text-center sticky top-0 z-10 bg-gray-100 contract-th-filterable relative ${column.headerClass || ''}`}
                   >
                     <div className="contract-th-filter-wrap">
                       <span className="contract-th-label">{column.label}</span>
@@ -384,14 +427,6 @@ export default function UnitPriceManagement() {
                         onOpenChange={setOpenColumnFilterKey}
                       />
                     </div>
-                  </th>
-                ))}
-                {EDITABLE_COLUMNS.map((column) => (
-                  <th
-                    key={column.key}
-                    className={`unit-price-th text-center sticky top-0 z-10 bg-gray-100 relative ${column.headerClass || ''}`}
-                  >
-                    {column.label}
                   </th>
                 ))}
               </tr>

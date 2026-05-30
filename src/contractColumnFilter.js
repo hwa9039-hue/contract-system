@@ -21,7 +21,7 @@ export const CONTRACT_COLUMN_FILTER_BLANK = '(비어 있음)'
 
 const HIDDEN_CONTRACT_FILTER_VALUES = Object.freeze(['전유찬', '전유찬 대리'])
 
-const NUMERIC_SORT_COLUMN_KEYS = new Set(['year', 'amount'])
+const NUMERIC_SORT_COLUMN_KEYS = new Set(['year', 'amount', 'designUnitPrice'])
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -77,6 +77,11 @@ export function getContractColumnFilterCellValue(item, columnKey) {
 
   if (columnKey === 'amount') {
     const displayed = formatAmountForFilter(row.amount)
+    return displayed || CONTRACT_COLUMN_FILTER_BLANK
+  }
+
+  if (columnKey === 'designUnitPrice') {
+    const displayed = formatAmountForFilter(row.designUnitPrice)
     return displayed || CONTRACT_COLUMN_FILTER_BLANK
   }
 
