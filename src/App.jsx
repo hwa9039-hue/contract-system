@@ -7654,7 +7654,10 @@ function App() {
     }
     setSalesRecordModal({
       rowId,
-      projectName: safeString(row.projectName).trim() || '(프로젝트명 없음)',
+      client: safeString(row.client).trim(),
+      projectName: safeString(row.projectName).trim(),
+      manager: safeString(row.manager).trim(),
+      department: safeString(row.department).trim(),
       summary: resolveSalesRecordModalContent(row.summary),
       saving: false,
     })
@@ -15178,7 +15181,7 @@ function App() {
             <div className="sales-record-modal-header">
               <div>
                 <h3 id="sales-record-modal-title" className="sales-record-modal-title">
-                  {salesRecordModal.projectName}
+                  요약
                 </h3>
               </div>
               <button
@@ -15192,6 +15195,32 @@ function App() {
               </button>
             </div>
             <div className="sales-record-modal-body">
+              <div className="sales-record-modal-info" aria-label="선택 항목 기본 정보">
+                <div className="sales-record-modal-info-item">
+                  <span className="sales-record-modal-info-label">발주처</span>
+                  <span className="sales-record-modal-info-value">
+                    {salesRecordModal.client || '-'}
+                  </span>
+                </div>
+                <div className="sales-record-modal-info-item">
+                  <span className="sales-record-modal-info-label">사업명</span>
+                  <span className="sales-record-modal-info-value">
+                    {salesRecordModal.projectName || '-'}
+                  </span>
+                </div>
+                <div className="sales-record-modal-info-item">
+                  <span className="sales-record-modal-info-label">담당자</span>
+                  <span className="sales-record-modal-info-value">
+                    {salesRecordModal.manager || '-'}
+                  </span>
+                </div>
+                <div className="sales-record-modal-info-item">
+                  <span className="sales-record-modal-info-label">담당부서</span>
+                  <span className="sales-record-modal-info-value">
+                    {salesRecordModal.department || '-'}
+                  </span>
+                </div>
+              </div>
               <textarea
                 id="sales-record-textarea"
                 className="sales-record-textarea"

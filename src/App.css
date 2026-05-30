@@ -1973,6 +1973,43 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
   overflow: auto;
 }
 
+.sales-record-modal-info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  background: #f9fafb;
+}
+
+.sales-record-modal-info-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.sales-record-modal-info-label {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: #374151;
+}
+
+.sales-record-modal-info-label::after {
+  content: ':';
+}
+
+.sales-record-modal-info-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #111827;
+  word-break: break-word;
+}
+
 .sales-record-textarea {
   width: 100%;
   min-height: 220px;
