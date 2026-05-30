@@ -288,16 +288,16 @@ export default function UnitPriceManagement() {
     const saved = savedByRowIdRef.current[normalizedRowId] || createEmptyEditableFields()
     if (areEditableFieldsEqual(current, saved)) return
 
-    const patch = buildUnitPriceApiPatchDiff(current, saved)
-    const patchKeys = Object.keys(patch)
-    if (patchKeys.length === 0) return
+    const payload = buildUnitPriceApiPatchDiff(current, saved)
+    if (Object.keys(payload).length === 0) return
 
     savingRowIdsRef.current.add(normalizedRowId)
     const previousSaved = { ...saved }
 
     try {
-      await contractsApi.update(normalizedRowId, patch)
-      const mergedFields = applyPatchToEditableFields(saved, patch)
+      if (Object.keys(payload).length === 0) return
+      await contractsApi.update(normalizedRowId, payload)
+      const mergedFields = applyPatchToEditableFields(saved, payload)
       savedByRowIdRef.current = {
         ...savedByRowIdRef.current,
         [normalizedRowId]: { ...mergedFields },
@@ -357,14 +357,14 @@ export default function UnitPriceManagement() {
   const totalColumnCount = FILTERABLE_COLUMNS.length + EDITABLE_COLUMNS.length
 
   return (
-    <div className="unit-price-management h-fit">
+    <div className="unit-price-management h-full min-h-0">
       {saveError ? (
         <div className="unit-price-save-error" role="alert">
           {saveError}
         </div>
       ) : null}
-      <div className="contract-table-panel unit-price-table-panel h-fit">
-        <div className="table-wrap unit-price-table-scroll max-h-viewport-scroll overflow-y-auto overflow-x-auto">
+      <div className="contract-table-panel unit-price-table-panel flex flex-col h-full min-h-[500px]">
+        <div className="table-wrap unit-price-table-scroll flex-1 min-h-0 overflow-y-auto overflow-x-auto">
           <table className="contract-table excel-table registry-table unit-price-table w-full table-fixed">
             <thead>
               <tr>
@@ -389,11 +389,7 @@ export default function UnitPriceManagement() {
                 {EDITABLE_COLUMNS.map((column) => (
                   <th
                     key={column.key}
-                    className={
-                      column.key === 'designUnitPrice'
-                        ? 'unit-price-th unit-price-design-header text-center sticky top-0 z-10 bg-yellow-100 text-gray-800 relative unit-price-col-design'
-                        : `unit-price-th text-center sticky top-0 z-10 bg-gray-100 relative ${column.headerClass || ''}`
-                    }
+                    className={`unit-price-th text-center sticky top-0 z-10 bg-gray-100 relative ${column.headerClass || ''}`}
                   >
                     {column.label}
                   </th>

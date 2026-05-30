@@ -10478,31 +10478,36 @@ textarea:focus-visible {
 
 /* ── 단가관리 ── */
 .main-area > section.stat-card.stat-card--unit-price {
-  flex: 0 0 auto;
-  min-height: auto;
-  height: fit-content;
-  overflow: visible;
-  display: block;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .stat-card.stat-card--unit-price {
-  min-height: auto;
+  min-height: 0;
 }
 
 .main-area > section.stat-card.stat-card--unit-price .unit-price-management,
 .main-area > section.stat-card.stat-card--unit-price .unit-price-table-panel,
 .main-area > section.stat-card.stat-card--unit-price .contract-table-panel {
-  flex: none;
-  min-height: auto;
-  height: auto;
+  min-height: 0;
+  height: 100%;
 }
 
-.unit-price-management.h-fit {
-  height: fit-content;
+.main-area > section.stat-card.stat-card--unit-price .unit-price-management {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
 }
 
-.unit-price-table-panel.h-fit {
-  height: fit-content;
+.main-area > section.stat-card.stat-card--unit-price .unit-price-table-panel,
+.main-area > section.stat-card.stat-card--unit-price .contract-table-panel {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .unit-price-table-panel {
@@ -10519,15 +10524,9 @@ textarea:focus-visible {
   font-size: 13px;
 }
 
-.unit-price-table-scroll.max-h-viewport-scroll {
-  max-height: calc(100vh - 250px);
-  overflow-y: auto;
-  overflow-x: auto;
-  height: auto;
-}
-
 .unit-price-table-scroll {
-  height: auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .unit-price-table {
@@ -10604,20 +10603,8 @@ textarea:focus-visible {
   background: #f3f4f6;
 }
 
-.unit-price-table .bg-yellow-100 {
-  background-color: #fef9c3;
-}
-
 .unit-price-table .text-gray-800 {
   color: #1f2937;
-}
-
-.unit-price-table .h-fit {
-  height: fit-content;
-}
-
-.unit-price-table .max-h-viewport-scroll {
-  max-height: calc(100vh - 250px);
 }
 
 .unit-price-table .overflow-y-auto {
@@ -10656,13 +10643,6 @@ textarea:focus-visible {
 
 .unit-price-table .contract-column-filter-menu {
   z-index: 50;
-}
-
-.unit-price-table thead th.unit-price-th.bg-yellow-100,
-.unit-price-table thead th.unit-price-design-header {
-  background-color: #fef9c3 !important;
-  color: #1f2937 !important;
-  z-index: 10;
 }
 
 .unit-price-table tbody td.unit-price-readonly {
