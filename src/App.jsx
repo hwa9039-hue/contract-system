@@ -82,6 +82,14 @@ import {
   isLongTextTableColumn,
 } from './tableColumnLayout.js'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
+import {
+  INSTALL_CASE_MEDIA_ACCEPT,
+  formatInstallCaseMediaMaxSize,
+  getInstallCaseMediaMaxBytes,
+  isInstallCaseMediaFile,
+  isInstallCaseVideo,
+  isInstallCaseVideoFile,
+} from './installCaseMedia'
 import { materialsBoardApi, downloadMaterialsBoardBlobUrl } from './materialsBoardApi'
 import {
   calendarEventsApi,
@@ -2084,16 +2092,70 @@ function readImageFileAsDataUrl(file) {
   })
 }
 
-function InstallCaseImageDropzone({ inputId, label, previewUrl, fileName, onFile, onClear, onInvalidFileType }) {
+function InstallCaseHeroMedia({
+  src,
+  fallback = INSTALL_CASE_FALLBACK_HERO,
+  className = '',
+  loading,
+  variant = 'card',
+}) {
+  const mediaSrc = safeString(src).trim() || fallback
+  const isVideo = isInstallCaseVideo(mediaSrc)
+
+  if (isVideo) {
+    return (
+      <video
+        className={className}
+        src={mediaSrc}
+        controls
+        muted
+        preload="metadata"
+        playsInline
+        aria-label="설치사례 동영상"
+        onClick={variant === 'card' ? (e) => e.stopPropagation() : undefined}
+        onKeyDown={variant === 'card' ? (e) => e.stopPropagation() : undefined}
+      />
+    )
+  }
+
+  return (
+    <img
+      className={className}
+      src={mediaSrc}
+      alt=""
+      loading={loading}
+      data-install-case-media-variant={variant}
+    />
+  )
+}
+
+function InstallCaseImageDropzone({
+  inputId,
+  label,
+  previewUrl,
+  fileName,
+  previewIsVideo = false,
+  onFile,
+  onClear,
+  onInvalidFileType,
+  onFileTooLarge,
+}) {
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef(null)
 
   const assignFile = (fileList) => {
     const file = fileList?.[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) {
+    if (!isInstallCaseMediaFile(file)) {
       if (typeof onInvalidFileType === 'function') {
         onInvalidFileType()
+      }
+      return
+    }
+    const maxBytes = getInstallCaseMediaMaxBytes(file)
+    if (file.size > maxBytes) {
+      if (typeof onFileTooLarge === 'function') {
+        onFileTooLarge(file, maxBytes)
       }
       return
     }
@@ -2103,7 +2165,7 @@ function InstallCaseImageDropzone({ inputId, label, previewUrl, fileName, onFile
   return (
     <div className="install-case-dropzone-wrap">
       <div className="install-case-dropzone-label">
-        {safeString(label).trim() || '이미지'}
+        {safeString(label).trim() || '이미지/동영상'}
       </div>
       <div
         className={`install-case-dropzone${dragOver ? ' install-case-dropzone--active' : ''}`}
@@ -2143,8 +2205,8 @@ function InstallCaseImageDropzone({ inputId, label, previewUrl, fileName, onFile
           id={inputId}
           type="file"
           className="install-case-dropzone-input"
-          accept="image/*"
-          aria-label={safeString(label).trim() || '이미지 업로드'}
+          accept={INSTALL_CASE_MEDIA_ACCEPT}
+          aria-label={safeString(label).trim() || '이미지 또는 동영상 업로드'}
           onChange={(e) => {
             assignFile(e.target.files)
             e.target.value = ''
@@ -2152,7 +2214,11 @@ function InstallCaseImageDropzone({ inputId, label, previewUrl, fileName, onFile
         />
         {previewUrl ? (
           <div className="install-case-dropzone-preview">
-            <img src={previewUrl} alt="" />
+            {previewIsVideo ? (
+              <video src={previewUrl} controls muted preload="metadata" playsInline aria-label="미리보기" />
+            ) : (
+              <img src={previewUrl} alt="" />
+            )}
             <button
               type="button"
               className="install-case-dropzone-clear"
@@ -2169,7 +2235,9 @@ function InstallCaseImageDropzone({ inputId, label, previewUrl, fileName, onFile
             <span className="install-case-dropzone-icon" aria-hidden>
               ⬆
             </span>
-            <span className="install-case-dropzone-hint">클릭하거나 파일을 드래그하여 업로드하세요</span>
+            <span className="install-case-dropzone-hint">
+              클릭하거나 파일을 드래그하여 업로드하세요 (이미지·MP4/WebM/OGG, 최대 100MB)
+            </span>
             {fileName ? <span className="install-case-dropzone-filename">{fileName}</span> : null}
           </div>
         )}
@@ -2232,10 +2300,12 @@ function InstallCaseFormTwoColumn({
   icImageFile,
   setIcImageFile,
   icImagePreview,
+  icImagePreviewIsVideo = false,
   onClearInstallCaseImage,
   pairDigitChange,
   onLedPitchChange,
   onInvalidImageFile,
+  onFileTooLarge,
 }) {
   const specs = formDraft.specs || {}
 
@@ -2309,12 +2379,14 @@ function InstallCaseFormTwoColumn({
         <div className="install-case-form-stack-field install-case-form-stack-field--dropzone">
           <InstallCaseImageDropzone
             inputId="install-case-image-file"
-            label="이미지"
+            label="이미지/동영상"
             previewUrl={icImagePreview}
+            previewIsVideo={icImagePreviewIsVideo}
             fileName={icImageFile?.name}
             onFile={setIcImageFile}
             onClear={onClearInstallCaseImage}
             onInvalidFileType={onInvalidImageFile}
+            onFileTooLarge={onFileTooLarge}
           />
         </div>
       </InstallCaseFormSection>
@@ -5062,6 +5134,7 @@ function App() {
 
   useEffect(() => {
     if (!installCaseRegisterOpen || !icImageFile) return undefined
+    if (isInstallCaseVideoFile(icImageFile)) return undefined
     let cancelled = false
     void (async () => {
       try {
@@ -14264,7 +14337,11 @@ function App() {
                     onClick={() => setInstallCaseDetailModal(row)}
                   >
                     <div className="install-case-card-thumb">
-                      <img src={row.heroImage || INSTALL_CASE_FALLBACK_HERO} alt="" loading="lazy" />
+                      <InstallCaseHeroMedia
+                        src={row.heroImage || INSTALL_CASE_FALLBACK_HERO}
+                        loading="lazy"
+                        variant="card"
+                      />
                     </div>
                     <div className="install-case-card-body">
                       <div className="install-case-card-title">{getInstallCaseProjectTitle(row)}</div>
@@ -14835,9 +14912,9 @@ function App() {
               <div className="install-case-detail-inner">
               <div className="install-case-detail-hero-zone">
                 <div className="install-case-detail-hero">
-                  <img
+                  <InstallCaseHeroMedia
                     src={installCaseDetailModal.heroImage || INSTALL_CASE_FALLBACK_HERO}
-                    alt=""
+                    variant="detail"
                   />
                 </div>
               </div>
@@ -15820,11 +15897,22 @@ function App() {
                 icImageFile={icImageFile}
                 setIcImageFile={setIcImageFile}
                 icImagePreview={icImagePreview}
+                icImagePreviewIsVideo={
+                  icImageFile
+                    ? isInstallCaseVideoFile(icImageFile)
+                    : isInstallCaseVideo(icImagePreview)
+                }
                 onClearInstallCaseImage={clearInstallCaseImage}
                 pairDigitChange={handleInstallCasePairDigitChange}
                 onLedPitchChange={handleInstallCaseLedPitchChange}
                 onInvalidImageFile={() =>
-                  showAppAlert('이미지 파일만 업로드할 수 있습니다.', '알림')
+                  showAppAlert('이미지 또는 동영상 파일만 업로드할 수 있습니다.', '알림')
+                }
+                onFileTooLarge={(file) =>
+                  showAppAlert(
+                    `파일 용량이 너무 큽니다. 최대 ${formatInstallCaseMediaMaxSize(file)}까지 업로드할 수 있습니다.`,
+                    '알림'
+                  )
                 }
               />
             </div>

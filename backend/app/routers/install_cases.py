@@ -26,6 +26,21 @@ router = APIRouter(prefix=INSTALL_CASES_API_PATH, tags=["install-cases"])
 UPLOAD_ROOT = Path(os.getenv("UPLOAD_DIR", "uploads")).resolve()
 INSTALL_CASES_IMAGE_DIR = UPLOAD_ROOT / "install-cases"
 
+ALLOWED_HERO_IMAGE_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+}
+ALLOWED_HERO_VIDEO_TYPES = {
+    "video/mp4",
+    "video/webm",
+    "video/ogg",
+}
+HERO_MEDIA_EXTENSIONS = ("jpg", "jpeg", "png", "webp", "mp4", "webm", "ogg")
+MAX_HERO_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_HERO_VIDEO_BYTES = 100 * 1024 * 1024
+
 RETURNING_COLUMNS = """
   id, "projectName", "heroImage", environment, "middleCategory", audience, year,
   purpose, client, specs, "createdAt", "updatedAt"
@@ -40,44 +55,132 @@ def now_text() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def hero_image_api_path(row_id: str) -> str:
+def hero_image_api_path(row_id: str, ext: str = "jpg") -> str:
+    normalized = str(ext or "jpg").lower().lstrip(".")
+    if normalized in {"mp4", "webm", "ogg"}:
+        return f"{INSTALL_CASES_API_PATH}/{row_id}/hero.{normalized}"
     return f"{INSTALL_CASES_API_PATH}/{row_id}/hero-image"
 
 
+def hero_media_disk_path(row_id: str, ext: str) -> Path:
+    return INSTALL_CASES_IMAGE_DIR / f"{row_id}.{ext.lower().lstrip('.')}"
+
+
 def hero_image_disk_path(row_id: str) -> Path:
-    return INSTALL_CASES_IMAGE_DIR / f"{row_id}.jpg"
+    found = find_hero_media_path(row_id)
+    if found:
+        return found
+    return hero_media_disk_path(row_id, "jpg")
 
 
 def ensure_install_case_upload_dirs() -> None:
     INSTALL_CASES_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 
-async def save_hero_image_file(row_id: str, upload: UploadFile) -> None:
-    if not upload.filename:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image file is required")
+def _filename_ext(filename: str) -> str:
+    suffix = Path(filename).suffix.lower().lstrip(".")
+    return suffix
 
+
+def resolve_hero_media_ext(upload: UploadFile) -> str:
     content_type = (upload.content_type or "").lower()
-    if content_type and not content_type.startswith("image/"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only image files are allowed")
+    filename_ext = _filename_ext(upload.filename or "")
+
+    if content_type in ALLOWED_HERO_VIDEO_TYPES or filename_ext in {"mp4", "webm", "ogg"}:
+        if content_type == "video/webm" or filename_ext == "webm":
+            return "webm"
+        if content_type == "video/ogg" or filename_ext == "ogg":
+            return "ogg"
+        return "mp4"
+
+    if content_type in ALLOWED_HERO_IMAGE_TYPES or filename_ext in {"jpg", "jpeg", "png", "webp", "gif"}:
+        if filename_ext == "png":
+            return "png"
+        if filename_ext == "webp":
+            return "webp"
+        return "jpg"
+
+    if content_type.startswith("video/"):
+        return "mp4"
+    if content_type.startswith("image/"):
+        return "jpg"
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Only image or video files are allowed (image/*, video/mp4, video/webm, video/ogg)",
+    )
+
+
+def is_hero_video_ext(ext: str) -> bool:
+    return str(ext or "").lower().lstrip(".") in {"mp4", "webm", "ogg"}
+
+
+def media_type_for_ext(ext: str) -> str:
+    normalized = str(ext or "").lower().lstrip(".")
+    if normalized == "mp4":
+        return "video/mp4"
+    if normalized == "webm":
+        return "video/webm"
+    if normalized == "ogg":
+        return "video/ogg"
+    if normalized == "png":
+        return "image/png"
+    if normalized == "webp":
+        return "image/webp"
+    return "image/jpeg"
+
+
+def find_hero_media_path(row_id: str) -> Path | None:
+    for ext in HERO_MEDIA_EXTENSIONS:
+        path = hero_media_disk_path(row_id, ext)
+        if path.is_file():
+            return path
+    return None
+
+
+def delete_hero_image_file(row_id: str) -> None:
+    for ext in HERO_MEDIA_EXTENSIONS:
+        path = hero_media_disk_path(row_id, ext)
+        if path.is_file():
+            path.unlink(missing_ok=True)
+
+
+async def save_hero_image_file(row_id: str, upload: UploadFile) -> str:
+    if not upload.filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Media file is required")
+
+    ext = resolve_hero_media_ext(upload)
+    content_type = (upload.content_type or "").lower()
+    if content_type:
+        allowed = ALLOWED_HERO_IMAGE_TYPES | ALLOWED_HERO_VIDEO_TYPES
+        if content_type not in allowed and not content_type.startswith(("image/", "video/")):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only image or video files are allowed",
+            )
 
     ensure_install_case_upload_dirs()
-    dest = hero_image_disk_path(row_id)
-    temp_dest = dest.with_suffix(".jpg.tmp")
+    delete_hero_image_file(row_id)
+    dest = hero_media_disk_path(row_id, ext)
+    temp_dest = dest.with_suffix(f".{ext}.tmp")
 
     content = await upload.read()
     if not content:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty image file")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty media file")
+
+    max_bytes = MAX_HERO_VIDEO_BYTES if is_hero_video_ext(ext) else MAX_HERO_IMAGE_BYTES
+    if len(content) > max_bytes:
+        limit_mb = max_bytes // (1024 * 1024)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large (max {limit_mb}MB)",
+        )
 
     with temp_dest.open("wb") as handle:
         handle.write(content)
 
     temp_dest.replace(dest)
-
-
-def delete_hero_image_file(row_id: str) -> None:
-    path = hero_image_disk_path(row_id)
-    if path.is_file():
-        path.unlink(missing_ok=True)
+    return ext
 
 
 def prepare_insert_values(row: InstallCaseCreate) -> dict:
@@ -207,10 +310,10 @@ def update_install_case_row(row_id: str, patch: InstallCasePatch):
     return row_to_install_case(updated)
 
 
-def set_install_case_hero_image_path(row_id: str) -> dict:
+def set_install_case_hero_image_path(row_id: str, ext: str = "jpg") -> dict:
     return update_install_case_row(
         row_id,
-        InstallCasePatch(heroImage=hero_image_api_path(row_id)),
+        InstallCasePatch(heroImage=hero_image_api_path(row_id, ext)),
     )
 
 
@@ -261,8 +364,8 @@ async def api_create_install_case_with_image(
         row = row.model_copy(update={"heroImage": ""})
         created = create_install_case_row(row)
         row_id = str(created["id"])
-        await save_hero_image_file(row_id, image)
-        return set_install_case_hero_image_path(row_id)
+        saved_ext = await save_hero_image_file(row_id, image)
+        return set_install_case_hero_image_path(row_id, saved_ext)
     except HTTPException:
         raise
     except Exception as exc:
@@ -296,8 +399,8 @@ async def api_update_install_case_with_image(
         patch = patch.model_copy(update={"heroImage": None})
         updated = update_install_case_row(row_id, patch)
         if image and image.filename:
-            await save_hero_image_file(row_id, image)
-            updated = set_install_case_hero_image_path(row_id)
+            saved_ext = await save_hero_image_file(row_id, image)
+            updated = set_install_case_hero_image_path(row_id, saved_ext)
         return updated
     except HTTPException:
         raise
@@ -309,12 +412,36 @@ async def api_update_install_case_with_image(
         ) from exc
 
 
+def serve_install_case_hero_media(row_id: str):
+    path = find_hero_media_path(row_id)
+    if not path or not path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media not found")
+    ext = path.suffix.lower().lstrip(".")
+    return FileResponse(
+        path=path,
+        media_type=media_type_for_ext(ext),
+        filename=f"{row_id}.{ext or 'jpg'}",
+    )
+
+
 @router.get("/{row_id}/hero-image")
 def api_get_install_case_hero_image(row_id: str):
-    path = hero_image_disk_path(row_id)
+    return serve_install_case_hero_media(row_id)
+
+
+@router.get("/{row_id}/hero.{ext}")
+def api_get_install_case_hero_media(row_id: str, ext: str):
+    normalized = str(ext or "").lower().lstrip(".")
+    if normalized not in {"jpg", "jpeg", "png", "webp", "mp4", "webm", "ogg"}:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media not found")
+    path = hero_media_disk_path(row_id, normalized)
     if not path.is_file():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
-    return FileResponse(path=path, media_type="image/jpeg", filename=f"{row_id}.jpg")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media not found")
+    return FileResponse(
+        path=path,
+        media_type=media_type_for_ext(normalized),
+        filename=f"{row_id}.{normalized}",
+    )
 
 
 @router.delete("/{row_id}", status_code=status.HTTP_204_NO_CONTENT)

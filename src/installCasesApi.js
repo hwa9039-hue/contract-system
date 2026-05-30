@@ -1,5 +1,6 @@
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { compressInstallCaseImage } from './installCaseImage.js'
+import { isInstallCaseVideoFile } from './installCaseMedia.js'
 import { createLocalInstallCaseId } from './installCaseLocal.js'
 
 /** 백엔드 router: GET/POST /api/install-cases */
@@ -102,6 +103,13 @@ export function resolveInstallCaseHeroImage(src) {
   return value
 }
 
+async function prepareInstallCaseMediaFile(file) {
+  if (isInstallCaseVideoFile(file)) {
+    return file
+  }
+  return compressInstallCaseImage(file)
+}
+
 export const installCasesApi = {
   async list() {
     if (INSTALL_CASES_USE_MOCK) {
@@ -119,11 +127,11 @@ export const installCasesApi = {
     }
 
     if (imageFile) {
-      const compressed = await compressInstallCaseImage(imageFile)
+      const prepared = await prepareInstallCaseMediaFile(imageFile)
       const form = new FormData()
       const { heroImage: _ignored, ...rest } = payload
       form.append('payload', JSON.stringify(rest))
-      form.append('image', compressed, compressed.name)
+      form.append('image', prepared, prepared.name)
       return requestForm(`${INSTALL_CASES_API_PATH}/form`, {
         method: 'POST',
         formData: form,
@@ -143,11 +151,11 @@ export const installCasesApi = {
     }
 
     if (imageFile) {
-      const compressed = await compressInstallCaseImage(imageFile)
+      const prepared = await prepareInstallCaseMediaFile(imageFile)
       const form = new FormData()
       const { heroImage: _ignored, ...rest } = patch
       form.append('payload', JSON.stringify(rest))
-      form.append('image', compressed, compressed.name)
+      form.append('image', prepared, prepared.name)
       return requestForm(`${INSTALL_CASES_API_PATH}/${encodeURIComponent(id)}/form`, {
         method: 'PATCH',
         formData: form,
