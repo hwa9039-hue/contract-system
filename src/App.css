@@ -7940,9 +7940,9 @@ textarea:focus-visible {
   padding: 4px 4px 8px;
   border: none;
   background: transparent;
-  font-size: 1.875rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.3;
   color: #111827;
   outline: none;
   box-shadow: none;
@@ -7954,6 +7954,9 @@ textarea:focus-visible {
 }
 
 .meeting-minutes-doc__title::placeholder {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.3;
   color: #9ca3af;
 }
 
@@ -7981,9 +7984,9 @@ textarea:focus-visible {
 
 .meeting-minutes-doc__meta-label {
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 0.875rem;
   font-weight: 600;
-  color: #6b7280;
+  color: #374151;
 }
 
 .meeting-minutes-doc__meta-input {
@@ -7991,7 +7994,8 @@ textarea:focus-visible {
   border-bottom: 1px solid #e5e7eb;
   background: transparent;
   padding: 4px 2px;
-  font-size: 13px;
+  font-size: 0.875rem;
+  line-height: 1.5;
   color: #374151;
   outline: none;
   box-shadow: none;
@@ -8015,8 +8019,15 @@ textarea:focus-visible {
   border-bottom: 1px solid #e5e7eb;
   border-radius: 0;
   background: transparent;
-  font-size: 13px;
+  font-size: 0.875rem;
+  line-height: 1.5;
   box-shadow: none;
+}
+
+.meeting-minutes-doc__meta-field--attendees .work-report-external-manager-multi-placeholder,
+.meeting-minutes-doc__meta-field--attendees .work-report-external-manager-multi-chip {
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 .meeting-minutes-doc__meta-field--attendees .work-report-external-manager-multi-trigger:focus {
@@ -8037,16 +8048,18 @@ textarea:focus-visible {
   grid-template-columns: 64px minmax(0, 1fr) minmax(240px, 280px) 160px;
   gap: 0;
   padding: 0 0 6px;
-  font-size: 11px;
+  font-size: 0.875rem;
   font-weight: 600;
+  line-height: 1.5;
   color: #374151;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
 
 .meeting-minutes-doc__agenda-head > span {
   padding: 4px 10px;
+  font-size: inherit;
   font-weight: 600;
-  color: #111827;
+  color: #374151;
   text-align: center;
   white-space: nowrap;
 }
@@ -8081,9 +8094,10 @@ textarea:focus-visible {
   align-items: center;
   justify-content: center;
   padding: 6px 4px;
-  font-size: 12px;
+  font-size: 0.875rem;
   font-weight: 500;
-  color: #9ca3af;
+  line-height: 1.5;
+  color: #6b7280;
   user-select: none;
 }
 
@@ -8098,7 +8112,7 @@ textarea:focus-visible {
   background: transparent;
   resize: none;
   overflow-y: auto;
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.5;
   color: #1f2937;
   outline: none;
@@ -8136,7 +8150,8 @@ textarea:focus-visible {
   border: none;
   border-radius: 4px;
   background: transparent;
-  font-size: 13px;
+  font-size: 0.875rem;
+  line-height: 1.5;
   box-shadow: none;
   color: #374151;
   justify-content: center;
@@ -8146,6 +8161,12 @@ textarea:focus-visible {
   justify-content: center;
   flex-wrap: wrap;
   gap: 4px 6px;
+}
+
+.meeting-minutes-doc__agenda-assignee .work-report-external-manager-multi-placeholder,
+.meeting-minutes-doc__agenda-assignee .work-report-external-manager-multi-chip {
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 .meeting-minutes-doc__agenda-assignee .work-report-external-manager-multi-trigger:focus {
@@ -8160,7 +8181,8 @@ textarea:focus-visible {
   border: none;
   border-radius: 4px;
   background: transparent;
-  font-size: 13px;
+  font-size: 0.875rem;
+  line-height: 1.5;
   color: #374151;
   text-align: center;
   outline: none;
