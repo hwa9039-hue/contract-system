@@ -10475,3 +10475,68 @@ textarea:focus-visible {
   cursor: pointer;
   text-align: left;
 }
+
+/* ── 단가관리 ── */
+.unit-price-table-panel {
+  margin-top: 0;
+}
+
+.unit-price-table {
+  width: 100%;
+  min-width: 1120px;
+  table-layout: fixed;
+}
+
+.unit-price-table thead th.unit-price-th {
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  background: #f3f4f6;
+  color: #475569;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.unit-price-table thead th.unit-price-th-design {
+  background: #fde047;
+  color: #713f12;
+}
+
+.unit-price-table tbody td.unit-price-readonly {
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 1.25;
+  color: #374151;
+  vertical-align: middle;
+  background: #ffffff;
+}
+
+.unit-price-table tbody td.unit-price-readonly-project {
+  text-align: left;
+}
+
+.unit-price-table tbody td.unit-price-editable-cell {
+  padding: 0;
+  vertical-align: middle;
+  background: #ffffff;
+}
+
+.unit-price-table .unit-price-cell-input {
+  width: 100%;
+  height: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+}
+
+.unit-price-empty-cell {
+  padding: 24px 12px;
+  text-align: center;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.unit-price-empty-cell--error {
+  color: #dc2626;
+}
