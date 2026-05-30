@@ -57,6 +57,62 @@ function safeString(value) {
   return String(value)
 }
 
+function parseJsonIfString(value) {
+  if (value === null || value === undefined) return value
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  if (!trimmed) return value
+  try {
+    let parsed = JSON.parse(trimmed)
+    if (typeof parsed === 'string') {
+      const nested = parsed.trim()
+      if (nested.startsWith('{') || nested.startsWith('[')) {
+        try {
+          parsed = JSON.parse(nested)
+        } catch {
+          /* keep outer parse result */
+        }
+      }
+    }
+    return parsed
+  } catch {
+    return value
+  }
+}
+
+function isMeetingMinutesDocumentShape(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  if (value.v === MEETING_MINUTES_DOC_VERSION) return true
+  return (
+    'meetingDate' in value ||
+    'meetingDateTime' in value ||
+    'date' in value ||
+    Array.isArray(value.attendees) ||
+    Array.isArray(value.agenda)
+  )
+}
+
+function coerceMeetingMinutesRawObject(raw) {
+  let data = parseJsonIfString(raw)
+  if (typeof data === 'string' && data.trim().startsWith('{')) {
+    data = parseJsonIfString(data)
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+  if (typeof data.agenda === 'string') {
+    const agenda = parseJsonIfString(data.agenda)
+    if (Array.isArray(agenda)) {
+      data = { ...data, agenda }
+    }
+  }
+  if (typeof data.attendees === 'string') {
+    const attendees = parseJsonIfString(data.attendees)
+    if (Array.isArray(attendees)) {
+      data = { ...data, attendees }
+    }
+  }
+  return data
+}
+
 export function getDefaultMeetingMinutesDocument() {
   return {
     meetingDate: '',
@@ -89,38 +145,41 @@ function resolveMeetingMinutesAttendees(raw = {}, entry) {
 }
 
 function normalizeMeetingMinutesDocument(raw = {}, entry) {
-  const attendees = resolveMeetingMinutesAttendees(raw, entry)
-  const agendaFromRaw = Array.isArray(raw.agenda)
-    ? normalizeMeetingMinutesAgenda(raw.agenda)
+  const source = coerceMeetingMinutesRawObject(raw) ?? raw
+  const attendees = resolveMeetingMinutesAttendees(source, entry)
+  const agendaFromRaw = Array.isArray(source.agenda)
+    ? normalizeMeetingMinutesAgenda(source.agenda)
     : null
-  const legacyBody = safeString(raw.body ?? raw.content ?? raw.text)
-  const agenda = agendaFromRaw || (legacyBody.trim() ? bodyLinesToAgenda(legacyBody) : getDefaultMeetingMinutesAgenda())
+  const legacyBody = safeString(source.body ?? source.content ?? source.text)
+  const agenda =
+    agendaFromRaw ||
+    (legacyBody.trim() && !legacyBody.trim().startsWith('{')
+      ? bodyLinesToAgenda(legacyBody)
+      : getDefaultMeetingMinutesAgenda())
   return {
-    meetingDate: safeString(raw.meetingDate ?? raw.meetingDateTime ?? raw.date).trim(),
+    meetingDate: safeString(source.meetingDate ?? source.meetingDateTime ?? source.date).trim(),
     attendees,
     agenda,
   }
 }
 
-function tryParseMeetingMinutesDocJson(decoded) {
-  const trimmed = safeString(decoded).trim()
-  if (!trimmed) return null
-
-  let jsonText = trimmed
-  if (trimmed.startsWith(MEETING_MINUTES_DOC_PREFIX)) {
-    jsonText = trimmed.slice(MEETING_MINUTES_DOC_PREFIX.length).trim()
-  }
-  if (!jsonText.startsWith('{')) return null
-
+function tryParseMeetingMinutesDocJson(decoded, entry = null) {
   try {
-    const parsed = JSON.parse(jsonText)
-    if (parsed?.v === MEETING_MINUTES_DOC_VERSION) {
-      return normalizeMeetingMinutesDocument(parsed, null)
+    const trimmed = safeString(decoded).trim()
+    if (!trimmed) return null
+
+    let jsonText = trimmed
+    if (trimmed.startsWith(MEETING_MINUTES_DOC_PREFIX)) {
+      jsonText = trimmed.slice(MEETING_MINUTES_DOC_PREFIX.length).trim()
     }
+    if (!jsonText.startsWith('{') && !jsonText.startsWith('"')) return null
+
+    const parsed = coerceMeetingMinutesRawObject(jsonText)
+    if (!parsed || !isMeetingMinutesDocumentShape(parsed)) return null
+    return normalizeMeetingMinutesDocument(parsed, entry)
   } catch {
     return null
   }
-  return null
 }
 
 function meetingMinutesAssigneeKey(value) {
@@ -291,78 +350,88 @@ function parseMeetingMinutesTextRows(raw) {
   })
 }
 
-export function parseMeetingMinutesFromEntry(entry) {
-  const raw = safeString(entry?.content).trim()
-  const decoded = decodeWorkReportWireText(raw)
-
-  const docFromWire = tryParseMeetingMinutesDocJson(decoded)
-  if (docFromWire) {
-    return {
-      meta: getDefaultMeetingMinutesData().meta,
-      agenda: documentToLegacyAgenda(docFromWire),
-    }
-  }
-
-  const textRows = parseMeetingMinutesTextRows(decoded)
-  if (textRows) {
-    const agenda =
-      Array.isArray(textRows) && textRows.length === MEETING_MINUTES_AGENDA_FIXED_ROWS
-        ? textRows
-        : normalizeMeetingMinutesAgenda(textRows)
-    return {
-      meta: getDefaultMeetingMinutesData().meta,
-      agenda,
-    }
-  }
-
-  if (decoded.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(decoded)
-      if (parsed?.v === MEETING_MINUTES_DOC_VERSION) {
-        const doc = normalizeMeetingMinutesDocument(parsed, entry)
-        return {
-          meta: getDefaultMeetingMinutesData().meta,
-          agenda: documentToLegacyAgenda(doc),
-        }
-      }
-      if (parsed?.v === MEETING_MINUTES_STORAGE_VERSION && Array.isArray(parsed.rows)) {
-        return {
-          meta: getDefaultMeetingMinutesData().meta,
-          agenda: normalizeMeetingMinutesAgenda(parsed.rows),
-        }
-      }
-
-      const agendaSource = Array.isArray(parsed?.agenda)
-        ? parsed.agenda
-        : Array.isArray(parsed?.items)
-          ? parsed.items
-          : null
-      if (parsed?.meta && agendaSource) {
-        return {
-          meta: parseMeetingMinutesMeta(parsed.meta, entry),
-          agenda: normalizeMeetingMinutesAgenda(agendaSource),
-        }
-      }
-    } catch {
-      /* legacy plain text */
-    }
-  }
-
-  const legacyContent = decoded
-  const legacyMeta = {
-    meetingDateTime: safeString(entry?.destination).trim(),
-    location: '',
-    attendees: '',
-    author: safeString(entry?.user).trim(),
-  }
-  if (!legacyContent && !legacyMeta.meetingDateTime && !legacyMeta.author) {
-    return getDefaultMeetingMinutesData()
-  }
+function meetingMinutesDocumentToLegacyData(doc, entry) {
+  const normalized = normalizeMeetingMinutesDocument(doc, entry)
   return {
-    meta: legacyMeta,
-    agenda: normalizeMeetingMinutesAgenda(
-      legacyContent ? [{ content: legacyContent, assignee: '', dueDate: '' }] : []
-    ),
+    meta: {
+      ...getDefaultMeetingMinutesData().meta,
+      meetingDateTime: normalized.meetingDate,
+      attendees: serializeManagerMultiSelectValue(normalized.attendees),
+      author: safeString(entry?.user).trim(),
+    },
+    agenda: documentToLegacyAgenda(normalized),
+  }
+}
+
+export function parseMeetingMinutesFromEntry(entry) {
+  try {
+    const raw = safeString(entry?.content).trim()
+    const decoded = decodeWorkReportWireText(raw)
+
+    const docFromWire = tryParseMeetingMinutesDocJson(decoded, entry)
+    if (docFromWire) {
+      return meetingMinutesDocumentToLegacyData(docFromWire, entry)
+    }
+
+    const textRows = parseMeetingMinutesTextRows(decoded)
+    if (textRows) {
+      const agenda =
+        Array.isArray(textRows) && textRows.length === MEETING_MINUTES_AGENDA_FIXED_ROWS
+          ? textRows
+          : normalizeMeetingMinutesAgenda(textRows)
+      return {
+        meta: getDefaultMeetingMinutesData().meta,
+        agenda,
+      }
+    }
+
+    if (decoded.startsWith('{') || decoded.startsWith('"')) {
+      const parsed = coerceMeetingMinutesRawObject(decoded)
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.v === MEETING_MINUTES_DOC_VERSION || isMeetingMinutesDocumentShape(parsed)) {
+          return meetingMinutesDocumentToLegacyData(parsed, entry)
+        }
+        if (parsed.v === MEETING_MINUTES_STORAGE_VERSION && Array.isArray(parsed.rows)) {
+          return {
+            meta: getDefaultMeetingMinutesData().meta,
+            agenda: normalizeMeetingMinutesAgenda(parsed.rows),
+          }
+        }
+
+        const agendaSource = Array.isArray(parsed.agenda)
+          ? parsed.agenda
+          : Array.isArray(parsed.items)
+            ? parsed.items
+            : null
+        if (parsed.meta && agendaSource) {
+          return {
+            meta: parseMeetingMinutesMeta(parsed.meta, entry),
+            agenda: normalizeMeetingMinutesAgenda(agendaSource),
+          }
+        }
+      }
+
+      return getDefaultMeetingMinutesData()
+    }
+
+    const legacyContent = decoded
+    const legacyMeta = {
+      meetingDateTime: safeString(entry?.destination).trim(),
+      location: '',
+      attendees: '',
+      author: safeString(entry?.user).trim(),
+    }
+    if (!legacyContent && !legacyMeta.meetingDateTime && !legacyMeta.author) {
+      return getDefaultMeetingMinutesData()
+    }
+    return {
+      meta: legacyMeta,
+      agenda: normalizeMeetingMinutesAgenda(
+        legacyContent ? [{ content: legacyContent, assignee: '', dueDate: '' }] : []
+      ),
+    }
+  } catch {
+    return getDefaultMeetingMinutesData()
   }
 }
 
@@ -386,11 +455,15 @@ function migrateLegacyParsedToDocument(parsed, entry) {
 }
 
 export function parseMeetingMinutesDocumentFromEntry(entry) {
-  const raw = safeString(entry?.content).trim()
-  const decoded = decodeWorkReportWireText(raw)
-  const direct = tryParseMeetingMinutesDocJson(decoded)
-  if (direct) return normalizeMeetingMinutesDocument(direct, entry)
-  return migrateLegacyParsedToDocument(parseMeetingMinutesFromEntry(entry), entry)
+  try {
+    const raw = safeString(entry?.content).trim()
+    const decoded = decodeWorkReportWireText(raw)
+    const direct = tryParseMeetingMinutesDocJson(decoded, entry)
+    if (direct) return normalizeMeetingMinutesDocument(direct, entry)
+    return migrateLegacyParsedToDocument(parseMeetingMinutesFromEntry(entry), entry)
+  } catch {
+    return getDefaultMeetingMinutesDocument()
+  }
 }
 
 export function serializeMeetingMinutesDocumentContent(doc) {
@@ -495,7 +568,11 @@ export function isLegacyMeetingMinutesEntry(entry) {
 
 export function isMeetingMinutesDocEntry(entry) {
   const raw = safeString(entry?.content).trim()
-  return raw.startsWith(MEETING_MINUTES_DOC_PREFIX)
+  if (raw.startsWith(MEETING_MINUTES_DOC_PREFIX)) return true
+  const decoded = decodeWorkReportWireText(raw)
+  if (!decoded.startsWith('{') && !decoded.startsWith('"')) return false
+  const parsed = coerceMeetingMinutesRawObject(decoded)
+  return Boolean(parsed && isMeetingMinutesDocumentShape(parsed))
 }
 
 export function getLegacyMeetingMinutesAgenda(weekStartDate, workReportRows) {
@@ -555,6 +632,14 @@ export function loadMeetingMinutesAgenda(weekStartDate, getEntry) {
 }
 
 export function loadMeetingMinutesDocument(weekStartDate, getEntry) {
+  try {
+    return loadMeetingMinutesDocumentUnsafe(weekStartDate, getEntry)
+  } catch {
+    return getDefaultMeetingMinutesDocument()
+  }
+}
+
+function loadMeetingMinutesDocumentUnsafe(weekStartDate, getEntry) {
   const entry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
   if (entry && isMeetingMinutesDocEntry(entry)) {
     return parseMeetingMinutesDocumentFromEntry(entry)
