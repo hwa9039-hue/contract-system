@@ -58,6 +58,7 @@ import {
 } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
+import UnitPriceManagement from './pages/UnitPriceManagement.jsx'
 import { decodeWorkReportWireText } from './workReportWire.js'
 import {
   WORK_REPORT_MANAGER_OPTIONS,
@@ -1178,8 +1179,12 @@ const PAGE_TITLE_MAP = {
   documents: '문서수발신대장',
   contactsManage: '연락처',
   installCases: '설치사례',
+  unitPrice: '단가관리',
   materialsBoard: '게시판',
 }
+
+const ADMIN_ONLY_MENU_KEYS = new Set(['contactsManage', 'unitPrice'])
+const UNIT_PRICE_MENU_PATH = '/unit-price'
 function isWorkReportRelatedMenu(menuKey) {
   return menuKey === 'workReports' || menuKey === 'meetingMinutes'
 }
@@ -1216,7 +1221,19 @@ const ALL_MENU_KEYS = [
   ...SIDEBAR_MENU_GROUPS.flatMap((group) => group.items.map((item) => item.key)),
   'materialsBoard',
   'installCases',
+  'unitPrice',
 ]
+
+function resolveInitialMenu() {
+  try {
+    if (typeof window !== 'undefined' && window.location.pathname === UNIT_PRICE_MENU_PATH) {
+      return 'unitPrice'
+    }
+  } catch {
+    /* ignore */
+  }
+  return loadStoredMenu()
+}
 
 function getMenuGroupIdForMenu(menuKey) {
   for (const group of SIDEBAR_MENU_GROUPS) {
@@ -4924,7 +4941,7 @@ function App() {
   const [excludedRows, setExcludedRows] = useState([])
   const [workReportRows, setWorkReportRows] = useState([])
   const workReportRowsRef = useRef([])
-  const initialMenu = loadStoredMenu()
+  const initialMenu = resolveInitialMenu()
   const [menu, setMenu] = useState(initialMenu)
   const [expandedMenuGroups, setExpandedMenuGroups] = useState(() =>
     loadExpandedMenuGroups(initialMenu)
@@ -5446,6 +5463,20 @@ function App() {
   useEffect(() => {
     setRegistryCellEdit(null)
     setRegistryCellEditDraft('')
+  }, [menu])
+
+  useEffect(() => {
+    try {
+      if (menu === 'unitPrice') {
+        if (window.location.pathname !== UNIT_PRICE_MENU_PATH) {
+          window.history.replaceState(null, '', UNIT_PRICE_MENU_PATH)
+        }
+      } else if (window.location.pathname === UNIT_PRICE_MENU_PATH) {
+        window.history.replaceState(null, '', '/')
+      }
+    } catch {
+      /* ignore */
+    }
   }, [menu])
 
   useEffect(() => {
@@ -12602,11 +12633,11 @@ function App() {
                           <button
                             type="button"
                             className={`${menu === item.key ? 'menu-btn menu-btn--child active' : 'menu-btn menu-btn--child'}${
-                              item.key === 'contactsManage' && !isAdmin ? ' menu-btn--disabled' : ''
+                              ADMIN_ONLY_MENU_KEYS.has(item.key) && !isAdmin ? ' menu-btn--disabled' : ''
                             }`}
-                            disabled={item.key === 'contactsManage' && !isAdmin}
+                            disabled={ADMIN_ONLY_MENU_KEYS.has(item.key) && !isAdmin}
                             onClick={() => {
-                              if (item.key === 'contactsManage' && !isAdmin) return
+                              if (ADMIN_ONLY_MENU_KEYS.has(item.key) && !isAdmin) return
                               setMenu(item.key)
                             }}
                           >
@@ -12634,6 +12665,20 @@ function App() {
               onClick={() => setMenu('installCases')}
             >
               설치사례
+            </button>
+
+            <button
+              type="button"
+              className={`${menu === 'unitPrice' ? 'menu-btn active' : 'menu-btn'}${
+                !isAdmin ? ' menu-btn--disabled' : ''
+              }`}
+              disabled={!isAdmin}
+              onClick={() => {
+                if (!isAdmin) return
+                setMenu('unitPrice')
+              }}
+            >
+              단가관리
             </button>
           </div>
         </div>
@@ -14400,6 +14445,20 @@ function App() {
                   ? '조회된 설치사례가 없습니다.'
                   : '조건에 맞는 설치사례가 없습니다.'}
               </div>
+            )}
+          </section>
+        )}
+
+        {menu === 'unitPrice' && (
+          <section className="stat-card">
+            {!isAdmin ? (
+              <div className="contracts-header-actions">
+                <div style={{ color: '#94a3b8', fontSize: 12 }}>
+                  권한이 없습니다. 관리자 계정으로만 접근할 수 있습니다.
+                </div>
+              </div>
+            ) : (
+              <UnitPriceManagement />
             )}
           </section>
         )}
