@@ -67,30 +67,18 @@ export const salesRegisterApi = {
       body: JSON.stringify(patch),
     })
   },
-  /** 영업관리대장 요약(summary) 전용 갱신 — summary 키만 담은 PATCH body */
-  async updateSummary(id, summaryOrPatch) {
+  /** 영업관리대장 요약(summary) 전용 갱신 — GET 응답 키(summary)와 동일한 PATCH body */
+  updateSummary(id, summaryOrPatch) {
     const rowId = String(id ?? '').trim()
     if (!rowId) {
       return Promise.reject(new Error('유효하지 않은 행 ID'))
     }
     const patch = resolveSalesSummaryPatchBody(summaryOrPatch)
-    const body = JSON.stringify(patch)
-    if (body === '{}') {
+    if (!Object.keys(patch).length) {
       return Promise.reject(new Error('요약 저장 Payload가 비어 있습니다.'))
     }
     console.log('[영업관리대장] 요약 저장 Payload:', patch)
-    const basePath = `/api/sales-register/${encodeURIComponent(rowId)}`
-    const requestOpts = { method: 'PATCH', body }
-    try {
-      return await requestJson(basePath, requestOpts)
-    } catch (err) {
-      const message = String(err?.message || err)
-      if (!message.includes('No fields to update')) {
-        throw err
-      }
-      console.warn('[영업관리대장] 요약 저장 — 기본 PATCH 실패, /summary 엔드포인트로 재시도')
-      return requestJson(`${basePath}/summary`, requestOpts)
-    }
+    return this.update(rowId, patch)
   },
   /** 영업관리대장 세부내용( detail ) 히스토리 전용 갱신 */
   updateDetail(id, detail) {
