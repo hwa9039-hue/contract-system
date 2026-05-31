@@ -3530,7 +3530,9 @@ textarea:focus-visible {
 }
 
 .main-area > section.stat-card .work-report-week-board-area .work-report-week-grid {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: calc(7 * 350px + 6 * 10px);
   min-height: 0;
   overflow-x: visible;
   overflow-y: auto;
@@ -3583,7 +3585,9 @@ textarea:focus-visible {
 }
 
 .main-area > section.stat-card .work-report-week-grid {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: calc(7 * 350px + 6 * 10px);
   min-height: 0;
   overflow-y: auto;
 }
@@ -7332,17 +7336,20 @@ textarea:focus-visible {
 }
 
 .work-report-week-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(400px, 400px));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 10px;
   width: max-content;
-  min-width: 100%;
-  align-items: start;
+  min-width: calc(7 * 350px + 6 * 10px);
+  align-items: flex-start;
+  flex-shrink: 0;
   padding-bottom: 4px;
 }
 
 .work-report-day-board {
-  min-width: 400px;
+  min-width: 350px;
+  width: 350px;
+  flex: 0 0 350px;
   flex-shrink: 0;
   border: 1px solid #d9dee6;
   border-radius: 10px;
@@ -7515,17 +7522,19 @@ textarea:focus-visible {
 }
 
 .work-report-week-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(400px, 400px));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 10px;
   width: max-content;
-  min-width: 100%;
-  align-items: start;
+  min-width: calc(7 * 350px + 6 * 10px);
+  align-items: flex-start;
+  flex-shrink: 0;
 }
 
 .work-report-day-board-dense {
-  min-width: 400px;
-  width: 400px;
+  min-width: 350px;
+  width: 350px;
+  flex: 0 0 350px;
   flex-shrink: 0;
   background: #f8fafc;
 }
@@ -7536,6 +7545,8 @@ textarea:focus-visible {
 }
 
 .work-report-board-section {
+  width: 100%;
+  min-width: 0;
   border: 1px solid #d5dee8;
   border-radius: 8px;
   background: #ffffff;
@@ -7558,6 +7569,8 @@ textarea:focus-visible {
 .work-report-board-table {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  min-width: 0;
 }
 
 .work-report-board-header-row,
@@ -7573,7 +7586,7 @@ textarea:focus-visible {
 
 .work-report-board-header-row-journal,
 .work-report-board-row-journal {
-  grid-template-columns: 30px 104px minmax(200px, 1fr) 118px;
+  grid-template-columns: 30px 96px minmax(100px, 1fr) 140px;
 }
 
 .work-report-board-header-row {
@@ -7591,7 +7604,7 @@ textarea:focus-visible {
 }
 
 .work-report-board-row-simple {
-  grid-template-columns: 30px minmax(0, 1fr) 118px;
+  grid-template-columns: 30px minmax(0, 1fr) 140px;
 }
 
 .work-report-board-index,
@@ -7672,6 +7685,8 @@ textarea:focus-visible {
 
 .work-report-board-date-input {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 34px;
   padding: 6px 8px;
   border: 0;
@@ -7680,6 +7695,11 @@ textarea:focus-visible {
   font-size: 11px;
   color: #1f2937;
   box-sizing: border-box;
+}
+
+.work-report-board-date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 1;
 }
 
 .work-report-board-row-journal .work-report-board-textarea {
@@ -7760,16 +7780,19 @@ textarea:focus-visible {
 }
 
 .work-report-week-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(400px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 10px;
-  overflow-x: auto;
-  align-items: start;
+  width: max-content;
+  min-width: calc(7 * 350px + 6 * 10px);
+  align-items: flex-start;
+  flex-shrink: 0;
 }
 
 .work-report-day-board-dense {
-  min-width: 400px;
-  width: 400px;
+  min-width: 350px;
+  width: 350px;
+  flex: 0 0 350px;
   flex-shrink: 0;
 }
 
