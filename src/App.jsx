@@ -2809,16 +2809,16 @@ function buildRegistrySmartDetailSavePayload(scope, column, row, rawValue) {
   if (isSalesDetailHistoryColumn(column, scope)) {
     const oldDetail = safeString(row?.detail).trim()
     if (newDetail === oldDetail) return null
-    const stampedSummaryLine = `[${new Date().getFullYear().toString().slice(-2)}-${String(
-      new Date().getMonth() + 1
-    ).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}] ${newDetail}`
     const existingSummary = safeString(row?.summary).trim()
+    const baseSummary =
+      existingSummary || (oldDetail ? `${formatSalesRegisterDateStamp(row?.registerDate)} ${oldDetail}` : '')
+    const stampedSummaryLine = `${formatSalesRecordDateStamp()} ${newDetail}`
     return {
       detail: normalizeSalesRecordForSave(newDetail),
       summary: normalizeSalesRecordForSave(
         newDetail
-          ? existingSummary
-            ? `${stampedSummaryLine}\n${existingSummary}`
+          ? baseSummary
+            ? `${stampedSummaryLine}\n${baseSummary}`
             : stampedSummaryLine
           : existingSummary
       ),
@@ -10987,6 +10987,10 @@ function App() {
             !isImportanceCell &&
             !canUseRegistryModalEditor &&
             (isEditableText || showInput || isSmartDetailCell)
+          const discoveryTextWrapClass =
+            cellEditScope === 'discovery' && column.type !== 'amount'
+              ? 'whitespace-pre-wrap break-words'
+              : ''
           const cells = [
             <td
               key={column.key}
@@ -10994,7 +10998,7 @@ function App() {
                 isLongTextTableColumn(column) ? 'multiline-cell' : ''
               } ${
                 isImportanceCell ? 'registry-importance-cell' : ''
-              } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${
+              } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${discoveryTextWrapClass} ${
                 usesTableInlineInput
                   ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
                   : isAdminForRegistry && !row.isDraft && !isImportanceCell
@@ -11608,7 +11612,7 @@ function App() {
               />
               <input
                 type="date"
-                className="work-report-board-date-input"
+                className="work-report-board-date-input work-report-board-date-input-support"
                 value={normalizeWorkReportDeadlineForDateInput(entry.deadline)}
                 onChange={(e) =>
                   updateWorkReportBoardEntry(date, section, orderIndex, {
@@ -13476,7 +13480,7 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui table-w-full-min table-fixed">
+                <table className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui table-w-full-min table-fixed min-w-[1500px]">
                   <colgroup>
                     <col className="registry-check-col" />
                     {DISCOVERY_COLUMNS.map((column) => (
@@ -13502,7 +13506,13 @@ function App() {
                       {DISCOVERY_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} ${
+                            column.key === 'projectName'
+                              ? 'w-[20%]'
+                              : column.key === 'note'
+                                ? 'w-[30%]'
+                                : ''
+                          } contract-th-filterable`}
                         >
                           <div className="contract-th-filter-wrap">
                             <span className="contract-th-label">{column.label}</span>
