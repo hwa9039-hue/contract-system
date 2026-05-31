@@ -6,11 +6,11 @@ export default function NewsMonitor() {
     <section className="stat-card">
       <div className="contract-table-panel">
         <div className="table-wrap contracts-only-scroll overflow-x-auto">
-          <div className="w-full h-[75vh] overflow-hidden relative rounded-md">
+          <div className="flex flex-col flex-1 w-full min-h-[calc(100vh-160px)]">
             <iframe
               title="각종뉴스"
               src={NEWS_MONITOR_URL}
-              className="absolute top-0 left-0 w-full h-calc-full-plus-50px border-none"
+              className="w-full h-full min-h-[calc(100vh-160px)] flex-1 border-none rounded-b-md"
               allowFullScreen
             />
           </div>

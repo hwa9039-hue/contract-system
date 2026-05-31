@@ -10789,24 +10789,24 @@ textarea:focus-visible {
   height: 100%;
 }
 
+.flex-col {
+  flex-direction: column;
+}
+
+.flex-1 {
+  flex: 1 1 0%;
+}
+
 .min-h-\[40px\] {
   min-height: 40px;
 }
 
-.min-h-\[75vh\] {
-  min-height: 75vh;
+.min-h-\[calc\(100vh-160px\)\] {
+  min-height: calc(100vh - 160px);
 }
 
 .min-h-\[85vh\] {
   min-height: 85vh;
-}
-
-.h-\[75vh\] {
-  height: 75vh;
-}
-
-.h-calc-full-plus-50px {
-  height: calc(100% + 50px);
 }
 
 .relative {
@@ -10831,6 +10831,11 @@ textarea:focus-visible {
 
 .rounded-md {
   border-radius: 6px;
+}
+
+.rounded-b-md {
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
 }
 
 .h-\[calc\(100vh-100px\)\] {
