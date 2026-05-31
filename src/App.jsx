@@ -2777,6 +2777,41 @@ function buildSalesRecordDetailWithNewEntry(existingDetail, newEntryText) {
   return existing ? `${stamped}\n\n${existing}` : stamped
 }
 
+/** 영업관리대장 요약 모달 — 저장용 summary 문자열·변경 여부 조합 */
+function buildSalesRecordSummarySavePayload({
+  summaryDraft,
+  summaryRaw,
+  summaryDisplayInitial,
+  newEntry,
+}) {
+  const trimmedNew = safeString(newEntry).trim()
+  const draftText = safeString(summaryDraft).trimEnd()
+  const rawBaseline = getSalesRecordRawHistory(summaryRaw)
+  const initialDisplay = safeString(summaryDisplayInitial).trim()
+  const historyEdited = safeString(summaryDraft).trim() !== initialDisplay
+
+  if (!trimmedNew && !historyEdited) {
+    return { hasChanges: false, summary: rawBaseline }
+  }
+
+  let merged = ''
+  if (historyEdited && !trimmedNew) {
+    merged = draftText
+  } else if (!historyEdited && trimmedNew) {
+    merged = buildSalesRecordDetailWithNewEntry(rawBaseline, trimmedNew)
+  } else {
+    const stamped = `${formatSalesRecordDateStamp()} ${trimmedNew}`
+    merged = draftText ? `${draftText}\n${stamped}` : stamped
+  }
+
+  const normalized = normalizeSalesRecordForSave(merged)
+  const summary =
+    normalized ||
+    (historyEdited || trimmedNew ? safeString(merged).trimEnd() : rawBaseline)
+
+  return { hasChanges: true, summary }
+}
+
 function hasSalesRecordStoredContent(detail) {
   const raw = safeString(detail)
   if (!raw.trim()) return false
@@ -7639,26 +7674,26 @@ function App() {
       showAppAlert('저장 경로를 찾을 수 없거나 서버 통신에 실패했습니다.', '알림')
       return
     }
-    const hasNewEntry = safeString(salesRecordModal.newEntry).trim().length > 0
-    const summaryEdited =
-      safeString(salesRecordModal.summaryDraft).trim() !==
-      safeString(salesRecordModal.summaryDisplayInitial).trim()
-    if (!hasNewEntry && !summaryEdited) {
+    const { hasChanges, summary: summaryPayload } = buildSalesRecordSummarySavePayload({
+      summaryDraft: salesRecordModal.summaryDraft,
+      summaryRaw: salesRecordModal.summaryRaw,
+      summaryDisplayInitial: salesRecordModal.summaryDisplayInitial,
+      newEntry: salesRecordModal.newEntry,
+    })
+    if (!hasChanges) {
       showAppAlert('변경된 내용이 없습니다.', '알림')
       return
     }
-    const baseSummary = summaryEdited ? salesRecordModal.summaryDraft : salesRecordModal.summaryRaw
-    const merged = buildSalesRecordDetailWithNewEntry(baseSummary, salesRecordModal.newEntry)
-    const summaryPayload = normalizeSalesRecordForSave(merged)
     setSalesRecordModal((prev) => (prev ? { ...prev, saving: true } : prev))
     try {
-      await salesRegisterApi.update(rowId, { summary: summaryPayload })
+      await salesRegisterApi.updateSummary(rowId, summaryPayload)
       setSalesRows((prev) =>
         prev.map((row) =>
           row.id === rowId ? normalizeSalesRow({ ...row, summary: summaryPayload }) : row
         )
       )
       closeSalesRecordModal()
+      setToastMessage('저장되었습니다.')
       await fetchSalesRows(true)
     } catch (error) {
       console.error('영업관리대장 요약 저장 실패', { rowId, summaryLength: summaryPayload.length, error })

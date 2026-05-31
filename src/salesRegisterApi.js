@@ -43,6 +43,17 @@ export const salesRegisterApi = {
       body: JSON.stringify(patch),
     })
   },
+  /** 영업관리대장 요약(summary) 전용 갱신 — 빈 문자열도 명시적으로 반영 */
+  updateSummary(id, summary) {
+    const rowId = String(id ?? '').trim()
+    if (!rowId) {
+      return Promise.reject(new Error('유효하지 않은 행 ID'))
+    }
+    return requestJson(`/api/sales-register/${encodeURIComponent(rowId)}/summary`, {
+      method: 'PATCH',
+      body: JSON.stringify({ summary: summary == null ? '' : String(summary) }),
+    })
+  },
   /** 영업관리대장 세부내용( detail ) 히스토리 전용 갱신 */
   updateDetail(id, detail) {
     const rowId = String(id ?? '').trim()
