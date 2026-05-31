@@ -12527,7 +12527,7 @@ function App() {
 
         {menu === 'workReports' && (
           <section className="stat-card stat-card--work-reports">
-            <div className="work-report-page-body h-full overflow-y-auto">
+            <div className="work-report-page-body work-report-page-body--dual-scroll h-full">
               <div className="contracts-header-actions work-report-toolbar">
                 <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
                   이전 주
