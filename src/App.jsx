@@ -1,5 +1,7 @@
 ﻿import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
+  ChevronDown,
+  ChevronUp,
   Download,
   FileText,
   Pencil,
@@ -5097,6 +5099,12 @@ function App() {
   const [selectedWorkWeek, setSelectedWorkWeek] = useState(() =>
     buildWorkReportWeekMeta(new Date()).weekStartDate
   )
+  const [expandedDays, setExpandedDays] = useState(() => {
+    const todayLabel = getWorkReportWeekDays(buildWorkReportWeekMeta(new Date()).weekStartDate).find(
+      (day) => day.isToday
+    )?.label
+    return [todayLabel || '월']
+  })
   const [workReportFilters, setWorkReportFilters] = useState({
     assignee: '',
   })
@@ -6856,6 +6864,18 @@ function App() {
     () => getWorkReportWeekDays(selectedWorkWeekMeta.weekStartDate),
     [selectedWorkWeekMeta.weekStartDate]
   )
+  useEffect(() => {
+    setExpandedDays((prev) => {
+      const availableLabels = new Set(selectedWorkWeekDays.map((day) => day.label))
+      const filtered = prev.filter((label) => availableLabels.has(label))
+      if (filtered.length > 0) {
+        if (filtered.length === prev.length && filtered.every((label, idx) => label === prev[idx])) return prev
+        return filtered
+      }
+      const fallbackLabel = selectedWorkWeekDays.find((day) => day.isToday)?.label || selectedWorkWeekDays[0]?.label || '월'
+      return [fallbackLabel]
+    })
+  }, [selectedWorkWeekDays])
 
   const filteredWorkReportRows = useMemo(() => {
     return workReportRows.filter((row) => {
@@ -12297,33 +12317,60 @@ function App() {
     </section>
   )
 
-  const renderWorkReportDayBoardV4 = (day) => (
-    <div key={day.date} className={`work-report-day-board work-report-day-board-dense ${day.isToday ? 'is-today' : ''}`}>
-      <div className="work-report-day-head">
-        <div className="work-report-day-weekday">{day.label}</div>
-        <div className="work-report-day-date">{day.date}</div>
+  const toggleWorkReportDayAccordion = (dayLabel) => {
+    setExpandedDays((prev) =>
+      prev.includes(dayLabel) ? prev.filter((label) => label !== dayLabel) : [...prev, dayLabel]
+    )
+  }
+
+  const renderWorkReportDayBoardV4 = (day) => {
+    const isExpanded = expandedDays.includes(day.label)
+    return (
+      <div
+        key={day.date}
+        className={`work-report-day-board work-report-day-board-dense work-report-day-accordion ${
+          day.isToday ? 'is-today' : ''
+        } ${isExpanded ? 'is-expanded' : ''}`}
+      >
+        <button
+          type="button"
+          className="work-report-day-accordion-header"
+          onClick={() => toggleWorkReportDayAccordion(day.label)}
+          aria-expanded={isExpanded}
+          aria-controls={`work-report-day-panel-${day.date}`}
+        >
+          <span className="work-report-day-accordion-title">{`${day.label} ${day.date}`}</span>
+          <span className="work-report-day-accordion-chevron" aria-hidden>
+            {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </span>
+        </button>
+        <div
+          id={`work-report-day-panel-${day.date}`}
+          className={`work-report-day-accordion-content ${isExpanded ? 'is-expanded' : ''}`}
+        >
+          <div className="work-report-day-sections work-report-day-sections-dense w-full">
+            {renderWorkReportChecklistSectionV4(day.date)}
+            {renderWorkReportExternalSectionV4(day.date)}
+            {renderWorkReportManagedSection(
+              day.date,
+              'DI사업',
+              WORK_REPORT_SECTION_KEYS.di,
+              WORK_REPORT_DI_ROW_COUNT,
+              'work-report-board-textarea-di'
+            )}
+            {renderWorkReportManagedSection(
+              day.date,
+              '도로사업',
+              WORK_REPORT_SECTION_KEYS.road,
+              WORK_REPORT_ROAD_ROW_COUNT,
+              'work-report-board-textarea-road'
+            )}
+            {renderWorkReportSupportSectionV4(day.date)}
+          </div>
+        </div>
       </div>
-      <div className="work-report-day-sections work-report-day-sections-dense">
-        {renderWorkReportChecklistSectionV4(day.date)}
-        {renderWorkReportExternalSectionV4(day.date)}
-        {renderWorkReportManagedSection(
-          day.date,
-          'DI사업',
-          WORK_REPORT_SECTION_KEYS.di,
-          WORK_REPORT_DI_ROW_COUNT,
-          'work-report-board-textarea-di'
-        )}
-        {renderWorkReportManagedSection(
-          day.date,
-          '도로사업',
-          WORK_REPORT_SECTION_KEYS.road,
-          WORK_REPORT_ROAD_ROW_COUNT,
-          'work-report-board-textarea-road'
-        )}
-        {renderWorkReportSupportSectionV4(day.date)}
-      </div>
-    </div>
-  )
+    )
+  }
 
 
   return (
@@ -12846,8 +12893,8 @@ function App() {
                 </div>
               </div>
 
-              <div className="work-report-week-board-area">
-                <div className="work-report-week-grid">
+              <div className="work-report-week-board-area work-report-week-board-area-accordion">
+                <div className="work-report-week-grid work-report-week-grid-accordion">
                   {selectedWorkWeekDays.map((day) => renderWorkReportDayBoardV4(day))}
                 </div>
               </div>

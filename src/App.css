@@ -10878,3 +10878,79 @@ table[data-contract-table-row-key] tbody td.p-0 > textarea:focus,
   box-shadow: inset 0 0 0 2px #3b82f6;
   background-color: #eff6ff;
 }
+
+/* Weekly work report: vertical accordion layout */
+.work-report-week-board-area-accordion {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.work-report-week-grid.work-report-week-grid-accordion {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  gap: 12px;
+  overflow: visible;
+}
+
+.work-report-day-accordion.work-report-day-board-dense {
+  width: 100%;
+  min-width: 0;
+  border-radius: 12px;
+  border: 1px solid #dbe5f1;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+}
+
+.work-report-day-accordion .work-report-day-accordion-header {
+  width: 100%;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.work-report-day-accordion .work-report-day-accordion-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.35;
+}
+
+.work-report-day-accordion .work-report-day-accordion-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.22s ease;
+}
+
+.work-report-day-accordion.is-expanded .work-report-day-accordion-chevron {
+  transform: rotate(0deg);
+}
+
+.work-report-day-accordion .work-report-day-accordion-content {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+  background: #f8fafc;
+}
+
+.work-report-day-accordion .work-report-day-accordion-content.is-expanded {
+  max-height: 6000px;
+  opacity: 1;
+}
+
+.work-report-day-accordion .work-report-day-sections-dense {
+  width: 100%;
+  box-sizing: border-box;
+}
