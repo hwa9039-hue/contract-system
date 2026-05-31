@@ -3,13 +3,19 @@ const NEWS_MONITOR_URL =
 
 export default function NewsMonitor() {
   return (
-    <div className="monitoring-embed-shell monitoring-embed-shell--full-bleed">
-      <iframe
-        title="각종뉴스"
-        src={NEWS_MONITOR_URL}
-        className="monitoring-embed-frame w-full h-[calc(100vh-80px)] block border-none"
-        allowFullScreen
-      />
-    </div>
+    <section className="stat-card">
+      <div className="contract-table-panel">
+        <div className="table-wrap contracts-only-scroll overflow-x-auto">
+          <div className="w-full h-[75vh] overflow-hidden relative rounded-md">
+            <iframe
+              title="각종뉴스"
+              src={NEWS_MONITOR_URL}
+              className="absolute top-0 left-0 w-full h-calc-full-plus-50px border-none"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }

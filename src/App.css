@@ -10558,75 +10558,6 @@ textarea:focus-visible {
   text-align: left;
 }
 
-/* ── 모니터링 iframe (나라장터·각종뉴스) ── */
-.main-area.main-area--monitoring-embed {
-  padding: 0;
-  gap: 0;
-}
-
-.main-area.main-area--monitoring-embed > .top-system-bar,
-.main-area.main-area--monitoring-embed > .page-title-bar {
-  margin-bottom: 0;
-}
-
-.main-area > section.stat-card.stat-card--monitoring-embed {
-  padding: 0;
-  margin: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  background: #ffffff;
-}
-
-.stat-card.stat-card--monitoring-embed {
-  padding: 0;
-  min-height: 0;
-}
-
-.monitoring-embed-shell {
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-/* 부모 여백 상쇄: -mx-4 -my-4 / sm:-mx-6 sm:-my-6 sm:-mt-8 */
-.monitoring-embed-shell--full-bleed {
-  margin: -16px;
-  width: calc(100% + 32px);
-  max-width: none;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-@media (min-width: 640px) {
-  .monitoring-embed-shell--full-bleed {
-    margin: -32px -24px -24px;
-    width: calc(100% + 48px);
-  }
-}
-
-.main-area.main-area--monitoring-embed .monitoring-embed-shell--full-bleed {
-  margin: 0;
-  width: 100%;
-}
-
-.monitoring-embed-frame {
-  display: block;
-  width: 100%;
-  flex: 1 1 auto;
-  min-height: 0;
-  border: none;
-  background: #ffffff;
-}
-
 /* ── 단가관리 ── */
 .main-area > section.stat-card.stat-card--unit-price {
   min-height: 0;
@@ -10862,8 +10793,44 @@ textarea:focus-visible {
   min-height: 40px;
 }
 
+.min-h-\[75vh\] {
+  min-height: 75vh;
+}
+
 .min-h-\[85vh\] {
   min-height: 85vh;
+}
+
+.h-\[75vh\] {
+  height: 75vh;
+}
+
+.h-calc-full-plus-50px {
+  height: calc(100% + 50px);
+}
+
+.relative {
+  position: relative;
+}
+
+.absolute {
+  position: absolute;
+}
+
+.top-0 {
+  top: 0;
+}
+
+.left-0 {
+  left: 0;
+}
+
+.overflow-hidden {
+  overflow: hidden;
+}
+
+.rounded-md {
+  border-radius: 6px;
 }
 
 .h-\[calc\(100vh-100px\)\] {
