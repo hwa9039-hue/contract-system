@@ -2777,6 +2777,14 @@ function getSalesRecordHistoryForDisplay(detail, registerDate) {
   return formatSalesRecordHistoryForDisplay(detail, registerDate)
 }
 
+function buildSalesSummaryFallbackFromRow(row) {
+  const existingSummary = safeString(row?.summary).trim()
+  if (existingSummary) return existingSummary
+  const existingDetail = safeString(row?.detail).trim()
+  if (!existingDetail) return ''
+  return `${formatSalesRegisterDateStamp(row?.registerDate)} ${existingDetail}`
+}
+
 function isSalesDetailHistoryColumn(column, scope) {
   return scope === 'sales' && column?.key === 'detail'
 }
@@ -7899,8 +7907,9 @@ function App() {
             return
           }
           const sourceRow = salesRows.find((item) => item.id === rowId) || row
+          const summaryRawInitial = buildSalesSummaryFallbackFromRow(sourceRow)
           const summaryDisplay = getSalesRecordHistoryForDisplay(
-            sourceRow.summary,
+            summaryRawInitial,
             sourceRow.registerDate
           )
           setSalesRecordModal({
@@ -7910,7 +7919,7 @@ function App() {
             manager: safeString(sourceRow.manager).trim(),
             department: safeString(sourceRow.department).trim(),
             summary: summaryDisplay,
-            summaryRaw: getSalesRecordRawHistory(sourceRow.summary),
+            summaryRaw: getSalesRecordRawHistory(summaryRawInitial),
             summaryDraft: summaryDisplay,
             summaryDisplayInitial: summaryDisplay,
             isEditingSummary: false,
