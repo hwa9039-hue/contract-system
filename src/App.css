@@ -879,6 +879,14 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
   min-width: 350px;
 }
 
+.w-\[400px\] {
+  width: 400px;
+}
+
+.min-w-\[400px\] {
+  min-width: 400px;
+}
+
 /* ── 5개 대장 공통 테이블 UI (계약·영업·건축·사업검색·문서) ── */
 .contract-table-panel .table-wrap {
   font-size: 13px;
@@ -3533,13 +3541,18 @@ textarea:focus-visible {
   flex-shrink: 0;
 }
 
+.main-area > section.stat-card.stat-card--work-reports {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
 .main-area > section.stat-card.stat-card--work-reports > .work-report-page-body {
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
+  overflow-x: visible;
   overflow-y: auto;
   margin-top: 0;
 }
@@ -3557,7 +3570,7 @@ textarea:focus-visible {
 .main-area > section.stat-card .work-report-week-board-area {
   flex: 0 0 auto;
   min-height: 0;
-  max-width: 100%;
+  min-width: 0;
   max-height: none;
   display: block;
   overflow: visible;
@@ -3611,7 +3624,8 @@ textarea:focus-visible {
 }
 
 .main-area > section.stat-card .work-report-week-grid {
-  max-width: 100%;
+  width: 100%;
+  min-width: 0;
   align-items: flex-start;
 }
 
@@ -7362,18 +7376,21 @@ textarea:focus-visible {
   display: flex;
   flex-wrap: nowrap;
   gap: 1rem;
-  max-width: 100%;
+  width: 100%;
+  min-width: 0;
   align-items: flex-start;
   flex-shrink: 0;
   overflow-x: auto;
+  overflow-y: visible;
   padding-bottom: 1rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .work-report-day-board {
   flex: none;
-  width: 350px;
-  min-width: 350px;
-  max-width: 350px;
+  width: 400px;
+  min-width: 400px;
+  max-width: 400px;
   border: 1px solid #d9dee6;
   border-radius: 10px;
   background: #f5f6f8;
@@ -7546,10 +7563,16 @@ textarea:focus-visible {
 
 .work-report-day-board-dense {
   flex: none;
-  width: 350px;
-  min-width: 350px;
-  max-width: 350px;
+  width: 400px;
+  min-width: 400px;
+  max-width: 400px;
   background: #f8fafc;
+}
+
+.work-report-day-board .work-report-board-section,
+.work-report-day-board .work-report-board-table {
+  min-width: 100%;
+  width: 100%;
 }
 
 .work-report-day-sections-dense {
@@ -7599,7 +7622,7 @@ textarea:focus-visible {
 
 .work-report-board-header-row-journal,
 .work-report-board-row-journal {
-  grid-template-columns: 30px 96px minmax(100px, 1fr) 140px;
+  grid-template-columns: 30px 96px minmax(120px, 1fr) 140px;
 }
 
 .work-report-board-header-row {
