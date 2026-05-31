@@ -1,6 +1,9 @@
 import logging
+from datetime import datetime, timezone
+from uuid import uuid4
 
-from fastapi import APIRouter
+from fastapi import APIRouter, status
+from pydantic import BaseModel
 
 from app.database import get_connection
 
@@ -8,26 +11,37 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/contacts-manage", tags=["contacts-manage"])
 
+CONTACTS_RETURNING = """
+  id::text as id,
+  category,
+  business_content,
+  manager_name,
+  position,
+  phone,
+  email,
+  notes
+"""
+
+
+class ContactsManageCreate(BaseModel):
+    category: str = ""
+    business_content: str = ""
+    manager_name: str = ""
+    position: str = ""
+    phone: str = ""
+    email: str = ""
+    notes: str = ""
+
 
 @router.get("")
 def list_contacts():
-    """연락처 목록.
-
-    - 우선은 GET 뼈대 + 빈 DB면 목업 데이터 반환(프론트 렌더링 확인용)
-    """
+    """연락처 목록."""
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
-                """
+                f"""
                 select
-                  id::text as id,
-                  category,
-                  business_content,
-                  manager_name,
-                  position,
-                  phone,
-                  email,
-                  notes
+                  {CONTACTS_RETURNING}
                 from contacts_rows
                 order by updated_at desc nulls last, created_at desc nulls last
                 """
@@ -60,3 +74,52 @@ def list_contacts():
         },
     ]
 
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+def create_contact(body: ContactsManageCreate):
+    """연락처 신규 등록."""
+    values = body.model_dump()
+    contact_id = str(uuid4())
+    now = datetime.now(timezone.utc)
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                insert into contacts_rows (
+                  id,
+                  category,
+                  business_content,
+                  manager_name,
+                  position,
+                  phone,
+                  email,
+                  notes,
+                  created_at,
+                  updated_at
+                )
+                values (
+                  %(id)s,
+                  %(category)s,
+                  %(business_content)s,
+                  %(manager_name)s,
+                  %(position)s,
+                  %(phone)s,
+                  %(email)s,
+                  %(notes)s,
+                  %(created_at)s,
+                  %(updated_at)s
+                )
+                returning {CONTACTS_RETURNING}
+                """,
+                {
+                    **values,
+                    "id": contact_id,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+            created = cursor.fetchone()
+        connection.commit()
+
+    return created

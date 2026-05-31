@@ -259,6 +259,16 @@ const CONTACTS_MANAGE_COLUMNS = [
   },
 ]
 
+const EMPTY_CONTACTS_REGISTER_FORM = {
+  category: '',
+  business_content: '',
+  manager_name: '',
+  position: '',
+  phone: '',
+  email: '',
+  notes: '',
+}
+
 const SALES_STAGE_OPTIONS = [
   '대기',
   '대응중',
@@ -4941,6 +4951,9 @@ function App() {
   const { isAdmin, sharedSessionExpiresAt, logout, extendLogin } = useAuth()
   const [contactsManageRows, setContactsManageRows] = useState([])
   const [isLoadingContactsManage, setIsLoadingContactsManage] = useState(false)
+  const [contactsRegisterModalOpen, setContactsRegisterModalOpen] = useState(false)
+  const [contactsRegisterForm, setContactsRegisterForm] = useState(EMPTY_CONTACTS_REGISTER_FORM)
+  const [isSavingContactsRegister, setIsSavingContactsRegister] = useState(false)
   const [selectedContactsIds, setSelectedContactsIds] = useState([])
   const [contactsSearch, setContactsSearch] = useState('')
   const [contactsActiveFilters, setContactsActiveFilters] = useState({})
@@ -6922,8 +6935,43 @@ function App() {
     }
   }
 
+  const openContactsRegisterModal = () => {
+    setContactsRegisterForm({ ...EMPTY_CONTACTS_REGISTER_FORM })
+    setContactsRegisterModalOpen(true)
+  }
+
+  const closeContactsRegisterModal = () => {
+    if (isSavingContactsRegister) return
+    setContactsRegisterModalOpen(false)
+  }
+
   const handleAddContactsRow = () => {
-    showAppAlert('연락처 등록 기능은 준비 중입니다.')
+    openContactsRegisterModal()
+  }
+
+  const saveContactsRegister = async () => {
+    const payload = {
+      category: safeString(contactsRegisterForm.category).trim(),
+      business_content: safeString(contactsRegisterForm.business_content).trim(),
+      manager_name: safeString(contactsRegisterForm.manager_name).trim(),
+      position: safeString(contactsRegisterForm.position).trim(),
+      phone: safeString(contactsRegisterForm.phone).trim(),
+      email: safeString(contactsRegisterForm.email).trim(),
+      notes: safeString(contactsRegisterForm.notes).trim(),
+    }
+
+    setIsSavingContactsRegister(true)
+    try {
+      await contactsManageApi.create(payload)
+      setContactsRegisterModalOpen(false)
+      showAppAlert('연락처가 등록되었습니다.', '알림')
+      await fetchContactsManageRows()
+    } catch (error) {
+      console.error('연락처 등록 실패', error)
+      showAppAlert(error?.message || '연락처 등록에 실패했습니다.', '알림')
+    } finally {
+      setIsSavingContactsRegister(false)
+    }
   }
 
   const handleContactsExcelUpload = () => {
@@ -14542,6 +14590,92 @@ function App() {
                 </button>
                 <button type="button" className="primary-btn" onClick={() => void saveAddRow()}>
                   등록
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {contactsRegisterModalOpen && (
+        <div className="modal-backdrop" onClick={closeContactsRegisterModal}>
+          <div
+            className="install-case-form-modal contract-register-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contacts-register-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="install-case-form-modal-header">
+              <h3 id="contacts-register-title">연락처 등록</h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={closeContactsRegisterModal}
+                disabled={isSavingContactsRegister}
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="install-case-form-modal-body">
+              <div className="global-register-form-grid">
+                {CONTACTS_MANAGE_COLUMNS.map((column) => (
+                  <div
+                    key={column.key}
+                    className={`global-register-field${
+                      column.type === 'textarea' ? ' global-register-field--full' : ''
+                    }`}
+                  >
+                    <label className="install-case-form-label" htmlFor={`contacts-reg-${column.key}`}>
+                      {column.label}
+                    </label>
+                    {column.type === 'textarea' ? (
+                      <textarea
+                        id={`contacts-reg-${column.key}`}
+                        className="table-search-input install-case-form-input global-register-control"
+                        rows={column.key === 'notes' ? 4 : 3}
+                        value={contactsRegisterForm[column.key] ?? ''}
+                        onChange={(e) =>
+                          setContactsRegisterForm((prev) => ({
+                            ...prev,
+                            [column.key]: e.target.value,
+                          }))
+                        }
+                      />
+                    ) : (
+                      <input
+                        id={`contacts-reg-${column.key}`}
+                        className="table-search-input install-case-form-input global-register-control"
+                        type="text"
+                        value={contactsRegisterForm[column.key] ?? ''}
+                        onChange={(e) =>
+                          setContactsRegisterForm((prev) => ({
+                            ...prev,
+                            [column.key]: e.target.value,
+                          }))
+                        }
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="install-case-form-actions">
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={closeContactsRegisterModal}
+                  disabled={isSavingContactsRegister}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={() => void saveContactsRegister()}
+                  disabled={isSavingContactsRegister}
+                >
+                  {isSavingContactsRegister ? '저장 중...' : '저장'}
                 </button>
               </div>
             </div>
