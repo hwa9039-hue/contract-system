@@ -10559,24 +10559,43 @@ textarea:focus-visible {
 }
 
 /* ── 모니터링 iframe ── */
+.main-area.main-area--monitoring-embed {
+  padding: 0;
+}
+
+.main-area.main-area--monitoring-embed > .top-system-bar,
+.main-area.main-area--monitoring-embed > .page-title-bar {
+  margin-bottom: 0;
+}
+
 .main-area > section.stat-card.stat-card--monitoring-embed {
   padding: 0;
+  margin: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .stat-card.stat-card--monitoring-embed {
   padding: 0;
 }
 
+.monitoring-embed-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
 .monitoring-embed-frame {
   display: block;
-  flex: 1 1 auto;
   width: 100%;
-  min-height: 85vh;
   border: none;
 }
 
@@ -10817,6 +10836,10 @@ textarea:focus-visible {
 
 .min-h-\[85vh\] {
   min-height: 85vh;
+}
+
+.h-\[calc\(100vh-100px\)\] {
+  height: calc(100vh - 100px);
 }
 
 .px-3 {

@@ -1184,6 +1184,8 @@ const PAGE_TITLE_MAP = {
   materialsBoard: '게시판',
 }
 
+const MONITORING_EMBED_MENU_KEYS = new Set(['naraMarket', 'newsMonitor'])
+
 const ADMIN_ONLY_MENU_KEYS = new Set(['contactsManage', 'unitPrice'])
 const UNIT_PRICE_MENU_PATH = '/unit-price'
 function isWorkReportRelatedMenu(menuKey) {
@@ -12155,7 +12157,11 @@ function App() {
         </div>
       </aside>
 
-      <main className="main-area">
+      <main
+        className={`main-area${
+          MONITORING_EMBED_MENU_KEYS.has(menu) ? ' main-area--monitoring-embed' : ''
+        }`}
+      >
         <div className="top-system-bar">
           <div className="top-system-title">
             <span>스마트DI사업부 통합관리 시스템</span>
