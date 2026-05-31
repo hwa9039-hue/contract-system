@@ -41,16 +41,16 @@ class ContractBase(BaseModel):
     contractDate: Optional[date] = None
     dueDate: Optional[date] = None
     projectName: str = ""
-  amount: int = 0
-  salesOwner: str = ""
-  pm: str = ""
-  note: str = ""
-  costService: str = ""
-  itemName: str = ""
-  designUnitPrice: int = 0
-  pitch: str = ""
-  capW: str = ""
-  capH: str = ""
+    amount: int = 0
+    salesOwner: str = ""
+    pm: str = ""
+    note: str = ""
+    costService: str = ""
+    itemName: str = ""
+    designUnitPrice: int = 0
+    pitch: str = ""
+    capW: str = ""
+    capH: str = ""
 
     @field_validator("contractDate", "dueDate", mode="before")
     @classmethod
@@ -109,6 +109,11 @@ class ContractPatch(BaseModel):
     pitch: Optional[str] = None
     capW: Optional[str] = None
     capH: Optional[str] = None
+    cost_service: Optional[str] = None
+    item_name: Optional[str] = None
+    unit_price: Optional[int] = None
+    width_w: Optional[str] = None
+    height_h: Optional[str] = None
 
 
 def coerce_contract_api_id(value: Any) -> str:
@@ -913,6 +918,11 @@ CONTRACT_DB_COLUMNS = {
     "pitch": "pitch",
     "capW": "capW",
     "capH": "capH",
+    "cost_service": "costService",
+    "item_name": "itemName",
+    "unit_price": "designUnitPrice",
+    "width_w": "capW",
+    "height_h": "capH",
 }
 
 TABLE_COLUMN_MAPPINGS = {

@@ -227,7 +227,7 @@ def update_contract(contract_id: str, patch: ContractPatch):
         db_key = CONTRACT_DB_COLUMNS.get(api_key)
         if not db_key:
             continue
-        if api_key == "designUnitPrice" and value is not None:
+        if api_key in ("designUnitPrice", "unit_price") and value is not None:
             if isinstance(value, bool):
                 value = 0
             elif isinstance(value, (int, float)):

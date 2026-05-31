@@ -10,14 +10,29 @@ import {
 const CONTRACT_TYPE_FILTER = '55121903'
 
 /**
- * UI 편집 필드 → PATCH API 키 (= contracts_rows / ContractPatch / CONTRACT_DB_COLUMNS)
+ * UI 편집 필드 → PATCH API 키 (영문 DB 컬럼명, snake_case)
  * 한글 라벨(원가용역 등)은 절대 payload에 넣지 않음.
  */
 const UNIT_PRICE_API_COLUMN_MAP = Object.freeze({
+  costService: 'cost_service',
+  itemName: 'item_name',
+  designUnitPrice: 'unit_price',
+  pitch: 'pitch',
+  capW: 'width_w',
+  capH: 'height_h',
+})
+
+/** PATCH payload 키 → UI 편집 필드 키 (저장 후 로컬 상태 반영) */
+const API_KEY_TO_UI_FIELD = Object.freeze({
+  cost_service: 'costService',
+  item_name: 'itemName',
+  unit_price: 'designUnitPrice',
+  pitch: 'pitch',
+  width_w: 'capW',
+  height_h: 'capH',
   costService: 'costService',
   itemName: 'itemName',
   designUnitPrice: 'designUnitPrice',
-  pitch: 'pitch',
   capW: 'capW',
   capH: 'capH',
 })
@@ -126,33 +141,34 @@ function extractEditableFields(item) {
     ).trim(),
     itemName: safeString(readContractField(item, 'itemName', 'item_name', 'itemname')).trim(),
     designUnitPrice: formatDesignUnitPrice(
-      readContractField(item, 'designUnitPrice', 'design_unit_price', 'designunitprice')
+      readContractField(
+        item,
+        'designUnitPrice',
+        'unit_price',
+        'design_unit_price',
+        'designunitprice'
+      )
     ),
     pitch: safeString(readContractField(item, 'pitch')).trim(),
-    capW: safeString(readContractField(item, 'capW', 'cap_w', 'capw', 'width')).trim(),
-    capH: safeString(readContractField(item, 'capH', 'cap_h', 'caph', 'height')).trim(),
+    capW: safeString(
+      readContractField(item, 'capW', 'width_w', 'cap_w', 'capw', 'width')
+    ).trim(),
+    capH: safeString(
+      readContractField(item, 'capH', 'height_h', 'cap_h', 'caph', 'height')
+    ).trim(),
   }
 }
 
 function applyPatchToEditableFields(saved, patch) {
   const next = { ...(saved || createEmptyEditableFields()) }
-  if (Object.prototype.hasOwnProperty.call(patch, 'costService')) {
-    next.costService = safeString(patch.costService).trim()
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, 'itemName')) {
-    next.itemName = safeString(patch.itemName).trim()
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, 'designUnitPrice')) {
-    next.designUnitPrice = formatDesignUnitPrice(patch.designUnitPrice)
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, 'pitch')) {
-    next.pitch = safeString(patch.pitch).trim()
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, 'capW')) {
-    next.capW = safeString(patch.capW).trim()
-  }
-  if (Object.prototype.hasOwnProperty.call(patch, 'capH')) {
-    next.capH = safeString(patch.capH).trim()
+  for (const [patchKey, patchValue] of Object.entries(patch || {})) {
+    const uiKey = API_KEY_TO_UI_FIELD[patchKey]
+    if (!uiKey) continue
+    if (uiKey === 'designUnitPrice') {
+      next.designUnitPrice = formatDesignUnitPrice(patchValue)
+    } else {
+      next[uiKey] = safeString(patchValue).trim()
+    }
   }
   return next
 }
@@ -341,6 +357,7 @@ export default function UnitPriceManagement() {
 
     try {
       if (Object.keys(payload).length === 0) return
+      console.log('🚀 [단가관리] 서버로 전송하는 Payload:', payload)
       await contractsApi.update(normalizedRowId, payload)
       const mergedFields = applyPatchToEditableFields(saved, payload)
       savedByRowIdRef.current = {
