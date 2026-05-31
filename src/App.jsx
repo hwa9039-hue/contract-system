@@ -391,8 +391,8 @@ const DISCOVERY_COLUMNS = [
     label: '사업명',
     align: 'left',
     type: 'text',
-    widthClass: 'discovery-w-p12',
-    cellClass: 'discovery-col-project discovery-w-p12',
+    widthClass: 'discovery-w-p20',
+    cellClass: 'discovery-col-project discovery-w-p20',
   },
   {
     key: 'projectAmount',
@@ -424,8 +424,8 @@ const DISCOVERY_COLUMNS = [
     label: '세부내용',
     align: 'left',
     type: 'textarea',
-    widthClass: 'discovery-w-p42',
-    cellClass: 'discovery-col-detail discovery-w-p42',
+    widthClass: 'discovery-w-p30',
+    cellClass: 'discovery-col-detail discovery-w-p30',
   },
 ]
 
@@ -13480,7 +13480,10 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui table-w-full-min table-fixed min-w-[1500px]">
+                <table
+                  className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui table-w-full-min table-fixed"
+                  style={{ minWidth: '1500px' }}
+                >
                   <colgroup>
                     <col className="registry-check-col" />
                     {DISCOVERY_COLUMNS.map((column) => (
@@ -13506,13 +13509,7 @@ function App() {
                       {DISCOVERY_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} ${
-                            column.key === 'projectName'
-                              ? 'w-[20%]'
-                              : column.key === 'note'
-                                ? 'w-[30%]'
-                                : ''
-                          } contract-th-filterable`}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
                         >
                           <div className="contract-th-filter-wrap">
                             <span className="contract-th-label">{column.label}</span>
