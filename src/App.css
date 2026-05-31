@@ -10558,6 +10558,28 @@ textarea:focus-visible {
   text-align: left;
 }
 
+/* ── 모니터링 iframe ── */
+.main-area > section.stat-card.stat-card--monitoring-embed {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.stat-card.stat-card--monitoring-embed {
+  padding: 0;
+}
+
+.monitoring-embed-frame {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 85vh;
+  border: none;
+}
+
 /* ── 단가관리 ── */
 .main-area > section.stat-card.stat-card--unit-price {
   min-height: 0;
@@ -10791,6 +10813,10 @@ textarea:focus-visible {
 
 .min-h-\[40px\] {
   min-height: 40px;
+}
+
+.min-h-\[85vh\] {
+  min-height: 85vh;
 }
 
 .px-3 {

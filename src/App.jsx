@@ -59,6 +59,8 @@ import {
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import UnitPriceManagement from './pages/UnitPriceManagement.jsx'
+import NaraMarket from './pages/NaraMarket.jsx'
+import NewsMonitor from './pages/NewsMonitor.jsx'
 import { decodeWorkReportWireText } from './workReportWire.js'
 import {
   WORK_REPORT_MANAGER_OPTIONS,
@@ -1177,6 +1179,8 @@ const PAGE_TITLE_MAP = {
   contactsManage: '연락처',
   installCases: '설치사례',
   unitPrice: '단가관리',
+  naraMarket: '나라장터',
+  newsMonitor: '각종뉴스',
   materialsBoard: '게시판',
 }
 
@@ -1209,6 +1213,14 @@ const SIDEBAR_MENU_GROUPS = [
       { key: 'excluded', label: '사업검색이력' },
       { key: 'documents', label: '문서수발신대장' },
       { key: 'contactsManage', label: '연락처' },
+    ],
+  },
+  {
+    id: 'monitoring',
+    label: '모니터링',
+    items: [
+      { key: 'naraMarket', label: '나라장터' },
+      { key: 'newsMonitor', label: '각종뉴스' },
     ],
   },
 ]
@@ -1250,7 +1262,7 @@ function loadStoredMenu() {
 }
 
 function loadExpandedMenuGroups(menuKey) {
-  const expanded = { work: true, sales: true }
+  const expanded = { work: true, sales: true, monitoring: true }
   try {
     const raw = localStorage.getItem(SIDEBAR_GROUPS_EXPANDED_KEY)
     if (raw) {
@@ -13905,6 +13917,18 @@ function App() {
             ) : (
               <UnitPriceManagement />
             )}
+          </section>
+        )}
+
+        {menu === 'naraMarket' && (
+          <section className="stat-card stat-card--monitoring-embed">
+            <NaraMarket />
+          </section>
+        )}
+
+        {menu === 'newsMonitor' && (
+          <section className="stat-card stat-card--monitoring-embed">
+            <NewsMonitor />
           </section>
         )}
 
