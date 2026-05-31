@@ -49,9 +49,11 @@ export const salesRegisterApi = {
     if (!rowId) {
       return Promise.reject(new Error('유효하지 않은 행 ID'))
     }
-    return requestJson(`/api/sales-register/${encodeURIComponent(rowId)}/summary`, {
+    const summaryValue = summary == null ? '' : String(summary)
+    const path = `/api/sales-register/${encodeURIComponent(rowId)}`
+    return requestJson(path, {
       method: 'PATCH',
-      body: JSON.stringify({ summary: summary == null ? '' : String(summary) }),
+      body: JSON.stringify({ summary: summaryValue }),
     })
   },
   /** 영업관리대장 세부내용( detail ) 히스토리 전용 갱신 */
