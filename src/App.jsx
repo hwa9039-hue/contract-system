@@ -1326,81 +1326,6 @@ const MATERIALS_BOARD_SEED = [
   },
 ]
 
-const MATERIALS_BOARD_FOLDER_ALL = '__all__'
-const MATERIALS_BOARD_BUILTIN_FOLDERS = ['기타']
-const MATERIALS_BOARD_RESERVED_FOLDER_NAMES = new Set([
-  '전체',
-  '기타',
-  '공지사항',
-  '영업자료',
-  '기술문서',
-])
-const MATERIALS_BOARD_CUSTOM_FOLDERS_KEY = 'cms-materials-board-custom-folders'
-
-function loadMaterialsBoardCustomFolders() {
-  try {
-    const raw = localStorage.getItem(MATERIALS_BOARD_CUSTOM_FOLDERS_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed
-      .map((item) => safeString(typeof item === 'string' ? item : item?.label).trim())
-      .filter(Boolean)
-      .filter((name) => !MATERIALS_BOARD_RESERVED_FOLDER_NAMES.has(name))
-  } catch {
-    return []
-  }
-}
-
-function persistMaterialsBoardCustomFolders(names) {
-  try {
-    localStorage.setItem(MATERIALS_BOARD_CUSTOM_FOLDERS_KEY, JSON.stringify(names))
-  } catch {
-    /* ignore */
-  }
-}
-
-function buildMaterialsBoardFolderNav(customFolders) {
-  const custom = customFolders
-    .map((name) => safeString(name).trim())
-    .filter((name) => name && !MATERIALS_BOARD_BUILTIN_FOLDERS.includes(name))
-  return [
-    { id: MATERIALS_BOARD_FOLDER_ALL, label: '전체' },
-    ...MATERIALS_BOARD_BUILTIN_FOLDERS.map((label) => ({ id: label, label })),
-    ...custom.map((label) => ({ id: label, label })),
-  ]
-}
-
-function getMaterialsBoardPostFolder(row) {
-  // 서버/로컬 데이터에서 folder 키가 누락되고 folderId 로만 오는 케이스까지 수용
-  const folder = safeString(row?.folder).trim()
-  if (folder) return folder
-  const folderId = safeString(row?.folderId).trim()
-  if (folderId) return folderId
-  return '기타'
-}
-
-function getMaterialsBoardAssignableFolders(customFolders) {
-  const custom = customFolders
-    .map((name) => safeString(name).trim())
-    .filter((name) => name && !MATERIALS_BOARD_BUILTIN_FOLDERS.includes(name))
-  return [...MATERIALS_BOARD_BUILTIN_FOLDERS, ...custom]
-}
-
-function isMaterialsBoardFolderNameTaken(name, customFolders, excludeName = '') {
-  const trimmed = safeString(name).trim()
-  const exclude = safeString(excludeName).trim()
-  if (!trimmed || trimmed === '전체') return true
-  if (trimmed !== exclude && MATERIALS_BOARD_BUILTIN_FOLDERS.includes(trimmed)) return true
-  if (trimmed !== exclude && customFolders.includes(trimmed)) return true
-  return false
-}
-
-function isMaterialsBoardCustomFolderId(folderId) {
-  const id = safeString(folderId).trim()
-  return id && id !== MATERIALS_BOARD_FOLDER_ALL && !MATERIALS_BOARD_BUILTIN_FOLDERS.includes(id)
-}
-
 function getDefaultMaterialsBoardForm() {
   return { title: '' }
 }
@@ -1442,7 +1367,7 @@ function normalizeMaterialsBoardPost(row) {
     downloadUrls,
     downloadCount: Number(row?.downloadCount) || 0,
     registeredAt: safeString(row?.registeredAt).trim() || formatMaterialsBoardRegisteredAt(),
-    folder: getMaterialsBoardPostFolder(row),
+    folder: safeString(row?.folder ?? row?.folderId).trim() || '기타',
   }
 }
 
@@ -5031,15 +4956,10 @@ function App() {
   const [materialsBoardFormDraft, setMaterialsBoardFormDraft] = useState(() =>
     getDefaultMaterialsBoardForm()
   )
-  const [materialsBoardRegisterFolderId, setMaterialsBoardRegisterFolderId] = useState('기타')
   const [materialsBoardFile, setMaterialsBoardFile] = useState([])
   const [materialsBoardEditingId, setMaterialsBoardEditingId] = useState(null)
   const [materialsBoardSubmitting, setMaterialsBoardSubmitting] = useState(false)
   const [materialsBoardSearch, setMaterialsBoardSearch] = useState('')
-  const [materialsBoardSelectedFolder, setMaterialsBoardSelectedFolder] = useState(MATERIALS_BOARD_FOLDER_ALL)
-  const [materialsBoardCustomFolders, setMaterialsBoardCustomFolders] = useState(() =>
-    loadMaterialsBoardCustomFolders()
-  )
   const [materialsBoardDownloadingId, setMaterialsBoardDownloadingId] = useState('')
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
@@ -5097,9 +5017,6 @@ function App() {
   const [selectedWorkWeek, setSelectedWorkWeek] = useState(() =>
     buildWorkReportWeekMeta(new Date()).weekStartDate
   )
-  const [workReportFilters, setWorkReportFilters] = useState({
-    assignee: '',
-  })
   const [isExcludedGuideCollapsed, setIsExcludedGuideCollapsed] = useState(true)
   const [isDocumentGuideCollapsed, setIsDocumentGuideCollapsed] = useState(true)
   const [manualEvents, setManualEvents] = useState([])
@@ -5571,7 +5488,6 @@ function App() {
     setMaterialsBoardRegisterOpen(false)
     setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
-    setMaterialsBoardRegisterFolderId('기타')
     setMaterialsBoardFile([])
     setMaterialsBoardSearch('')
   }, [menu])
@@ -5972,48 +5888,9 @@ function App() {
     }
   }, [installCaseEditingId])
 
-  const materialsBoardFolderNav = useMemo(
-    () => buildMaterialsBoardFolderNav(materialsBoardCustomFolders),
-    [materialsBoardCustomFolders]
-  )
-
-  const materialsBoardAssignableFolders = useMemo(
-    () => getMaterialsBoardAssignableFolders(materialsBoardCustomFolders),
-    [materialsBoardCustomFolders]
-  )
-
-  const materialsBoardRegisterFolderOptions = useMemo(() => {
-    const base = materialsBoardAssignableFolders
-    const current = safeString(materialsBoardRegisterFolderId).trim()
-    if (current && !base.includes(current)) {
-      return [...base, current]
-    }
-    return base
-  }, [materialsBoardAssignableFolders, materialsBoardRegisterFolderId])
-
-  useEffect(() => {
-    persistMaterialsBoardCustomFolders(materialsBoardCustomFolders)
-  }, [materialsBoardCustomFolders])
-
-  useEffect(() => {
-    if (!materialsBoardRegisterOpen || materialsBoardEditingId) return
-    if (materialsBoardSelectedFolder === MATERIALS_BOARD_FOLDER_ALL) return
-    setMaterialsBoardRegisterFolderId(materialsBoardSelectedFolder)
-  }, [
-    materialsBoardRegisterOpen,
-    materialsBoardEditingId,
-    materialsBoardSelectedFolder,
-  ])
-
   const filteredMaterialsBoardPosts = useMemo(() => {
     const query = safeString(materialsBoardSearch).trim().toLowerCase()
-    let rows = [...materialsBoardPosts].sort(compareMaterialsBoardPosts)
-
-    if (materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL) {
-      rows = rows.filter(
-        (row) => getMaterialsBoardPostFolder(row) === materialsBoardSelectedFolder
-      )
-    }
+    const rows = [...materialsBoardPosts].sort(compareMaterialsBoardPosts)
 
     if (!query) return rows
     return rows.filter((row) => {
@@ -6026,7 +5903,7 @@ function App() {
         title.includes(query) || content.includes(query) || fileNames.includes(query)
       )
     })
-  }, [materialsBoardPosts, materialsBoardSearch, materialsBoardSelectedFolder])
+  }, [materialsBoardPosts, materialsBoardSearch])
 
   const handleDownloadMaterialsBoardFile = useCallback(
     async (row, event) => {
@@ -6093,150 +5970,13 @@ function App() {
     [materialsBoardDownloadingId, showAppAlert]
   )
 
-  const handleAddMaterialsBoardFolder = useCallback(() => {
-    setContractConfirmDialog({
-      title: '새 폴더',
-      message: '새 폴더 이름을 입력하세요.',
-      confirmLabel: '추가',
-      prompt: { value: '', placeholder: '폴더 이름' },
-      onConfirm: (value) => {
-        const trimmed = safeString(value).trim()
-        if (!trimmed) {
-          showAppAlert('폴더 이름을 입력해 주세요.', '알림')
-          return
-        }
-        if (isMaterialsBoardFolderNameTaken(trimmed, materialsBoardCustomFolders)) {
-          showAppAlert('이미 사용 중인 폴더 이름입니다.', '알림')
-          return
-        }
-        setMaterialsBoardCustomFolders((prev) => [...prev, trimmed])
-        setMaterialsBoardSelectedFolder(trimmed)
-        setMaterialsBoardRegisterFolderId(trimmed)
-      },
-    })
-  }, [materialsBoardCustomFolders, showAppAlert])
-
-  const updateMaterialsBoardPostsFolder = useCallback(async (fromFolder, toFolder) => {
-    const targets = materialsBoardPosts.filter(
-      (post) => getMaterialsBoardPostFolder(post) === fromFolder
-    )
-    for (const post of targets) {
-      await materialsBoardApi.update(post.id, {
-        title: safeString(post.title).trim(),
-        content: safeString(post.content).trim(),
-        folder: toFolder,
-        files: [],
-      })
-    }
-    if (targets.length > 0) {
-      await fetchMaterialsBoardPosts()
-    }
-  }, [materialsBoardPosts])
-
-  const handleRenameMaterialsBoardFolder = useCallback(
-    (folderId) => {
-      const oldName = safeString(folderId).trim()
-      if (!oldName || oldName === MATERIALS_BOARD_FOLDER_ALL) return
-
-      setContractConfirmDialog({
-        title: '폴더명 수정',
-        message: `「${oldName}」 폴더의 새 이름을 입력하세요.`,
-        confirmLabel: '저장',
-        prompt: { value: oldName, placeholder: '폴더 이름' },
-        onConfirm: async (value) => {
-          const newName = safeString(value).trim()
-          if (!newName) {
-            showAppAlert('폴더 이름을 입력해 주세요.', '알림')
-            return
-          }
-          if (newName === oldName) return
-          if (isMaterialsBoardFolderNameTaken(newName, materialsBoardCustomFolders, oldName)) {
-            showAppAlert('이미 사용 중인 폴더 이름입니다.', '알림')
-            return
-          }
-
-          try {
-            await updateMaterialsBoardPostsFolder(oldName, newName)
-            if (isMaterialsBoardCustomFolderId(oldName)) {
-              setMaterialsBoardCustomFolders((prev) =>
-                prev.map((name) => (name === oldName ? newName : name))
-              )
-            } else if (oldName === '기타' && !materialsBoardCustomFolders.includes(newName)) {
-              setMaterialsBoardCustomFolders((prev) => [...prev, newName])
-            }
-            if (materialsBoardSelectedFolder === oldName) {
-              setMaterialsBoardSelectedFolder(newName)
-            }
-            setToastMessage('폴더명이 변경되었습니다.')
-          } catch (error) {
-            logApiOperationError('게시판 폴더명 수정', error)
-            showAppAlert(error?.message || '폴더명 변경에 실패했습니다.', '알림')
-          }
-        },
-      })
-    },
-    [
-      materialsBoardCustomFolders,
-      materialsBoardSelectedFolder,
-      showAppAlert,
-      updateMaterialsBoardPostsFolder,
-    ]
-  )
-
-  const handleDeleteMaterialsBoardFolder = useCallback(
-    (folderId) => {
-      const folderName = safeString(folderId).trim()
-      if (!folderName || folderName === MATERIALS_BOARD_FOLDER_ALL) return
-
-      if (!isMaterialsBoardCustomFolderId(folderName)) {
-        showAppAlert('기본 폴더 「기타」는 삭제할 수 없습니다.', '알림')
-        return
-      }
-
-      const postCount = materialsBoardPosts.filter(
-        (post) => getMaterialsBoardPostFolder(post) === folderName
-      ).length
-
-      setContractConfirmDialog({
-        title: '폴더 삭제',
-        message:
-          postCount > 0
-            ? `「${folderName}」 폴더를 삭제하시겠습니까?\n해당 폴더의 게시글 ${postCount}건은 「기타」 폴더로 이동합니다.`
-            : `「${folderName}」 폴더를 삭제하시겠습니까?`,
-        destructive: true,
-        confirmLabel: '삭제',
-        onConfirm: async () => {
-          try {
-            if (postCount > 0) {
-              await updateMaterialsBoardPostsFolder(folderName, '기타')
-            }
-            setMaterialsBoardCustomFolders((prev) => prev.filter((name) => name !== folderName))
-            if (materialsBoardSelectedFolder === folderName) {
-              setMaterialsBoardSelectedFolder(MATERIALS_BOARD_FOLDER_ALL)
-            }
-            setToastMessage('폴더가 삭제되었습니다.')
-          } catch (error) {
-            logApiOperationError('게시판 폴더 삭제', error)
-            showAppAlert(error?.message || '폴더 삭제에 실패했습니다.', '알림')
-          }
-        },
-      })
-    },
-    [materialsBoardPosts, materialsBoardSelectedFolder, showAppAlert, updateMaterialsBoardPostsFolder]
-  )
-
   const handleOpenMaterialsBoardRegister = useCallback(() => {
     if (!isAdmin) return
     setMaterialsBoardEditingId(null)
-    const defaultFolder =
-      materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL
-        ? materialsBoardSelectedFolder
-        : '기타'
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
-    setMaterialsBoardRegisterFolderId(defaultFolder)
     setMaterialsBoardFile([])
     setMaterialsBoardRegisterOpen(true)
-  }, [isAdmin, materialsBoardSelectedFolder])
+  }, [isAdmin])
 
   const handleOpenMaterialsBoardEdit = useCallback((row) => {
     if (!row || !isAdmin) return
@@ -6244,7 +5984,6 @@ function App() {
     setMaterialsBoardFormDraft({
       title: safeString(row.title).trim(),
     })
-    setMaterialsBoardRegisterFolderId(getMaterialsBoardPostFolder(row))
     setMaterialsBoardFile([])
     setMaterialsBoardRegisterOpen(true)
   }, [isAdmin])
@@ -6253,7 +5992,6 @@ function App() {
     setMaterialsBoardRegisterOpen(false)
     setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
-    setMaterialsBoardRegisterFolderId('기타')
     setMaterialsBoardFile([])
     setMaterialsBoardSubmitting(false)
   }, [])
@@ -6289,45 +6027,26 @@ function App() {
     }
     const content = ''
     const editingId = materialsBoardEditingId
-    const selectedFolderAtSave =
-      materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL
-        ? materialsBoardSelectedFolder
-        : ''
-    const formFolderId = safeString(materialsBoardRegisterFolderId).trim()
-    const folderId =
-      formFolderId || safeString(selectedFolderAtSave).trim() || '기타'
 
     setMaterialsBoardSubmitting(true)
     try {
       const payload = {
         title,
         content,
-        folder: folderId,
-        folderId,
+        folder: '기타',
+        folderId: '기타',
         files: materialsBoardFile,
       }
-      console.log('API로 전송되는 게시글 데이터:', payload)
 
       if (editingId) {
-        const updated = await materialsBoardApi.update(editingId, payload)
-        console.log('서버 저장 결과 folder:', updated?.folder)
+        await materialsBoardApi.update(editingId, payload)
         await fetchMaterialsBoardPosts()
-        setMaterialsBoardSelectedFolder(safeString(updated?.folder).trim() || folderId)
         setMaterialsBoardFile([])
         handleCloseMaterialsBoardRegister()
         showAppAlert('게시글이 성공적으로 수정되었습니다.', '알림')
       } else {
-        const created = await materialsBoardApi.create(payload)
-        console.log('서버 저장 결과:', created)
-        console.log('서버 저장 결과 folder:', created?.folder)
-        const savedFolder = safeString(created?.folder).trim() || folderId
-        if (!safeString(created?.folder).trim()) {
-          console.warn(
-            '[게시판] 서버 응답에 folder가 없습니다. NAS 백엔드를 최신으로 재빌드하고 /api/health 에 materialsBoardFolderApiVersion: 2 인지 확인하세요.'
-          )
-        }
+        await materialsBoardApi.create(payload)
         await fetchMaterialsBoardPosts()
-        setMaterialsBoardSelectedFolder(savedFolder)
         setMaterialsBoardFile([])
         handleCloseMaterialsBoardRegister()
         showAppAlert('게시글이 성공적으로 등록되었습니다.', '알림')
@@ -6342,8 +6061,6 @@ function App() {
     materialsBoardEditingId,
     materialsBoardFile,
     materialsBoardFormDraft,
-    materialsBoardRegisterFolderId,
-    materialsBoardSelectedFolder,
     materialsBoardSubmitting,
     handleCloseMaterialsBoardRegister,
     isAdmin,
@@ -6856,25 +6573,6 @@ function App() {
     () => getWorkReportWeekDays(selectedWorkWeekMeta.weekStartDate),
     [selectedWorkWeekMeta.weekStartDate]
   )
-  const filteredWorkReportRows = useMemo(() => {
-    return workReportRows.filter((row) => {
-      const rowWeekStartDate = buildWorkReportWeekMeta(row.date || new Date()).weekStartDate
-      if (rowWeekStartDate !== selectedWorkWeekMeta.weekStartDate) return false
-      if (
-        workReportFilters.assignee &&
-        safeString(row.user).trim() &&
-        !safeString(row.user).toLowerCase().includes(workReportFilters.assignee.toLowerCase())
-      ) {
-        return false
-      }
-      return true
-    })
-  }, [
-    selectedWorkWeekMeta.weekStartDate,
-    workReportFilters.assignee,
-    workReportRows,
-  ])
-
   const dashboardTodayWorkBrief = useMemo(() => {
     const now = new Date()
     const todayYmd = formatDateInput(new Date(now.getFullYear(), now.getMonth(), now.getDate()))
@@ -9072,7 +8770,7 @@ function App() {
         : createWorkReportDraftRow({
             reportDate: date,
             section,
-            user: workReportFilters.assignee,
+            user: '',
             orderIndex,
           })
     )
@@ -9218,9 +8916,7 @@ function App() {
               <div class="pdf-header report-header">
                 <div class="pdf-title report-title">주간업무보고서</div>
                 <div class="pdf-meta report-subtitle">${escapeHtml(
-                  `${getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)} · 담당자 ${
-                    workReportFilters.assignee || '전체'
-                  }`
+                  getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)
                 )}</div>
               </div>
               <div class="weekly-grid pdf-grid">${cardMarkup}</div>
@@ -9326,12 +9022,7 @@ function App() {
     return createWorkReportDraftRow({
       reportDate: date,
       section: sectionNorm,
-      user:
-        [WORK_REPORT_SECTION_KEYS.external, WORK_REPORT_SECTION_KEYS.di, WORK_REPORT_SECTION_KEYS.road].includes(
-          sectionNorm
-        ) && WORK_REPORT_MANAGER_OPTIONS.includes(workReportFilters.assignee)
-          ? workReportFilters.assignee
-          : '',
+      user: '',
       orderIndex: oi,
     })
   }
@@ -9759,9 +9450,7 @@ function App() {
               <div class="pdf-header">
               <div class="pdf-title">주간업무보고서</div>
               <div class="pdf-meta">${escapeHtml(
-                `${getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)} · 담당자 ${
-                  workReportFilters.assignee || '전체'
-                }`
+                getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)
               )}</div>
             </div>
               <div class="pdf-grid">${cards}</div>
@@ -9807,9 +9496,7 @@ function App() {
               <div class="pdf-header">
                 <div class="pdf-title">회의록</div>
                 <div class="pdf-meta">${escapeHtml(
-                  `${getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)} · 담당자 ${
-                    workReportFilters.assignee || '전체'
-                  }`
+                  getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)
                 )}</div>
               </div>
               ${meetingMinutesMarkup}
@@ -12823,15 +12510,6 @@ function App() {
                 <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(1)}>
                   다음 주
                 </button>
-                <input
-                  className="table-search-input work-report-filter-input"
-                  type="text"
-                  placeholder="담당자"
-                  value={workReportFilters.assignee}
-                  onChange={(e) =>
-                    setWorkReportFilters((prev) => ({ ...prev, assignee: e.target.value }))
-                  }
-                />
                 <button className="secondary-btn" type="button" onClick={handleWorkReportBoardPdfDownload}>
                   PDF 다운로드
                 </button>
@@ -12844,7 +12522,6 @@ function App() {
                 <div className="work-report-summary-meta">
                   <span>주차 {selectedWorkWeekMeta.weekNumber}주차</span>
                   <span>시작일 {selectedWorkWeekMeta.weekStartDate}</span>
-                  <span>담당자 {workReportFilters.assignee || '전체'}</span>
                 </div>
               </div>
 
@@ -14209,70 +13886,7 @@ function App() {
 
         {menu === 'materialsBoard' && (
           <section className="stat-card stat-card--materials-board">
-            <div className="materials-board-layout">
-              <aside className="materials-board-sidebar" aria-label="게시판 폴더">
-                {isAdmin && (
-                  <button
-                    type="button"
-                    className="materials-board-folder-add-btn"
-                    onClick={handleAddMaterialsBoardFolder}
-                  >
-                    + 새 폴더
-                  </button>
-                )}
-                <nav className="materials-board-folder-list">
-                  {materialsBoardFolderNav.map((folderItem) => {
-                    const isActive = materialsBoardSelectedFolder === folderItem.id
-                    const showFolderActions =
-                      isAdmin && folderItem.id !== MATERIALS_BOARD_FOLDER_ALL
-                    return (
-                      <div
-                        key={folderItem.id}
-                        className={`materials-board-folder-row${isActive ? ' active' : ''}`}
-                      >
-                        <button
-                          type="button"
-                          className="materials-board-folder-item"
-                          onClick={() => setMaterialsBoardSelectedFolder(folderItem.id)}
-                          aria-current={isActive ? 'true' : undefined}
-                        >
-                          <span className="materials-board-folder-icon" aria-hidden="true">
-                            📂
-                          </span>
-                          <span className="materials-board-folder-label">{folderItem.label}</span>
-                        </button>
-                        {showFolderActions ? (
-                          <div className="materials-board-folder-actions">
-                            <button
-                              type="button"
-                              className="materials-board-folder-action-btn"
-                              aria-label={`${folderItem.label} 폴더명 수정`}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleRenameMaterialsBoardFolder(folderItem.id)
-                              }}
-                            >
-                              <Pencil size={14} strokeWidth={2} aria-hidden />
-                            </button>
-                            <button
-                              type="button"
-                              className="materials-board-folder-action-btn materials-board-folder-action-btn--danger"
-                              aria-label={`${folderItem.label} 폴더 삭제`}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleDeleteMaterialsBoardFolder(folderItem.id)
-                              }}
-                            >
-                              <Trash2 size={14} strokeWidth={2} aria-hidden />
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    )
-                  })}
-                </nav>
-              </aside>
-
+            <div className="materials-board-layout materials-board-layout--list-only">
               <div className="materials-board-main">
                 <div className="materials-board-toolbar">
                   <input
@@ -14311,9 +13925,7 @@ function App() {
                           <td colSpan={5} className="materials-board-empty">
                             {materialsBoardPosts.length === 0
                               ? '등록된 글이 없습니다.'
-                              : materialsBoardSelectedFolder !== MATERIALS_BOARD_FOLDER_ALL
-                                ? '이 폴더에 등록된 글이 없습니다.'
-                                : '검색 결과가 없습니다.'}
+                              : '검색 결과가 없습니다.'}
                           </td>
                         </tr>
                       ) : (
@@ -15379,23 +14991,6 @@ function App() {
                   }
                   placeholder="예: LED 견적 가이드"
                 />
-              </div>
-              <div className="materials-board-register-field">
-                <label className="install-case-form-label" htmlFor="materials-board-folder">
-                  폴더
-                </label>
-                <select
-                  id="materials-board-folder"
-                  className="contract-filter-select install-case-form-input global-register-control"
-                  value={safeString(materialsBoardRegisterFolderId).trim() || '기타'}
-                  onChange={(e) => setMaterialsBoardRegisterFolderId(e.target.value)}
-                >
-                  {materialsBoardRegisterFolderOptions.map((folderName) => (
-                    <option key={folderName} value={folderName}>
-                      {folderName}
-                    </option>
-                  ))}
-                </select>
               </div>
               <div className="materials-board-register-field">
                 <label className="install-case-form-label">첨부 파일 (다중 선택)</label>

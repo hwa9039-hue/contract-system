@@ -9941,6 +9941,15 @@ textarea:focus-visible {
   width: 100%;
 }
 
+.materials-board-layout--list-only {
+  flex-direction: column;
+}
+
+.materials-board-layout--list-only .materials-board-main {
+  flex: 1 1 auto;
+  width: 100%;
+}
+
 .materials-board-sidebar {
   flex: 0 0 250px;
   width: 250px;
