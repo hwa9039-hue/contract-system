@@ -3655,9 +3655,33 @@ textarea:focus-visible {
 .main-area > section.stat-card.stat-card--work-reports .work-report-day-sections {
   flex: 1 1 auto;
   min-height: 0;
+  height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.main-area > section.stat-card.stat-card--work-reports .work-report-day-sections > .work-report-board-section,
+.main-area > section.stat-card.stat-card--work-reports .work-report-day-sections .work-report-board-support-block {
+  flex-shrink: 0;
+  min-height: 150px;
+}
+
+.main-area > section.stat-card.stat-card--work-reports .work-report-board-textarea-external {
+  height: auto;
+  min-height: 72px;
+}
+
+.main-area > section.stat-card.stat-card--work-reports .work-report-board-row-journal .work-report-board-textarea,
+.main-area > section.stat-card.stat-card--work-reports .work-report-board-row-no-index .work-report-board-textarea,
+.main-area > section.stat-card.stat-card--work-reports .work-report-board-row-external-no-index .work-report-board-textarea {
+  height: auto;
+  min-height: 72px;
+}
+
+.main-area > section.stat-card.stat-card--work-reports .work-report-board-textarea-support-line {
+  min-height: 36px;
+  height: auto;
 }
 
 .main-area > section.stat-card .work-report-saving-indicator,
@@ -10851,6 +10875,10 @@ textarea:focus-visible {
 
 .min-h-\[calc\(100vh-160px\)\] {
   min-height: calc(100vh - 160px);
+}
+
+.min-h-\[150px\] {
+  min-height: 150px;
 }
 
 .min-h-\[85vh\] {

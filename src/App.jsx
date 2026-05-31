@@ -11298,7 +11298,7 @@ function App() {
     contentClassName,
     fixedManagers = []
   ) => (
-    <section className="work-report-board-section">
+    <section className="work-report-board-section shrink-0 min-h-[150px]">
       <div className="work-report-board-section-title">{title}</div>
       <div className="work-report-board-table">
         <div className="work-report-board-header-row work-report-board-header-row-journal">
@@ -11827,7 +11827,7 @@ function App() {
   )
 
   const renderWorkReportChecklistSectionV4 = (date) => (
-    <section className="work-report-board-section">
+    <section className="work-report-board-section shrink-0 min-h-[150px]">
       <div className="work-report-board-section-title">주요 확인사항</div>
       <div className="work-report-board-table work-report-board-checklist-single-wrap">
         <div
@@ -11862,7 +11862,7 @@ function App() {
   )
 
   const renderWorkReportExternalSectionV4 = (date) => (
-    <section className="work-report-board-section">
+    <section className="work-report-board-section shrink-0 min-h-[150px]">
       <div className="work-report-board-section-title">외부일정</div>
       <div className="work-report-board-table">
         <div className="work-report-board-header-row-external-no-index">
@@ -11963,7 +11963,7 @@ function App() {
   )
 
   const renderWorkReportSupportAreaListV4 = (date, title, section) => (
-    <div className="work-report-board-support-block">
+    <div className="work-report-board-support-block shrink-0 min-h-[150px]">
       <div className="work-report-board-support-title">{title}</div>
       <div className="work-report-board-table">
         {Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
@@ -12010,9 +12010,9 @@ function App() {
   )
 
   const renderWorkReportSupportSectionV4 = (date) => (
-    <section className="work-report-board-section">
+    <section className="work-report-board-section shrink-0 min-h-[150px]">
       <div className="work-report-board-section-title">영업지원</div>
-      <div className="work-report-board-support-wrap">
+      <div className="work-report-board-support-wrap shrink-0">
         {renderWorkReportSupportAreaListV4(date, '진행업무', WORK_REPORT_SECTION_KEYS.supportProgress)}
         {renderWorkReportSupportAreaListV4(date, '완료업무', WORK_REPORT_SECTION_KEYS.supportDone)}
       </div>
@@ -12028,7 +12028,7 @@ function App() {
         <div className="work-report-day-weekday">{day.label}</div>
         <div className="work-report-day-date">{day.date}</div>
       </div>
-      <div className="work-report-day-sections work-report-day-sections-dense">
+      <div className="work-report-day-sections work-report-day-sections-dense h-full overflow-y-auto">
         {renderWorkReportChecklistSectionV4(day.date)}
         {renderWorkReportExternalSectionV4(day.date)}
         {renderWorkReportManagedSection(
