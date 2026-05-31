@@ -12299,7 +12299,7 @@ function App() {
   const renderWorkReportDayBoardV4 = (day) => (
     <div
       key={day.date}
-      className={`work-report-day-board work-report-day-board-dense min-w-[400px] w-[400px] shrink-0 ${day.isToday ? 'is-today' : ''}`}
+      className={`work-report-day-board work-report-day-board-dense shrink-0 w-[24vw] min-w-[400px] ${day.isToday ? 'is-today' : ''}`}
     >
       <div className="work-report-day-head">
         <div className="work-report-day-weekday">{day.label}</div>
@@ -12849,7 +12849,7 @@ function App() {
               </div>
 
               <div className="work-report-week-board-area">
-                <div className="work-report-week-grid flex flex-nowrap overflow-x-auto gap-4 pb-4">
+                <div className="work-report-week-grid flex flex-nowrap overflow-x-auto gap-4 pb-4 w-full">
                   {selectedWorkWeekDays.map((day) => renderWorkReportDayBoardV4(day))}
                 </div>
               </div>

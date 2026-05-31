@@ -887,6 +887,10 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
   min-width: 400px;
 }
 
+.w-\[24vw\] {
+  width: 24vw;
+}
+
 /* ── 5개 대장 공통 테이블 UI (계약·영업·건축·사업검색·문서) ── */
 .contract-table-panel .table-wrap {
   font-size: 13px;
@@ -7379,18 +7383,22 @@ textarea:focus-visible {
   width: 100%;
   min-width: 0;
   align-items: flex-start;
-  flex-shrink: 0;
   overflow-x: auto;
   overflow-y: visible;
   padding-bottom: 1rem;
   -webkit-overflow-scrolling: touch;
 }
 
-.work-report-day-board {
-  flex: none;
-  width: 400px;
+/* 24vw 의도: 한 화면에 4열 — 스크롤 트랙(100%) 기준 4등분, 좁을 땐 min 400px */
+.work-report-week-grid > .work-report-day-board {
+  width: max(400px, 24vw, calc((100% - 3 * 1rem) / 4));
   min-width: 400px;
-  max-width: 400px;
+  max-width: none;
+  flex: none;
+  flex-shrink: 0;
+}
+
+.work-report-day-board {
   border: 1px solid #d9dee6;
   border-radius: 10px;
   background: #f5f6f8;
@@ -7562,10 +7570,6 @@ textarea:focus-visible {
 }
 
 .work-report-day-board-dense {
-  flex: none;
-  width: 400px;
-  min-width: 400px;
-  max-width: 400px;
   background: #f8fafc;
 }
 
