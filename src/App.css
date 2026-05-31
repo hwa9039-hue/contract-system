@@ -7558,7 +7558,7 @@ textarea:focus-visible {
 }
 
 .work-report-board-row-simple {
-  grid-template-columns: 30px minmax(0, 1fr);
+  grid-template-columns: 30px minmax(0, 1fr) 118px;
 }
 
 .work-report-board-index,
@@ -7625,7 +7625,7 @@ textarea:focus-visible {
   border: 0;
   border-right: 1px solid #dbe4ee;
   background: #ffffff;
-  resize: vertical;
+  resize: none;
   font-size: 12px;
   color: #1f2937;
   line-height: 1.5;
@@ -7665,7 +7665,7 @@ textarea:focus-visible {
   border: 1px solid #e2e8f0;
   border-radius: 4px;
   padding: 8px;
-  resize: vertical;
+  resize: none;
   outline: none;
   font-size: 13px;
   line-height: 1.45;
@@ -7803,7 +7803,7 @@ textarea:focus-visible {
 .work-report-board-textarea-checklist-combined {
   width: 100%;
   min-height: 150px;
-  resize: vertical;
+  resize: none;
   padding: 10px 12px;
   box-sizing: border-box;
   font-size: 13px;
@@ -7815,7 +7815,7 @@ textarea:focus-visible {
 .work-report-section-textarea-checklist-combined {
   width: 100%;
   min-height: 150px;
-  resize: vertical;
+  resize: none;
   padding: 10px 12px;
   margin-top: 6px;
   box-sizing: border-box;
@@ -7833,7 +7833,7 @@ textarea:focus-visible {
 .work-report-report-checklist-combined-textarea {
   width: 100%;
   min-height: 150px;
-  resize: vertical;
+  resize: none;
   padding: 10px 12px;
   box-sizing: border-box;
   font-size: 13px;
@@ -7845,6 +7845,19 @@ textarea:focus-visible {
 .work-report-board-textarea-support-line {
   min-height: 30px;
   padding: 5px 8px;
+}
+
+.work-report-board-date-input-support {
+  border-right: none;
+}
+
+.break-words {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.whitespace-pre-wrap {
+  white-space: pre-wrap;
 }
 
 .work-report-filter-input {

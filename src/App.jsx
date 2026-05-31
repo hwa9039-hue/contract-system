@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Download,
+  FileText,
   Pencil,
   Trash2,
 } from 'lucide-react'
@@ -2748,7 +2749,7 @@ function formatSalesRegisterDateStamp(registerDate) {
 function extractLatestSalesDetailEntry(detail) {
   const raw = safeString(detail).trim()
   if (!raw) return ''
-  const parts = raw.split(/\n\n+/)
+  const parts = raw.split(/\n+/)
   return safeString(parts[0]).trim()
 }
 
@@ -2808,10 +2809,18 @@ function buildRegistrySmartDetailSavePayload(scope, column, row, rawValue) {
   if (isSalesDetailHistoryColumn(column, scope)) {
     const oldDetail = safeString(row?.detail).trim()
     if (newDetail === oldDetail) return null
+    const stampedSummaryLine = `[${new Date().getFullYear().toString().slice(-2)}-${String(
+      new Date().getMonth() + 1
+    ).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}] ${newDetail}`
+    const existingSummary = safeString(row?.summary).trim()
     return {
       detail: normalizeSalesRecordForSave(newDetail),
       summary: normalizeSalesRecordForSave(
-        buildSalesRecordDetailWithNewEntry(row?.summary, newDetail)
+        newDetail
+          ? existingSummary
+            ? `${stampedSummaryLine}\n${existingSummary}`
+            : stampedSummaryLine
+          : existingSummary
       ),
     }
   }
@@ -4977,6 +4986,7 @@ function App() {
   const [contracts, setContracts] = useState([])
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
+  const [salesRecordModal, setSalesRecordModal] = useState(null)
   const [registryLongTextModal, setRegistryLongTextModal] = useState(null)
   const [discoveryRows, setDiscoveryRows] = useState([])
   const [discoveryTableData, setDiscoveryTableData] = useState([])
@@ -7874,15 +7884,82 @@ function App() {
   const renderSalesSummaryCell = (row) => {
     const summaryPreview = extractLatestSalesDetailEntry(row.summary)
     return (
-      <div
-        className={`cell-display sales-summary-display truncate${
-          summaryPreview ? ' sales-summary-display--has-content' : ''
+      <button
+        type="button"
+        className={`sales-record-btn${
+          hasSalesRecordStoredContent(row.summary) ? ' sales-record-btn--has-content' : ''
         }`}
         title={summaryPreview || '요약'}
+        aria-label="요약 보기 및 작성"
+        onClick={(e) => {
+          e.stopPropagation()
+          const rowId = safeString(row?.id).trim()
+          if (!rowId || rowId === 'undefined' || row.isDraft || rowId.startsWith('sales-draft-')) {
+            showAppAlert('행을 저장한 뒤 요약을 작성할 수 있습니다.', '알림')
+            return
+          }
+          const sourceRow = salesRows.find((item) => item.id === rowId) || row
+          const summaryDisplay = getSalesRecordHistoryForDisplay(
+            sourceRow.summary,
+            sourceRow.registerDate
+          )
+          setSalesRecordModal({
+            rowId,
+            client: safeString(sourceRow.client).trim(),
+            projectName: safeString(sourceRow.projectName).trim(),
+            manager: safeString(sourceRow.manager).trim(),
+            department: safeString(sourceRow.department).trim(),
+            summary: summaryDisplay,
+            summaryRaw: getSalesRecordRawHistory(sourceRow.summary),
+            summaryDraft: summaryDisplay,
+            summaryDisplayInitial: summaryDisplay,
+            isEditingSummary: false,
+            newEntry: '',
+            saving: false,
+          })
+        }}
       >
-        {summaryPreview || '\u00a0'}
-      </div>
+        <FileText size={18} aria-hidden />
+      </button>
     )
+  }
+
+  const closeSalesRecordModal = () => setSalesRecordModal(null)
+
+  const saveSalesRecordModal = async () => {
+    if (!salesRecordModal?.rowId) return
+    const rowId = safeString(salesRecordModal.rowId).trim()
+    if (!rowId || rowId === 'undefined') {
+      showAppAlert('저장 경로를 찾을 수 없거나 서버 통신에 실패했습니다.', '알림')
+      return
+    }
+    const hasNewEntry = safeString(salesRecordModal.newEntry).trim().length > 0
+    const summaryEdited =
+      safeString(salesRecordModal.summaryDraft).trim() !==
+      safeString(salesRecordModal.summaryDisplayInitial).trim()
+    if (!hasNewEntry && !summaryEdited) {
+      showAppAlert('변경된 내용이 없습니다.', '알림')
+      return
+    }
+    const baseSummary = summaryEdited ? salesRecordModal.summaryDraft : salesRecordModal.summaryRaw
+    const merged = buildSalesRecordDetailWithNewEntry(baseSummary, salesRecordModal.newEntry)
+    const summaryPayload = normalizeSalesRecordForSave(merged)
+    setSalesRecordModal((prev) => (prev ? { ...prev, saving: true } : prev))
+    try {
+      await salesRegisterApi.update(rowId, { summary: summaryPayload })
+      setSalesRows((prev) =>
+        prev.map((row) =>
+          row.id === rowId ? normalizeSalesRow({ ...row, summary: summaryPayload }) : row
+        )
+      )
+      closeSalesRecordModal()
+      await fetchSalesRows(true)
+    } catch (error) {
+      console.error('영업관리대장 요약 저장 실패', { rowId, summaryLength: summaryPayload.length, error })
+      const errorMessage = safeString(error?.message).trim()
+      showAppAlert(errorMessage || '요약 저장에 실패했습니다.', '알림')
+      setSalesRecordModal((prev) => (prev ? { ...prev, saving: false } : prev))
+    }
   }
 
   const startSalesEdit = (rowId) => {
@@ -10955,7 +11032,11 @@ function App() {
                   })
                 ) : (
                   <div
-                    className={`cell-display table-cell-clamp editable-text-cell-display editable-text-cell-display--${cellAlign}`}
+                    className={`cell-display ${
+                      cellEditScope === 'discovery'
+                        ? 'break-words whitespace-pre-wrap'
+                        : 'table-cell-clamp'
+                    } editable-text-cell-display editable-text-cell-display--${cellAlign}`}
                     role="button"
                     tabIndex={0}
                     title={getRegistrySmartDetailDisplayValue(cellEditScope, column, row) || '세부내용'}
@@ -11004,7 +11085,11 @@ function App() {
                   value={row[column.key]}
                   align={cellAlign}
                   className={
-                    isLongTextTableColumn(column) ? 'table-cell-clamp' : ''
+                    isLongTextTableColumn(column)
+                      ? cellEditScope === 'discovery'
+                        ? 'break-words whitespace-pre-wrap'
+                        : 'table-cell-clamp'
+                      : ''
                   }
                   onSave={(nextValue) =>
                     handleRegistryTextCellSave(cellEditScope, rowId, column, nextValue)
@@ -11025,7 +11110,11 @@ function App() {
               ) : (
                 <div
                   className={`cell-display${
-                    isLongTextTableColumn(column) ? ' table-cell-clamp' : ''
+                    isLongTextTableColumn(column)
+                      ? cellEditScope === 'discovery'
+                        ? ' break-words whitespace-pre-wrap'
+                        : ' table-cell-clamp'
+                      : ''
                   }`}
                 >
                   {getRegistryPlainDisplayValue(row, column)}
@@ -12056,24 +12145,17 @@ function App() {
               className="work-report-board-row-external-no-index"
               onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
             >
-              <select
-                className="work-report-board-select"
+              <WorkReportExternalManagerMultiSelect
                 value={entry.user}
-                onChange={(e) =>
+                onChange={(next) =>
                   updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
-                    user: e.target.value,
+                    user: next,
                   })
                 }
-              >
-                <option value="">선택</option>
-                {WORK_REPORT_MANAGER_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+                options={WORK_REPORT_EXTERNAL_USER_OPTIONS}
+              />
               <textarea
-                className="work-report-board-textarea work-report-board-textarea-external"
+                className="work-report-board-textarea work-report-board-textarea-external resize-none"
                 value={entry.content}
                 placeholder="내용 입력"
                 onChange={(e) =>
@@ -12084,7 +12166,7 @@ function App() {
                 onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
               <textarea
-                className="work-report-board-textarea work-report-board-textarea-destination"
+                className="work-report-board-textarea work-report-board-textarea-destination resize-none"
                 value={entry.destination}
                 placeholder="목적지 입력"
                 onChange={(e) =>
@@ -12127,7 +12209,7 @@ function App() {
             >
               <div className="work-report-board-fixed-manager">{managerName}</div>
               <textarea
-                className={`work-report-board-textarea ${contentClassName}`}
+                className={`work-report-board-textarea ${contentClassName} resize-none`}
                 value={entry.content}
                 placeholder="내용 입력"
                 onChange={(e) =>
@@ -12161,13 +12243,29 @@ function App() {
             >
               <div className="work-report-board-index">{orderIndex}</div>
               <textarea
-                className="work-report-board-textarea work-report-board-textarea-support-line"
+                className="work-report-board-textarea work-report-board-textarea-support-line resize-none"
                 value={entry.content}
                 placeholder="내용 입력"
                 onChange={(e) =>
                   updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
                 }
                 onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
+              />
+              <input
+                type="date"
+                className="work-report-board-date-input work-report-board-date-input-support"
+                value={normalizeWorkReportDeadlineForDateInput(entry.deadline)}
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, {
+                    deadline: normalizeWorkReportDeadlineForDateInput(e.target.value),
+                  })
+                }
+                onKeyDown={(e) =>
+                  handleWorkReportTextEditKeyDown(e, {
+                    multiline: false,
+                    onSave: () => e.currentTarget.blur(),
+                  })
+                }
               />
             </div>
           )
@@ -13378,7 +13476,7 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui table-w-full-min">
+                <table className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui table-w-full-min table-fixed">
                   <colgroup>
                     <col className="registry-check-col" />
                     {DISCOVERY_COLUMNS.map((column) => (
@@ -14970,6 +15068,137 @@ function App() {
             </div>
           )
         })()}
+
+      {salesRecordModal && (
+        <div className="modal-backdrop" onClick={closeSalesRecordModal}>
+          <div
+            className="sales-record-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sales-record-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sales-record-modal-header">
+              <div>
+                <h3 id="sales-record-modal-title" className="sales-record-modal-title">
+                  요약
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={closeSalesRecordModal}
+                aria-label="닫기"
+                disabled={salesRecordModal.saving}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="sales-record-modal-body">
+              <div className="sales-record-modal-info" aria-label="선택 항목 기본 정보">
+                <div className="sales-record-modal-info-item">
+                  <span className="sales-record-modal-info-label">발주처</span>
+                  <span className="sales-record-modal-info-value">{salesRecordModal.client || '-'}</span>
+                </div>
+                <div className="sales-record-modal-info-item">
+                  <span className="sales-record-modal-info-label">사업명</span>
+                  <span className="sales-record-modal-info-value">{salesRecordModal.projectName || '-'}</span>
+                </div>
+                <div className="sales-record-modal-info-item">
+                  <span className="sales-record-modal-info-label">담당자</span>
+                  <span className="sales-record-modal-info-value">{salesRecordModal.manager || '-'}</span>
+                </div>
+                <div className="sales-record-modal-info-item">
+                  <span className="sales-record-modal-info-label">담당부서</span>
+                  <span className="sales-record-modal-info-value">{salesRecordModal.department || '-'}</span>
+                </div>
+              </div>
+              <div className="sales-record-modal-timeline">
+                <div className="sales-record-modal-section">
+                  <div className="sales-record-modal-section-label-row">
+                    <span className="sales-record-modal-section-label" id="sales-record-history-label">
+                      지난 기록
+                    </span>
+                    <button
+                      type="button"
+                      className="sales-record-modal-history-edit-toggle"
+                      onClick={() =>
+                        setSalesRecordModal((prev) =>
+                          prev ? { ...prev, isEditingSummary: !prev.isEditingSummary } : prev
+                        )
+                      }
+                      disabled={salesRecordModal.saving}
+                      aria-pressed={salesRecordModal.isEditingSummary}
+                    >
+                      {salesRecordModal.isEditingSummary ? '완료' : '수정'}
+                    </button>
+                  </div>
+                  {salesRecordModal.isEditingSummary ? (
+                    <textarea
+                      className="sales-record-modal-history-edit resize-none"
+                      rows={6}
+                      aria-labelledby="sales-record-history-label"
+                      value={salesRecordModal.summaryDraft}
+                      onChange={(e) =>
+                        setSalesRecordModal((prev) =>
+                          prev ? { ...prev, summaryDraft: e.target.value } : prev
+                        )
+                      }
+                      disabled={salesRecordModal.saving}
+                    />
+                  ) : (
+                    <div
+                      className="sales-record-modal-history"
+                      role="region"
+                      aria-labelledby="sales-record-history-label"
+                    >
+                      {salesRecordModal.summaryDraft ? (
+                        <div className="sales-record-modal-history-text">{salesRecordModal.summaryDraft}</div>
+                      ) : (
+                        <p className="sales-record-modal-history-empty">기록된 요약이 없습니다.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="sales-record-modal-section">
+                  <label className="sales-record-modal-section-label" htmlFor="sales-record-new-entry">
+                    새 업데이트
+                  </label>
+                  <textarea
+                    id="sales-record-new-entry"
+                    className="sales-record-modal-entry resize-none"
+                    rows={3}
+                    placeholder="오늘 날짜로 추가할 업데이트 내용을 입력하세요."
+                    value={salesRecordModal.newEntry}
+                    onChange={(e) =>
+                      setSalesRecordModal((prev) => (prev ? { ...prev, newEntry: e.target.value } : prev))
+                    }
+                    disabled={salesRecordModal.saving}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="sales-record-modal-actions">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={closeSalesRecordModal}
+                disabled={salesRecordModal.saving}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => void saveSalesRecordModal()}
+                disabled={salesRecordModal.saving}
+              >
+                {salesRecordModal.saving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {calendarEventRegisterOpen && (
         <div
