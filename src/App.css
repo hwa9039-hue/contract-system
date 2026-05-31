@@ -3525,13 +3525,13 @@ textarea:focus-visible {
 }
 
 .main-area > section.stat-card.stat-card--work-reports {
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
 }
 
 .main-area > section.stat-card.stat-card--work-reports > .work-report-page-body {
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -3554,10 +3554,32 @@ textarea:focus-visible {
   flex: 0 0 auto;
   min-height: 0;
   min-width: 0;
+  width: 100%;
   max-height: none;
   display: block;
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: visible;
   margin-bottom: 16px;
+}
+
+.work-report-week-board-scroll {
+  padding-bottom: 1rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db #f3f4f6;
+}
+
+.work-report-week-board-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.work-report-week-board-scroll::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+
+.work-report-week-board-scroll::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 9999px;
 }
 
 .main-area > section.stat-card.stat-card--work-reports .work-report-meeting-minutes-block {
@@ -3607,8 +3629,8 @@ textarea:focus-visible {
 }
 
 .main-area > section.stat-card .work-report-week-grid {
-  width: 100%;
-  min-width: 0;
+  width: max-content;
+  min-width: 100%;
   align-items: flex-start;
 }
 
@@ -7359,12 +7381,10 @@ textarea:focus-visible {
   display: flex;
   flex-wrap: nowrap;
   gap: 1rem;
-  width: 100%;
-  min-width: 0;
+  width: max-content;
+  min-width: 100%;
   align-items: flex-start;
-  overflow-x: auto;
-  overflow-y: visible;
-  padding-bottom: 1rem;
+  overflow: visible;
   -webkit-overflow-scrolling: touch;
 }
 

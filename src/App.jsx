@@ -12561,8 +12561,8 @@ function App() {
                 </div>
               </div>
 
-              <div className="work-report-week-board-area">
-                <div className="work-report-week-grid flex flex-nowrap overflow-x-auto gap-4 pb-4 w-full">
+              <div className="work-report-week-board-area work-report-week-board-scroll">
+                <div className="work-report-week-grid flex flex-nowrap gap-4">
                   {selectedWorkWeekDays.map((day) => renderWorkReportDayBoardV4(day))}
                 </div>
               </div>
