@@ -56,7 +56,7 @@ import {
   projectDiscoveryApi,
   saveStoredDiscoveryRows,
 } from './projectDiscoveryApi'
-import { salesRegisterApi } from './salesRegisterApi'
+import { buildSalesRegisterSummaryPatch, salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import UnitPriceManagement from './pages/UnitPriceManagement.jsx'
 import { decodeWorkReportWireText } from './workReportWire.js'
@@ -2805,11 +2805,11 @@ function buildSalesRecordSummarySavePayload({
   }
 
   const normalized = normalizeSalesRecordForSave(merged)
-  const summary =
+  const summaryText =
     normalized ||
     (historyEdited || trimmedNew ? safeString(merged).trimEnd() : rawBaseline)
 
-  return { hasChanges: true, summary }
+  return { hasChanges: true, summary: safeString(summaryText) }
 }
 
 function hasSalesRecordStoredContent(detail) {
@@ -7674,7 +7674,7 @@ function App() {
       showAppAlert('저장 경로를 찾을 수 없거나 서버 통신에 실패했습니다.', '알림')
       return
     }
-    const { hasChanges, summary: summaryPayload } = buildSalesRecordSummarySavePayload({
+    const { hasChanges, summary: summaryText } = buildSalesRecordSummarySavePayload({
       summaryDraft: salesRecordModal.summaryDraft,
       summaryRaw: salesRecordModal.summaryRaw,
       summaryDisplayInitial: salesRecordModal.summaryDisplayInitial,
@@ -7684,19 +7684,26 @@ function App() {
       showAppAlert('변경된 내용이 없습니다.', '알림')
       return
     }
+    const summaryPayload = buildSalesRegisterSummaryPatch(summaryText)
     setSalesRecordModal((prev) => (prev ? { ...prev, saving: true } : prev))
     try {
       await salesRegisterApi.updateSummary(rowId, summaryPayload)
       setSalesRows((prev) =>
         prev.map((row) =>
-          row.id === rowId ? normalizeSalesRow({ ...row, summary: summaryPayload }) : row
+          row.id === rowId
+            ? normalizeSalesRow({ ...row, summary: summaryPayload.summary })
+            : row
         )
       )
       closeSalesRecordModal()
       setToastMessage('저장되었습니다.')
       await fetchSalesRows(true)
     } catch (error) {
-      console.error('영업관리대장 요약 저장 실패', { rowId, summaryLength: summaryPayload.length, error })
+      console.error('영업관리대장 요약 저장 실패', {
+        rowId,
+        summaryLength: safeString(summaryPayload.summary).length,
+        error,
+      })
       const errorMessage = safeString(error?.message).trim()
       showAppAlert(errorMessage || '요약 저장에 실패했습니다.', '알림')
       setSalesRecordModal((prev) => (prev ? { ...prev, saving: false } : prev))
