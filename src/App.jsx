@@ -56,7 +56,7 @@ import {
   projectDiscoveryApi,
   saveStoredDiscoveryRows,
 } from './projectDiscoveryApi'
-import { buildSalesRegisterSummaryPatch, salesRegisterApi } from './salesRegisterApi'
+import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import UnitPriceManagement from './pages/UnitPriceManagement.jsx'
 import { decodeWorkReportWireText } from './workReportWire.js'
@@ -2778,36 +2778,18 @@ function buildSalesRecordDetailWithNewEntry(existingDetail, newEntryText) {
 }
 
 /** 영업관리대장 요약 모달 — 저장용 summary 문자열·변경 여부 조합 */
-function buildSalesRecordSummarySavePayload({
-  summaryDraft,
-  summaryRaw,
-  summaryDisplayInitial,
-  newEntry,
-}) {
-  const trimmedNew = safeString(newEntry).trim()
+function buildSalesRecordSummarySavePayload({ summaryDraft, summaryRaw, summaryDisplayInitial }) {
   const draftText = safeString(summaryDraft).trimEnd()
   const rawBaseline = getSalesRecordRawHistory(summaryRaw)
   const initialDisplay = safeString(summaryDisplayInitial).trim()
   const historyEdited = safeString(summaryDraft).trim() !== initialDisplay
 
-  if (!trimmedNew && !historyEdited) {
+  if (!historyEdited) {
     return { hasChanges: false, summary: rawBaseline }
   }
 
-  let merged = ''
-  if (historyEdited && !trimmedNew) {
-    merged = draftText
-  } else if (!historyEdited && trimmedNew) {
-    merged = buildSalesRecordDetailWithNewEntry(rawBaseline, trimmedNew)
-  } else {
-    const stamped = `${formatSalesRecordDateStamp()} ${trimmedNew}`
-    merged = draftText ? `${draftText}\n${stamped}` : stamped
-  }
-
-  const normalized = normalizeSalesRecordForSave(merged)
-  const summaryText =
-    normalized ||
-    (historyEdited || trimmedNew ? safeString(merged).trimEnd() : rawBaseline)
+  const normalized = normalizeSalesRecordForSave(draftText)
+  const summaryText = normalized || (historyEdited ? draftText : rawBaseline)
 
   return { hasChanges: true, summary: safeString(summaryText) }
 }
@@ -7655,7 +7637,6 @@ function App() {
             summaryDraft: summaryDisplay,
             summaryDisplayInitial: summaryDisplay,
             isEditingSummary: false,
-            newEntry: '',
             saving: false,
           })
         }}
@@ -7678,21 +7659,22 @@ function App() {
       summaryDraft: salesRecordModal.summaryDraft,
       summaryRaw: salesRecordModal.summaryRaw,
       summaryDisplayInitial: salesRecordModal.summaryDisplayInitial,
-      newEntry: salesRecordModal.newEntry,
     })
     if (!hasChanges) {
       showAppAlert('변경된 내용이 없습니다.', '알림')
       return
     }
-    const summaryPayload = buildSalesRegisterSummaryPatch(summaryText)
+    const sourceRow = salesRows.find((row) => row.id === rowId)
+    const payload = {
+      detail: normalizeSalesRecordForSave(sourceRow?.detail),
+      summary: normalizeSalesRecordForSave(summaryText),
+    }
     setSalesRecordModal((prev) => (prev ? { ...prev, saving: true } : prev))
     try {
-      await salesRegisterApi.updateSummary(rowId, summaryPayload)
+      await salesRegisterApi.update(rowId, payload)
       setSalesRows((prev) =>
         prev.map((row) =>
-          row.id === rowId
-            ? normalizeSalesRow({ ...row, summary: summaryPayload.summary })
-            : row
+          row.id === rowId ? normalizeSalesRow({ ...row, ...payload }) : row
         )
       )
       closeSalesRecordModal()
@@ -7701,7 +7683,7 @@ function App() {
     } catch (error) {
       console.error('영업관리대장 요약 저장 실패', {
         rowId,
-        summaryLength: safeString(summaryPayload.summary).length,
+        summaryLength: safeString(payload.summary).length,
         error,
       })
       const errorMessage = safeString(error?.message).trim()
@@ -14831,22 +14813,6 @@ function App() {
                       )}
                     </div>
                   )}
-                </div>
-                <div className="sales-record-modal-section">
-                  <label className="sales-record-modal-section-label" htmlFor="sales-record-new-entry">
-                    새 업데이트
-                  </label>
-                  <textarea
-                    id="sales-record-new-entry"
-                    className="sales-record-modal-entry resize-none"
-                    rows={3}
-                    placeholder="오늘 날짜로 추가할 업데이트 내용을 입력하세요."
-                    value={salesRecordModal.newEntry}
-                    onChange={(e) =>
-                      setSalesRecordModal((prev) => (prev ? { ...prev, newEntry: e.target.value } : prev))
-                    }
-                    disabled={salesRecordModal.saving}
-                  />
                 </div>
               </div>
             </div>
