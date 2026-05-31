@@ -10773,6 +10773,25 @@ textarea:focus-visible {
   padding: 0 !important;
 }
 
+.resize-none {
+  resize: none;
+}
+
+.sales-summary-display {
+  width: 100%;
+  min-height: 40px;
+  padding: 0.5rem 0.75rem;
+  box-sizing: border-box;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.25;
+  color: #374151;
+}
+
+.sales-summary-display--has-content {
+  color: #1f2937;
+}
+
 /* Inline input cells — flush with grid lines (Excel-like) */
 .contract-table.excel-table.registry-table tbody td.p-0,
 table[data-contract-table-row-key] tbody td.p-0,

@@ -1,7 +1,6 @@
 ﻿import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Download,
-  FileText,
   Pencil,
   Trash2,
 } from 'lucide-react'
@@ -335,7 +334,7 @@ const SALES_COLUMNS = [
     key: 'detail',
     label: '세부내용',
     align: 'left',
-    type: 'salesDetailHistory',
+    type: 'textarea',
     width: 920,
     cellClass: 'sales-modal-text-cell sales-detail-cell',
   },
@@ -427,8 +426,7 @@ const DISCOVERY_COLUMNS = [
     align: 'left',
     type: 'textarea',
     widthClass: 'discovery-w-p42',
-    cellClass: 'discovery-modal-text-cell discovery-col-detail discovery-w-p42',
-    modalEditor: true,
+    cellClass: 'discovery-col-detail discovery-w-p42',
   },
 ]
 
@@ -2784,6 +2782,53 @@ function isSalesDetailHistoryColumn(column, scope) {
   return scope === 'sales' && column?.key === 'detail'
 }
 
+function isDiscoveryDetailColumn(column, scope) {
+  return scope === 'discovery' && column?.key === 'note'
+}
+
+function isRegistrySmartDetailColumn(column, scope) {
+  return isSalesDetailHistoryColumn(column, scope) || isDiscoveryDetailColumn(column, scope)
+}
+
+function getRegistrySmartDetailEditValue(scope, column, row) {
+  if (isSalesDetailHistoryColumn(column, scope)) {
+    return safeString(row?.detail).trim()
+  }
+  if (isDiscoveryDetailColumn(column, scope)) {
+    const latest = extractLatestSalesDetailEntry(row?.note)
+    return latest || safeString(row?.note).trim()
+  }
+  return safeString(row?.[column?.key]).trim()
+}
+
+function getRegistrySmartDetailDisplayValue(scope, column, row) {
+  return getRegistrySmartDetailEditValue(scope, column, row)
+}
+
+function buildRegistrySmartDetailSavePayload(scope, column, row, rawValue) {
+  const newDetail = safeString(rawValue).trim()
+  if (isSalesDetailHistoryColumn(column, scope)) {
+    const oldDetail = safeString(row?.detail).trim()
+    if (newDetail === oldDetail) return null
+    return {
+      detail: normalizeSalesRecordForSave(newDetail),
+      summary: normalizeSalesRecordForSave(
+        buildSalesRecordDetailWithNewEntry(row?.summary, newDetail)
+      ),
+    }
+  }
+  if (isDiscoveryDetailColumn(column, scope)) {
+    const oldLatest = getRegistrySmartDetailEditValue(scope, column, row)
+    if (newDetail === oldLatest) return null
+    return {
+      note: normalizeSalesRecordForSave(
+        buildSalesRecordDetailWithNewEntry(row?.note, newDetail)
+      ),
+    }
+  }
+  return null
+}
+
 function buildSalesRecordDetailWithNewEntry(existingDetail, newEntryText) {
   const trimmed = safeString(newEntryText).trim()
   const existing = getSalesRecordRawHistory(existingDetail)
@@ -4934,7 +4979,6 @@ function App() {
   const [contracts, setContracts] = useState([])
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
-  const [salesRecordModal, setSalesRecordModal] = useState(null)
   const [registryLongTextModal, setRegistryLongTextModal] = useState(null)
   const [discoveryRows, setDiscoveryRows] = useState([])
   const [discoveryTableData, setDiscoveryTableData] = useState([])
@@ -7831,100 +7875,19 @@ function App() {
     )
   }
 
-  const closeSalesRecordModal = () => setSalesRecordModal(null)
-
-  const openSalesRecordModal = (row) => {
-    const rowId = safeString(row?.id).trim()
-    if (!rowId || rowId === 'undefined' || row.isDraft || rowId.startsWith('sales-draft-')) {
-      showAppAlert('행을 저장한 뒤 요약을 작성할 수 있습니다.', '알림')
-      return
-    }
-    const sourceRow = salesRows.find((item) => item.id === rowId) || row
-    const historyDisplay = getSalesRecordHistoryForDisplay(
-      sourceRow.detail,
-      sourceRow.registerDate
+  const renderSalesSummaryCell = (row) => {
+    const summaryPreview = extractLatestSalesDetailEntry(row.summary)
+    return (
+      <div
+        className={`cell-display sales-summary-display truncate${
+          summaryPreview ? ' sales-summary-display--has-content' : ''
+        }`}
+        title={summaryPreview || '요약'}
+      >
+        {summaryPreview || '\u00a0'}
+      </div>
     )
-    setSalesRecordModal({
-      rowId,
-      client: safeString(sourceRow.client).trim(),
-      projectName: safeString(sourceRow.projectName).trim(),
-      manager: safeString(sourceRow.manager).trim(),
-      department: safeString(sourceRow.department).trim(),
-      history: historyDisplay,
-      historyRaw: getSalesRecordRawHistory(sourceRow.detail),
-      historyDraft: historyDisplay,
-      historyDisplayInitial: historyDisplay,
-      isEditingHistory: false,
-      newEntry: '',
-      saving: false,
-    })
   }
-
-  const saveSalesRecordModal = async () => {
-    if (!salesRecordModal?.rowId) return
-    const rowId = safeString(salesRecordModal.rowId).trim()
-    if (!rowId || rowId === 'undefined') {
-      showAppAlert('저장 경로를 찾을 수 없거나 서버 통신에 실패했습니다.', '알림')
-      return
-    }
-    const hasNewEntry = safeString(salesRecordModal.newEntry).trim().length > 0
-    const historyEdited =
-      safeString(salesRecordModal.historyDraft).trim() !==
-      safeString(salesRecordModal.historyDisplayInitial).trim()
-    if (!hasNewEntry && !historyEdited) {
-      showAppAlert('변경된 내용이 없습니다.', '알림')
-      return
-    }
-    const baseHistory = historyEdited
-      ? salesRecordModal.historyDraft
-      : salesRecordModal.historyRaw
-    const merged = buildSalesRecordDetailWithNewEntry(baseHistory, salesRecordModal.newEntry)
-    const detailPayload = normalizeSalesRecordForSave(merged)
-    setSalesRecordModal((prev) => (prev ? { ...prev, saving: true } : prev))
-    try {
-      const updated = await salesRegisterApi.updateDetail(rowId, detailPayload)
-      setSalesRows((prev) =>
-        prev.map((row) =>
-          row.id === rowId ? normalizeSalesRow({ ...row, ...updated }) : row
-        )
-      )
-      closeSalesRecordModal()
-      await fetchSalesRows(true)
-    } catch (error) {
-      console.error('영업관리대장 세부내용 저장 실패', {
-        rowId,
-        detailLength: detailPayload.length,
-        error,
-      })
-      const errorMessage = safeString(error?.message).trim()
-      const isRouteOrRowMissing =
-        /not found/i.test(errorMessage) || errorMessage === 'Sales row not found'
-      showAppAlert(
-        isRouteOrRowMissing
-          ? '저장 경로를 찾을 수 없거나 서버 통신에 실패했습니다.'
-          : errorMessage || '요약 저장에 실패했습니다.',
-        '알림'
-      )
-      setSalesRecordModal((prev) => (prev ? { ...prev, saving: false } : prev))
-    }
-  }
-
-  const renderSalesRecordCell = (row) => (
-    <button
-      type="button"
-      className={`sales-record-btn${
-        hasSalesRecordStoredContent(row.detail) ? ' sales-record-btn--has-content' : ''
-      }`}
-      title="요약"
-      aria-label="요약 보기 및 작성"
-      onClick={(e) => {
-        e.stopPropagation()
-        openSalesRecordModal(row)
-      }}
-    >
-      <FileText size={18} aria-hidden />
-    </button>
-  )
 
   const startSalesEdit = (rowId) => {
     const targetRow = salesRows.find((row) => row.id === rowId)
@@ -10128,7 +10091,7 @@ function App() {
       return <input {...commonProps} type="date" />
     }
     if (column.type === 'textarea') {
-      return <textarea {...commonProps} rows={2} />
+      return <textarea {...commonProps} className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} resize-none`} rows={2} />
     }
     return <input {...commonProps} type="text" />
   }
@@ -10495,12 +10458,15 @@ function App() {
 
   const startRegistryCellEdit = (scope, rowId, columnKey, value, row) => {
     if (!row || row.isDraft) return
-    if (scope === 'sales' && columnKey === 'detail') return
     const columns = getRegistryColumnsByScope(scope)
     const col = columns.find((c) => c.key === columnKey)
     if (!col) return
 
     setRegistryCellEdit({ scope, rowId, columnKey })
+    if (isRegistrySmartDetailColumn(col, scope)) {
+      setRegistryCellEditDraft(getRegistrySmartDetailEditValue(scope, col, row))
+      return
+    }
     if (col.type === 'amount') {
       setRegistryCellEditDraft(normalizeAmountValue(value))
       return
@@ -10510,7 +10476,6 @@ function App() {
 
   const persistRegistryCellPatch = async (scope, rowId, column, rawValue) => {
     if (!scope || !rowId || !column) return false
-    if (isSalesDetailHistoryColumn(column, scope)) return false
 
     let rows
     switch (scope) {
@@ -10535,6 +10500,46 @@ function App() {
 
     const targetRow = rows.find((r) => safeString(r.id).trim() === safeString(rowId).trim())
     if (!targetRow || targetRow.isDraft) return false
+
+    if (isRegistrySmartDetailColumn(column, scope)) {
+      const payload = buildRegistrySmartDetailSavePayload(scope, column, targetRow, rawValue)
+      if (!payload) return false
+
+      const previous =
+        scope === 'sales'
+          ? { detail: targetRow.detail, summary: targetRow.summary }
+          : { note: targetRow.note }
+
+      if (scope === 'sales') {
+        applyRegistryRowFieldPatch(scope, rowId, { key: 'detail', type: 'textarea' }, payload.detail)
+        applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, payload.summary)
+      } else if (scope === 'discovery') {
+        applyRegistryRowFieldPatch(scope, rowId, { key: 'note', type: 'textarea' }, payload.note)
+      }
+
+      try {
+        if (scope === 'sales') {
+          await salesRegisterApi.update(rowId, payload)
+        } else if (scope === 'discovery') {
+          await projectDiscoveryApi.update(rowId, payload)
+        }
+        return true
+      } catch (error) {
+        if (scope === 'sales') {
+          applyRegistryRowFieldPatch(scope, rowId, { key: 'detail', type: 'textarea' }, previous.detail)
+          applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, previous.summary)
+        } else if (scope === 'discovery') {
+          applyRegistryRowFieldPatch(scope, rowId, { key: 'note', type: 'textarea' }, previous.note)
+        }
+        const labelMap = {
+          sales: '영업관리대장',
+          discovery: '건축정보',
+        }
+        logApiOperationError(`${labelMap[scope] || '등록'} 세부내용 저장`, error)
+        setToastMessage(`저장에 실패했습니다. ${safeString(error?.message)}`)
+        return false
+      }
+    }
 
     const patch = buildRegistryCellApiPatch(column, rawValue)
     const patchValue = patch[column.key]
@@ -10760,7 +10765,7 @@ function App() {
       onChange: (e) => {
         const value = column.type === 'amount' ? normalizeAmountValue(e.target.value) : e.target.value
         setRegistryCellEditDraft(value)
-        if (scope && rowId) {
+        if (scope && rowId && !isRegistrySmartDetailColumn(column, scope)) {
           applyRegistryRowFieldPatch(scope, rowId, column, value)
         }
       },
@@ -10792,7 +10797,13 @@ function App() {
       return <input {...commonProps} type="date" />
     }
     if (column.type === 'textarea') {
-      return <textarea {...commonProps} rows={2} />
+      return (
+        <textarea
+          {...commonProps}
+          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} resize-none`}
+          rows={2}
+        />
+      )
     }
     if (column.type === 'select') {
       return (
@@ -10965,9 +10976,9 @@ function App() {
 
         {columns.map((column) => {
           const isImportanceCell = column.type === 'importance'
-          const isSalesDetailHistoryCell = isSalesDetailHistoryColumn(column, cellEditScope)
+          const isSmartDetailCell = isRegistrySmartDetailColumn(column, cellEditScope)
           const canUseRegistryModalEditor =
-            !isSalesDetailHistoryCell &&
+            !isSmartDetailCell &&
             (cellEditScope === 'sales' ||
               cellEditScope === 'discovery' ||
               cellEditScope === 'contactsManage') &&
@@ -10978,7 +10989,7 @@ function App() {
             !row.isDraft &&
             !isImportanceCell
           const isEditableText =
-            !isSalesDetailHistoryCell &&
+            !isSmartDetailCell &&
             isEditableTextColumn(column) &&
             !(
               column.type === 'textarea' &&
@@ -11002,13 +11013,11 @@ function App() {
           const showInput =
             !isImportanceCell &&
             !isEditableText &&
-            !isSalesDetailHistoryCell &&
             (showDraftOrLegacyRow || isThisCell)
           const usesTableInlineInput =
             !isImportanceCell &&
-            !isSalesDetailHistoryCell &&
             !canUseRegistryModalEditor &&
-            (isEditableText || showInput)
+            (isEditableText || showInput || isSmartDetailCell)
           const cells = [
             <td
               key={column.key}
@@ -11025,10 +11034,6 @@ function App() {
               }`}
               onClick={() => {
                 if (isImportanceCell || isEditableText) return
-                if (isSalesDetailHistoryCell) {
-                  if (!row.isDraft) openSalesRecordModal(row)
-                  return
-                }
                 if (!isAdminForRegistry) return
                 if (row.isDraft) return
                 if (canUseRegistryModalEditor) {
@@ -11050,25 +11055,36 @@ function App() {
                     status={resolveRegistryImportanceStatus(displayRow, column)}
                   />
                 </div>
-              ) : isSalesDetailHistoryCell ? (
-                <div
-                  className="cell-display sales-detail-history-display truncate"
-                  role="button"
-                  tabIndex={0}
-                  title={extractLatestSalesDetailEntry(row.detail) || '요약'}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    openSalesRecordModal(row)
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      openSalesRecordModal(row)
-                    }
-                  }}
-                >
-                  {extractLatestSalesDetailEntry(row.detail) || '\u00a0'}
-                </div>
+              ) : isSmartDetailCell ? (
+                isThisCell ? (
+                  renderRegistryCellInlineEditor(column, {
+                    scope: cellEditScope,
+                    rowId,
+                  })
+                ) : (
+                  <div
+                    className={`cell-display table-cell-clamp editable-text-cell-display editable-text-cell-display--${cellAlign}`}
+                    role="button"
+                    tabIndex={0}
+                    title={getRegistrySmartDetailDisplayValue(cellEditScope, column, row) || '세부내용'}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (onRegistryCellStart) {
+                        onRegistryCellStart(rowId, column.key, row[column.key], row)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        if (onRegistryCellStart) {
+                          onRegistryCellStart(rowId, column.key, row[column.key], row)
+                        }
+                      }
+                    }}
+                  >
+                    {getRegistrySmartDetailDisplayValue(cellEditScope, column, row) || '\u00a0'}
+                  </div>
+                )
               ) : canUseRegistryModalEditor ? (
                 <div
                   className={`cell-display table-cell-clamp${
@@ -13744,7 +13760,7 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('sales', rowId, columnKey, value, row),
-                      renderAfterImportanceCell: renderSalesRecordCell,
+                      renderAfterImportanceCell: renderSalesSummaryCell,
                     })
                     )}
                   </tbody>
@@ -15414,159 +15430,6 @@ function App() {
                 disabled={workReportTextModal.saving}
               >
                 {workReportTextModal.saving ? '저장 중...' : '저장'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {salesRecordModal && (
-        <div className="modal-backdrop" onClick={closeSalesRecordModal}>
-          <div
-            className="sales-record-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="sales-record-modal-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sales-record-modal-header">
-              <div>
-                <h3 id="sales-record-modal-title" className="sales-record-modal-title">
-                  요약
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={closeSalesRecordModal}
-                aria-label="닫기"
-                disabled={salesRecordModal.saving}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="sales-record-modal-body">
-              <div className="sales-record-modal-info" aria-label="선택 항목 기본 정보">
-                <div className="sales-record-modal-info-item">
-                  <span className="sales-record-modal-info-label">발주처</span>
-                  <span className="sales-record-modal-info-value">
-                    {salesRecordModal.client || '-'}
-                  </span>
-                </div>
-                <div className="sales-record-modal-info-item">
-                  <span className="sales-record-modal-info-label">사업명</span>
-                  <span className="sales-record-modal-info-value">
-                    {salesRecordModal.projectName || '-'}
-                  </span>
-                </div>
-                <div className="sales-record-modal-info-item">
-                  <span className="sales-record-modal-info-label">담당자</span>
-                  <span className="sales-record-modal-info-value">
-                    {salesRecordModal.manager || '-'}
-                  </span>
-                </div>
-                <div className="sales-record-modal-info-item">
-                  <span className="sales-record-modal-info-label">담당부서</span>
-                  <span className="sales-record-modal-info-value">
-                    {salesRecordModal.department || '-'}
-                  </span>
-                </div>
-              </div>
-              <div className="sales-record-modal-timeline">
-                <div className="sales-record-modal-section">
-                  <div className="sales-record-modal-section-label-row">
-                    <span
-                      className="sales-record-modal-section-label"
-                      id="sales-record-history-label"
-                    >
-                      지난 기록
-                    </span>
-                    <button
-                      type="button"
-                      className="sales-record-modal-history-edit-toggle"
-                      onClick={() =>
-                        setSalesRecordModal((prev) =>
-                          prev
-                            ? { ...prev, isEditingHistory: !prev.isEditingHistory }
-                            : prev
-                        )
-                      }
-                      disabled={salesRecordModal.saving}
-                      aria-pressed={salesRecordModal.isEditingHistory}
-                    >
-                      {salesRecordModal.isEditingHistory ? '완료' : '수정'}
-                    </button>
-                  </div>
-                  {salesRecordModal.isEditingHistory ? (
-                    <textarea
-                      className="sales-record-modal-history-edit"
-                      rows={6}
-                      aria-labelledby="sales-record-history-label"
-                      value={salesRecordModal.historyDraft}
-                      onChange={(e) =>
-                        setSalesRecordModal((prev) =>
-                          prev ? { ...prev, historyDraft: e.target.value } : prev
-                        )
-                      }
-                      disabled={salesRecordModal.saving}
-                    />
-                  ) : (
-                    <div
-                      className="sales-record-modal-history"
-                      role="region"
-                      aria-labelledby="sales-record-history-label"
-                    >
-                      {salesRecordModal.historyDraft ? (
-                        <div className="sales-record-modal-history-text">
-                          {salesRecordModal.historyDraft}
-                        </div>
-                      ) : (
-                        <p className="sales-record-modal-history-empty">
-                          기록된 세부내용이 없습니다.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="sales-record-modal-section">
-                  <label
-                    className="sales-record-modal-section-label"
-                    htmlFor="sales-record-new-entry"
-                  >
-                    새 업데이트
-                  </label>
-                  <textarea
-                    id="sales-record-new-entry"
-                    className="sales-record-modal-entry"
-                    rows={3}
-                    placeholder="오늘 날짜로 추가할 업데이트 내용을 입력하세요."
-                    value={salesRecordModal.newEntry}
-                    onChange={(e) =>
-                      setSalesRecordModal((prev) =>
-                        prev ? { ...prev, newEntry: e.target.value } : prev
-                      )
-                    }
-                    disabled={salesRecordModal.saving}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="sales-record-modal-actions">
-              <button
-                type="button"
-                className="secondary-btn"
-                onClick={closeSalesRecordModal}
-                disabled={salesRecordModal.saving}
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                className="primary-btn"
-                onClick={() => void saveSalesRecordModal()}
-                disabled={salesRecordModal.saving}
-              >
-                {salesRecordModal.saving ? '저장 중...' : '저장'}
               </button>
             </div>
           </div>
