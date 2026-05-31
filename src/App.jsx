@@ -82,6 +82,7 @@ import {
   getTableColumnLayoutClass,
   isLongTextTableColumn,
 } from './tableColumnLayout.js'
+import { TABLE_INLINE_INPUT_STANDARD_CLASS } from './tableInlineInputClass.js'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
 import {
   INSTALL_CASE_MEDIA_ACCEPT,
@@ -10091,7 +10092,8 @@ function App() {
 
   const renderContractCellInlineEditor = (column) => {
     const commonProps = {
-      className: `cell-inline-editor ${column.align === 'right' ? 'align-right' : ''}`,
+      className: TABLE_INLINE_INPUT_STANDARD_CLASS,
+      style: { textAlign: column.align || 'left' },
       value: contractEditDraft,
       autoFocus: true,
       onChange: (e) => {
@@ -10748,7 +10750,8 @@ function App() {
   const renderRegistryCellInlineEditor = (column, editContext) => {
     const { scope, rowId } = editContext || {}
     const commonProps = {
-      className: `cell-inline-editor ${column.align === 'right' ? 'align-right' : ''}`,
+      className: TABLE_INLINE_INPUT_STANDARD_CLASS,
+      style: { textAlign: column.align || 'left' },
       value: registryCellEditDraft,
       autoFocus: true,
       onChange: (e) => {
@@ -10855,7 +10858,8 @@ function App() {
     if (column.type === 'textarea') {
       return (
         <textarea
-          className={`inline-row-editor cell-inline-editor ${column.align === 'right' ? 'align-right' : ''}`}
+          className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+          style={{ textAlign: column.align || 'left' }}
           rows={1}
           value={row[column.key] ?? ''}
           onChange={(e) => onChange(row.id, column.key, e.target.value)}
@@ -10867,7 +10871,8 @@ function App() {
     if (column.type === 'date') {
       return (
         <input
-          className="inline-row-editor cell-inline-editor"
+          className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+          style={{ textAlign: 'center' }}
           type="date"
           value={row[column.key] ?? ''}
           onChange={(e) => onChange(row.id, column.key, e.target.value)}
@@ -10879,7 +10884,8 @@ function App() {
     if (column.type === 'select') {
       return (
         <select
-          className="inline-row-editor cell-inline-editor"
+          className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+          style={{ textAlign: 'center' }}
           value={row[column.key] ?? ''}
           onChange={(e) => onChange(row.id, column.key, e.target.value)}
           onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
@@ -10896,7 +10902,8 @@ function App() {
 
     return (
       <input
-        className={`inline-row-editor cell-inline-editor ${column.align === 'right' ? 'align-right' : ''}`}
+        className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+        style={{ textAlign: column.align || 'left' }}
         type="text"
         value={row[column.key] ?? ''}
         onChange={(e) => onChange(row.id, column.key, e.target.value)}
@@ -11002,7 +11009,7 @@ function App() {
               } ${
                 isImportanceCell ? 'registry-importance-cell' : ''
               } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${
-                isAdminForRegistry && !row.isDraft && !isImportanceCell ? 'editable-cell' : ''
+                isAdminForRegistry && !row.isDraft && !isImportanceCell ? 'editable-cell p-0' : ''
               }`}
               onClick={() => {
                 if (isImportanceCell || isEditableText) return
@@ -13515,7 +13522,7 @@ function App() {
                                       className={`${column.className} ${bodyAlignClass} ${
                                         isLongTextTableColumn(column) ? 'multiline-cell' : ''
                                       } ${column.key === 'note' ? 'note-cell' : ''} ${getTableColumnLayoutClass(column)} ${
-                                        isAdmin ? 'editable-cell' : ''
+                                        isAdmin ? 'editable-cell p-0' : ''
                                       }`}
                                       onClick={
                                         isAdmin && !isThisContractCell

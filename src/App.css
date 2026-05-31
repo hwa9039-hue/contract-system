@@ -10693,3 +10693,77 @@ textarea:focus-visible {
 .unit-price-empty-cell--error {
   color: #dc2626;
 }
+
+/* Table inline editor standard utility classes (tailwind-like) */
+.w-full {
+  width: 100%;
+}
+
+.h-full {
+  height: 100%;
+}
+
+.min-h-\[36px\] {
+  min-height: 36px;
+}
+
+.px-3 {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+.py-1\.5 {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+
+.bg-transparent {
+  background-color: transparent;
+}
+
+.border {
+  border-width: 1px;
+  border-style: solid;
+}
+
+.border-transparent {
+  border-color: transparent;
+}
+
+.outline-none {
+  outline: none;
+}
+
+.focus\:border-blue-500:focus {
+  border-color: #3b82f6;
+}
+
+.focus\:ring-1:focus {
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.7);
+}
+
+.focus\:ring-blue-500:focus {
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.7);
+}
+
+.focus\:bg-blue-50:focus {
+  background-color: #eff6ff;
+}
+
+.transition-colors {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
+.text-gray-800 {
+  color: #1f2937;
+}
+
+.rounded-sm {
+  border-radius: 0.125rem;
+}
+
+.p-0 {
+  padding: 0 !important;
+}

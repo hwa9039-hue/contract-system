@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { TABLE_INLINE_INPUT_STANDARD_CLASS } from './tableInlineInputClass.js'
 
 /** 날짜·금액·드롭다운·중요도가 아닌 순수 텍스트 컬럼 */
 export function isEditableTextColumn(column) {
@@ -58,7 +59,8 @@ export function EditableTextCell({
     return (
       <input
         type="text"
-        className={`editable-text-cell-input editable-text-cell-input--${align}`.trim()}
+        className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+        style={{ textAlign: align }}
         value={draft}
         autoFocus
         onChange={(e) => setDraft(e.target.value)}

@@ -6,6 +6,7 @@ import {
   parseManagerMultiSelectValue,
   serializeManagerMultiSelectValue,
 } from './workReportManagerMultiSelect.jsx'
+import { TABLE_INLINE_INPUT_STANDARD_CLASS } from './tableInlineInputClass.js'
 
 export const MEETING_MINUTES_AGENDA_FIXED_ROWS = 20
 
@@ -838,9 +839,10 @@ export function WorkReportMeetingMinutesSection({
                   <td className="th-align-center meeting-minutes-doc__agenda-num">
                     {index + 1}
                   </td>
-                  <td className="meeting-minutes-doc__agenda-content-cell">
+                  <td className="meeting-minutes-doc__agenda-content-cell p-0">
                     <textarea
-                      className="meeting-minutes-doc__agenda-content"
+                      className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+                      style={{ textAlign: 'left' }}
                       rows={1}
                       value={row.content}
                       placeholder="내용 입력"
@@ -856,9 +858,10 @@ export function WorkReportMeetingMinutesSection({
                       }
                     />
                   </td>
-                  <td className="meeting-minutes-doc__agenda-due-cell meeting-minutes-doc__col-due">
+                  <td className="meeting-minutes-doc__agenda-due-cell meeting-minutes-doc__col-due p-0">
                     <input
-                      className="meeting-minutes-doc__agenda-due"
+                      className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+                      style={{ textAlign: 'center' }}
                       type="date"
                       value={row.dueDate}
                       onChange={(e) => patchAgendaRow(index, { dueDate: e.target.value })}

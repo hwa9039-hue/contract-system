@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { contractsApi } from '../contractsApi.js'
+import { TABLE_INLINE_INPUT_STANDARD_CLASS } from '../tableInlineInputClass.js'
 import {
   buildContractColumnFilterOptions,
   contractMatchesColumnFilters,
@@ -51,42 +52,42 @@ const EDITABLE_COLUMNS = [
     label: '원가용역',
     headerClass: 'unit-price-col-editable',
     cellClass: 'unit-price-col-editable',
-    inputClass: 'editable-text-cell-input--center text-center',
+    inputAlign: 'center',
   },
   {
     key: 'itemName',
     label: '품명',
     headerClass: 'unit-price-col-editable',
     cellClass: 'unit-price-col-editable',
-    inputClass: 'editable-text-cell-input--center text-center',
+    inputAlign: 'center',
   },
   {
     key: 'designUnitPrice',
     label: '설계단가',
     headerClass: 'unit-price-col-design',
     cellClass: 'unit-price-col-design',
-    inputClass: 'editable-text-cell-input--right text-right pr-4',
+    inputAlign: 'right',
   },
   {
     key: 'pitch',
     label: 'Pitch',
     headerClass: 'unit-price-col-narrow',
     cellClass: 'unit-price-col-narrow',
-    inputClass: 'editable-text-cell-input--center text-center',
+    inputAlign: 'center',
   },
   {
     key: 'capW',
     label: 'W',
     headerClass: 'unit-price-col-narrow',
     cellClass: 'unit-price-col-narrow',
-    inputClass: 'editable-text-cell-input--center text-center',
+    inputAlign: 'center',
   },
   {
     key: 'capH',
     label: 'H',
     headerClass: 'unit-price-col-narrow',
     cellClass: 'unit-price-col-narrow',
-    inputClass: 'editable-text-cell-input--center text-center',
+    inputAlign: 'center',
   },
 ]
 
@@ -488,11 +489,12 @@ export default function UnitPriceManagement() {
                       return (
                         <td
                           key={column.key}
-                          className={`unit-price-editable-cell ${column.cellClass || ''}`}
+                          className={`unit-price-editable-cell p-0 ${column.cellClass || ''}`}
                         >
                           <input
                             type="text"
-                            className={`editable-text-cell-input unit-price-cell-input ${column.inputClass || ''}`}
+                            className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+                            style={{ textAlign: column.inputAlign || 'left' }}
                             value={cellValue}
                             onFocus={(event) =>
                               handleEditableFocus(row.id, column.key, event.target.value)
