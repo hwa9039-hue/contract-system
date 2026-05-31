@@ -10558,9 +10558,10 @@ textarea:focus-visible {
   text-align: left;
 }
 
-/* ── 모니터링 iframe ── */
+/* ── 모니터링 iframe (나라장터·각종뉴스) ── */
 .main-area.main-area--monitoring-embed {
   padding: 0;
+  gap: 0;
 }
 
 .main-area.main-area--monitoring-embed > .top-system-bar,
@@ -10579,11 +10580,12 @@ textarea:focus-visible {
   border: none;
   border-radius: 0;
   box-shadow: none;
-  background: transparent;
+  background: #ffffff;
 }
 
 .stat-card.stat-card--monitoring-embed {
   padding: 0;
+  min-height: 0;
 }
 
 .monitoring-embed-shell {
@@ -10591,12 +10593,38 @@ textarea:focus-visible {
   min-height: 0;
   width: 100%;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 부모 여백 상쇄: -mx-4 -my-4 / sm:-mx-6 sm:-my-6 sm:-mt-8 */
+.monitoring-embed-shell--full-bleed {
+  margin: -16px;
+  width: calc(100% + 32px);
+  max-width: none;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@media (min-width: 640px) {
+  .monitoring-embed-shell--full-bleed {
+    margin: -32px -24px -24px;
+    width: calc(100% + 48px);
+  }
+}
+
+.main-area.main-area--monitoring-embed .monitoring-embed-shell--full-bleed {
+  margin: 0;
+  width: 100%;
 }
 
 .monitoring-embed-frame {
   display: block;
   width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   border: none;
+  background: #ffffff;
 }
 
 /* ── 단가관리 ── */
@@ -10840,6 +10868,10 @@ textarea:focus-visible {
 
 .h-\[calc\(100vh-100px\)\] {
   height: calc(100vh - 100px);
+}
+
+.h-\[calc\(100vh-80px\)\] {
+  height: calc(100vh - 80px);
 }
 
 .px-3 {
