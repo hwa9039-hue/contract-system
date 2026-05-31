@@ -12527,7 +12527,7 @@ function App() {
 
         {menu === 'workReports' && (
           <section className="stat-card stat-card--work-reports">
-            <div className="work-report-page-body work-report-page-body--dual-scroll h-full">
+            <div className="work-report-page-body work-report-page-body--dual-scroll flex flex-col h-full">
               <div className="contracts-header-actions work-report-toolbar">
                 <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
                   이전 주
@@ -12561,7 +12561,7 @@ function App() {
                 </div>
               </div>
 
-              <div className="work-report-week-board-area work-report-week-board-scroll">
+              <div className="work-report-week-board-area work-report-week-board-scroll flex-1 min-h-0">
                 <div className="work-report-week-grid flex flex-nowrap gap-4">
                   {selectedWorkWeekDays.map((day) => renderWorkReportDayBoardV4(day))}
                 </div>
