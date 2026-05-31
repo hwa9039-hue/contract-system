@@ -6,7 +6,10 @@ import {
   parseManagerMultiSelectValue,
   serializeManagerMultiSelectValue,
 } from './workReportManagerMultiSelect.jsx'
-import { TABLE_INLINE_INPUT_STANDARD_CLASS } from './tableInlineInputClass.js'
+import {
+  TABLE_INLINE_EDITABLE_CELL_CLASS,
+  TABLE_INLINE_INPUT_STANDARD_CLASS,
+} from './tableInlineInputClass.js'
 
 export const MEETING_MINUTES_AGENDA_FIXED_ROWS = 20
 
@@ -839,7 +842,7 @@ export function WorkReportMeetingMinutesSection({
                   <td className="th-align-center meeting-minutes-doc__agenda-num">
                     {index + 1}
                   </td>
-                  <td className="meeting-minutes-doc__agenda-content-cell p-0">
+                  <td className={`meeting-minutes-doc__agenda-content-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`}>
                     <textarea
                       className={TABLE_INLINE_INPUT_STANDARD_CLASS}
                       style={{ textAlign: 'left' }}
@@ -858,7 +861,7 @@ export function WorkReportMeetingMinutesSection({
                       }
                     />
                   </td>
-                  <td className="meeting-minutes-doc__agenda-due-cell meeting-minutes-doc__col-due p-0">
+                  <td className={`meeting-minutes-doc__agenda-due-cell meeting-minutes-doc__col-due ${TABLE_INLINE_EDITABLE_CELL_CLASS}`}>
                     <input
                       className={TABLE_INLINE_INPUT_STANDARD_CLASS}
                       style={{ textAlign: 'center' }}

@@ -82,7 +82,10 @@ import {
   getTableColumnLayoutClass,
   isLongTextTableColumn,
 } from './tableColumnLayout.js'
-import { TABLE_INLINE_INPUT_STANDARD_CLASS } from './tableInlineInputClass.js'
+import {
+  TABLE_INLINE_EDITABLE_CELL_CLASS,
+  TABLE_INLINE_INPUT_STANDARD_CLASS,
+} from './tableInlineInputClass.js'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
 import {
   INSTALL_CASE_MEDIA_ACCEPT,
@@ -11001,6 +11004,11 @@ function App() {
             !isEditableText &&
             !isSalesDetailHistoryCell &&
             (showDraftOrLegacyRow || isThisCell)
+          const usesTableInlineInput =
+            !isImportanceCell &&
+            !isSalesDetailHistoryCell &&
+            !canUseRegistryModalEditor &&
+            (isEditableText || showInput)
           const cells = [
             <td
               key={column.key}
@@ -11009,7 +11017,11 @@ function App() {
               } ${
                 isImportanceCell ? 'registry-importance-cell' : ''
               } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${
-                isAdminForRegistry && !row.isDraft && !isImportanceCell ? 'editable-cell p-0' : ''
+                usesTableInlineInput
+                  ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
+                  : isAdminForRegistry && !row.isDraft && !isImportanceCell
+                    ? 'editable-cell'
+                    : ''
               }`}
               onClick={() => {
                 if (isImportanceCell || isEditableText) return
@@ -13522,7 +13534,7 @@ function App() {
                                       className={`${column.className} ${bodyAlignClass} ${
                                         isLongTextTableColumn(column) ? 'multiline-cell' : ''
                                       } ${column.key === 'note' ? 'note-cell' : ''} ${getTableColumnLayoutClass(column)} ${
-                                        isAdmin ? 'editable-cell p-0' : ''
+                                        isAdmin ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}` : ''
                                       }`}
                                       onClick={
                                         isAdmin && !isThisContractCell

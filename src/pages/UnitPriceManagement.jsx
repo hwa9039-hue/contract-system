@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { contractsApi } from '../contractsApi.js'
-import { TABLE_INLINE_INPUT_STANDARD_CLASS } from '../tableInlineInputClass.js'
+import {
+  TABLE_INLINE_EDITABLE_CELL_CLASS,
+  TABLE_INLINE_INPUT_STANDARD_CLASS,
+} from '../tableInlineInputClass.js'
 import {
   buildContractColumnFilterOptions,
   contractMatchesColumnFilters,
@@ -489,7 +492,7 @@ export default function UnitPriceManagement() {
                       return (
                         <td
                           key={column.key}
-                          className={`unit-price-editable-cell p-0 ${column.cellClass || ''}`}
+                          className={`unit-price-editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS} ${column.cellClass || ''}`}
                         >
                           <input
                             type="text"
