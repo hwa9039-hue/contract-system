@@ -12297,7 +12297,10 @@ function App() {
   )
 
   const renderWorkReportDayBoardV4 = (day) => (
-    <div key={day.date} className={`work-report-day-board work-report-day-board-dense ${day.isToday ? 'is-today' : ''}`}>
+    <div
+      key={day.date}
+      className={`work-report-day-board work-report-day-board-dense w-[350px] min-w-[350px] shrink-0 ${day.isToday ? 'is-today' : ''}`}
+    >
       <div className="work-report-day-head">
         <div className="work-report-day-weekday">{day.label}</div>
         <div className="work-report-day-date">{day.date}</div>
@@ -12801,7 +12804,7 @@ function App() {
 
         {menu === 'workReports' && (
           <section className="stat-card stat-card--work-reports">
-            <div className="work-report-page-body">
+            <div className="work-report-page-body h-full overflow-y-auto">
               <div className="contracts-header-actions work-report-toolbar">
                 <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
                   이전 주
@@ -12846,7 +12849,7 @@ function App() {
               </div>
 
               <div className="work-report-week-board-area">
-                <div className="work-report-week-grid">
+                <div className="work-report-week-grid flex flex-nowrap overflow-x-auto pb-4 gap-4">
                   {selectedWorkWeekDays.map((day) => renderWorkReportDayBoardV4(day))}
                 </div>
               </div>
@@ -12860,7 +12863,7 @@ function App() {
 
         {menu === 'meetingMinutes' && (
           <section className="stat-card stat-card--work-reports stat-card--meeting-minutes">
-            <div className="work-report-page-body">
+            <div className="work-report-page-body h-full overflow-y-auto">
               <div className="contracts-header-actions work-report-toolbar">
                 <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
                   이전 주

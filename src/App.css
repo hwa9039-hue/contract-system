@@ -843,6 +843,42 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
   overflow-x: auto;
 }
 
+.h-full {
+  height: 100%;
+}
+
+.overflow-y-auto {
+  overflow-y: auto;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-nowrap {
+  flex-wrap: nowrap;
+}
+
+.pb-4 {
+  padding-bottom: 1rem;
+}
+
+.gap-4 {
+  gap: 1rem;
+}
+
+.shrink-0 {
+  flex-shrink: 0;
+}
+
+.w-\[350px\] {
+  width: 350px;
+}
+
+.min-w-\[350px\] {
+  min-width: 350px;
+}
+
 /* ── 5개 대장 공통 테이블 UI (계약·영업·건축·사업검색·문서) ── */
 .contract-table-panel .table-wrap {
   font-size: 13px;
@@ -3500,9 +3536,11 @@ textarea:focus-visible {
 .main-area > section.stat-card.stat-card--work-reports > .work-report-page-body {
   flex: 1 1 auto;
   min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   margin-top: 0;
 }
 
@@ -3517,25 +3555,13 @@ textarea:focus-visible {
 }
 
 .main-area > section.stat-card .work-report-week-board-area {
-  flex: 3 1 0;
-  min-height: 300px;
-  max-height: none;
-  display: flex;
-  flex-direction: column;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-  margin-bottom: 16px;
-}
-
-.main-area > section.stat-card .work-report-week-board-area .work-report-week-grid {
   flex: 0 0 auto;
-  width: max-content;
-  min-width: calc(7 * 350px + 6 * 10px);
   min-height: 0;
-  overflow-x: visible;
-  overflow-y: auto;
+  max-width: 100%;
+  max-height: none;
+  display: block;
+  overflow: visible;
+  margin-bottom: 16px;
 }
 
 .main-area > section.stat-card.stat-card--work-reports .work-report-meeting-minutes-block {
@@ -3585,11 +3611,8 @@ textarea:focus-visible {
 }
 
 .main-area > section.stat-card .work-report-week-grid {
-  flex: 0 0 auto;
-  width: max-content;
-  min-width: calc(7 * 350px + 6 * 10px);
-  min-height: 0;
-  overflow-y: auto;
+  max-width: 100%;
+  align-items: flex-start;
 }
 
 .main-area > section.stat-card .work-report-saving-indicator,
@@ -7338,19 +7361,19 @@ textarea:focus-visible {
 .work-report-week-grid {
   display: flex;
   flex-wrap: nowrap;
-  gap: 10px;
-  width: max-content;
-  min-width: calc(7 * 350px + 6 * 10px);
+  gap: 1rem;
+  max-width: 100%;
   align-items: flex-start;
   flex-shrink: 0;
-  padding-bottom: 4px;
+  overflow-x: auto;
+  padding-bottom: 1rem;
 }
 
 .work-report-day-board {
-  min-width: 350px;
+  flex: none;
   width: 350px;
-  flex: 0 0 350px;
-  flex-shrink: 0;
+  min-width: 350px;
+  max-width: 350px;
   border: 1px solid #d9dee6;
   border-radius: 10px;
   background: #f5f6f8;
@@ -7521,21 +7544,11 @@ textarea:focus-visible {
   color: #64748b;
 }
 
-.work-report-week-grid {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 10px;
-  width: max-content;
-  min-width: calc(7 * 350px + 6 * 10px);
-  align-items: flex-start;
-  flex-shrink: 0;
-}
-
 .work-report-day-board-dense {
-  min-width: 350px;
+  flex: none;
   width: 350px;
-  flex: 0 0 350px;
-  flex-shrink: 0;
+  min-width: 350px;
+  max-width: 350px;
   background: #f8fafc;
 }
 
@@ -7777,23 +7790,6 @@ textarea:focus-visible {
 
 .work-report-summary-card {
   display: none;
-}
-
-.work-report-week-grid {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 10px;
-  width: max-content;
-  min-width: calc(7 * 350px + 6 * 10px);
-  align-items: flex-start;
-  flex-shrink: 0;
-}
-
-.work-report-day-board-dense {
-  min-width: 350px;
-  width: 350px;
-  flex: 0 0 350px;
-  flex-shrink: 0;
 }
 
 .work-report-board-header-row-no-index,
