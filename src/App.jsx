@@ -4933,7 +4933,8 @@ function splitDashboardRecentTitleLabel(fullLabel) {
 }
 
 function App() {
-  const { isAdmin, sharedSessionExpiresAt, logout, extendLogin } = useAuth()
+  const { isAdmin, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
+    useAuth()
   const [contactsManageRows, setContactsManageRows] = useState([])
   const [isLoadingContactsManage, setIsLoadingContactsManage] = useState(false)
   const [contactsRegisterModalOpen, setContactsRegisterModalOpen] = useState(false)
@@ -4962,6 +4963,10 @@ function App() {
     const currentYear = String(new Date().getFullYear())
     return { [currentYear]: true }
   })
+  const [isDashboardLoading, setIsDashboardLoading] = useState(
+    () => resolveInitialMenu() === 'dashboard'
+  )
+  const dashboardFetchIdRef = useRef(0)
   const [openContractYears, setOpenContractYears] = useState({})
   const [isContractPageYearSummaryOpen, setIsContractPageYearSummaryOpen] = useState(false)
   const [installCaseEnvFilter, setInstallCaseEnvFilter] = useState('')
@@ -5203,7 +5208,7 @@ function App() {
     }
   }, [icImageFile, installCaseRegisterOpen, installCaseEditingId])
 
-  const fetchContracts = async () => {
+  const fetchContracts = async (preserveOnError = false) => {
     try {
       const data = await contractsApi.list()
       if (Array.isArray(data) && data.length > 0) {
@@ -5226,12 +5231,14 @@ function App() {
       return normalized
     } catch (error) {
       console.error('[계약현황] API fetch failed', error)
-      setContracts([])
+      if (!preserveOnError) {
+        setContracts([])
+      }
       return []
     }
   }
 
-  const fetchDocuments = async (preserveDrafts = true) => {
+  const fetchDocuments = async (preserveDrafts = true, preserveOnError = false) => {
     try {
       const rows = await documentRegisterApi.list()
       setDocuments((prev) => {
@@ -5242,13 +5249,15 @@ function App() {
       return rows
     } catch (error) {
       console.error('[문서수발신대장] API fetch failed', error)
-      setDocuments([])
-      setSelectedDocumentIds([])
+      if (!preserveOnError) {
+        setDocuments([])
+        setSelectedDocumentIds([])
+      }
       return []
     }
   }
 
-  const fetchSalesRows = async (preserveDrafts = true) => {
+  const fetchSalesRows = async (preserveDrafts = true, preserveOnError = false) => {
     try {
       const rows = await salesRegisterApi.list()
       setSalesRows((prev) => {
@@ -5259,8 +5268,10 @@ function App() {
       return rows
     } catch (error) {
       console.error('[영업관리대장] API fetch failed', error)
-      setSalesRows([])
-      setSelectedSalesIds([])
+      if (!preserveOnError) {
+        setSalesRows([])
+        setSelectedSalesIds([])
+      }
       return []
     }
   }
@@ -5283,7 +5294,7 @@ function App() {
     }
   }
 
-  const fetchExcludedRows = async (preserveDrafts = true) => {
+  const fetchExcludedRows = async (preserveDrafts = true, preserveOnError = false) => {
     try {
       const rows = await excludedProjectsApi.list()
       setExcludedRows((prev) => {
@@ -5294,13 +5305,15 @@ function App() {
       return rows
     } catch (error) {
       console.error('[사업검색이력] API fetch failed', error)
-      setExcludedRows([])
-      setSelectedExcludedIds([])
+      if (!preserveOnError) {
+        setExcludedRows([])
+        setSelectedExcludedIds([])
+      }
       return []
     }
   }
 
-  const fetchWorkReportRows = async () => {
+  const fetchWorkReportRows = async (preserveOnError = false) => {
     try {
       const rows = await weeklyWorkReportsApi.list()
       const normalized = rows.map(normalizeWorkReportRow)
@@ -5309,8 +5322,10 @@ function App() {
       return rows
     } catch (error) {
       console.error('[주간업무보고서] API fetch failed', error)
-      workReportRowsRef.current = []
-      setWorkReportRows([])
+      if (!preserveOnError) {
+        workReportRowsRef.current = []
+        setWorkReportRows([])
+      }
       return []
     }
   }
@@ -5404,10 +5419,12 @@ function App() {
     }
   }
 
-  /** 로그인 전에는 JWT 없이 list가 비거나 401 → 빈 목록만 보임. 인증 성공 후에만 계약 목록을 불러옵니다. */
+  /** 인증·세션 복구가 끝난 뒤에만 계약 목록을 불러옵니다. 대시보드는 전용 로더에서 일괄 처리합니다. */
   useEffect(() => {
+    if (!authHydrated || !isAuthenticated) return
+    if (menu === 'dashboard') return
     void fetchContracts()
-  }, [])
+  }, [authHydrated, isAuthenticated, menu])
 
   useEffect(() => {
     if (!isWorkReportRelatedMenu(menu)) return
@@ -5562,15 +5579,43 @@ function App() {
     setExcludedRows((prev) => prev.filter((row) => !(row.isDraft && isExcludedRowEmpty(row))))
   }, [menu])
 
-  useEffect(() => {
-    if (menu !== 'dashboard') return
-    void fetchContracts()
-    void fetchDocuments(false)
-    void fetchSalesRows(false)
-    void fetchDiscoveryRows(false)
-    void fetchExcludedRows(false)
-    void fetchWorkReportRows()
+  useLayoutEffect(() => {
+    if (menu === 'dashboard') {
+      setIsDashboardLoading(true)
+    }
   }, [menu])
+
+  useEffect(() => {
+    if (!authHydrated || !isAuthenticated) return
+    if (menu !== 'dashboard') return
+
+    const fetchId = ++dashboardFetchIdRef.current
+    let cancelled = false
+
+    const loadDashboardData = async () => {
+      setIsDashboardLoading(true)
+      try {
+        await Promise.all([
+          fetchContracts(true),
+          fetchDocuments(false, true),
+          fetchSalesRows(false, true),
+          fetchDiscoveryRows(false),
+          fetchExcludedRows(false, true),
+          fetchWorkReportRows(true),
+        ])
+      } finally {
+        if (!cancelled && fetchId === dashboardFetchIdRef.current) {
+          setIsDashboardLoading(false)
+        }
+      }
+    }
+
+    void loadDashboardData()
+
+    return () => {
+      cancelled = true
+    }
+  }, [menu, authHydrated, isAuthenticated])
 
   useEffect(() => {
     if (!toastMessage) return undefined
@@ -9361,10 +9406,7 @@ function App() {
 
   useEffect(() => {
     if (isWorkReportRelatedMenu(menu)) return
-    void (async () => {
-      await flushAllPendingWorkReportSaves()
-      if (menu === 'dashboard') await fetchWorkReportRows()
-    })()
+    void flushAllPendingWorkReportSaves()
   }, [menu])
 
   const handleWorkReportBoardBlur = (date, section, orderIndex = 1) => async (e) => {
@@ -12303,6 +12345,21 @@ function App() {
 
         {menu === 'dashboard' && (
           <section className="stat-card stat-card--dashboard">
+            {isDashboardLoading ? (
+              <div className="dashboard-loading" role="status" aria-live="polite" aria-busy="true">
+                <div className="dashboard-loading-spinner" aria-hidden="true" />
+                <p className="dashboard-loading-text">대시보드 데이터를 불러오는 중...</p>
+                <div className="dashboard-loading-skeleton" aria-hidden="true">
+                  <div className="dashboard-loading-skeleton-block dashboard-loading-skeleton-block--briefing" />
+                  <div className="dashboard-loading-skeleton-grid">
+                    {Array.from({ length: 4 }, (_, index) => (
+                      <div className="dashboard-loading-skeleton-block" key={`dashboard-skeleton-${index}`} />
+                    ))}
+                  </div>
+                  <div className="dashboard-loading-skeleton-block dashboard-loading-skeleton-block--summary" />
+                </div>
+              </div>
+            ) : (
             <div className="dashboard-stack">
               <div className="dashboard-surface-card">
                 <div className="dashboard-work-report-briefing">
@@ -12555,6 +12612,7 @@ function App() {
                 </div>
               </div>
             </div>
+            )}
           </section>
         )}
 
