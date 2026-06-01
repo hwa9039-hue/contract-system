@@ -10658,18 +10658,42 @@ textarea:focus-visible {
   text-align: left;
 }
 
-/* MUI X Data Grid Pro — 라이선스 워터마크 강제 숨김 */
+/* MUI 라이선스 워터마크 강제 제거 */
+div[class*='watermark'],
+div[class*='license'],
+.MuiDataGrid-licenseWatermark,
 div[class*='MuiDataGrid-licenseWatermark'] {
   display: none !important;
   opacity: 0 !important;
   visibility: hidden !important;
   pointer-events: none !important;
+  z-index: -9999 !important;
 }
 
 /* ── 단가관리 Tree Grid (MUI X Data Grid Pro) ── */
 .unit-price-datagrid-wrap {
   flex: 1;
   min-height: 0;
+}
+
+/* 3점 컬럼 메뉴 버튼 숨김 (disableColumnMenu 보조) */
+.unit-price-datagrid-wrap .MuiDataGrid-menuIcon,
+.unit-price-datagrid-wrap .MuiDataGrid-columnHeaderMenuIconButton,
+.unit-price-datagrid-wrap .MuiDataGrid-iconButtonContainer:has(.MuiDataGrid-menuIcon) {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+}
+
+/* 엑셀 스타일 헤더 필터 행 */
+.unit-price-datagrid-wrap .MuiDataGrid-headerFilterRow {
+  background: #fff;
+}
+
+.unit-price-datagrid-wrap .MuiDataGrid-headerFilterRow .MuiInputBase-root {
+  font-size: 12px;
 }
 
 .unit-price-datagrid-wrap .unit-price-grid-row--contract {

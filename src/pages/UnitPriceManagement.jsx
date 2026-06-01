@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, CircularProgress, IconButton, Tooltip } from '@mui/material'
 import { DataGridPro } from '@mui/x-data-grid-pro'
+import { koKR } from '@mui/x-data-grid/locales'
 import { LicenseInfo } from '@mui/x-license'
 import { Plus, Trash2 } from 'lucide-react'
 import { unitPricesApi } from '../api/unitPricesApi.js'
+import '../App.css'
 
 const CONTRACT_TYPE_FILTER = '55121903'
 
@@ -457,7 +459,17 @@ export default function UnitPriceManagement() {
       headerName: '계약 / 품목',
       width: 280,
       headerAlign: 'center',
+      filterable: false,
+      sortable: false,
       valueGetter: (_value, row) => row.treeLabel || '',
+    }),
+    []
+  )
+
+  const gridLocaleText = useMemo(
+    () => ({
+      ...koKR,
+      noRowsLabel: '표시할 데이터가 없습니다.',
     }),
     []
   )
@@ -510,12 +522,21 @@ export default function UnitPriceManagement() {
                 console.error('[단가관리] grid row update error', err)
               }}
               editMode="cell"
+              disableColumnMenu={true}
+              headerFilters
+              headerFilterHeight={40}
               disableRowSelectionOnClick
               density="compact"
               loading={refetching}
               filterMode="client"
-              localeText={{
-                noRowsLabel: '표시할 데이터가 없습니다.',
+              localeText={gridLocaleText}
+              slotProps={{
+                headerFilterCell: {
+                  InputComponentProps: {
+                    size: 'small',
+                    placeholder: '필터…',
+                  },
+                },
               }}
               sx={{
                 border: '1px solid #e2e8f0',
@@ -523,6 +544,10 @@ export default function UnitPriceManagement() {
                 '& .MuiDataGrid-columnHeaders': {
                   backgroundColor: '#f3f4f6',
                   fontWeight: 700,
+                },
+                '& .MuiDataGrid-columnHeaderTitle': {
+                  width: '100%',
+                  textAlign: 'center',
                 },
                 '& .unit-price-grid-row--contract': {
                   backgroundColor: '#f8fafc',
