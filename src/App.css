@@ -10784,7 +10784,8 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 
 .unit-price-table {
   width: 100%;
-  min-width: 1120px;
+  /* 고정열 합(970) + 사업명 최소(300) */
+  min-width: 1270px;
   table-layout: fixed;
 }
 
@@ -10796,50 +10797,48 @@ div[class*='MuiDataGrid-licenseWatermark'] {
   table-layout: fixed;
 }
 
-/* 단가관리 평면 리스트 — 컬럼 너비 고정 (리사이즈 없음) */
+/* 단가관리 — 컬럼 너비 (앞·뒤 고정, 사업명만 가변) */
 .unit-price-table .unit-price-col-actions {
-  width: 52px;
-  min-width: 52px;
+  width: 80px;
+  min-width: 80px;
 }
 
 .unit-price-table .unit-price-col-year {
-  width: 72px;
-  min-width: 72px;
-}
-
-.unit-price-table .unit-price-col-client {
-  width: 110px;
-  min-width: 110px;
-}
-
-.unit-price-table .unit-price-col-project {
-  width: auto;
-  min-width: 240px;
-}
-
-.unit-price-table .unit-price-col-item {
   width: 100px;
   min-width: 100px;
 }
 
+.unit-price-table .unit-price-col-client {
+  width: 160px;
+  min-width: 160px;
+}
+
+/* flex:1 대응 — 남는 폭 흡수, 최소 300px */
+.unit-price-table .unit-price-col-project {
+  width: auto;
+  min-width: 300px;
+}
+
+.unit-price-table .unit-price-col-item {
+  width: 130px;
+  min-width: 130px;
+}
+
 .unit-price-table .unit-price-col-cost {
-  width: 96px;
-  min-width: 96px;
+  width: 100px;
+  min-width: 100px;
 }
 
 .unit-price-table .unit-price-col-design {
-  width: 88px;
-  min-width: 88px;
+  width: 130px;
+  min-width: 130px;
 }
 
-.unit-price-table .unit-price-col-pitch {
-  width: 64px;
-  min-width: 64px;
-}
-
-.unit-price-table .unit-price-col-narrow {
-  width: 52px;
-  min-width: 52px;
+.unit-price-table .unit-price-col-pitch,
+.unit-price-table .unit-price-col-capw,
+.unit-price-table .unit-price-col-caph {
+  width: 90px;
+  min-width: 90px;
 }
 
 .unit-price-table .unit-price-action-cell {
@@ -10973,6 +10972,12 @@ div[class*='MuiDataGrid-licenseWatermark'] {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 0;
+}
+
+.unit-price-table tbody td.unit-price-cell-project {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .unit-price-table tbody td.unit-price-editable-cell {

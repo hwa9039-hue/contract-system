@@ -37,7 +37,7 @@ const REFETCH_AFTER_SAVE_DELAY_MS = 750
 
 const PLACEHOLDER_ID_PREFIX = '__empty__'
 
-/** 계약현황 테이블과 동일한 열 정의 — width 고정, 사업명만 넓게 */
+/** 열 너비 — 앞·뒤 고정, 사업명만 가변(flex 대응: minWidth 300) */
 const UNIT_PRICE_TABLE_COLUMNS = Object.freeze([
   { key: 'actions', label: '', filterable: false, thClass: 'unit-price-col-actions th-align-center' },
   { key: 'year', label: '사업년도', filterable: true, readonly: true, thClass: 'unit-price-col-year th-align-center' },
@@ -66,8 +66,8 @@ const UNIT_PRICE_TABLE_COLUMNS = Object.freeze([
     thClass: 'unit-price-col-design th-align-center',
   },
   { key: 'pitch', label: 'Pitch', filterable: true, editable: true, thClass: 'unit-price-col-pitch th-align-center' },
-  { key: 'capW', label: 'W', filterable: true, editable: true, thClass: 'unit-price-col-narrow th-align-center' },
-  { key: 'capH', label: 'H', filterable: true, editable: true, thClass: 'unit-price-col-narrow th-align-center' },
+  { key: 'capW', label: 'W', filterable: true, editable: true, thClass: 'unit-price-col-capw th-align-center' },
+  { key: 'capH', label: 'H', filterable: true, editable: true, thClass: 'unit-price-col-caph th-align-center' },
 ])
 
 function safeString(value) {
@@ -483,16 +483,16 @@ export default function UnitPriceManagement() {
             >
                 <table className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table unit-price-table table-w-full-min">
                   <colgroup>
-                    <col className="unit-price-col-actions" style={{ width: 52, minWidth: 52 }} />
-                    <col className="unit-price-col-year" style={{ width: 72, minWidth: 72 }} />
-                    <col className="unit-price-col-client" style={{ width: 110, minWidth: 110 }} />
-                    <col className="unit-price-col-project" style={{ minWidth: 240 }} />
-                    <col className="unit-price-col-item" style={{ width: 100, minWidth: 100 }} />
-                    <col className="unit-price-col-cost" style={{ width: 96, minWidth: 96 }} />
-                    <col className="unit-price-col-design" style={{ width: 88, minWidth: 88 }} />
-                    <col className="unit-price-col-pitch" style={{ width: 64, minWidth: 64 }} />
-                    <col className="unit-price-col-narrow" style={{ width: 52, minWidth: 52 }} />
-                    <col className="unit-price-col-narrow" style={{ width: 52, minWidth: 52 }} />
+                    <col className="unit-price-col-actions" style={{ width: 80, minWidth: 80 }} />
+                    <col className="unit-price-col-year" style={{ width: 100, minWidth: 100 }} />
+                    <col className="unit-price-col-client" style={{ width: 160, minWidth: 160 }} />
+                    <col className="unit-price-col-project" />
+                    <col className="unit-price-col-item" style={{ width: 130, minWidth: 130 }} />
+                    <col className="unit-price-col-cost" style={{ width: 100, minWidth: 100 }} />
+                    <col className="unit-price-col-design" style={{ width: 130, minWidth: 130 }} />
+                    <col className="unit-price-col-pitch" style={{ width: 90, minWidth: 90 }} />
+                    <col className="unit-price-col-capw" style={{ width: 90, minWidth: 90 }} />
+                    <col className="unit-price-col-caph" style={{ width: 90, minWidth: 90 }} />
                   </colgroup>
                   <thead>
                     <tr>
@@ -561,7 +561,7 @@ export default function UnitPriceManagement() {
                         <td className="unit-price-readonly text-center unit-price-cell-truncate">
                           {displayReadonlyCell(row, 'client')}
                         </td>
-                        <td className="unit-price-readonly text-left pl-4 unit-price-cell-truncate">
+                        <td className="unit-price-readonly text-left pl-4 unit-price-cell-project">
                           {displayReadonlyCell(row, 'projectName')}
                         </td>
                         {UNIT_PRICE_TABLE_COLUMNS.filter((c) => c.editable).map((column) => (
