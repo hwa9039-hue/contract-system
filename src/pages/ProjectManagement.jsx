@@ -29,133 +29,132 @@ const PROJECT_MANAGEMENT_EDITABLE_FIELDS = Object.freeze([
 
 const REFETCH_AFTER_SAVE_DELAY_MS = 750
 
-/**
- * DataGrid-style column definitions — array order and width are authoritative.
- * disableColumnResize: true (colgroup 고정 너비)
- */
-/** 날짜 픽커 — 달력이 잘리지 않는 최소 너비 */
-const PROJECT_MGMT_DATE_COL_WIDTH = 125
+/** 날짜 픽커 컬럼 — 달력 UI가 잘리지 않는 너비 */
+const DATE_PICKER_COL_WIDTH = 140
 
+/**
+ * DataGrid-style column definitions — UnitPriceManagement 와 동일 패턴
+ * disableColumnResize: true (colgroup 고정 너비, 가로 스크롤 허용)
+ */
 const columns = [
   {
     field: 'year',
     headerName: '사업년도',
-    width: 70,
+    width: 100,
     filterable: true,
     readonly: true,
-    colClass: 'project-mgmt-col-year',
+    colClass: 'unit-price-col-year',
   },
   {
     field: 'client',
     headerName: '발주처',
-    width: 130,
+    width: 160,
     filterable: true,
     readonly: true,
-    colClass: 'project-mgmt-col-client',
+    colClass: 'unit-price-col-client',
   },
   {
     field: 'contractDate',
     headerName: '계약일자',
-    width: 110,
+    width: 128,
     filterable: true,
     readonly: true,
     type: 'date',
-    colClass: 'project-mgmt-col-contract-date',
+    colClass: 'unit-price-col-contract-date',
   },
   {
     field: 'dueDate',
     headerName: '납기일(준공일자)',
-    width: 110,
+    width: 140,
     filterable: true,
     readonly: true,
     type: 'date',
-    colClass: 'project-mgmt-col-due-date',
+    colClass: 'unit-price-col-due-date',
   },
   {
     field: 'projectName',
     headerName: '사업명',
-    flex: 1,
-    minWidth: 150,
+    width: 350,
     filterable: true,
     readonly: true,
-    colClass: 'project-mgmt-col-project',
+    colClass: 'unit-price-col-project',
   },
   {
     field: 'salesOwner',
     headerName: '영업담당자',
-    width: 80,
+    width: 120,
     filterable: true,
     readonly: true,
-    colClass: 'project-mgmt-col-sales',
+    colClass: 'unit-price-col-sales-owner',
   },
   {
     field: 'pm',
     headerName: '현장PM',
-    width: 80,
+    width: 100,
     filterable: true,
     readonly: true,
-    colClass: 'project-mgmt-col-pm',
+    colClass: 'unit-price-col-pm',
   },
   {
     field: 'commencementCert',
     headerName: '착수계',
-    width: PROJECT_MGMT_DATE_COL_WIDTH,
+    width: DATE_PICKER_COL_WIDTH,
     filterable: true,
     editable: true,
     type: 'date',
-    colClass: 'project-mgmt-col-date-picker',
+    colClass: 'unit-price-col-date-picker',
   },
   {
     field: 'completionCert',
     headerName: '준공계',
-    width: PROJECT_MGMT_DATE_COL_WIDTH,
+    width: DATE_PICKER_COL_WIDTH,
     filterable: true,
     editable: true,
     type: 'date',
-    colClass: 'project-mgmt-col-date-picker',
+    colClass: 'unit-price-col-date-picker',
   },
   {
     field: 'warrantyStart',
     headerName: '하자보증 시작',
-    width: PROJECT_MGMT_DATE_COL_WIDTH,
+    width: DATE_PICKER_COL_WIDTH,
     filterable: true,
     editable: true,
     type: 'date',
-    colClass: 'project-mgmt-col-date-picker',
+    colClass: 'unit-price-col-date-picker',
   },
   {
     field: 'warrantyExpiry',
     headerName: '하자보증 만기',
-    width: PROJECT_MGMT_DATE_COL_WIDTH,
+    width: DATE_PICKER_COL_WIDTH,
     filterable: true,
     editable: true,
     type: 'date',
-    colClass: 'project-mgmt-col-date-picker',
+    colClass: 'unit-price-col-date-picker',
   },
   {
     field: 'guaranteeRate',
     headerName: '보증금율',
-    width: 80,
+    width: 110,
     filterable: true,
     editable: true,
-    colClass: 'project-mgmt-col-guarantee-rate',
+    colClass: 'unit-price-col-guarantee-rate',
   },
   {
     field: 'inspectionRequestDate',
     headerName: '검사검수 요청일',
-    width: PROJECT_MGMT_DATE_COL_WIDTH,
+    width: 150,
     filterable: true,
     editable: true,
     type: 'date',
-    colClass: 'project-mgmt-col-date-picker',
+    colClass: 'unit-price-col-date-picker',
   },
   {
     field: 'taxInvoice',
     headerName: '세금계산서',
-    width: 100,
+    width: 120,
     filterable: true,
     editable: true,
-    colClass: 'project-mgmt-col-tax-invoice',
+    colClass: 'unit-price-col-tax-invoice',
   },
 ]
 
@@ -223,12 +222,13 @@ function buildContractPatchDiff(current, saved) {
   return patch
 }
 
-function displayReadonlyCell(row, column) {
-  if (column.type === 'date') {
-    const value = formatDateDisplay(row[column.field])
+function displayReadonlyCell(row, field) {
+  const column = columns.find((c) => c.field === field)
+  if (column?.type === 'date') {
+    const value = formatDateDisplay(row[field])
     return value || '-'
   }
-  const value = safeString(row?.[column.field]).trim()
+  const value = safeString(row?.[field]).trim()
   return value || '-'
 }
 
@@ -421,24 +421,24 @@ export default function ProjectManagement() {
         return (
           <td
             key={column.field}
-            className={`project-mgmt-readonly ${colClass}${
-              isProject ? ' text-left pl-4 project-mgmt-cell-project' : ''
-            }${isClient ? ' text-center project-mgmt-cell-truncate' : ''}${
+            className={`unit-price-readonly ${colClass}${
+              isProject ? ' text-left pl-4 unit-price-cell-project' : ''
+            }${isClient ? ' text-center unit-price-cell-truncate' : ''}${
               !isProject && !isClient ? ' text-center' : ''
             }`}
           >
-            {displayReadonlyCell(row, column)}
+            {displayReadonlyCell(row, column.field)}
           </td>
         )
       }
 
       if (column.editable && column.type === 'date') {
         return (
-          <td key={column.field} className={`project-mgmt-editable-cell p-0 align-middle ${colClass}`}>
+          <td key={column.field} className={`unit-price-editable-cell p-0 align-middle ${colClass}`}>
             <EditableDateCell
               value={row[column.field] ?? ''}
               disabled={tableBusy || refetching}
-              className="project-mgmt-cell-input"
+              className="unit-price-cell-input"
               onSave={(nextValue) => void handleFieldSave(row, column.field, nextValue)}
             />
           </td>
@@ -447,12 +447,12 @@ export default function ProjectManagement() {
 
       if (column.editable) {
         return (
-          <td key={column.field} className={`project-mgmt-editable-cell p-0 align-middle ${colClass}`}>
+          <td key={column.field} className={`unit-price-editable-cell p-0 align-middle ${colClass}`}>
             <EditableTextCell
               value={row[column.field] ?? ''}
               align="center"
               disabled={tableBusy || refetching}
-              className="project-mgmt-cell-input"
+              className="unit-price-cell-input"
               onSave={(nextValue) => void handleFieldSave(row, column.field, nextValue)}
             />
           </td>
@@ -465,31 +465,31 @@ export default function ProjectManagement() {
   )
 
   return (
-    <div className="project-management project-management--full-width h-full min-h-0">
+    <div className="unit-price-management h-full min-h-0">
       {saveSuccess ? (
         <div className="mode-toast" role="status">
           {saveSuccess}
         </div>
       ) : null}
       {saveError ? (
-        <div className="project-mgmt-save-error" role="alert">
+        <div className="unit-price-save-error" role="alert">
           {saveError}
         </div>
       ) : null}
 
-      <div className="contract-table-panel project-mgmt-table-panel flex flex-col h-full min-h-[500px]">
+      <div className="contract-table-panel unit-price-table-panel flex flex-col h-full min-h-[500px]">
         {refetching ? (
-          <div className="project-mgmt-refetch-banner" role="status" aria-live="polite">
+          <div className="unit-price-refetch-banner" role="status" aria-live="polite">
             데이터를 불러오는 중...
           </div>
         ) : null}
 
         {loading && contracts.length === 0 ? (
-          <div className="project-mgmt-empty-cell">데이터를 불러오는 중...</div>
+          <div className="unit-price-empty-cell">데이터를 불러오는 중...</div>
         ) : error && contracts.length === 0 ? (
-          <div className="project-mgmt-empty-cell project-mgmt-empty-cell--error">{error}</div>
+          <div className="unit-price-empty-cell unit-price-empty-cell--error">{error}</div>
         ) : showEmpty ? (
-          <div className="project-mgmt-empty-cell">
+          <div className="unit-price-empty-cell">
             표시할 계약 데이터가 없습니다. (계약분류 {EXCLUDED_CONTRACT_TYPE} 제외)
           </div>
         ) : (
@@ -504,21 +504,17 @@ export default function ProjectManagement() {
             </div>
 
             <div
-              className={`table-wrap contracts-only-scroll project-mgmt-table-scroll${
-                refetching || tableBusy ? ' project-mgmt-table-wrap--refetching' : ''
+              className={`table-wrap contracts-only-scroll overflow-x-auto unit-price-table-scroll${
+                refetching || tableBusy ? ' unit-price-table-wrap--refetching' : ''
               }`}
             >
-              <table className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table project-management-table">
+              <table className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table unit-price-table unit-price-table--project-mgmt table-w-full-min">
                 <colgroup>
                   {columns.map((column) => (
                     <col
                       key={column.field}
                       className={column.colClass}
-                      style={
-                        column.flex
-                          ? { minWidth: column.minWidth ?? 150, width: 'auto' }
-                          : { width: column.width, minWidth: column.width }
-                      }
+                      style={{ width: column.width, minWidth: column.width }}
                     />
                   ))}
                 </colgroup>
@@ -566,9 +562,9 @@ export default function ProjectManagement() {
                 </tbody>
               </table>
             </div>
-            <p className="project-mgmt-grid-hint">
+            <p className="unit-price-grid-hint">
               편집 가능한 셀을 클릭하면 수정할 수 있으며, 날짜는 달력으로 선택할 수 있습니다. 변경 후
-              자동 저장됩니다.
+              다른 셀을 클릭하면 자동 저장됩니다.
             </p>
           </>
         )}

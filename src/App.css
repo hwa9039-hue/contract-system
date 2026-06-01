@@ -10737,8 +10737,9 @@ div[class*='MuiDataGrid-licenseWatermark'] {
   font-size: 13px;
 }
 
-/* ── 단가관리 ── */
-.main-area > section.stat-card.stat-card--unit-price {
+/* ── 단가관리 · 사업관리 (동일 레이아웃) ── */
+.main-area > section.stat-card.stat-card--unit-price,
+.main-area > section.stat-card.stat-card--project-management {
   min-height: 0;
   height: 100%;
   overflow: hidden;
@@ -10746,25 +10747,32 @@ div[class*='MuiDataGrid-licenseWatermark'] {
   flex-direction: column;
 }
 
-.stat-card.stat-card--unit-price {
+.stat-card.stat-card--unit-price,
+.stat-card.stat-card--project-management {
   min-height: 0;
 }
 
 .main-area > section.stat-card.stat-card--unit-price .unit-price-management,
+.main-area > section.stat-card.stat-card--project-management .unit-price-management,
 .main-area > section.stat-card.stat-card--unit-price .unit-price-table-panel,
-.main-area > section.stat-card.stat-card--unit-price .contract-table-panel {
+.main-area > section.stat-card.stat-card--project-management .unit-price-table-panel,
+.main-area > section.stat-card.stat-card--unit-price .contract-table-panel,
+.main-area > section.stat-card.stat-card--project-management .contract-table-panel {
   min-height: 0;
   height: 100%;
 }
 
-.main-area > section.stat-card.stat-card--unit-price .unit-price-management {
+.main-area > section.stat-card.stat-card--unit-price .unit-price-management,
+.main-area > section.stat-card.stat-card--project-management .unit-price-management {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
 }
 
 .main-area > section.stat-card.stat-card--unit-price .unit-price-table-panel,
-.main-area > section.stat-card.stat-card--unit-price .contract-table-panel {
+.main-area > section.stat-card.stat-card--project-management .unit-price-table-panel,
+.main-area > section.stat-card.stat-card--unit-price .contract-table-panel,
+.main-area > section.stat-card.stat-card--project-management .contract-table-panel {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
@@ -10860,6 +10868,46 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 .unit-price-table .unit-price-col-caph {
   width: 110px;
   min-width: 110px;
+}
+
+/* 사업관리 — unit-price-table 재사용, 컬럼 너비만 추가 */
+.unit-price-table.unit-price-table--project-mgmt {
+  min-width: 2200px;
+}
+
+.unit-price-table .unit-price-col-contract-date {
+  width: 128px;
+  min-width: 128px;
+}
+
+.unit-price-table .unit-price-col-due-date {
+  width: 140px;
+  min-width: 140px;
+}
+
+.unit-price-table .unit-price-col-sales-owner {
+  width: 120px;
+  min-width: 120px;
+}
+
+.unit-price-table .unit-price-col-pm {
+  width: 100px;
+  min-width: 100px;
+}
+
+.unit-price-table .unit-price-col-date-picker {
+  width: 140px;
+  min-width: 140px;
+}
+
+.unit-price-table .unit-price-col-guarantee-rate {
+  width: 110px;
+  min-width: 110px;
+}
+
+.unit-price-table .unit-price-col-tax-invoice {
+  width: 120px;
+  min-width: 120px;
 }
 
 .unit-price-table .unit-price-action-cell {
@@ -11270,176 +11318,6 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
 }
 
 .unit-price-management > .mode-toast {
-  position: fixed;
-  top: 22px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 90;
-}
-
-/* ── 사업관리 (단가관리·계약현황과 동일 테이블 UX) ── */
-.main-area:has(> section.stat-card--project-management) {
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.main-area > section.stat-card.stat-card--project-management {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  border-left: none;
-  border-right: none;
-  border-radius: 0;
-}
-
-.stat-card.stat-card--project-management {
-  padding: 0;
-}
-
-.main-area > section.stat-card.stat-card--project-management .project-management,
-.main-area > section.stat-card.stat-card--project-management .project-mgmt-table-panel,
-.main-area > section.stat-card.stat-card--project-management .contract-table-panel {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.main-area > section.stat-card.stat-card--project-management .project-management {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-  max-width: 100%;
-  padding: 0;
-  margin: 0;
-  box-sizing: border-box;
-}
-
-.project-mgmt-table-panel {
-  position: relative;
-}
-
-.project-mgmt-save-error {
-  margin: 0 0 10px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  background: #fef2f2;
-  color: #b91c1c;
-  font-size: 13px;
-}
-
-.project-mgmt-table-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.project-mgmt-table-wrap--refetching .project-management-table tbody {
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.project-management-table {
-  table-layout: fixed;
-  width: 100%;
-  max-width: 100%;
-}
-
-.project-management-table col.project-mgmt-col-project {
-  min-width: 150px;
-  width: auto;
-}
-
-.project-management-table thead th {
-  padding: 6px 4px;
-  font-size: 12px;
-  line-height: 1.25;
-  white-space: normal;
-  word-break: keep-all;
-}
-
-.project-management-table tbody td.project-mgmt-readonly {
-  padding: 5px 4px;
-  font-size: var(--cms-table-cell-font-size);
-  vertical-align: middle;
-}
-
-.project-management-table tbody td.project-mgmt-cell-truncate {
-  max-width: 130px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.project-management-table tbody td.project-mgmt-cell-project {
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.project-management-table tbody td.project-mgmt-editable-cell {
-  padding: 0;
-  vertical-align: middle;
-}
-
-.project-management-table .project-mgmt-cell-input,
-.project-management-table .editable-date-cell-input {
-  width: 100%;
-  min-height: 32px;
-  padding: 4px 2px;
-  font-size: 12px;
-  box-sizing: border-box;
-}
-
-.project-mgmt-empty-cell {
-  padding: 48px 16px;
-  text-align: center;
-  color: #64748b;
-  font-size: 14px;
-}
-
-.project-mgmt-empty-cell--error {
-  color: #b91c1c;
-}
-
-.project-mgmt-grid-hint {
-  margin: 10px 0 0;
-  font-size: 12px;
-  color: #64748b;
-}
-
-.project-mgmt-refetch-banner {
-  position: absolute;
-  top: 8px;
-  right: 12px;
-  z-index: 2;
-  font-size: 12px;
-  color: #64748b;
-}
-
-.project-mgmt-table-scroll.contracts-only-scroll,
-.project-management-table-scroll.contracts-only-scroll {
-  overflow-x: hidden;
-  overflow-y: auto;
-  max-width: 100%;
-}
-
-.main-area > section.stat-card.stat-card--project-management .table-toolbar {
-  padding-left: 10px;
-  padding-right: 10px;
-}
-
-.main-area > section.stat-card.stat-card--project-management .project-mgmt-grid-hint {
-  padding-left: 10px;
-  padding-right: 10px;
-}
-
-.project-management-table.contracts-fixed-table thead th.contract-th-filterable {
-  position: relative;
-  vertical-align: middle;
-}
-
-.project-management > .mode-toast {
   position: fixed;
   top: 22px;
   left: 50%;

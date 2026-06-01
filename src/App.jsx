@@ -13940,7 +13940,7 @@ function App() {
         )}
 
         {menu === 'projectManagement' && (
-          <section className="stat-card stat-card--project-management">
+          <section className="stat-card stat-card--unit-price stat-card--project-management">
             <ProjectManagement />
           </section>
         )}
