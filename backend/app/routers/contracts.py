@@ -223,7 +223,14 @@ CONTRACT_PARENT_RETURNING_SQL = """
   amount,
   "salesOwner",
   pm,
-  note
+  note,
+  "commencementCert",
+  "completionCert",
+  "warrantyStart",
+  "warrantyExpiry",
+  "guaranteeRate",
+  "inspectionRequestDate",
+  "taxInvoice"
 """
 
 # 하위 호환 alias

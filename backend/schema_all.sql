@@ -22,7 +22,14 @@ CREATE TABLE IF NOT EXISTS contracts_rows (
   amount numeric(18, 0) NOT NULL DEFAULT 0,
   "salesOwner" text NOT NULL DEFAULT '',
   pm text NOT NULL DEFAULT '',
-  note text NOT NULL DEFAULT ''
+  note text NOT NULL DEFAULT '',
+  "commencementCert" date,
+  "completionCert" date,
+  "warrantyStart" date,
+  "warrantyExpiry" date,
+  "guaranteeRate" text NOT NULL DEFAULT '',
+  "inspectionRequestDate" date,
+  "taxInvoice" text NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS contract_unit_price_items (

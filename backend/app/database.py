@@ -634,6 +634,18 @@ def init_db():
                 """
             )
             _migrate_contracts_text_columns(cursor)
+            cursor.execute(
+                """
+                alter table contracts_rows
+                  add column if not exists "commencementCert" date,
+                  add column if not exists "completionCert" date,
+                  add column if not exists "warrantyStart" date,
+                  add column if not exists "warrantyExpiry" date,
+                  add column if not exists "guaranteeRate" text not null default '',
+                  add column if not exists "inspectionRequestDate" date,
+                  add column if not exists "taxInvoice" text not null default ''
+                """
+            )
             _migrate_contract_unit_price_items(cursor)
             cursor.execute(
                 """

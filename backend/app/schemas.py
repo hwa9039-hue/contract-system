@@ -51,8 +51,24 @@ class ContractBase(BaseModel):
     pitch: str = ""
     capW: str = ""
     capH: str = ""
+    commencementCert: Optional[date] = None
+    completionCert: Optional[date] = None
+    warrantyStart: Optional[date] = None
+    warrantyExpiry: Optional[date] = None
+    guaranteeRate: str = ""
+    inspectionRequestDate: Optional[date] = None
+    taxInvoice: str = ""
 
-    @field_validator("contractDate", "dueDate", mode="before")
+    @field_validator(
+        "contractDate",
+        "dueDate",
+        "commencementCert",
+        "completionCert",
+        "warrantyStart",
+        "warrantyExpiry",
+        "inspectionRequestDate",
+        mode="before",
+    )
     @classmethod
     def empty_string_dates_to_none(cls, value):
         if value is None:
@@ -109,11 +125,40 @@ class ContractPatch(BaseModel):
     pitch: Optional[str] = None
     capW: Optional[str] = None
     capH: Optional[str] = None
+    commencementCert: Optional[date] = None
+    completionCert: Optional[date] = None
+    warrantyStart: Optional[date] = None
+    warrantyExpiry: Optional[date] = None
+    guaranteeRate: Optional[str] = None
+    inspectionRequestDate: Optional[date] = None
+    taxInvoice: Optional[str] = None
     cost_service: Optional[str] = None
     item_name: Optional[str] = None
     unit_price: Optional[int] = None
     width_w: Optional[str] = None
     height_h: Optional[str] = None
+
+    @field_validator(
+        "contractDate",
+        "dueDate",
+        "commencementCert",
+        "completionCert",
+        "warrantyStart",
+        "warrantyExpiry",
+        "inspectionRequestDate",
+        mode="before",
+    )
+    @classmethod
+    def empty_string_dates_to_none_patch(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            s = value.strip()
+            if not s:
+                return None
+            if s in ("-", "—", "–"):
+                return None
+        return value
 
 
 def coerce_contract_api_id(value: Any) -> str:
@@ -154,6 +199,13 @@ class ContractOut(BaseModel):
     pitch: Optional[Any] = None
     capW: Optional[Any] = None
     capH: Optional[Any] = None
+    commencementCert: Optional[Any] = None
+    completionCert: Optional[Any] = None
+    warrantyStart: Optional[Any] = None
+    warrantyExpiry: Optional[Any] = None
+    guaranteeRate: Optional[Any] = None
+    inspectionRequestDate: Optional[Any] = None
+    taxInvoice: Optional[Any] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -701,6 +753,27 @@ def row_to_contract(row) -> dict:
         "pitch": "",
         "capW": "",
         "capH": "",
+        "commencementCert": to_response_value(
+            _contract_row_field(row, "commencementCert", default=None)
+        ),
+        "completionCert": to_response_value(
+            _contract_row_field(row, "completionCert", default=None)
+        ),
+        "warrantyStart": to_response_value(
+            _contract_row_field(row, "warrantyStart", default=None)
+        ),
+        "warrantyExpiry": to_response_value(
+            _contract_row_field(row, "warrantyExpiry", default=None)
+        ),
+        "guaranteeRate": to_response_value(
+            _contract_row_field(row, "guaranteeRate", default="")
+        ),
+        "inspectionRequestDate": to_response_value(
+            _contract_row_field(row, "inspectionRequestDate", default=None)
+        ),
+        "taxInvoice": to_response_value(
+            _contract_row_field(row, "taxInvoice", default="")
+        ),
     }
 
 
@@ -965,6 +1038,13 @@ CONTRACT_DB_COLUMNS = {
     "pitch": "pitch",
     "capW": "capW",
     "capH": "capH",
+    "commencementCert": "commencementCert",
+    "completionCert": "completionCert",
+    "warrantyStart": "warrantyStart",
+    "warrantyExpiry": "warrantyExpiry",
+    "guaranteeRate": "guaranteeRate",
+    "inspectionRequestDate": "inspectionRequestDate",
+    "taxInvoice": "taxInvoice",
     "cost_service": "costService",
     "item_name": "itemName",
     "unit_price": "designUnitPrice",
@@ -1361,7 +1441,15 @@ def contract_to_db_values(contract: ContractBase) -> dict:
                     out[db_key] = 0
             continue
 
-        if api_key in ("contractDate", "dueDate"):
+        if api_key in (
+            "contractDate",
+            "dueDate",
+            "commencementCert",
+            "completionCert",
+            "warrantyStart",
+            "warrantyExpiry",
+            "inspectionRequestDate",
+        ):
             out[db_key] = _coerce_sql_date(val)
             continue
 
@@ -1386,6 +1474,8 @@ def contract_to_db_values(contract: ContractBase) -> dict:
                 "note",
                 "pm",
                 "salesOwner",
+                "guaranteeRate",
+                "taxInvoice",
             ):
                 s = _normalize_excel_placeholder_text(s)
             out[db_key] = s
@@ -1409,6 +1499,8 @@ def contract_to_db_values(contract: ContractBase) -> dict:
                 "note",
                 "pm",
                 "salesOwner",
+                "guaranteeRate",
+                "taxInvoice",
             ):
                 s = _normalize_excel_placeholder_text(s)
             out[db_key] = s

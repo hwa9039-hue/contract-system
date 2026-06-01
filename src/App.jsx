@@ -59,6 +59,7 @@ import {
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import UnitPriceManagement from './pages/UnitPriceManagement.jsx'
+import ProjectManagement from './pages/ProjectManagement.jsx'
 import NaraMarket from './pages/NaraMarket.jsx'
 import NewsMonitor from './pages/NewsMonitor.jsx'
 import { decodeWorkReportWireText } from './workReportWire.js'
@@ -1188,6 +1189,7 @@ const PAGE_TITLE_MAP = {
   documents: '문서수발신대장',
   contactsManage: '연락처',
   installCases: '설치사례',
+  projectManagement: '사업관리',
   unitPrice: '단가관리',
   naraMarket: '나라장터',
   newsMonitor: '각종뉴스',
@@ -1196,6 +1198,7 @@ const PAGE_TITLE_MAP = {
 
 const ADMIN_ONLY_MENU_KEYS = new Set(['contactsManage', 'unitPrice'])
 const UNIT_PRICE_MENU_PATH = '/unit-price'
+const PROJECT_MANAGEMENT_MENU_PATH = '/project-management'
 function isWorkReportRelatedMenu(menuKey) {
   return menuKey === 'workReports' || menuKey === 'meetingMinutes'
 }
@@ -1240,13 +1243,15 @@ const ALL_MENU_KEYS = [
   ...SIDEBAR_MENU_GROUPS.flatMap((group) => group.items.map((item) => item.key)),
   'materialsBoard',
   'installCases',
+  'projectManagement',
   'unitPrice',
 ]
 
 function resolveInitialMenu() {
   try {
-    if (typeof window !== 'undefined' && window.location.pathname === UNIT_PRICE_MENU_PATH) {
-      return 'unitPrice'
+    if (typeof window !== 'undefined') {
+      if (window.location.pathname === UNIT_PRICE_MENU_PATH) return 'unitPrice'
+      if (window.location.pathname === PROJECT_MANAGEMENT_MENU_PATH) return 'projectManagement'
     }
   } catch {
     /* ignore */
@@ -5468,7 +5473,14 @@ function App() {
         if (window.location.pathname !== UNIT_PRICE_MENU_PATH) {
           window.history.replaceState(null, '', UNIT_PRICE_MENU_PATH)
         }
-      } else if (window.location.pathname === UNIT_PRICE_MENU_PATH) {
+      } else if (menu === 'projectManagement') {
+        if (window.location.pathname !== PROJECT_MANAGEMENT_MENU_PATH) {
+          window.history.replaceState(null, '', PROJECT_MANAGEMENT_MENU_PATH)
+        }
+      } else if (
+        window.location.pathname === UNIT_PRICE_MENU_PATH ||
+        window.location.pathname === PROJECT_MANAGEMENT_MENU_PATH
+      ) {
         window.history.replaceState(null, '', '/')
       }
     } catch {
@@ -12141,6 +12153,14 @@ function App() {
 
             <button
               type="button"
+              className={menu === 'projectManagement' ? 'menu-btn active' : 'menu-btn'}
+              onClick={() => setMenu('projectManagement')}
+            >
+              사업관리
+            </button>
+
+            <button
+              type="button"
               className={`${menu === 'unitPrice' ? 'menu-btn active' : 'menu-btn'}${
                 !isAdmin ? ' menu-btn--disabled' : ''
               }`}
@@ -13916,6 +13936,12 @@ function App() {
                   : '조건에 맞는 설치사례가 없습니다.'}
               </div>
             )}
+          </section>
+        )}
+
+        {menu === 'projectManagement' && (
+          <section className="stat-card stat-card--project-management">
+            <ProjectManagement />
           </section>
         )}
 
