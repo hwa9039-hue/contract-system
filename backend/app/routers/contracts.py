@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from app.contract_import_backup_xlsx import write_contract_import_excel_backup
 from app.database import get_connection, repair_contract_row_ids
@@ -139,6 +139,27 @@ def _append_contract_patch_assignment(
     if mirror_col and mirror_col not in mirrored_db_keys:
         assignments.append(f"{mirror_col} = %({bind_key})s")
         mirrored_db_keys.add(mirror_col)
+
+
+def _merge_contract_patch_data(raw_body: dict, patch: ContractPatch) -> dict:
+    """Pydantic exclude_unset 등으로 빠질 수 있는 단가·계약 필드를 raw JSON 에서 보강."""
+    patch_data = patch.model_dump(exclude_unset=True)
+    if not isinstance(raw_body, dict):
+        return patch_data
+
+    for key in UNIT_PRICE_PAYLOAD_TO_DB:
+        if key in raw_body:
+            patch_data[key] = raw_body[key]
+
+    for api_key in CONTRACT_DB_COLUMNS:
+        if api_key in raw_body and api_key not in patch_data:
+            patch_data[api_key] = raw_body[api_key]
+
+    return patch_data
+
+
+def _unit_price_assignments(assignments: list[str]) -> list[str]:
+    return [a for a in assignments if any(col in a for col in UNIT_PRICE_PATCH_DB_KEYS)]
 
 
 def _build_contract_patch_sql(patch_data: dict) -> tuple[dict, list[str]]:
@@ -339,9 +360,21 @@ def bulk_delete_contracts(payload: ContractBulkDelete):
 
 
 @router.patch("/{contract_id}", response_model=ContractOut)
-def update_contract(contract_id: str, patch: ContractPatch):
+async def update_contract(contract_id: str, request: Request):
     """행 수정은 DB PK `id`(UUID 문자열)로만 조회합니다."""
-    patch_data = patch.model_dump(exclude_unset=True)
+    try:
+        raw_body = await request.json()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid JSON body: {exc}",
+        ) from exc
+
+    if not isinstance(raw_body, dict):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="JSON object expected")
+
+    patch = ContractPatch.model_validate(raw_body)
+    patch_data = _merge_contract_patch_data(raw_body, patch)
     if not patch_data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
 
@@ -351,34 +384,54 @@ def update_contract(contract_id: str, patch: ContractPatch):
     if not assignments:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid fields to update")
 
-    unit_price_in_payload = [
-        key for key in patch_data if key in UNIT_PRICE_PAYLOAD_TO_DB
-    ]
+    unit_price_in_payload = [key for key in patch_data if key in UNIT_PRICE_PAYLOAD_TO_DB]
+    unit_price_assignments = _unit_price_assignments(assignments)
+    if unit_price_in_payload and not unit_price_assignments:
+        logger.error(
+            "contracts patch id=%s unit price keys in payload but SET clause empty: keys=%s patch_data=%s",
+            contract_id,
+            unit_price_in_payload,
+            patch_data,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unit price fields were not applied to UPDATE query",
+        )
+
     logger.info(
         "contracts patch id=%s unit_price_payload_keys=%s unit_price_assignments=%s values=%s",
         contract_id,
         unit_price_in_payload,
-        [a for a in assignments if any(col in a for col in UNIT_PRICE_PATCH_DB_KEYS)],
+        unit_price_assignments,
         {k: v for k, v in values.items() if k.startswith("upd_")},
     )
 
-    with get_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"""
+    update_sql = f"""
                 update contracts_rows
                 set
                   {", ".join(assignments)}
                 where id::text = %(id)s
                 returning {RETURNING_COLUMNS}
-                """,
-                values,
-            )
-            row = cursor.fetchone()
-        connection.commit()
+                """
 
-    if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
+    with get_connection() as connection:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(update_sql, values)
+                row = cursor.fetchone()
+                if cursor.rowcount != 1:
+                    connection.rollback()
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
+                connection.commit()
+        except HTTPException:
+            raise
+        except Exception as exc:
+            connection.rollback()
+            logger.exception("contracts patch id=%s failed", contract_id)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"contracts patch failed: {exc}",
+            ) from exc
 
     return row_to_contract(row)
 
