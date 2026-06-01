@@ -37,38 +37,92 @@ const REFETCH_AFTER_SAVE_DELAY_MS = 750
 
 const PLACEHOLDER_ID_PREFIX = '__empty__'
 
-/** 열 너비 — 앞·뒤 고정, 사업명만 가변(flex 대응: minWidth 300) */
-const UNIT_PRICE_TABLE_COLUMNS = Object.freeze([
-  { key: 'actions', label: '', filterable: false, thClass: 'unit-price-col-actions th-align-center' },
-  { key: 'year', label: '사업년도', filterable: true, readonly: true, thClass: 'unit-price-col-year th-align-center' },
-  { key: 'client', label: '발주처', filterable: true, readonly: true, thClass: 'unit-price-col-client th-align-center' },
+/**
+ * DataGrid-style column definitions — array order and width are authoritative.
+ * [앞] 작업 · 사업년도 · 발주처 → [중] 사업명(350) → [뒤] 원가용역 → 품명 → 설계단가 · Pitch · W · H
+ */
+const columns = [
   {
-    key: 'projectName',
-    label: '사업명',
+    field: 'actions',
+    headerName: '',
+    width: 80,
+    filterable: false,
+    colClass: 'unit-price-col-actions',
+  },
+  {
+    field: 'year',
+    headerName: '사업년도',
+    width: 100,
     filterable: true,
     readonly: true,
-    thClass: 'unit-price-col-project th-align-center',
+    colClass: 'unit-price-col-year',
   },
-  { key: 'itemName', label: '품명', filterable: true, editable: true, thClass: 'unit-price-col-item th-align-center' },
   {
-    key: 'costService',
-    label: '원가용역',
+    field: 'client',
+    headerName: '발주처',
+    width: 160,
+    filterable: true,
+    readonly: true,
+    colClass: 'unit-price-col-client',
+  },
+  {
+    field: 'projectName',
+    headerName: '사업명',
+    width: 350,
+    filterable: true,
+    readonly: true,
+    colClass: 'unit-price-col-project',
+  },
+  {
+    field: 'costService',
+    headerName: '원가용역',
+    width: 140,
     filterable: true,
     editable: true,
-    thClass: 'unit-price-col-cost th-align-center',
+    colClass: 'unit-price-col-cost',
   },
   {
-    key: 'designUnitPrice',
-    label: '설계단가',
+    field: 'itemName',
+    headerName: '품명',
+    width: 180,
+    filterable: true,
+    editable: true,
+    colClass: 'unit-price-col-item',
+  },
+  {
+    field: 'designUnitPrice',
+    headerName: '설계단가',
+    width: 160,
     filterable: true,
     editable: true,
     align: 'right',
-    thClass: 'unit-price-col-design th-align-center',
+    colClass: 'unit-price-col-design',
   },
-  { key: 'pitch', label: 'Pitch', filterable: true, editable: true, thClass: 'unit-price-col-pitch th-align-center' },
-  { key: 'capW', label: 'W', filterable: true, editable: true, thClass: 'unit-price-col-capw th-align-center' },
-  { key: 'capH', label: 'H', filterable: true, editable: true, thClass: 'unit-price-col-caph th-align-center' },
-])
+  {
+    field: 'pitch',
+    headerName: 'Pitch',
+    width: 110,
+    filterable: true,
+    editable: true,
+    colClass: 'unit-price-col-pitch',
+  },
+  {
+    field: 'capW',
+    headerName: 'W',
+    width: 110,
+    filterable: true,
+    editable: true,
+    colClass: 'unit-price-col-capw',
+  },
+  {
+    field: 'capH',
+    headerName: 'H',
+    width: 110,
+    filterable: true,
+    editable: true,
+    colClass: 'unit-price-col-caph',
+  },
+]
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -435,7 +489,75 @@ export default function UnitPriceManagement() {
   )
 
   const showEmpty = !loading && !error && flatRows.length === 0
-  const tableColSpan = UNIT_PRICE_TABLE_COLUMNS.length
+  const tableColSpan = columns.length
+
+  const renderBodyCell = useCallback(
+    (row, column) => {
+      const thAlign = ' th-align-center'
+      const colClass = `${column.colClass}${thAlign}`
+
+      if (column.field === 'actions') {
+        return (
+          <td key={column.field} className={`unit-price-readonly unit-price-action-cell ${colClass}`}>
+            <div className="unit-price-action-group">
+              <button
+                type="button"
+                className="unit-price-action-btn"
+                aria-label="품목 추가"
+                disabled={tableBusy || refetching}
+                onClick={() => void handleAddItem(row.contractId)}
+              >
+                <Plus size={14} strokeWidth={2.25} aria-hidden />
+              </button>
+              <button
+                type="button"
+                className="unit-price-action-btn unit-price-action-btn--danger"
+                aria-label="품목 삭제"
+                disabled={tableBusy || refetching || row.isPlaceholder}
+                onClick={() => void handleDeleteItem(row)}
+              >
+                <Trash2 size={14} strokeWidth={2.25} aria-hidden />
+              </button>
+            </div>
+          </td>
+        )
+      }
+
+      if (column.readonly) {
+        const isProject = column.field === 'projectName'
+        const isClient = column.field === 'client'
+        return (
+          <td
+            key={column.field}
+            className={`unit-price-readonly ${colClass}${
+              isProject ? ' text-left pl-4 unit-price-cell-project' : ''
+            }${isClient ? ' text-center unit-price-cell-truncate' : ''}${
+              !isProject && !isClient ? ' text-center' : ''
+            }`}
+          >
+            {displayReadonlyCell(row, column.field)}
+          </td>
+        )
+      }
+
+      if (column.editable) {
+        return (
+          <td key={column.field} className={`unit-price-editable-cell p-0 align-middle ${colClass}`}>
+            <EditableTextCell
+              value={row[column.field] ?? ''}
+              align={column.align || 'center'}
+              disabled={tableBusy || refetching}
+              className="unit-price-cell-input"
+              onSave={(nextValue) => void handleItemFieldSave(row, column.field, nextValue)}
+            />
+          </td>
+        )
+      }
+
+      return null
+    },
+    [handleAddItem, handleDeleteItem, handleItemFieldSave, refetching, tableBusy]
+  )
 
   return (
     <div className="unit-price-management h-full min-h-0">
@@ -483,41 +605,38 @@ export default function UnitPriceManagement() {
             >
                 <table className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table unit-price-table table-w-full-min">
                   <colgroup>
-                    <col className="unit-price-col-actions" style={{ width: 80, minWidth: 80 }} />
-                    <col className="unit-price-col-year" style={{ width: 100, minWidth: 100 }} />
-                    <col className="unit-price-col-client" style={{ width: 160, minWidth: 160 }} />
-                    <col className="unit-price-col-project" />
-                    <col className="unit-price-col-item" style={{ width: 130, minWidth: 130 }} />
-                    <col className="unit-price-col-cost" style={{ width: 100, minWidth: 100 }} />
-                    <col className="unit-price-col-design" style={{ width: 130, minWidth: 130 }} />
-                    <col className="unit-price-col-pitch" style={{ width: 90, minWidth: 90 }} />
-                    <col className="unit-price-col-capw" style={{ width: 90, minWidth: 90 }} />
-                    <col className="unit-price-col-caph" style={{ width: 90, minWidth: 90 }} />
+                    {columns.map((column) => (
+                      <col
+                        key={column.field}
+                        className={column.colClass}
+                        style={{ width: column.width, minWidth: column.width }}
+                      />
+                    ))}
                   </colgroup>
                   <thead>
                     <tr>
-                      {UNIT_PRICE_TABLE_COLUMNS.map((column) => (
+                      {columns.map((column) => (
                         <th
-                          key={column.key}
-                          className={`${column.thClass}${
+                          key={column.field}
+                          className={`${column.colClass} th-align-center${
                             column.filterable ? ' contract-th-filterable' : ''
                           }`}
                         >
                           {column.filterable ? (
                             <div className="contract-th-filter-wrap">
-                              <span className="contract-th-label">{column.label}</span>
+                              <span className="contract-th-label">{column.headerName}</span>
                               <ContractColumnHeaderFilter
-                                columnKey={column.key}
-                                options={unitPriceColumnFilterOptionsMap[column.key] ?? []}
-                                selected={activeFilters[column.key] ?? []}
+                                columnKey={column.field}
+                                options={unitPriceColumnFilterOptionsMap[column.field] ?? []}
+                                selected={activeFilters[column.field] ?? []}
                                 onApply={handleActiveFiltersApply}
-                                isOpen={openContractColumnFilterKey === column.key}
+                                isOpen={openContractColumnFilterKey === column.field}
                                 onOpenChange={setOpenContractColumnFilterKey}
                                 normalizeSelection={normalizeContractColumnFilterSelection}
                               />
                             </div>
                           ) : (
-                            column.label
+                            column.headerName
                           )}
                         </th>
                       ))}
@@ -532,50 +651,7 @@ export default function UnitPriceManagement() {
                     </tr>
                   ) : (
                     filteredFlatRows.map((row) => (
-                      <tr key={row.id}>
-                        <td className="unit-price-readonly unit-price-action-cell">
-                          <div className="unit-price-action-group">
-                            <button
-                              type="button"
-                              className="unit-price-action-btn"
-                              aria-label="품목 추가"
-                              disabled={tableBusy || refetching}
-                              onClick={() => void handleAddItem(row.contractId)}
-                            >
-                              <Plus size={14} strokeWidth={2.25} aria-hidden />
-                            </button>
-                            <button
-                              type="button"
-                              className="unit-price-action-btn unit-price-action-btn--danger"
-                              aria-label="품목 삭제"
-                              disabled={tableBusy || refetching || row.isPlaceholder}
-                              onClick={() => void handleDeleteItem(row)}
-                            >
-                              <Trash2 size={14} strokeWidth={2.25} aria-hidden />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="unit-price-readonly text-center">
-                          {displayReadonlyCell(row, 'year')}
-                        </td>
-                        <td className="unit-price-readonly text-center unit-price-cell-truncate">
-                          {displayReadonlyCell(row, 'client')}
-                        </td>
-                        <td className="unit-price-readonly text-left pl-4 unit-price-cell-project">
-                          {displayReadonlyCell(row, 'projectName')}
-                        </td>
-                        {UNIT_PRICE_TABLE_COLUMNS.filter((c) => c.editable).map((column) => (
-                          <td key={column.key} className="unit-price-editable-cell p-0 align-middle">
-                            <EditableTextCell
-                              value={row[column.key] ?? ''}
-                              align={column.align || 'center'}
-                              disabled={tableBusy || refetching}
-                              className="unit-price-cell-input"
-                              onSave={(nextValue) => void handleItemFieldSave(row, column.key, nextValue)}
-                            />
-                          </td>
-                        ))}
-                      </tr>
+                      <tr key={row.id}>{columns.map((column) => renderBodyCell(row, column))}</tr>
                     ))
                   )}
                 </tbody>
