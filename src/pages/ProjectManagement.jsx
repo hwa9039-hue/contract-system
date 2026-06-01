@@ -33,11 +33,14 @@ const REFETCH_AFTER_SAVE_DELAY_MS = 750
  * DataGrid-style column definitions — array order and width are authoritative.
  * disableColumnResize: true (colgroup 고정 너비)
  */
+/** 날짜 픽커 — 달력이 잘리지 않는 최소 너비 */
+const PROJECT_MGMT_DATE_COL_WIDTH = 125
+
 const columns = [
   {
     field: 'year',
     headerName: '사업년도',
-    width: 100,
+    width: 70,
     filterable: true,
     readonly: true,
     colClass: 'project-mgmt-col-year',
@@ -45,7 +48,7 @@ const columns = [
   {
     field: 'client',
     headerName: '발주처',
-    width: 150,
+    width: 130,
     filterable: true,
     readonly: true,
     colClass: 'project-mgmt-col-client',
@@ -53,7 +56,7 @@ const columns = [
   {
     field: 'contractDate',
     headerName: '계약일자',
-    width: 120,
+    width: 110,
     filterable: true,
     readonly: true,
     type: 'date',
@@ -62,7 +65,7 @@ const columns = [
   {
     field: 'dueDate',
     headerName: '납기일(준공일자)',
-    width: 130,
+    width: 110,
     filterable: true,
     readonly: true,
     type: 'date',
@@ -72,6 +75,7 @@ const columns = [
     field: 'projectName',
     headerName: '사업명',
     flex: 1,
+    minWidth: 150,
     filterable: true,
     readonly: true,
     colClass: 'project-mgmt-col-project',
@@ -79,7 +83,7 @@ const columns = [
   {
     field: 'salesOwner',
     headerName: '영업담당자',
-    width: 110,
+    width: 80,
     filterable: true,
     readonly: true,
     colClass: 'project-mgmt-col-sales',
@@ -87,7 +91,7 @@ const columns = [
   {
     field: 'pm',
     headerName: '현장PM',
-    width: 100,
+    width: 80,
     filterable: true,
     readonly: true,
     colClass: 'project-mgmt-col-pm',
@@ -95,43 +99,43 @@ const columns = [
   {
     field: 'commencementCert',
     headerName: '착수계',
-    width: 120,
+    width: PROJECT_MGMT_DATE_COL_WIDTH,
     filterable: true,
     editable: true,
     type: 'date',
-    colClass: 'project-mgmt-col-commencement',
+    colClass: 'project-mgmt-col-date-picker',
   },
   {
     field: 'completionCert',
     headerName: '준공계',
-    width: 120,
+    width: PROJECT_MGMT_DATE_COL_WIDTH,
     filterable: true,
     editable: true,
     type: 'date',
-    colClass: 'project-mgmt-col-completion',
+    colClass: 'project-mgmt-col-date-picker',
   },
   {
     field: 'warrantyStart',
     headerName: '하자보증 시작',
-    width: 130,
+    width: PROJECT_MGMT_DATE_COL_WIDTH,
     filterable: true,
     editable: true,
     type: 'date',
-    colClass: 'project-mgmt-col-warranty-start',
+    colClass: 'project-mgmt-col-date-picker',
   },
   {
     field: 'warrantyExpiry',
     headerName: '하자보증 만기',
-    width: 130,
+    width: PROJECT_MGMT_DATE_COL_WIDTH,
     filterable: true,
     editable: true,
     type: 'date',
-    colClass: 'project-mgmt-col-warranty-expiry',
+    colClass: 'project-mgmt-col-date-picker',
   },
   {
     field: 'guaranteeRate',
     headerName: '보증금율',
-    width: 100,
+    width: 80,
     filterable: true,
     editable: true,
     colClass: 'project-mgmt-col-guarantee-rate',
@@ -139,16 +143,16 @@ const columns = [
   {
     field: 'inspectionRequestDate',
     headerName: '검사검수 요청일',
-    width: 140,
+    width: PROJECT_MGMT_DATE_COL_WIDTH,
     filterable: true,
     editable: true,
     type: 'date',
-    colClass: 'project-mgmt-col-inspection',
+    colClass: 'project-mgmt-col-date-picker',
   },
   {
     field: 'taxInvoice',
     headerName: '세금계산서',
-    width: 110,
+    width: 100,
     filterable: true,
     editable: true,
     colClass: 'project-mgmt-col-tax-invoice',
@@ -461,7 +465,7 @@ export default function ProjectManagement() {
   )
 
   return (
-    <div className="project-management h-full min-h-0">
+    <div className="project-management project-management--full-width h-full min-h-0">
       {saveSuccess ? (
         <div className="mode-toast" role="status">
           {saveSuccess}
@@ -500,11 +504,11 @@ export default function ProjectManagement() {
             </div>
 
             <div
-              className={`table-wrap contracts-only-scroll overflow-x-auto project-mgmt-table-scroll${
+              className={`table-wrap contracts-only-scroll project-mgmt-table-scroll${
                 refetching || tableBusy ? ' project-mgmt-table-wrap--refetching' : ''
               }`}
             >
-              <table className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table project-management-table table-w-full-min">
+              <table className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table project-management-table">
                 <colgroup>
                   {columns.map((column) => (
                     <col
@@ -512,7 +516,7 @@ export default function ProjectManagement() {
                       className={column.colClass}
                       style={
                         column.flex
-                          ? { minWidth: 240 }
+                          ? { minWidth: column.minWidth ?? 150, width: 'auto' }
                           : { width: column.width, minWidth: column.width }
                       }
                     />

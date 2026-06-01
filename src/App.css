@@ -11278,11 +11278,19 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
 }
 
 /* ── 사업관리 (단가관리·계약현황과 동일 테이블 UX) ── */
+.main-area:has(> section.stat-card--project-management) {
+  padding-left: 0;
+  padding-right: 0;
+}
+
 .main-area > section.stat-card.stat-card--project-management {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  border-left: none;
+  border-right: none;
+  border-radius: 0;
 }
 
 .stat-card.stat-card--project-management {
@@ -11300,6 +11308,11 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   display: flex;
   flex-direction: column;
   height: 100%;
+  width: 100%;
+  max-width: 100%;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
 }
 
 .project-mgmt-table-panel {
@@ -11328,71 +11341,30 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
 .project-management-table {
   table-layout: fixed;
   width: 100%;
-  min-width: 1480px;
+  max-width: 100%;
 }
 
-.project-management-table .project-mgmt-col-year {
-  width: 100px;
-  min-width: 100px;
-}
-
-.project-management-table .project-mgmt-col-client {
-  width: 150px;
+.project-management-table col.project-mgmt-col-project {
   min-width: 150px;
-}
-
-.project-management-table .project-mgmt-col-contract-date,
-.project-management-table .project-mgmt-col-due-date,
-.project-management-table .project-mgmt-col-commencement,
-.project-management-table .project-mgmt-col-completion {
-  width: 120px;
-  min-width: 120px;
-}
-
-.project-management-table .project-mgmt-col-project {
   width: auto;
-  min-width: 240px;
 }
 
-.project-management-table .project-mgmt-col-sales {
-  width: 110px;
-  min-width: 110px;
-}
-
-.project-management-table .project-mgmt-col-pm {
-  width: 100px;
-  min-width: 100px;
-}
-
-.project-management-table .project-mgmt-col-warranty-start,
-.project-management-table .project-mgmt-col-warranty-expiry {
-  width: 130px;
-  min-width: 130px;
-}
-
-.project-management-table .project-mgmt-col-guarantee-rate {
-  width: 100px;
-  min-width: 100px;
-}
-
-.project-management-table .project-mgmt-col-inspection {
-  width: 140px;
-  min-width: 140px;
-}
-
-.project-management-table .project-mgmt-col-tax-invoice {
-  width: 110px;
-  min-width: 110px;
+.project-management-table thead th {
+  padding: 6px 4px;
+  font-size: 12px;
+  line-height: 1.25;
+  white-space: normal;
+  word-break: keep-all;
 }
 
 .project-management-table tbody td.project-mgmt-readonly {
-  padding: 6px 8px;
+  padding: 5px 4px;
   font-size: var(--cms-table-cell-font-size);
   vertical-align: middle;
 }
 
 .project-management-table tbody td.project-mgmt-cell-truncate {
-  max-width: 150px;
+  max-width: 130px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -11400,8 +11372,9 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
 
 .project-management-table tbody td.project-mgmt-cell-project {
   text-align: left;
-  white-space: normal;
-  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .project-management-table tbody td.project-mgmt-editable-cell {
@@ -11412,7 +11385,9 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
 .project-management-table .project-mgmt-cell-input,
 .project-management-table .editable-date-cell-input {
   width: 100%;
-  min-height: 34px;
+  min-height: 32px;
+  padding: 4px 2px;
+  font-size: 12px;
   box-sizing: border-box;
 }
 
@@ -11442,8 +11417,21 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   color: #64748b;
 }
 
+.project-mgmt-table-scroll.contracts-only-scroll,
 .project-management-table-scroll.contracts-only-scroll {
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-width: 100%;
+}
+
+.main-area > section.stat-card.stat-card--project-management .table-toolbar {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.main-area > section.stat-card.stat-card--project-management .project-mgmt-grid-hint {
+  padding-left: 10px;
+  padding-right: 10px;
 }
 
 .project-management-table.contracts-fixed-table thead th.contract-th-filterable {
