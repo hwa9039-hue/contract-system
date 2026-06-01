@@ -10658,6 +10658,11 @@ textarea:focus-visible {
   text-align: left;
 }
 
+/* MUI X Data Grid Pro — 라이선스 워터마크 숨김 */
+.MuiDataGrid-licenseWatermark {
+  display: none !important;
+}
+
 /* ── 단가관리 Tree Grid (MUI X Data Grid Pro) ── */
 .unit-price-datagrid-wrap {
   flex: 1;

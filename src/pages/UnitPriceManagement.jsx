@@ -414,7 +414,7 @@ export default function UnitPriceManagement() {
         width: 110,
         editable: true,
         align: 'right',
-        headerAlign: 'right',
+        headerAlign: 'center',
       },
       {
         field: 'pitch',
