@@ -316,6 +316,7 @@ export default function UnitPriceManagement() {
         field: 'actions',
         headerName: '',
         width: 108,
+        headerAlign: 'center',
         sortable: false,
         filterable: false,
         disableColumnMenu: true,
@@ -371,6 +372,7 @@ export default function UnitPriceManagement() {
         field: 'year',
         headerName: '사업년도',
         width: 96,
+        headerAlign: 'center',
         editable: false,
         valueFormatter: (value, row) =>
           row.rowKind === 'contract' ? value || '-' : '',
@@ -379,6 +381,7 @@ export default function UnitPriceManagement() {
         field: 'client',
         headerName: '발주처',
         width: 140,
+        headerAlign: 'center',
         editable: false,
         valueFormatter: (value, row) =>
           row.rowKind === 'contract' ? value || '-' : '',
@@ -388,6 +391,7 @@ export default function UnitPriceManagement() {
         headerName: '사업명',
         flex: 1,
         minWidth: 200,
+        headerAlign: 'center',
         editable: false,
         valueFormatter: (value, row) =>
           row.rowKind === 'contract' ? value || '-' : '',
@@ -452,6 +456,7 @@ export default function UnitPriceManagement() {
     () => ({
       headerName: '계약 / 품목',
       width: 280,
+      headerAlign: 'center',
       valueGetter: (_value, row) => row.treeLabel || '',
     }),
     []

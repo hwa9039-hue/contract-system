@@ -10658,9 +10658,12 @@ textarea:focus-visible {
   text-align: left;
 }
 
-/* MUI X Data Grid Pro — 라이선스 워터마크 숨김 */
-.MuiDataGrid-licenseWatermark {
+/* MUI X Data Grid Pro — 라이선스 워터마크 강제 숨김 */
+div[class*='MuiDataGrid-licenseWatermark'] {
   display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 /* ── 단가관리 Tree Grid (MUI X Data Grid Pro) ── */
