@@ -10805,7 +10805,19 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 }
 
 .unit-price-table .unit-price-col-project {
-  width: 31%;
+  width: 22%;
+}
+
+.unit-price-table .unit-price-col-summary {
+  width: 30%;
+}
+
+.unit-price-table .unit-price-col-manage {
+  width: 96px;
+}
+
+.unit-price-table .unit-price-col-contract-no {
+  width: 12%;
 }
 
 .unit-price-table .unit-price-col-editable {

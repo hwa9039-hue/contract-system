@@ -11,10 +11,19 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import { DataGrid, GridToolbar, useGridApiRef } from '@mui/x-data-grid'
+import { DataGrid, useGridApiRef } from '@mui/x-data-grid'
 import { koKR } from '@mui/x-data-grid/locales'
 import { Plus, Trash2, X } from 'lucide-react'
+import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
+import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.js'
 import { unitPricesApi } from '../api/unitPricesApi.js'
+import {
+  UNIT_PRICE_FILTERABLE_COLUMN_KEYS,
+  buildUnitPriceColumnFilterOptions,
+  filterUnitPriceRowsByActiveFilters,
+  unitPriceMatchesColumnFilters,
+  unitPriceMatchesSearch,
+} from '../unitPriceColumnFilter.js'
 import '../App.css'
 
 const CONTRACT_TYPE_FILTER = '55121903'
@@ -38,6 +47,15 @@ const EMPTY_ITEM_PAYLOAD = Object.freeze({
 })
 
 const REFETCH_AFTER_SAVE_DELAY_MS = 750
+
+const UNIT_PRICE_MAIN_COLUMNS = Object.freeze([
+  { key: 'manage', label: '품목', filterable: false, className: 'unit-price-col-manage th-align-center' },
+  { key: 'year', label: '사업년도', filterable: true, className: 'unit-price-col-year th-align-center' },
+  { key: 'client', label: '발주처', filterable: true, className: 'unit-price-col-client th-align-center' },
+  { key: 'projectName', label: '사업명', filterable: true, className: 'unit-price-col-project th-align-center' },
+  { key: 'itemsSummary', label: '품목 요약', filterable: true, className: 'unit-price-col-summary th-align-center' },
+  { key: 'contractNo', label: '계약번호', filterable: true, className: 'unit-price-col-contract-no th-align-center' },
+])
 
 const GRID_BASE_SX = {
   border: '1px solid #e2e8f0',
@@ -142,6 +160,11 @@ function contractToMainRow(contract) {
   }
 }
 
+function displayMainCellValue(row, key) {
+  const value = safeString(row?.[key]).trim()
+  return value || '-'
+}
+
 function formatContractDialogTitle(contract) {
   const parts = [
     safeString(contract?.projectName).trim(),
@@ -158,6 +181,10 @@ export default function UnitPriceManagement() {
   const [error, setError] = useState(null)
   const [saveError, setSaveError] = useState(null)
   const [saveSuccess, setSaveSuccess] = useState(null)
+
+  const [search, setSearch] = useState('')
+  const [activeFilters, setActiveFilters] = useState({})
+  const [openColumnFilterKey, setOpenColumnFilterKey] = useState(null)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedContract, setSelectedContract] = useState(null)
@@ -253,6 +280,38 @@ export default function UnitPriceManagement() {
     () => contracts.map(contractToMainRow).filter((row) => row.contractId),
     [contracts]
   )
+
+  const unitPriceColumnFilterOptionsMap = useMemo(() => {
+    const basePool = mainRows.filter((item) => unitPriceMatchesSearch(item, search))
+    const map = {}
+    UNIT_PRICE_FILTERABLE_COLUMN_KEYS.forEach((columnKey) => {
+      const pool = basePool.filter((item) =>
+        unitPriceMatchesColumnFilters(item, activeFilters, columnKey)
+      )
+      map[columnKey] = buildUnitPriceColumnFilterOptions(pool, columnKey)
+    })
+    return map
+  }, [activeFilters, mainRows, search])
+
+  const filteredMainRows = useMemo(() => {
+    const searched = mainRows.filter((item) => unitPriceMatchesSearch(item, search))
+    return filterUnitPriceRowsByActiveFilters(searched, activeFilters)
+  }, [activeFilters, mainRows, search])
+
+  const isMainTableFilterResultEmpty = useMemo(
+    () => mainRows.length > 0 && filteredMainRows.length === 0,
+    [filteredMainRows.length, mainRows.length]
+  )
+
+  const handleActiveFiltersApply = useCallback((columnKey, selected) => {
+    setActiveFilters((prev) => {
+      const next = { ...prev }
+      const values = Array.isArray(selected) ? [...selected] : []
+      if (values.length === 0) delete next[columnKey]
+      else next[columnKey] = values
+      return next
+    })
+  }, [])
 
   const handleOpenItemDialog = useCallback((contractRow) => {
     const contract = contracts.find(
@@ -370,71 +429,6 @@ export default function UnitPriceManagement() {
       field: params.field,
     })
   }, [])
-
-  const mainColumns = useMemo(
-    () => [
-      {
-        field: 'manage',
-        headerName: '품목',
-        width: 108,
-        headerAlign: 'center',
-        sortable: false,
-        filterable: false,
-        disableColumnMenu: true,
-        renderCell: (params) => (
-          <Button
-            size="small"
-            variant="contained"
-            onClick={(event) => {
-              event.stopPropagation()
-              handleOpenItemDialog(params.row)
-            }}
-            sx={{ minWidth: 0, px: 1.5, py: 0.35, fontSize: 12 }}
-          >
-            품목 관리
-          </Button>
-        ),
-      },
-      {
-        field: 'year',
-        headerName: '사업년도',
-        width: 96,
-        headerAlign: 'center',
-        valueFormatter: (value) => value || '-',
-      },
-      {
-        field: 'client',
-        headerName: '발주처',
-        width: 160,
-        headerAlign: 'center',
-        valueFormatter: (value) => value || '-',
-      },
-      {
-        field: 'projectName',
-        headerName: '사업명',
-        flex: 1,
-        minWidth: 200,
-        headerAlign: 'center',
-        valueFormatter: (value) => value || '-',
-      },
-      {
-        field: 'itemsSummary',
-        headerName: '품목 요약',
-        flex: 1.4,
-        minWidth: 280,
-        headerAlign: 'center',
-        valueFormatter: (value) => value || '-',
-      },
-      {
-        field: 'contractNo',
-        headerName: '계약번호',
-        width: 120,
-        headerAlign: 'center',
-        valueFormatter: (value) => value || '-',
-      },
-    ],
-    [handleOpenItemDialog]
-  )
 
   const itemColumns = useMemo(
     () => [
@@ -559,17 +553,101 @@ export default function UnitPriceManagement() {
             계약분류가 {CONTRACT_TYPE_FILTER}인 계약 데이터가 없습니다.
           </div>
         ) : (
-          <Box className="unit-price-datagrid-wrap" sx={{ flex: 1, minHeight: 480, width: '100%' }}>
-            <DataGrid
-              rows={mainRows}
-              columns={mainColumns}
-              loading={refetching}
-              showToolbar
-              slots={{ toolbar: GridToolbar }}
-              slotProps={{ toolbar: { showQuickFilter: true } }}
-              {...sharedGridProps}
-            />
-          </Box>
+          <>
+            <div className="table-toolbar contract-toolbar-simple">
+              <input
+                className="table-search-input"
+                placeholder="사업명, 발주처, 품목 요약 등 검색"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            <div
+              className={`table-wrap unit-price-table-scroll contracts-only-scroll overflow-x-auto${
+                refetching ? ' unit-price-table-wrap--refetching' : ''
+              }`}
+            >
+              <table className="contract-table excel-table registry-table ledger-table-ui unit-price-table table-w-full-min table-fixed w-full">
+                <colgroup>
+                  <col className="unit-price-col-manage" style={{ width: 96, minWidth: 96 }} />
+                  <col className="unit-price-col-year" />
+                  <col className="unit-price-col-client" />
+                  <col className="unit-price-col-project" />
+                  <col className="unit-price-col-summary" />
+                  <col className="unit-price-col-contract-no" style={{ width: 120, minWidth: 120 }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    {UNIT_PRICE_MAIN_COLUMNS.map((column) => (
+                      <th
+                        key={column.key}
+                        className={`unit-price-th ${column.className}${
+                          column.filterable ? ' contract-th-filterable' : ''
+                        }`}
+                      >
+                        {column.filterable ? (
+                          <div className="contract-th-filter-wrap">
+                            <span className="contract-th-label">{column.label}</span>
+                            <ContractColumnHeaderFilter
+                              columnKey={column.key}
+                              options={unitPriceColumnFilterOptionsMap[column.key] ?? []}
+                              selected={activeFilters[column.key] ?? []}
+                              onApply={handleActiveFiltersApply}
+                              isOpen={openColumnFilterKey === column.key}
+                              onOpenChange={setOpenColumnFilterKey}
+                              normalizeSelection={normalizeContractColumnFilterSelection}
+                            />
+                          </div>
+                        ) : (
+                          column.label
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {isMainTableFilterResultEmpty ? (
+                    <tr>
+                      <td colSpan={UNIT_PRICE_MAIN_COLUMNS.length} className="empty-cell">
+                        필터 조건에 맞는 데이터가 없습니다.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredMainRows.map((row) => (
+                      <tr key={row.id} className={refetching ? 'unit-price-row--refetching' : undefined}>
+                        <td className="unit-price-readonly text-center">
+                          <button
+                            type="button"
+                            className="secondary-btn"
+                            style={{ fontSize: 12, padding: '4px 10px' }}
+                            onClick={() => handleOpenItemDialog(row)}
+                          >
+                            품목 관리
+                          </button>
+                        </td>
+                        <td className="unit-price-readonly text-center">
+                          {displayMainCellValue(row, 'year')}
+                        </td>
+                        <td className="unit-price-readonly text-center unit-price-cell-truncate">
+                          {displayMainCellValue(row, 'client')}
+                        </td>
+                        <td className="unit-price-readonly text-left pl-4 unit-price-cell-truncate">
+                          {displayMainCellValue(row, 'projectName')}
+                        </td>
+                        <td className="unit-price-readonly text-left pl-4 unit-price-cell-truncate">
+                          {displayMainCellValue(row, 'itemsSummary')}
+                        </td>
+                        <td className="unit-price-readonly text-center">
+                          {displayMainCellValue(row, 'contractNo')}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
