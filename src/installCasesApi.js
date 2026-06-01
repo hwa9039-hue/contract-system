@@ -100,6 +100,9 @@ export function resolveInstallCaseHeroImage(src) {
   if (value.startsWith('/api/')) {
     return `${API_BASE_URL}${value}`
   }
+  if (value.startsWith('/uploads/')) {
+    return `${API_BASE_URL}${value}`
+  }
   return value
 }
 

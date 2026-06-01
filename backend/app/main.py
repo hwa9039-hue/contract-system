@@ -4,6 +4,7 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.cors_preflight_middleware import ApiPreflightCorsMiddleware
 from app.database import init_db
@@ -52,6 +53,11 @@ def get_cors_origins():
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Contract Management API")
+
+# 업로드된 미디어 파일을 정적으로 서빙 (이미지/동영상 미리보기·재생)
+# - ApiJwtAuthMiddleware 는 /api/* 에만 적용되므로 /uploads/* 는 인증 없이 접근 가능합니다.
+_UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
+app.mount("/uploads", StaticFiles(directory=_UPLOAD_DIR), name="uploads")
 
 _EFFECTIVE_CORS_ORIGINS = get_cors_origins()
 
