@@ -33,6 +33,45 @@ if (import.meta.env.VITE_MUI_X_LICENSE_KEY) {
 
 const REFETCH_AFTER_SAVE_DELAY_MS = 750
 
+const LICENSE_WATERMARK_SELECTORS = [
+  '.MuiDataGrid-licenseWatermark',
+  '[class*="MuiDataGrid-licenseWatermark"]',
+  '[class*="licenseWatermark"]',
+  'div[class*="watermark"]',
+  'div[class*="license"]',
+]
+
+function isLicenseWatermarkNode(el) {
+  if (!(el instanceof HTMLElement)) return false
+  const className = typeof el.className === 'string' ? el.className : ''
+  if (
+    /MuiDataGrid-licenseWatermark/i.test(className) ||
+    /licenseWatermark/i.test(className)
+  ) {
+    return true
+  }
+  const text = (el.textContent || '').trim()
+  return text.includes('MUI X Missing license key') || text.includes('Missing license key')
+}
+
+function removeLicenseWatermarksFromDom(root) {
+  if (!root) return
+
+  for (const selector of LICENSE_WATERMARK_SELECTORS) {
+    root.querySelectorAll(selector).forEach((node) => {
+      if (isLicenseWatermarkNode(node) || /watermark|license/i.test(node.className || '')) {
+        node.remove()
+      }
+    })
+  }
+
+  root.querySelectorAll('div, span').forEach((node) => {
+    if (isLicenseWatermarkNode(node)) {
+      node.remove()
+    }
+  })
+}
+
 function safeString(value) {
   if (value === null || value === undefined) return ''
   return String(value)
@@ -168,6 +207,7 @@ export default function UnitPriceManagement() {
   const savingItemIdsRef = useRef(new Set())
   const saveSuccessTimerRef = useRef(null)
   const refetchAfterSaveTimerRef = useRef(null)
+  const gridWrapRef = useRef(null)
 
   const showToast = useCallback((message) => {
     setSaveSuccess(message)
@@ -226,6 +266,32 @@ export default function UnitPriceManagement() {
   }, [fetchTree])
 
   const gridRows = useMemo(() => contractsToGridRows(contracts), [contracts])
+
+  useEffect(() => {
+    const root = gridWrapRef.current
+    if (!root) return undefined
+
+    const purge = () => {
+      removeLicenseWatermarksFromDom(root)
+    }
+
+    purge()
+
+    const observer = new MutationObserver(() => {
+      purge()
+    })
+
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style'],
+    })
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [loading, refetching, contracts.length, gridRows.length])
 
   const handleAddItem = useCallback(
     async (contractId) => {
@@ -507,7 +573,11 @@ export default function UnitPriceManagement() {
             계약분류가 {CONTRACT_TYPE_FILTER}인 계약 데이터가 없습니다.
           </div>
         ) : (
-          <Box className="unit-price-datagrid-wrap" sx={{ flex: 1, minHeight: 480, width: '100%' }}>
+          <Box
+            ref={gridWrapRef}
+            className="unit-price-datagrid-wrap"
+            sx={{ flex: 1, minHeight: 480, width: '100%' }}
+          >
             <DataGridPro
               treeData
               rows={gridRows}
@@ -523,21 +593,11 @@ export default function UnitPriceManagement() {
               }}
               editMode="cell"
               disableColumnMenu={true}
-              headerFilters
-              headerFilterHeight={40}
               disableRowSelectionOnClick
               density="compact"
               loading={refetching}
               filterMode="client"
               localeText={gridLocaleText}
-              slotProps={{
-                headerFilterCell: {
-                  InputComponentProps: {
-                    size: 'small',
-                    placeholder: '필터…',
-                  },
-                },
-              }}
               sx={{
                 border: '1px solid #e2e8f0',
                 borderRadius: '10px',
