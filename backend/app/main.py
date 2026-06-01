@@ -124,6 +124,13 @@ def health_check():
             if getattr(route, "path", None) and "calendar-events" in route.path
         }
     )
+    contacts_manage_paths = sorted(
+        {
+            getattr(route, "path", "")
+            for route in app.routes
+            if getattr(route, "path", None) and "contacts-manage" in route.path
+        }
+    )
     return {
         "status": "ok",
         "weeklyWorkReportWire": True,
@@ -136,6 +143,8 @@ def health_check():
         "projectDiscoveryPaths": discovery_paths,
         "calendarEvents": bool(calendar_paths),
         "calendarEventsPaths": calendar_paths,
+        "contactsManage": bool(contacts_manage_paths),
+        "contactsManagePaths": contacts_manage_paths,
     }
 
 

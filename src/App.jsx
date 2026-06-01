@@ -6950,19 +6950,9 @@ function App() {
   }
 
   const saveContactsRegister = async () => {
-    const payload = {
-      category: safeString(contactsRegisterForm.category).trim(),
-      business_content: safeString(contactsRegisterForm.business_content).trim(),
-      manager_name: safeString(contactsRegisterForm.manager_name).trim(),
-      position: safeString(contactsRegisterForm.position).trim(),
-      phone: safeString(contactsRegisterForm.phone).trim(),
-      email: safeString(contactsRegisterForm.email).trim(),
-      notes: safeString(contactsRegisterForm.notes).trim(),
-    }
-
     setIsSavingContactsRegister(true)
     try {
-      await contactsManageApi.create(payload)
+      await contactsManageApi.create(contactsRegisterForm)
       setContactsRegisterModalOpen(false)
       showAppAlert('연락처가 등록되었습니다.', '알림')
       await fetchContactsManageRows()
