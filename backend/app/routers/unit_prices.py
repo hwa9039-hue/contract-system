@@ -8,6 +8,7 @@ from app.unit_price_items import (
     UNIT_PRICE_ITEM_RETURNING,
     UNIT_PRICE_ITEM_PATCH_KEYS,
     build_item_patch_sql,
+    build_items_summary,
     extract_unit_price_fields_from_mapping,
     has_unit_price_payload,
     row_to_unit_price_item,
@@ -132,7 +133,9 @@ def list_unit_prices_tree(contractType: str = CONTRACT_TYPE_FILTER_DEFAULT):
         for row in contract_rows:
             parent = _row_to_contract_parent(row)
             cid = parent.get("id") or ""
-            parent["items"] = items_by_contract.get(cid, [])
+            items = items_by_contract.get(cid, [])
+            parent["items"] = items
+            parent["itemsSummary"] = build_items_summary(items)
             result.append(parent)
 
         return result

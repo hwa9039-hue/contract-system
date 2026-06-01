@@ -11,7 +11,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import { DataGrid, useGridApiRef } from '@mui/x-data-grid'
+import { DataGrid, GridToolbar, useGridApiRef } from '@mui/x-data-grid'
 import { koKR } from '@mui/x-data-grid/locales'
 import { Plus, Trash2, X } from 'lucide-react'
 import { unitPricesApi } from '../api/unitPricesApi.js'
@@ -110,8 +110,26 @@ function buildItemPatchDiff(current, saved) {
   return patch
 }
 
+function formatItemSummaryPart(item) {
+  const itemName = safeString(item?.itemName).trim()
+  const costService = safeString(item?.costService).trim()
+  const label = itemName || costService
+  if (!label) return ''
+  const pitch = safeString(item?.pitch).trim()
+  if (pitch) return `${label}(Pitch:${pitch})`
+  return label
+}
+
+function buildItemsSummaryFromItems(items) {
+  if (!Array.isArray(items)) return ''
+  return items.map(formatItemSummaryPart).filter(Boolean).join(', ')
+}
+
 function contractToMainRow(contract) {
   const contractId = safeString(contract?.id).trim()
+  const items = Array.isArray(contract?.items) ? contract.items : []
+  const itemsSummary =
+    safeString(contract?.itemsSummary).trim() || buildItemsSummaryFromItems(items)
   return {
     id: contractId || `__missing__${Math.random()}`,
     contractId,
@@ -119,7 +137,8 @@ function contractToMainRow(contract) {
     client: safeString(contract?.client).trim(),
     projectName: safeString(contract?.projectName).trim(),
     contractNo: safeString(contract?.contractNo).trim(),
-    items: Array.isArray(contract?.items) ? contract.items : [],
+    itemsSummary,
+    items,
   }
 }
 
@@ -394,7 +413,15 @@ export default function UnitPriceManagement() {
         field: 'projectName',
         headerName: '사업명',
         flex: 1,
-        minWidth: 220,
+        minWidth: 200,
+        headerAlign: 'center',
+        valueFormatter: (value) => value || '-',
+      },
+      {
+        field: 'itemsSummary',
+        headerName: '품목 요약',
+        flex: 1.4,
+        minWidth: 280,
         headerAlign: 'center',
         valueFormatter: (value) => value || '-',
       },
@@ -537,6 +564,9 @@ export default function UnitPriceManagement() {
               rows={mainRows}
               columns={mainColumns}
               loading={refetching}
+              showToolbar
+              slots={{ toolbar: GridToolbar }}
+              slotProps={{ toolbar: { showQuickFilter: true } }}
               {...sharedGridProps}
             />
           </Box>

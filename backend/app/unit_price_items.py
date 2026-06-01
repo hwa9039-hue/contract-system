@@ -84,6 +84,34 @@ def row_to_unit_price_item(row: dict) -> dict:
     }
 
 
+def _item_summary_label(item: dict) -> str:
+    item_name = str(item.get("itemName") or "").strip()
+    if item_name:
+        return item_name
+    return str(item.get("costService") or "").strip()
+
+
+def format_item_summary_part(item: dict) -> str:
+    """단일 품목 요약 조각 — 예: 모듈(Pitch:10)"""
+    label = _item_summary_label(item)
+    if not label:
+        return ""
+    pitch = str(item.get("pitch") or "").strip()
+    if pitch:
+        return f"{label}(Pitch:{pitch})"
+    return label
+
+
+def build_items_summary(items: list[dict]) -> str:
+    """계약 소속 품목 요약 — 예: 모듈(Pitch:10), 함체"""
+    parts: list[str] = []
+    for item in items:
+        part = format_item_summary_part(item)
+        if part:
+            parts.append(part)
+    return ", ".join(parts)
+
+
 def extract_unit_price_fields_from_mapping(data: dict) -> dict:
     """ContractCreate/PATCH·DB row 에서 품목 필드만 추출."""
     if not data:
