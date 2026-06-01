@@ -16,11 +16,7 @@ from app.routers import sales_register
 from app.routers import weekly_work_reports
 from app.routers.contacts_manage import router as contacts_manage_router
 from app.routers.install_cases import INSTALL_CASES_API_PATH, router as install_cases_router
-from app.routers.materials_board import (
-    MATERIALS_BOARD_API_PATH,
-    MATERIALS_BOARD_FOLDER_API_VERSION,
-    router as materials_board_router,
-)
+from app.routers.materials_board import MATERIALS_BOARD_API_PATH, router as materials_board_router
 from app.routers.calendar_events import CALENDAR_EVENTS_API_PATH, router as calendar_events_router
 
 
@@ -146,7 +142,6 @@ def health_check():
         "installCasesPaths": install_paths,
         "materialsBoard": bool(materials_board_paths),
         "materialsBoardPaths": materials_board_paths,
-        "materialsBoardFolderApiVersion": MATERIALS_BOARD_FOLDER_API_VERSION,
         "projectDiscovery": bool(discovery_paths),
         "projectDiscoveryPaths": discovery_paths,
         "calendarEvents": bool(calendar_paths),
