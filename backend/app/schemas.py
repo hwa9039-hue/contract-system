@@ -656,6 +656,16 @@ def to_response_value(value):
     return str(value)
 
 
+def _contract_row_field(row, *keys, default=""):
+    """DB/psycopg 키(camelCase·snake_case·소문자) 차이를 흡수."""
+    if not row:
+        return default
+    for key in keys:
+        if key in row and row[key] is not None:
+            return row[key]
+    return default
+
+
 def row_to_contract(row) -> dict:
     raw_id = row.get("id")
     if raw_id is None:
@@ -685,12 +695,29 @@ def row_to_contract(row) -> dict:
         "salesOwner": to_response_value(row["salesOwner"]),
         "pm": to_response_value(row["pm"]),
         "note": to_response_value(row["note"]),
-        "costService": to_response_value(row.get("costService", "")),
-        "itemName": to_response_value(row.get("itemName", "")),
-        "designUnitPrice": to_response_value(row.get("designUnitPrice", 0)),
-        "pitch": to_response_value(row.get("pitch", "")),
-        "capW": to_response_value(row.get("capW", "")),
-        "capH": to_response_value(row.get("capH", "")),
+        "costService": to_response_value(
+            _contract_row_field(row, "costService", "cost_service", "costservice")
+        ),
+        "itemName": to_response_value(
+            _contract_row_field(row, "itemName", "item_name", "itemname")
+        ),
+        "designUnitPrice": to_response_value(
+            _contract_row_field(
+                row,
+                "designUnitPrice",
+                "unit_price",
+                "design_unit_price",
+                "designunitprice",
+                default=0,
+            )
+        ),
+        "pitch": to_response_value(_contract_row_field(row, "pitch")),
+        "capW": to_response_value(
+            _contract_row_field(row, "capW", "width_w", "cap_w", "capw", "width")
+        ),
+        "capH": to_response_value(
+            _contract_row_field(row, "capH", "height_h", "cap_h", "caph", "height")
+        ),
     }
 
 

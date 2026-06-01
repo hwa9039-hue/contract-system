@@ -14,31 +14,30 @@ import {
 const CONTRACT_TYPE_FILTER = '55121903'
 
 /**
- * UI 편집 필드 → PATCH API 키 (영문 DB 컬럼명, snake_case)
- * 한글 라벨(원가용역 등)은 절대 payload에 넣지 않음.
+ * UI 편집 필드 → PATCH/GET API 키 (camelCase — ContractOut 와 동일)
  */
 const UNIT_PRICE_API_COLUMN_MAP = Object.freeze({
-  costService: 'cost_service',
-  itemName: 'item_name',
-  designUnitPrice: 'unit_price',
-  pitch: 'pitch',
-  capW: 'width_w',
-  capH: 'height_h',
-})
-
-/** PATCH payload 키 → UI 편집 필드 키 (저장 후 로컬 상태 반영) */
-const API_KEY_TO_UI_FIELD = Object.freeze({
-  cost_service: 'costService',
-  item_name: 'itemName',
-  unit_price: 'designUnitPrice',
-  pitch: 'pitch',
-  width_w: 'capW',
-  height_h: 'capH',
   costService: 'costService',
   itemName: 'itemName',
   designUnitPrice: 'designUnitPrice',
+  pitch: 'pitch',
   capW: 'capW',
   capH: 'capH',
+})
+
+/** API 응답/payload 키 → UI 편집 필드 키 */
+const API_KEY_TO_UI_FIELD = Object.freeze({
+  costService: 'costService',
+  itemName: 'itemName',
+  designUnitPrice: 'designUnitPrice',
+  pitch: 'pitch',
+  capW: 'capW',
+  capH: 'capH',
+  cost_service: 'costService',
+  item_name: 'itemName',
+  unit_price: 'designUnitPrice',
+  width_w: 'capW',
+  height_h: 'capH',
 })
 
 const UNIT_PRICE_PATCH_KEYS = Object.freeze(Object.keys(UNIT_PRICE_API_COLUMN_MAP))
@@ -255,8 +254,10 @@ export default function UnitPriceManagement() {
     editableByRowIdRef.current = editableByRowId
   }, [editableByRowId])
 
-  const fetchUnitPriceRows = useCallback(async () => {
-    setLoading(true)
+  const fetchUnitPriceRows = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true)
+    }
     setError(null)
     try {
       const data = await contractsApi.list()
@@ -292,8 +293,25 @@ export default function UnitPriceManagement() {
       setEditableByRowId({})
       savedByRowIdRef.current = {}
     } finally {
-      setLoading(false)
+      if (!silent) {
+        setLoading(false)
+      }
     }
+  }, [])
+
+  const applyServerRowToState = useCallback((contractRow) => {
+    const rowId = safeString(contractRow?.id ?? contractRow?._id).trim()
+    if (!rowId) return
+
+    const fields = extractEditableFields(contractRow)
+    savedByRowIdRef.current = {
+      ...savedByRowIdRef.current,
+      [rowId]: { ...fields },
+    }
+    setEditableByRowId((prev) => ({
+      ...prev,
+      [rowId]: { ...fields },
+    }))
   }, [])
 
   useEffect(() => {
@@ -361,16 +379,20 @@ export default function UnitPriceManagement() {
     try {
       if (Object.keys(payload).length === 0) return
       console.log('🚀 [단가관리] 서버로 전송하는 Payload:', payload)
-      await contractsApi.update(normalizedRowId, payload)
-      const mergedFields = applyPatchToEditableFields(saved, payload)
-      savedByRowIdRef.current = {
-        ...savedByRowIdRef.current,
-        [normalizedRowId]: { ...mergedFields },
+      const updated = await contractsApi.update(normalizedRowId, payload)
+      if (updated && typeof updated === 'object') {
+        applyServerRowToState(updated)
+      } else {
+        const mergedFields = applyPatchToEditableFields(saved, payload)
+        savedByRowIdRef.current = {
+          ...savedByRowIdRef.current,
+          [normalizedRowId]: { ...mergedFields },
+        }
+        setEditableByRowId((prev) => ({
+          ...prev,
+          [normalizedRowId]: { ...mergedFields },
+        }))
       }
-      setEditableByRowId((prev) => ({
-        ...prev,
-        [normalizedRowId]: { ...mergedFields },
-      }))
       setSaveError(null)
       setSaveSuccess('저장되었습니다.')
       if (saveSuccessTimerRef.current) {
@@ -380,8 +402,7 @@ export default function UnitPriceManagement() {
         setSaveSuccess(null)
         saveSuccessTimerRef.current = null
       }, 1600)
-      // 새로고침 없이도 서버값 기준으로 즉시 동기화
-      await fetchUnitPriceRows()
+      await fetchUnitPriceRows({ silent: true })
     } catch (saveErr) {
       console.error('[단가관리] 행 저장 실패', saveErr)
       setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
@@ -389,7 +410,7 @@ export default function UnitPriceManagement() {
     } finally {
       savingRowIdsRef.current.delete(normalizedRowId)
     }
-  }, [fetchUnitPriceRows])
+  }, [applyServerRowToState, fetchUnitPriceRows])
 
   const handleEditableChange = (rowId, fieldKey, value) => {
     const nextValue =
