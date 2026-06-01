@@ -37,8 +37,9 @@ ALLOWED_HERO_VIDEO_TYPES = {
     "video/webm",
     "video/ogg",
     "video/quicktime",
+    "video/x-msvideo",
 }
-HERO_MEDIA_EXTENSIONS = ("jpg", "jpeg", "png", "webp", "mp4", "webm", "ogg", "mov")
+HERO_MEDIA_EXTENSIONS = ("jpg", "jpeg", "png", "webp", "mp4", "webm", "ogg", "mov", "avi")
 MAX_HERO_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_HERO_VIDEO_BYTES = 100 * 1024 * 1024
 
@@ -87,7 +88,9 @@ def resolve_hero_media_ext(upload: UploadFile) -> str:
     content_type = (upload.content_type or "").lower()
     filename_ext = _filename_ext(upload.filename or "")
 
-    if content_type in ALLOWED_HERO_VIDEO_TYPES or filename_ext in {"mp4", "webm", "ogg", "mov"}:
+    if content_type in ALLOWED_HERO_VIDEO_TYPES or filename_ext in {"mp4", "webm", "ogg", "mov", "avi"}:
+        if content_type == "video/x-msvideo" or filename_ext == "avi":
+            return "avi"
         if content_type == "video/quicktime" or filename_ext == "mov":
             return "mov"
         if content_type == "video/webm" or filename_ext == "webm":
@@ -115,7 +118,7 @@ def resolve_hero_media_ext(upload: UploadFile) -> str:
 
 
 def is_hero_video_ext(ext: str) -> bool:
-    return str(ext or "").lower().lstrip(".") in {"mp4", "webm", "ogg", "mov"}
+    return str(ext or "").lower().lstrip(".") in {"mp4", "webm", "ogg", "mov", "avi"}
 
 
 def media_type_for_ext(ext: str) -> str:
@@ -128,6 +131,8 @@ def media_type_for_ext(ext: str) -> str:
         return "video/ogg"
     if normalized == "mov":
         return "video/quicktime"
+    if normalized == "avi":
+        return "video/x-msvideo"
     if normalized == "png":
         return "image/png"
     if normalized == "webp":
