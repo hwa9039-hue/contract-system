@@ -454,7 +454,7 @@ export default function UnitPriceManagement() {
       setSaveError(null)
       try {
         await unitPricesApi.createItem(cid, { ...EMPTY_ITEM_PAYLOAD })
-        showToast('품목이 추가되었습니다.')
+        showToast('저장되었습니다.')
         await fetchTree({ silent: true, isRefetch: true })
       } catch (err) {
         setSaveError(err?.message || '품목 추가에 실패했습니다.')
@@ -477,7 +477,7 @@ export default function UnitPriceManagement() {
       try {
         await unitPricesApi.removeItem(itemId)
         delete savedByItemIdRef.current[itemId]
-        showToast('품목이 삭제되었습니다.')
+        showToast('삭제되었습니다.')
         await fetchTree({ silent: true, isRefetch: true })
       } catch (err) {
         setSaveError(err?.message || '품목 삭제에 실패했습니다.')
@@ -562,7 +562,7 @@ export default function UnitPriceManagement() {
   return (
     <div className="unit-price-management h-full min-h-0">
       {saveSuccess ? (
-        <div className="unit-price-save-success" role="status">
+        <div className="mode-toast" role="status">
           {saveSuccess}
         </div>
       ) : null}

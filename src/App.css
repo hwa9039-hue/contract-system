@@ -298,8 +298,8 @@ textarea {
 
 .graph-card-title {
   font-family: 'SUIT', sans-serif;
-  font-size: 14px;
-  font-weight: 800;
+  font-size: var(--cms-accordion-summary-font-size);
+  font-weight: var(--cms-accordion-summary-font-weight);
   text-align: center;
   margin-bottom: 8px;
 }
@@ -373,8 +373,8 @@ textarea {
   flex: 1;
   min-width: 0;
   font-family: 'SUIT', sans-serif;
-  font-size: 14px;
-  font-weight: 800;
+  font-size: var(--cms-accordion-summary-font-size);
+  font-weight: var(--cms-accordion-summary-font-weight);
   color: #223b63;
 }
 
@@ -904,9 +904,9 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
 
 .contract-table.excel-table.registry-table thead th {
   padding: 10px 8px;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.25;
+  font-size: var(--cms-table-header-font-size);
+  font-weight: var(--cms-table-header-font-weight);
+  line-height: var(--cms-table-cell-line-height);
   background: #f8fafc;
   color: #475569;
   min-height: 0;
@@ -914,9 +914,9 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
 
 .contract-table.excel-table.registry-table tbody td {
   padding: 6px 8px;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.25;
+  font-size: var(--cms-table-cell-font-size);
+  font-weight: var(--cms-table-cell-font-weight);
+  line-height: var(--cms-table-cell-line-height);
   color: #374151;
   vertical-align: middle;
 }
@@ -926,9 +926,9 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
 .contract-table.excel-table.registry-table .editable-text-cell-input,
 .contract-table.excel-table.registry-table .cell-inline-editor,
 .contract-table.excel-table.registry-table .inline-row-editor {
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.25;
+  font-size: var(--cms-table-cell-font-size);
+  font-weight: var(--cms-table-cell-font-weight);
+  line-height: var(--cms-table-cell-line-height);
 }
 
 .contract-table.excel-table.registry-table .contract-year-toggle,
@@ -1069,7 +1069,9 @@ table[data-contract-table-row-key] .col-note {
 }
 
 table[data-contract-table-row-key] thead th {
-  font-weight: 700 !important; /* header: font-bold */
+  font-size: var(--cms-table-header-font-size) !important;
+  font-weight: var(--cms-table-header-font-weight) !important;
+  line-height: var(--cms-table-cell-line-height) !important;
 }
 
 table[data-contract-table-row-key] .contract-year-toggle,
@@ -1082,8 +1084,9 @@ table[data-contract-table-row-key] tbody td,
 table[data-contract-table-row-key] tbody td .cell-display,
 table[data-contract-table-row-key] tbody td .editable-text-cell-display,
 table[data-contract-table-row-key] tbody td .editable-text-cell-input {
-  font-size: 12px !important; /* data: text-xs */
-  font-weight: 400 !important; /* data: font-normal */
+  font-size: var(--cms-table-cell-font-size) !important;
+  font-weight: var(--cms-table-cell-font-weight) !important;
+  line-height: var(--cms-table-cell-line-height) !important;
   vertical-align: middle !important;
 }
 
@@ -1139,9 +1142,9 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
   height: auto;
   min-height: 0;
   padding: 10px 8px;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.25;
+  font-size: var(--cms-table-header-font-size);
+  font-weight: var(--cms-table-header-font-weight);
+  line-height: var(--cms-table-cell-line-height);
   color: #475569;
 }
 
@@ -1149,9 +1152,9 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
   height: auto;
   min-height: 0;
   padding: 6px 8px;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.25;
+  font-size: var(--cms-table-cell-font-size);
+  font-weight: var(--cms-table-cell-font-weight);
+  line-height: var(--cms-table-cell-line-height);
   color: #374151;
   vertical-align: middle;
 }
@@ -1780,7 +1783,8 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
   border: 1px solid #e5edf7;
   border-radius: 8px;
   background: #f8fbff;
-  font-size: 12px;
+  font-size: var(--cms-accordion-body-font-size);
+  font-weight: var(--cms-accordion-body-font-weight);
 }
 
 .year-card-body {
@@ -1796,7 +1800,8 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
 
 .year-card-metric strong {
   color: #1f2937;
-  font-size: 13px;
+  font-size: var(--cms-accordion-body-font-size);
+  font-weight: 700;
 }
 
 .calendar-main-toolbar {
@@ -3262,6 +3267,16 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
   --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.06);
   --shadow-md: 0 10px 28px rgba(15, 23, 42, 0.1);
   --shadow-lg: 0 24px 60px rgba(15, 23, 42, 0.2);
+  /* 표·아코디언 전역 타이포 */
+  --cms-table-header-font-size: 13px;
+  --cms-table-header-font-weight: 700;
+  --cms-table-cell-font-size: 12px;
+  --cms-table-cell-font-weight: 400;
+  --cms-table-cell-line-height: 1.25;
+  --cms-accordion-summary-font-size: 13px;
+  --cms-accordion-summary-font-weight: 700;
+  --cms-accordion-body-font-size: 12px;
+  --cms-accordion-body-font-weight: 400;
 }
 
 body {
@@ -4677,7 +4692,8 @@ textarea:focus-visible {
 .graph-card-title {
   margin-bottom: 12px;
   color: var(--ink);
-  font-size: 15px;
+  font-size: var(--cms-accordion-summary-font-size);
+  font-weight: var(--cms-accordion-summary-font-weight);
 }
 
 .year-card-metric {
@@ -4693,7 +4709,8 @@ textarea:focus-visible {
 
 .year-card-metric strong {
   color: var(--ink);
-  font-size: 14px;
+  font-size: var(--cms-accordion-body-font-size);
+  font-weight: 700;
 }
 
 .contracts-header-actions {
@@ -4817,8 +4834,8 @@ textarea:focus-visible {
   background: #f8fafc;
   box-shadow: inset 0 -1px 0 #e2e8f0;
   color: #475569;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--cms-table-header-font-size);
+  font-weight: var(--cms-table-header-font-weight);
   letter-spacing: 0;
   padding: 10px 8px;
   min-height: 0;
@@ -4830,9 +4847,9 @@ textarea:focus-visible {
   padding: 6px 8px;
   border-right-color: #e5e7eb;
   border-bottom-color: #e2e8f0;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.25;
+  font-size: var(--cms-table-cell-font-size);
+  font-weight: var(--cms-table-cell-font-weight);
+  line-height: var(--cms-table-cell-line-height);
   color: #374151;
 }
 
@@ -4865,9 +4882,9 @@ textarea:focus-visible {
 .cell-display {
   min-height: 20px;
   padding: 0;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.25;
+  font-size: var(--cms-table-cell-font-size);
+  font-weight: var(--cms-table-cell-font-weight);
+  line-height: var(--cms-table-cell-line-height);
 }
 
 .dday-cell {
@@ -5403,14 +5420,17 @@ textarea:focus-visible {
 
 .dashboard-year-title > span:first-child {
   white-space: nowrap;
+  font-size: var(--cms-accordion-summary-font-size);
+  font-weight: var(--cms-accordion-summary-font-weight);
+  line-height: var(--cms-table-cell-line-height);
 }
 
 .dashboard-year-total {
   color: var(--muted);
   font-family: 'Pretendard', sans-serif;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1.25;
+  font-size: var(--cms-accordion-summary-font-size);
+  font-weight: var(--cms-accordion-summary-font-weight);
+  line-height: var(--cms-table-cell-line-height);
   white-space: nowrap;
 }
 
@@ -5561,13 +5581,13 @@ textarea:focus-visible {
 .excel-table thead th.th-align-center {
   text-align: center;
   vertical-align: middle;
-  line-height: 1.25;
+  line-height: var(--cms-table-cell-line-height);
   padding-top: 10px;
   padding-bottom: 10px;
   padding-left: 8px;
   padding-right: 8px;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--cms-table-header-font-size);
+  font-weight: var(--cms-table-header-font-weight);
 }
 
 .excel-table td.col-client .cell-display,
@@ -6030,8 +6050,8 @@ textarea:focus-visible {
 }
 
 .guide-panel-title {
-  font-size: 13px;
-  font-weight: 800;
+  font-size: var(--cms-accordion-summary-font-size);
+  font-weight: var(--cms-accordion-summary-font-weight);
   color: #334155;
 }
 
@@ -6090,7 +6110,8 @@ textarea:focus-visible {
   white-space: normal;
   word-break: keep-all;
   line-height: 1.65;
-  font-size: 13px;
+  font-size: var(--cms-accordion-body-font-size);
+  font-weight: var(--cms-accordion-body-font-weight);
 }
 
 .excluded-guide-panel {
@@ -7041,9 +7062,9 @@ textarea:focus-visible {
   padding: 10px 8px;
   background: #f8fafc !important;
   color: #475569;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.25;
+  font-size: var(--cms-table-header-font-size);
+  font-weight: var(--cms-table-header-font-weight);
+  line-height: var(--cms-table-cell-line-height);
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -11205,4 +11226,53 @@ table[data-contract-table-row-key] tbody td.p-0 > textarea:focus,
 .meeting-minutes-doc__agenda-due-cell > input:focus {
   box-shadow: inset 0 0 0 2px #3b82f6;
   background-color: #eff6ff;
+}
+
+/* ── CMS 전역 표·아코디언 타이포 통일 (변수 기준 최종 오버라이드) ── */
+.excel-table thead th,
+.excel-table thead th.th-align-left,
+.excel-table thead th.th-align-right,
+.excel-table thead th.th-align-center,
+.registry-table thead th,
+.unit-price-table thead th,
+table[data-contract-table-row-key] thead th {
+  font-size: var(--cms-table-header-font-size) !important;
+  font-weight: var(--cms-table-header-font-weight) !important;
+  line-height: var(--cms-table-cell-line-height) !important;
+}
+
+.excel-table tbody td,
+.registry-table tbody td,
+.unit-price-table tbody td,
+table[data-contract-table-row-key] tbody td,
+.cell-display,
+.editable-text-cell-display,
+.editable-text-cell-input,
+.unit-price-table .unit-price-cell-input,
+.unit-price-table tbody td.unit-price-readonly {
+  font-size: var(--cms-table-cell-font-size) !important;
+  font-weight: var(--cms-table-cell-font-weight) !important;
+  line-height: var(--cms-table-cell-line-height) !important;
+}
+
+.contract-table.excel-table.registry-table .contract-year-toggle,
+.contract-table.excel-table.registry-table .contract-category-group-row .contract-year-toggle,
+table[data-contract-table-row-key] .contract-year-toggle,
+table[data-contract-table-row-key] .contract-category-group-row .contract-year-toggle {
+  font-size: var(--cms-accordion-summary-font-size) !important;
+  font-weight: var(--cms-accordion-summary-font-weight) !important;
+  line-height: var(--cms-table-cell-line-height) !important;
+}
+
+.contract-table.excel-table.registry-table .contract-year-count {
+  font-size: var(--cms-accordion-body-font-size) !important;
+  font-weight: var(--cms-accordion-body-font-weight) !important;
+}
+
+.unit-price-management > .mode-toast {
+  position: fixed;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
 }

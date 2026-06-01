@@ -6053,13 +6053,13 @@ function App() {
         await fetchMaterialsBoardPosts()
         setMaterialsBoardFile([])
         handleCloseMaterialsBoardRegister()
-        showAppAlert('게시글이 성공적으로 수정되었습니다.', '알림')
+        setToastMessage('저장되었습니다.')
       } else {
         await materialsBoardApi.create(payload)
         await fetchMaterialsBoardPosts()
         setMaterialsBoardFile([])
         handleCloseMaterialsBoardRegister()
-        showAppAlert('게시글이 성공적으로 등록되었습니다.', '알림')
+        setToastMessage('저장되었습니다.')
       }
     } catch (error) {
       logApiOperationError(editingId ? '게시판 수정' : '게시판 등록', error)
@@ -6168,7 +6168,7 @@ function App() {
         const refreshed = await fetchInstallCases()
         const found = refreshed.find((row) => row.id === editingId)
         if (found) setInstallCaseDetailModal(found)
-        showAppAlert('설치사례가 성공적으로 수정되었습니다.', '알림')
+        setToastMessage('저장되었습니다.')
       } else {
         await installCasesApi.create(rowPayload, imageFile)
         clearInstallCaseFormDraftStorage()
@@ -6177,7 +6177,7 @@ function App() {
         setInstallCaseMiddleFilter('')
         setInstallCaseAudienceFilter('')
         await fetchInstallCases()
-        showAppAlert('설치사례가 성공적으로 등록되었습니다.', '알림')
+        setToastMessage('저장되었습니다.')
       }
     } catch (error) {
       logApiOperationError(isEdit ? '설치사례 수정' : '설치사례 등록', error)
@@ -6914,7 +6914,7 @@ function App() {
     try {
       await contactsManageApi.create(contactsRegisterForm)
       setContactsRegisterModalOpen(false)
-      showAppAlert('연락처가 등록되었습니다.', '알림')
+      setToastMessage('저장되었습니다.')
       await fetchContactsManageRows()
     } catch (error) {
       console.error('연락처 등록 실패', error)
@@ -6964,7 +6964,7 @@ function App() {
 
         setSelectedContactsIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
         await fetchContactsManageRows()
-        showAppAlert('선택한 항목이 삭제되었습니다.', '알림')
+        setToastMessage('삭제되었습니다.')
       },
     })
   }
@@ -9889,6 +9889,7 @@ function App() {
       setManualEvents((prev) => [{ ...row, ...normalizeManualEventRangeInPlace(row) }, ...prev])
       setEventForm({ ...emptyEvent })
       setCalendarEventRegisterOpen(false)
+      setToastMessage('저장되었습니다.')
     } catch (error) {
       console.error('[캘린더] 일정 등록 실패', error)
       if (error?.response) {
@@ -10023,7 +10024,7 @@ function App() {
         }
       })
       cancelCalendarManualDetailInlineEdit()
-      setToastMessage('일정이 수정되었습니다.')
+      setToastMessage('저장되었습니다.')
     } catch (error) {
       console.error('[캘린더] 일정 수정 실패', error)
       if (error?.response) {
@@ -12721,7 +12722,7 @@ function App() {
               <div className="registry-search-toolbar-split">
                 <input
                   className="table-search-input"
-                  placeholder="사업명, 발주처, 담당부서 등 검색"
+                  placeholder="검색어를 입력하세요"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -14758,7 +14759,9 @@ function App() {
                 </div>
                 <div className="install-case-form-modal-body">
                   <div className="global-register-form-grid">
-                    {columns.map((column) => (
+                    {columns
+                      .filter((column) => column.type !== 'importance')
+                      .map((column) => (
                       <div
                         key={column.key}
                         className={`global-register-field${
