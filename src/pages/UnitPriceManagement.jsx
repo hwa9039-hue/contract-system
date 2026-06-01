@@ -592,7 +592,7 @@ export default function UnitPriceManagement() {
             <div className="table-toolbar contract-toolbar-simple">
               <input
                 className="table-search-input"
-                placeholder="사업명, 발주처, 품명, Pitch 등 검색"
+                placeholder="검색어를 입력하세요"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
