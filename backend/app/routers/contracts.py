@@ -205,12 +205,29 @@ UNIT_PRICE_PAYLOAD_TO_DB = {
     "height_h": "capH",
 }
 
-# id는 항상 문자열(UUID)로 직렬화되어 프론트 `id` 필드와 일치합니다.
-RETURNING_COLUMNS = """
-  id::text as id, year, segment, "refNo", "contractNo", client, department,
-  "contractMethod", "contractType", "identNo", "contractDate", "dueDate",
-  "projectName", amount, "salesOwner", pm, note
+# contracts_rows(Parent) 전용 — 단가 6컬럼은 contract_unit_price_items 에만 존재
+CONTRACT_PARENT_RETURNING_SQL = """
+  id::text as id,
+  year,
+  segment,
+  "refNo",
+  "contractNo",
+  client,
+  department,
+  "contractMethod",
+  "contractType",
+  "identNo",
+  "contractDate",
+  "dueDate",
+  "projectName",
+  amount,
+  "salesOwner",
+  pm,
+  note
 """
+
+# 하위 호환 alias
+RETURNING_COLUMNS = CONTRACT_PARENT_RETURNING_SQL
 
 
 def quote_identifier(identifier: str) -> str:
@@ -371,21 +388,28 @@ def _import_contract_rows_with_dedupe(rows: list[ContractCreate]) -> dict:
 
 @router.get("", response_model=list[ContractOut])
 def list_contracts():
-    with get_connection() as connection:
-        filled = repair_contract_row_ids(connection)
-        if filled:
-            connection.commit()
-            logger.warning("contracts_rows: backfilled id on %s row(s) that had null id", filled)
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"""
-                select {RETURNING_COLUMNS}
-                from contracts_rows
-                order by year desc nulls last, "contractDate" desc nulls last
-                """
-            )
-            rows = cursor.fetchall()
-    return [row_to_contract(row) for row in rows]
+    try:
+        with get_connection() as connection:
+            filled = repair_contract_row_ids(connection)
+            if filled:
+                connection.commit()
+                logger.warning("contracts_rows: backfilled id on %s row(s) that had null id", filled)
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"""
+                    select {CONTRACT_PARENT_RETURNING_SQL}
+                    from contracts_rows
+                    order by year desc nulls last, "contractDate" desc nulls last
+                    """
+                )
+                rows = cursor.fetchall()
+        return [row_to_contract(row) for row in rows]
+    except Exception as exc:
+        logger.exception("GET /api/contracts failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"contracts list failed: {exc}",
+        ) from exc
 
 
 @router.post("", response_model=ContractOut, status_code=status.HTTP_201_CREATED)
@@ -481,10 +505,9 @@ async def update_contract(contract_id: str, request: Request):
     values, assignments = _build_contract_patch_sql(patch_data)
     values["id"] = contract_id
 
-    if not assignments:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid fields to update")
-
     unit_price_in_payload = [key for key in patch_data if key in UNIT_PRICE_PAYLOAD_TO_DB]
+    if not assignments and not unit_price_in_payload:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid fields to update")
 
     with get_connection() as connection:
         try:

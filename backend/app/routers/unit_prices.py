@@ -87,7 +87,7 @@ def _fetch_items_by_contract_ids(cursor, contract_ids: list[str]) -> dict[str, l
         f"""
         select {UNIT_PRICE_ITEM_RETURNING}
         from contract_unit_price_items
-        where contract_id = any(%s)
+        where contract_id::text = any(%s)
         order by contract_id, sort_order, "createdAt"
         """,
         (contract_ids,),
@@ -102,39 +102,52 @@ def _fetch_items_by_contract_ids(cursor, contract_ids: list[str]) -> dict[str, l
     return grouped
 
 
-@router.get("")
+@router.get("", summary="단가관리 Tree — 계약 + nested items[]")
 def list_unit_prices_tree(contractType: str = CONTRACT_TYPE_FILTER_DEFAULT):
     """계약(Parent) + 품목(Child) nested 구조 — 단가관리 Tree Grid 용."""
     contract_type = (contractType or "").strip() or CONTRACT_TYPE_FILTER_DEFAULT
 
-    with get_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"""
-                select {CONTRACT_PARENT_SELECT}
-                from contracts_rows c
-                where trim(c."contractType") = %s
-                order by c.year desc nulls last, c."contractDate" desc nulls last
-                """,
-                (contract_type,),
-            )
-            contract_rows = cursor.fetchall()
+    try:
+        with get_connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"""
+                    select {CONTRACT_PARENT_SELECT}
+                    from contracts_rows c
+                    where trim(c."contractType") = %s
+                    order by c.year desc nulls last, c."contractDate" desc nulls last
+                    """,
+                    (contract_type,),
+                )
+                contract_rows = cursor.fetchall()
 
-            contract_ids = [
-                str(r.get("id") or "").strip()
-                for r in contract_rows
-                if r.get("id") is not None and str(r.get("id")).strip()
-            ]
-            items_by_contract = _fetch_items_by_contract_ids(cursor, contract_ids)
+                contract_ids = [
+                    str(r.get("id") or "").strip()
+                    for r in contract_rows
+                    if r.get("id") is not None and str(r.get("id")).strip()
+                ]
+                items_by_contract = _fetch_items_by_contract_ids(cursor, contract_ids)
 
-    result = []
-    for row in contract_rows:
-        parent = _row_to_contract_parent(row)
-        cid = parent.get("id") or ""
-        parent["items"] = items_by_contract.get(cid, [])
-        result.append(parent)
+        result = []
+        for row in contract_rows:
+            parent = _row_to_contract_parent(row)
+            cid = parent.get("id") or ""
+            parent["items"] = items_by_contract.get(cid, [])
+            result.append(parent)
 
-    return result
+        return result
+    except Exception as exc:
+        logger.exception("GET /api/unit-prices failed contractType=%s", contract_type)
+        message = str(exc).strip()
+        if "contract_unit_price_items" in message and "does not exist" in message:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="contract_unit_price_items 테이블이 없습니다. migrate_contract_unit_price_items.sql 을 실행하세요.",
+            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"unit-prices list failed: {exc}",
+        ) from exc
 
 
 @router.post("/contracts/{contract_id}/items", status_code=status.HTTP_201_CREATED)

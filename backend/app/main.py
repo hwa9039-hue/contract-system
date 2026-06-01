@@ -10,7 +10,7 @@ from app.cors_preflight_middleware import ApiPreflightCorsMiddleware
 from app.database import init_db
 from app.routers import auth
 from app.routers import contracts
-from app.routers import unit_prices
+from app.routers.unit_prices import router as unit_prices_router
 from app.routers import document_register
 from app.routers import excluded_projects
 from app.routers import project_discovery
@@ -95,6 +95,12 @@ def on_startup():
     logger.info("CORS allow_origins count=%s (merged env + defaults)", len(_EFFECTIVE_CORS_ORIGINS))
     logger.info("Install cases API: POST/GET /api/install-cases (registered on app in main.py)")
     logger.info("Contacts manage API: GET/POST /api/contacts-manage (app.include_router contacts_manage_router)")
+    unit_price_paths = sorted(
+        getattr(route, "path", "")
+        for route in app.routes
+        if getattr(route, "path", None) and "unit-prices" in route.path
+    )
+    logger.info("Unit prices API paths: %s", unit_price_paths or "(none — check include_router)")
 
 
 @app.get("/api/health")
@@ -157,13 +163,23 @@ def health_check():
         "contactsManagePaths": contacts_manage_paths,
         "contactsManageMethods": contacts_manage_methods,
         "contactsManagePostEnabled": "POST" in contacts_manage_methods,
+        "unitPrices": bool(
+            any(getattr(route, "path", "") == "/api/unit-prices" for route in app.routes)
+        ),
+        "unitPricesPaths": sorted(
+            {
+                getattr(route, "path", "")
+                for route in app.routes
+                if getattr(route, "path", None) and "unit-prices" in route.path
+            }
+        ),
     }
 
 
 # /api 프리픽스는 main 에서만 붙임 → /api/api/... 중복 방지
 app.include_router(auth.router)
 app.include_router(contracts.router)
-app.include_router(unit_prices.router)
+app.include_router(unit_prices_router)
 app.include_router(sales_register.router)
 app.include_router(project_discovery.router)
 app.include_router(excluded_projects.router)
