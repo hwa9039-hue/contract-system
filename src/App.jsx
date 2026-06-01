@@ -2350,19 +2350,6 @@ function InstallCaseFormTwoColumn({
           }
           return null
         })}
-        <div className="install-case-form-stack-field install-case-form-stack-field--dropzone">
-          <InstallCaseImageDropzone
-            inputId="install-case-image-file"
-            label="이미지/동영상"
-            previewUrl={icImagePreview}
-            previewIsVideo={icImagePreviewIsVideo}
-            fileName={icImageFile?.name}
-            onFile={setIcImageFile}
-            onClear={onClearInstallCaseImage}
-            onInvalidFileType={onInvalidImageFile}
-            onFileTooLarge={onFileTooLarge}
-          />
-        </div>
       </InstallCaseFormSection>
 
       <InstallCaseFormSection title="제품 규격" ariaLabel="제품 규격">
@@ -2418,6 +2405,19 @@ function InstallCaseFormTwoColumn({
           }
           return null
         })}
+        <div className="install-case-form-stack-field install-case-form-stack-field--dropzone">
+          <InstallCaseImageDropzone
+            inputId="install-case-image-file"
+            label="이미지/동영상"
+            previewUrl={icImagePreview}
+            previewIsVideo={icImagePreviewIsVideo}
+            fileName={icImageFile?.name}
+            onFile={setIcImageFile}
+            onClear={onClearInstallCaseImage}
+            onInvalidFileType={onInvalidImageFile}
+            onFileTooLarge={onFileTooLarge}
+          />
+        </div>
       </InstallCaseFormSection>
     </div>
   )
