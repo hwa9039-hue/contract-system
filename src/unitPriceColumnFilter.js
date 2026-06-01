@@ -1,16 +1,21 @@
-/** 단가관리 메인 테이블 — 헤더 열 필터·통합 검색 (계약현황과 동일 패턴) */
+/** 단가관리 평면 리스트 — 헤더 열 필터·통합 검색 */
 
 export const UNIT_PRICE_FILTERABLE_COLUMN_KEYS = Object.freeze([
   'year',
   'client',
   'projectName',
-  'itemsSummary',
   'contractNo',
+  'itemName',
+  'costService',
+  'designUnitPrice',
+  'pitch',
+  'capW',
+  'capH',
 ])
 
 export const UNIT_PRICE_COLUMN_FILTER_BLANK = '(비어 있음)'
 
-const NUMERIC_SORT_COLUMN_KEYS = new Set(['year'])
+const NUMERIC_SORT_COLUMN_KEYS = new Set(['year', 'designUnitPrice'])
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -22,6 +27,14 @@ function getYearLabel(value) {
   if (!s) return ''
   const match = s.match(/\d{4}/)
   return match ? match[0] : s
+}
+
+function formatAmountForFilter(value) {
+  const raw = safeString(value).replace(/[^\d]/g, '')
+  if (!raw) return ''
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return safeString(value).trim()
+  return n.toLocaleString('ko-KR')
 }
 
 function compareKoreanText(a, b) {
@@ -38,6 +51,12 @@ function compareNumericColumnValues(a, b, columnKey) {
     if (ya !== yb) return yb - ya
     return compareKoreanText(a, b)
   }
+  if (columnKey === 'designUnitPrice') {
+    const na = Number(safeString(a).replace(/[^\d]/g, '')) || 0
+    const nb = Number(safeString(b).replace(/[^\d]/g, '')) || 0
+    if (na !== nb) return nb - na
+    return compareKoreanText(a, b)
+  }
   return compareKoreanText(a, b)
 }
 
@@ -47,6 +66,11 @@ export function getUnitPriceColumnFilterCellValue(item, columnKey) {
   if (columnKey === 'year') {
     const label = getYearLabel(row.year)
     return label || UNIT_PRICE_COLUMN_FILTER_BLANK
+  }
+
+  if (columnKey === 'designUnitPrice') {
+    const displayed = formatAmountForFilter(row.designUnitPrice)
+    return displayed || UNIT_PRICE_COLUMN_FILTER_BLANK
   }
 
   const raw = safeString(row[columnKey]).trim()

@@ -1,19 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Tooltip,
-  Typography,
-} from '@mui/material'
+import { Box, CircularProgress, IconButton, Tooltip } from '@mui/material'
 import { DataGrid, useGridApiRef } from '@mui/x-data-grid'
 import { koKR } from '@mui/x-data-grid/locales'
-import { Plus, Trash2, X } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.js'
 import { unitPricesApi } from '../api/unitPricesApi.js'
@@ -48,18 +37,11 @@ const EMPTY_ITEM_PAYLOAD = Object.freeze({
 
 const REFETCH_AFTER_SAVE_DELAY_MS = 750
 
-const UNIT_PRICE_MAIN_COLUMNS = Object.freeze([
-  { key: 'manage', label: '품목', filterable: false, className: 'unit-price-col-manage th-align-center' },
-  { key: 'year', label: '사업년도', filterable: true, className: 'unit-price-col-year th-align-center' },
-  { key: 'client', label: '발주처', filterable: true, className: 'unit-price-col-client th-align-center' },
-  { key: 'projectName', label: '사업명', filterable: true, className: 'unit-price-col-project th-align-center' },
-  { key: 'itemsSummary', label: '품목 요약', filterable: true, className: 'unit-price-col-summary th-align-center' },
-  { key: 'contractNo', label: '계약번호', filterable: true, className: 'unit-price-col-contract-no th-align-center' },
-])
+const PLACEHOLDER_ID_PREFIX = '__empty__'
 
 const GRID_BASE_SX = {
-  border: '1px solid #e2e8f0',
-  borderRadius: '10px',
+  border: 'none',
+  borderRadius: 0,
   '& .MuiDataGrid-columnHeaders': {
     backgroundColor: '#f3f4f6',
     fontWeight: 700,
@@ -68,11 +50,18 @@ const GRID_BASE_SX = {
     width: '100%',
     textAlign: 'center',
   },
+  '& .MuiDataGrid-columnHeader': {
+    overflow: 'visible !important',
+  },
 }
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
   return String(value)
+}
+
+function isPlaceholderRowId(id) {
+  return safeString(id).startsWith(PLACEHOLDER_ID_PREFIX)
 }
 
 function normalizeDesignUnitPriceValue(value) {
@@ -105,6 +94,17 @@ function normalizeItemFromApi(item) {
   }
 }
 
+function emptyItemFields() {
+  return {
+    costService: '',
+    itemName: '',
+    designUnitPrice: '',
+    pitch: '',
+    capW: '',
+    capH: '',
+  }
+}
+
 function itemFieldsToApiPatch(fields) {
   return {
     costService: safeString(fields.costService).trim(),
@@ -128,50 +128,81 @@ function buildItemPatchDiff(current, saved) {
   return patch
 }
 
-function formatItemSummaryPart(item) {
-  const itemName = safeString(item?.itemName).trim()
-  const costService = safeString(item?.costService).trim()
-  const label = itemName || costService
-  if (!label) return ''
-  const pitch = safeString(item?.pitch).trim()
-  if (pitch) return `${label}(Pitch:${pitch})`
-  return label
+function flattenContractsToRows(contracts) {
+  const list = Array.isArray(contracts) ? contracts : []
+  const rows = []
+
+  for (const contract of list) {
+    const contractId = safeString(contract?.id).trim()
+    if (!contractId) continue
+
+    const parent = {
+      contractId,
+      year: safeString(contract?.year).trim(),
+      client: safeString(contract?.client).trim(),
+      projectName: safeString(contract?.projectName).trim(),
+      contractNo: safeString(contract?.contractNo).trim(),
+    }
+
+    const items = Array.isArray(contract?.items) ? contract.items : []
+    const normalizedItems = items.map((item) => normalizeItemFromApi(item)).filter((row) => row.id)
+
+    if (normalizedItems.length === 0) {
+      rows.push({
+        id: `${PLACEHOLDER_ID_PREFIX}${contractId}`,
+        ...parent,
+        isPlaceholder: true,
+        ...emptyItemFields(),
+      })
+      continue
+    }
+
+    for (const item of normalizedItems) {
+      rows.push({
+        id: item.id,
+        ...parent,
+        isPlaceholder: false,
+        costService: item.costService,
+        itemName: item.itemName,
+        designUnitPrice: item.designUnitPrice,
+        pitch: item.pitch,
+        capW: item.capW,
+        capH: item.capH,
+      })
+    }
+  }
+
+  return rows
 }
 
-function buildItemsSummaryFromItems(items) {
-  if (!Array.isArray(items)) return ''
-  return items.map(formatItemSummaryPart).filter(Boolean).join(', ')
-}
-
-function contractToMainRow(contract) {
-  const contractId = safeString(contract?.id).trim()
-  const items = Array.isArray(contract?.items) ? contract.items : []
-  const itemsSummary =
-    safeString(contract?.itemsSummary).trim() || buildItemsSummaryFromItems(items)
+function rowToSavedSnapshot(row) {
   return {
-    id: contractId || `__missing__${Math.random()}`,
-    contractId,
-    year: safeString(contract?.year).trim(),
-    client: safeString(contract?.client).trim(),
-    projectName: safeString(contract?.projectName).trim(),
-    contractNo: safeString(contract?.contractNo).trim(),
-    itemsSummary,
-    items,
+    costService: row.costService,
+    itemName: row.itemName,
+    designUnitPrice: row.designUnitPrice,
+    pitch: row.pitch,
+    capW: row.capW,
+    capH: row.capH,
   }
 }
 
-function displayMainCellValue(row, key) {
-  const value = safeString(row?.[key]).trim()
-  return value || '-'
-}
-
-function formatContractDialogTitle(contract) {
-  const parts = [
-    safeString(contract?.projectName).trim(),
-    safeString(contract?.client).trim(),
-    contract?.year ? `${contract.year}년` : '',
-  ].filter(Boolean)
-  return parts.length > 0 ? parts.join(' · ') : '품목 관리'
+function renderFilterHeader(label, columnKey, ctx) {
+  const { unitPriceColumnFilterOptionsMap, activeFilters, handleActiveFiltersApply, openColumnFilterKey, setOpenColumnFilterKey } =
+    ctx
+  return (
+    <div className="contract-th-filter-wrap">
+      <span className="contract-th-label">{label}</span>
+      <ContractColumnHeaderFilter
+        columnKey={columnKey}
+        options={unitPriceColumnFilterOptionsMap[columnKey] ?? []}
+        selected={activeFilters[columnKey] ?? []}
+        onApply={handleActiveFiltersApply}
+        isOpen={openColumnFilterKey === columnKey}
+        onOpenChange={setOpenColumnFilterKey}
+        normalizeSelection={normalizeContractColumnFilterSelection}
+      />
+    </div>
+  )
 }
 
 export default function UnitPriceManagement() {
@@ -181,23 +212,18 @@ export default function UnitPriceManagement() {
   const [error, setError] = useState(null)
   const [saveError, setSaveError] = useState(null)
   const [saveSuccess, setSaveSuccess] = useState(null)
+  const [tableBusy, setTableBusy] = useState(false)
 
   const [search, setSearch] = useState('')
   const [activeFilters, setActiveFilters] = useState({})
   const [openColumnFilterKey, setOpenColumnFilterKey] = useState(null)
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [selectedContract, setSelectedContract] = useState(null)
-  const [dialogItems, setDialogItems] = useState([])
-  const [dialogBusy, setDialogBusy] = useState(false)
-
   const savedByItemIdRef = useRef({})
   const savingItemIdsRef = useRef(new Set())
   const saveSuccessTimerRef = useRef(null)
   const refetchAfterSaveTimerRef = useRef(null)
-  const dialogContractIdRef = useRef('')
 
-  const itemGridApiRef = useGridApiRef()
+  const gridApiRef = useGridApiRef()
 
   const gridLocaleText = useMemo(
     () => ({
@@ -216,17 +242,14 @@ export default function UnitPriceManagement() {
     }, 1600)
   }, [])
 
-  const syncDialogItemsFromContract = useCallback((contract) => {
-    const items = (contract?.items || [])
-      .map((item) => normalizeItemFromApi(item))
-      .filter((row) => row.id)
-
+  const syncSavedSnapshots = useCallback((rows) => {
     const saved = {}
-    for (const row of items) {
-      saved[row.id] = { ...row }
+    for (const row of rows) {
+      if (!row.isPlaceholder && row.id) {
+        saved[row.id] = rowToSavedSnapshot(row)
+      }
     }
     savedByItemIdRef.current = saved
-    setDialogItems(items)
   }, [])
 
   const fetchTree = useCallback(async ({ silent = false, isRefetch = false } = {}) => {
@@ -238,27 +261,19 @@ export default function UnitPriceManagement() {
       const data = await unitPricesApi.listTree(CONTRACT_TYPE_FILTER)
       const list = Array.isArray(data) ? data : []
       setContracts(list)
-
-      const dialogCid = safeString(dialogContractIdRef.current).trim()
-      if (dialogCid) {
-        const updated = list.find((c) => safeString(c.id).trim() === dialogCid)
-        if (updated) {
-          const row = contractToMainRow(updated)
-          setSelectedContract(row)
-          syncDialogItemsFromContract(updated)
-        }
-      }
+      syncSavedSnapshots(flattenContractsToRows(list))
     } catch (fetchError) {
       console.error('[단가관리] tree API fetch failed', fetchError)
       if (!isRefetch) {
         setError(fetchError?.message || '단가 데이터를 불러오지 못했습니다.')
         setContracts([])
+        savedByItemIdRef.current = {}
       }
     } finally {
       if (isRefetch) setRefetching(false)
       else if (!silent) setLoading(false)
     }
-  }, [syncDialogItemsFromContract])
+  }, [syncSavedSnapshots])
 
   const scheduleRefetchAfterSave = useCallback(() => {
     if (refetchAfterSaveTimerRef.current) clearTimeout(refetchAfterSaveTimerRef.current)
@@ -276,13 +291,10 @@ export default function UnitPriceManagement() {
     }
   }, [fetchTree])
 
-  const mainRows = useMemo(
-    () => contracts.map(contractToMainRow).filter((row) => row.contractId),
-    [contracts]
-  )
+  const flatRows = useMemo(() => flattenContractsToRows(contracts), [contracts])
 
   const unitPriceColumnFilterOptionsMap = useMemo(() => {
-    const basePool = mainRows.filter((item) => unitPriceMatchesSearch(item, search))
+    const basePool = flatRows.filter((item) => unitPriceMatchesSearch(item, search))
     const map = {}
     UNIT_PRICE_FILTERABLE_COLUMN_KEYS.forEach((columnKey) => {
       const pool = basePool.filter((item) =>
@@ -291,16 +303,16 @@ export default function UnitPriceManagement() {
       map[columnKey] = buildUnitPriceColumnFilterOptions(pool, columnKey)
     })
     return map
-  }, [activeFilters, mainRows, search])
+  }, [activeFilters, flatRows, search])
 
-  const filteredMainRows = useMemo(() => {
-    const searched = mainRows.filter((item) => unitPriceMatchesSearch(item, search))
+  const filteredFlatRows = useMemo(() => {
+    const searched = flatRows.filter((item) => unitPriceMatchesSearch(item, search))
     return filterUnitPriceRowsByActiveFilters(searched, activeFilters)
-  }, [activeFilters, mainRows, search])
+  }, [activeFilters, flatRows, search])
 
-  const isMainTableFilterResultEmpty = useMemo(
-    () => mainRows.length > 0 && filteredMainRows.length === 0,
-    [filteredMainRows.length, mainRows.length]
+  const isTableFilterResultEmpty = useMemo(
+    () => flatRows.length > 0 && filteredFlatRows.length === 0,
+    [filteredFlatRows.length, flatRows.length]
   )
 
   const handleActiveFiltersApply = useCallback((columnKey, selected) => {
@@ -313,205 +325,298 @@ export default function UnitPriceManagement() {
     })
   }, [])
 
-  const handleOpenItemDialog = useCallback((contractRow) => {
-    const contract = contracts.find(
-      (c) => safeString(c.id).trim() === safeString(contractRow.contractId).trim()
-    )
-    if (!contract) return
+  const handleAddItem = useCallback(
+    async (contractId) => {
+      const cid = safeString(contractId).trim()
+      if (!cid || tableBusy) return
 
-    const row = contractToMainRow(contract)
-    setSelectedContract(row)
-    dialogContractIdRef.current = row.contractId
-    syncDialogItemsFromContract(contract)
-    setSaveError(null)
-    setDialogOpen(true)
-  }, [contracts, syncDialogItemsFromContract])
-
-  const handleCloseDialog = useCallback(() => {
-    setDialogOpen(false)
-    setSelectedContract(null)
-    dialogContractIdRef.current = ''
-    setDialogItems([])
-    savedByItemIdRef.current = {}
-    setDialogBusy(false)
-  }, [])
-
-  const handleDialogAddItem = useCallback(async () => {
-    const contractId = safeString(selectedContract?.contractId).trim()
-    if (!contractId || dialogBusy) return
-
-    setDialogBusy(true)
-    setSaveError(null)
-    try {
-      await unitPricesApi.createItem(contractId, { ...EMPTY_ITEM_PAYLOAD })
-      showToast('품목이 추가되었습니다.')
-      await fetchTree({ silent: true, isRefetch: true })
-    } catch (err) {
-      setSaveError(err?.message || '품목 추가에 실패했습니다.')
-    } finally {
-      setDialogBusy(false)
-    }
-  }, [selectedContract?.contractId, dialogBusy, fetchTree, showToast])
-
-  const handleDialogDeleteItem = useCallback(
-    async (itemId) => {
-      const iid = safeString(itemId).trim()
-      if (!iid || dialogBusy) return
-      if (!window.confirm('이 품목을 삭제할까요?')) return
-
-      setDialogBusy(true)
+      setTableBusy(true)
       setSaveError(null)
       try {
-        await unitPricesApi.removeItem(iid)
-        delete savedByItemIdRef.current[iid]
+        await unitPricesApi.createItem(cid, { ...EMPTY_ITEM_PAYLOAD })
+        showToast('품목이 추가되었습니다.')
+        await fetchTree({ silent: true, isRefetch: true })
+      } catch (err) {
+        setSaveError(err?.message || '품목 추가에 실패했습니다.')
+      } finally {
+        setTableBusy(false)
+      }
+    },
+    [fetchTree, showToast, tableBusy]
+  )
+
+  const handleDeleteItem = useCallback(
+    async (row) => {
+      if (row?.isPlaceholder || isPlaceholderRowId(row?.id)) return
+      const itemId = safeString(row?.id).trim()
+      if (!itemId || tableBusy) return
+      if (!window.confirm('이 품목을 삭제할까요?')) return
+
+      setTableBusy(true)
+      setSaveError(null)
+      try {
+        await unitPricesApi.removeItem(itemId)
+        delete savedByItemIdRef.current[itemId]
         showToast('품목이 삭제되었습니다.')
         await fetchTree({ silent: true, isRefetch: true })
       } catch (err) {
         setSaveError(err?.message || '품목 삭제에 실패했습니다.')
       } finally {
-        setDialogBusy(false)
+        setTableBusy(false)
       }
     },
-    [dialogBusy, fetchTree, showToast]
+    [fetchTree, showToast, tableBusy]
   )
 
-  const processItemRowUpdate = useCallback(
+  const processRowUpdate = useCallback(
     async (newRow, oldRow) => {
-      const itemId = safeString(newRow.id).trim()
-      if (!itemId || savingItemIdsRef.current.has(itemId)) return oldRow
+      const rowId = safeString(newRow.id).trim()
+      if (!rowId || savingItemIdsRef.current.has(rowId) || tableBusy) return oldRow
 
-      const current = {
-        costService: newRow.costService,
-        itemName: newRow.itemName,
-        designUnitPrice: newRow.designUnitPrice,
-        pitch: newRow.pitch,
-        capW: newRow.capW,
-        capH: newRow.capH,
+      const current = rowToSavedSnapshot(newRow)
+      const contractId = safeString(newRow.contractId).trim()
+
+      if (newRow.isPlaceholder || isPlaceholderRowId(rowId)) {
+        const payload = itemFieldsToApiPatch(current)
+        const hasContent = UNIT_PRICE_FIELDS.some((key) => {
+          if (key === 'designUnitPrice') return payload.designUnitPrice > 0
+          return Boolean(safeString(payload[key]).trim())
+        })
+        if (!hasContent) return newRow
+
+        savingItemIdsRef.current.add(rowId)
+        try {
+          if (!contractId) throw new Error('계약 ID가 없습니다.')
+          await unitPricesApi.createItem(contractId, payload)
+          setSaveError(null)
+          showToast('저장되었습니다.')
+          scheduleRefetchAfterSave()
+          return newRow
+        } catch (saveErr) {
+          console.error('[단가관리] 품목 생성 실패', saveErr)
+          setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
+          setSaveSuccess(null)
+          throw saveErr
+        } finally {
+          savingItemIdsRef.current.delete(rowId)
+        }
       }
-      const saved = savedByItemIdRef.current[itemId] || normalizeItemFromApi({})
+
+      const saved = savedByItemIdRef.current[rowId] || rowToSavedSnapshot(oldRow)
       const patch = buildItemPatchDiff(current, saved)
       if (Object.keys(patch).length === 0) return newRow
 
-      savingItemIdsRef.current.add(itemId)
+      savingItemIdsRef.current.add(rowId)
       try {
-        const updated = await unitPricesApi.updateItem(itemId, patch)
+        const updated = await unitPricesApi.updateItem(rowId, patch)
         const normalized = normalizeItemFromApi(updated)
-        savedByItemIdRef.current[itemId] = { ...normalized }
-        setDialogItems((prev) =>
-          prev.map((row) => (row.id === itemId ? { ...normalized } : row))
-        )
+        savedByItemIdRef.current[rowId] = rowToSavedSnapshot({
+          ...newRow,
+          ...normalized,
+        })
         setSaveError(null)
         showToast('저장되었습니다.')
         scheduleRefetchAfterSave()
-        return { ...newRow, ...normalized }
+        return {
+          ...newRow,
+          costService: normalized.costService,
+          itemName: normalized.itemName,
+          designUnitPrice: normalized.designUnitPrice,
+          pitch: normalized.pitch,
+          capW: normalized.capW,
+          capH: normalized.capH,
+        }
       } catch (saveErr) {
         console.error('[단가관리] 품목 저장 실패', saveErr)
         setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
         setSaveSuccess(null)
         throw saveErr
       } finally {
-        savingItemIdsRef.current.delete(itemId)
+        savingItemIdsRef.current.delete(rowId)
       }
     },
-    [scheduleRefetchAfterSave, showToast]
+    [scheduleRefetchAfterSave, showToast, tableBusy]
   )
 
-  const handleItemCellClick = useCallback((params, event) => {
+  const handleCellClick = useCallback((params, event) => {
+    if (params.field === 'actions') return
     if (params.isEditable) {
       event.defaultMuiPrevented = true
     }
   }, [])
 
-  const handleItemCellDoubleClick = useCallback((params) => {
-    if (!params.isEditable || !itemGridApiRef.current) return
-    itemGridApiRef.current.startCellEditMode({
+  const handleCellDoubleClick = useCallback((params) => {
+    if (params.field === 'actions' || !params.isEditable || !gridApiRef.current) return
+    gridApiRef.current.startCellEditMode({
       id: params.id,
       field: params.field,
     })
   }, [])
 
-  const itemColumns = useMemo(
-    () => [
+  const filterHeaderCtx = useMemo(
+    () => ({
+      unitPriceColumnFilterOptionsMap,
+      activeFilters,
+      handleActiveFiltersApply,
+      openColumnFilterKey,
+      setOpenColumnFilterKey,
+    }),
+    [
+      activeFilters,
+      handleActiveFiltersApply,
+      openColumnFilterKey,
+      unitPriceColumnFilterOptionsMap,
+    ]
+  )
+
+  const columns = useMemo(() => {
+    const filterHeader = (label, key) => ({
+      renderHeader: () => renderFilterHeader(label, key, filterHeaderCtx),
+    })
+
+    return [
       {
         field: 'actions',
         headerName: '',
-        width: 56,
-        headerAlign: 'center',
+        width: 72,
         sortable: false,
         filterable: false,
         disableColumnMenu: true,
+        headerAlign: 'center',
+        align: 'center',
         renderCell: (params) => (
-          <Tooltip title="품목 삭제">
-            <span>
-              <IconButton
-                size="small"
-                color="error"
-                disabled={dialogBusy}
-                aria-label="품목 삭제"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  void handleDialogDeleteItem(params.row.id)
-                }}
-              >
-                <Trash2 size={16} />
-              </IconButton>
-            </span>
-          </Tooltip>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.25 }}>
+            <Tooltip title="품목 추가">
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label="품목 추가"
+                  disabled={tableBusy || refetching}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    void handleAddItem(params.row.contractId)
+                  }}
+                >
+                  <Plus size={16} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title={params.row.isPlaceholder ? '삭제할 품목 없음' : '품목 삭제'}>
+              <span>
+                <IconButton
+                  size="small"
+                  color="error"
+                  aria-label="품목 삭제"
+                  disabled={tableBusy || refetching || params.row.isPlaceholder}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    void handleDeleteItem(params.row)
+                  }}
+                >
+                  <Trash2 size={16} />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Box>
         ),
       },
       {
-        field: 'costService',
-        headerName: '원가용역',
-        width: 120,
+        field: 'year',
+        headerName: '사업년도',
+        width: 88,
+        editable: false,
         headerAlign: 'center',
         align: 'center',
-        editable: true,
+        disableColumnMenu: true,
+        valueFormatter: (value) => value || '-',
+        ...filterHeader('사업년도', 'year'),
+      },
+      {
+        field: 'client',
+        headerName: '발주처',
+        width: 130,
+        editable: false,
+        headerAlign: 'center',
+        align: 'center',
+        disableColumnMenu: true,
+        valueFormatter: (value) => value || '-',
+        ...filterHeader('발주처', 'client'),
+      },
+      {
+        field: 'projectName',
+        headerName: '사업명',
+        flex: 1,
+        minWidth: 180,
+        editable: false,
+        headerAlign: 'center',
+        disableColumnMenu: true,
+        valueFormatter: (value) => value || '-',
+        ...filterHeader('사업명', 'projectName'),
       },
       {
         field: 'itemName',
         headerName: '품명',
         width: 120,
+        editable: true,
         headerAlign: 'center',
         align: 'center',
+        disableColumnMenu: true,
+        ...filterHeader('품명', 'itemName'),
+      },
+      {
+        field: 'costService',
+        headerName: '단가유형',
+        width: 110,
         editable: true,
+        headerAlign: 'center',
+        align: 'center',
+        disableColumnMenu: true,
+        ...filterHeader('단가유형', 'costService'),
       },
       {
         field: 'designUnitPrice',
         headerName: '설계단가',
-        width: 110,
+        width: 100,
+        editable: true,
         headerAlign: 'center',
         align: 'right',
-        editable: true,
+        disableColumnMenu: true,
+        ...filterHeader('설계단가', 'designUnitPrice'),
       },
       {
         field: 'pitch',
         headerName: 'Pitch',
-        width: 80,
+        width: 72,
+        editable: true,
         headerAlign: 'center',
         align: 'center',
-        editable: true,
+        disableColumnMenu: true,
+        ...filterHeader('Pitch', 'pitch'),
       },
       {
         field: 'capW',
         headerName: 'W',
-        width: 72,
+        width: 64,
+        editable: true,
         headerAlign: 'center',
         align: 'center',
-        editable: true,
+        disableColumnMenu: true,
+        ...filterHeader('W', 'capW'),
       },
       {
         field: 'capH',
         headerName: 'H',
-        width: 72,
+        width: 64,
+        editable: true,
         headerAlign: 'center',
         align: 'center',
-        editable: true,
+        disableColumnMenu: true,
+        ...filterHeader('H', 'capH'),
       },
-    ],
-    [dialogBusy, handleDialogDeleteItem]
-  )
+    ]
+  }, [filterHeaderCtx, handleAddItem, handleDeleteItem, refetching, tableBusy])
 
-  const showEmpty = !loading && !error && mainRows.length === 0
+  const showEmpty = !loading && !error && flatRows.length === 0
 
   const sharedGridProps = {
     disableColumnMenu: true,
@@ -542,11 +647,11 @@ export default function UnitPriceManagement() {
           </div>
         ) : null}
 
-        {loading && mainRows.length === 0 ? (
+        {loading && flatRows.length === 0 ? (
           <Box className="unit-price-grid-loading" sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
             <CircularProgress size={32} />
           </Box>
-        ) : error && mainRows.length === 0 ? (
+        ) : error && flatRows.length === 0 ? (
           <div className="unit-price-empty-cell unit-price-empty-cell--error">{error}</div>
         ) : showEmpty ? (
           <div className="unit-price-empty-cell">
@@ -557,165 +662,45 @@ export default function UnitPriceManagement() {
             <div className="table-toolbar contract-toolbar-simple">
               <input
                 className="table-search-input"
-                placeholder="사업명, 발주처, 품목 요약 등 검색"
+                placeholder="사업명, 발주처, 품명, Pitch 등 검색"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
-            <div
-              className={`table-wrap unit-price-table-scroll contracts-only-scroll overflow-x-auto${
+            <Box
+              className={`unit-price-datagrid-wrap contract-table-panel${
                 refetching ? ' unit-price-table-wrap--refetching' : ''
               }`}
+              sx={{ flex: 1, minHeight: 480, width: '100%' }}
             >
-              <table className="contract-table excel-table registry-table ledger-table-ui unit-price-table table-w-full-min table-fixed w-full">
-                <colgroup>
-                  <col className="unit-price-col-manage" style={{ width: 96, minWidth: 96 }} />
-                  <col className="unit-price-col-year" />
-                  <col className="unit-price-col-client" />
-                  <col className="unit-price-col-project" />
-                  <col className="unit-price-col-summary" />
-                  <col className="unit-price-col-contract-no" style={{ width: 120, minWidth: 120 }} />
-                </colgroup>
-                <thead>
-                  <tr>
-                    {UNIT_PRICE_MAIN_COLUMNS.map((column) => (
-                      <th
-                        key={column.key}
-                        className={`unit-price-th ${column.className}${
-                          column.filterable ? ' contract-th-filterable' : ''
-                        }`}
-                      >
-                        {column.filterable ? (
-                          <div className="contract-th-filter-wrap">
-                            <span className="contract-th-label">{column.label}</span>
-                            <ContractColumnHeaderFilter
-                              columnKey={column.key}
-                              options={unitPriceColumnFilterOptionsMap[column.key] ?? []}
-                              selected={activeFilters[column.key] ?? []}
-                              onApply={handleActiveFiltersApply}
-                              isOpen={openColumnFilterKey === column.key}
-                              onOpenChange={setOpenColumnFilterKey}
-                              normalizeSelection={normalizeContractColumnFilterSelection}
-                            />
-                          </div>
-                        ) : (
-                          column.label
-                        )}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {isMainTableFilterResultEmpty ? (
-                    <tr>
-                      <td colSpan={UNIT_PRICE_MAIN_COLUMNS.length} className="empty-cell">
-                        필터 조건에 맞는 데이터가 없습니다.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredMainRows.map((row) => (
-                      <tr key={row.id} className={refetching ? 'unit-price-row--refetching' : undefined}>
-                        <td className="unit-price-readonly text-center">
-                          <button
-                            type="button"
-                            className="secondary-btn"
-                            style={{ fontSize: 12, padding: '4px 10px' }}
-                            onClick={() => handleOpenItemDialog(row)}
-                          >
-                            품목 관리
-                          </button>
-                        </td>
-                        <td className="unit-price-readonly text-center">
-                          {displayMainCellValue(row, 'year')}
-                        </td>
-                        <td className="unit-price-readonly text-center unit-price-cell-truncate">
-                          {displayMainCellValue(row, 'client')}
-                        </td>
-                        <td className="unit-price-readonly text-left pl-4 unit-price-cell-truncate">
-                          {displayMainCellValue(row, 'projectName')}
-                        </td>
-                        <td className="unit-price-readonly text-left pl-4 unit-price-cell-truncate">
-                          {displayMainCellValue(row, 'itemsSummary')}
-                        </td>
-                        <td className="unit-price-readonly text-center">
-                          {displayMainCellValue(row, 'contractNo')}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+              <DataGrid
+                apiRef={gridApiRef}
+                rows={isTableFilterResultEmpty ? [] : filteredFlatRows}
+                columns={columns}
+                editMode="cell"
+                processRowUpdate={processRowUpdate}
+                onProcessRowUpdateError={(err) => {
+                  console.error('[단가관리] 저장 오류', err)
+                }}
+                onCellClick={handleCellClick}
+                onCellDoubleClick={handleCellDoubleClick}
+                loading={refetching || tableBusy}
+                {...sharedGridProps}
+                localeText={{
+                  ...gridLocaleText,
+                  noRowsLabel: isTableFilterResultEmpty
+                    ? '필터 조건에 맞는 데이터가 없습니다.'
+                    : gridLocaleText.noRowsLabel,
+                }}
+              />
+            </Box>
+            <p className="unit-price-grid-hint" style={{ margin: '8px 0 0', fontSize: 12, color: '#64748b' }}>
+              품목 셀을 더블클릭하면 수정할 수 있으며, 편집 후 다른 셀을 클릭하면 자동 저장됩니다.
+            </p>
           </>
         )}
       </div>
-
-      <Dialog
-        open={dialogOpen}
-        onClose={handleCloseDialog}
-        fullWidth
-        maxWidth="lg"
-        scroll="paper"
-        aria-labelledby="unit-price-items-dialog-title"
-      >
-        <DialogTitle
-          id="unit-price-items-dialog-title"
-          sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}
-        >
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-              품목 관리
-            </Typography>
-            <Typography variant="h6" component="span" fontWeight={700}>
-              {formatContractDialogTitle(selectedContract)}
-            </Typography>
-          </Box>
-          <IconButton aria-label="닫기" onClick={handleCloseDialog} size="small">
-            <X size={20} />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent dividers sx={{ pt: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
-            <Button
-              size="small"
-              variant="outlined"
-              disabled={dialogBusy || !selectedContract?.contractId}
-              startIcon={<Plus size={14} strokeWidth={2.5} />}
-              onClick={() => void handleDialogAddItem()}
-            >
-              {dialogBusy ? '처리 중…' : '품목 추가'}
-            </Button>
-          </Box>
-
-          <Box sx={{ height: 420, width: '100%' }}>
-            <DataGrid
-              apiRef={itemGridApiRef}
-              rows={dialogItems}
-              columns={itemColumns}
-              editMode="cell"
-              processRowUpdate={processItemRowUpdate}
-              onProcessRowUpdateError={(err) => {
-                console.error('[단가관리] 품목 그리드 저장 오류', err)
-              }}
-              onCellClick={handleItemCellClick}
-              onCellDoubleClick={handleItemCellDoubleClick}
-              loading={dialogBusy || refetching}
-              {...sharedGridProps}
-            />
-          </Box>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            셀을 더블클릭하면 수정할 수 있으며, 편집 후 다른 셀을 클릭하면 자동 저장됩니다.
-          </Typography>
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={handleCloseDialog} variant="outlined">
-            닫기
-          </Button>
-        </DialogActions>
-      </Dialog>
     </div>
   )
 }
