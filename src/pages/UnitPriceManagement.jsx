@@ -52,7 +52,7 @@ const UNIT_PRICE_TABLE_COLUMNS = Object.freeze([
   { key: 'itemName', label: '품명', filterable: true, editable: true, thClass: 'unit-price-col-item th-align-center' },
   {
     key: 'costService',
-    label: '단가유형',
+    label: '원가용역',
     filterable: true,
     editable: true,
     thClass: 'unit-price-col-cost th-align-center',
@@ -217,7 +217,7 @@ export default function UnitPriceManagement() {
 
   const [search, setSearch] = useState('')
   const [activeFilters, setActiveFilters] = useState({})
-  const [openColumnFilterKey, setOpenColumnFilterKey] = useState(null)
+  const [openContractColumnFilterKey, setOpenContractColumnFilterKey] = useState(null)
 
   const savedByItemIdRef = useRef({})
   const savingItemIdsRef = useRef(new Set())
@@ -477,52 +477,52 @@ export default function UnitPriceManagement() {
             </div>
 
             <div
-              className={`table-wrap unit-price-table-scroll contracts-only-scroll overflow-x-auto${
+              className={`table-wrap contracts-only-scroll overflow-x-auto unit-price-table-scroll${
                 refetching || tableBusy ? ' unit-price-table-wrap--refetching' : ''
               }`}
             >
-              <table className="contract-table excel-table registry-table ledger-table-ui unit-price-table table-w-full-min table-fixed w-full">
-                <colgroup>
-                  <col className="unit-price-col-actions" />
-                  <col className="unit-price-col-year" />
-                  <col className="unit-price-col-client" />
-                  <col className="unit-price-col-project" />
-                  <col className="unit-price-col-item" />
-                  <col className="unit-price-col-cost" />
-                  <col className="unit-price-col-design" />
-                  <col className="unit-price-col-pitch" />
-                  <col className="unit-price-col-narrow" />
-                  <col className="unit-price-col-narrow" />
-                </colgroup>
-                <thead>
-                  <tr>
-                    {UNIT_PRICE_TABLE_COLUMNS.map((column) => (
-                      <th
-                        key={column.key}
-                        className={`unit-price-th ${column.thClass}${
-                          column.filterable ? ' contract-th-filterable' : ''
-                        }`}
-                      >
-                        {column.filterable ? (
-                          <div className="contract-th-filter-wrap">
-                            <span className="contract-th-label">{column.label}</span>
-                            <ContractColumnHeaderFilter
-                              columnKey={column.key}
-                              options={unitPriceColumnFilterOptionsMap[column.key] ?? []}
-                              selected={activeFilters[column.key] ?? []}
-                              onApply={handleActiveFiltersApply}
-                              isOpen={openColumnFilterKey === column.key}
-                              onOpenChange={setOpenColumnFilterKey}
-                              normalizeSelection={normalizeContractColumnFilterSelection}
-                            />
-                          </div>
-                        ) : (
-                          column.label
-                        )}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
+                <table className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table unit-price-table table-w-full-min">
+                  <colgroup>
+                    <col className="unit-price-col-actions" style={{ width: 52, minWidth: 52 }} />
+                    <col className="unit-price-col-year" style={{ width: 72, minWidth: 72 }} />
+                    <col className="unit-price-col-client" style={{ width: 110, minWidth: 110 }} />
+                    <col className="unit-price-col-project" style={{ minWidth: 240 }} />
+                    <col className="unit-price-col-item" style={{ width: 100, minWidth: 100 }} />
+                    <col className="unit-price-col-cost" style={{ width: 96, minWidth: 96 }} />
+                    <col className="unit-price-col-design" style={{ width: 88, minWidth: 88 }} />
+                    <col className="unit-price-col-pitch" style={{ width: 64, minWidth: 64 }} />
+                    <col className="unit-price-col-narrow" style={{ width: 52, minWidth: 52 }} />
+                    <col className="unit-price-col-narrow" style={{ width: 52, minWidth: 52 }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      {UNIT_PRICE_TABLE_COLUMNS.map((column) => (
+                        <th
+                          key={column.key}
+                          className={`${column.thClass}${
+                            column.filterable ? ' contract-th-filterable' : ''
+                          }`}
+                        >
+                          {column.filterable ? (
+                            <div className="contract-th-filter-wrap">
+                              <span className="contract-th-label">{column.label}</span>
+                              <ContractColumnHeaderFilter
+                                columnKey={column.key}
+                                options={unitPriceColumnFilterOptionsMap[column.key] ?? []}
+                                selected={activeFilters[column.key] ?? []}
+                                onApply={handleActiveFiltersApply}
+                                isOpen={openContractColumnFilterKey === column.key}
+                                onOpenChange={setOpenContractColumnFilterKey}
+                                normalizeSelection={normalizeContractColumnFilterSelection}
+                              />
+                            </div>
+                          ) : (
+                            column.label
+                          )}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
                 <tbody>
                   {isTableFilterResultEmpty ? (
                     <tr>

@@ -10814,7 +10814,7 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 
 .unit-price-table .unit-price-col-project {
   width: auto;
-  min-width: 200px;
+  min-width: 240px;
 }
 
 .unit-price-table .unit-price-col-item {
@@ -10897,14 +10897,14 @@ div[class*='MuiDataGrid-licenseWatermark'] {
   min-height: 0;
 }
 
-.unit-price-table.unit-price-table thead th.unit-price-th.contract-th-filterable {
+/* 단가관리 — 계약현황과 동일 헤더( sticky 제거, 필터 메뉴는 Portal ) */
+.unit-price-table.contracts-fixed-table thead th.contract-th-filterable {
   overflow: visible;
   position: relative;
-  z-index: 20;
 }
 
-.unit-price-table thead th.unit-price-th.contract-th-filterable:has(.contract-column-filter.is-open) {
-  z-index: 30;
+.contract-column-filter-menu--portal {
+  margin-top: 0;
 }
 
 .unit-price-table .text-center {
@@ -10951,38 +10951,8 @@ div[class*='MuiDataGrid-licenseWatermark'] {
   overflow-y: auto;
 }
 
-.unit-price-table thead th.unit-price-th {
-  padding: 10px 8px;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.25;
-  color: #475569;
-  text-align: center;
-  white-space: nowrap;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: #f3f4f6;
-  box-shadow: inset 0 -1px 0 #e2e8f0;
-}
-
-.unit-price-table thead th.unit-price-th.contract-th-filterable {
-  overflow: visible;
-  position: relative;
-  z-index: 20;
-}
-
-.unit-price-table thead th.unit-price-th.contract-th-filterable:has(.contract-column-filter.is-open) {
-  z-index: 30;
-}
-
-.unit-price-table thead th.unit-price-th.contract-th-filterable .contract-th-label {
-  overflow: visible;
-  text-overflow: clip;
-}
-
 .unit-price-table .contract-column-filter-menu {
-  z-index: 50;
+  z-index: 3000;
 }
 
 .unit-price-table tbody td.unit-price-readonly {
