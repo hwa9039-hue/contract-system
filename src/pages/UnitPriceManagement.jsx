@@ -13,17 +13,22 @@ import {
 
 const CONTRACT_TYPE_FILTER = '55121903'
 
+/** GET ContractOut JSON 키 — 백엔드 AS "costService" 등과 100% 동일 (camelCase) */
+const CONTRACT_OUT_UNIT_PRICE_FIELDS = Object.freeze([
+  'costService',
+  'itemName',
+  'designUnitPrice',
+  'pitch',
+  'capW',
+  'capH',
+])
+
 /**
  * UI 편집 필드 → PATCH/GET API 키 (camelCase — ContractOut 와 동일)
  */
-const UNIT_PRICE_API_COLUMN_MAP = Object.freeze({
-  costService: 'costService',
-  itemName: 'itemName',
-  designUnitPrice: 'designUnitPrice',
-  pitch: 'pitch',
-  capW: 'capW',
-  capH: 'capH',
-})
+const UNIT_PRICE_API_COLUMN_MAP = Object.freeze(
+  Object.fromEntries(CONTRACT_OUT_UNIT_PRICE_FIELDS.map((field) => [field, field]))
+)
 
 /** API 응답/payload 키 → UI 편집 필드 키 */
 const API_KEY_TO_UI_FIELD = Object.freeze({
@@ -51,6 +56,7 @@ const READONLY_COLUMNS = [
 const EDITABLE_COLUMNS = [
   {
     key: 'costService',
+    field: 'costService',
     label: '원가용역',
     headerClass: 'unit-price-col-editable',
     cellClass: 'unit-price-col-editable',
@@ -58,6 +64,7 @@ const EDITABLE_COLUMNS = [
   },
   {
     key: 'itemName',
+    field: 'itemName',
     label: '품명',
     headerClass: 'unit-price-col-editable',
     cellClass: 'unit-price-col-editable',
@@ -65,6 +72,7 @@ const EDITABLE_COLUMNS = [
   },
   {
     key: 'designUnitPrice',
+    field: 'designUnitPrice',
     label: '설계단가',
     headerClass: 'unit-price-col-design',
     cellClass: 'unit-price-col-design',
@@ -72,6 +80,7 @@ const EDITABLE_COLUMNS = [
   },
   {
     key: 'pitch',
+    field: 'pitch',
     label: 'Pitch',
     headerClass: 'unit-price-col-narrow',
     cellClass: 'unit-price-col-narrow',
@@ -79,6 +88,7 @@ const EDITABLE_COLUMNS = [
   },
   {
     key: 'capW',
+    field: 'capW',
     label: 'W',
     headerClass: 'unit-price-col-narrow',
     cellClass: 'unit-price-col-narrow',
@@ -86,6 +96,7 @@ const EDITABLE_COLUMNS = [
   },
   {
     key: 'capH',
+    field: 'capH',
     label: 'H',
     headerClass: 'unit-price-col-narrow',
     cellClass: 'unit-price-col-narrow',
@@ -122,9 +133,36 @@ function parseDesignUnitPrice(value) {
 
 function createEmptyEditableFields() {
   return EDITABLE_COLUMNS.reduce((acc, column) => {
-    acc[column.key] = ''
+    const field = column.field || column.key
+    acc[field] = ''
     return acc
   }, {})
+}
+
+function getColumnField(column) {
+  return column.field || column.key
+}
+
+function normalizeUnitPriceRowFromApi(item) {
+  const fields = extractEditableFields(item)
+  const normalized = {
+    costService: fields.costService,
+    itemName: fields.itemName,
+    designUnitPrice: fields.designUnitPrice,
+    pitch: fields.pitch,
+    capW: fields.capW,
+    capH: fields.capH,
+  }
+  for (const field of CONTRACT_OUT_UNIT_PRICE_FIELDS) {
+    if (item && item[field] !== undefined && item[field] !== null) {
+      if (field === 'designUnitPrice') {
+        normalized.designUnitPrice = formatDesignUnitPrice(item[field])
+      } else {
+        normalized[field] = safeString(item[field]).trim()
+      }
+    }
+  }
+  return normalized
 }
 
 function readContractField(item, ...keys) {
@@ -267,12 +305,14 @@ export default function UnitPriceManagement() {
         .map((item, index) => {
           const serverId = safeString(item.id ?? item._id ?? item.contract_id ?? item.ID).trim()
           const id = serverId || `__ROW__${index}`
+          const unitPriceFields = normalizeUnitPriceRowFromApi(item)
           return {
             id,
             year: safeString(item.year).trim(),
             client: safeString(item.client).trim(),
             projectName: safeString(item.projectName).trim(),
-            editableFields: extractEditableFields(item),
+            ...unitPriceFields,
+            editableFields: unitPriceFields,
           }
         })
 
@@ -285,7 +325,12 @@ export default function UnitPriceManagement() {
         Object.entries(nextEditable).map(([rowId, fields]) => [rowId, { ...fields }])
       )
 
-      setRows(filtered.map(({ id, year, client, projectName }) => ({ id, year, client, projectName })))
+      setRows(
+        filtered.map(({ editableFields, ...rest }) => ({
+          ...rest,
+          editableFields,
+        }))
+      )
       setEditableByRowId(nextEditable)
     } catch (fetchError) {
       console.error('[단가관리] 계약현황 API fetch failed', fetchError)
@@ -304,7 +349,7 @@ export default function UnitPriceManagement() {
     const rowId = safeString(contractRow?.id ?? contractRow?._id).trim()
     if (!rowId) return
 
-    const fields = extractEditableFields(contractRow)
+    const fields = normalizeUnitPriceRowFromApi(contractRow)
     savedByRowIdRef.current = {
       ...savedByRowIdRef.current,
       [rowId]: { ...fields },
@@ -313,6 +358,9 @@ export default function UnitPriceManagement() {
       ...prev,
       [rowId]: { ...fields },
     }))
+    setRows((prev) =>
+      prev.map((row) => (row.id === rowId ? { ...row, ...fields, editableFields: fields } : row))
+    )
   }, [])
 
   useEffect(() => {
@@ -403,7 +451,6 @@ export default function UnitPriceManagement() {
         setSaveSuccess(null)
         saveSuccessTimerRef.current = null
       }, 1600)
-      await fetchUnitPriceRows({ silent: true })
     } catch (saveErr) {
       console.error('[단가관리] 행 저장 실패', saveErr)
       setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
@@ -411,7 +458,7 @@ export default function UnitPriceManagement() {
     } finally {
       savingRowIdsRef.current.delete(normalizedRowId)
     }
-  }, [applyServerRowToState, fetchUnitPriceRows])
+  }, [applyServerRowToState])
 
   const handleEditableChange = (rowId, fieldKey, value) => {
     const nextValue =
@@ -425,6 +472,13 @@ export default function UnitPriceManagement() {
       editableByRowIdRef.current = next
       return next
     })
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId
+          ? { ...row, [fieldKey]: nextValue, editableFields: { ...row.editableFields, [fieldKey]: nextValue } }
+          : row
+      )
+    )
   }
 
   const handleEditableFocus = (rowId, fieldKey, originalValue) => {
@@ -538,10 +592,12 @@ export default function UnitPriceManagement() {
                       {row.projectName || '-'}
                     </td>
                     {EDITABLE_COLUMNS.map((column) => {
-                      const cellValue = editableByRowId[row.id]?.[column.key] ?? ''
+                      const field = getColumnField(column)
+                      const cellValue =
+                        editableByRowId[row.id]?.[field] ?? row[field] ?? ''
                       return (
                         <td
-                          key={column.key}
+                          key={field}
                           className={`unit-price-editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS} ${column.cellClass || ''}`}
                         >
                           <input
@@ -550,13 +606,13 @@ export default function UnitPriceManagement() {
                             style={{ textAlign: column.inputAlign || 'left' }}
                             value={cellValue}
                             onFocus={(event) =>
-                              handleEditableFocus(row.id, column.key, event.target.value)
+                              handleEditableFocus(row.id, field, event.target.value)
                             }
                             onChange={(event) =>
-                              handleEditableChange(row.id, column.key, event.target.value)
+                              handleEditableChange(row.id, field, event.target.value)
                             }
                             onBlur={(event) =>
-                              handleEditableBlur(row.id, column.key, event.target.value)
+                              handleEditableBlur(row.id, field, event.target.value)
                             }
                           />
                         </td>

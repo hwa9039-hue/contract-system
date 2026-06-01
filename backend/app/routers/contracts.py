@@ -43,6 +43,16 @@ UNIT_PRICE_MIRROR_DB_COLUMNS = {
     "capH": "height_h",
 }
 
+# 단가관리 PATCH — API camelCase 키 → DB camelCase 컬럼 (GET AS alias 와 동일)
+UNIT_PRICE_PATCH_DB_KEYS = (
+    "costService",
+    "itemName",
+    "designUnitPrice",
+    "pitch",
+    "capW",
+    "capH",
+)
+
 # id는 항상 문자열(UUID)로 직렬화되어 프론트 `id` 필드와 일치합니다.
 RETURNING_COLUMNS = f"""
   id::text as id, year, segment, "refNo", "contractNo", client, department,
@@ -54,6 +64,54 @@ RETURNING_COLUMNS = f"""
 
 def quote_identifier(identifier: str) -> str:
     return f'"{identifier}"'
+
+
+def _normalize_unit_price_patch_value(api_key: str, value):
+    if api_key not in ("designUnitPrice", "unit_price"):
+        return value
+    if value is None:
+        return 0
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, (int, float)):
+        return max(int(value), 0)
+    try:
+        return max(int(str(value).replace(",", "")), 0)
+    except ValueError:
+        return 0
+
+
+def _append_contract_patch_assignment(
+    db_key: str,
+    value,
+    values: dict,
+    assignments: list[str],
+    mirrored_db_keys: set[str],
+) -> None:
+    values[db_key] = value
+    assignments.append(f"{quote_identifier(db_key)} = %({db_key})s")
+    mirror_col = UNIT_PRICE_MIRROR_DB_COLUMNS.get(db_key)
+    if mirror_col and mirror_col not in mirrored_db_keys:
+        assignments.append(f"{mirror_col} = %({db_key})s")
+        mirrored_db_keys.add(mirror_col)
+
+
+def _build_contract_patch_sql(patch_data: dict) -> tuple[dict, list[str]]:
+    values: dict = {}
+    assignments: list[str] = []
+    mirrored_db_keys: set[str] = set()
+    applied_db_keys: set[str] = set()
+
+    for api_key, value in patch_data.items():
+        db_key = CONTRACT_DB_COLUMNS.get(api_key)
+        if not db_key or db_key in applied_db_keys:
+            continue
+        if db_key in UNIT_PRICE_PATCH_DB_KEYS:
+            value = _normalize_unit_price_patch_value(api_key, value)
+        _append_contract_patch_assignment(db_key, value, values, assignments, mirrored_db_keys)
+        applied_db_keys.add(db_key)
+
+    return values, assignments
 
 
 def _insert_contract_rows(rows: list[ContractCreate]) -> int:
@@ -239,33 +297,18 @@ def update_contract(contract_id: str, patch: ContractPatch):
     if not patch_data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
 
-    values = {"id": contract_id}
-    assignments = []
-    mirrored_db_keys: set[str] = set()
-
-    for api_key, value in patch_data.items():
-        db_key = CONTRACT_DB_COLUMNS.get(api_key)
-        if not db_key:
-            continue
-        if api_key in ("designUnitPrice", "unit_price") and value is not None:
-            if isinstance(value, bool):
-                value = 0
-            elif isinstance(value, (int, float)):
-                value = max(int(value), 0)
-            else:
-                try:
-                    value = max(int(str(value).replace(",", "")), 0)
-                except ValueError:
-                    value = 0
-        values[db_key] = value
-        assignments.append(f"{quote_identifier(db_key)} = %({db_key})s")
-        mirror_col = UNIT_PRICE_MIRROR_DB_COLUMNS.get(db_key)
-        if mirror_col and mirror_col not in mirrored_db_keys:
-            assignments.append(f"{mirror_col} = %({db_key})s")
-            mirrored_db_keys.add(mirror_col)
+    values, assignments = _build_contract_patch_sql(patch_data)
+    values["id"] = contract_id
 
     if not assignments:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid fields to update")
+
+    logger.info(
+        "contracts patch id=%s unit_price_fields=%s assignments=%s",
+        contract_id,
+        [key for key in patch_data if CONTRACT_DB_COLUMNS.get(key) in UNIT_PRICE_PATCH_DB_KEYS],
+        assignments,
+    )
 
     with get_connection() as connection:
         with connection.cursor() as cursor:
