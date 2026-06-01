@@ -1578,10 +1578,6 @@ function MaterialBoardMultiFileDropzone({
 /** 설치사례 상세 모달 규격표 행 순서 */
 const INSTALL_CASE_SPEC_ROWS = [
   { key: 'displayArea', label: '표출부 사이즈' },
-  { key: 'moduleSize', label: 'MODULE 크기 1' },
-  { key: 'moduleSize2', label: 'MODULE 크기 2' },
-  { key: 'moduleQty', label: 'MODULE 수량 1' },
-  { key: 'moduleQty2', label: 'MODULE 수량 2' },
   { key: 'resolution', label: '해상도' },
   { key: 'ledPitch', label: 'LED Pitch' },
   { key: 'installType', label: '설치유형' },
@@ -1590,10 +1586,6 @@ const INSTALL_CASE_SPEC_ROWS = [
 /** 설치사례 등록/수정: 우측 제품 규격 필드 */
 const INSTALL_CASE_REGISTER_SPEC_FIELDS = [
   { type: 'wh', pairId: 'displayArea', label: '표출부 사이즈', preview: 'whMm' },
-  { type: 'wh', pairId: 'moduleSize', label: 'MODULE 크기 1', preview: 'whMm' },
-  { type: 'wh', pairId: 'moduleSize2', label: 'MODULE 크기 2', preview: 'whMm' },
-  { type: 'wh', pairId: 'moduleQty', label: 'MODULE 수량 1', preview: 'moduleQty' },
-  { type: 'wh', pairId: 'moduleQty2', label: 'MODULE 수량 2', preview: 'moduleQty' },
   { type: 'wh', pairId: 'resolution', label: '해상도', preview: 'resolution' },
   { type: 'ledPitch', label: 'LED Pitch' },
   {
@@ -1765,10 +1757,6 @@ function normalizeInstallCaseRow(row) {
     specs: {
       displayArea: safeString(specs.displayArea).trim() || '-',
       ledPitch: safeString(specs.ledPitch).trim() || '-',
-      moduleSize: safeString(specs.moduleSize).trim() || '-',
-      moduleSize2: safeString(specs.moduleSize2).trim() || '-',
-      moduleQty: safeString(specs.moduleQty).trim() || '-',
-      moduleQty2: safeString(specs.moduleQty2).trim() || '-',
       resolution: safeString(specs.resolution).trim() || '-',
       installType: safeString(specs.installType).trim() || '-',
     },
@@ -1909,9 +1897,6 @@ function formatInstallCaseSpecDetailDisplay(key, raw) {
   switch (key) {
     case 'displayArea':
       return formatInstallCaseWhMmDetailDisplay(v)
-    case 'moduleQty':
-    case 'moduleQty2':
-      return formatInstallCaseModuleQtyDetailDisplay(v)
     case 'resolution':
       return formatInstallCaseResolutionDetailDisplay(v)
     case 'ledPitch':
@@ -2279,7 +2264,6 @@ function getInstallCaseSpecPreview(type, specs, pairId) {
   const w = specs[`${pairId}W`]
   const h = specs[`${pairId}H`]
   if (type === 'whMm') return formatInstallCaseWhMmFromWH(w, h)
-  if (type === 'moduleQty') return formatInstallCaseModuleQtyLine(w, h)
   if (type === 'resolution') return formatInstallCaseResolutionFromWH(w, h)
   return ''
 }
@@ -2451,15 +2435,7 @@ function getDefaultInstallCaseForm() {
     specs: {
       displayAreaW: '',
       displayAreaH: '',
-      moduleSizeW: '',
-      moduleSizeH: '',
-      moduleSize2W: '',
-      moduleSize2H: '',
       ledPitch: '',
-      moduleQtyW: '',
-      moduleQtyH: '',
-      moduleQty2W: '',
-      moduleQty2H: '',
       resolutionW: '',
       resolutionH: '',
       installType: '',
@@ -5847,11 +5823,7 @@ function App() {
     const openEditFromRow = () => {
       setInstallCaseEditingId(row.id)
       const da = parseWhMmNumbers(safeString(row.specs?.displayArea))
-      const ms = parseWhMmNumbers(safeString(row.specs?.moduleSize))
-      const ms2 = parseWhMmNumbers(safeString(row.specs?.moduleSize2))
       const res = parseResolutionStoredToWH(safeString(row.specs?.resolution))
-      const mq = parseModuleQtyToWH(safeString(row.specs?.moduleQty))
-      const mq2 = parseModuleQtyToWH(safeString(row.specs?.moduleQty2))
       setInstallCaseFormDraft({
         projectName: safeString(row.projectName).trim(),
         environment: migrateInstallCaseMajorCategory(row.environment),
@@ -5863,15 +5835,7 @@ function App() {
         specs: {
           displayAreaW: da ? String(da.w) : '',
           displayAreaH: da ? String(da.h) : '',
-          moduleSizeW: ms ? String(ms.w) : '',
-          moduleSizeH: ms ? String(ms.h) : '',
-          moduleSize2W: ms2 ? String(ms2.w) : '',
-          moduleSize2H: ms2 ? String(ms2.h) : '',
           ledPitch: installCaseLedPitchToFormValue(row.specs?.ledPitch),
-          moduleQtyW: mq.w,
-          moduleQtyH: mq.h,
-          moduleQty2W: mq2.w,
-          moduleQty2H: mq2.h,
           resolutionW: res.w,
           resolutionH: res.h,
           installType: safeString(row.specs?.installType).trim(),
@@ -6173,11 +6137,7 @@ function App() {
 
     const projectName = safeString(d.projectName).trim()
     const displayArea = formatInstallCaseWhMmFromWH(d.specs.displayAreaW, d.specs.displayAreaH) || '-'
-    const moduleSize = formatInstallCaseWhMmFromWH(d.specs.moduleSizeW, d.specs.moduleSizeH) || '-'
-    const moduleSize2 = formatInstallCaseWhMmFromWH(d.specs.moduleSize2W, d.specs.moduleSize2H) || '-'
     const ledPitch = safeString(d.specs.ledPitch).trim() || '-'
-    const moduleQty = formatInstallCaseModuleQtyLine(d.specs.moduleQtyW, d.specs.moduleQtyH) || '-'
-    const moduleQty2 = formatInstallCaseModuleQtyLine(d.specs.moduleQty2W, d.specs.moduleQty2H) || '-'
     const resolution =
       formatInstallCaseResolutionFromWH(d.specs.resolutionW, d.specs.resolutionH) || '-'
     const rowPayload = {
@@ -6192,10 +6152,6 @@ function App() {
       specs: {
         displayArea,
         ledPitch,
-        moduleSize,
-        moduleSize2,
-        moduleQty,
-        moduleQty2,
         resolution,
         installType: safeString(d.specs.installType).trim() || '-',
       },
@@ -14486,11 +14442,7 @@ function App() {
                   </div>
                   <div className="install-case-detail-specs-col">
                     <dl className="install-case-detail-meta">
-                      {INSTALL_CASE_SPEC_ROWS.filter(({ key }) => {
-                        if (key !== 'moduleSize2' && key !== 'moduleQty2') return true
-                        const value = safeString(installCaseDetailModal.specs?.[key]).trim()
-                        return value && value !== '-'
-                      }).map(({ key, label }) => (
+                      {INSTALL_CASE_SPEC_ROWS.map(({ key, label }) => (
                         <div className="install-case-meta-row" key={key}>
                           <dt>{label}</dt>
                           <dd>{formatInstallCaseSpecDetailDisplay(key, installCaseDetailModal.specs[key])}</dd>
