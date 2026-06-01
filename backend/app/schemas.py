@@ -695,29 +695,12 @@ def row_to_contract(row) -> dict:
         "salesOwner": to_response_value(row["salesOwner"]),
         "pm": to_response_value(row["pm"]),
         "note": to_response_value(row["note"]),
-        "costService": to_response_value(
-            _contract_row_field(row, "costService", "cost_service", "costservice")
-        ),
-        "itemName": to_response_value(
-            _contract_row_field(row, "itemName", "item_name", "itemname")
-        ),
-        "designUnitPrice": to_response_value(
-            _contract_row_field(
-                row,
-                "designUnitPrice",
-                "unit_price",
-                "design_unit_price",
-                "designunitprice",
-                default=0,
-            )
-        ),
-        "pitch": to_response_value(_contract_row_field(row, "pitch")),
-        "capW": to_response_value(
-            _contract_row_field(row, "capW", "width_w", "cap_w", "capw", "width")
-        ),
-        "capH": to_response_value(
-            _contract_row_field(row, "capH", "height_h", "cap_h", "caph", "height")
-        ),
+        "costService": "",
+        "itemName": "",
+        "designUnitPrice": 0,
+        "pitch": "",
+        "capW": "",
+        "capH": "",
     }
 
 
@@ -987,6 +970,28 @@ CONTRACT_DB_COLUMNS = {
     "unit_price": "designUnitPrice",
     "width_w": "capW",
     "height_h": "capH",
+}
+
+_UNIT_PRICE_API_KEYS = frozenset(
+    {
+        "costService",
+        "itemName",
+        "designUnitPrice",
+        "pitch",
+        "capW",
+        "capH",
+        "cost_service",
+        "item_name",
+        "unit_price",
+        "width_w",
+        "height_h",
+    }
+)
+
+CONTRACT_PARENT_DB_COLUMNS = {
+    api_key: db_key
+    for api_key, db_key in CONTRACT_DB_COLUMNS.items()
+    if api_key not in _UNIT_PRICE_API_KEYS
 }
 
 # ContractBase.model_dump() 에 없는 snake_case 별칭 — camelCase 본문만 INSERT (빈 문자열 덮어쓰기 방지)
@@ -1297,7 +1302,7 @@ def contract_to_db_values(contract: ContractBase) -> dict:
     data = contract.model_dump()
     out: dict = {}
 
-    for api_key, db_key in CONTRACT_DB_COLUMNS.items():
+    for api_key, db_key in CONTRACT_PARENT_DB_COLUMNS.items():
         if api_key in CONTRACT_DB_ALIAS_ONLY_KEYS:
             continue
         val = data.get(api_key)
@@ -1413,7 +1418,7 @@ def contract_to_db_values(contract: ContractBase) -> dict:
 
 def _finalize_contract_numeric_columns(out: dict) -> dict:
     """INSERT values 생성 마지막 — numeric/integer 컬럼에 빈 문자열이 남지 않게 0으로."""
-    numeric_keys = ("year", "amount", "designUnitPrice", "unit_price")
+    numeric_keys = ("year", "amount")
     for key in numeric_keys:
         if key not in out:
             continue

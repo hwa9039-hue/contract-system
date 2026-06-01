@@ -253,6 +253,162 @@ def repair_contract_row_ids(connection) -> int:
         return 0
 
 
+def _migrate_contract_unit_price_items(cursor) -> None:
+    """contracts_rows 단가 컬럼 → contract_unit_price_items 1:N 이관 후 Parent 컬럼 제거."""
+    cursor.execute(
+        """
+        create table if not exists contract_unit_price_items (
+          id uuid primary key default gen_random_uuid(),
+          contract_id text not null,
+          sort_order integer not null default 0,
+          "costService" text not null default '',
+          "itemName" text not null default '',
+          "designUnitPrice" numeric(18, 0) not null default 0,
+          pitch text not null default '',
+          "capW" text not null default '',
+          "capH" text not null default '',
+          "createdAt" timestamptz not null default now(),
+          "updatedAt" timestamptz not null default now()
+        )
+        """
+    )
+    cursor.execute(
+        """
+        create index if not exists contract_unit_price_items_contract_id_idx
+          on contract_unit_price_items (contract_id)
+        """
+    )
+    cursor.execute(
+        """
+        create index if not exists contract_unit_price_items_contract_sort_idx
+          on contract_unit_price_items (contract_id, sort_order)
+        """
+    )
+    cursor.execute(
+        """
+        alter table contract_unit_price_items
+          alter column contract_id type text using contract_id::text
+        """
+    )
+    cursor.execute(
+        """
+        do $$
+        begin
+          if not exists (
+            select 1 from pg_constraint
+            where conname = 'contract_unit_price_items_contract_id_fkey'
+          ) and exists (
+            select 1 from pg_constraint
+            where conrelid = 'contracts_rows'::regclass
+              and contype = 'p'
+          ) then
+            alter table contract_unit_price_items
+              add constraint contract_unit_price_items_contract_id_fkey
+              foreign key (contract_id) references contracts_rows (id) on delete cascade;
+          end if;
+        exception
+          when others then null;
+        end $$;
+        """
+    )
+
+    legacy_parent_cols = (
+        "costService",
+        "cost_service",
+        "itemName",
+        "item_name",
+        "designUnitPrice",
+        "unit_price",
+    )
+    if not any(_pg_rel_column_exists(cursor, "contracts_rows", col) for col in legacy_parent_cols):
+        return
+
+    cost_service_expr = (
+        "coalesce(nullif(c.\"costService\", ''), c.cost_service, '')"
+        if _pg_rel_column_exists(cursor, "contracts_rows", "costService")
+        else "coalesce(c.cost_service, '')"
+    )
+    item_name_expr = (
+        "coalesce(nullif(c.\"itemName\", ''), c.item_name, '')"
+        if _pg_rel_column_exists(cursor, "contracts_rows", "itemName")
+        else "coalesce(c.item_name, '')"
+    )
+    unit_price_expr = (
+        "coalesce(nullif(c.\"designUnitPrice\", 0::numeric), c.unit_price, 0::numeric)"
+        if _pg_rel_column_exists(cursor, "contracts_rows", "designUnitPrice")
+        else "coalesce(c.unit_price, 0::numeric)"
+    )
+    pitch_expr = "coalesce(c.pitch, '')" if _pg_rel_column_exists(cursor, "contracts_rows", "pitch") else "''"
+    cap_w_expr = (
+        "coalesce(nullif(c.\"capW\", ''), c.width_w, '')"
+        if _pg_rel_column_exists(cursor, "contracts_rows", "capW")
+        else "coalesce(c.width_w, '')"
+    )
+    cap_h_expr = (
+        "coalesce(nullif(c.\"capH\", ''), c.height_h, '')"
+        if _pg_rel_column_exists(cursor, "contracts_rows", "capH")
+        else "coalesce(c.height_h, '')"
+    )
+
+    cursor.execute(
+        f"""
+        insert into contract_unit_price_items (
+          contract_id,
+          sort_order,
+          "costService",
+          "itemName",
+          "designUnitPrice",
+          pitch,
+          "capW",
+          "capH"
+        )
+        select
+          c.id::text,
+          0,
+          {cost_service_expr},
+          {item_name_expr},
+          {unit_price_expr},
+          {pitch_expr},
+          {cap_w_expr},
+          {cap_h_expr}
+        from contracts_rows c
+        where not exists (
+          select 1
+          from contract_unit_price_items i
+          where i.contract_id::text = c.id::text
+        )
+        and (
+          {cost_service_expr} <> ''
+          or {item_name_expr} <> ''
+          or {unit_price_expr} <> 0
+          or {pitch_expr} <> ''
+          or {cap_w_expr} <> ''
+          or {cap_h_expr} <> ''
+        )
+        """
+    )
+
+    for col in (
+        "costService",
+        "itemName",
+        "designUnitPrice",
+        "pitch",
+        "capW",
+        "capH",
+        "cost_service",
+        "item_name",
+        "unit_price",
+        "width_w",
+        "height_h",
+    ):
+        if _pg_rel_column_exists(cursor, "contracts_rows", col):
+            cursor.execute(
+                sql.SQL("alter table contracts_rows drop column if exists {}").format(
+                    sql.Identifier(col)
+                )
+            )
+
+
 def init_db():
     """DDL 을 한 트랜잭션에 묶으면 중간 실패 시 앞선 CREATE 도 전부 롤백될 수 있어 autocommit 으로 각 문장을 확정합니다."""
     with get_connection() as connection:
@@ -278,13 +434,7 @@ def init_db():
                   amount numeric(18, 0) not null default 0,
                   "salesOwner" text not null default '',
                   pm text not null default '',
-                  note text not null default '',
-                  "costService" text not null default '',
-                  "itemName" text not null default '',
-                  "designUnitPrice" numeric(18, 0) not null default 0,
-                  pitch text not null default '',
-                  "capW" text not null default '',
-                  "capH" text not null default ''
+                  note text not null default ''
                 )
                 """
             )
@@ -483,73 +633,8 @@ def init_db():
                   add column if not exists "identNo" text not null default ''
                 """
             )
-            cursor.execute(
-                """
-                alter table contracts_rows
-                  add column if not exists "costService" text not null default ''
-                """
-            )
-            cursor.execute(
-                """
-                alter table contracts_rows
-                  add column if not exists "itemName" text not null default ''
-                """
-            )
-            cursor.execute(
-                """
-                alter table contracts_rows
-                  add column if not exists "designUnitPrice" numeric(18, 0) not null default 0
-                """
-            )
-            cursor.execute(
-                """
-                alter table contracts_rows
-                  add column if not exists pitch text not null default ''
-                """
-            )
-            cursor.execute(
-                """
-                alter table contracts_rows
-                  add column if not exists "capW" text not null default ''
-                """
-            )
-            cursor.execute(
-                """
-                alter table contracts_rows
-                  add column if not exists "capH" text not null default ''
-                """
-            )
-            cursor.execute(
-                """
-                alter table contracts_rows
-                  add column if not exists cost_service text not null default ''
-                """
-            )
-            cursor.execute(
-                """
-                alter table contracts_rows
-                  add column if not exists item_name text not null default ''
-                """
-            )
-            cursor.execute(
-                """
-                alter table contracts_rows
-                  add column if not exists unit_price numeric(18, 0) not null default 0
-                """
-            )
-            cursor.execute(
-                """
-                alter table contracts_rows
-                  add column if not exists width_w text not null default ''
-                """
-            )
-            cursor.execute(
-                """
-                alter table contracts_rows
-                  add column if not exists height_h text not null default ''
-                """
-            )
             _migrate_contracts_text_columns(cursor)
+            _migrate_contract_unit_price_items(cursor)
             cursor.execute(
                 """
                 create index if not exists contracts_rows_year_idx

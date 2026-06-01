@@ -22,14 +22,25 @@ CREATE TABLE IF NOT EXISTS contracts_rows (
   amount numeric(18, 0) NOT NULL DEFAULT 0,
   "salesOwner" text NOT NULL DEFAULT '',
   pm text NOT NULL DEFAULT '',
-  note text NOT NULL DEFAULT '',
+  note text NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS contract_unit_price_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  contract_id text NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
   "costService" text NOT NULL DEFAULT '',
   "itemName" text NOT NULL DEFAULT '',
   "designUnitPrice" numeric(18, 0) NOT NULL DEFAULT 0,
   pitch text NOT NULL DEFAULT '',
   "capW" text NOT NULL DEFAULT '',
-  "capH" text NOT NULL DEFAULT ''
+  "capH" text NOT NULL DEFAULT '',
+  "createdAt" timestamptz NOT NULL DEFAULT now(),
+  "updatedAt" timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE INDEX IF NOT EXISTS contract_unit_price_items_contract_id_idx
+  ON contract_unit_price_items (contract_id);
 
 CREATE TABLE IF NOT EXISTS sales_register_rows (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

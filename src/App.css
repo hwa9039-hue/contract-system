@@ -10658,6 +10658,32 @@ textarea:focus-visible {
   text-align: left;
 }
 
+/* ── 단가관리 Tree Grid (MUI X Data Grid Pro) ── */
+.unit-price-datagrid-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.unit-price-datagrid-wrap .unit-price-grid-row--contract {
+  font-weight: 600;
+}
+
+.unit-price-grid-loading {
+  flex: 1;
+  align-items: center;
+}
+
+.unit-price-save-success {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  color: #065f46;
+  font-weight: 800;
+  font-size: 13px;
+}
+
 /* ── 단가관리 ── */
 .main-area > section.stat-card.stat-card--unit-price {
   min-height: 0;

@@ -12,6 +12,7 @@ from app.excel_import_dedupe import (
 )
 from app.schemas import (
     CONTRACT_DB_COLUMNS,
+    CONTRACT_PARENT_DB_COLUMNS,
     ContractBulkCreate,
     ContractBulkDelete,
     ContractCreate,
@@ -19,6 +20,12 @@ from app.schemas import (
     ContractPatch,
     contract_to_db_values,
     row_to_contract,
+)
+from app.unit_price_items import (
+    extract_unit_price_fields_from_mapping,
+    has_unit_price_payload,
+    insert_unit_price_item,
+    upsert_first_unit_price_item,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,8 +37,6 @@ CONTRACT_NUMERIC_DB_COLUMNS = frozenset(
     {
         "year",
         "amount",
-        "designUnitPrice",
-        "unit_price",
     }
 )
 
@@ -116,9 +121,6 @@ def _sanitize_excel_row_values(values: dict) -> dict:
         elif not isinstance(val, int):
             sanitized[key] = _coerce_numeric_or_zero(val)
 
-    if "designUnitPrice" in sanitized:
-        sanitized["unit_price"] = sanitized["designUnitPrice"]
-
     for key in CONTRACT_NUMERIC_DB_COLUMNS:
         if key in sanitized and not isinstance(sanitized[key], int):
             sanitized[key] = 0
@@ -127,10 +129,20 @@ def _sanitize_excel_row_values(values: dict) -> dict:
 
 
 def _build_sanitized_row_values(contract: ContractCreate) -> dict:
-    """엑셀 row — DB 변환 → 전처리 루프 → numeric 정화."""
-    row = dict(contract_to_db_values(contract))
+    """엑셀 row — DB 변환 → 전처리 루프 → numeric 정화 (Parent 컬럼만)."""
+    row = _strip_parent_values(dict(contract_to_db_values(contract)))
     row = _preprocess_excel_row_dict(row)
     return _sanitize_excel_row_values(row)
+
+
+def _unit_price_fields_from_contract(contract: ContractCreate) -> dict:
+    return extract_unit_price_fields_from_mapping(contract.model_dump())
+
+
+def _after_contract_insert_unit_price(cursor, contract_id: str, contract: ContractCreate) -> None:
+    fields = _unit_price_fields_from_contract(contract)
+    if has_unit_price_payload(contract.model_dump()):
+        insert_unit_price_item(cursor, contract_id, fields)
 
 
 def _execute_contract_row_insert(
@@ -178,36 +190,7 @@ def _format_contract_insert_error(exc: Exception, row_index: int | None = None) 
     return message or "계약 데이터 저장에 실패했습니다."
 
 
-# 단가관리 6컬럼 — camelCase·snake_case 양쪽 DB 컬럼을 COALESCE 로 API camelCase 키에 통일
-UNIT_PRICE_SELECT_COLUMNS = """
-  COALESCE(NULLIF("costService", ''), cost_service, '') AS "costService",
-  COALESCE(NULLIF("itemName", ''), item_name, '') AS "itemName",
-  COALESCE(NULLIF("designUnitPrice", 0::numeric), unit_price, 0::numeric) AS "designUnitPrice",
-  pitch AS pitch,
-  COALESCE(NULLIF("capW", ''), width_w, '') AS "capW",
-  COALESCE(NULLIF("capH", ''), height_h, '') AS "capH"
-"""
-
-# PATCH 시 camelCase 컬럼과 함께 snake_case 미러 컬럼에도 동일 값 저장
-UNIT_PRICE_MIRROR_DB_COLUMNS = {
-    "costService": "cost_service",
-    "itemName": "item_name",
-    "designUnitPrice": "unit_price",
-    "capW": "width_w",
-    "capH": "height_h",
-}
-
-# 단가관리 PATCH — API camelCase 키 → DB camelCase 컬럼 (GET AS alias 와 동일)
-UNIT_PRICE_PATCH_DB_KEYS = (
-    "costService",
-    "itemName",
-    "designUnitPrice",
-    "pitch",
-    "capW",
-    "capH",
-)
-
-# 프론트 payload 키(camelCase·snake_case) → DB camelCase 컬럼명
+# 프론트 payload 키(camelCase·snake_case) → 품목 테이블 (Parent PATCH 레거시·분기용)
 UNIT_PRICE_PAYLOAD_TO_DB = {
     "costService": "costService",
     "cost_service": "costService",
@@ -223,11 +206,10 @@ UNIT_PRICE_PAYLOAD_TO_DB = {
 }
 
 # id는 항상 문자열(UUID)로 직렬화되어 프론트 `id` 필드와 일치합니다.
-RETURNING_COLUMNS = f"""
+RETURNING_COLUMNS = """
   id::text as id, year, segment, "refNo", "contractNo", client, department,
   "contractMethod", "contractType", "identNo", "contractDate", "dueDate",
-  "projectName", amount, "salesOwner", pm, note,
-  {UNIT_PRICE_SELECT_COLUMNS}
+  "projectName", amount, "salesOwner", pm, note
 """
 
 
@@ -235,64 +217,16 @@ def quote_identifier(identifier: str) -> str:
     return f'"{identifier}"'
 
 
-def _normalize_unit_price_patch_value(api_key: str, value):
-    if api_key not in ("designUnitPrice", "unit_price"):
-        if value is None:
-            return ""
-        return str(value).strip()
-    if value is None:
-        return 0
-    if isinstance(value, bool):
-        return 0
-    if isinstance(value, (int, float)):
-        return max(int(value), 0)
-    try:
-        return max(int(str(value).replace(",", "")), 0)
-    except ValueError:
-        return 0
-
-
-def _apply_unit_price_patch_updates(
-    patch_data: dict,
-    values: dict,
-    assignments: list[str],
-) -> set[str]:
-    """단가관리 6컬럼 UPDATE SET — payload(camel/snake) → DB 컬럼 + snake_case 미러."""
-    updated_db_cols: set[str] = set()
-
-    for payload_key, db_col in UNIT_PRICE_PAYLOAD_TO_DB.items():
-        if payload_key not in patch_data or db_col in updated_db_cols:
-            continue
-
-        param_key = f"upd_{db_col}"
-        normalized = _normalize_unit_price_patch_value(payload_key, patch_data[payload_key])
-        values[param_key] = normalized
-
-        assignments.append(f'{quote_identifier(db_col)} = %({param_key})s')
-        mirror_col = UNIT_PRICE_MIRROR_DB_COLUMNS.get(db_col)
-        if mirror_col:
-            assignments.append(f"{mirror_col} = %({param_key})s")
-
-        updated_db_cols.add(db_col)
-
-    return updated_db_cols
-
-
 def _append_contract_patch_assignment(
     db_key: str,
     value,
     values: dict,
     assignments: list[str],
-    mirrored_db_keys: set[str],
     param_key: str | None = None,
 ) -> None:
     bind_key = param_key or db_key
     values[bind_key] = value
     assignments.append(f"{quote_identifier(db_key)} = %({bind_key})s")
-    mirror_col = UNIT_PRICE_MIRROR_DB_COLUMNS.get(db_key)
-    if mirror_col and mirror_col not in mirrored_db_keys:
-        assignments.append(f"{mirror_col} = %({bind_key})s")
-        mirrored_db_keys.add(mirror_col)
 
 
 def _merge_contract_patch_data(raw_body: dict, patch: ContractPatch) -> dict:
@@ -312,26 +246,24 @@ def _merge_contract_patch_data(raw_body: dict, patch: ContractPatch) -> dict:
     return patch_data
 
 
-def _unit_price_assignments(assignments: list[str]) -> list[str]:
-    return [a for a in assignments if any(col in a for col in UNIT_PRICE_PATCH_DB_KEYS)]
+def _strip_parent_values(values: dict) -> dict:
+  """Parent INSERT/UPDATE — 품목 전용 키 제거."""
+  parent_keys = set(CONTRACT_PARENT_DB_COLUMNS.values())
+  return {k: v for k, v in values.items() if k in parent_keys}
 
 
 def _build_contract_patch_sql(patch_data: dict) -> tuple[dict, list[str]]:
     values: dict = {}
     assignments: list[str] = []
-    mirrored_db_keys: set[str] = set()
     applied_db_keys: set[str] = set()
-
-    unit_price_db_cols = _apply_unit_price_patch_updates(patch_data, values, assignments)
-    applied_db_keys.update(unit_price_db_cols)
 
     for api_key, value in patch_data.items():
         if api_key in UNIT_PRICE_PAYLOAD_TO_DB:
             continue
-        db_key = CONTRACT_DB_COLUMNS.get(api_key)
+        db_key = CONTRACT_PARENT_DB_COLUMNS.get(api_key)
         if not db_key or db_key in applied_db_keys:
             continue
-        _append_contract_patch_assignment(db_key, value, values, assignments, mirrored_db_keys)
+        _append_contract_patch_assignment(db_key, value, values, assignments)
         applied_db_keys.add(db_key)
 
     return values, assignments
@@ -347,7 +279,9 @@ def _insert_contract_rows(rows: list[ContractCreate]) -> int:
             for row_index, contract in enumerate(rows, start=1):
                 values = _build_sanitized_row_values(contract)
                 try:
-                    _execute_contract_row_insert(cursor, values, returning=False)
+                    row = _execute_contract_row_insert(cursor, values, returning=True)
+                    if row and row.get("id"):
+                        _after_contract_insert_unit_price(cursor, str(row["id"]), contract)
                 except Exception as exc:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
@@ -403,6 +337,8 @@ def _import_contract_rows_with_dedupe(rows: list[ContractCreate]) -> dict:
 
                 try:
                     row = _execute_contract_row_insert(cursor, values, returning=True)
+                    if row and row.get("id"):
+                        _after_contract_insert_unit_price(cursor, str(row["id"]), contract)
                 except Exception as exc:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
@@ -460,6 +396,8 @@ def create_contract(contract: ContractCreate):
         with connection.cursor() as cursor:
             try:
                 row = _execute_contract_row_insert(cursor, values, returning=True)
+                if row and row.get("id"):
+                    _after_contract_insert_unit_price(cursor, str(row["id"]), contract)
             except Exception as exc:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -547,43 +485,45 @@ async def update_contract(contract_id: str, request: Request):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid fields to update")
 
     unit_price_in_payload = [key for key in patch_data if key in UNIT_PRICE_PAYLOAD_TO_DB]
-    unit_price_assignments = _unit_price_assignments(assignments)
-    if unit_price_in_payload and not unit_price_assignments:
-        logger.error(
-            "contracts patch id=%s unit price keys in payload but SET clause empty: keys=%s patch_data=%s",
-            contract_id,
-            unit_price_in_payload,
-            patch_data,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unit price fields were not applied to UPDATE query",
-        )
-
-    logger.info(
-        "contracts patch id=%s unit_price_payload_keys=%s unit_price_assignments=%s values=%s",
-        contract_id,
-        unit_price_in_payload,
-        unit_price_assignments,
-        {k: v for k, v in values.items() if k.startswith("upd_")},
-    )
-
-    update_sql = f"""
-                update contracts_rows
-                set
-                  {", ".join(assignments)}
-                where id::text = %(id)s
-                returning {RETURNING_COLUMNS}
-                """
 
     with get_connection() as connection:
         try:
             with connection.cursor() as cursor:
-                cursor.execute(update_sql, values)
-                row = cursor.fetchone()
-                if cursor.rowcount != 1:
-                    connection.rollback()
-                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
+                if unit_price_in_payload:
+                    upsert_first_unit_price_item(cursor, contract_id, patch_data)
+
+                row = None
+                if assignments:
+                    update_sql = f"""
+                    update contracts_rows
+                    set
+                      {", ".join(assignments)}
+                    where id::text = %(id)s
+                    returning {RETURNING_COLUMNS}
+                    """
+                    cursor.execute(update_sql, values)
+                    row = cursor.fetchone()
+                    if cursor.rowcount != 1:
+                        connection.rollback()
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found"
+                        )
+                else:
+                    cursor.execute(
+                        f"""
+                        select {RETURNING_COLUMNS}
+                        from contracts_rows
+                        where id::text = %(id)s
+                        """,
+                        {"id": contract_id},
+                    )
+                    row = cursor.fetchone()
+                    if row is None:
+                        connection.rollback()
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found"
+                        )
+
                 connection.commit()
         except HTTPException:
             raise
