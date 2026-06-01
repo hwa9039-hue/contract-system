@@ -6,6 +6,7 @@ from fastapi import APIRouter, status
 
 from app.database import get_connection
 from app.schemas import (
+    ContactsManageBulkDelete,
     ContactsManageCreate,
     ContactsManageOut,
     contacts_manage_to_db_values,
@@ -127,3 +128,23 @@ def create_contact(body: ContactsManageCreate):
 
     logger.info("contacts_rows created id=%s category=%s", created.get("id"), created.get("category"))
     return created
+
+
+@router.delete("")
+def bulk_delete_contacts(payload: ContactsManageBulkDelete):
+    """연락처 선택 삭제 (DELETE /api/contacts-manage)."""
+    ids = [str(item) for item in payload.ids if str(item).strip()]
+    if not ids:
+        return {"deleted": 0}
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "delete from contacts_rows where id::text = any(%s)",
+                (ids,),
+            )
+            deleted_count = cursor.rowcount
+        connection.commit()
+
+    logger.info("contacts_rows bulk deleted count=%s", deleted_count)
+    return {"deleted": deleted_count}

@@ -6987,10 +6987,24 @@ function App() {
       message: '선택한 연락처를 삭제하시겠습니까?',
       destructive: true,
       confirmLabel: '삭제',
-      onConfirm: () => {
-        setContactsManageRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
+      onConfirm: async () => {
+        const persistedIds = contactsManageRows
+          .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
+          .map((row) => row.id)
+          .filter((id) => safeString(id).trim() !== '')
+
+        if (persistedIds.length > 0) {
+          try {
+            await contactsManageApi.bulkDelete(persistedIds)
+          } catch (error) {
+            logApiOperationError('연락처 선택 삭제', error)
+            return
+          }
+        }
+
         setSelectedContactsIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
-        setToastMessage('선택한 항목이 삭제되었습니다. (로컬만 반영)')
+        await fetchContactsManageRows()
+        showAppAlert('선택한 항목이 삭제되었습니다.', '알림')
       },
     })
   }

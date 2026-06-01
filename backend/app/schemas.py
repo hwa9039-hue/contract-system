@@ -439,6 +439,10 @@ class ContactsManageOut(ContactsManageBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ContactsManageBulkDelete(BaseModel):
+    ids: list[Any]
+
+
 def _join_report_payload_parts(parts: Any) -> str:
     if not isinstance(parts, list):
         return ""

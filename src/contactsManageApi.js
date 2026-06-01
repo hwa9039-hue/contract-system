@@ -63,4 +63,10 @@ export const contactsManageApi = {
       body: JSON.stringify(payload),
     })
   },
+  bulkDelete(ids) {
+    return requestJson(CONTACTS_MANAGE_API_PATH, {
+      method: 'DELETE',
+      body: JSON.stringify({ ids }),
+    })
+  },
 }
