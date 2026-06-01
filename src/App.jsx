@@ -2070,9 +2070,7 @@ function InstallCaseHeroMedia({
           <video
             className={className}
             src={mediaSrc}
-            autoPlay
             muted
-            loop
             playsInline
             preload="metadata"
             aria-hidden
@@ -2086,6 +2084,11 @@ function InstallCaseHeroMedia({
             loading={loading}
           />
         )}
+        {isVideo ? (
+          <div className="install-case-card-video-badge" aria-hidden>
+            ▶
+          </div>
+        ) : null}
         <div className="install-case-card-media-overlay" aria-hidden />
       </div>
     )
