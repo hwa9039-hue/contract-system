@@ -2209,6 +2209,7 @@ function InstallCaseImageDropzone({
               type="button"
               className="install-case-dropzone-clear"
               onClick={(e) => {
+                e.preventDefault()
                 e.stopPropagation()
                 onClear()
               }}

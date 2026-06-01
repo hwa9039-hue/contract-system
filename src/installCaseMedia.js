@@ -1,7 +1,6 @@
 /** 설치사례 hero 미디어(이미지·동영상) 공통 유틸 */
 
-export const INSTALL_CASE_MEDIA_ACCEPT =
-  'image/*,video/mp4,video/webm,video/ogg'
+export const INSTALL_CASE_MEDIA_ACCEPT = 'image/*,video/*'
 
 export const INSTALL_CASE_MAX_IMAGE_BYTES = 10 * 1024 * 1024
 export const INSTALL_CASE_MAX_VIDEO_BYTES = 100 * 1024 * 1024
