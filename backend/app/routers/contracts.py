@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, HTTPException, Request, status
 
@@ -23,6 +24,159 @@ from app.schemas import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/contracts", tags=["contracts"])
+
+# contracts_rows INSERT numeric/integer 컬럼
+CONTRACT_NUMERIC_DB_COLUMNS = frozenset(
+    {
+        "year",
+        "amount",
+        "designUnitPrice",
+        "unit_price",
+    }
+)
+
+
+def _is_empty_numeric_input(value) -> bool:
+    if value is None:
+        return True
+    stripped = str(value).strip()
+    return stripped == "" or stripped == "-"
+
+
+def _coerce_numeric_or_zero(value) -> int:
+    """한글 등 변환 불가 값 포함 — 무조건 int, 실패 시 0."""
+    if _is_empty_numeric_input(value):
+        return 0
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if value != value:
+            return 0
+        return int(value)
+    if isinstance(value, Decimal):
+        try:
+            return int(value)
+        except Exception:
+            return 0
+
+    raw = str(value).strip().replace(",", "")
+    if not raw or raw in ("—", "–"):
+        return 0
+
+    try:
+        if "." in raw:
+            return int(Decimal(raw))
+        return int(raw)
+    except (InvalidOperation, ValueError, TypeError):
+        return 0
+
+
+def _preprocess_excel_row_dict(row: dict) -> dict:
+    """execute 직전 — numeric/integer 컬럼: 빈 문자열·'-' → 0, 그 외 숫자 변환(실패 시 0)."""
+    processed = dict(row)
+    for key, value in list(processed.items()):
+        if key not in CONTRACT_NUMERIC_DB_COLUMNS:
+            continue
+        if value is None:
+            processed[key] = 0
+            continue
+        if isinstance(value, str) and (value.strip() == "" or value.strip() == "-"):
+            processed[key] = 0
+        elif isinstance(value, (int, float)):
+            continue
+        else:
+            try:
+                processed[key] = float(str(value).replace(",", ""))
+            except Exception:
+                processed[key] = 0
+    return processed
+
+
+def _sanitize_excel_row_values(values: dict) -> dict:
+    """values dict 전체 순회 — numeric/integer 필드는 None·''·'-' → 0, 그 외 비숫자 → 0."""
+    sanitized = dict(values)
+
+    for key, value in list(sanitized.items()):
+        if key not in CONTRACT_NUMERIC_DB_COLUMNS:
+            continue
+        if _is_empty_numeric_input(value):
+            sanitized[key] = 0
+        else:
+            sanitized[key] = _coerce_numeric_or_zero(value)
+
+    for key in CONTRACT_NUMERIC_DB_COLUMNS:
+        if key not in sanitized:
+            sanitized[key] = 0
+            continue
+        val = sanitized[key]
+        if _is_empty_numeric_input(val):
+            sanitized[key] = 0
+        elif not isinstance(val, int):
+            sanitized[key] = _coerce_numeric_or_zero(val)
+
+    if "designUnitPrice" in sanitized:
+        sanitized["unit_price"] = sanitized["designUnitPrice"]
+
+    for key in CONTRACT_NUMERIC_DB_COLUMNS:
+        if key in sanitized and not isinstance(sanitized[key], int):
+            sanitized[key] = 0
+
+    return sanitized
+
+
+def _build_sanitized_row_values(contract: ContractCreate) -> dict:
+    """엑셀 row — DB 변환 → 전처리 루프 → numeric 정화."""
+    row = dict(contract_to_db_values(contract))
+    row = _preprocess_excel_row_dict(row)
+    return _sanitize_excel_row_values(row)
+
+
+def _execute_contract_row_insert(
+    cursor,
+    values: dict,
+    *,
+    returning: bool = False,
+):
+    """INSERT — cursor.execute 직전: 전처리 + numeric 정화."""
+    values = _sanitize_excel_row_values(_preprocess_excel_row_dict(dict(values)))
+
+    columns = list(values.keys())
+    placeholders = [f"%({column})s" for column in columns]
+    quoted_columns = [quote_identifier(column) for column in columns]
+
+    if returning:
+        cursor.execute(
+            f"""
+            insert into contracts_rows ({", ".join(quoted_columns)})
+            values ({", ".join(placeholders)})
+            returning {RETURNING_COLUMNS}
+            """,
+            values,
+        )
+        return cursor.fetchone()
+
+    cursor.execute(
+        f"""
+        insert into contracts_rows ({", ".join(quoted_columns)})
+        values ({", ".join(placeholders)})
+        """,
+        values,
+    )
+    return None
+
+
+def _format_contract_insert_error(exc: Exception, row_index: int | None = None) -> str:
+    message = str(exc).strip()
+    row_hint = f"엑셀 {row_index}행" if row_index else "업로드 데이터"
+    if "invalid input syntax for type numeric" in message:
+        return (
+            f"{row_hint} 숫자(금액·단가 등) 칸에 빈 값이거나 잘못된 문자가 있습니다. "
+            "해당 칸을 숫자만 입력하도록 수정한 뒤 다시 업로드해 주세요."
+        )
+    return message or "계약 데이터 저장에 실패했습니다."
+
 
 # 단가관리 6컬럼 — camelCase·snake_case 양쪽 DB 컬럼을 COALESCE 로 API camelCase 키에 통일
 UNIT_PRICE_SELECT_COLUMNS = """
@@ -190,18 +344,15 @@ def _insert_contract_rows(rows: list[ContractCreate]) -> int:
     created = 0
     with get_connection() as connection:
         with connection.cursor() as cursor:
-            for contract in rows:
-                values = contract_to_db_values(contract)
-                columns = list(values.keys())
-                placeholders = [f"%({column})s" for column in columns]
-                quoted_columns = [quote_identifier(column) for column in columns]
-                cursor.execute(
-                    f"""
-                    insert into contracts_rows ({", ".join(quoted_columns)})
-                    values ({", ".join(placeholders)})
-                    """,
-                    values,
-                )
+            for row_index, contract in enumerate(rows, start=1):
+                values = _build_sanitized_row_values(contract)
+                try:
+                    _execute_contract_row_insert(cursor, values, returning=False)
+                except Exception as exc:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=_format_contract_insert_error(exc, row_index),
+                    ) from exc
                 created += 1
         connection.commit()
     return created
@@ -223,8 +374,25 @@ def _import_contract_rows_with_dedupe(rows: list[ContractCreate]) -> dict:
             existing_keys = load_contract_duplicate_keys(cursor)
             seen_batch: set[str] = set()
 
-            for contract in rows:
-                values = contract_to_db_values(contract)
+            for row_index, contract in enumerate(rows, start=1):
+                row = dict(contract_to_db_values(contract))
+                for key, value in list(row.items()):
+                    if key not in CONTRACT_NUMERIC_DB_COLUMNS:
+                        continue
+                    if value is None:
+                        row[key] = 0
+                        continue
+                    if isinstance(value, str) and (value.strip() == "" or value.strip() == "-"):
+                        row[key] = 0
+                    elif isinstance(value, (int, float)):
+                        continue
+                    else:
+                        try:
+                            row[key] = float(str(value).replace(",", ""))
+                        except Exception:
+                            row[key] = 0
+                values = _sanitize_excel_row_values(row)
+
                 dk = contract_duplicate_key_from_values(values)
                 if not dk:
                     skipped_no_key += 1
@@ -233,18 +401,13 @@ def _import_contract_rows_with_dedupe(rows: list[ContractCreate]) -> dict:
                     duplicate_items.append(contract_duplicate_label(values))
                     continue
 
-                columns = list(values.keys())
-                placeholders = [f"%({column})s" for column in columns]
-                quoted_columns = [quote_identifier(column) for column in columns]
-                cursor.execute(
-                    f"""
-                    insert into contracts_rows ({", ".join(quoted_columns)})
-                    values ({", ".join(placeholders)})
-                    returning {RETURNING_COLUMNS}
-                    """,
-                    values,
-                )
-                row = cursor.fetchone()
+                try:
+                    row = _execute_contract_row_insert(cursor, values, returning=True)
+                except Exception as exc:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=_format_contract_insert_error(exc, row_index),
+                    ) from exc
                 if row:
                     inserted_api_rows.append(row_to_contract(row))
                 seen_batch.add(dk)
@@ -291,22 +454,17 @@ def list_contracts():
 
 @router.post("", response_model=ContractOut, status_code=status.HTTP_201_CREATED)
 def create_contract(contract: ContractCreate):
-    values = contract_to_db_values(contract)
-    columns = list(values.keys())
-    placeholders = [f"%({column})s" for column in columns]
-    quoted_columns = [quote_identifier(column) for column in columns]
+    values = _build_sanitized_row_values(contract)
 
     with get_connection() as connection:
         with connection.cursor() as cursor:
-            cursor.execute(
-                f"""
-                insert into contracts_rows ({", ".join(quoted_columns)})
-                values ({", ".join(placeholders)})
-                returning {RETURNING_COLUMNS}
-                """,
-                values,
-            )
-            row = cursor.fetchone()
+            try:
+                row = _execute_contract_row_insert(cursor, values, returning=True)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=_format_contract_insert_error(exc),
+                ) from exc
         connection.commit()
 
     return row_to_contract(row)
@@ -316,10 +474,12 @@ def create_contract(contract: ContractCreate):
 def bulk_create_contracts(payload: ContractBulkCreate):
     try:
         return {"created": _insert_contract_rows(payload.rows)}
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"contracts bulk insert failed: {exc}",
+            detail=_format_contract_insert_error(exc),
         ) from exc
 
 
@@ -328,10 +488,12 @@ def import_contracts(payload: ContractBulkCreate):
     """중복 건너뛴 뒤 DB 반영 행만 엑셀 백업(환경설정 시). duplicateItems 포함."""
     try:
         return _import_contract_rows_with_dedupe(payload.rows)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"contracts import failed: {exc}",
+            detail=_format_contract_insert_error(exc),
         ) from exc
 
 

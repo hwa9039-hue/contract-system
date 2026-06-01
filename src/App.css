@@ -10711,6 +10711,19 @@ textarea:focus-visible {
   min-height: 0;
 }
 
+.unit-price-table-wrap--refetching {
+  position: relative;
+}
+
+.unit-price-table-wrap--refetching .unit-price-table tbody {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.unit-price-row--refetching {
+  transition: opacity 0.2s ease;
+}
+
 .unit-price-table {
   width: 100%;
   min-width: 1120px;

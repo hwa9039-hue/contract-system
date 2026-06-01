@@ -989,6 +989,11 @@ CONTRACT_DB_COLUMNS = {
     "height_h": "capH",
 }
 
+# ContractBase.model_dump() 에 없는 snake_case 별칭 — camelCase 본문만 INSERT (빈 문자열 덮어쓰기 방지)
+CONTRACT_DB_ALIAS_ONLY_KEYS = frozenset(
+    {"cost_service", "item_name", "unit_price", "width_w", "height_h"}
+)
+
 TABLE_COLUMN_MAPPINGS = {
     "contracts_rows": CONTRACT_DB_COLUMNS,
     "sales_register_rows": {
@@ -1293,18 +1298,20 @@ def contract_to_db_values(contract: ContractBase) -> dict:
     out: dict = {}
 
     for api_key, db_key in CONTRACT_DB_COLUMNS.items():
+        if api_key in CONTRACT_DB_ALIAS_ONLY_KEYS:
+            continue
         val = data.get(api_key)
 
         if api_key == "year":
             if val is None:
-                out[db_key] = None
+                out[db_key] = 0
             elif isinstance(val, bool):
-                out[db_key] = None
+                out[db_key] = 0
             elif isinstance(val, (int, float)):
                 out[db_key] = int(val)
             else:
-                digits = "".join(c for c in str(val) if c.isdigit())[:4]
-                out[db_key] = int(digits) if digits else None
+                digits = "".join(c for c in str(val).replace(",", "") if c.isdigit())[:4]
+                out[db_key] = int(digits) if digits else 0
             continue
 
         if api_key == "amount":
@@ -1401,4 +1408,31 @@ def contract_to_db_values(contract: ContractBase) -> dict:
                 s = _normalize_excel_placeholder_text(s)
             out[db_key] = s
 
+    return _finalize_contract_numeric_columns(out)
+
+
+def _finalize_contract_numeric_columns(out: dict) -> dict:
+    """INSERT values 생성 마지막 — numeric/integer 컬럼에 빈 문자열이 남지 않게 0으로."""
+    numeric_keys = ("year", "amount", "designUnitPrice", "unit_price")
+    for key in numeric_keys:
+        if key not in out:
+            continue
+        val = out[key]
+        if val is None or val == "":
+            out[key] = 0
+            continue
+        if isinstance(val, str):
+            raw = val.strip().replace(",", "")
+            if not raw:
+                out[key] = 0
+            else:
+                try:
+                    out[key] = int(Decimal(raw))
+                except Exception:
+                    out[key] = 0
+        elif isinstance(val, bool) or not isinstance(val, int):
+            try:
+                out[key] = int(val)
+            except Exception:
+                out[key] = 0
     return out

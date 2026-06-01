@@ -109,6 +109,9 @@ const ALL_TABLE_COLUMNS = [...READONLY_COLUMNS, ...EDITABLE_COLUMNS]
 
 const ALL_TABLE_COLUMN_KEYS = ALL_TABLE_COLUMNS.map((column) => column.key)
 
+/** 저장 성공 후 DB 동기화 대기 → 목록 재조회 */
+const REFETCH_AFTER_SAVE_DELAY_MS = 750
+
 function safeString(value) {
   if (value === null || value === undefined) return ''
   return String(value)
@@ -277,6 +280,7 @@ export default function UnitPriceManagement() {
   const [rows, setRows] = useState([])
   const [editableByRowId, setEditableByRowId] = useState({})
   const [loading, setLoading] = useState(true)
+  const [refetching, setRefetching] = useState(false)
   const [error, setError] = useState(null)
   const [saveError, setSaveError] = useState(null)
   const [saveSuccess, setSaveSuccess] = useState(null)
@@ -288,13 +292,16 @@ export default function UnitPriceManagement() {
   const savingRowIdsRef = useRef(new Set())
   const focusValueByCellRef = useRef({})
   const saveSuccessTimerRef = useRef(null)
+  const refetchAfterSaveTimerRef = useRef(null)
 
   useEffect(() => {
     editableByRowIdRef.current = editableByRowId
   }, [editableByRowId])
 
-  const fetchUnitPriceRows = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) {
+  const fetchUnitPriceRows = useCallback(async ({ silent = false, isRefetch = false } = {}) => {
+    if (isRefetch) {
+      setRefetching(true)
+    } else if (!silent) {
       setLoading(true)
     }
     setError(null)
@@ -334,16 +341,78 @@ export default function UnitPriceManagement() {
       setEditableByRowId(nextEditable)
     } catch (fetchError) {
       console.error('[단가관리] 계약현황 API fetch failed', fetchError)
-      setError(fetchError?.message || '계약현황 데이터를 불러오지 못했습니다.')
-      setRows([])
-      setEditableByRowId({})
-      savedByRowIdRef.current = {}
+      if (!isRefetch) {
+        setError(fetchError?.message || '계약현황 데이터를 불러오지 못했습니다.')
+        setRows([])
+        setEditableByRowId({})
+        savedByRowIdRef.current = {}
+      }
     } finally {
-      if (!silent) {
+      if (isRefetch) {
+        setRefetching(false)
+      } else if (!silent) {
         setLoading(false)
       }
     }
   }, [])
+
+  const applyOptimisticRowUpdate = useCallback((rowId, payload) => {
+    const normalizedRowId = safeString(rowId).trim()
+    if (!normalizedRowId) return
+
+    const current =
+      editableByRowIdRef.current[normalizedRowId] || createEmptyEditableFields()
+    const merged = applyPatchToEditableFields(current, payload)
+
+    editableByRowIdRef.current = {
+      ...editableByRowIdRef.current,
+      [normalizedRowId]: { ...merged },
+    }
+    setEditableByRowId((prev) => ({
+      ...prev,
+      [normalizedRowId]: { ...merged },
+    }))
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === normalizedRowId
+          ? { ...row, ...merged, editableFields: { ...merged } }
+          : row
+      )
+    )
+    return merged
+  }, [])
+
+  const rollbackOptimisticRowUpdate = useCallback((rowId, previousFields) => {
+    const normalizedRowId = safeString(rowId).trim()
+    if (!normalizedRowId) return
+
+    const fields = { ...(previousFields || createEmptyEditableFields()) }
+    editableByRowIdRef.current = {
+      ...editableByRowIdRef.current,
+      [normalizedRowId]: { ...fields },
+    }
+    setEditableByRowId((prev) => ({
+      ...prev,
+      [normalizedRowId]: { ...fields },
+    }))
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === normalizedRowId
+          ? { ...row, ...fields, editableFields: { ...fields } }
+          : row
+      )
+    )
+  }, [])
+
+  const scheduleRefetchAfterSave = useCallback(() => {
+    if (refetchAfterSaveTimerRef.current) {
+      clearTimeout(refetchAfterSaveTimerRef.current)
+    }
+    refetchAfterSaveTimerRef.current = setTimeout(() => {
+      refetchAfterSaveTimerRef.current = null
+      void fetchUnitPriceRows({ silent: true, isRefetch: true })
+    }, REFETCH_AFTER_SAVE_DELAY_MS)
+  }, [fetchUnitPriceRows])
 
   const applyServerRowToState = useCallback((contractRow) => {
     const rowId = safeString(contractRow?.id ?? contractRow?._id).trim()
@@ -369,6 +438,10 @@ export default function UnitPriceManagement() {
       if (saveSuccessTimerRef.current) {
         clearTimeout(saveSuccessTimerRef.current)
         saveSuccessTimerRef.current = null
+      }
+      if (refetchAfterSaveTimerRef.current) {
+        clearTimeout(refetchAfterSaveTimerRef.current)
+        refetchAfterSaveTimerRef.current = null
       }
     }
   }, [fetchUnitPriceRows])
@@ -423,16 +496,19 @@ export default function UnitPriceManagement() {
 
     if (Object.keys(payload).length === 0) return
 
+    const snapshotFields = {
+      ...(editableByRowIdRef.current[normalizedRowId] || createEmptyEditableFields()),
+    }
+
+    applyOptimisticRowUpdate(normalizedRowId, payload)
     savingRowIdsRef.current.add(normalizedRowId)
 
     try {
-      if (Object.keys(payload).length === 0) return
-      console.log('🚀 [단가관리] 서버로 전송하는 Payload:', payload)
       const updated = await contractsApi.update(normalizedRowId, payload)
+      const mergedFields = applyPatchToEditableFields(snapshotFields, payload)
       if (updated && typeof updated === 'object') {
         applyServerRowToState(updated)
       } else {
-        const mergedFields = applyPatchToEditableFields(saved, payload)
         savedByRowIdRef.current = {
           ...savedByRowIdRef.current,
           [normalizedRowId]: { ...mergedFields },
@@ -441,6 +517,13 @@ export default function UnitPriceManagement() {
           ...prev,
           [normalizedRowId]: { ...mergedFields },
         }))
+        setRows((prev) =>
+          prev.map((row) =>
+            row.id === normalizedRowId
+              ? { ...row, ...mergedFields, editableFields: { ...mergedFields } }
+              : row
+          )
+        )
       }
       setSaveError(null)
       setSaveSuccess('저장되었습니다.')
@@ -451,14 +534,21 @@ export default function UnitPriceManagement() {
         setSaveSuccess(null)
         saveSuccessTimerRef.current = null
       }, 1600)
+      scheduleRefetchAfterSave()
     } catch (saveErr) {
       console.error('[단가관리] 행 저장 실패', saveErr)
+      rollbackOptimisticRowUpdate(normalizedRowId, snapshotFields)
       setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
       setSaveSuccess(null)
     } finally {
       savingRowIdsRef.current.delete(normalizedRowId)
     }
-  }, [applyServerRowToState])
+  }, [
+    applyOptimisticRowUpdate,
+    applyServerRowToState,
+    rollbackOptimisticRowUpdate,
+    scheduleRefetchAfterSave,
+  ])
 
   const handleEditableChange = (rowId, fieldKey, value) => {
     const nextValue =
@@ -532,7 +622,28 @@ export default function UnitPriceManagement() {
         </div>
       ) : null}
       <div className="contract-table-panel unit-price-table-panel flex flex-col h-full min-h-[500px]">
-        <div className="table-wrap unit-price-table-scroll flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+        {refetching ? (
+          <div
+            className="unit-price-refetch-banner"
+            role="status"
+            aria-live="polite"
+            style={{
+              marginBottom: 8,
+              padding: '8px 12px',
+              borderRadius: 8,
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              color: '#1e40af',
+              fontWeight: 700,
+              fontSize: 13,
+            }}
+          >
+            데이터를 불러오는 중...
+          </div>
+        ) : null}
+        <div
+          className={`table-wrap unit-price-table-scroll flex-1 min-h-0 overflow-y-auto overflow-x-auto${refetching ? ' unit-price-table-wrap--refetching' : ''}`}
+        >
           <table className="contract-table excel-table registry-table unit-price-table w-full table-fixed">
             <thead>
               <tr>
@@ -557,13 +668,13 @@ export default function UnitPriceManagement() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {loading && rows.length === 0 ? (
                 <tr>
                   <td colSpan={totalColumnCount} className="unit-price-empty-cell">
-                    계약현황 데이터를 불러오는 중입니다...
+                    데이터를 불러오는 중...
                   </td>
                 </tr>
-              ) : error ? (
+              ) : error && rows.length === 0 ? (
                 <tr>
                   <td colSpan={totalColumnCount} className="unit-price-empty-cell unit-price-empty-cell--error">
                     {error}
@@ -578,12 +689,12 @@ export default function UnitPriceManagement() {
               ) : filteredRows.length === 0 ? (
                 <tr>
                   <td colSpan={totalColumnCount} className="unit-price-empty-cell">
-                    필터 조건에 맞는 데이터가 없습니다.
+                    {refetching ? '데이터를 불러오는 중...' : '필터 조건에 맞는 데이터가 없습니다.'}
                   </td>
                 </tr>
               ) : (
                 filteredRows.map((row) => (
-                  <tr key={row.id}>
+                  <tr key={row.id} className={refetching ? 'unit-price-row--refetching' : undefined}>
                     <td className="unit-price-readonly unit-price-col-year text-center">{row.year || '-'}</td>
                     <td className="unit-price-readonly unit-price-col-client unit-price-cell-truncate text-center">
                       {row.client || '-'}
