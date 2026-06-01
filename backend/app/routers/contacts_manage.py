@@ -28,29 +28,6 @@ CONTACTS_RETURNING = """
   notes
 """
 
-CONTACTS_MOCK_ROWS = [
-    {
-        "id": "mock-1",
-        "category": "전광판",
-        "business_content": "관급·민수 전광판 사업",
-        "manager_name": "홍길동",
-        "position": "과장",
-        "phone": "010-1234-5678",
-        "email": "hong@example.com",
-        "notes": "초기 목업 데이터",
-    },
-    {
-        "id": "mock-2",
-        "category": "BIT",
-        "business_content": "버스정보안내단말기(BIT) 사업",
-        "manager_name": "김영희",
-        "position": "대리",
-        "phone": "010-2345-6789",
-        "email": "kim@example.com",
-        "notes": "-",
-    },
-]
-
 
 def insert_contacts_row(cursor, row: ContactsManageCreate) -> dict:
     values = contacts_manage_to_db_values(row)
@@ -112,10 +89,7 @@ def list_contacts():
             )
             rows = cursor.fetchall() or []
 
-    if rows:
-        return [row_to_contacts_manage(row) for row in rows]
-
-    return CONTACTS_MOCK_ROWS
+    return [row_to_contacts_manage(row) for row in rows]
 
 
 @router.post("", response_model=ContactsManageOut, status_code=status.HTTP_201_CREATED)
