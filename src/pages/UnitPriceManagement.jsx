@@ -241,6 +241,7 @@ export default function UnitPriceManagement() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [saveError, setSaveError] = useState(null)
+  const [saveSuccess, setSaveSuccess] = useState(null)
   const [activeFilters, setActiveFilters] = useState({})
   const [openColumnFilterKey, setOpenColumnFilterKey] = useState(null)
 
@@ -248,64 +249,62 @@ export default function UnitPriceManagement() {
   const editableByRowIdRef = useRef({})
   const savingRowIdsRef = useRef(new Set())
   const focusValueByCellRef = useRef({})
+  const saveSuccessTimerRef = useRef(null)
 
   useEffect(() => {
     editableByRowIdRef.current = editableByRowId
   }, [editableByRowId])
 
-  useEffect(() => {
-    let cancelled = false
+  const fetchUnitPriceRows = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await contractsApi.list()
+      const filtered = (Array.isArray(data) ? data : [])
+        .filter((item) => safeString(item.contractType).trim() === CONTRACT_TYPE_FILTER)
+        .map((item, index) => {
+          const serverId = safeString(item.id ?? item._id ?? item.contract_id ?? item.ID).trim()
+          const id = serverId || `__ROW__${index}`
+          return {
+            id,
+            year: safeString(item.year).trim(),
+            client: safeString(item.client).trim(),
+            projectName: safeString(item.projectName).trim(),
+            editableFields: extractEditableFields(item),
+          }
+        })
 
-    void (async () => {
-      setLoading(true)
-      setError(null)
-      setSaveError(null)
+      const nextEditable = filtered.reduce((acc, row) => {
+        acc[row.id] = { ...row.editableFields }
+        return acc
+      }, {})
 
-      try {
-        const data = await contractsApi.list()
-        const filtered = (Array.isArray(data) ? data : [])
-          .filter((item) => safeString(item.contractType).trim() === CONTRACT_TYPE_FILTER)
-          .map((item, index) => {
-            const serverId = safeString(item.id ?? item._id ?? item.contract_id ?? item.ID).trim()
-            const id = serverId || `__ROW__${index}`
-            return {
-              id,
-              year: safeString(item.year).trim(),
-              client: safeString(item.client).trim(),
-              projectName: safeString(item.projectName).trim(),
-              editableFields: extractEditableFields(item),
-            }
-          })
+      savedByRowIdRef.current = Object.fromEntries(
+        Object.entries(nextEditable).map(([rowId, fields]) => [rowId, { ...fields }])
+      )
 
-        if (cancelled) return
-
-        const nextEditable = filtered.reduce((acc, row) => {
-          acc[row.id] = { ...row.editableFields }
-          return acc
-        }, {})
-
-        savedByRowIdRef.current = Object.fromEntries(
-          Object.entries(nextEditable).map(([rowId, fields]) => [rowId, { ...fields }])
-        )
-
-        setRows(filtered.map(({ id, year, client, projectName }) => ({ id, year, client, projectName })))
-        setEditableByRowId(nextEditable)
-      } catch (fetchError) {
-        if (cancelled) return
-        console.error('[단가관리] 계약현황 API fetch failed', fetchError)
-        setError(fetchError?.message || '계약현황 데이터를 불러오지 못했습니다.')
-        setRows([])
-        setEditableByRowId({})
-        savedByRowIdRef.current = {}
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-
-    return () => {
-      cancelled = true
+      setRows(filtered.map(({ id, year, client, projectName }) => ({ id, year, client, projectName })))
+      setEditableByRowId(nextEditable)
+    } catch (fetchError) {
+      console.error('[단가관리] 계약현황 API fetch failed', fetchError)
+      setError(fetchError?.message || '계약현황 데이터를 불러오지 못했습니다.')
+      setRows([])
+      setEditableByRowId({})
+      savedByRowIdRef.current = {}
+    } finally {
+      setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    void fetchUnitPriceRows()
+    return () => {
+      if (saveSuccessTimerRef.current) {
+        clearTimeout(saveSuccessTimerRef.current)
+        saveSuccessTimerRef.current = null
+      }
+    }
+  }, [fetchUnitPriceRows])
 
   const filterSourceRows = useMemo(
     () =>
@@ -373,13 +372,24 @@ export default function UnitPriceManagement() {
         [normalizedRowId]: { ...mergedFields },
       }))
       setSaveError(null)
+      setSaveSuccess('저장되었습니다.')
+      if (saveSuccessTimerRef.current) {
+        clearTimeout(saveSuccessTimerRef.current)
+      }
+      saveSuccessTimerRef.current = setTimeout(() => {
+        setSaveSuccess(null)
+        saveSuccessTimerRef.current = null
+      }, 1600)
+      // 새로고침 없이도 서버값 기준으로 즉시 동기화
+      await fetchUnitPriceRows()
     } catch (saveErr) {
       console.error('[단가관리] 행 저장 실패', saveErr)
       setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
+      setSaveSuccess(null)
     } finally {
       savingRowIdsRef.current.delete(normalizedRowId)
     }
-  }, [])
+  }, [fetchUnitPriceRows])
 
   const handleEditableChange = (rowId, fieldKey, value) => {
     const nextValue =
@@ -422,6 +432,24 @@ export default function UnitPriceManagement() {
 
   return (
     <div className="unit-price-management h-full min-h-0">
+      {saveSuccess ? (
+        <div
+          className="unit-price-save-success"
+          role="status"
+          style={{
+            marginBottom: 10,
+            padding: '10px 12px',
+            borderRadius: 10,
+            background: '#ecfdf5',
+            border: '1px solid #bbf7d0',
+            color: '#065f46',
+            fontWeight: 800,
+            fontSize: 13,
+          }}
+        >
+          {saveSuccess}
+        </div>
+      ) : null}
       {saveError ? (
         <div className="unit-price-save-error" role="alert">
           {saveError}
