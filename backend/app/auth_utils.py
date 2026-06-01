@@ -27,12 +27,21 @@ def is_auth_disabled() -> bool:
     return os.getenv("AUTH_DISABLED", "").lower() in ("1", "true", "yes")
 
 
-def create_access_token() -> str:
+def normalize_token_role(role: str | None) -> str:
+    normalized = (role or "user").strip().lower()
+    return normalized if normalized in ("admin", "user") else "user"
+
+
+def create_access_token(role: str = "user") -> str:
     secret = get_jwt_secret()
     if not secret:
         raise RuntimeError("JWT_SECRET is not set")
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {"sub": "contract-app", "exp": expire}
+    payload = {
+        "sub": "contract-app",
+        "role": normalize_token_role(role),
+        "exp": expire,
+    }
     return jwt.encode(payload, secret, algorithm=ALGORITHM)
 
 

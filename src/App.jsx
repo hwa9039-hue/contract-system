@@ -106,6 +106,11 @@ import {
 } from './calendarEventsApi'
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { useAuth } from './AuthContext.jsx'
+import {
+  canAccessMenu,
+  canEditMenu,
+  filterSidebarMenuItems,
+} from './permissions.js'
 import { CONTRACT_SHARED_WARNING_MS } from './authSession.js'
 import {
   CONTRACT_EXCEL_HEADER_KEYWORDS,
@@ -1196,7 +1201,6 @@ const PAGE_TITLE_MAP = {
   materialsBoard: '게시판',
 }
 
-const ADMIN_ONLY_MENU_KEYS = new Set(['contactsManage', 'unitPrice'])
 const UNIT_PRICE_MENU_PATH = '/unit-price'
 const PROJECT_MANAGEMENT_MENU_PATH = '/project-management'
 function isWorkReportRelatedMenu(menuKey) {
@@ -4935,6 +4939,14 @@ function splitDashboardRecentTitleLabel(fullLabel) {
 function App() {
   const { isAdmin, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
     useAuth()
+  const canEditContracts = canEditMenu('contracts', isAdmin)
+  const canEditProjectManagement = canEditMenu('projectManagement', isAdmin)
+  const canEditMaterialsBoard = canEditMenu('materialsBoard', isAdmin)
+  const canEditInstallCases = canEditMenu('installCases', isAdmin)
+  const canEditSales = canEditMenu('sales', isAdmin)
+  const canEditDiscovery = canEditMenu('discovery', isAdmin)
+  const canEditExcluded = canEditMenu('excluded', isAdmin)
+  const canEditDocuments = canEditMenu('documents', isAdmin)
   const [contactsManageRows, setContactsManageRows] = useState([])
   const [isLoadingContactsManage, setIsLoadingContactsManage] = useState(false)
   const [contactsRegisterModalOpen, setContactsRegisterModalOpen] = useState(false)
@@ -5133,9 +5145,27 @@ function App() {
 
   useEffect(() => {
     if (menu !== 'contactsManage') return
-    if (!isAdmin) return
+    if (!canAccessMenu('contactsManage', isAdmin)) return
     void fetchContactsManageRows()
   }, [isAdmin, menu])
+
+  useEffect(() => {
+    if (!authHydrated) return
+    if (canAccessMenu(menu, isAdmin)) return
+
+    showAppAlert('접근 권한이 없습니다.', '권한 없음')
+    setMenu('dashboard')
+    try {
+      if (
+        window.location.pathname === UNIT_PRICE_MENU_PATH ||
+        window.location.pathname === PROJECT_MANAGEMENT_MENU_PATH
+      ) {
+        window.history.replaceState(null, '', '/')
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [authHydrated, isAdmin, menu, showAppAlert])
 
   const applyInstallCaseFormDraftSnapshot = useCallback((snap) => {
     if (!snap?.form) return
@@ -6038,22 +6068,22 @@ function App() {
   )
 
   const handleOpenMaterialsBoardRegister = useCallback(() => {
-    if (!isAdmin) return
+    if (!canEditMaterialsBoard) return
     setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
     setMaterialsBoardFile([])
     setMaterialsBoardRegisterOpen(true)
-  }, [isAdmin])
+  }, [canEditMaterialsBoard])
 
   const handleOpenMaterialsBoardEdit = useCallback((row) => {
-    if (!row || !isAdmin) return
+    if (!row || !canEditMaterialsBoard) return
     setMaterialsBoardEditingId(row.id)
     setMaterialsBoardFormDraft({
       title: safeString(row.title).trim(),
     })
     setMaterialsBoardFile([])
     setMaterialsBoardRegisterOpen(true)
-  }, [isAdmin])
+  }, [canEditMaterialsBoard])
 
   const handleCloseMaterialsBoardRegister = useCallback(() => {
     setMaterialsBoardRegisterOpen(false)
@@ -6065,7 +6095,7 @@ function App() {
 
   const handleDeleteMaterialsBoardPost = useCallback((row, e) => {
     e?.stopPropagation()
-    if (!isAdmin || !row) return
+    if (!canEditMaterialsBoard || !row) return
     setContractConfirmDialog({
       title: '게시판 삭제',
       message: `「${row.title}」을(를) 삭제하시겠습니까?`,
@@ -6083,10 +6113,10 @@ function App() {
         }
       },
     })
-  }, [isAdmin, showAppAlert])
+  }, [canEditMaterialsBoard, showAppAlert])
 
   const handleSaveMaterialsBoardRegister = useCallback(async () => {
-    if (!isAdmin || materialsBoardSubmitting) return
+    if (!canEditMaterialsBoard || materialsBoardSubmitting) return
     const title = safeString(materialsBoardFormDraft.title).trim()
     if (!title) {
       showAppAlert('제목을 입력해 주세요.', '알림')
@@ -6130,7 +6160,7 @@ function App() {
     materialsBoardFormDraft,
     materialsBoardSubmitting,
     handleCloseMaterialsBoardRegister,
-    isAdmin,
+    canEditMaterialsBoard,
     showAppAlert,
   ])
 
@@ -6266,7 +6296,7 @@ function App() {
     return groupedContracts.flatMap((yb) => yb.items.map((item) => getContractTableRowKey(item)))
   }, [groupedContracts])
 
-  const contractTableColSpan = isAdmin ? CONTRACT_COLUMNS.length + 2 : CONTRACT_COLUMNS.length + 1
+  const contractTableColSpan = canEditContracts ? CONTRACT_COLUMNS.length + 2 : CONTRACT_COLUMNS.length + 1
 
   const documentsRawData = documents
 
@@ -6918,11 +6948,13 @@ function App() {
     resetAppUiOnLogout()
   }
 
-  const requireAdmin = () => {
-    if (isAdmin) return true
-    showAppAlert('관리자 권한으로 로그인해야 편집할 수 있습니다.', '알림')
+  const requireMenuEdit = (menuKey, message = '편집 권한이 없습니다.') => {
+    if (canEditMenu(menuKey, isAdmin)) return true
+    showAppAlert(message, '권한 없음')
     return false
   }
+
+  const requireAdmin = () => requireMenuEdit('contracts', '관리자 권한으로 로그인해야 편집할 수 있습니다.')
 
   const handleExtendLogin = async () => {
     const expiresAt = await extendLogin()
@@ -9782,7 +9814,7 @@ function App() {
   }
 
   const startEdit = (rowKey, key, value, row) => {
-    if (!isAdmin) return
+    if (!canEditContracts) return
     if (!rowKey) return
 
     const serverRowId = firstUsableContractPathId(row?.id, row?.key) || null
@@ -12154,18 +12186,14 @@ function App() {
                   </button>
                   {isExpanded ? (
                     <ul className="menu-group-items">
-                      {group.items.map((item) => (
+                      {filterSidebarMenuItems(group.items, isAdmin).map((item) => (
                         <li key={item.key} className="menu-group-item">
                           <button
                             type="button"
-                            className={`${menu === item.key ? 'menu-btn menu-btn--child active' : 'menu-btn menu-btn--child'}${
-                              ADMIN_ONLY_MENU_KEYS.has(item.key) && !isAdmin ? ' menu-btn--disabled' : ''
-                            }`}
-                            disabled={ADMIN_ONLY_MENU_KEYS.has(item.key) && !isAdmin}
-                            onClick={() => {
-                              if (ADMIN_ONLY_MENU_KEYS.has(item.key) && !isAdmin) return
-                              setMenu(item.key)
-                            }}
+                            className={
+                              menu === item.key ? 'menu-btn menu-btn--child active' : 'menu-btn menu-btn--child'
+                            }
+                            onClick={() => setMenu(item.key)}
                           >
                             {item.label}
                           </button>
@@ -12201,24 +12229,20 @@ function App() {
               사업관리
             </button>
 
-            <button
-              type="button"
-              className={`${menu === 'unitPrice' ? 'menu-btn active' : 'menu-btn'}${
-                !isAdmin ? ' menu-btn--disabled' : ''
-              }`}
-              disabled={!isAdmin}
-              onClick={() => {
-                if (!isAdmin) return
-                setMenu('unitPrice')
-              }}
-            >
-              단가관리
-            </button>
+            {canAccessMenu('unitPrice', isAdmin) ? (
+              <button
+                type="button"
+                className={menu === 'unitPrice' ? 'menu-btn active' : 'menu-btn'}
+                onClick={() => setMenu('unitPrice')}
+              >
+                단가관리
+              </button>
+            ) : null}
           </div>
         </div>
 
         <div className="sidebar-bottom">
-          <div className="viewer-badge">{isAdmin ? '관리자 모드' : '뷰어 모드'}</div>
+          <div className="viewer-badge">{isAdmin ? '관리자' : '일반 사용자'}</div>
           <button
             className="logout-btn"
             type="button"
@@ -12724,7 +12748,7 @@ function App() {
         {menu === 'contracts' && (
           <section className="stat-card">
             <div className="contracts-header-actions">
-              {isAdmin && (
+              {canEditContracts && (
                 <>
                   <button className="primary-btn" type="button" onClick={openContractRegisterModal}>
                     등록
@@ -12830,12 +12854,12 @@ function App() {
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
                 <table
                   className={`contract-table excel-table registry-table ledger-table-ui contracts-fixed-table table-w-full-min${
-                    isAdmin ? ' contract-table-admin' : ' contract-table-readonly'
+                    canEditContracts ? ' contract-table-admin' : ' contract-table-readonly'
                   }`}
                   data-contract-table-row-key="key"
                 >
                   <colgroup>
-                    {isAdmin && (
+                    {canEditContracts && (
                       <col className="contract-check-col" style={{ width: 44, minWidth: 44 }} />
                     )}
                     <col className="contract-dday-col" style={{ width: 74, minWidth: 74 }} />
@@ -12853,7 +12877,7 @@ function App() {
                   </colgroup>
                   <thead>
                     <tr>
-                      {isAdmin && (
+                      {canEditContracts && (
                         <th className="th-align-center registry-check-header">
                           <input
                             className="registry-row-checkbox"
@@ -12982,7 +13006,7 @@ function App() {
 
                             rows.push(
                               <tr key={domRowKey} className={rowStripe}>
-                                {isAdmin && (
+                                {canEditContracts && (
                                   <td className="td-align-center registry-check-cell">
                                     <input
                                       className="registry-row-checkbox"
@@ -13030,10 +13054,10 @@ function App() {
                                       className={`${column.className} ${bodyAlignClass} ${
                                         isLongTextTableColumn(column) ? 'multiline-cell' : ''
                                       } ${column.key === 'note' ? 'note-cell' : ''} ${getTableColumnLayoutClass(column)} ${
-                                        isAdmin ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}` : ''
+                                        canEditContracts ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}` : ''
                                       }`}
                                       onClick={
-                                        isAdmin && !isThisContractCell
+                                        canEditContracts && !isThisContractCell
                                           ? () =>
                                               startEdit(rowSelectKey, column.key, item[column.key], item)
                                           : undefined
@@ -13046,15 +13070,15 @@ function App() {
                                           className={`cell-display editable-text-cell-display editable-text-cell-display--${cellAlign}${
                                             isLongTextTableColumn(column) ? ' table-cell-clamp' : ''
                                           }`}
-                                          role={isAdmin ? 'button' : undefined}
-                                          tabIndex={isAdmin ? 0 : undefined}
+                                          role={canEditContracts ? 'button' : undefined}
+                                          tabIndex={canEditContracts ? 0 : undefined}
                                           onClick={(e) => {
-                                            if (!isAdmin) return
+                                            if (!canEditContracts) return
                                             e.stopPropagation()
                                             startEdit(rowSelectKey, column.key, item[column.key], item)
                                           }}
                                           onKeyDown={(e) => {
-                                            if (!isAdmin) return
+                                            if (!canEditContracts) return
                                             if (e.key === 'Enter' || e.key === ' ') {
                                               e.preventDefault()
                                               startEdit(rowSelectKey, column.key, item[column.key], item)
@@ -13236,7 +13260,7 @@ function App() {
                       isYearOpen: isSalesYearOpen,
                       onToggleYear: toggleSalesYear,
                       cellEditScope: 'sales',
-                      isAdminForRegistry: true,
+                      isAdminForRegistry: canEditSales,
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('sales', rowId, columnKey, value, row),
@@ -13378,7 +13402,7 @@ function App() {
                       isYearOpen: isDiscoveryYearOpen,
                       onToggleYear: toggleDiscoveryYear,
                       cellEditScope: 'discovery',
-                      isAdminForRegistry: true,
+                      isAdminForRegistry: canEditDiscovery,
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('discovery', rowId, columnKey, value, row),
@@ -13548,7 +13572,7 @@ function App() {
                       isYearOpen: isExcludedYearOpen,
                       onToggleYear: toggleExcludedYear,
                       cellEditScope: 'excluded',
-                      isAdminForRegistry: true,
+                      isAdminForRegistry: canEditExcluded,
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('excluded', rowId, columnKey, value, row),
@@ -13738,7 +13762,7 @@ function App() {
                       isYearOpen: isDocumentYearOpen,
                       onToggleYear: toggleDocumentYear,
                       cellEditScope: 'documents',
-                      isAdminForRegistry: true,
+                      isAdminForRegistry: canEditDocuments,
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('documents', rowId, columnKey, value, row),
@@ -13751,15 +13775,8 @@ function App() {
           </section>
         )}
 
-        {menu === 'contactsManage' && (
+        {menu === 'contactsManage' && canAccessMenu('contactsManage', isAdmin) && (
           <section className="stat-card">
-            {!isAdmin ? (
-              <div className="contracts-header-actions">
-                <div style={{ color: '#94a3b8', fontSize: 12 }}>
-                  권한이 없습니다. 관리자 계정으로만 접근할 수 있습니다.
-                </div>
-              </div>
-            ) : (
               <div className="contracts-header-actions">
                 <button className="primary-btn" type="button" onClick={handleAddContactsRow}>
                   등록
@@ -13779,18 +13796,15 @@ function App() {
                   엑셀 다운로드
                 </button>
               </div>
-            )}
 
-            {isAdmin && (
-              <div className="table-toolbar">
-                <input
-                  className="table-search-input"
-                  placeholder="검색어를 입력하세요"
-                  value={contactsSearch}
-                  onChange={(e) => setContactsSearch(e.target.value)}
-                />
-              </div>
-            )}
+            <div className="table-toolbar">
+              <input
+                className="table-search-input"
+                placeholder="검색어를 입력하세요"
+                value={contactsSearch}
+                onChange={(e) => setContactsSearch(e.target.value)}
+              />
+            </div>
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
@@ -13807,8 +13821,7 @@ function App() {
                         <input
                           className="registry-row-checkbox"
                           type="checkbox"
-                          checked={isAdmin && allContactsSelected}
-                          disabled={!isAdmin}
+                          checked={allContactsSelected}
                           onChange={() =>
                             setSelectedContactsIds((prev) =>
                               allContactsSelected
@@ -13840,13 +13853,7 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {!isAdmin ? (
-                      <tr>
-                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + 1} className="empty-cell">
-                          관리자만 확인할 수 있습니다.
-                        </td>
-                      </tr>
-                    ) : isLoadingContactsManage ? (
+                    {isLoadingContactsManage ? (
                       <tr>
                         <td colSpan={CONTACTS_MANAGE_COLUMNS.length + 1} className="empty-cell">
                           불러오는 중...
@@ -13879,7 +13886,7 @@ function App() {
                         onChange: handleContactsCellChange,
                         isEmptyRow: () => false,
                         cellEditScope: 'contactsManage',
-                        isAdminForRegistry: true,
+                        isAdminForRegistry: isAdmin,
                         registryCellEdit,
                         onRegistryCellStart: (rowId, columnKey, value, row) =>
                           startRegistryCellEdit('contactsManage', rowId, columnKey, value, row),
@@ -13939,7 +13946,7 @@ function App() {
                   )}
                 </select>
               </div>
-              {isAdmin && (
+              {canEditInstallCases && (
                 <button className="primary-btn" type="button" onClick={handleOpenInstallCaseRegister}>
                   등록
                 </button>
@@ -13966,7 +13973,7 @@ function App() {
                       <div className="install-case-card-meta">{formatInstallCaseCardSubline(row)}</div>
                     </div>
                   </button>
-                  {isAdmin && (
+                  {canEditInstallCases && (
                     <button
                       type="button"
                       className="install-case-card-delete"
@@ -13999,21 +14006,13 @@ function App() {
 
         {menu === 'projectManagement' && (
           <section className="stat-card stat-card--unit-price stat-card--project-management">
-            <ProjectManagement />
+            <ProjectManagement canEdit={canEditProjectManagement} />
           </section>
         )}
 
-        {menu === 'unitPrice' && (
+        {menu === 'unitPrice' && canAccessMenu('unitPrice', isAdmin) && (
           <section className="stat-card stat-card--unit-price">
-            {!isAdmin ? (
-              <div className="contracts-header-actions">
-                <div style={{ color: '#94a3b8', fontSize: 12 }}>
-                  권한이 없습니다. 관리자 계정으로만 접근할 수 있습니다.
-                </div>
-              </div>
-            ) : (
-              <UnitPriceManagement />
-            )}
+            <UnitPriceManagement />
           </section>
         )}
 
@@ -14033,7 +14032,7 @@ function App() {
                     onChange={(e) => setMaterialsBoardSearch(e.target.value)}
                   />
                   <div className="materials-board-toolbar-right">
-                    {isAdmin && (
+                    {canEditMaterialsBoard && (
                       <button
                         type="button"
                         className="primary-btn"
@@ -14125,7 +14124,7 @@ function App() {
                             <td className="materials-board-td materials-board-td--date">
                               <div className="materials-board-date-cell">
                                 <span className="materials-board-date-text">{row.registeredAt}</span>
-                                {isAdmin && (
+                                {canEditMaterialsBoard && (
                                   <div
                                     className="materials-board-row-actions"
                                     onClick={(e) => e.stopPropagation()}
@@ -14453,7 +14452,7 @@ function App() {
                 {getInstallCaseProjectTitle(installCaseDetailModal)}
               </h3>
               <div className="install-case-detail-modal-actions">
-                {isAdmin && (
+                {canEditInstallCases && (
                   <>
                     <button
                       type="button"
@@ -15161,7 +15160,7 @@ function App() {
       )}
 
 
-      {isAdmin && materialsBoardRegisterOpen && (
+      {canEditMaterialsBoard && materialsBoardRegisterOpen && (
         <div className="modal-backdrop" onClick={handleCloseMaterialsBoardRegister}>
           <div
             className="install-case-form-modal materials-board-register-modal"

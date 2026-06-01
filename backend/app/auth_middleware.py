@@ -6,7 +6,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from app.auth_utils import decode_token, get_jwt_secret, is_auth_disabled
+from app.auth_utils import decode_token, get_jwt_secret, is_auth_disabled, normalize_token_role
+from app.rbac import is_rbac_allowed
 
 _DEFAULT_CORS_ORIGINS = (
     "http://localhost:5173",
@@ -96,11 +97,22 @@ class ApiJwtAuthMiddleware(BaseHTTPMiddleware):
             )
 
         try:
-            decode_token(token)
+            payload = decode_token(token)
         except InvalidTokenError:
             return JSONResponse(
                 {"detail": "Invalid or expired token"},
                 status_code=401,
+                headers=_cors_headers_for_request(request),
+            )
+
+        role = normalize_token_role(payload.get("role"))
+        request.state.auth_role = role
+
+        # RBAC 도입 이전 JWT(role 클레임 없음)는 만료될 때까지 기존과 동일하게 전체 허용
+        if "role" in payload and not is_rbac_allowed(path, request.method, role):
+            return JSONResponse(
+                {"detail": "Forbidden"},
+                status_code=403,
                 headers=_cors_headers_for_request(request),
             )
 

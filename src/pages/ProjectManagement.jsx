@@ -232,7 +232,7 @@ function displayReadonlyCell(row, field) {
   return value || '-'
 }
 
-export default function ProjectManagement() {
+export default function ProjectManagement({ canEdit = true }) {
   const [contracts, setContracts] = useState([])
   const [loading, setLoading] = useState(true)
   const [refetching, setRefetching] = useState(false)
@@ -432,6 +432,17 @@ export default function ProjectManagement() {
         )
       }
 
+      if (column.editable && !canEdit) {
+        return (
+          <td
+            key={column.field}
+            className={`unit-price-readonly ${colClass} text-center`}
+          >
+            {displayReadonlyCell(row, column.field)}
+          </td>
+        )
+      }
+
       if (column.editable && column.type === 'date') {
         return (
           <td key={column.field} className={`unit-price-editable-cell p-0 align-middle ${colClass}`}>
@@ -461,7 +472,7 @@ export default function ProjectManagement() {
 
       return null
     },
-    [handleFieldSave, refetching, tableBusy]
+    [canEdit, handleFieldSave, refetching, tableBusy]
   )
 
   return (

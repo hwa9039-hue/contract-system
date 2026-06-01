@@ -11,6 +11,7 @@ from app.auth_utils import (
     get_auth_shared_password,
     get_jwt_secret,
     is_auth_disabled,
+    normalize_token_role,
     verify_login_password,
 )
 
@@ -54,12 +55,13 @@ def login(body: LoginBody):
     if not verify_login_password(body.password, login_role):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
 
-    token = create_access_token()
+    token = create_access_token(login_role)
     return {
         "access_token": token,
         "token_type": "bearer",
         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         "auth_disabled": False,
+        "role": login_role,
     }
 
 
@@ -90,19 +92,21 @@ def refresh(request: Request):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     try:
-        decode_token_allow_expired(token)
+        payload = decode_token_allow_expired(token)
     except InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
         )
 
-    new_token = create_access_token()
+    role = normalize_token_role(payload.get("role"))
+    new_token = create_access_token(role)
     return {
         "access_token": new_token,
         "token_type": "bearer",
         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         "auth_disabled": False,
+        "role": role,
     }
 
 
@@ -121,7 +125,8 @@ def me(request: Request):
         return {"valid": False, "auth_disabled": False}
 
     try:
-        decode_token(token)
-        return {"valid": True, "auth_disabled": False}
+        payload = decode_token(token)
+        role = normalize_token_role(payload.get("role"))
+        return {"valid": True, "auth_disabled": False, "role": role}
     except (InvalidTokenError, RuntimeError):
         return {"valid": False, "auth_disabled": False}
