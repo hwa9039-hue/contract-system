@@ -91,6 +91,7 @@ def on_startup():
     logger.info("init_db completed (contracts_rows null id repair runs here and on GET /api/contracts)")
     logger.info("CORS allow_origins count=%s (merged env + defaults)", len(_EFFECTIVE_CORS_ORIGINS))
     logger.info("Install cases API: POST/GET /api/install-cases (registered on app in main.py)")
+    logger.info("Contacts manage API: GET/POST /api/contacts-manage (app.include_router contacts_manage_router)")
 
 
 @app.get("/api/health")
@@ -124,12 +125,19 @@ def health_check():
             if getattr(route, "path", None) and "calendar-events" in route.path
         }
     )
-    contacts_manage_paths = sorted(
+    contacts_manage_routes = sorted(
         {
-            getattr(route, "path", "")
+            (
+                getattr(route, "path", ""),
+                tuple(sorted(getattr(route, "methods", []) or [])),
+            )
             for route in app.routes
             if getattr(route, "path", None) and "contacts-manage" in route.path
         }
+    )
+    contacts_manage_paths = sorted({path for path, _ in contacts_manage_routes})
+    contacts_manage_methods = sorted(
+        {method for _, methods in contacts_manage_routes for method in methods if method != "HEAD"}
     )
     return {
         "status": "ok",
@@ -145,6 +153,8 @@ def health_check():
         "calendarEventsPaths": calendar_paths,
         "contactsManage": bool(contacts_manage_paths),
         "contactsManagePaths": contacts_manage_paths,
+        "contactsManageMethods": contacts_manage_methods,
+        "contactsManagePostEnabled": "POST" in contacts_manage_methods,
     }
 
 

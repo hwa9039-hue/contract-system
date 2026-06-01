@@ -419,6 +419,26 @@ class DocumentRegisterBulkDelete(BaseModel):
     ids: list[Any]
 
 
+class ContactsManageBase(BaseModel):
+    category: str = ""
+    business_content: str = ""
+    manager_name: str = ""
+    position: str = ""
+    phone: str = ""
+    email: str = ""
+    notes: str = ""
+
+
+class ContactsManageCreate(ContactsManageBase):
+    pass
+
+
+class ContactsManageOut(ContactsManageBase):
+    id: Optional[Any] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 def _join_report_payload_parts(parts: Any) -> str:
     if not isinstance(parts, list):
         return ""
@@ -763,6 +783,19 @@ def row_to_document_register(row) -> dict:
     }
 
 
+def row_to_contacts_manage(row) -> dict:
+    return {
+        "id": to_response_value(row["id"]),
+        "category": to_response_value(row["category"]),
+        "business_content": to_response_value(row["business_content"]),
+        "manager_name": to_response_value(row["manager_name"]),
+        "position": to_response_value(row["position"]),
+        "phone": to_response_value(row["phone"]),
+        "email": to_response_value(row["email"]),
+        "notes": to_response_value(row["notes"]),
+    }
+
+
 def row_to_weekly_work_report(row) -> dict:
     order_index = to_response_value(row["order_index"])
     return {
@@ -1040,6 +1073,15 @@ TABLE_COLUMN_MAPPINGS = {
         "createdAt": "createdAt",
         "updatedAt": "updatedAt",
     },
+    "contacts_rows": {
+        "category": "category",
+        "business_content": "business_content",
+        "manager_name": "manager_name",
+        "position": "position",
+        "phone": "phone",
+        "email": "email",
+        "notes": "notes",
+    },
 }
 
 SALES_REGISTER_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["sales_register_rows"]
@@ -1050,6 +1092,7 @@ DOCUMENT_REGISTER_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["document_register_rows"]
 WEEKLY_WORK_REPORT_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["weekly_work_reports_rows"]
 INSTALL_CASE_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["install_cases_rows"]
 CALENDAR_MANUAL_EVENT_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["calendar_manual_events"]
+CONTACTS_MANAGE_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["contacts_rows"]
 
 
 def sales_register_to_db_values(row: SalesRegisterBase) -> dict:
@@ -1107,6 +1150,14 @@ def document_register_to_db_values(row: DocumentRegisterBase) -> dict:
         db_key: data[api_key]
         for api_key, db_key in DOCUMENT_REGISTER_DB_COLUMNS.items()
         if api_key in data
+    }
+
+
+def contacts_manage_to_db_values(row: ContactsManageBase) -> dict:
+    data = row.model_dump()
+    return {
+        db_key: data.get(api_key, "")
+        for api_key, db_key in CONTACTS_MANAGE_DB_COLUMNS.items()
     }
 
 
