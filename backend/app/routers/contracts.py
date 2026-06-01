@@ -53,6 +53,21 @@ UNIT_PRICE_PATCH_DB_KEYS = (
     "capH",
 )
 
+# 프론트 payload 키(camelCase·snake_case) → DB camelCase 컬럼명
+UNIT_PRICE_PAYLOAD_TO_DB = {
+    "costService": "costService",
+    "cost_service": "costService",
+    "itemName": "itemName",
+    "item_name": "itemName",
+    "designUnitPrice": "designUnitPrice",
+    "unit_price": "designUnitPrice",
+    "pitch": "pitch",
+    "capW": "capW",
+    "width_w": "capW",
+    "capH": "capH",
+    "height_h": "capH",
+}
+
 # id는 항상 문자열(UUID)로 직렬화되어 프론트 `id` 필드와 일치합니다.
 RETURNING_COLUMNS = f"""
   id::text as id, year, segment, "refNo", "contractNo", client, department,
@@ -68,7 +83,9 @@ def quote_identifier(identifier: str) -> str:
 
 def _normalize_unit_price_patch_value(api_key: str, value):
     if api_key not in ("designUnitPrice", "unit_price"):
-        return value
+        if value is None:
+            return ""
+        return str(value).strip()
     if value is None:
         return 0
     if isinstance(value, bool):
@@ -81,18 +98,46 @@ def _normalize_unit_price_patch_value(api_key: str, value):
         return 0
 
 
+def _apply_unit_price_patch_updates(
+    patch_data: dict,
+    values: dict,
+    assignments: list[str],
+) -> set[str]:
+    """단가관리 6컬럼 UPDATE SET — payload(camel/snake) → DB 컬럼 + snake_case 미러."""
+    updated_db_cols: set[str] = set()
+
+    for payload_key, db_col in UNIT_PRICE_PAYLOAD_TO_DB.items():
+        if payload_key not in patch_data or db_col in updated_db_cols:
+            continue
+
+        param_key = f"upd_{db_col}"
+        normalized = _normalize_unit_price_patch_value(payload_key, patch_data[payload_key])
+        values[param_key] = normalized
+
+        assignments.append(f'{quote_identifier(db_col)} = %({param_key})s')
+        mirror_col = UNIT_PRICE_MIRROR_DB_COLUMNS.get(db_col)
+        if mirror_col:
+            assignments.append(f"{mirror_col} = %({param_key})s")
+
+        updated_db_cols.add(db_col)
+
+    return updated_db_cols
+
+
 def _append_contract_patch_assignment(
     db_key: str,
     value,
     values: dict,
     assignments: list[str],
     mirrored_db_keys: set[str],
+    param_key: str | None = None,
 ) -> None:
-    values[db_key] = value
-    assignments.append(f"{quote_identifier(db_key)} = %({db_key})s")
+    bind_key = param_key or db_key
+    values[bind_key] = value
+    assignments.append(f"{quote_identifier(db_key)} = %({bind_key})s")
     mirror_col = UNIT_PRICE_MIRROR_DB_COLUMNS.get(db_key)
     if mirror_col and mirror_col not in mirrored_db_keys:
-        assignments.append(f"{mirror_col} = %({db_key})s")
+        assignments.append(f"{mirror_col} = %({bind_key})s")
         mirrored_db_keys.add(mirror_col)
 
 
@@ -102,12 +147,15 @@ def _build_contract_patch_sql(patch_data: dict) -> tuple[dict, list[str]]:
     mirrored_db_keys: set[str] = set()
     applied_db_keys: set[str] = set()
 
+    unit_price_db_cols = _apply_unit_price_patch_updates(patch_data, values, assignments)
+    applied_db_keys.update(unit_price_db_cols)
+
     for api_key, value in patch_data.items():
+        if api_key in UNIT_PRICE_PAYLOAD_TO_DB:
+            continue
         db_key = CONTRACT_DB_COLUMNS.get(api_key)
         if not db_key or db_key in applied_db_keys:
             continue
-        if db_key in UNIT_PRICE_PATCH_DB_KEYS:
-            value = _normalize_unit_price_patch_value(api_key, value)
         _append_contract_patch_assignment(db_key, value, values, assignments, mirrored_db_keys)
         applied_db_keys.add(db_key)
 
@@ -303,11 +351,15 @@ def update_contract(contract_id: str, patch: ContractPatch):
     if not assignments:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid fields to update")
 
+    unit_price_in_payload = [
+        key for key in patch_data if key in UNIT_PRICE_PAYLOAD_TO_DB
+    ]
     logger.info(
-        "contracts patch id=%s unit_price_fields=%s assignments=%s",
+        "contracts patch id=%s unit_price_payload_keys=%s unit_price_assignments=%s values=%s",
         contract_id,
-        [key for key in patch_data if CONTRACT_DB_COLUMNS.get(key) in UNIT_PRICE_PATCH_DB_KEYS],
-        assignments,
+        unit_price_in_payload,
+        [a for a in assignments if any(col in a for col in UNIT_PRICE_PATCH_DB_KEYS)],
+        {k: v for k, v in values.items() if k.startswith("upd_")},
     )
 
     with get_connection() as connection:
@@ -315,7 +367,8 @@ def update_contract(contract_id: str, patch: ContractPatch):
             cursor.execute(
                 f"""
                 update contracts_rows
-                set {", ".join(assignments)}
+                set
+                  {", ".join(assignments)}
                 where id::text = %(id)s
                 returning {RETURNING_COLUMNS}
                 """,
