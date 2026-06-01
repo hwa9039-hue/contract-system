@@ -33,43 +33,20 @@ if (import.meta.env.VITE_MUI_X_LICENSE_KEY) {
 
 const REFETCH_AFTER_SAVE_DELAY_MS = 750
 
-const LICENSE_WATERMARK_SELECTORS = [
-  '.MuiDataGrid-licenseWatermark',
-  '[class*="MuiDataGrid-licenseWatermark"]',
-  '[class*="licenseWatermark"]',
-  'div[class*="watermark"]',
-  'div[class*="license"]',
-]
-
-function isLicenseWatermarkNode(el) {
-  if (!(el instanceof HTMLElement)) return false
-  const className = typeof el.className === 'string' ? el.className : ''
-  if (
-    /MuiDataGrid-licenseWatermark/i.test(className) ||
-    /licenseWatermark/i.test(className)
-  ) {
-    return true
-  }
-  const text = (el.textContent || '').trim()
-  return text.includes('MUI X Missing license key') || text.includes('Missing license key')
-}
-
-function removeLicenseWatermarksFromDom(root) {
-  if (!root) return
-
-  for (const selector of LICENSE_WATERMARK_SELECTORS) {
-    root.querySelectorAll(selector).forEach((node) => {
-      if (isLicenseWatermarkNode(node) || /watermark|license/i.test(node.className || '')) {
-        node.remove()
-      }
-    })
-  }
-
-  root.querySelectorAll('div, span').forEach((node) => {
-    if (isLicenseWatermarkNode(node)) {
-      node.remove()
-    }
-  })
+/** MUI X 라이선스 워터마크 — sx/CSS 로만 숨김 (DOM remove 금지) */
+const GRID_WATERMARK_HIDE_SX = {
+  '& .MuiDataGrid-licenseWatermark': {
+    opacity: 0,
+    visibility: 'hidden',
+    pointerEvents: 'none',
+    zIndex: -1,
+  },
+  '& [class*="MuiDataGrid-licenseWatermark"]': {
+    opacity: 0,
+    visibility: 'hidden',
+    pointerEvents: 'none',
+    zIndex: -1,
+  },
 }
 
 function safeString(value) {
@@ -207,7 +184,6 @@ export default function UnitPriceManagement() {
   const savingItemIdsRef = useRef(new Set())
   const saveSuccessTimerRef = useRef(null)
   const refetchAfterSaveTimerRef = useRef(null)
-  const gridWrapRef = useRef(null)
 
   const showToast = useCallback((message) => {
     setSaveSuccess(message)
@@ -266,32 +242,6 @@ export default function UnitPriceManagement() {
   }, [fetchTree])
 
   const gridRows = useMemo(() => contractsToGridRows(contracts), [contracts])
-
-  useEffect(() => {
-    const root = gridWrapRef.current
-    if (!root) return undefined
-
-    const purge = () => {
-      removeLicenseWatermarksFromDom(root)
-    }
-
-    purge()
-
-    const observer = new MutationObserver(() => {
-      purge()
-    })
-
-    observer.observe(root, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['class', 'style'],
-    })
-
-    return () => {
-      observer.disconnect()
-    }
-  }, [loading, refetching, contracts.length, gridRows.length])
 
   const handleAddItem = useCallback(
     async (contractId) => {
@@ -574,7 +524,6 @@ export default function UnitPriceManagement() {
           </div>
         ) : (
           <Box
-            ref={gridWrapRef}
             className="unit-price-datagrid-wrap"
             sx={{ flex: 1, minHeight: 480, width: '100%' }}
           >
@@ -601,6 +550,7 @@ export default function UnitPriceManagement() {
               sx={{
                 border: '1px solid #e2e8f0',
                 borderRadius: '10px',
+                ...GRID_WATERMARK_HIDE_SX,
                 '& .MuiDataGrid-columnHeaders': {
                   backgroundColor: '#f3f4f6',
                   fontWeight: 700,
