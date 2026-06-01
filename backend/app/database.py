@@ -519,6 +519,36 @@ def init_db():
                   add column if not exists "capH" text not null default ''
                 """
             )
+            cursor.execute(
+                """
+                alter table contracts_rows
+                  add column if not exists cost_service text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table contracts_rows
+                  add column if not exists item_name text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table contracts_rows
+                  add column if not exists unit_price numeric(18, 0) not null default 0
+                """
+            )
+            cursor.execute(
+                """
+                alter table contracts_rows
+                  add column if not exists width_w text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table contracts_rows
+                  add column if not exists height_h text not null default ''
+                """
+            )
             _migrate_contracts_text_columns(cursor)
             cursor.execute(
                 """

@@ -138,6 +138,7 @@ function readContractField(item, ...keys) {
 }
 
 function extractEditableFields(item) {
+  // ContractOut GET 키(camelCase) 우선 — EDITABLE_COLUMNS[].key 와 1:1 대응
   return {
     costService: safeString(
       readContractField(item, 'costService', 'cost_service', 'costservice')

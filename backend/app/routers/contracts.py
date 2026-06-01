@@ -24,12 +24,31 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/contracts", tags=["contracts"])
 
+# 단가관리 6컬럼 — camelCase·snake_case 양쪽 DB 컬럼을 COALESCE 로 API camelCase 키에 통일
+UNIT_PRICE_SELECT_COLUMNS = """
+  COALESCE(NULLIF("costService", ''), cost_service, '') AS "costService",
+  COALESCE(NULLIF("itemName", ''), item_name, '') AS "itemName",
+  COALESCE(NULLIF("designUnitPrice", 0::numeric), unit_price, 0::numeric) AS "designUnitPrice",
+  pitch AS pitch,
+  COALESCE(NULLIF("capW", ''), width_w, '') AS "capW",
+  COALESCE(NULLIF("capH", ''), height_h, '') AS "capH"
+"""
+
+# PATCH 시 camelCase 컬럼과 함께 snake_case 미러 컬럼에도 동일 값 저장
+UNIT_PRICE_MIRROR_DB_COLUMNS = {
+    "costService": "cost_service",
+    "itemName": "item_name",
+    "designUnitPrice": "unit_price",
+    "capW": "width_w",
+    "capH": "height_h",
+}
+
 # id는 항상 문자열(UUID)로 직렬화되어 프론트 `id` 필드와 일치합니다.
-RETURNING_COLUMNS = """
+RETURNING_COLUMNS = f"""
   id::text as id, year, segment, "refNo", "contractNo", client, department,
   "contractMethod", "contractType", "identNo", "contractDate", "dueDate",
   "projectName", amount, "salesOwner", pm, note,
-  "costService", "itemName", "designUnitPrice", pitch, "capW", "capH"
+  {UNIT_PRICE_SELECT_COLUMNS}
 """
 
 
@@ -222,6 +241,7 @@ def update_contract(contract_id: str, patch: ContractPatch):
 
     values = {"id": contract_id}
     assignments = []
+    mirrored_db_keys: set[str] = set()
 
     for api_key, value in patch_data.items():
         db_key = CONTRACT_DB_COLUMNS.get(api_key)
@@ -239,6 +259,10 @@ def update_contract(contract_id: str, patch: ContractPatch):
                     value = 0
         values[db_key] = value
         assignments.append(f"{quote_identifier(db_key)} = %({db_key})s")
+        mirror_col = UNIT_PRICE_MIRROR_DB_COLUMNS.get(db_key)
+        if mirror_col and mirror_col not in mirrored_db_keys:
+            assignments.append(f"{mirror_col} = %({db_key})s")
+            mirrored_db_keys.add(mirror_col)
 
     if not assignments:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid fields to update")
