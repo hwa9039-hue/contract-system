@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, CircularProgress, IconButton, Tooltip } from '@mui/material'
-import { DataGrid, useGridApiRef } from '@mui/x-data-grid'
-import { koKR } from '@mui/x-data-grid/locales'
 import { Plus, Trash2 } from 'lucide-react'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.js'
+import { EditableTextCell } from '../EditableTextCell.jsx'
 import { unitPricesApi } from '../api/unitPricesApi.js'
 import {
   UNIT_PRICE_FILTERABLE_COLUMN_KEYS,
@@ -39,21 +37,38 @@ const REFETCH_AFTER_SAVE_DELAY_MS = 750
 
 const PLACEHOLDER_ID_PREFIX = '__empty__'
 
-const GRID_BASE_SX = {
-  border: 'none',
-  borderRadius: 0,
-  '& .MuiDataGrid-columnHeaders': {
-    backgroundColor: '#f3f4f6',
-    fontWeight: 700,
+/** 계약현황 테이블과 동일한 열 정의 — width 고정, 사업명만 넓게 */
+const UNIT_PRICE_TABLE_COLUMNS = Object.freeze([
+  { key: 'actions', label: '', filterable: false, thClass: 'unit-price-col-actions th-align-center' },
+  { key: 'year', label: '사업년도', filterable: true, readonly: true, thClass: 'unit-price-col-year th-align-center' },
+  { key: 'client', label: '발주처', filterable: true, readonly: true, thClass: 'unit-price-col-client th-align-center' },
+  {
+    key: 'projectName',
+    label: '사업명',
+    filterable: true,
+    readonly: true,
+    thClass: 'unit-price-col-project th-align-center',
   },
-  '& .MuiDataGrid-columnHeaderTitle': {
-    width: '100%',
-    textAlign: 'center',
+  { key: 'itemName', label: '품명', filterable: true, editable: true, thClass: 'unit-price-col-item th-align-center' },
+  {
+    key: 'costService',
+    label: '단가유형',
+    filterable: true,
+    editable: true,
+    thClass: 'unit-price-col-cost th-align-center',
   },
-  '& .MuiDataGrid-columnHeader': {
-    overflow: 'visible !important',
+  {
+    key: 'designUnitPrice',
+    label: '설계단가',
+    filterable: true,
+    editable: true,
+    align: 'right',
+    thClass: 'unit-price-col-design th-align-center',
   },
-}
+  { key: 'pitch', label: 'Pitch', filterable: true, editable: true, thClass: 'unit-price-col-pitch th-align-center' },
+  { key: 'capW', label: 'W', filterable: true, editable: true, thClass: 'unit-price-col-narrow th-align-center' },
+  { key: 'capH', label: 'H', filterable: true, editable: true, thClass: 'unit-price-col-narrow th-align-center' },
+])
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -186,23 +201,9 @@ function rowToSavedSnapshot(row) {
   }
 }
 
-function renderFilterHeader(label, columnKey, ctx) {
-  const { unitPriceColumnFilterOptionsMap, activeFilters, handleActiveFiltersApply, openColumnFilterKey, setOpenColumnFilterKey } =
-    ctx
-  return (
-    <div className="contract-th-filter-wrap">
-      <span className="contract-th-label">{label}</span>
-      <ContractColumnHeaderFilter
-        columnKey={columnKey}
-        options={unitPriceColumnFilterOptionsMap[columnKey] ?? []}
-        selected={activeFilters[columnKey] ?? []}
-        onApply={handleActiveFiltersApply}
-        isOpen={openColumnFilterKey === columnKey}
-        onOpenChange={setOpenColumnFilterKey}
-        normalizeSelection={normalizeContractColumnFilterSelection}
-      />
-    </div>
-  )
+function displayReadonlyCell(row, key) {
+  const value = safeString(row?.[key]).trim()
+  return value || '-'
 }
 
 export default function UnitPriceManagement() {
@@ -222,16 +223,6 @@ export default function UnitPriceManagement() {
   const savingItemIdsRef = useRef(new Set())
   const saveSuccessTimerRef = useRef(null)
   const refetchAfterSaveTimerRef = useRef(null)
-
-  const gridApiRef = useGridApiRef()
-
-  const gridLocaleText = useMemo(
-    () => ({
-      ...koKR,
-      noRowsLabel: '표시할 데이터가 없습니다.',
-    }),
-    []
-  )
 
   const showToast = useCallback((message) => {
     setSaveSuccess(message)
@@ -325,6 +316,81 @@ export default function UnitPriceManagement() {
     })
   }, [])
 
+  const persistItemSnapshot = useCallback(
+    async (row, nextSnapshot) => {
+      const rowId = safeString(row.id).trim()
+      if (!rowId || savingItemIdsRef.current.has(rowId) || tableBusy) return false
+
+      const contractId = safeString(row.contractId).trim()
+      const isPlaceholder = row.isPlaceholder || isPlaceholderRowId(rowId)
+
+      if (isPlaceholder) {
+        const payload = itemFieldsToApiPatch(nextSnapshot)
+        const hasContent = UNIT_PRICE_FIELDS.some((key) => {
+          if (key === 'designUnitPrice') return payload.designUnitPrice > 0
+          return Boolean(safeString(payload[key]).trim())
+        })
+        if (!hasContent) return false
+
+        savingItemIdsRef.current.add(rowId)
+        try {
+          if (!contractId) throw new Error('계약 ID가 없습니다.')
+          await unitPricesApi.createItem(contractId, payload)
+          setSaveError(null)
+          showToast('저장되었습니다.')
+          scheduleRefetchAfterSave()
+          return true
+        } catch (saveErr) {
+          console.error('[단가관리] 품목 생성 실패', saveErr)
+          setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
+          setSaveSuccess(null)
+          return false
+        } finally {
+          savingItemIdsRef.current.delete(rowId)
+        }
+      }
+
+      const saved = savedByItemIdRef.current[rowId] || rowToSavedSnapshot(row)
+      const patch = buildItemPatchDiff(nextSnapshot, saved)
+      if (Object.keys(patch).length === 0) return false
+
+      savingItemIdsRef.current.add(rowId)
+      try {
+        const updated = await unitPricesApi.updateItem(rowId, patch)
+        const normalized = normalizeItemFromApi(updated)
+        savedByItemIdRef.current[rowId] = rowToSavedSnapshot({
+          ...row,
+          ...normalized,
+        })
+        setSaveError(null)
+        showToast('저장되었습니다.')
+        scheduleRefetchAfterSave()
+        return true
+      } catch (saveErr) {
+        console.error('[단가관리] 품목 저장 실패', saveErr)
+        setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
+        setSaveSuccess(null)
+        return false
+      } finally {
+        savingItemIdsRef.current.delete(rowId)
+      }
+    },
+    [scheduleRefetchAfterSave, showToast, tableBusy]
+  )
+
+  const handleItemFieldSave = useCallback(
+    async (row, field, rawValue) => {
+      const nextSnapshot = rowToSavedSnapshot(row)
+      if (field === 'designUnitPrice') {
+        nextSnapshot.designUnitPrice = formatDesignUnitPrice(rawValue)
+      } else {
+        nextSnapshot[field] = safeString(rawValue).trim()
+      }
+      await persistItemSnapshot(row, nextSnapshot)
+    },
+    [persistItemSnapshot]
+  )
+
   const handleAddItem = useCallback(
     async (contractId) => {
       const cid = safeString(contractId).trim()
@@ -368,264 +434,8 @@ export default function UnitPriceManagement() {
     [fetchTree, showToast, tableBusy]
   )
 
-  const processRowUpdate = useCallback(
-    async (newRow, oldRow) => {
-      const rowId = safeString(newRow.id).trim()
-      if (!rowId || savingItemIdsRef.current.has(rowId) || tableBusy) return oldRow
-
-      const current = rowToSavedSnapshot(newRow)
-      const contractId = safeString(newRow.contractId).trim()
-
-      if (newRow.isPlaceholder || isPlaceholderRowId(rowId)) {
-        const payload = itemFieldsToApiPatch(current)
-        const hasContent = UNIT_PRICE_FIELDS.some((key) => {
-          if (key === 'designUnitPrice') return payload.designUnitPrice > 0
-          return Boolean(safeString(payload[key]).trim())
-        })
-        if (!hasContent) return newRow
-
-        savingItemIdsRef.current.add(rowId)
-        try {
-          if (!contractId) throw new Error('계약 ID가 없습니다.')
-          await unitPricesApi.createItem(contractId, payload)
-          setSaveError(null)
-          showToast('저장되었습니다.')
-          scheduleRefetchAfterSave()
-          return newRow
-        } catch (saveErr) {
-          console.error('[단가관리] 품목 생성 실패', saveErr)
-          setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
-          setSaveSuccess(null)
-          throw saveErr
-        } finally {
-          savingItemIdsRef.current.delete(rowId)
-        }
-      }
-
-      const saved = savedByItemIdRef.current[rowId] || rowToSavedSnapshot(oldRow)
-      const patch = buildItemPatchDiff(current, saved)
-      if (Object.keys(patch).length === 0) return newRow
-
-      savingItemIdsRef.current.add(rowId)
-      try {
-        const updated = await unitPricesApi.updateItem(rowId, patch)
-        const normalized = normalizeItemFromApi(updated)
-        savedByItemIdRef.current[rowId] = rowToSavedSnapshot({
-          ...newRow,
-          ...normalized,
-        })
-        setSaveError(null)
-        showToast('저장되었습니다.')
-        scheduleRefetchAfterSave()
-        return {
-          ...newRow,
-          costService: normalized.costService,
-          itemName: normalized.itemName,
-          designUnitPrice: normalized.designUnitPrice,
-          pitch: normalized.pitch,
-          capW: normalized.capW,
-          capH: normalized.capH,
-        }
-      } catch (saveErr) {
-        console.error('[단가관리] 품목 저장 실패', saveErr)
-        setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
-        setSaveSuccess(null)
-        throw saveErr
-      } finally {
-        savingItemIdsRef.current.delete(rowId)
-      }
-    },
-    [scheduleRefetchAfterSave, showToast, tableBusy]
-  )
-
-  const handleCellClick = useCallback((params, event) => {
-    if (params.field === 'actions') return
-    if (params.isEditable) {
-      event.defaultMuiPrevented = true
-    }
-  }, [])
-
-  const handleCellDoubleClick = useCallback((params) => {
-    if (params.field === 'actions' || !params.isEditable || !gridApiRef.current) return
-    gridApiRef.current.startCellEditMode({
-      id: params.id,
-      field: params.field,
-    })
-  }, [])
-
-  const filterHeaderCtx = useMemo(
-    () => ({
-      unitPriceColumnFilterOptionsMap,
-      activeFilters,
-      handleActiveFiltersApply,
-      openColumnFilterKey,
-      setOpenColumnFilterKey,
-    }),
-    [
-      activeFilters,
-      handleActiveFiltersApply,
-      openColumnFilterKey,
-      unitPriceColumnFilterOptionsMap,
-    ]
-  )
-
-  const columns = useMemo(() => {
-    const filterHeader = (label, key) => ({
-      renderHeader: () => renderFilterHeader(label, key, filterHeaderCtx),
-    })
-
-    return [
-      {
-        field: 'actions',
-        headerName: '',
-        width: 72,
-        sortable: false,
-        filterable: false,
-        disableColumnMenu: true,
-        headerAlign: 'center',
-        align: 'center',
-        renderCell: (params) => (
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.25 }}>
-            <Tooltip title="품목 추가">
-              <span>
-                <IconButton
-                  size="small"
-                  aria-label="품목 추가"
-                  disabled={tableBusy || refetching}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    void handleAddItem(params.row.contractId)
-                  }}
-                >
-                  <Plus size={16} />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title={params.row.isPlaceholder ? '삭제할 품목 없음' : '품목 삭제'}>
-              <span>
-                <IconButton
-                  size="small"
-                  color="error"
-                  aria-label="품목 삭제"
-                  disabled={tableBusy || refetching || params.row.isPlaceholder}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    void handleDeleteItem(params.row)
-                  }}
-                >
-                  <Trash2 size={16} />
-                </IconButton>
-              </span>
-            </Tooltip>
-          </Box>
-        ),
-      },
-      {
-        field: 'year',
-        headerName: '사업년도',
-        width: 88,
-        editable: false,
-        headerAlign: 'center',
-        align: 'center',
-        disableColumnMenu: true,
-        valueFormatter: (value) => value || '-',
-        ...filterHeader('사업년도', 'year'),
-      },
-      {
-        field: 'client',
-        headerName: '발주처',
-        width: 130,
-        editable: false,
-        headerAlign: 'center',
-        align: 'center',
-        disableColumnMenu: true,
-        valueFormatter: (value) => value || '-',
-        ...filterHeader('발주처', 'client'),
-      },
-      {
-        field: 'projectName',
-        headerName: '사업명',
-        flex: 1,
-        minWidth: 180,
-        editable: false,
-        headerAlign: 'center',
-        disableColumnMenu: true,
-        valueFormatter: (value) => value || '-',
-        ...filterHeader('사업명', 'projectName'),
-      },
-      {
-        field: 'itemName',
-        headerName: '품명',
-        width: 120,
-        editable: true,
-        headerAlign: 'center',
-        align: 'center',
-        disableColumnMenu: true,
-        ...filterHeader('품명', 'itemName'),
-      },
-      {
-        field: 'costService',
-        headerName: '단가유형',
-        width: 110,
-        editable: true,
-        headerAlign: 'center',
-        align: 'center',
-        disableColumnMenu: true,
-        ...filterHeader('단가유형', 'costService'),
-      },
-      {
-        field: 'designUnitPrice',
-        headerName: '설계단가',
-        width: 100,
-        editable: true,
-        headerAlign: 'center',
-        align: 'right',
-        disableColumnMenu: true,
-        ...filterHeader('설계단가', 'designUnitPrice'),
-      },
-      {
-        field: 'pitch',
-        headerName: 'Pitch',
-        width: 72,
-        editable: true,
-        headerAlign: 'center',
-        align: 'center',
-        disableColumnMenu: true,
-        ...filterHeader('Pitch', 'pitch'),
-      },
-      {
-        field: 'capW',
-        headerName: 'W',
-        width: 64,
-        editable: true,
-        headerAlign: 'center',
-        align: 'center',
-        disableColumnMenu: true,
-        ...filterHeader('W', 'capW'),
-      },
-      {
-        field: 'capH',
-        headerName: 'H',
-        width: 64,
-        editable: true,
-        headerAlign: 'center',
-        align: 'center',
-        disableColumnMenu: true,
-        ...filterHeader('H', 'capH'),
-      },
-    ]
-  }, [filterHeaderCtx, handleAddItem, handleDeleteItem, refetching, tableBusy])
-
   const showEmpty = !loading && !error && flatRows.length === 0
-
-  const sharedGridProps = {
-    disableColumnMenu: true,
-    disableRowSelectionOnClick: true,
-    density: 'compact',
-    localeText: gridLocaleText,
-    filterMode: 'client',
-    sx: GRID_BASE_SX,
-  }
+  const tableColSpan = UNIT_PRICE_TABLE_COLUMNS.length
 
   return (
     <div className="unit-price-management h-full min-h-0">
@@ -648,9 +458,7 @@ export default function UnitPriceManagement() {
         ) : null}
 
         {loading && flatRows.length === 0 ? (
-          <Box className="unit-price-grid-loading" sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-            <CircularProgress size={32} />
-          </Box>
+          <div className="unit-price-empty-cell">데이터를 불러오는 중...</div>
         ) : error && flatRows.length === 0 ? (
           <div className="unit-price-empty-cell unit-price-empty-cell--error">{error}</div>
         ) : showEmpty ? (
@@ -668,35 +476,113 @@ export default function UnitPriceManagement() {
               />
             </div>
 
-            <Box
-              className={`unit-price-datagrid-wrap contract-table-panel${
-                refetching ? ' unit-price-table-wrap--refetching' : ''
+            <div
+              className={`table-wrap unit-price-table-scroll contracts-only-scroll overflow-x-auto${
+                refetching || tableBusy ? ' unit-price-table-wrap--refetching' : ''
               }`}
-              sx={{ flex: 1, minHeight: 480, width: '100%' }}
             >
-              <DataGrid
-                apiRef={gridApiRef}
-                rows={isTableFilterResultEmpty ? [] : filteredFlatRows}
-                columns={columns}
-                editMode="cell"
-                processRowUpdate={processRowUpdate}
-                onProcessRowUpdateError={(err) => {
-                  console.error('[단가관리] 저장 오류', err)
-                }}
-                onCellClick={handleCellClick}
-                onCellDoubleClick={handleCellDoubleClick}
-                loading={refetching || tableBusy}
-                {...sharedGridProps}
-                localeText={{
-                  ...gridLocaleText,
-                  noRowsLabel: isTableFilterResultEmpty
-                    ? '필터 조건에 맞는 데이터가 없습니다.'
-                    : gridLocaleText.noRowsLabel,
-                }}
-              />
-            </Box>
-            <p className="unit-price-grid-hint" style={{ margin: '8px 0 0', fontSize: 12, color: '#64748b' }}>
-              품목 셀을 더블클릭하면 수정할 수 있으며, 편집 후 다른 셀을 클릭하면 자동 저장됩니다.
+              <table className="contract-table excel-table registry-table ledger-table-ui unit-price-table table-w-full-min table-fixed w-full">
+                <colgroup>
+                  <col className="unit-price-col-actions" />
+                  <col className="unit-price-col-year" />
+                  <col className="unit-price-col-client" />
+                  <col className="unit-price-col-project" />
+                  <col className="unit-price-col-item" />
+                  <col className="unit-price-col-cost" />
+                  <col className="unit-price-col-design" />
+                  <col className="unit-price-col-pitch" />
+                  <col className="unit-price-col-narrow" />
+                  <col className="unit-price-col-narrow" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    {UNIT_PRICE_TABLE_COLUMNS.map((column) => (
+                      <th
+                        key={column.key}
+                        className={`unit-price-th ${column.thClass}${
+                          column.filterable ? ' contract-th-filterable' : ''
+                        }`}
+                      >
+                        {column.filterable ? (
+                          <div className="contract-th-filter-wrap">
+                            <span className="contract-th-label">{column.label}</span>
+                            <ContractColumnHeaderFilter
+                              columnKey={column.key}
+                              options={unitPriceColumnFilterOptionsMap[column.key] ?? []}
+                              selected={activeFilters[column.key] ?? []}
+                              onApply={handleActiveFiltersApply}
+                              isOpen={openColumnFilterKey === column.key}
+                              onOpenChange={setOpenColumnFilterKey}
+                              normalizeSelection={normalizeContractColumnFilterSelection}
+                            />
+                          </div>
+                        ) : (
+                          column.label
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {isTableFilterResultEmpty ? (
+                    <tr>
+                      <td colSpan={tableColSpan} className="empty-cell">
+                        필터 조건에 맞는 데이터가 없습니다.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredFlatRows.map((row) => (
+                      <tr key={row.id}>
+                        <td className="unit-price-readonly unit-price-action-cell">
+                          <div className="unit-price-action-group">
+                            <button
+                              type="button"
+                              className="unit-price-action-btn"
+                              aria-label="품목 추가"
+                              disabled={tableBusy || refetching}
+                              onClick={() => void handleAddItem(row.contractId)}
+                            >
+                              <Plus size={14} strokeWidth={2.25} aria-hidden />
+                            </button>
+                            <button
+                              type="button"
+                              className="unit-price-action-btn unit-price-action-btn--danger"
+                              aria-label="품목 삭제"
+                              disabled={tableBusy || refetching || row.isPlaceholder}
+                              onClick={() => void handleDeleteItem(row)}
+                            >
+                              <Trash2 size={14} strokeWidth={2.25} aria-hidden />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="unit-price-readonly text-center">
+                          {displayReadonlyCell(row, 'year')}
+                        </td>
+                        <td className="unit-price-readonly text-center unit-price-cell-truncate">
+                          {displayReadonlyCell(row, 'client')}
+                        </td>
+                        <td className="unit-price-readonly text-left pl-4 unit-price-cell-truncate">
+                          {displayReadonlyCell(row, 'projectName')}
+                        </td>
+                        {UNIT_PRICE_TABLE_COLUMNS.filter((c) => c.editable).map((column) => (
+                          <td key={column.key} className="unit-price-editable-cell p-0 align-middle">
+                            <EditableTextCell
+                              value={row[column.key] ?? ''}
+                              align={column.align || 'center'}
+                              disabled={tableBusy || refetching}
+                              className="unit-price-cell-input"
+                              onSave={(nextValue) => void handleItemFieldSave(row, column.key, nextValue)}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <p className="unit-price-grid-hint">
+              품목 셀을 클릭하면 수정할 수 있으며, 편집 후 다른 셀을 클릭하면 자동 저장됩니다.
             </p>
           </>
         )}

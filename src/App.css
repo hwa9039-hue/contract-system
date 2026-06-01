@@ -10796,40 +10796,115 @@ div[class*='MuiDataGrid-licenseWatermark'] {
   table-layout: fixed;
 }
 
+/* 단가관리 평면 리스트 — 컬럼 너비 고정 (리사이즈 없음) */
+.unit-price-table .unit-price-col-actions {
+  width: 52px;
+  min-width: 52px;
+}
+
 .unit-price-table .unit-price-col-year {
-  width: 5%;
+  width: 72px;
+  min-width: 72px;
 }
 
 .unit-price-table .unit-price-col-client {
-  width: 15%;
+  width: 110px;
+  min-width: 110px;
 }
 
 .unit-price-table .unit-price-col-project {
-  width: 22%;
+  width: auto;
+  min-width: 200px;
 }
 
-.unit-price-table .unit-price-col-summary {
-  width: 30%;
+.unit-price-table .unit-price-col-item {
+  width: 100px;
+  min-width: 100px;
 }
 
-.unit-price-table .unit-price-col-manage {
+.unit-price-table .unit-price-col-cost {
   width: 96px;
-}
-
-.unit-price-table .unit-price-col-contract-no {
-  width: 12%;
-}
-
-.unit-price-table .unit-price-col-editable {
-  width: 10%;
+  min-width: 96px;
 }
 
 .unit-price-table .unit-price-col-design {
-  width: 10%;
+  width: 88px;
+  min-width: 88px;
+}
+
+.unit-price-table .unit-price-col-pitch {
+  width: 64px;
+  min-width: 64px;
 }
 
 .unit-price-table .unit-price-col-narrow {
-  width: 6%;
+  width: 52px;
+  min-width: 52px;
+}
+
+.unit-price-table .unit-price-action-cell {
+  padding: 4px 2px !important;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.unit-price-table .unit-price-action-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.unit-price-table .unit-price-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.unit-price-table .unit-price-action-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.unit-price-table .unit-price-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.unit-price-table .unit-price-action-btn--danger:hover:not(:disabled) {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.unit-price-table .unit-price-grid-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* 계약현황과 동일 — 단가관리 테이블 헤더·필터 메뉴 */
+.unit-price-table-scroll.contracts-only-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.unit-price-table.unit-price-table thead th.unit-price-th.contract-th-filterable {
+  overflow: visible;
+  position: relative;
+  z-index: 20;
+}
+
+.unit-price-table thead th.unit-price-th.contract-th-filterable:has(.contract-column-filter.is-open) {
+  z-index: 30;
 }
 
 .unit-price-table .text-center {

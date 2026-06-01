@@ -73,6 +73,10 @@ export function ContractColumnHeaderFilter({
         className={`contract-column-filter-trigger${isActive ? ' is-active' : ''}`}
         aria-label="열 필터"
         aria-expanded={isOpen}
+        onMouseDown={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+        }}
         onClick={(e) => {
           e.stopPropagation()
           onOpenChange(isOpen ? null : columnKey)
