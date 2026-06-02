@@ -1,5 +1,4 @@
-const NEWS_MONITOR_URL =
-  'https://newsmonitor-fmcxs7yzacrztzqvefz9vg.streamlit.app/?embed=true&embed_options=show_toolbar=false,show_padding=false,light_theme=true'
+const NEWS_MONITOR_URL = 'http://127.0.0.1:8000/'
 
 export default function NewsMonitor() {
   return (
