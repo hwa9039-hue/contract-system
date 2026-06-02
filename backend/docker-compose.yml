@@ -24,4 +24,4 @@ services:
     volumes:
       - ./uploads:/app/uploads
       - ./data/contract_excel_backup:/data/contract_excel_backup
-      - ./backups:/app/backups
+      - ../backups:/app/backups
