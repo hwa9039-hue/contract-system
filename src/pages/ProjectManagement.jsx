@@ -409,6 +409,10 @@ export default function ProjectManagement({ canEdit = true }) {
 
   const showEmpty = !loading && !error && contracts.length === 0
   const tableColSpan = columns.length
+  const tableTotalWidth = useMemo(
+    () => columns.reduce((sum, column) => sum + column.width, 0),
+    []
+  )
 
   const renderBodyCell = useCallback(
     (row, column) => {
@@ -488,7 +492,7 @@ export default function ProjectManagement({ canEdit = true }) {
         </div>
       ) : null}
 
-      <div className="contract-table-panel unit-price-table-panel flex flex-col h-full min-h-[500px]">
+      <div className="contract-table-panel unit-price-table-panel flex flex-col flex-1 min-h-0">
         {refetching ? (
           <div className="unit-price-refetch-banner" role="status" aria-live="polite">
             데이터를 불러오는 중...
@@ -504,7 +508,7 @@ export default function ProjectManagement({ canEdit = true }) {
             표시할 계약 데이터가 없습니다. (계약분류 {EXCLUDED_CONTRACT_TYPE} 제외)
           </div>
         ) : (
-          <>
+          <div className="unit-price-page-stack">
             <div className="table-toolbar contract-toolbar-simple">
               <input
                 className="table-search-input"
@@ -515,11 +519,14 @@ export default function ProjectManagement({ canEdit = true }) {
             </div>
 
             <div
-              className={`table-wrap contracts-only-scroll overflow-x-auto unit-price-table-scroll${
+              className={`table-wrap contracts-only-scroll unit-price-table-scroll${
                 refetching || tableBusy ? ' unit-price-table-wrap--refetching' : ''
               }`}
             >
-              <table className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table unit-price-table unit-price-table--project-mgmt table-w-full-min">
+              <table
+                className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table unit-price-table unit-price-table--project-mgmt"
+                style={{ width: tableTotalWidth, minWidth: tableTotalWidth }}
+              >
                 <colgroup>
                   {columns.map((column) => (
                     <col
@@ -577,7 +584,7 @@ export default function ProjectManagement({ canEdit = true }) {
               편집 가능한 셀을 클릭하면 수정할 수 있으며, 날짜는 달력으로 선택할 수 있습니다. 변경 후
               다른 셀을 클릭하면 자동 저장됩니다.
             </p>
-          </>
+          </div>
         )}
       </div>
     </div>

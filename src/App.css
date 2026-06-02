@@ -3491,7 +3491,8 @@ textarea:focus-visible {
 .main-area > section.stat-card .install-cases-toolbar,
 .main-area > section.stat-card .materials-board-toolbar,
 .main-area > section.stat-card .table-toolbar,
-.main-area > section.stat-card .contract-filter-row {
+.main-area > section.stat-card .contract-filter-row,
+.main-area > section.stat-card .unit-price-grid-hint {
   flex-shrink: 0;
 }
 
@@ -3508,6 +3509,27 @@ textarea:focus-visible {
   height: auto;
   max-height: none;
   overflow: auto;
+}
+
+/* 단가관리 · 사업관리 — 카드 내부에서만 스크롤, 헤더 sticky 유지 */
+.main-area > section.stat-card.stat-card--unit-price .unit-price-page-stack,
+.main-area > section.stat-card.stat-card--project-management .unit-price-page-stack {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-area > section.stat-card.stat-card--unit-price .unit-price-table-scroll,
+.main-area > section.stat-card.stat-card--project-management .unit-price-table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .main-area > section.stat-card .install-cases-gallery,
@@ -10350,28 +10372,40 @@ textarea:focus-visible {
 .materials-board-table-panel {
   border: 1px solid #e8edf5;
   border-radius: 12px;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: auto;
   background: #fff;
   flex: 1 1 auto;
   min-height: 0;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
-.materials-board-table {
+.materials-board-table,
+.materials-board-table.excel-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
 }
 
+.materials-board-table thead th,
 .materials-board-th {
-  padding: 5px 16px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #64748b;
+  padding: 10px 8px;
+  font-size: var(--cms-table-header-font-size);
+  font-weight: var(--cms-table-header-font-weight);
+  line-height: var(--cms-table-cell-line-height);
+  color: #475569;
   text-align: left;
   background: #f8fafc;
-  border-bottom: 1px solid #e8edf5;
+  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #e5e7eb;
+  box-shadow: inset 0 -1px 0 #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  vertical-align: middle;
+  min-height: 44px;
+  box-sizing: border-box;
 }
 
 .materials-board-th--no {
@@ -10870,6 +10904,9 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 .unit-price-table-scroll {
   flex: 1 1 auto;
   min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .unit-price-table-wrap--refetching {
@@ -10890,6 +10927,8 @@ div[class*='MuiDataGrid-licenseWatermark'] {
   /* 작업·년도·발주처(340) + 사업명(350) + 단가 열(810) */
   min-width: 1500px;
   table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .unit-price-table.w-full {
@@ -11027,22 +11066,42 @@ div[class*='MuiDataGrid-licenseWatermark'] {
   color: #dc2626;
 }
 
+.unit-price-page-stack {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .unit-price-table .unit-price-grid-hint {
   margin: 8px 0 0;
   font-size: 12px;
   color: #64748b;
 }
 
-/* 계약현황과 동일 — 단가관리 테이블 헤더·필터 메뉴 */
+/* 계약현황과 동일 — 단가관리·사업관리 테이블 헤더 sticky (필터 메뉴는 Portal) */
 .unit-price-table-scroll.contracts-only-scroll {
   flex: 1 1 auto;
   min-height: 0;
 }
 
-/* 단가관리 — 계약현황과 동일 헤더( sticky 제거, 필터 메뉴는 Portal ) */
+.unit-price-table.contracts-fixed-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #f8fafc;
+  box-shadow: inset 0 -1px 0 #e2e8f0;
+}
+
 .unit-price-table.contracts-fixed-table thead th.contract-th-filterable {
   overflow: visible;
-  position: relative;
+  white-space: nowrap;
+  z-index: 20;
+}
+
+.unit-price-table.contracts-fixed-table thead th.contract-th-filterable:has(.contract-column-filter.is-open) {
+  z-index: 30;
 }
 
 .contract-column-filter-menu--portal {
@@ -11357,6 +11416,7 @@ table[data-contract-table-row-key] tbody td.p-0 > textarea:focus,
 .excel-table thead th.th-align-center,
 .registry-table thead th,
 .unit-price-table thead th,
+.materials-board-table thead th,
 table[data-contract-table-row-key] thead th {
   font-size: var(--cms-table-header-font-size) !important;
   font-weight: var(--cms-table-header-font-weight) !important;
@@ -11366,6 +11426,7 @@ table[data-contract-table-row-key] thead th {
 .excel-table tbody td,
 .registry-table tbody td,
 .unit-price-table tbody td,
+.materials-board-table tbody td,
 table[data-contract-table-row-key] tbody td,
 .cell-display,
 .editable-text-cell-display,

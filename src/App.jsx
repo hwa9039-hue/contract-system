@@ -14045,14 +14045,14 @@ function App() {
                 </div>
 
                 <div className="materials-board-table-panel">
-                  <table className="materials-board-table">
+                  <table className="contract-table excel-table registry-table materials-board-table">
                     <thead>
                       <tr>
-                        <th className="materials-board-th materials-board-th--no">No</th>
-                        <th className="materials-board-th materials-board-th--title">제목</th>
-                        <th className="materials-board-th materials-board-th--attach">첨부</th>
-                        <th className="materials-board-th materials-board-th--downloads">다운로드</th>
-                        <th className="materials-board-th materials-board-th--date">등록일</th>
+                        <th className="materials-board-th materials-board-th--no th-align-center">No</th>
+                        <th className="materials-board-th materials-board-th--title th-align-left">제목</th>
+                        <th className="materials-board-th materials-board-th--attach th-align-center">첨부</th>
+                        <th className="materials-board-th materials-board-th--downloads th-align-center">다운로드</th>
+                        <th className="materials-board-th materials-board-th--date th-align-center">등록일</th>
                       </tr>
                     </thead>
                     <tbody>

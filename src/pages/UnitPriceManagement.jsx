@@ -490,6 +490,10 @@ export default function UnitPriceManagement() {
 
   const showEmpty = !loading && !error && flatRows.length === 0
   const tableColSpan = columns.length
+  const tableTotalWidth = useMemo(
+    () => columns.reduce((sum, column) => sum + column.width, 0),
+    []
+  )
 
   const renderBodyCell = useCallback(
     (row, column) => {
@@ -572,7 +576,7 @@ export default function UnitPriceManagement() {
         </div>
       ) : null}
 
-      <div className="contract-table-panel unit-price-table-panel flex flex-col h-full min-h-[500px]">
+      <div className="contract-table-panel unit-price-table-panel flex flex-col flex-1 min-h-0">
         {refetching ? (
           <div className="unit-price-refetch-banner" role="status" aria-live="polite">
             데이터를 불러오는 중...
@@ -588,7 +592,7 @@ export default function UnitPriceManagement() {
             계약분류가 {CONTRACT_TYPE_FILTER}인 계약 데이터가 없습니다.
           </div>
         ) : (
-          <>
+          <div className="unit-price-page-stack">
             <div className="table-toolbar contract-toolbar-simple">
               <input
                 className="table-search-input"
@@ -599,11 +603,14 @@ export default function UnitPriceManagement() {
             </div>
 
             <div
-              className={`table-wrap contracts-only-scroll overflow-x-auto unit-price-table-scroll${
+              className={`table-wrap contracts-only-scroll unit-price-table-scroll${
                 refetching || tableBusy ? ' unit-price-table-wrap--refetching' : ''
               }`}
             >
-                <table className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table unit-price-table table-w-full-min">
+                <table
+                  className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table unit-price-table"
+                  style={{ width: tableTotalWidth, minWidth: tableTotalWidth }}
+                >
                   <colgroup>
                     {columns.map((column) => (
                       <col
@@ -660,7 +667,7 @@ export default function UnitPriceManagement() {
             <p className="unit-price-grid-hint">
               품목 셀을 클릭하면 수정할 수 있으며, 편집 후 다른 셀을 클릭하면 자동 저장됩니다.
             </p>
-          </>
+          </div>
         )}
       </div>
     </div>
