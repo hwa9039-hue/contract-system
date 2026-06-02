@@ -1,4 +1,4 @@
-const NEWS_MONITOR_URL = 'http://127.0.0.1:8000/'
+const NEWS_MONITOR_URL = 'https://news.signtelecom-smartdi.com/'
 
 export default function NewsMonitor() {
   return (
