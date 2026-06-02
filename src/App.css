@@ -3511,6 +3511,37 @@ textarea:focus-visible {
   overflow: auto;
 }
 
+/* 나라장터 · 각종뉴스 — iframe이 화면 하단까지 꽉 차도록 */
+.main-area > section.stat-card.stat-card--iframe-embed {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: calc(100vh - 120px);
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.stat-card--iframe-embed .iframe-embed-viewer {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.stat-card--iframe-embed .iframe-embed-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
 /* 단가관리 · 사업관리 — 카드 내부에서만 스크롤, 헤더 sticky 유지 */
 .main-area > section.stat-card.stat-card--unit-price .unit-price-page-stack,
 .main-area > section.stat-card.stat-card--project-management .unit-price-page-stack {
