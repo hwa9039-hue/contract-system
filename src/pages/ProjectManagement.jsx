@@ -75,6 +75,7 @@ const columns = [
     field: 'projectName',
     headerName: '사업명',
     width: 350,
+    flexGrow: true,
     filterable: true,
     readonly: true,
     colClass: 'unit-price-col-project',
@@ -220,6 +221,13 @@ function buildContractPatchDiff(current, saved) {
     }
   }
   return patch
+}
+
+function getUnitPriceColStyle(column) {
+  if (column.flexGrow) {
+    return { minWidth: column.width }
+  }
+  return { width: column.width, minWidth: column.width }
 }
 
 function displayReadonlyCell(row, field) {
@@ -409,10 +417,6 @@ export default function ProjectManagement({ canEdit = true }) {
 
   const showEmpty = !loading && !error && contracts.length === 0
   const tableColSpan = columns.length
-  const tableTotalWidth = useMemo(
-    () => columns.reduce((sum, column) => sum + column.width, 0),
-    []
-  )
 
   const renderBodyCell = useCallback(
     (row, column) => {
@@ -523,16 +527,13 @@ export default function ProjectManagement({ canEdit = true }) {
                 refetching || tableBusy ? ' unit-price-table-wrap--refetching' : ''
               }`}
             >
-              <table
-                className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table unit-price-table unit-price-table--project-mgmt"
-                style={{ width: tableTotalWidth, minWidth: tableTotalWidth }}
-              >
+              <table className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table unit-price-table unit-price-table--project-mgmt">
                 <colgroup>
                   {columns.map((column) => (
                     <col
                       key={column.field}
                       className={column.colClass}
-                      style={{ width: column.width, minWidth: column.width }}
+                      style={getUnitPriceColStyle(column)}
                     />
                   ))}
                 </colgroup>

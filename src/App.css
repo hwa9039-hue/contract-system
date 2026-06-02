@@ -10904,6 +10904,7 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 .unit-price-table-scroll {
   flex: 1 1 auto;
   min-height: 0;
+  width: 100%;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
@@ -10924,11 +10925,15 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 
 .unit-price-table {
   width: 100%;
-  /* 작업·년도·발주처(340) + 사업명(350) + 단가 열(810) */
-  min-width: 1500px;
+  min-width: 100%;
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
+}
+
+/* 단가관리 — 좁은 화면에서만 가로 스크롤 (고정 열 최소 너비 합) */
+.unit-price-table:not(.unit-price-table--project-mgmt) {
+  min-width: 1500px;
 }
 
 .unit-price-table.w-full {
@@ -10956,9 +10961,12 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 }
 
 .unit-price-table .unit-price-col-project {
-  width: 350px;
   min-width: 350px;
-  max-width: 350px;
+  width: auto;
+}
+
+.unit-price-table col.unit-price-col-project {
+  width: auto;
 }
 
 .unit-price-table .unit-price-col-cost {

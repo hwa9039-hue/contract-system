@@ -69,6 +69,7 @@ const columns = [
     field: 'projectName',
     headerName: '사업명',
     width: 350,
+    flexGrow: true,
     filterable: true,
     readonly: true,
     colClass: 'unit-price-col-project',
@@ -258,6 +259,13 @@ function rowToSavedSnapshot(row) {
 function displayReadonlyCell(row, key) {
   const value = safeString(row?.[key]).trim()
   return value || '-'
+}
+
+function getUnitPriceColStyle(column) {
+  if (column.flexGrow) {
+    return { minWidth: column.width }
+  }
+  return { width: column.width, minWidth: column.width }
 }
 
 export default function UnitPriceManagement() {
@@ -490,10 +498,6 @@ export default function UnitPriceManagement() {
 
   const showEmpty = !loading && !error && flatRows.length === 0
   const tableColSpan = columns.length
-  const tableTotalWidth = useMemo(
-    () => columns.reduce((sum, column) => sum + column.width, 0),
-    []
-  )
 
   const renderBodyCell = useCallback(
     (row, column) => {
@@ -607,16 +611,13 @@ export default function UnitPriceManagement() {
                 refetching || tableBusy ? ' unit-price-table-wrap--refetching' : ''
               }`}
             >
-                <table
-                  className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table unit-price-table"
-                  style={{ width: tableTotalWidth, minWidth: tableTotalWidth }}
-                >
+                <table className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table unit-price-table">
                   <colgroup>
                     {columns.map((column) => (
                       <col
                         key={column.field}
                         className={column.colClass}
-                        style={{ width: column.width, minWidth: column.width }}
+                        style={getUnitPriceColStyle(column)}
                       />
                     ))}
                   </colgroup>
