@@ -16,7 +16,16 @@ else
   BACKEND_DIR="${PROJECT_ROOT}/backend"
 fi
 
+trim_path() {
+  local s="$1"
+  s="${s//$'\r'/}"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+
 if [[ -n "${CMS_PROJECT_ROOT:-}" ]]; then
+  CMS_PROJECT_ROOT="$(trim_path "$CMS_PROJECT_ROOT")"
   PROJECT_ROOT="$(cd "${CMS_PROJECT_ROOT}" && pwd)"
   BACKEND_DIR="${PROJECT_ROOT}/backend"
 fi
@@ -88,16 +97,38 @@ load_env_from_files() {
 
 load_env_from_files
 
+write_scheduler_log() {
+  local msg="$1"
+  local sched_log="${BACKUP_DIR}/scheduler-last.log"
+  mkdir -p "$BACKUP_DIR"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] ${msg}" >>"$sched_log"
+}
+
+log_pg_dump_failure() {
+  local log="$1"
+  echo "ERROR: pg_dump failed. Details:" >&2
+  if [[ -f "$log" ]]; then
+    sed 's/^/  /' "$log" >&2
+    write_scheduler_log "pg_dump failed — see ${log} and pg_dump.log in session folder"
+  else
+    write_scheduler_log "pg_dump failed (no log file at ${log})"
+  fi
+}
+
 if [[ -z "${DATABASE_URL:-}" ]]; then
   echo "ERROR: DATABASE_URL is not set." >&2
   echo "  Checked: ${SCRIPT_DIR}/.env, ${BACKEND_DIR}/.env, ${PROJECT_ROOT}/.env" >&2
   exit 1
 fi
 
+DATABASE_URL="$(trim_path "$DATABASE_URL")"
+export DATABASE_URL
+
 if [[ -z "${BACKUP_DIR:-}" ]]; then
   BACKUP_DIR="${PROJECT_ROOT}/backups"
-  export BACKUP_DIR
 fi
+BACKUP_DIR="$(trim_path "$BACKUP_DIR")"
+export BACKUP_DIR
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
 BACKUP_SESSION_DIR="${BACKUP_DIR}/${STAMP}"
@@ -268,6 +299,7 @@ read_container_postgres_env() {
 pg_dump_via_docker_exec() {
   local container="$1"
   local pg_user pg_pass pg_db
+  local log="${BACKUP_SESSION_DIR}/pg_dump.log"
 
   read_container_postgres_env "$container"
 
@@ -282,19 +314,68 @@ pg_dump_via_docker_exec() {
 
   echo "pg_dump via: docker exec -i ${container} pg_dump -U ${pg_user} -d ${pg_db}" >&2
 
-  : >"$OUT"
-  "${DOCKER[@]}" exec -i -e PGPASSWORD="$pg_pass" "$container" \
-    pg_dump -U "$pg_user" -d "$pg_db" -Fc --no-owner --no-acl >"$OUT"
+  rm -f "$OUT"
+  if ! "${DOCKER[@]}" exec -i -e PGPASSWORD="$pg_pass" "$container" \
+    pg_dump -U "$pg_user" -d "$pg_db" -Fc --no-owner --no-acl >"$OUT" 2>"$log"; then
+    log_pg_dump_failure "$log"
+    exit 1
+  fi
+
+  if [[ ! -s "$OUT" ]]; then
+    echo "ERROR: pg_dump produced empty file: $OUT" >&2
+    log_pg_dump_failure "$log"
+    exit 1
+  fi
 }
 
 pg_dump_via_docker_run_client() {
+  local log="${BACKUP_SESSION_DIR}/pg_dump.log"
   echo "pg_dump via temporary postgres client container..." >&2
-  "${DOCKER[@]}" run --rm \
+  rm -f "$OUT"
+  if ! "${DOCKER[@]}" run --rm \
     --network host \
     -v "${BACKUP_SESSION_DIR}:/backup:rw" \
     -e "DATABASE_URL=${DATABASE_URL}" \
     postgres:16-alpine \
-    pg_dump "$DATABASE_URL" -Fc --no-owner --no-acl -f "/backup/${OUT_BASENAME}"
+    pg_dump "$DATABASE_URL" -Fc --no-owner --no-acl -f "/backup/${OUT_BASENAME}" >"$log" 2>&1; then
+    log_pg_dump_failure "$log"
+    exit 1
+  fi
+
+  if [[ ! -s "$OUT" ]]; then
+    echo "ERROR: pg_dump via client container produced empty file: $OUT" >&2
+    log_pg_dump_failure "$log"
+    exit 1
+  fi
+}
+
+pg_dump_via_app_container() {
+  local container="$1"
+  local container_out="/app/backups/${STAMP}/pg_backup_${STAMP}.dump"
+  local log="${BACKUP_SESSION_DIR}/pg_dump.log"
+
+  echo "pg_dump via API container '${container}' (python + pg_dump)..." >&2
+  "${DOCKER[@]}" exec "$container" mkdir -p "/app/backups/${STAMP}" 2>/dev/null || true
+
+  rm -f "$OUT"
+  if ! "${DOCKER[@]}" exec \
+    -e "DATABASE_URL=${DATABASE_URL}" \
+    -e "BACKUP_DIR=/app/backups" \
+    -e "BACKUP_STAMP=${STAMP}" \
+    "$container" \
+    python /app/run_pg_dump_backup.py \
+      --output "$container_out" \
+      --log "/app/backups/scheduler-last.log" \
+    >"$log" 2>&1; then
+    log_pg_dump_failure "$log"
+    exit 1
+  fi
+
+  if [[ ! -s "$OUT" ]]; then
+    echo "ERROR: pg_dump via app container produced empty file: $OUT" >&2
+    log_pg_dump_failure "$log"
+    exit 1
+  fi
 }
 
 docker_available() {
@@ -302,13 +383,36 @@ docker_available() {
 }
 
 run_pg_dump() {
+  local log="${BACKUP_SESSION_DIR}/pg_dump.log"
+
   if [[ -n "${PG_DUMP_CMD:-}" ]]; then
+    rm -f "$OUT"
     # shellcheck disable=SC2086
-    eval "$PG_DUMP_CMD"
+    if ! eval "$PG_DUMP_CMD" >"$log" 2>&1; then
+      log_pg_dump_failure "$log"
+      exit 1
+    fi
+    if [[ ! -s "$OUT" ]]; then
+      echo "ERROR: PG_DUMP_CMD produced empty file: $OUT" >&2
+      log_pg_dump_failure "$log"
+      exit 1
+    fi
     return
   fi
 
   if docker_available; then
+    local app_container
+    if app_container="$(resolve_app_container 2>/dev/null)" && [[ -n "$app_container" ]]; then
+      if "${DOCKER[@]}" inspect -f '{{.State.Running}}' "$app_container" 2>/dev/null | grep -q true; then
+        if "${DOCKER[@]}" exec "$app_container" command -v pg_dump >/dev/null 2>&1 \
+          && "${DOCKER[@]}" exec "$app_container" test -f /app/run_pg_dump_backup.py 2>/dev/null; then
+          pg_dump_via_app_container "$app_container"
+          return
+        fi
+        echo "WARN: ${app_container} has no pg_dump or run_pg_dump_backup.py — rebuild: docker compose build --no-cache" >&2
+      fi
+    fi
+
     local pg_container
     if pg_container="$(resolve_postgres_container 2>/dev/null)" && [[ -n "$pg_container" ]]; then
       if "${DOCKER[@]}" inspect -f '{{.State.Running}}' "$pg_container" 2>/dev/null | grep -q true; then
@@ -321,7 +425,16 @@ run_pg_dump() {
 
   if command -v pg_dump >/dev/null 2>&1; then
     echo "pg_dump on host (PATH)..." >&2
-    pg_dump "$DATABASE_URL" -Fc --no-owner --no-acl -f "$OUT"
+    rm -f "$OUT"
+    if ! pg_dump "$DATABASE_URL" -Fc --no-owner --no-acl -f "$OUT" >"$log" 2>&1; then
+      log_pg_dump_failure "$log"
+      exit 1
+    fi
+    if [[ ! -s "$OUT" ]]; then
+      echo "ERROR: host pg_dump produced empty file: $OUT" >&2
+      log_pg_dump_failure "$log"
+      exit 1
+    fi
     return
   fi
 
@@ -331,6 +444,7 @@ run_pg_dump() {
   fi
 
   echo "ERROR: pg_dump not found and no PostgreSQL Docker container detected." >&2
+  write_scheduler_log "pg_dump not found — install postgresql-client or rebuild contract-backend image"
   exit 1
 }
 

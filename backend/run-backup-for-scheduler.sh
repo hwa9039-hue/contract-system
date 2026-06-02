@@ -3,11 +3,16 @@
 #   /bin/bash /volume1/docker/contract-backend/backend/run-backup-for-scheduler.sh
 #
 # 실행 사용자: root (Docker 접근 필요)
-export CMS_PROJECT_ROOT=/volume1/docker/contract-backend
-SCRIPT="/volume1/docker/contract-backend/backend/backup-postgres.sh"
-LOG="/volume1/docker/contract-backend/backups/scheduler-last.log"
+CMS_ROOT="${CMS_PROJECT_ROOT:-/volume1/docker/contract-backend}"
+CMS_ROOT="${CMS_ROOT//$'\r'/}"
+CMS_ROOT="${CMS_ROOT#"${CMS_ROOT%%[![:space:]]*}"}"
+CMS_ROOT="${CMS_ROOT%"${CMS_ROOT##*[![:space:]]}"}"
 
-mkdir -p "/volume1/docker/contract-backend/backups"
+export CMS_PROJECT_ROOT="${CMS_ROOT}"
+SCRIPT="${CMS_ROOT}/backend/backup-postgres.sh"
+LOG="${CMS_ROOT}/backups/scheduler-last.log"
+
+mkdir -p "${CMS_ROOT}/backups"
 
 # File Station(Windows) 복사 시 CRLF → bash exit 2 방지
 if [[ -f "$SCRIPT" ]]; then

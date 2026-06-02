@@ -20,6 +20,8 @@ services:
       AUTH_DISABLED: ${AUTH_DISABLED:-false}
       UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
       CONTRACT_IMPORT_EXCEL_BACKUP_DIR: ${CONTRACT_IMPORT_EXCEL_BACKUP_DIR:-/data/contract_excel_backup}
+      BACKUP_DIR: ${BACKUP_DIR:-/app/backups}
     volumes:
       - ./uploads:/app/uploads
       - ./data/contract_excel_backup:/data/contract_excel_backup
+      - ./backups:/app/backups
