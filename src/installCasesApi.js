@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
+import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { compressInstallCaseImage } from './installCaseImage.js'
 import { isInstallCaseVideoFile } from './installCaseMedia.js'
 import { createLocalInstallCaseId } from './installCaseLocal.js'
@@ -51,7 +51,7 @@ async function readErrorMessage(response) {
 
 async function requestJson(path, options = {}) {
   const { headers: optHeaders, ...rest } = options
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}${path}`,
     apiFetchInit({
       ...rest,
@@ -72,7 +72,7 @@ async function requestJson(path, options = {}) {
 }
 
 async function requestForm(path, { method = 'POST', formData } = {}) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}${path}`,
     apiFetchInit({
       method,

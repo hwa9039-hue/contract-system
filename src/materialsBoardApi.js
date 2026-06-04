@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiFetchInit, getAuthHeaders, getAuthToken } from './apiClient.js'
+import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders, getAuthToken } from './apiClient.js'
 
 export const MATERIALS_BOARD_API_PATH = '/api/materials-board'
 
@@ -45,7 +45,7 @@ function buildFormData({ title, content, folder, folderId, files = [] }) {
 }
 
 async function requestForm(path, { method = 'POST', formData } = {}) {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}${path}`,
     apiFetchInit({
       method,
@@ -67,7 +67,7 @@ async function requestForm(path, { method = 'POST', formData } = {}) {
 
 async function requestJson(path, options = {}) {
   const { headers: optHeaders, ...rest } = options
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}${path}`,
     apiFetchInit({
       ...rest,
@@ -115,7 +115,7 @@ export function materialsBoardDownloadUrl(postId, fileId) {
 }
 
 export async function downloadMaterialsBoardFile(postId, fileId, fileName) {
-  const response = await fetch(
+  const response = await apiFetch(
     materialsBoardFileUrl(postId, fileId),
     apiFetchInit({
       headers: {

@@ -1,4 +1,4 @@
-import { API_BASE_URL, getAuthHeaders, apiFetchInit } from '../apiClient.js'
+import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders } from '../apiClient.js'
 import { readApiErrorMessage } from '../apiErrors.js'
 
 async function parseResponseBody(response) {
@@ -14,7 +14,7 @@ async function parseResponseBody(response) {
 
 async function requestJson(path, options = {}) {
   const { headers: optHeaders, ...rest } = options
-  const response = await fetch(`${API_BASE_URL}${path}`, apiFetchInit({
+  const response = await apiFetch(`${API_BASE_URL}${path}`, apiFetchInit({
     ...rest,
     headers: {
       'Content-Type': 'application/json',

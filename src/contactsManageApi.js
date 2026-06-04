@@ -1,4 +1,4 @@
-import { API_BASE_URL, getAuthHeaders, apiFetchInit } from './apiClient.js'
+import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { readApiErrorMessage } from './apiErrors.js'
 
 /** GET list · POST create 공통 경로 (fetchContactsManageRows 와 동일) */
@@ -28,7 +28,7 @@ async function requestJson(path, options = {}) {
   const { headers: optHeaders, ...rest } = options
   let response
   try {
-    response = await fetch(url, apiFetchInit({
+    response = await apiFetch(url, apiFetchInit({
       ...rest,
       headers: {
         'Content-Type': 'application/json',

@@ -1,4 +1,4 @@
-import { API_BASE_URL, getAuthHeaders, apiFetchInit } from './apiClient.js'
+import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { readApiErrorMessage } from './apiErrors.js'
 
 /** PATCH/DELETE 경로 세그먼트 (계약번호·UUID 등 특수문자 안전) */
@@ -23,7 +23,7 @@ async function parseResponseBody(response) {
 
 async function requestJson(path, options = {}) {
   const { headers: optHeaders, ...rest } = options
-  const response = await fetch(`${API_BASE_URL}${path}`, apiFetchInit({
+  const response = await apiFetch(`${API_BASE_URL}${path}`, apiFetchInit({
     ...rest,
     headers: {
       'Content-Type': 'application/json',
@@ -60,7 +60,7 @@ async function postContractRowsBulk(rows) {
   let response
   let networkError = null
   try {
-    response = await fetch(importUrl, postInit)
+    response = await apiFetch(importUrl, postInit)
   } catch (err) {
     networkError = err
     response = null
@@ -74,7 +74,7 @@ async function postContractRowsBulk(rows) {
 
   if (useBulk) {
     try {
-      response = await fetch(bulkUrl, postInit)
+      response = await apiFetch(bulkUrl, postInit)
       networkError = null
     } catch (err) {
       networkError = err

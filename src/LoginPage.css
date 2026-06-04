@@ -373,3 +373,21 @@ html.login-page-active #root {
     padding: 14px;
   }
 }
+
+.login-page-session-toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  max-width: min(520px, calc(100vw - 48px));
+  padding: 14px 20px;
+  border-radius: 10px;
+  background: #1e293b;
+  color: #f8fafc;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22);
+  pointer-events: none;
+}

@@ -12,13 +12,19 @@ import './LoginPage.css'
 const LOGIN_PAGE_ACTIVE_CLASS = 'login-page-active'
 
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, sessionExpiredNotice, clearSessionExpiredNotice } = useAuth()
   const [role, setRole] = useState('user')
   const [password, setPassword] = useState(() => readSavedLoginPassword('user'))
   const [rememberMe, setRememberMe] = useState(() => readRememberMePreference())
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const isAdmin = role === 'admin'
+
+  useEffect(() => {
+    if (!sessionExpiredNotice) return undefined
+    const timer = window.setTimeout(() => clearSessionExpiredNotice(), 8000)
+    return () => window.clearTimeout(timer)
+  }, [sessionExpiredNotice, clearSessionExpiredNotice])
 
   useEffect(() => {
     purgeSavedAdminPassword()
@@ -82,6 +88,11 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
+      {sessionExpiredNotice ? (
+        <div className="login-page-session-toast" role="status">
+          {sessionExpiredNotice}
+        </div>
+      ) : null}
       <div className="login-page-card">
         <div className="login-page-brand">
           <img className="login-page-logo" src="/logo.png" alt="스마트DI" />

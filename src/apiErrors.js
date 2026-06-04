@@ -1,3 +1,9 @@
+import {
+  AuthSessionExpiredError,
+  isAuthSessionExpiredError,
+  isTokenExpiredMessage,
+} from './authFetch.js'
+
 /** API 응답 본문에서 사용자에게 보여줄 메시지 추출 */
 export async function readApiErrorMessage(response) {
   if (!response) {
@@ -46,10 +52,19 @@ export async function readApiErrorMessage(response) {
     // raw text
   }
 
-  return text.trim() || `요청이 실패했습니다. (HTTP ${status})`
+  const trimmed = text.trim() || `요청이 실패했습니다. (HTTP ${status})`
+  if (isAuthHttpStatusForMessage(status) && isTokenExpiredMessage(trimmed)) {
+    throw new AuthSessionExpiredError()
+  }
+  return trimmed
+}
+
+function isAuthHttpStatusForMessage(status) {
+  return status === 401 || status === 403
 }
 
 export function getErrorMessage(error, fallback = '요청 처리 중 오류가 발생했습니다.') {
+  if (isAuthSessionExpiredError(error)) return ''
   if (!error) return fallback
   if (typeof error === 'string' && error.trim()) return error.trim()
   if (error instanceof Error && error.message?.trim()) return error.message.trim()

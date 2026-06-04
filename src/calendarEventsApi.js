@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
+import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders } from './apiClient.js'
 
 /** 백엔드 `CALENDAR_EVENTS_API_PATH` 와 동일 */
 export const CALENDAR_EVENTS_API_PATH = '/api/calendar-events'
@@ -33,7 +33,7 @@ async function readErrorMessage(response) {
 async function requestJson(path, options = {}) {
   const { headers: optHeaders, method = 'GET', ...rest } = options
   const url = `${API_BASE_URL}${path}`
-  const response = await fetch(
+  const response = await apiFetch(
     url,
     apiFetchInit({
       ...rest,

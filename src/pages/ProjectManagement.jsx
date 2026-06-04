@@ -3,6 +3,7 @@ import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.js'
 import { EditableTextCell } from '../EditableTextCell.jsx'
 import { EditableDateCell } from '../EditableDateCell.jsx'
+import { isAuthSessionExpiredError } from '../apiClient.js'
 import { contractsApi } from '../contractsApi.js'
 import { formatDateDisplay, toDbDate } from '../dateFieldUtils.js'
 import {
@@ -265,6 +266,7 @@ export default function ProjectManagement({ canEdit = true }) {
       setContracts(rows)
       syncSavedSnapshots(rows)
     } catch (fetchError) {
+      if (isAuthSessionExpiredError(fetchError)) return
       console.error('[사업관리] 계약 API fetch failed', fetchError)
       if (!isRefetch) {
         setError(fetchError?.message || '계약 데이터를 불러오지 못했습니다.')
@@ -355,6 +357,7 @@ export default function ProjectManagement({ canEdit = true }) {
         setSaveError(null)
         return true
       } catch (saveErr) {
+        if (isAuthSessionExpiredError(saveErr)) return false
         console.error('[사업관리] 계약 저장 실패', saveErr)
         setSaveError(saveErr?.message || '사업관리 데이터 저장에 실패했습니다.')
         return false

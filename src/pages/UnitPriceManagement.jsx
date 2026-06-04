@@ -3,6 +3,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.js'
 import { EditableTextCell } from '../EditableTextCell.jsx'
+import { isAuthSessionExpiredError } from '../apiClient.js'
 import { unitPricesApi } from '../api/unitPricesApi.js'
 import {
   UNIT_PRICE_FILTERABLE_COLUMN_KEYS,
@@ -339,6 +340,7 @@ export default function UnitPriceManagement() {
       setContracts(list)
       syncSavedSnapshots(flattenContractsToRows(list))
     } catch (fetchError) {
+      if (isAuthSessionExpiredError(fetchError)) return
       console.error('[단가관리] tree API fetch failed', fetchError)
       if (!isRefetch) {
         setError(fetchError?.message || '단가 데이터를 불러오지 못했습니다.')
@@ -413,6 +415,7 @@ export default function UnitPriceManagement() {
           void fetchTree({ silent: true })
           return true
         } catch (saveErr) {
+          if (isAuthSessionExpiredError(saveErr)) return false
           console.error('[단가관리] 품목 생성 실패', saveErr)
           setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
           return false
@@ -435,6 +438,7 @@ export default function UnitPriceManagement() {
         setSaveError(null)
         return true
       } catch (saveErr) {
+        if (isAuthSessionExpiredError(saveErr)) return false
         console.error('[단가관리] 품목 저장 실패', saveErr)
         setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
         return false
@@ -469,7 +473,9 @@ export default function UnitPriceManagement() {
         await unitPricesApi.createItem(cid, { ...EMPTY_ITEM_PAYLOAD })
         await fetchTree({ silent: true })
       } catch (err) {
-        setSaveError(err?.message || '품목 추가에 실패했습니다.')
+        if (!isAuthSessionExpiredError(err)) {
+          setSaveError(err?.message || '품목 추가에 실패했습니다.')
+        }
       } finally {
         setTableBusy(false)
       }
@@ -491,7 +497,9 @@ export default function UnitPriceManagement() {
         delete savedByItemIdRef.current[itemId]
         await fetchTree({ silent: true })
       } catch (err) {
-        setSaveError(err?.message || '품목 삭제에 실패했습니다.')
+        if (!isAuthSessionExpiredError(err)) {
+          setSaveError(err?.message || '품목 삭제에 실패했습니다.')
+        }
       } finally {
         setTableBusy(false)
       }

@@ -140,3 +140,12 @@ export function clearAuthToken() {
     // no-op
   }
 }
+
+export {
+  apiFetch,
+  AuthSessionExpiredError,
+  isAuthSessionExpiredError,
+  registerAuthSessionExpiredHandler,
+  refreshAccessTokenFromStorage,
+  SESSION_EXPIRED_USER_MESSAGE,
+} from './authFetch.js'

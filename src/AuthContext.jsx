@@ -1,5 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { API_BASE_URL, apiFetchInit, clearAuthToken, getAuthHeaders, setAuthToken } from './apiClient.js'
+import {
+  API_BASE_URL,
+  apiFetch,
+  apiFetchInit,
+  clearAuthToken,
+  getAuthHeaders,
+  registerAuthSessionExpiredHandler,
+  refreshAccessTokenFromStorage,
+  SESSION_EXPIRED_USER_MESSAGE,
+  setAuthToken,
+} from './apiClient.js'
 import { logCmsApiLogin } from './cmsApiProbe.js'
 import {
   ADMIN_PASSWORD,
@@ -25,6 +35,7 @@ export function AuthProvider({ children }) {
   const [isAdmin, setIsAdmin] = useState(hydrated.isAdmin)
   const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(hydrated.expiresAt)
   const [authHydrated, setAuthHydrated] = useState(true)
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState('')
 
   const applyRestoredSession = useCallback((session) => {
     setAuthPersistence(session.persistence)
@@ -42,29 +53,24 @@ export function AuthProvider({ children }) {
     setAuthHydrated(true)
   }, [applyRestoredSession])
 
+  useEffect(() => {
+    registerAuthSessionExpiredHandler((message) => {
+      setAuthPersistence('none')
+      setIsAuthenticated(false)
+      setIsAdmin(false)
+      setSharedSessionExpiresAt(0)
+      setSessionExpiredNotice(message || SESSION_EXPIRED_USER_MESSAGE)
+    })
+    return () => registerAuthSessionExpiredHandler(null)
+  }, [])
+
   /** @returns {'ok' | 'auth_fail' | 'network_fail'} */
   const refreshAccessToken = useCallback(async (persistence) => {
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/auth/refresh`,
-        apiFetchInit({
-          method: 'POST',
-          headers: { ...getAuthHeaders() },
-        })
-      )
-      if (!res.ok) {
-        return res.status === 401 || res.status === 403 ? 'auth_fail' : 'network_fail'
-      }
-      const data = await res.json().catch(() => ({}))
-      if (data.auth_disabled) return 'ok'
-      if (data.access_token) {
-        setAuthToken(data.access_token, { persistent: persistence === 'persistent' })
-        return 'ok'
-      }
-      return 'auth_fail'
-    } catch {
-      return 'network_fail'
+    const result = await refreshAccessTokenFromStorage()
+    if (result === 'ok' && persistence) {
+      syncAuthTokenToActiveStorage(persistence === 'persistent' ? 'persistent' : 'session')
     }
+    return result
   }, [])
 
   useEffect(() => {
@@ -98,7 +104,7 @@ export function AuthProvider({ children }) {
           if (refreshResult === 'network_fail') return
         }
 
-        const res = await fetch(
+        const res = await apiFetch(
           `${API_BASE_URL}/api/auth/me`,
           apiFetchInit({ headers: { ...getAuthHeaders() } })
         )
@@ -124,7 +130,12 @@ export function AuthProvider({ children }) {
     }
   }, [authHydrated, isAuthenticated, refreshAccessToken])
 
+  const clearSessionExpiredNotice = useCallback(() => {
+    setSessionExpiredNotice('')
+  }, [])
+
   const login = useCallback(async (role, password, rememberMe = false) => {
+    setSessionExpiredNotice('')
     const trimmed = String(password).trim()
     const wantsAdmin = role === 'admin'
 
@@ -247,11 +258,23 @@ export function AuthProvider({ children }) {
       isAdmin,
       sharedSessionExpiresAt,
       authHydrated,
+      sessionExpiredNotice,
+      clearSessionExpiredNotice,
       login,
       logout,
       extendLogin,
     }),
-    [isAuthenticated, isAdmin, sharedSessionExpiresAt, authHydrated, login, logout, extendLogin]
+    [
+      isAuthenticated,
+      isAdmin,
+      sharedSessionExpiresAt,
+      authHydrated,
+      sessionExpiredNotice,
+      clearSessionExpiredNotice,
+      login,
+      logout,
+      extendLogin,
+    ]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
