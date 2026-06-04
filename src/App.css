@@ -11034,61 +11034,22 @@ div[class*='MuiDataGrid-licenseWatermark'] {
   min-width: 110px;
 }
 
-/* 사업관리 — w-full + table-fixed, col/th/td 동일 12분할 너비 */
+/* 사업관리 — 단가관리와 동일 테이블 톤, 열 합 최소 너비만 별도 */
 .unit-price-table.unit-price-table--project-mgmt {
-  width: 100%;
-  min-width: 0;
-  table-layout: fixed;
+  min-width: 1768px;
 }
 
-.unit-price-table.unit-price-table--project-mgmt col.w-3-12,
-.unit-price-table.unit-price-table--project-mgmt th.w-3-12,
-.unit-price-table.unit-price-table--project-mgmt td.w-3-12 {
-  width: 25%;
-}
-
-.unit-price-table.unit-price-table--project-mgmt col.w-1-12,
-.unit-price-table.unit-price-table--project-mgmt th.w-1-12,
-.unit-price-table.unit-price-table--project-mgmt td.w-1-12 {
-  width: calc((100% - 25%) / 11);
-}
-
-.unit-price-table.unit-price-table--project-mgmt thead th,
-.unit-price-table.unit-price-table--project-mgmt tbody td {
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-.unit-price-table.unit-price-table--project-mgmt tbody td.unit-price-cell-project {
-  text-align: left;
-  vertical-align: middle;
-  padding: 6px 10px;
-}
-
-.unit-price-table.unit-price-table--project-mgmt .pm-cell-project-text {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  word-break: break-word;
-  line-height: 1.35;
-  font-weight: 500;
-  color: #1e293b;
-}
-
-.unit-price-table.unit-price-table--project-mgmt tbody td.pm-col-client-cell {
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.stat-card--project-management .unit-price-page-stack,
-.stat-card--project-management .table-toolbar.contract-toolbar-simple,
-.stat-card--project-management .unit-price-table-scroll {
+/* 단가관리 · 사업관리 — 검색창 가로 전체 (2열 그리드 여백 제거) */
+.stat-card--unit-price .unit-price-toolbar-search,
+.stat-card--project-management .unit-price-toolbar-search {
+  display: grid;
+  grid-template-columns: 1fr;
   width: 100%;
   max-width: 100%;
 }
 
-.stat-card--project-management .table-toolbar.contract-toolbar-simple .table-search-input.w-full {
+.stat-card--unit-price .unit-price-toolbar-search .table-search-input,
+.stat-card--project-management .unit-price-toolbar-search .table-search-input {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;

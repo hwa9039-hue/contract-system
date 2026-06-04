@@ -12,6 +12,17 @@ import {
   projectManagementMatchesColumnFilters,
   projectManagementMatchesSearch,
 } from '../projectManagementColumnFilter.js'
+import {
+  UNIT_PRICE_PAGE_ROOT,
+  UNIT_PRICE_PAGE_STACK,
+  UNIT_PRICE_SEARCH_INPUT,
+  UNIT_PRICE_TABLE_CLASS,
+  UNIT_PRICE_TABLE_PANEL,
+  UNIT_PRICE_TABLE_PROJECT_MODIFIER,
+  UNIT_PRICE_TOOLBAR,
+  getUnitPriceColStyle,
+  unitPriceTableWrapClass,
+} from '../unitPricePageLayout.js'
 import '../App.css'
 
 /** 계약분류 — 목록에서 제외 */
@@ -27,118 +38,112 @@ const PROJECT_MANAGEMENT_EDITABLE_FIELDS = Object.freeze([
 
 const REFETCH_AFTER_SAVE_DELAY_MS = 750
 
-/** 12분할 너비 — 사업명 3/12(25%), 나머지 11열 균등(합계 100%) */
-const COL_W_STANDARD = 'w-1-12'
-const COL_W_PROJECT = 'w-3-12'
-
+/** 단가관리와 동일 colgroup·colgroup 클래스 패턴 (열 정의만 사업관리용) */
 const columns = [
   {
     field: 'year',
     headerName: '사업년도',
-    widthClass: COL_W_STANDARD,
+    width: 100,
     filterable: true,
     readonly: true,
-    colClass: 'pm-col-year',
+    colClass: 'unit-price-col-year',
   },
   {
     field: 'client',
     headerName: '발주처',
-    widthClass: COL_W_STANDARD,
+    width: 160,
     filterable: true,
     readonly: true,
-    colClass: 'pm-col-client',
+    colClass: 'unit-price-col-client',
   },
   {
     field: 'contractDate',
     headerName: '계약일자',
-    widthClass: COL_W_STANDARD,
+    width: 128,
     filterable: true,
     readonly: true,
     type: 'date',
-    colClass: 'pm-col-date',
+    colClass: 'unit-price-col-contract-date',
   },
   {
     field: 'dueDate',
     headerName: '납기일(준공일자)',
-    widthClass: COL_W_STANDARD,
+    width: 140,
     filterable: true,
     readonly: true,
     type: 'date',
-    colClass: 'pm-col-date',
+    colClass: 'unit-price-col-due-date',
   },
   {
     field: 'projectName',
     headerName: '사업명',
-    widthClass: COL_W_PROJECT,
+    width: 350,
+    flexGrow: true,
     filterable: true,
     readonly: true,
-    colClass: 'pm-col-project',
+    colClass: 'unit-price-col-project',
   },
   {
     field: 'salesOwner',
     headerName: '영업담당자',
-    widthClass: COL_W_STANDARD,
+    width: 120,
     filterable: true,
     readonly: true,
-    colClass: 'pm-col-person',
+    colClass: 'unit-price-col-sales-owner',
   },
   {
     field: 'pm',
     headerName: '현장PM',
-    widthClass: COL_W_STANDARD,
+    width: 100,
     filterable: true,
     readonly: true,
-    colClass: 'pm-col-person',
+    colClass: 'unit-price-col-pm',
   },
   {
     field: 'commencementCert',
     headerName: '착수계',
-    widthClass: COL_W_STANDARD,
+    width: 140,
     filterable: true,
     editable: true,
     type: 'date',
-    colClass: 'pm-col-date-edit',
+    colClass: 'unit-price-col-date-picker',
   },
   {
     field: 'completionCert',
     headerName: '준공계',
-    widthClass: COL_W_STANDARD,
+    width: 140,
     filterable: true,
     editable: true,
     type: 'date',
-    colClass: 'pm-col-date-edit',
+    colClass: 'unit-price-col-date-picker',
   },
   {
     field: 'warrantyStart',
     headerName: '하자보증 시작',
-    widthClass: COL_W_STANDARD,
+    width: 140,
     filterable: true,
     editable: true,
     type: 'date',
-    colClass: 'pm-col-date-edit',
+    colClass: 'unit-price-col-date-picker',
   },
   {
     field: 'warrantyExpiry',
     headerName: '하자보증 만기',
-    widthClass: COL_W_STANDARD,
+    width: 140,
     filterable: true,
     editable: true,
     type: 'date',
-    colClass: 'pm-col-date-edit',
+    colClass: 'unit-price-col-date-picker',
   },
   {
     field: 'guaranteeRate',
     headerName: '보증금율',
-    widthClass: COL_W_STANDARD,
+    width: 110,
     filterable: true,
     editable: true,
-    colClass: 'pm-col-guarantee',
+    colClass: 'unit-price-col-guarantee-rate',
   },
 ]
-
-function projectMgmtThTdClassName(column, extra = '') {
-  return [column.widthClass, column.colClass, extra].filter(Boolean).join(' ')
-}
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -392,40 +397,32 @@ export default function ProjectManagement({ canEdit = true }) {
 
   const renderBodyCell = useCallback(
     (row, column) => {
-      const isProject = column.field === 'projectName'
-      const isClient = column.field === 'client'
-      const projectTitle = isProject ? safeString(row.projectName).trim() : ''
-      const cellText = displayReadonlyCell(row, column.field)
+      const thAlign = ' th-align-center'
+      const colClass = `${column.colClass}${thAlign}`
 
       if (column.readonly) {
+        const isProject = column.field === 'projectName'
+        const isClient = column.field === 'client'
+        const projectTitle = isProject ? safeString(row.projectName).trim() : ''
+        const cellText = displayReadonlyCell(row, column.field)
         return (
           <td
             key={column.field}
-            className={projectMgmtThTdClassName(
-              column,
-              `unit-price-readonly th-align-center${
-                isProject ? ' text-left unit-price-cell-project' : ''
-              }${isClient ? ' text-center pm-col-client-cell' : ''}${
-                !isProject && !isClient ? ' text-center' : ''
-              }`
-            )}
+            className={`unit-price-readonly ${colClass}${
+              isProject ? ' text-left pl-4 unit-price-cell-project' : ''
+            }${isClient ? ' text-center unit-price-cell-truncate' : ''}${
+              !isProject && !isClient ? ' text-center' : ''
+            }`}
             title={isProject && projectTitle && cellText !== '-' ? projectTitle : undefined}
           >
-            {isProject ? (
-              <span className="pm-cell-project-text">{cellText}</span>
-            ) : (
-              cellText
-            )}
+            {cellText}
           </td>
         )
       }
 
       if (column.editable && !canEdit) {
         return (
-          <td
-            key={column.field}
-            className={projectMgmtThTdClassName(column, 'unit-price-readonly th-align-center text-center')}
-          >
+          <td key={column.field} className={`unit-price-readonly ${colClass} text-center`}>
             {displayReadonlyCell(row, column.field)}
           </td>
         )
@@ -433,10 +430,7 @@ export default function ProjectManagement({ canEdit = true }) {
 
       if (column.editable && column.type === 'date') {
         return (
-          <td
-            key={column.field}
-            className={projectMgmtThTdClassName(column, 'unit-price-editable-cell p-0 align-middle th-align-center')}
-          >
+          <td key={column.field} className={`unit-price-editable-cell p-0 align-middle ${colClass}`}>
             <EditableDateCell
               value={row[column.field] ?? ''}
               disabled={tableBusy || refetching}
@@ -449,10 +443,7 @@ export default function ProjectManagement({ canEdit = true }) {
 
       if (column.editable) {
         return (
-          <td
-            key={column.field}
-            className={projectMgmtThTdClassName(column, 'unit-price-editable-cell p-0 align-middle th-align-center')}
-          >
+          <td key={column.field} className={`unit-price-editable-cell p-0 align-middle ${colClass}`}>
             <EditableTextCell
               value={row[column.field] ?? ''}
               align="center"
@@ -470,7 +461,7 @@ export default function ProjectManagement({ canEdit = true }) {
   )
 
   return (
-    <div className="unit-price-management h-full min-h-0 w-full">
+    <div className={UNIT_PRICE_PAGE_ROOT}>
       {saveSuccess ? (
         <div className="mode-toast" role="status">
           {saveSuccess}
@@ -482,7 +473,7 @@ export default function ProjectManagement({ canEdit = true }) {
         </div>
       ) : null}
 
-      <div className="contract-table-panel unit-price-table-panel flex flex-col flex-1 min-h-0 w-full">
+      <div className={UNIT_PRICE_TABLE_PANEL}>
         {refetching ? (
           <div className="unit-price-refetch-banner" role="status" aria-live="polite">
             데이터를 불러오는 중...
@@ -498,25 +489,27 @@ export default function ProjectManagement({ canEdit = true }) {
             표시할 계약 데이터가 없습니다. (계약분류 {EXCLUDED_CONTRACT_TYPE} 제외)
           </div>
         ) : (
-          <div className="unit-price-page-stack w-full">
-            <div className="table-toolbar contract-toolbar-simple w-full">
+          <div className={UNIT_PRICE_PAGE_STACK}>
+            <div className={UNIT_PRICE_TOOLBAR}>
               <input
-                className="table-search-input w-full"
+                className={UNIT_PRICE_SEARCH_INPUT}
                 placeholder="검색어를 입력하세요"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
-            <div
-              className={`table-wrap contracts-only-scroll unit-price-table-scroll w-full${
-                refetching || tableBusy ? ' unit-price-table-wrap--refetching' : ''
-              }`}
-            >
-              <table className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table unit-price-table unit-price-table--project-mgmt w-full table-fixed">
+            <div className={unitPriceTableWrapClass({ refetching, tableBusy })}>
+              <table
+                className={`${UNIT_PRICE_TABLE_CLASS} ${UNIT_PRICE_TABLE_PROJECT_MODIFIER}`}
+              >
                 <colgroup>
                   {columns.map((column) => (
-                    <col key={column.field} className={column.widthClass} />
+                    <col
+                      key={column.field}
+                      className={column.colClass}
+                      style={getUnitPriceColStyle(column)}
+                    />
                   ))}
                 </colgroup>
                 <thead>
@@ -524,10 +517,9 @@ export default function ProjectManagement({ canEdit = true }) {
                     {columns.map((column) => (
                       <th
                         key={column.field}
-                        className={projectMgmtThTdClassName(
-                          column,
-                          `th-align-center${column.filterable ? ' contract-th-filterable' : ''}`
-                        )}
+                        className={`${column.colClass} th-align-center${
+                          column.filterable ? ' contract-th-filterable' : ''
+                        }`}
                       >
                         {column.filterable ? (
                           <div className="contract-th-filter-wrap">

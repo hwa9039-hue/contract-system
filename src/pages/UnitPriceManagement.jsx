@@ -11,6 +11,16 @@ import {
   unitPriceMatchesColumnFilters,
   unitPriceMatchesSearch,
 } from '../unitPriceColumnFilter.js'
+import {
+  UNIT_PRICE_PAGE_ROOT,
+  UNIT_PRICE_PAGE_STACK,
+  UNIT_PRICE_SEARCH_INPUT,
+  UNIT_PRICE_TABLE_CLASS,
+  UNIT_PRICE_TABLE_PANEL,
+  UNIT_PRICE_TOOLBAR,
+  getUnitPriceColStyle,
+  unitPriceTableWrapClass,
+} from '../unitPricePageLayout.js'
 import '../App.css'
 
 const CONTRACT_TYPE_FILTER = '55121903'
@@ -259,13 +269,6 @@ function rowToSavedSnapshot(row) {
 function displayReadonlyCell(row, key) {
   const value = safeString(row?.[key]).trim()
   return value || '-'
-}
-
-function getUnitPriceColStyle(column) {
-  if (column.flexGrow) {
-    return { minWidth: column.width }
-  }
-  return { width: column.width, minWidth: column.width }
 }
 
 export default function UnitPriceManagement() {
@@ -568,7 +571,7 @@ export default function UnitPriceManagement() {
   )
 
   return (
-    <div className="unit-price-management h-full min-h-0">
+    <div className={UNIT_PRICE_PAGE_ROOT}>
       {saveSuccess ? (
         <div className="mode-toast" role="status">
           {saveSuccess}
@@ -580,7 +583,7 @@ export default function UnitPriceManagement() {
         </div>
       ) : null}
 
-      <div className="contract-table-panel unit-price-table-panel flex flex-col flex-1 min-h-0">
+      <div className={UNIT_PRICE_TABLE_PANEL}>
         {refetching ? (
           <div className="unit-price-refetch-banner" role="status" aria-live="polite">
             데이터를 불러오는 중...
@@ -596,22 +599,18 @@ export default function UnitPriceManagement() {
             계약분류가 {CONTRACT_TYPE_FILTER}인 계약 데이터가 없습니다.
           </div>
         ) : (
-          <div className="unit-price-page-stack">
-            <div className="table-toolbar contract-toolbar-simple">
+          <div className={UNIT_PRICE_PAGE_STACK}>
+            <div className={UNIT_PRICE_TOOLBAR}>
               <input
-                className="table-search-input"
+                className={UNIT_PRICE_SEARCH_INPUT}
                 placeholder="검색어를 입력하세요"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
-            <div
-              className={`table-wrap contracts-only-scroll unit-price-table-scroll${
-                refetching || tableBusy ? ' unit-price-table-wrap--refetching' : ''
-              }`}
-            >
-                <table className="contract-table excel-table registry-table ledger-table-ui contracts-fixed-table unit-price-table">
+            <div className={unitPriceTableWrapClass({ refetching, tableBusy })}>
+                <table className={UNIT_PRICE_TABLE_CLASS}>
                   <colgroup>
                     {columns.map((column) => (
                       <col
