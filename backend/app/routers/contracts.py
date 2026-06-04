@@ -11,6 +11,8 @@ from app.excel_import_dedupe import (
     load_contract_duplicate_keys,
 )
 from app.schemas import (
+    CONTRACT_DATE_API_KEYS,
+    _coerce_sql_date,
     CONTRACT_DB_COLUMNS,
     CONTRACT_PARENT_DB_COLUMNS,
     ContractBulkCreate,
@@ -287,6 +289,8 @@ def _build_contract_patch_sql(patch_data: dict) -> tuple[dict, list[str]]:
         db_key = CONTRACT_PARENT_DB_COLUMNS.get(api_key)
         if not db_key or db_key in applied_db_keys:
             continue
+        if api_key in CONTRACT_DATE_API_KEYS:
+            value = _coerce_sql_date(value)
         _append_contract_patch_assignment(db_key, value, values, assignments)
         applied_db_keys.add(db_key)
 

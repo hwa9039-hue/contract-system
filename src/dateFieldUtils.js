@@ -3,6 +3,15 @@ function safeString(value) {
   return String(value)
 }
 
+/** DB·엑셀 등에 남아 있는 placeholder 날짜 — 미입력과 동일 처리 */
+export const PLACEHOLDER_EMPTY_DATE_YMD = Object.freeze(['2000-01-01', '1970-01-01'])
+
+export function isPlaceholderEmptyDateYmd(ymd) {
+  const s = safeString(ymd).trim()
+  if (!s) return true
+  return PLACEHOLDER_EMPTY_DATE_YMD.includes(s)
+}
+
 export function isValidCalendarDateYmd(ymd) {
   const match = safeString(ymd).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
   if (!match) return false
@@ -36,14 +45,18 @@ export function formatDateInput(date) {
   return `${yyyy}-${mm}-${dd}`
 }
 
-/** API·input[type=date]용 YYYY-MM-DD 또는 null */
+/** API·input[type=date]용 YYYY-MM-DD 또는 null (빈 값·placeholder 날짜는 null) */
 export function toDbDate(value) {
+  if (value === null || value === undefined) return null
   const str = safeString(value).trim()
   if (!str) return null
-  if (isValidCalendarDateYmd(str)) return str
+  if (isValidCalendarDateYmd(str)) {
+    return isPlaceholderEmptyDateYmd(str) ? null : str
+  }
   const parsed = parseDateOnly(str)
   if (!parsed) return null
-  return formatDateInput(parsed)
+  const ymd = formatDateInput(parsed)
+  return isPlaceholderEmptyDateYmd(ymd) ? null : ymd
 }
 
 /** 테이블 표시용 YYYY-MM-DD (빈 값은 '') */

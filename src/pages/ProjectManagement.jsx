@@ -370,7 +370,8 @@ export default function ProjectManagement({ canEdit = true }) {
       const column = columns.find((c) => c.field === field)
       const nextSnapshot = rowToSavedSnapshot(row)
       if (column?.type === 'date') {
-        nextSnapshot[field] = toDbDate(rawValue)
+        nextSnapshot[field] =
+          rawValue === null || rawValue === undefined ? null : toDbDate(rawValue)
       } else {
         nextSnapshot[field] = safeString(rawValue).trim()
       }

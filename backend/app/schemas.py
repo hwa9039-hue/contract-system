@@ -158,6 +158,8 @@ class ContractPatch(BaseModel):
                 return None
             if s in ("-", "—", "–"):
                 return None
+            if s in ("2000-01-01", "1970-01-01"):
+                return None
         return value
 
 
@@ -740,8 +742,8 @@ def row_to_contract(row) -> dict:
         "contractMethod": to_response_value(row["contractMethod"]),
         "contractType": to_response_value(row["contractType"]),
         "identNo": to_response_value(row.get("identNo", "")),
-        "contractDate": to_response_value(row["contractDate"]),
-        "dueDate": to_response_value(row["dueDate"]),
+        "contractDate": contract_date_to_response(row.get("contractDate")),
+        "dueDate": contract_date_to_response(row.get("dueDate")),
         "projectName": to_response_value(row["projectName"]),
         "amount": to_response_value(row["amount"]),
         "salesOwner": to_response_value(row["salesOwner"]),
@@ -753,22 +755,22 @@ def row_to_contract(row) -> dict:
         "pitch": "",
         "capW": "",
         "capH": "",
-        "commencementCert": to_response_value(
+        "commencementCert": contract_date_to_response(
             _contract_row_field(row, "commencementCert", default=None)
         ),
-        "completionCert": to_response_value(
+        "completionCert": contract_date_to_response(
             _contract_row_field(row, "completionCert", default=None)
         ),
-        "warrantyStart": to_response_value(
+        "warrantyStart": contract_date_to_response(
             _contract_row_field(row, "warrantyStart", default=None)
         ),
-        "warrantyExpiry": to_response_value(
+        "warrantyExpiry": contract_date_to_response(
             _contract_row_field(row, "warrantyExpiry", default=None)
         ),
         "guaranteeRate": to_response_value(
             _contract_row_field(row, "guaranteeRate", default="")
         ),
-        "inspectionRequestDate": to_response_value(
+        "inspectionRequestDate": contract_date_to_response(
             _contract_row_field(row, "inspectionRequestDate", default=None)
         ),
         "taxInvoice": to_response_value(
@@ -1359,22 +1361,47 @@ def _normalize_excel_placeholder_text(val: str) -> str:
     return s
 
 
+_PLACEHOLDER_EMPTY_DATES = frozenset({date(2000, 1, 1), date(1970, 1, 1)})
+
+CONTRACT_DATE_API_KEYS = frozenset(
+    {
+        "contractDate",
+        "dueDate",
+        "commencementCert",
+        "completionCert",
+        "warrantyStart",
+        "warrantyExpiry",
+        "inspectionRequestDate",
+    }
+)
+
+
 def _coerce_sql_date(val) -> Optional[date]:
     if val is None:
         return None
     if isinstance(val, datetime):
-        return val.date()
+        d = val.date()
+        return None if d in _PLACEHOLDER_EMPTY_DATES else d
     if isinstance(val, date):
-        return val
+        return None if val in _PLACEHOLDER_EMPTY_DATES else val
     if isinstance(val, str):
         raw = val.strip()
-        if not raw:
+        if not raw or raw in ("-", "—", "–"):
             return None
         try:
-            return date.fromisoformat(raw[:10])
+            parsed = date.fromisoformat(raw[:10])
+            return None if parsed in _PLACEHOLDER_EMPTY_DATES else parsed
         except ValueError:
             return None
     return None
+
+
+def contract_date_to_response(value) -> Optional[str]:
+    """API JSON — placeholder·빈 날짜는 null."""
+    d = _coerce_sql_date(value)
+    if d is None:
+        return None
+    return d.isoformat()
 
 
 def contract_to_db_values(contract: ContractBase) -> dict:

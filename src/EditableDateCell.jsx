@@ -19,8 +19,10 @@ export function EditableDateCell({
   }, [displayValue])
 
   const commitDraft = () => {
-    if (draft !== displayValue) {
-      onSave?.(draft || null)
+    const nextDb = draft.trim() === '' ? null : draft.trim()
+    const prevDb = displayValue.trim() === '' ? null : displayValue.trim()
+    if (nextDb !== prevDb) {
+      onSave?.(nextDb)
     }
   }
 
