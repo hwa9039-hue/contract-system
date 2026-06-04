@@ -10423,10 +10423,10 @@ textarea:focus-visible {
 
 .materials-board-table thead th,
 .materials-board-th {
-  padding: 10px 8px;
-  font-size: var(--cms-table-header-font-size);
-  font-weight: var(--cms-table-header-font-weight);
-  line-height: var(--cms-table-cell-line-height);
+  padding: 11px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
   color: #475569;
   text-align: left;
   background: #f8fafc;
@@ -10437,7 +10437,7 @@ textarea:focus-visible {
   top: 0;
   z-index: 20;
   vertical-align: middle;
-  min-height: 44px;
+  min-height: 46px;
   box-sizing: border-box;
 }
 
@@ -10470,8 +10470,10 @@ textarea:focus-visible {
 }
 
 .materials-board-td {
-  padding: 5px 16px;
+  padding: 10px 12px;
   font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
   color: #1e293b;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
@@ -10487,6 +10489,14 @@ textarea:focus-visible {
 .materials-board-td--title {
   font-weight: 600;
   line-height: 1.45;
+}
+
+.materials-board-title-text {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #1e293b;
 }
 
 .materials-board-td--attach {
@@ -10506,19 +10516,16 @@ textarea:focus-visible {
   gap: 10px;
 }
 
-.materials-board-title-text {
-  min-width: 0;
-}
-
 .materials-board-inline-download-btn {
   flex-shrink: 0;
   border: 1px solid #cfe0ff;
   background: #f8fbff;
   color: #1f4fd1;
   border-radius: 8px;
-  padding: 4px 10px;
-  font-size: 12px;
+  padding: 5px 11px;
+  font-size: 13px;
   font-weight: 700;
+  line-height: 1.35;
   cursor: pointer;
 }
 
@@ -10536,13 +10543,14 @@ textarea:focus-visible {
   align-items: center;
   justify-content: center;
   min-width: 28px;
-  padding: 4px 8px;
+  padding: 4px 9px;
   border-radius: 999px;
   background: #f1f5f9;
   color: #475569;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  line-height: 1.35;
 }
 
 .materials-board-attach {
@@ -10644,7 +10652,9 @@ textarea:focus-visible {
 }
 
 .materials-board-date-text {
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
   color: #64748b;
   font-variant-numeric: tabular-nums;
 }
@@ -10658,14 +10668,14 @@ textarea:focus-visible {
 
 .materials-board-row-btn {
   min-width: 40px;
-  padding: 3px 8px;
+  padding: 4px 9px;
   border: 1px solid #dbe3ef;
   border-radius: 6px;
   background: #fff;
   color: #475569;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.35;
   cursor: pointer;
 }
 
@@ -11491,6 +11501,38 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
 .contract-table.excel-table.registry-table .contract-year-count {
   font-size: var(--cms-accordion-body-font-size) !important;
   font-weight: var(--cms-accordion-body-font-weight) !important;
+}
+
+/* 게시판 — 전역 표 타이포(12px)보다 우선, 사업검색이력 등과 동일 가독성 */
+.materials-board-table thead th,
+.materials-board-table .materials-board-th {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  padding: 11px 12px !important;
+}
+
+.materials-board-table tbody td,
+.materials-board-table .materials-board-td {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  padding: 10px 12px !important;
+}
+
+.materials-board-table .materials-board-td--title,
+.materials-board-table .materials-board-title-text {
+  font-weight: 600 !important;
+}
+
+.materials-board-table .materials-board-date-text,
+.materials-board-table .materials-board-download-count {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.materials-board-table .materials-board-download-count {
+  font-weight: 700 !important;
 }
 
 .unit-price-management > .mode-toast {
