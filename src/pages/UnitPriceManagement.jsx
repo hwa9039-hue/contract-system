@@ -22,6 +22,7 @@ import {
   tableRowStripeClass,
   unitPriceTableWrapClass,
 } from '../unitPricePageLayout.js'
+import { isTableCellEmpty, tableCellStateClass } from '../tableCellEmptyState.js'
 import '../App.css'
 
 const CONTRACT_TYPE_FILTER = '55121903'
@@ -551,14 +552,22 @@ export default function UnitPriceManagement() {
       }
 
       if (column.editable) {
+        const raw = row[column.field]
+        const isEmpty =
+          column.field === 'designUnitPrice'
+            ? isTableCellEmpty(formatDesignUnitPrice(raw))
+            : isTableCellEmpty(raw)
         return (
-          <td key={column.field} className={`unit-price-editable-cell p-0 align-middle ${colClass}`}>
+          <td
+            key={column.field}
+            className={`unit-price-editable-cell p-0 align-middle ${colClass} ${tableCellStateClass(isEmpty)}`}
+          >
             <EditableTextCell
               value={row[column.field] ?? ''}
               align={column.align || 'center'}
-                disabled={tableBusy}
-                className="unit-price-cell-input"
-                onSave={(nextValue) => void handleItemFieldSave(row, column.field, nextValue)}
+              disabled={tableBusy}
+              className="unit-price-cell-input"
+              onSave={(nextValue) => void handleItemFieldSave(row, column.field, nextValue)}
             />
           </td>
         )

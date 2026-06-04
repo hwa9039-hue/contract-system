@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { TABLE_INLINE_INPUT_STANDARD_CLASS } from './tableInlineInputClass.js'
 import { toDateInputValue } from './dateFieldUtils.js'
+import { isDateTableCellEmpty, tableCellStateClass } from './tableCellEmptyState.js'
 
 export function EditableDateCell({
   value,
@@ -9,6 +10,8 @@ export function EditableDateCell({
   className = '',
 }) {
   const displayValue = toDateInputValue(value)
+  const isEmpty = isDateTableCellEmpty(value)
+  const stateClass = tableCellStateClass(isEmpty)
   const [draft, setDraft] = useState(displayValue)
 
   useEffect(() => {
@@ -23,7 +26,11 @@ export function EditableDateCell({
 
   if (disabled) {
     return (
-      <div className={`cell-display editable-date-cell-display text-center ${className}`.trim()}>
+      <div
+        className={`cell-display editable-date-cell-display text-center ${stateClass} ${
+          isEmpty ? 'table-cell-empty-placeholder' : ''
+        } ${className}`.trim()}
+      >
         {displayValue || '\u00a0'}
       </div>
     )
@@ -32,7 +39,7 @@ export function EditableDateCell({
   return (
     <input
       type="date"
-      className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} editable-date-cell-input ${className}`.trim()}
+      className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} editable-date-cell-input ${stateClass} ${className}`.trim()}
       value={draft}
       disabled={disabled}
       onChange={(e) => setDraft(e.target.value)}

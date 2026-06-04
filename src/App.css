@@ -11291,6 +11291,45 @@ div[class*='MuiDataGrid-licenseWatermark'] {
   padding-right: 1rem;
 }
 
+/* 표 — 미입력 / 입력완료 셀 구분 */
+.excel-table tbody td.table-cell--empty,
+.unit-price-table tbody td.table-cell--empty,
+table[data-contract-table-row-key] tbody td.table-cell--empty {
+  background-color: #f3f4f6 !important;
+}
+
+.excel-table tbody td.table-cell--filled,
+.unit-price-table tbody td.table-cell--filled,
+table[data-contract-table-row-key] tbody td.table-cell--filled {
+  background-color: #ffffff !important;
+}
+
+.table-cell-empty-placeholder,
+.unit-price-table tbody td.table-cell--empty .editable-text-cell-display,
+.unit-price-table tbody td.table-cell--empty .editable-date-cell-display,
+.excel-table tbody td.table-cell--empty .editable-text-cell-display {
+  color: #9ca3af !important;
+}
+
+.unit-price-table tbody td.table-cell--filled .editable-text-cell-display,
+.unit-price-table tbody td.table-cell--filled .editable-date-cell-display {
+  color: #374151;
+}
+
+.unit-price-table tbody td.table-cell--empty .editable-date-cell-input {
+  color: #9ca3af;
+  background-color: transparent;
+}
+
+.unit-price-table tbody td.table-cell--filled .editable-date-cell-input,
+.unit-price-table tbody td.table-cell--empty .editable-text-cell-input:focus,
+.unit-price-table tbody td.table-cell--filled .editable-text-cell-input:focus,
+.unit-price-table tbody td.table-cell--empty .editable-date-cell-input:focus,
+.unit-price-table tbody td.table-cell--filled .editable-date-cell-input:focus {
+  color: #1f2937;
+  background-color: #ffffff !important;
+}
+
 .unit-price-empty-cell {
   padding: 24px 12px;
   text-align: center;

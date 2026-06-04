@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
 import { TABLE_INLINE_INPUT_STANDARD_CLASS } from './tableInlineInputClass.js'
+import {
+  TABLE_CELL_EMPTY_LABEL,
+  isTableCellEmpty,
+  tableCellStateClass,
+} from './tableCellEmptyState.js'
 
 /** 날짜·금액·드롭다운·중요도가 아닌 순수 텍스트 컬럼 */
 export function isEditableTextColumn(column) {
@@ -31,6 +36,8 @@ export function EditableTextCell({
   }, [value, isEditing])
 
   const displayValue = value == null ? '' : String(value)
+  const isEmpty = isTableCellEmpty(displayValue)
+  const stateClass = tableCellStateClass(isEmpty)
 
   const handleCommit = () => {
     setIsEditing(false)
@@ -48,9 +55,11 @@ export function EditableTextCell({
   if (disabled) {
     return (
       <div
-        className={`cell-display editable-text-cell-display editable-text-cell-display--${align} ${className}`.trim()}
+        className={`cell-display editable-text-cell-display editable-text-cell-display--${align} ${stateClass} ${
+          isEmpty ? 'table-cell-empty-placeholder' : ''
+        } ${className}`.trim()}
       >
-        {displayValue}
+        {isEmpty ? TABLE_CELL_EMPTY_LABEL : displayValue}
       </div>
     )
   }
@@ -83,7 +92,9 @@ export function EditableTextCell({
 
   return (
     <div
-      className={`cell-display editable-text-cell-display editable-text-cell-display--${align} ${className}`.trim()}
+      className={`cell-display editable-text-cell-display editable-text-cell-display--${align} ${stateClass} ${
+        isEmpty ? 'table-cell-empty-placeholder' : ''
+      } ${className}`.trim()}
       role="button"
       tabIndex={0}
       onClick={(e) => {
@@ -97,7 +108,7 @@ export function EditableTextCell({
         }
       }}
     >
-      {displayValue || '\u00a0'}
+      {isEmpty ? TABLE_CELL_EMPTY_LABEL : displayValue}
     </div>
   )
 }

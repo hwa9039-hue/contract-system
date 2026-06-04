@@ -24,6 +24,12 @@ import {
   tableRowStripeClass,
   unitPriceTableWrapClass,
 } from '../unitPricePageLayout.js'
+import {
+  formatEditableTableCellText,
+  isDateTableCellEmpty,
+  isTableCellEmpty,
+  tableCellStateClass,
+} from '../tableCellEmptyState.js'
 import '../App.css'
 
 /** 계약분류 — 목록에서 제외 (코드·라벨) */
@@ -217,14 +223,12 @@ function buildContractPatchDiff(current, saved) {
   return patch
 }
 
-function displayReadonlyCell(row, field) {
-  const column = columns.find((c) => c.field === field)
-  if (column?.type === 'date') {
-    const value = formatDateDisplay(row[field])
-    return value || '-'
+function getEditableColumnCellState(row, column) {
+  const raw = row[column.field]
+  if (column.type === 'date') {
+    return formatEditableTableCellText(raw, { isDate: true })
   }
-  const value = safeString(row?.[field]).trim()
-  return value || '-'
+  return formatEditableTableCellText(raw)
 }
 
 export default function ProjectManagement({ canEdit = true }) {
@@ -387,7 +391,10 @@ export default function ProjectManagement({ canEdit = true }) {
         const isProject = column.field === 'projectName'
         const isClient = column.field === 'client'
         const projectTitle = isProject ? safeString(row.projectName).trim() : ''
-        const cellText = displayReadonlyCell(row, column.field)
+        const cellText =
+          column.type === 'date'
+            ? formatDateDisplay(row[column.field]) || '-'
+            : safeString(row[column.field]).trim() || '-'
         return (
           <td
             key={column.field}
@@ -404,16 +411,26 @@ export default function ProjectManagement({ canEdit = true }) {
       }
 
       if (column.editable && !canEdit) {
+        const { isEmpty, text } = getEditableColumnCellState(row, column)
         return (
-          <td key={column.field} className={`unit-price-readonly ${colClass} text-center`}>
-            {displayReadonlyCell(row, column.field)}
+          <td
+            key={column.field}
+            className={`unit-price-readonly ${colClass} text-center ${tableCellStateClass(isEmpty)}${
+              isEmpty ? ' table-cell-empty-placeholder' : ''
+            }`}
+          >
+            {text}
           </td>
         )
       }
 
       if (column.editable && column.type === 'date') {
+        const isEmpty = isDateTableCellEmpty(row[column.field])
         return (
-          <td key={column.field} className={`unit-price-editable-cell p-0 align-middle ${colClass}`}>
+          <td
+            key={column.field}
+            className={`unit-price-editable-cell p-0 align-middle ${colClass} ${tableCellStateClass(isEmpty)}`}
+          >
             <EditableDateCell
               value={row[column.field] ?? ''}
               disabled={tableBusy}
@@ -425,8 +442,12 @@ export default function ProjectManagement({ canEdit = true }) {
       }
 
       if (column.editable) {
+        const isEmpty = isTableCellEmpty(row[column.field])
         return (
-          <td key={column.field} className={`unit-price-editable-cell p-0 align-middle ${colClass}`}>
+          <td
+            key={column.field}
+            className={`unit-price-editable-cell p-0 align-middle ${colClass} ${tableCellStateClass(isEmpty)}`}
+          >
             <EditableTextCell
               value={row[column.field] ?? ''}
               align="center"
