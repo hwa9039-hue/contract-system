@@ -11036,25 +11036,73 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 
 /* 사업관리 — unit-price-table 재사용, 컬럼 너비만 추가 */
 .unit-price-table.unit-price-table--project-mgmt {
-  min-width: 1720px;
+  min-width: 1580px;
 }
 
-/* 사업관리 — 사업명 축소·편집 열 확대 (단가관리 .unit-price-col-project 350px 와 분리) */
+/* 사업관리 — 사업명 우선 (단가관리 .unit-price-col-project 350px 와 분리) */
 .unit-price-table.unit-price-table--project-mgmt .unit-price-col-project-name,
 .unit-price-table.unit-price-table--project-mgmt col.unit-price-col-project-name {
-  width: 240px;
-  min-width: 240px;
-  max-width: 240px;
+  width: auto;
+  min-width: 300px;
+}
+
+.unit-price-table.unit-price-table--project-mgmt tbody td.unit-price-cell-project {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+  line-height: 1.35;
+  padding: 6px 10px;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+/* 사업관리 — 인접·편집 열 컴팩트 (여백 축소) */
+.unit-price-table.unit-price-table--project-mgmt .unit-price-col-mgmt-compact {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.unit-price-table.unit-price-table--project-mgmt .unit-price-col-year {
+  width: 92px;
+  min-width: 92px;
+}
+
+.unit-price-table.unit-price-table--project-mgmt .unit-price-col-client {
+  width: 145px;
+  min-width: 145px;
+}
+
+.unit-price-table.unit-price-table--project-mgmt .unit-price-col-contract-date {
+  width: 118px;
+  min-width: 118px;
+}
+
+.unit-price-table.unit-price-table--project-mgmt .unit-price-col-due-date {
+  width: 132px;
+  min-width: 132px;
+}
+
+.unit-price-table.unit-price-table--project-mgmt .unit-price-col-sales-owner {
+  width: 96px;
+  min-width: 96px;
+}
+
+.unit-price-table.unit-price-table--project-mgmt .unit-price-col-pm.unit-price-col-mgmt-compact {
+  width: 88px;
+  min-width: 88px;
 }
 
 .unit-price-table.unit-price-table--project-mgmt .unit-price-col-date-picker {
-  width: 152px;
-  min-width: 152px;
+  width: 146px;
+  min-width: 146px;
 }
 
 .unit-price-table.unit-price-table--project-mgmt .unit-price-col-guarantee-rate {
-  width: 120px;
-  min-width: 120px;
+  width: 108px;
+  min-width: 108px;
 }
 
 .unit-price-table .unit-price-col-contract-date {

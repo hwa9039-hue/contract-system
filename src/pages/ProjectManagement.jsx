@@ -27,11 +27,11 @@ const PROJECT_MANAGEMENT_EDITABLE_FIELDS = Object.freeze([
 
 const REFETCH_AFTER_SAVE_DELAY_MS = 750
 
-/** 사업명 — 긴 제목은 말줄임, 편집 열에 공간 양보 */
-const PROJECT_NAME_COL_WIDTH = 240
+/** 사업명 — 목록에서 가장 넓게, 긴 제목은 2줄·말줄임 */
+const PROJECT_NAME_COL_WIDTH = 300
 
-/** 날짜 픽커 컬럼 — 달력 UI가 잘리지 않는 너비 */
-const DATE_PICKER_COL_WIDTH = 152
+/** 날짜 픽커 컬럼 — 달력 UI가 잘리지 않는 최소 너비 */
+const DATE_PICKER_COL_WIDTH = 146
 
 /**
  * DataGrid-style column definitions — UnitPriceManagement 와 동일 패턴
@@ -41,41 +41,42 @@ const columns = [
   {
     field: 'year',
     headerName: '사업년도',
-    width: 100,
+    width: 92,
     filterable: true,
     readonly: true,
-    colClass: 'unit-price-col-year',
+    colClass: 'unit-price-col-year unit-price-col-mgmt-compact',
   },
   {
     field: 'client',
     headerName: '발주처',
-    width: 160,
+    width: 145,
     filterable: true,
     readonly: true,
-    colClass: 'unit-price-col-client',
+    colClass: 'unit-price-col-client unit-price-col-mgmt-compact',
   },
   {
     field: 'contractDate',
     headerName: '계약일자',
-    width: 128,
+    width: 118,
     filterable: true,
     readonly: true,
     type: 'date',
-    colClass: 'unit-price-col-contract-date',
+    colClass: 'unit-price-col-contract-date unit-price-col-mgmt-compact',
   },
   {
     field: 'dueDate',
     headerName: '납기일(준공일자)',
-    width: 140,
+    width: 132,
     filterable: true,
     readonly: true,
     type: 'date',
-    colClass: 'unit-price-col-due-date',
+    colClass: 'unit-price-col-due-date unit-price-col-mgmt-compact',
   },
   {
     field: 'projectName',
     headerName: '사업명',
     width: PROJECT_NAME_COL_WIDTH,
+    flexGrow: true,
     filterable: true,
     readonly: true,
     colClass: 'unit-price-col-project unit-price-col-project-name',
@@ -83,18 +84,18 @@ const columns = [
   {
     field: 'salesOwner',
     headerName: '영업담당자',
-    width: 120,
+    width: 96,
     filterable: true,
     readonly: true,
-    colClass: 'unit-price-col-sales-owner',
+    colClass: 'unit-price-col-sales-owner unit-price-col-mgmt-compact',
   },
   {
     field: 'pm',
     headerName: '현장PM',
-    width: 100,
+    width: 88,
     filterable: true,
     readonly: true,
-    colClass: 'unit-price-col-pm',
+    colClass: 'unit-price-col-pm unit-price-col-mgmt-compact',
   },
   {
     field: 'commencementCert',
@@ -135,10 +136,10 @@ const columns = [
   {
     field: 'guaranteeRate',
     headerName: '보증금율',
-    width: 120,
+    width: 108,
     filterable: true,
     editable: true,
-    colClass: 'unit-price-col-guarantee-rate',
+    colClass: 'unit-price-col-guarantee-rate unit-price-col-mgmt-compact',
   },
 ]
 
@@ -407,6 +408,8 @@ export default function ProjectManagement({ canEdit = true }) {
       if (column.readonly) {
         const isProject = column.field === 'projectName'
         const isClient = column.field === 'client'
+        const projectTitle = isProject ? safeString(row.projectName).trim() : ''
+        const cellText = displayReadonlyCell(row, column.field)
         return (
           <td
             key={column.field}
@@ -415,8 +418,9 @@ export default function ProjectManagement({ canEdit = true }) {
             }${isClient ? ' text-center unit-price-cell-truncate' : ''}${
               !isProject && !isClient ? ' text-center' : ''
             }`}
+            title={isProject && projectTitle && cellText !== '-' ? projectTitle : undefined}
           >
-            {displayReadonlyCell(row, column.field)}
+            {cellText}
           </td>
         )
       }
