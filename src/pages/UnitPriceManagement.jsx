@@ -25,6 +25,8 @@ import {
 import '../App.css'
 
 const CONTRACT_TYPE_FILTER = '55121903'
+/** 단가관리 목록에서 제외 — 계약방식 '민간' */
+const EXCLUDED_CONTRACT_METHOD = '민간'
 
 const UNIT_PRICE_FIELDS = [
   'costService',
@@ -207,6 +209,13 @@ function buildItemPatchDiff(current, saved) {
   return patch
 }
 
+function filterUnitPriceContracts(contracts) {
+  const list = Array.isArray(contracts) ? contracts : []
+  return list.filter(
+    (contract) => safeString(contract?.contractMethod).trim() !== EXCLUDED_CONTRACT_METHOD
+  )
+}
+
 function flattenContractsToRows(contracts) {
   const list = Array.isArray(contracts) ? contracts : []
   const rows = []
@@ -334,7 +343,7 @@ export default function UnitPriceManagement() {
 
     try {
       const data = await unitPricesApi.listTree(CONTRACT_TYPE_FILTER)
-      const list = Array.isArray(data) ? data : []
+      const list = filterUnitPriceContracts(data)
       setContracts(list)
       syncSavedSnapshots(flattenContractsToRows(list))
     } catch (fetchError) {
@@ -590,7 +599,8 @@ export default function UnitPriceManagement() {
           <div className="unit-price-empty-cell unit-price-empty-cell--error">{error}</div>
         ) : showEmpty ? (
           <div className="unit-price-empty-cell">
-            계약분류가 {CONTRACT_TYPE_FILTER}인 계약 데이터가 없습니다.
+            계약분류 {CONTRACT_TYPE_FILTER} 대상이 없거나, 계약방식이 {EXCLUDED_CONTRACT_METHOD}인
+            계약은 표시되지 않습니다.
           </div>
         ) : (
           <div className={UNIT_PRICE_PAGE_STACK}>

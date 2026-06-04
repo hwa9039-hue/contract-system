@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/unit-prices", tags=["unit-prices"])
 
 CONTRACT_TYPE_FILTER_DEFAULT = "55121903"
+EXCLUDED_CONTRACT_METHOD = "민간"
 
 CONTRACT_PARENT_SELECT = """
   c.id::text as id,
@@ -116,9 +117,10 @@ def list_unit_prices_tree(contractType: str = CONTRACT_TYPE_FILTER_DEFAULT):
                     select {CONTRACT_PARENT_SELECT}
                     from contracts_rows c
                     where trim(c."contractType") = %s
+                      and trim(coalesce(c."contractMethod", '')) <> %s
                     order by c.year desc nulls last, c."contractDate" desc nulls last
                     """,
-                    (contract_type,),
+                    (contract_type, EXCLUDED_CONTRACT_METHOD),
                 )
                 contract_rows = cursor.fetchall()
 
