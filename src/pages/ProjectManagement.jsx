@@ -27,8 +27,11 @@ const PROJECT_MANAGEMENT_EDITABLE_FIELDS = Object.freeze([
 
 const REFETCH_AFTER_SAVE_DELAY_MS = 750
 
+/** 사업명 — 긴 제목은 말줄임, 편집 열에 공간 양보 */
+const PROJECT_NAME_COL_WIDTH = 240
+
 /** 날짜 픽커 컬럼 — 달력 UI가 잘리지 않는 너비 */
-const DATE_PICKER_COL_WIDTH = 140
+const DATE_PICKER_COL_WIDTH = 152
 
 /**
  * DataGrid-style column definitions — UnitPriceManagement 와 동일 패턴
@@ -72,11 +75,10 @@ const columns = [
   {
     field: 'projectName',
     headerName: '사업명',
-    width: 350,
-    flexGrow: true,
+    width: PROJECT_NAME_COL_WIDTH,
     filterable: true,
     readonly: true,
-    colClass: 'unit-price-col-project',
+    colClass: 'unit-price-col-project unit-price-col-project-name',
   },
   {
     field: 'salesOwner',
@@ -133,7 +135,7 @@ const columns = [
   {
     field: 'guaranteeRate',
     headerName: '보증금율',
-    width: 110,
+    width: 120,
     filterable: true,
     editable: true,
     colClass: 'unit-price-col-guarantee-rate',

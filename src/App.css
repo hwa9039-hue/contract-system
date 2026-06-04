@@ -11036,7 +11036,25 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 
 /* 사업관리 — unit-price-table 재사용, 컬럼 너비만 추가 */
 .unit-price-table.unit-price-table--project-mgmt {
-  min-width: 1930px;
+  min-width: 1720px;
+}
+
+/* 사업관리 — 사업명 축소·편집 열 확대 (단가관리 .unit-price-col-project 350px 와 분리) */
+.unit-price-table.unit-price-table--project-mgmt .unit-price-col-project-name,
+.unit-price-table.unit-price-table--project-mgmt col.unit-price-col-project-name {
+  width: 240px;
+  min-width: 240px;
+  max-width: 240px;
+}
+
+.unit-price-table.unit-price-table--project-mgmt .unit-price-col-date-picker {
+  width: 152px;
+  min-width: 152px;
+}
+
+.unit-price-table.unit-price-table--project-mgmt .unit-price-col-guarantee-rate {
+  width: 120px;
+  min-width: 120px;
 }
 
 .unit-price-table .unit-price-col-contract-date {
