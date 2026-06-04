@@ -28,6 +28,8 @@ import '../App.css'
 
 /** 계약분류 — 목록에서 제외 */
 const EXCLUDED_CONTRACT_TYPE = '43211514'
+/** 사업명에 포함 시 목록에서 제외 */
+const EXCLUDED_PROJECT_NAME_SUBSTRING = '유지보수'
 
 const PROJECT_MANAGEMENT_EDITABLE_FIELDS = Object.freeze([
   'commencementCert',
@@ -173,11 +175,19 @@ function normalizeContractFromApi(contract) {
   return row
 }
 
+function isExcludedFromProjectManagement(contract) {
+  if (!contract || typeof contract !== 'object') return true
+  if (safeString(contract.contractType).trim() === EXCLUDED_CONTRACT_TYPE) return true
+  if (safeString(contract.projectName).includes(EXCLUDED_PROJECT_NAME_SUBSTRING)) return true
+  return false
+}
+
 function filterProjectContracts(contracts) {
   const list = Array.isArray(contracts) ? contracts : []
   return list
+    .filter((item) => !isExcludedFromProjectManagement(item))
     .map((item) => normalizeContractFromApi(item))
-    .filter((row) => row && safeString(row.contractType).trim() !== EXCLUDED_CONTRACT_TYPE)
+    .filter(Boolean)
 }
 
 function rowToSavedSnapshot(row) {
@@ -453,7 +463,8 @@ export default function ProjectManagement({ canEdit = true }) {
           <div className="unit-price-empty-cell unit-price-empty-cell--error">{error}</div>
         ) : showEmpty ? (
           <div className="unit-price-empty-cell">
-            표시할 계약 데이터가 없습니다. (계약분류 {EXCLUDED_CONTRACT_TYPE} 제외)
+            표시할 계약 데이터가 없습니다. (계약분류 {EXCLUDED_CONTRACT_TYPE}·사업명에{' '}
+            {EXCLUDED_PROJECT_NAME_SUBSTRING} 포함 건 제외)
           </div>
         ) : (
           <div className={UNIT_PRICE_PAGE_STACK}>
