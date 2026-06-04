@@ -19,6 +19,7 @@ import {
   UNIT_PRICE_TABLE_PANEL,
   UNIT_PRICE_TOOLBAR,
   getUnitPriceColStyle,
+  tableRowStripeClass,
   unitPriceTableWrapClass,
 } from '../unitPricePageLayout.js'
 import '../App.css'
@@ -650,8 +651,10 @@ export default function UnitPriceManagement() {
                       </td>
                     </tr>
                   ) : (
-                    filteredFlatRows.map((row) => (
-                      <tr key={row.id}>{columns.map((column) => renderBodyCell(row, column))}</tr>
+                    filteredFlatRows.map((row, rowIndex) => (
+                      <tr key={row.id} className={tableRowStripeClass(rowIndex)}>
+                        {columns.map((column) => renderBodyCell(row, column))}
+                      </tr>
                     ))
                   )}
                 </tbody>

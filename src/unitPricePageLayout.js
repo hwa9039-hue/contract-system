@@ -26,6 +26,11 @@ export function unitPriceTableWrapClass({ refetching = false, tableBusy = false 
   }`
 }
 
+/** excel-table 줄무늬 + hover·focus-within 행 강조 */
+export function tableRowStripeClass(index) {
+  return index % 2 === 0 ? 'row-even' : 'row-odd'
+}
+
 export function getUnitPriceColStyle(column) {
   if (column?.flexGrow) {
     return { minWidth: column.width }

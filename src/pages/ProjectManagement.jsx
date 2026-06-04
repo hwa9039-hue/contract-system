@@ -21,6 +21,7 @@ import {
   UNIT_PRICE_TABLE_PROJECT_MODIFIER,
   UNIT_PRICE_TOOLBAR,
   getUnitPriceColStyle,
+  tableRowStripeClass,
   unitPriceTableWrapClass,
 } from '../unitPricePageLayout.js'
 import '../App.css'
@@ -515,8 +516,10 @@ export default function ProjectManagement({ canEdit = true }) {
                       </td>
                     </tr>
                   ) : (
-                    filteredRows.map((row) => (
-                      <tr key={row.id}>{columns.map((column) => renderBodyCell(row, column))}</tr>
+                    filteredRows.map((row, rowIndex) => (
+                      <tr key={row.id} className={tableRowStripeClass(rowIndex)}>
+                        {columns.map((column) => renderBodyCell(row, column))}
+                      </tr>
                     ))
                   )}
                 </tbody>
