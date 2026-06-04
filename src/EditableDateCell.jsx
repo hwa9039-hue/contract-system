@@ -15,10 +15,9 @@ export function EditableDateCell({
     setDraft(displayValue)
   }, [displayValue])
 
-  const handleChange = (next) => {
-    setDraft(next)
-    if (next !== displayValue) {
-      onSave?.(next || null)
+  const commitDraft = () => {
+    if (draft !== displayValue) {
+      onSave?.(draft || null)
     }
   }
 
@@ -36,8 +35,15 @@ export function EditableDateCell({
       className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} editable-date-cell-input ${className}`.trim()}
       value={draft}
       disabled={disabled}
-      onChange={(e) => handleChange(e.target.value)}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commitDraft}
       onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          commitDraft()
+        }
+      }}
     />
   )
 }

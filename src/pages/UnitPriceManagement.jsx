@@ -43,8 +43,6 @@ const EMPTY_ITEM_PAYLOAD = Object.freeze({
   capH: '',
 })
 
-const REFETCH_AFTER_SAVE_DELAY_MS = 750
-
 const PLACEHOLDER_ID_PREFIX = '__empty__'
 
 /**
@@ -266,6 +264,38 @@ function rowToSavedSnapshot(row) {
   }
 }
 
+function itemFieldsToTreeItem(normalized, itemId) {
+  const patch = itemFieldsToApiPatch(normalized)
+  return {
+    id: itemId,
+    costService: patch.costService,
+    itemName: patch.itemName,
+    designUnitPrice: patch.designUnitPrice,
+    pitch: patch.pitch,
+    capW: patch.capW,
+    capH: patch.capH,
+  }
+}
+
+/** API 저장 후 트리 상태만 갱신 (전체 refetch·토스트 없음) */
+function patchContractsTreeItem(contracts, row, normalized) {
+  const contractId = safeString(row.contractId).trim()
+  const itemId = safeString(row.id).trim()
+  if (!contractId || !itemId) return contracts
+
+  const treeItem = itemFieldsToTreeItem(normalized, itemId)
+
+  return (Array.isArray(contracts) ? contracts : []).map((contract) => {
+    if (safeString(contract?.id).trim() !== contractId) return contract
+    const items = Array.isArray(contract.items) ? contract.items : []
+    const idx = items.findIndex((it) => safeString(it?.id).trim() === itemId)
+    if (idx < 0) return contract
+    const nextItems = [...items]
+    nextItems[idx] = { ...nextItems[idx], ...treeItem }
+    return { ...contract, items: nextItems }
+  })
+}
+
 function displayReadonlyCell(row, key) {
   const value = safeString(row?.[key]).trim()
   return value || '-'
@@ -277,7 +307,6 @@ export default function UnitPriceManagement() {
   const [refetching, setRefetching] = useState(false)
   const [error, setError] = useState(null)
   const [saveError, setSaveError] = useState(null)
-  const [saveSuccess, setSaveSuccess] = useState(null)
   const [tableBusy, setTableBusy] = useState(false)
 
   const [search, setSearch] = useState('')
@@ -286,17 +315,6 @@ export default function UnitPriceManagement() {
 
   const savedByItemIdRef = useRef({})
   const savingItemIdsRef = useRef(new Set())
-  const saveSuccessTimerRef = useRef(null)
-  const refetchAfterSaveTimerRef = useRef(null)
-
-  const showToast = useCallback((message) => {
-    setSaveSuccess(message)
-    if (saveSuccessTimerRef.current) clearTimeout(saveSuccessTimerRef.current)
-    saveSuccessTimerRef.current = setTimeout(() => {
-      setSaveSuccess(null)
-      saveSuccessTimerRef.current = null
-    }, 1600)
-  }, [])
 
   const syncSavedSnapshots = useCallback((rows) => {
     const saved = {}
@@ -331,20 +349,8 @@ export default function UnitPriceManagement() {
     }
   }, [syncSavedSnapshots])
 
-  const scheduleRefetchAfterSave = useCallback(() => {
-    if (refetchAfterSaveTimerRef.current) clearTimeout(refetchAfterSaveTimerRef.current)
-    refetchAfterSaveTimerRef.current = setTimeout(() => {
-      refetchAfterSaveTimerRef.current = null
-      void fetchTree({ silent: true, isRefetch: true })
-    }, REFETCH_AFTER_SAVE_DELAY_MS)
-  }, [fetchTree])
-
   useEffect(() => {
     void fetchTree()
-    return () => {
-      if (saveSuccessTimerRef.current) clearTimeout(saveSuccessTimerRef.current)
-      if (refetchAfterSaveTimerRef.current) clearTimeout(refetchAfterSaveTimerRef.current)
-    }
   }, [fetchTree])
 
   const flatRows = useMemo(() => flattenContractsToRows(contracts), [contracts])
@@ -384,7 +390,7 @@ export default function UnitPriceManagement() {
   const persistItemSnapshot = useCallback(
     async (row, nextSnapshot) => {
       const rowId = safeString(row.id).trim()
-      if (!rowId || savingItemIdsRef.current.has(rowId) || tableBusy) return false
+      if (!rowId || savingItemIdsRef.current.has(rowId)) return false
 
       const contractId = safeString(row.contractId).trim()
       const isPlaceholder = row.isPlaceholder || isPlaceholderRowId(rowId)
@@ -402,13 +408,11 @@ export default function UnitPriceManagement() {
           if (!contractId) throw new Error('계약 ID가 없습니다.')
           await unitPricesApi.createItem(contractId, payload)
           setSaveError(null)
-          showToast('저장되었습니다.')
-          scheduleRefetchAfterSave()
+          void fetchTree({ silent: true })
           return true
         } catch (saveErr) {
           console.error('[단가관리] 품목 생성 실패', saveErr)
           setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
-          setSaveSuccess(null)
           return false
         } finally {
           savingItemIdsRef.current.delete(rowId)
@@ -423,24 +427,20 @@ export default function UnitPriceManagement() {
       try {
         const updated = await unitPricesApi.updateItem(rowId, patch)
         const normalized = normalizeItemFromApi(updated)
-        savedByItemIdRef.current[rowId] = rowToSavedSnapshot({
-          ...row,
-          ...normalized,
-        })
+        const snapshot = rowToSavedSnapshot({ ...row, ...normalized })
+        savedByItemIdRef.current[rowId] = snapshot
+        setContracts((prev) => patchContractsTreeItem(prev, row, snapshot))
         setSaveError(null)
-        showToast('저장되었습니다.')
-        scheduleRefetchAfterSave()
         return true
       } catch (saveErr) {
         console.error('[단가관리] 품목 저장 실패', saveErr)
         setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
-        setSaveSuccess(null)
         return false
       } finally {
         savingItemIdsRef.current.delete(rowId)
       }
     },
-    [scheduleRefetchAfterSave, showToast, tableBusy]
+    [fetchTree]
   )
 
   const handleItemFieldSave = useCallback(
@@ -465,15 +465,14 @@ export default function UnitPriceManagement() {
       setSaveError(null)
       try {
         await unitPricesApi.createItem(cid, { ...EMPTY_ITEM_PAYLOAD })
-        showToast('저장되었습니다.')
-        await fetchTree({ silent: true, isRefetch: true })
+        await fetchTree({ silent: true })
       } catch (err) {
         setSaveError(err?.message || '품목 추가에 실패했습니다.')
       } finally {
         setTableBusy(false)
       }
     },
-    [fetchTree, showToast, tableBusy]
+    [fetchTree, tableBusy]
   )
 
   const handleDeleteItem = useCallback(
@@ -488,15 +487,14 @@ export default function UnitPriceManagement() {
       try {
         await unitPricesApi.removeItem(itemId)
         delete savedByItemIdRef.current[itemId]
-        showToast('삭제되었습니다.')
-        await fetchTree({ silent: true, isRefetch: true })
+        await fetchTree({ silent: true })
       } catch (err) {
         setSaveError(err?.message || '품목 삭제에 실패했습니다.')
       } finally {
         setTableBusy(false)
       }
     },
-    [fetchTree, showToast, tableBusy]
+    [fetchTree, tableBusy]
   )
 
   const showEmpty = !loading && !error && flatRows.length === 0
@@ -515,7 +513,7 @@ export default function UnitPriceManagement() {
                 type="button"
                 className="unit-price-action-btn"
                 aria-label="품목 추가"
-                disabled={tableBusy || refetching}
+                disabled={tableBusy}
                 onClick={() => void handleAddItem(row.contractId)}
               >
                 <Plus size={14} strokeWidth={2.25} aria-hidden />
@@ -524,7 +522,7 @@ export default function UnitPriceManagement() {
                 type="button"
                 className="unit-price-action-btn unit-price-action-btn--danger"
                 aria-label="품목 삭제"
-                disabled={tableBusy || refetching || row.isPlaceholder}
+                disabled={tableBusy || row.isPlaceholder}
                 onClick={() => void handleDeleteItem(row)}
               >
                 <Trash2 size={14} strokeWidth={2.25} aria-hidden />
@@ -557,9 +555,9 @@ export default function UnitPriceManagement() {
             <EditableTextCell
               value={row[column.field] ?? ''}
               align={column.align || 'center'}
-              disabled={tableBusy || refetching}
-              className="unit-price-cell-input"
-              onSave={(nextValue) => void handleItemFieldSave(row, column.field, nextValue)}
+                disabled={tableBusy}
+                className="unit-price-cell-input"
+                onSave={(nextValue) => void handleItemFieldSave(row, column.field, nextValue)}
             />
           </td>
         )
@@ -567,16 +565,11 @@ export default function UnitPriceManagement() {
 
       return null
     },
-    [handleAddItem, handleDeleteItem, handleItemFieldSave, refetching, tableBusy]
+    [handleAddItem, handleDeleteItem, handleItemFieldSave, tableBusy]
   )
 
   return (
     <div className={UNIT_PRICE_PAGE_ROOT}>
-      {saveSuccess ? (
-        <div className="mode-toast" role="status">
-          {saveSuccess}
-        </div>
-      ) : null}
       {saveError ? (
         <div className="unit-price-save-error" role="alert">
           {saveError}

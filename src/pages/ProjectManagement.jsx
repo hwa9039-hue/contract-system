@@ -36,8 +36,6 @@ const PROJECT_MANAGEMENT_EDITABLE_FIELDS = Object.freeze([
   'guaranteeRate',
 ])
 
-const REFETCH_AFTER_SAVE_DELAY_MS = 750
-
 /** 단가관리와 동일 colgroup·colgroup 클래스 패턴 (열 정의만 사업관리용) */
 const columns = [
   {
@@ -223,7 +221,6 @@ export default function ProjectManagement({ canEdit = true }) {
   const [refetching, setRefetching] = useState(false)
   const [error, setError] = useState(null)
   const [saveError, setSaveError] = useState(null)
-  const [saveSuccess, setSaveSuccess] = useState(null)
   const [tableBusy, setTableBusy] = useState(false)
 
   const [search, setSearch] = useState('')
@@ -232,17 +229,6 @@ export default function ProjectManagement({ canEdit = true }) {
 
   const savedByContractIdRef = useRef({})
   const savingContractIdsRef = useRef(new Set())
-  const saveSuccessTimerRef = useRef(null)
-  const refetchAfterSaveTimerRef = useRef(null)
-
-  const showToast = useCallback((message) => {
-    setSaveSuccess(message)
-    if (saveSuccessTimerRef.current) clearTimeout(saveSuccessTimerRef.current)
-    saveSuccessTimerRef.current = setTimeout(() => {
-      setSaveSuccess(null)
-      saveSuccessTimerRef.current = null
-    }, 1600)
-  }, [])
 
   const syncSavedSnapshots = useCallback((rows) => {
     const saved = {}
@@ -275,20 +261,8 @@ export default function ProjectManagement({ canEdit = true }) {
     }
   }, [syncSavedSnapshots])
 
-  const scheduleRefetchAfterSave = useCallback(() => {
-    if (refetchAfterSaveTimerRef.current) clearTimeout(refetchAfterSaveTimerRef.current)
-    refetchAfterSaveTimerRef.current = setTimeout(() => {
-      refetchAfterSaveTimerRef.current = null
-      void fetchContracts({ silent: true, isRefetch: true })
-    }, REFETCH_AFTER_SAVE_DELAY_MS)
-  }, [fetchContracts])
-
   useEffect(() => {
     void fetchContracts()
-    return () => {
-      if (saveSuccessTimerRef.current) clearTimeout(saveSuccessTimerRef.current)
-      if (refetchAfterSaveTimerRef.current) clearTimeout(refetchAfterSaveTimerRef.current)
-    }
   }, [fetchContracts])
 
   const projectManagementColumnFilterOptionsMap = useMemo(() => {
@@ -326,7 +300,7 @@ export default function ProjectManagement({ canEdit = true }) {
   const persistContractFields = useCallback(
     async (row, nextSnapshot) => {
       const contractId = safeString(row.id).trim()
-      if (!contractId || savingContractIdsRef.current.has(contractId) || tableBusy) return false
+      if (!contractId || savingContractIdsRef.current.has(contractId)) return false
 
       const saved = savedByContractIdRef.current[contractId] || rowToSavedSnapshot(row)
       const patch = buildContractPatchDiff(
@@ -363,19 +337,16 @@ export default function ProjectManagement({ canEdit = true }) {
           })
         }
         setSaveError(null)
-        showToast('저장되었습니다.')
-        scheduleRefetchAfterSave()
         return true
       } catch (saveErr) {
         console.error('[사업관리] 계약 저장 실패', saveErr)
         setSaveError(saveErr?.message || '사업관리 데이터 저장에 실패했습니다.')
-        setSaveSuccess(null)
         return false
       } finally {
         savingContractIdsRef.current.delete(contractId)
       }
     },
-    [scheduleRefetchAfterSave, showToast, tableBusy]
+    []
   )
 
   const handleFieldSave = useCallback(
@@ -433,7 +404,7 @@ export default function ProjectManagement({ canEdit = true }) {
           <td key={column.field} className={`unit-price-editable-cell p-0 align-middle ${colClass}`}>
             <EditableDateCell
               value={row[column.field] ?? ''}
-              disabled={tableBusy || refetching}
+              disabled={tableBusy}
               className="unit-price-cell-input"
               onSave={(nextValue) => void handleFieldSave(row, column.field, nextValue)}
             />
@@ -447,7 +418,7 @@ export default function ProjectManagement({ canEdit = true }) {
             <EditableTextCell
               value={row[column.field] ?? ''}
               align="center"
-              disabled={tableBusy || refetching}
+              disabled={tableBusy}
               className="unit-price-cell-input"
               onSave={(nextValue) => void handleFieldSave(row, column.field, nextValue)}
             />
@@ -457,16 +428,11 @@ export default function ProjectManagement({ canEdit = true }) {
 
       return null
     },
-    [canEdit, handleFieldSave, refetching, tableBusy]
+    [canEdit, handleFieldSave, tableBusy]
   )
 
   return (
     <div className={UNIT_PRICE_PAGE_ROOT}>
-      {saveSuccess ? (
-        <div className="mode-toast" role="status">
-          {saveSuccess}
-        </div>
-      ) : null}
       {saveError ? (
         <div className="unit-price-save-error" role="alert">
           {saveError}
