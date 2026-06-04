@@ -23,8 +23,6 @@ const PROJECT_MANAGEMENT_EDITABLE_FIELDS = Object.freeze([
   'warrantyStart',
   'warrantyExpiry',
   'guaranteeRate',
-  'inspectionRequestDate',
-  'taxInvoice',
 ])
 
 const REFETCH_AFTER_SAVE_DELAY_MS = 750
@@ -140,23 +138,6 @@ const columns = [
     editable: true,
     colClass: 'unit-price-col-guarantee-rate',
   },
-  {
-    field: 'inspectionRequestDate',
-    headerName: '검사검수 요청일',
-    width: 150,
-    filterable: true,
-    editable: true,
-    type: 'date',
-    colClass: 'unit-price-col-date-picker',
-  },
-  {
-    field: 'taxInvoice',
-    headerName: '세금계산서',
-    width: 120,
-    filterable: true,
-    editable: true,
-    colClass: 'unit-price-col-tax-invoice',
-  },
 ]
 
 function safeString(value) {
@@ -183,8 +164,6 @@ function normalizeContractFromApi(contract) {
     warrantyStart: formatDateDisplay(contract?.warrantyStart),
     warrantyExpiry: formatDateDisplay(contract?.warrantyExpiry),
     guaranteeRate: safeString(contract?.guaranteeRate).trim(),
-    inspectionRequestDate: formatDateDisplay(contract?.inspectionRequestDate),
-    taxInvoice: safeString(contract?.taxInvoice).trim(),
   }
 
   return row

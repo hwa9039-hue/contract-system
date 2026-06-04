@@ -11036,7 +11036,7 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 
 /* 사업관리 — unit-price-table 재사용, 컬럼 너비만 추가 */
 .unit-price-table.unit-price-table--project-mgmt {
-  min-width: 2200px;
+  min-width: 1930px;
 }
 
 .unit-price-table .unit-price-col-contract-date {
@@ -11067,11 +11067,6 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 .unit-price-table .unit-price-col-guarantee-rate {
   width: 110px;
   min-width: 110px;
-}
-
-.unit-price-table .unit-price-col-tax-invoice {
-  width: 120px;
-  min-width: 120px;
 }
 
 .unit-price-table .unit-price-action-cell {

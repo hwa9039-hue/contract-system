@@ -15,8 +15,6 @@ export const PROJECT_MANAGEMENT_FILTERABLE_COLUMN_KEYS = Object.freeze([
   'warrantyStart',
   'warrantyExpiry',
   'guaranteeRate',
-  'inspectionRequestDate',
-  'taxInvoice',
 ])
 
 export const PROJECT_MANAGEMENT_COLUMN_FILTER_BLANK = '(비어 있음)'
@@ -28,7 +26,6 @@ const DATE_COLUMN_KEYS = new Set([
   'completionCert',
   'warrantyStart',
   'warrantyExpiry',
-  'inspectionRequestDate',
 ])
 
 const NUMERIC_SORT_COLUMN_KEYS = new Set(['year'])
@@ -147,8 +144,6 @@ const SEARCH_KEYS = [
   'warrantyStart',
   'warrantyExpiry',
   'guaranteeRate',
-  'inspectionRequestDate',
-  'taxInvoice',
   'contractType',
   'contractNo',
 ]
