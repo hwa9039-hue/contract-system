@@ -3,10 +3,10 @@ import { formatDateDisplay, toDateInputValue } from './dateFieldUtils.js'
 /** 표 셀 — 미입력 placeholder 문구 */
 export const TABLE_CELL_EMPTY_LABEL = '미입력'
 
+/** null·undefined·공백만 — 하이픈(-)은 유효 입력값 */
 export function isTableCellEmpty(value) {
   if (value === null || value === undefined) return true
-  const text = String(value).trim()
-  return text === '' || text === '-'
+  return String(value).trim() === ''
 }
 
 export function isDateTableCellEmpty(value) {
