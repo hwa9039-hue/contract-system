@@ -78,6 +78,7 @@ import {
   resolveRegistryImportanceStatus,
 } from './registryImportance.jsx'
 import { ImportanceLegend } from './ImportanceLegend.jsx'
+import { CMS_TABLE_ALIGN_MIDDLE, CMS_TABLE_CELL_INNER } from './tableLayoutConstants.js'
 import { EditableTextCell, isEditableTextColumn } from './EditableTextCell.jsx'
 import {
   getTableAlignClass,
@@ -12878,7 +12879,7 @@ function App() {
                   <thead>
                     <tr>
                       {canEditContracts && (
-                        <th className="th-align-center registry-check-header">
+                        <th className={`th-align-center registry-check-header ${CMS_TABLE_ALIGN_MIDDLE}`}>
                           <input
                             className="registry-row-checkbox"
                             type="checkbox"
@@ -12902,17 +12903,19 @@ function App() {
                           />
                         </th>
                       )}
-                      <th className="col-dday th-align-center table-col-tight">D-Day</th>
+                      <th className={`col-dday th-align-center table-col-tight ${CMS_TABLE_ALIGN_MIDDLE}`}>
+                        D-Day
+                      </th>
                       {CONTRACT_COLUMNS.map((column) => (
                           <th
                             key={column.key}
-                            className={`${column.className} ${getTableColumnLayoutClass(column)} ${
+                            className={`${column.className} ${getTableColumnLayoutClass(column)} ${CMS_TABLE_ALIGN_MIDDLE} ${
                               column.key === 'amount'
                                 ? 'th-align-center'
                                 : getTableAlignClass(column.align, column)
                             } contract-th-filterable`}
                           >
-                            <div className="contract-th-filter-wrap">
+                            <div className={`contract-th-filter-wrap ${CMS_TABLE_CELL_INNER}`}>
                               <span className="contract-th-label">{column.label}</span>
                               <ContractColumnHeaderFilter
                                 columnKey={column.key}
@@ -13007,7 +13010,7 @@ function App() {
                             rows.push(
                               <tr key={domRowKey} className={rowStripe}>
                                 {canEditContracts && (
-                                  <td className="td-align-center registry-check-cell">
+                                  <td className={`td-align-center registry-check-cell ${CMS_TABLE_ALIGN_MIDDLE}`}>
                                     <input
                                       className="registry-row-checkbox"
                                       type="checkbox"
@@ -13030,8 +13033,10 @@ function App() {
                                   </td>
                                 )}
 
-                                <td className="col-dday td-align-center table-col-tight">
-                                  <div className="cell-display dday-cell">{getDdayText(item.dueDate)}</div>
+                                <td className={`col-dday td-align-center table-col-tight ${CMS_TABLE_ALIGN_MIDDLE}`}>
+                                  <div className={`cell-display dday-cell ${CMS_TABLE_CELL_INNER}`}>
+                                    {getDdayText(item.dueDate)}
+                                  </div>
                                 </td>
 
                                 {CONTRACT_COLUMNS.map((column) => {
@@ -13051,10 +13056,12 @@ function App() {
                                   return (
                                     <td
                                       key={column.key}
-                                      className={`${column.className} ${bodyAlignClass} ${
+                                      className={`${column.className} ${bodyAlignClass} ${CMS_TABLE_ALIGN_MIDDLE} ${
                                         isLongTextTableColumn(column) ? 'multiline-cell' : ''
                                       } ${column.key === 'note' ? 'note-cell' : ''} ${getTableColumnLayoutClass(column)} ${
-                                        canEditContracts ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}` : ''
+                                        canEditContracts
+                                          ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
+                                          : ''
                                       }`}
                                       onClick={
                                         canEditContracts && !isThisContractCell
@@ -13067,7 +13074,7 @@ function App() {
                                         renderContractCellInlineEditor(column)
                                       ) : (
                                         <div
-                                          className={`cell-display editable-text-cell-display editable-text-cell-display--${cellAlign}${
+                                          className={`cell-display editable-text-cell-display editable-text-cell-display--${cellAlign} ${CMS_TABLE_CELL_INNER}${
                                             isLongTextTableColumn(column) ? ' table-cell-clamp' : ''
                                           }`}
                                           role={canEditContracts ? 'button' : undefined}

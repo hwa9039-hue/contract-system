@@ -1080,6 +1080,11 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   color: #0f172a !important;
 }
 
+table[data-contract-table-row-key] thead th,
+table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
+  vertical-align: middle !important;
+}
+
 table[data-contract-table-row-key] tbody td,
 table[data-contract-table-row-key] tbody td .cell-display,
 table[data-contract-table-row-key] tbody td .editable-text-cell-display,
@@ -1088,6 +1093,37 @@ table[data-contract-table-row-key] tbody td .editable-text-cell-input {
   font-weight: var(--cms-table-cell-font-weight) !important;
   line-height: var(--cms-table-cell-line-height) !important;
   vertical-align: middle !important;
+}
+
+/* 계약현황 — 줄바꿈 셀과 동일 행의 다른 셀 세로 균형 */
+table[data-contract-table-row-key] tbody td.table-col-long,
+table[data-contract-table-row-key] tbody td.multiline-cell,
+table[data-contract-table-row-key] tbody td.note-cell,
+table[data-contract-table-row-key] tbody td.col-ident-no,
+table[data-contract-table-row-key] tbody td.col-project {
+  vertical-align: middle !important;
+}
+
+table[data-contract-table-row-key] tbody td > .cell-display,
+table[data-contract-table-row-key] tbody td > .editable-text-cell-display,
+table[data-contract-table-row-key] tbody td > .dday-cell,
+table[data-contract-table-row-key] tbody td .cell-inline-editor {
+  display: flex;
+  align-items: center !important;
+  box-sizing: border-box;
+}
+
+table[data-contract-table-row-key] tbody td > .editable-text-cell-display.table-cell-clamp,
+table[data-contract-table-row-key] tbody td > .cell-display.table-cell-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-box-pack: center;
+  align-self: center;
+}
+
+table[data-contract-table-row-key] tbody td.editable-cell > input,
+table[data-contract-table-row-key] tbody td.editable-cell > textarea {
+  align-self: center;
 }
 
 /* 계약현황 긴 텍스트 컬럼: 줄바꿈 허용(한 줄 강제 금지) */
@@ -1161,7 +1197,7 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
 
 .excel-table tbody td.table-col-long {
   height: auto;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .excel-table th.table-col-tight,
@@ -1224,7 +1260,7 @@ table[data-contract-table-row-key] tbody td.col-amount .cell-display {
 }
 
 .table-col-long .editable-text-cell-display.table-cell-clamp {
-  align-items: flex-start;
+  align-items: center;
   min-height: 24px;
   max-height: calc(1.3em * 3 + 4px);
 }
@@ -1729,7 +1765,7 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
   width: 100%;
   min-height: 40px;
   display: flex;
-  align-items: center;
+  align-items: center; /* 세로 중앙 — 다중 줄 행과 균형 */
   cursor: text;
   border-radius: 0;
   padding: 0.5rem 0.75rem;
