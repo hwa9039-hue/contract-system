@@ -7254,9 +7254,7 @@ function App() {
       const result = await contractsApi.bulkCreate(payload)
 
       await fetchContracts()
-      const dupLen = Array.isArray(result.duplicateItems) ? result.duplicateItems.length : 0
-      const intro = `엑셀 업로드 성공: 신규 ${result.created}건 추가, 중복 ${dupLen}건 제외`
-      showAppAlert(intro)
+      showAppAlert(`엑셀 업로드 성공: ${result.created}건 추가`)
     } catch (error) {
       console.error('엑셀 업로드 중 오류가 발생했습니다.', error)
       const raw = safeString(error?.message).trim() || safeString(error)

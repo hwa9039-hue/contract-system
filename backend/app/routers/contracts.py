@@ -3,13 +3,7 @@ from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, HTTPException, Request, status
 
-from app.contract_import_backup_xlsx import write_contract_import_excel_backup
 from app.database import get_connection, repair_contract_row_ids
-from app.excel_import_dedupe import (
-    contract_duplicate_key_from_values,
-    contract_duplicate_label,
-    load_contract_duplicate_keys,
-)
 from app.schemas import (
     CONTRACT_DATE_API_KEYS,
     _coerce_sql_date,
@@ -320,83 +314,6 @@ def _insert_contract_rows(rows: list[ContractCreate]) -> int:
     return created
 
 
-def _import_contract_rows_with_dedupe(rows: list[ContractCreate]) -> dict:
-    """중복 건너뛰기 후 INSERT 결과로 엑셀 백업(선택) 및 duplicateItems 반환."""
-    duplicate_items: list[str] = []
-    inserted_api_rows: list[dict] = []
-    skipped_no_key = 0
-
-    with get_connection() as connection:
-        filled = repair_contract_row_ids(connection)
-        if filled:
-            connection.commit()
-            logger.warning("contracts_rows: backfilled id on %s row(s) that had null id", filled)
-
-        with connection.cursor() as cursor:
-            existing_keys = load_contract_duplicate_keys(cursor)
-            seen_batch: set[str] = set()
-
-            for row_index, contract in enumerate(rows, start=1):
-                row = dict(contract_to_db_values(contract))
-                for key, value in list(row.items()):
-                    if key not in CONTRACT_NUMERIC_DB_COLUMNS:
-                        continue
-                    if value is None:
-                        row[key] = 0
-                        continue
-                    if isinstance(value, str) and (value.strip() == "" or value.strip() == "-"):
-                        row[key] = 0
-                    elif isinstance(value, (int, float)):
-                        continue
-                    else:
-                        try:
-                            row[key] = float(str(value).replace(",", ""))
-                        except Exception:
-                            row[key] = 0
-                values = _sanitize_excel_row_values(row)
-
-                dk = contract_duplicate_key_from_values(values)
-                if not dk:
-                    skipped_no_key += 1
-                    continue
-                if dk in existing_keys or dk in seen_batch:
-                    duplicate_items.append(contract_duplicate_label(values))
-                    continue
-
-                try:
-                    row = _execute_contract_row_insert(cursor, values, returning=True)
-                    if row and row.get("id"):
-                        _after_contract_insert_unit_price(cursor, str(row["id"]), contract)
-                except Exception as exc:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=_format_contract_insert_error(exc, row_index),
-                    ) from exc
-                if row:
-                    inserted_api_rows.append(row_to_contract(row))
-                seen_batch.add(dk)
-                existing_keys.add(dk)
-
-        connection.commit()
-
-    created = len(inserted_api_rows)
-    excel_path: str | None = None
-    excel_err: str | None = None
-    if created > 0:
-        excel_path, excel_err = write_contract_import_excel_backup(
-            inserted_contract_rows=inserted_api_rows,
-            duplicate_items=duplicate_items if duplicate_items else None,
-        )
-
-    return {
-        "created": created,
-        "duplicateItems": duplicate_items,
-        "excelBackupPath": excel_path,
-        "excelBackupError": excel_err,
-        "skippedNoDuplicateKeyRows": skipped_no_key,
-    }
-
-
 @router.get("", response_model=list[ContractOut])
 def list_contracts():
     try:
@@ -458,9 +375,9 @@ def bulk_create_contracts(payload: ContractBulkCreate):
 
 @router.post("/import", status_code=status.HTTP_201_CREATED)
 def import_contracts(payload: ContractBulkCreate):
-    """중복 건너뛴 뒤 DB 반영 행만 엑셀 백업(환경설정 시). duplicateItems 포함."""
+    """엑셀 일괄 등록 — 중복 검사 없이 모든 행을 DB에 추가 (/bulk 와 동일)."""
     try:
-        return _import_contract_rows_with_dedupe(payload.rows)
+        return {"created": _insert_contract_rows(payload.rows)}
     except HTTPException:
         raise
     except Exception as exc:

@@ -39,98 +39,24 @@ async function requestJson(path, options = {}) {
   return parseResponseBody(response)
 }
 
-/**
- * POST /import first (same as other menus). If /import is missing, POST may return 404/405;
- * if the browser throws before a response (network), fall back to /bulk.
- * 계약 엑셀: /import 는 { created, duplicateItems } 반환(중복 건너뜀). /bulk 는 { created } 만.
- */
+/** 계약 엑셀 일괄 등록 — 중복 검사 없이 모든 행을 /bulk 로 추가 */
 async function postContractRowsBulk(rows) {
-  const importUrl = `${API_BASE_URL}/api/contracts/import`
-  const bulkUrl = `${API_BASE_URL}/api/contracts/bulk`
-  const body = JSON.stringify({ rows })
-  const postInit = apiFetchInit({
+  const response = await apiFetch(`${API_BASE_URL}/api/contracts/bulk`, apiFetchInit({
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...getAuthHeaders(),
     },
-    body,
-  })
-
-  let response
-  let networkError = null
-  try {
-    response = await apiFetch(importUrl, postInit)
-  } catch (err) {
-    networkError = err
-    response = null
-  }
-
-  const useBulk =
-    response == null ||
-    response.status === 405 ||
-    response.status === 404 ||
-    response.status >= 500
-
-  if (useBulk) {
-    try {
-      response = await apiFetch(bulkUrl, postInit)
-      networkError = null
-    } catch (err) {
-      networkError = err
-      response = null
-    }
-  }
-
-  if (response == null) {
-    const hint = networkError?.message ? `\n(${networkError.message})` : ''
-    throw new Error(
-      `서버에 연결할 수 없습니다. API 주소(${API_BASE_URL})와 네트워크 연결을 확인하세요.${hint}`
-    )
-  }
+    body: JSON.stringify({ rows }),
+  }))
 
   if (!response.ok) {
     throw new Error(await readApiErrorMessage(response))
   }
 
   const data = await parseResponseBody(response)
-  if (useBulk) {
-    const created = typeof data?.created === 'number' ? data.created : 0
-    return {
-      created,
-      duplicateItems: [],
-      usedBulkFallback: true,
-      excelBackupPath: null,
-      excelBackupError: null,
-      skippedNoDuplicateKeyRows: 0,
-    }
-  }
-  if (data && typeof data === 'object' && !Array.isArray(data)) {
-    const created = typeof data.created === 'number' ? data.created : 0
-    const duplicateItems = Array.isArray(data.duplicateItems) ? data.duplicateItems : []
-    const excelBackupPath =
-      typeof data.excelBackupPath === 'string' && data.excelBackupPath.trim() ? data.excelBackupPath.trim() : null
-    const excelBackupError =
-      typeof data.excelBackupError === 'string' && data.excelBackupError.trim() ? data.excelBackupError.trim() : null
-    const skippedNoDuplicateKeyRows =
-      typeof data.skippedNoDuplicateKeyRows === 'number' ? data.skippedNoDuplicateKeyRows : 0
-    return {
-      created,
-      duplicateItems,
-      usedBulkFallback: false,
-      excelBackupPath,
-      excelBackupError,
-      skippedNoDuplicateKeyRows,
-    }
-  }
-  return {
-    created: 0,
-    duplicateItems: [],
-    usedBulkFallback: false,
-    excelBackupPath: null,
-    excelBackupError: null,
-    skippedNoDuplicateKeyRows: 0,
-  }
+  const created = typeof data?.created === 'number' ? data.created : 0
+  return { created }
 }
 
 export const contractsApi = {
