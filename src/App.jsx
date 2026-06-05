@@ -8793,6 +8793,7 @@ function App() {
         showAppAlert(msg)
       } catch (error) {
         console.error('[excel-upload] 업로드 실패', error)
+        console.error('Upload Error Details:', error?.response || error)
         logApiOperationError('엑셀 업로드 실패', error)
         const preserveParsedDiscoveryTable = target === 'discovery'
         if (!preserveParsedDiscoveryTable) {

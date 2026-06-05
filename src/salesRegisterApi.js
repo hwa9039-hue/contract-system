@@ -119,7 +119,7 @@ export const salesRegisterApi = {
   },
   importRows(rows) {
     const data = sanitizeRegistryImportPayload(rows)
-    console.log('Upload Payload:', data)
+    console.log('Sales Import Payload:', data)
     console.log('[excel-upload] POST', `${API_BASE_URL}/api/sales-register/import`, { rowCount: data.length })
     return requestJson('/api/sales-register/import', {
       method: 'POST',
