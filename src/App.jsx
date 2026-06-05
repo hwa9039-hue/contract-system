@@ -12944,9 +12944,7 @@ function App() {
                         const rows = [yearRow]
                         let stripeIndex = 0
 
-                        yearBlock.subGroups
-                          .filter((sub) => (sub.count ?? sub.items.length) > 0)
-                          .forEach((sub) => {
+                        yearBlock.subGroups.forEach((sub) => {
                           const subCollapsed = !isContractCategoryGroupOpen(yearBlock.year, sub.groupId)
                           rows.push(
                             <tr

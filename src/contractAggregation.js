@@ -40,21 +40,19 @@ export function getContractYearKey(item) {
   return '미분류'
 }
 
-/** 계약현황 2차 그룹 — 전광판 / 유지보수 / 기타(미분류·그 외) */
+/**
+ * 계약현황 2차 그룹 — 계약분류(contractType) 기준
+ * - 값이 정확히 '유지보수' → [유지보수]
+ * - 그 외 전부(빈 값·코드·전광판 등) → [전광판]
+ */
 export const CONTRACT_CATEGORY_SUBGROUPS = Object.freeze([
   { groupId: 'signboard', label: '[전광판]' },
   { groupId: 'maintenance', label: '[유지보수]' },
-  { groupId: 'other', label: '[기타]' },
 ])
-
-const SUBGROUP_BUCKET_IDS = CONTRACT_CATEGORY_SUBGROUPS.map((g) => g.groupId)
 
 export function getContractCategorySubgroupId(contractType) {
   const type = safeString(contractType).trim()
-  if (!type) return 'other'
-  if (type.includes('유지보수')) return 'maintenance'
-  if (type.includes('전광판') || type.includes('55121903')) return 'signboard'
-  return 'other'
+  return type === '유지보수' ? 'maintenance' : 'signboard'
 }
 
 function compareContractsByContractDateDesc(a, b) {
@@ -84,7 +82,7 @@ function compareContractsByContractDateDesc(a, b) {
 }
 
 function createEmptyBuckets() {
-  return Object.fromEntries(SUBGROUP_BUCKET_IDS.map((id) => [id, []]))
+  return { signboard: [], maintenance: [] }
 }
 
 /**
@@ -113,8 +111,7 @@ export function groupContractsForAccordion(filteredData) {
       const buckets = createEmptyBuckets()
       yearItems.forEach((item) => {
         const groupId = getContractCategorySubgroupId(item.contractType)
-        const bucketId = buckets[groupId] ? groupId : 'other'
-        buckets[bucketId].push(item)
+        buckets[groupId].push(item)
       })
 
       const subGroups = CONTRACT_CATEGORY_SUBGROUPS.map(({ groupId, label }) => {
@@ -131,6 +128,20 @@ export function groupContractsForAccordion(filteredData) {
       const assignedItems = subGroups.flatMap((g) => g.items)
       const yearCount = yearItems.length
       const yearTotalAmount = sumContractAmounts(yearItems)
+      const subCountSum = subGroups.reduce((sum, g) => sum + g.count, 0)
+      const subAmountSum = subGroups.reduce((sum, g) => sum + g.totalAmount, 0)
+      if (
+        import.meta.env.DEV &&
+        (subCountSum !== yearCount || subAmountSum !== yearTotalAmount)
+      ) {
+        console.warn('[계약현황] 연도·하위 그룹 합산 불일치', {
+          year,
+          yearCount,
+          subCountSum,
+          yearTotalAmount,
+          subAmountSum,
+        })
+      }
 
       return {
         year,
