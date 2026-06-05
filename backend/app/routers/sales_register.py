@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
+import logging
+import psycopg
 from fastapi import APIRouter, HTTPException, status
 
 from app.database import get_connection
@@ -16,6 +18,9 @@ from app.schemas import (
     sales_register_patch_to_db_values,
     sales_register_to_db_values,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/sales-register", tags=["sales-register"])
@@ -36,12 +41,38 @@ def now_text() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+TRUNCATE_TEXT_COLUMNS: set[str] = {
+    "client",
+    "projectName",
+    "projectCategory",
+    "projectStage",
+    "manager",
+    "projectType",
+    "department",
+    "detail",
+    "source",
+    "salesNote",
+    "actionRequest",
+}
+
+
+def _truncate_text_values(values: dict) -> None:
+    """
+    Truncate long text values to avoid psycopg StringDataRightTruncation
+    when inserting into VARCHAR(50) columns.
+    """
+    for key in TRUNCATE_TEXT_COLUMNS:
+        if key in values and values[key] is not None:
+            values[key] = str(values[key])[:50]
+
+
 def prepare_insert_values(row: SalesRegisterCreate) -> dict:
     values = sales_register_to_db_values(row)
     timestamp = now_text()
     values["id"] = str(uuid4())
     values.setdefault("createdAt", timestamp)
     values.setdefault("updatedAt", timestamp)
+    _truncate_text_values(values)
     return values
 
 
@@ -50,14 +81,22 @@ def insert_sales_row(cursor, row: SalesRegisterCreate) -> dict:
     columns = list(values.keys())
     quoted_columns = [quote_identifier(column) for column in columns]
     placeholders = [f"%({column})s" for column in columns]
-    cursor.execute(
-        f"""
-        insert into sales_register_rows ({", ".join(quoted_columns)})
-        values ({", ".join(placeholders)})
-        returning {RETURNING_COLUMNS}
-        """,
-        values,
-    )
+    try:
+        cursor.execute(
+            f"""
+            insert into sales_register_rows ({", ".join(quoted_columns)})
+            values ({", ".join(placeholders)})
+            returning {RETURNING_COLUMNS}
+            """,
+            values,
+        )
+    except psycopg.Error as e:
+        logger.exception("Failed to insert sales register row (id=%s)", values.get("id"))
+        # 프론트엔드에서 행/사유를 보여줄 수 있도록 400 에러로 정리해서 전달
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="데이터 길이가 너무 깁니다. 영업관리대장 텍스트 필드를 50자 이내로 줄여주세요.",
+        ) from e
     return row_to_sales_register(cursor.fetchone())
 
 
