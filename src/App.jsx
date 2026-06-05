@@ -3294,15 +3294,36 @@ function normalizeHeader(text) {
 
 function getValueByHeader(row, candidates, fallback = '') {
   const map = new Map()
+  const entries = []
 
   Object.keys(row).forEach((key) => {
-    map.set(normalizeHeader(key), row[key])
+    const norm = normalizeHeader(key)
+    map.set(norm, row[key])
+    entries.push({ norm, value: row[key] })
   })
 
   for (const candidate of candidates) {
-    const value = map.get(normalizeHeader(candidate))
+    const candidateNorm = normalizeHeader(candidate)
+    if (!candidateNorm) continue
+    const value = map.get(candidateNorm)
     if (value !== undefined && value !== null && safeString(value).trim() !== '') {
       return value
+    }
+  }
+
+  for (const candidate of candidates) {
+    const candidateNorm = normalizeHeader(candidate)
+    if (!candidateNorm) continue
+    for (const { norm, value } of entries) {
+      if (!norm) continue
+      if (
+        (norm === candidateNorm || norm.includes(candidateNorm) || candidateNorm.includes(norm)) &&
+        value !== undefined &&
+        value !== null &&
+        safeString(value).trim() !== ''
+      ) {
+        return value
+      }
     }
   }
 
@@ -8504,18 +8525,30 @@ function App() {
 
   const REGISTRY_EXCEL_HEADER_ALIASES = {
     registerDate: ['등록일', '등록일자', '작성일'],
-    permitDate: ['건축정보일자', '건축정보 일자', '허가일', '허가일자', '인허가일', '건축허가일', '건축 인허가일'],
-    checkStatus: ['확인여부', '체크', '확인상태'],
-    salesTarget: ['영업자', '영업대상', '영업 담당', '영업담당'],
-    projectCategory: ['사업 구분', '구분', '사업구분'],
+    permitDate: [
+      '건축정보일자',
+      '건축정보 일자',
+      '건축 정보 일자',
+      '건축정보일',
+      '허가일',
+      '허가일자',
+      '인허가일',
+      '건축허가일',
+      '건축 인허가일',
+      '건축인허가일',
+      '허가날짜',
+    ],
+    checkStatus: ['확인여부', '체크', '확인상태', '검토', '검토여부'],
+    salesTarget: ['영업자', '영업대상', '영업 담당', '영업담당', '영업담당자', '영업담당자명'],
+    projectCategory: ['사업 구분', '구분', '사업구분', '사업분류', '프로젝트구분'],
     projectStage: ['상태', '진행상태', '단계', '프로젝트 상태'],
     localGov: ['지자체', '지방자치단체', '시군구', '지역'],
-    client: ['발주처', '수요기관', '발주 기관'],
-    projectName: ['사업명', '공사명', '과업명', '건명', '프로젝트명'],
-    projectAmount: ['사업금액', '금액', '사업 금액', '계약금액'],
-    completionPeriod: ['준공시기', '준공', '납기'],
-    manager: ['담당자', '담당', 'PM'],
-    note: ['세부내용', '비고', '메모', '참고'],
+    client: ['발주처', '수요기관', '발주 기관', '발주기관', '의뢰기관', '발주자'],
+    projectName: ['사업명', '공사명', '과업명', '건명', '프로젝트명', '사업명칭', '공사명칭'],
+    projectAmount: ['사업금액', '금액', '사업 금액', '계약금액', '공사금액', '총사업비'],
+    completionPeriod: ['준공시기', '준공', '납기', '준공예정', '준공시점', '준공일', '준공예정일'],
+    manager: ['담당자', '담당', 'PM', '담당자명', '현장담당', '현장담당자'],
+    note: ['세부내용', '비고', '메모', '참고', '참고사항', '특이사항', '내용'],
     docDate: ['문서일자', '일자', '날짜'],
     docNo: ['문서번호', '문서 번호', '번호'],
     senderReceiver: ['발신수신', '발신/수신', '상대방'],
@@ -8582,20 +8615,18 @@ function App() {
         nextRow[column.key] = safeString(rawValue).trim()
       })
 
-      const hasMeaningfulData =
+      const hasMappedData =
         !isEmptyRow(nextRow) ||
         columns.some((column) => safeString(nextRow[column.key]).trim() !== '')
+      const hasAnySourceCell = Object.values(sourceRow).some(
+        (v) => v !== null && v !== undefined && safeString(v).trim() !== ''
+      )
 
-      if (hasMeaningfulData) {
+      if (hasMappedData || hasAnySourceCell) {
         preparedRows.push({
           row: nextRow,
           sourceLine: index + 2,
         })
-      } else {
-        const hasAnyCell = Object.values(sourceRow).some(
-          (v) => v !== null && v !== undefined && safeString(v).trim() !== ''
-        )
-        if (hasAnyCell) skippedLines.push(index + 2)
       }
     })
 

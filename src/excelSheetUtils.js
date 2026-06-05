@@ -315,91 +315,245 @@ export function detectExcelHeaderRowIndex(worksheet, headerKeywords, maxScanRows
 export const DISCOVERY_HEADER_MARKERS = [
   '건축정보일자',
   '건축정보 일자',
+  '건축 정보 일자',
   '사업명',
+  '공사명',
+  '과업명',
   '발주처',
+  '수요기관',
   '허가일',
+  '허가일자',
+  '인허가일',
+  '사업구분',
+  '사업금액',
+  '준공시기',
+  '영업자',
+  '담당자',
+  '세부내용',
 ]
+
+/** 건축정보 엑셀 헤더 → 시스템 표준 컬럼명(canonical) 매핑 */
+const DISCOVERY_HEADER_CANONICAL_RULES = [
+  {
+    canonical: '건축정보일자',
+    aliases: [
+      '건축정보일자',
+      '건축정보일',
+      '건축정보',
+      '건축정보일시',
+      '허가일',
+      '허가일자',
+      '인허가일',
+      '건축허가일',
+      '건축인허가일',
+      '건축인허가',
+      '허가날짜',
+      '허가일시',
+    ],
+  },
+  {
+    canonical: '확인',
+    aliases: ['확인', '확인여부', '체크', '확인상태', '검토', '검토여부'],
+  },
+  {
+    canonical: '영업자',
+    aliases: ['영업자', '영업대상', '영업담당', '영업담당자', '영업담당자명', '영업'],
+  },
+  {
+    canonical: '사업구분',
+    aliases: ['사업구분', '사업구분명', '구분', '프로젝트구분', '사업분류'],
+  },
+  {
+    canonical: '발주처',
+    aliases: ['발주처', '수요기관', '발주기관', '발주기관명', '발주자', '의뢰기관'],
+  },
+  {
+    canonical: '사업명',
+    aliases: ['사업명', '공사명', '과업명', '건명', '프로젝트명', '사업명칭', '공사명칭'],
+  },
+  {
+    canonical: '사업금액',
+    aliases: ['사업금액', '금액', '사업금액원', '계약금액', '공사금액', '총사업비'],
+  },
+  {
+    canonical: '준공시기',
+    aliases: ['준공시기', '준공', '납기', '준공예정', '준공시점', '준공일', '준공예정일'],
+  },
+  {
+    canonical: '담당자',
+    aliases: ['담당자', '담당', '담당자명', 'pm', '현장담당', '현장담당자'],
+  },
+  {
+    canonical: '세부내용',
+    aliases: ['세부내용', '비고', '메모', '참고', '참고사항', '특이사항', '내용'],
+  },
+]
+
+function normalizeDiscoveryHeaderText(text) {
+  return stripCellForMatch(text)
+}
+
+function resolveDiscoveryCanonicalHeader(headerText) {
+  const compact = normalizeDiscoveryHeaderText(headerText)
+  if (!compact) return ''
+
+  const norm = normalizeExcelHeaderKey(headerText)
+  if (!norm) return compact
+
+  for (const rule of DISCOVERY_HEADER_CANONICAL_RULES) {
+    const canonicalNorm = normalizeExcelHeaderKey(rule.canonical)
+    if (norm === canonicalNorm) return rule.canonical
+
+    for (const alias of rule.aliases) {
+      const aliasNorm = normalizeExcelHeaderKey(alias)
+      if (!aliasNorm) continue
+      if (norm === aliasNorm || norm.includes(aliasNorm) || aliasNorm.includes(norm)) {
+        return rule.canonical
+      }
+    }
+  }
+
+  return compact
+}
+
+function isDiscoveryPermitDateHeader(canonicalHeader, rawHeader) {
+  const norm = normalizeExcelHeaderKey(rawHeader || canonicalHeader)
+  return (
+    canonicalHeader === '건축정보일자' ||
+    norm.includes('건축정보일') ||
+    norm.includes('허가일') ||
+    norm.includes('인허가')
+  )
+}
+
+function isDiscoveryCompletionPeriodHeader(canonicalHeader, rawHeader) {
+  const norm = normalizeExcelHeaderKey(rawHeader || canonicalHeader)
+  return canonicalHeader === '준공시기' || norm.includes('준공') || norm.includes('납기')
+}
+
+function detectDiscoveryHeaderRowIndex(rawData) {
+  if (!Array.isArray(rawData) || !rawData.length) return -1
+
+  const scored = detectExcelHeaderRowIndexFromAoA(rawData, DISCOVERY_HEADER_MARKERS, 40)
+  if (rowMatchesHeaderKeywords(rawData[scored], DISCOVERY_HEADER_MARKERS) >= 2) {
+    return scored
+  }
+
+  const scanEnd = Math.min(rawData.length, 40)
+  for (let i = 0; i < scanEnd; i += 1) {
+    const row = rawData[i]
+    if (!Array.isArray(row)) continue
+
+    const hasProject = rowContainsText(row, ['사업명', '공사명', '과업명', '건명', '프로젝트명'])
+    const hasClient = rowContainsText(row, ['발주처', '수요기관', '발주기관', '의뢰기관'])
+    const hasDate = rowContainsText(row, [
+      '건축정보일자',
+      '건축정보 일자',
+      '건축 정보 일자',
+      '허가일',
+      '허가일자',
+      '인허가일',
+    ])
+    const markerHits = [hasProject, hasClient, hasDate].filter(Boolean).length
+    if (markerHits >= 2) return i
+  }
+
+  if (rawData[2] && Array.isArray(rawData[2]) && rawData[2].length >= 3) {
+    return 2
+  }
+  if (rawData[0] && Array.isArray(rawData[0]) && rawData[0].length >= 3) {
+    return 0
+  }
+
+  return -1
+}
+
+function assignDiscoveryRowField(rowData, canonicalHeader, value) {
+  if (!canonicalHeader) return
+  const text = value === null || value === undefined ? '' : value
+  const existing = rowData[canonicalHeader]
+  if (stripCellForMatch(existing) === '') {
+    rowData[canonicalHeader] = text
+    return
+  }
+  if (stripCellForMatch(text) !== '') {
+    rowData[canonicalHeader] = text
+  }
+}
 
 export const DISCOVERY_EXCEL_FORMAT_ERROR = '엑셀 양식이 올바르지 않습니다.'
 export const DISCOVERY_EXCEL_NO_DATA_ERROR = '업로드할 유효한 데이터가 없습니다.'
 
 /**
- * 건축정보: 2차원 배열 → '사업명'+'발주처' 헤더 행 탐색 → 객체 배열 조립
+ * 건축정보: 2차원 배열 → 헤더 행 탐색(유연) → 표준 컬럼명으로 매핑 → 객체 배열 조립
  * @param {import('xlsx').WorkSheet} worksheet
  */
 export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
-  // 1. 순수 2차원 배열 추출
-  const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+  const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' })
 
-  // 2. 헤더 찾기 (JSON 문자열 변환으로 가장 확실하게 검색)
-  let headerIndex = -1
-  for (let i = 0; i < rawData.length; i++) {
-    if (Array.isArray(rawData[i])) {
-      const rowStr = JSON.stringify(rawData[i]).replace(/\s/g, '')
-      if (rowStr.includes('사업명') && rowStr.includes('발주처')) {
-        headerIndex = i
-        break
-      }
-    }
+  if (!Array.isArray(rawData) || !rawData.length) {
+    throw new Error(DISCOVERY_EXCEL_NO_DATA_ERROR)
   }
 
-  // 3. ★ 최후의 수단: 그래도 못 찾으면 무조건 인덱스 2번(3번째 줄) 강제 지정 ★
-  if (headerIndex === -1) {
-    if (rawData[2] && rawData[2].length >= 5) {
-      headerIndex = 2
-      console.log('검색 실패: 인덱스 2번을 헤더로 강제 지정합니다.')
-    } else {
-      console.error('원본 데이터:', rawData)
-      throw new Error(DISCOVERY_EXCEL_NO_DATA_ERROR)
-    }
+  const headerIndex = detectDiscoveryHeaderRowIndex(rawData)
+  if (headerIndex < 0) {
+    console.error('건축정보 헤더 행 탐색 실패:', rawData)
+    throw new Error(DISCOVERY_EXCEL_FORMAT_ERROR)
   }
 
-  // 4. 헤더 키(Key) 정규화
-  const headers = rawData[headerIndex].map((key) => String(key || '').replace(/\s+/g, '').trim())
+  const headerRow = rawData[headerIndex]
+  const headers = (headerRow || []).map((key, colIndex) => {
+    const raw = String(key ?? '').trim()
+    return {
+      colIndex,
+      raw,
+      canonical: resolveDiscoveryCanonicalHeader(raw),
+    }
+  })
 
-  // 5. 데이터 매핑 — 셀 포맷 텍스트(w) 우선, 준공시기·건축정보일자는 전용 정규화
-  const parsedData = rawData
-    .slice(headerIndex + 1)
-    .filter((row) => row && row.length > 0)
-    .map((row, rowOffset) => {
-      const sheetRowIndex = headerIndex + 1 + rowOffset
-      const rowData = {}
+  const parsedData = []
+  for (let rowOffset = 0; rowOffset < rawData.length - headerIndex - 1; rowOffset += 1) {
+    const row = rawData[headerIndex + 1 + rowOffset]
+    if (!Array.isArray(row) || isEmptyDataRow(row)) continue
 
-      headers.forEach((header, colIndex) => {
-        if (!header) return
+    const sheetRowIndex = headerIndex + 1 + rowOffset
+    const rowData = {}
 
-        const cellAddress = XLSX.utils.encode_cell({ r: sheetRowIndex, c: colIndex })
-        const cell = worksheet[cellAddress]
-        let value
+    headers.forEach(({ colIndex, raw, canonical }) => {
+      if (!canonical) return
 
-        if (header.includes('준공시기')) {
-          value = normalizeExcelCompletionPeriodCell(cell)
-        } else if (header.includes('건축정보일자')) {
-          value = normalizeExcelPermitDateCell(cell)
+      const cellAddress = XLSX.utils.encode_cell({ r: sheetRowIndex, c: colIndex })
+      const cell = worksheet[cellAddress]
+      let value
+
+      if (isDiscoveryCompletionPeriodHeader(canonical, raw)) {
+        value = normalizeExcelCompletionPeriodCell(cell)
+      } else if (isDiscoveryPermitDateHeader(canonical, raw)) {
+        value = normalizeExcelPermitDateCell(cell)
+      } else {
+        const formatted = getExcelCellFormattedText(cell)
+        if (formatted) {
+          value = formatted
         } else {
-          const formatted = getExcelCellFormattedText(cell)
-          if (formatted) {
-            value = formatted
-          } else {
-            value = cell?.v ?? row[colIndex] ?? ''
-          }
-          if (value === null || value === undefined) value = ''
-          else if (typeof value !== 'string') value = String(value)
+          value = cell?.v ?? row[colIndex] ?? ''
         }
+        if (value === null || value === undefined) value = ''
+        else if (typeof value !== 'string') value = String(value)
+      }
 
-        rowData[header] = value
-      })
-      return rowData
+      assignDiscoveryRowField(rowData, canonical, value)
     })
-    .filter((item) => stripCellForMatch(item.사업명))
 
-  console.log('최종 렌더링될 데이터:', parsedData)
+    if (!isEmptyParsedRow(rowData)) {
+      parsedData.push(rowData)
+    }
+  }
 
   return {
     rows: parsedData,
     headerRowIndex: headerIndex,
     raw_data: rawData,
-    headers,
+    headers: headers.map((h) => h.canonical || h.raw).filter(Boolean),
   }
 }
 
