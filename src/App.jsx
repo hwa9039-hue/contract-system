@@ -120,6 +120,7 @@ import {
   normalizeCalendarManualEvent,
 } from './calendarEventsApi'
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
+import { formatExcelUploadErrorMessage } from './apiErrors.js'
 import { useAuth } from './AuthContext.jsx'
 import {
   canAccessMenu,
@@ -8800,7 +8801,8 @@ function App() {
         const saveFailPrefix = preserveParsedDiscoveryTable
           ? `서버 저장에 실패했습니다. 파싱된 ${rows.length.toLocaleString('ko-KR')}건은 화면에 그대로 표시됩니다.\n\n`
           : ''
-        showAppAlert(`${saveFailPrefix}${error?.message ?? String(error)}`)
+        const detailedMessage = formatExcelUploadErrorMessage(error)
+        showAppAlert(`${saveFailPrefix}${detailedMessage}`)
         return
       }
     } catch (error) {

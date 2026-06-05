@@ -63,6 +63,42 @@ function isAuthHttpStatusForMessage(status) {
   return status === 401 || status === 403
 }
 
+export class ApiRequestError extends Error {
+  constructor(message, { status, url, cause } = {}) {
+    super(message)
+    this.name = 'ApiRequestError'
+    this.status = status ?? null
+    this.url = url ?? ''
+    this.cause = cause ?? null
+  }
+}
+
+/** 엑셀 업로드 등 API 실패 시 Toast/Alert용 상세 메시지 */
+export function formatExcelUploadErrorMessage(error) {
+  if (isAuthSessionExpiredError(error)) return ''
+
+  const status = error?.status ?? error?.response?.status ?? null
+  const responseData = error?.response?.data
+  const responseMessage =
+    (typeof responseData?.message === 'string' && responseData.message.trim()) ||
+    (typeof responseData?.detail === 'string' && responseData.detail.trim()) ||
+    ''
+
+  const baseMessage =
+    responseMessage ||
+    (error instanceof Error ? error.message?.trim() : '') ||
+    (typeof error === 'string' ? error.trim() : '')
+
+  const lines = []
+  if (status) lines.push(`서버 응답: HTTP ${status}`)
+  if (baseMessage) lines.push(baseMessage)
+  if (!baseMessage && error?.cause?.message) {
+    lines.push(`네트워크 오류: ${error.cause.message}`)
+  }
+
+  return lines.join('\n') || '요청 처리 중 오류가 발생했습니다.'
+}
+
 export function getErrorMessage(error, fallback = '요청 처리 중 오류가 발생했습니다.') {
   if (isAuthSessionExpiredError(error)) return ''
   if (!error) return fallback

@@ -1,5 +1,6 @@
 import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders } from './apiClient.js'
-import { readApiErrorMessage } from './apiErrors.js'
+import { ApiRequestError, readApiErrorMessage } from './apiErrors.js'
+import { sanitizeRegistryImportPayload } from './excelSheetUtils.js'
 import { normalizeRegistryImportResponse } from './excelImportResponse.js'
 
 /**
@@ -40,11 +41,18 @@ async function requestJson(path, options = {}) {
       },
     }))
   } catch (err) {
-    throw new Error(`서버에 연결할 수 없습니다. (${url}) ${err?.message || err}`)
+    if (err instanceof ApiRequestError) throw err
+    throw new ApiRequestError(
+      err?.message ? `네트워크 오류: ${err.message}` : '서버에 연결할 수 없습니다.',
+      { url, cause: err }
+    )
   }
 
   if (!response.ok) {
-    throw new Error(await readApiErrorMessage(response))
+    throw new ApiRequestError(await readApiErrorMessage(response), {
+      status: response.status,
+      url,
+    })
   }
 
   if (response.status === 204) return null
@@ -110,10 +118,12 @@ export const salesRegisterApi = {
     })
   },
   importRows(rows) {
-    console.log('[excel-upload] POST', `${API_BASE_URL}/api/sales-register/import`, { rowCount: rows.length })
+    const data = sanitizeRegistryImportPayload(rows)
+    console.log('Upload Payload:', data)
+    console.log('[excel-upload] POST', `${API_BASE_URL}/api/sales-register/import`, { rowCount: data.length })
     return requestJson('/api/sales-register/import', {
       method: 'POST',
-      body: JSON.stringify({ rows }),
+      body: JSON.stringify({ rows: data }),
     }).then(normalizeRegistryImportResponse)
   },
 }

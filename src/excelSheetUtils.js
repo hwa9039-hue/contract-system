@@ -565,6 +565,49 @@ export function sheetToJsonWithRangeSkip(worksheet, skipRows = DISCOVERY_EXCEL_S
   return sheetToJsonWithDiscoveryDynamicHeader(worksheet)
 }
 
+const REGISTRY_IMPORT_NUMERIC_FIELDS = new Set([
+  'projectAmount',
+  'amount',
+  'budgetAmount',
+  'orderNo',
+  'year',
+])
+
+function sanitizeRegistryImportScalar(key, value) {
+  if (value === null || value === undefined) {
+    return REGISTRY_IMPORT_NUMERIC_FIELDS.has(key) ? 0 : ''
+  }
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      return REGISTRY_IMPORT_NUMERIC_FIELDS.has(key) ? 0 : ''
+    }
+    return value
+  }
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'object') {
+    return REGISTRY_IMPORT_NUMERIC_FIELDS.has(key) ? 0 : ''
+  }
+
+  const text = String(value).trim()
+  if (!text || text === 'undefined' || text === 'null' || text === 'NaN') {
+    return REGISTRY_IMPORT_NUMERIC_FIELDS.has(key) ? 0 : ''
+  }
+  return text
+}
+
+/** API 전송 직전 — null/undefined·비정상 텍스트를 백엔드 스키마에 맞게 정제 */
+export function sanitizeRegistryImportPayload(rows) {
+  if (!Array.isArray(rows)) return []
+  return rows.map((row) => {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return {}
+    const sanitized = {}
+    for (const [key, value] of Object.entries(row)) {
+      sanitized[key] = sanitizeRegistryImportScalar(key, value)
+    }
+    return sanitized
+  })
+}
+
 export const CONTRACT_EXCEL_HEADER_KEYWORDS = [
   '사업년도',
   '계약일자',
