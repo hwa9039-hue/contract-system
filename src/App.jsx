@@ -8584,6 +8584,14 @@ function App() {
   const buildRegistryImportRows = (rows, columns, createDraftRow, isEmptyRow) => {
     const preparedRows = []
     const skippedLines = []
+    const issues = []
+
+    const isPlaceholderEmpty = (value) => {
+      const t = safeString(value).trim()
+      return t === '' || t === '-' || t === '—' || t === '–'
+    }
+
+    const hasAnyDigit = (value) => /\d/.test(safeString(value))
 
     rows.forEach((sourceRow, index) => {
       const nextRow = {
@@ -8597,12 +8605,29 @@ function App() {
         const rawValue = getValueByHeader(sourceRow, getRegistryExcelHeaderCandidates(column), '')
 
         if (column.type === 'date') {
-          nextRow[column.key] = excelDateToInput(rawValue)
+          const normalized = excelDateToInput(rawValue)
+          nextRow[column.key] = normalized
+          if (!isPlaceholderEmpty(rawValue) && safeString(rawValue).trim() !== '' && !normalized) {
+            issues.push({
+              sourceLine: index + 2,
+              field: column.label || column.key,
+              reason: `날짜 형식이 아닙니다: "${safeString(rawValue).trim()}" (예: 2026-06-05)`,
+            })
+          }
           return
         }
 
         if (column.type === 'amount') {
           nextRow[column.key] = formatAmount(rawValue)
+          if (!isPlaceholderEmpty(rawValue) && safeString(rawValue).trim() !== '') {
+            if (typeof rawValue === 'string' && !hasAnyDigit(rawValue)) {
+              issues.push({
+                sourceLine: index + 2,
+                field: column.label || column.key,
+                reason: `숫자 형식이 아닙니다: "${safeString(rawValue).trim()}"`,
+              })
+            }
+          }
           return
         }
 
@@ -8631,7 +8656,7 @@ function App() {
       }
     })
 
-    return { prepared: preparedRows, skippedLines }
+    return { prepared: preparedRows, skippedLines, issues }
   }
 
   const handleRegistryUploadFileChange = async (e) => {
@@ -8740,12 +8765,20 @@ function App() {
         return
       }
 
-      const { prepared: preparedRows, skippedLines } = buildRegistryImportRows(
+      const { prepared: preparedRows, skippedLines, issues } = buildRegistryImportRows(
         rows,
         config.columns,
         config.createDraftRow,
         config.isEmptyRow
       )
+
+      if (issues.length > 0) {
+        const head = issues.slice(0, 10)
+        const lines = head.map((it) => `- ${it.sourceLine}행 ${it.field}: ${it.reason}`).join('\n')
+        const more = issues.length > head.length ? `\n… 외 ${issues.length - head.length}건` : ''
+        showAppAlert(`데이터 형식이 올바르지 않습니다.\n\n${lines}${more}`)
+        return
+      }
 
       if (!preparedRows.length) {
         const headerSample = Object.keys(rows[0] || {})
