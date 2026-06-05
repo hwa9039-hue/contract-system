@@ -133,6 +133,8 @@ import {
   sheetToJsonWithDiscoveryDynamicHeader,
   DISCOVERY_EXCEL_FORMAT_ERROR,
   DISCOVERY_EXCEL_NO_DATA_ERROR,
+  normalizeCompletionPeriodDisplay,
+  normalizePermitDateDisplay,
 } from './excelSheetUtils.js'
 import {
   WorkReportMeetingMinutesSection,
@@ -381,7 +383,7 @@ const DISCOVERY_COLUMNS = [
     key: 'permitDate',
     label: '건축정보일자',
     align: 'center',
-    type: 'date',
+    type: 'text',
     widthClass: 'discovery-w-32',
     cellClass: 'discovery-col-tight discovery-w-32',
   },
@@ -3795,7 +3797,7 @@ function normalizeDiscoveryRow(item, rowIndex = 0) {
   }
   return {
     id,
-    permitDate: safeString(item.permitDate ?? item.permitdate),
+    permitDate: normalizePermitDateDisplay(safeString(item.permitDate ?? item.permitdate)),
     checkStatus: safeString(item.checkStatus ?? item.checkstatus),
     salesTarget: safeString(item.salesTarget ?? item.salestarget),
     projectCategory: safeString(item.projectCategory ?? item.projectcategory),
@@ -3803,7 +3805,9 @@ function normalizeDiscoveryRow(item, rowIndex = 0) {
     client: safeString(item.client),
     projectName: safeString(item.projectName ?? item.projectname),
     projectAmount: safeString(item.projectAmount ?? item.projectamount),
-    completionPeriod: safeString(item.completionPeriod ?? item.completionperiod),
+    completionPeriod: normalizeCompletionPeriodDisplay(
+      safeString(item.completionPeriod ?? item.completionperiod)
+    ),
     manager: safeString(item.manager),
     note: safeString(item.note),
     createdAt: safeString(item.createdAt ?? item.createdat),
@@ -3891,7 +3895,7 @@ function matchesDiscoveryExcelTableSearch(item, searchText) {
 
 function toDiscoveryPayload(row, timestamp) {
   return {
-    permitDate: toDbDate(row.permitDate),
+    permitDate: safeString(row.permitDate).trim(),
     checkStatus: safeString(row.checkStatus).trim(),
     salesTarget: safeString(row.salesTarget).trim(),
     projectCategory: safeString(row.projectCategory).trim(),

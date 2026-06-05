@@ -116,6 +116,97 @@ function isDateLikeHeader(headerKey) {
   )
 }
 
+export function isExcelDateSerialNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 20000 && value < 100000
+}
+
+function looksLikePureSerialText(text) {
+  return /^\d{4,6}(\.0+)?$/.test(String(text ?? '').trim())
+}
+
+/** 엑셀 셀의 포맷 문자열(w) 또는 number format(z) 기반 표시 텍스트 */
+export function getExcelCellFormattedText(cell) {
+  if (!cell) return ''
+  if (cell.w != null && String(cell.w).trim() !== '') {
+    return String(cell.w).trim()
+  }
+  if (cell.t === 'n' && cell.z != null) {
+    try {
+      const formatted = XLSX.SSF.format(cell.z, cell.v)
+      if (formatted != null && String(formatted).trim() !== '') {
+        return String(formatted).trim()
+      }
+    } catch {
+      /* ignore format errors */
+    }
+  }
+  return ''
+}
+
+/** 엑셀 날짜 시리얼 → 'YYYY년 M월' (준공시기 등 월 단위 표기) */
+export function excelSerialToYearMonthKorean(serial) {
+  const parsed = XLSX.SSF.parse_date_code(serial)
+  if (!parsed?.y) return ''
+  return `${parsed.y}년 ${parsed.m}월`
+}
+
+/** 준공시기 셀: 포맷 텍스트 우선, 시리얼이면 'YYYY년 M월', 일반 텍스트는 유지 */
+export function normalizeExcelCompletionPeriodCell(cell) {
+  if (!cell) return ''
+  const formatted = getExcelCellFormattedText(cell)
+  if (formatted && !looksLikePureSerialText(formatted)) {
+    return formatted
+  }
+
+  const raw = cell.v
+  if (typeof raw === 'number' && isExcelDateSerialNumber(raw)) {
+    return excelSerialToYearMonthKorean(raw)
+  }
+  if (formatted) return formatted
+  if (raw === null || raw === undefined) return ''
+  return String(raw).trim()
+}
+
+/** 건축정보일자 셀: 포맷 텍스트 우선, 시리얼이면 YYYY-MM-DD, 그 외 문자열 유지 */
+export function normalizeExcelPermitDateCell(cell) {
+  if (!cell) return ''
+  const formatted = getExcelCellFormattedText(cell)
+  if (formatted) return formatted
+
+  const raw = cell.v
+  if (raw === null || raw === undefined || raw === '') return ''
+  if (typeof raw === 'number' && isExcelDateSerialNumber(raw)) {
+    return excelCellToYmd(raw)
+  }
+  return String(raw).trim()
+}
+
+/** DB·화면에 시리얼 숫자 문자열로 저장된 준공시기 복구 */
+export function normalizeCompletionPeriodDisplay(value) {
+  const text = String(value ?? '').trim()
+  if (!text) return ''
+  if (looksLikePureSerialText(text)) {
+    const num = Number(text)
+    if (isExcelDateSerialNumber(num)) {
+      return excelSerialToYearMonthKorean(num)
+    }
+  }
+  return text
+}
+
+/** DB·화면에 시리얼 숫자 문자열로 저장된 건축정보일자 복구 */
+export function normalizePermitDateDisplay(value) {
+  const text = String(value ?? '').trim()
+  if (!text) return ''
+  if (looksLikePureSerialText(text)) {
+    const num = Number(text)
+    if (isExcelDateSerialNumber(num)) {
+      return excelCellToYmd(num) || text
+    }
+  }
+  return text
+}
+
 /** 엑셀 시리얼·문자열 → YYYY-MM-DD */
 export function excelCellToYmd(value) {
   if (value === null || value === undefined || value === '') return ''
@@ -266,31 +357,41 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
   // 4. 헤더 키(Key) 정규화
   const headers = rawData[headerIndex].map((key) => String(key || '').replace(/\s+/g, '').trim())
 
-  // 5. 데이터 매핑 (절대 데이터 밀림 방지)
+  // 5. 데이터 매핑 — 셀 포맷 텍스트(w) 우선, 준공시기·건축정보일자는 전용 정규화
   const parsedData = rawData
     .slice(headerIndex + 1)
     .filter((row) => row && row.length > 0)
-    .map((row) => {
+    .map((row, rowOffset) => {
+      const sheetRowIndex = headerIndex + 1 + rowOffset
       const rowData = {}
 
-      headers.forEach((header, index) => {
-        if (header) {
-          let value = row[index]
+      headers.forEach((header, colIndex) => {
+        if (!header) return
 
-          if (header.includes('건축정보일자') && typeof value === 'number') {
-            const date = new Date(Math.round((value - 25569) * 86400 * 1000))
-            const yyyy = date.getFullYear()
-            const mm = String(date.getMonth() + 1).padStart(2, '0')
-            const dd = String(date.getDate()).padStart(2, '0')
-            value = `${yyyy}-${mm}-${dd}`
+        const cellAddress = XLSX.utils.encode_cell({ r: sheetRowIndex, c: colIndex })
+        const cell = worksheet[cellAddress]
+        let value
+
+        if (header.includes('준공시기')) {
+          value = normalizeExcelCompletionPeriodCell(cell)
+        } else if (header.includes('건축정보일자')) {
+          value = normalizeExcelPermitDateCell(cell)
+        } else {
+          const formatted = getExcelCellFormattedText(cell)
+          if (formatted) {
+            value = formatted
+          } else {
+            value = cell?.v ?? row[colIndex] ?? ''
           }
-
-          rowData[header] = value
+          if (value === null || value === undefined) value = ''
+          else if (typeof value !== 'string') value = String(value)
         }
+
+        rowData[header] = value
       })
       return rowData
     })
-    .filter((item) => item.사업명)
+    .filter((item) => stripCellForMatch(item.사업명))
 
   console.log('최종 렌더링될 데이터:', parsedData)
 

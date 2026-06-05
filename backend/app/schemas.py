@@ -1249,13 +1249,29 @@ def budget_progress_to_db_values(row: BudgetProgressBase) -> dict:
     }
 
 
+def _coerce_permit_date_text(val) -> str:
+    """건축정보일자: YYYY-MM-DD·'분기별자료(9월)' 등 자유 텍스트."""
+    if val is None:
+        return ""
+    if isinstance(val, datetime):
+        return val.date().isoformat()
+    if isinstance(val, date):
+        return val.isoformat()
+    return str(val).strip()
+
+
 def project_discovery_to_db_values(row: ProjectDiscoveryBase) -> dict:
     data = row.model_dump(exclude_unset=True)
-    return {
-        db_key: data[api_key]
-        for api_key, db_key in PROJECT_DISCOVERY_DB_COLUMNS.items()
-        if api_key in data
-    }
+    out: dict = {}
+    for api_key, db_key in PROJECT_DISCOVERY_DB_COLUMNS.items():
+        if api_key not in data:
+            continue
+        val = data[api_key]
+        if api_key == "permitDate":
+            out[db_key] = _coerce_permit_date_text(val)
+            continue
+        out[db_key] = val
+    return out
 
 
 def excluded_project_to_db_values(row: ExcludedProjectBase) -> dict:

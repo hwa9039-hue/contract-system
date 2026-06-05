@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS document_register_rows (
 
 CREATE TABLE IF NOT EXISTS project_discovery_rows (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "permitDate" date,
+  "permitDate" text,
   "checkStatus" text NOT NULL DEFAULT '',
   "salesTarget" text NOT NULL DEFAULT '',
   "projectCategory" text NOT NULL DEFAULT '',

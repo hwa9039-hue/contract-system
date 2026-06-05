@@ -127,7 +127,6 @@ def _registry_signature(values: dict[str, Any], column_keys: Sequence[str]) -> s
             parts.append(f"{key}:{_sig_amount(v)}")
         elif key in (
             "registerDate",
-            "permitDate",
             "writeDate",
             "openDate",
             "docDate",

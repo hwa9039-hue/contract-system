@@ -89,6 +89,29 @@ def _migrate_project_discovery_row_columns(cursor) -> None:
             add column "projectAmount" numeric(18, 0) not null default 0
             """
         )
+    _migrate_project_discovery_permit_date_to_text(cursor)
+
+
+def _migrate_project_discovery_permit_date_to_text(cursor) -> None:
+    """건축정보일자: date → text (날짜·'분기별자료(9월)' 등 혼용 저장)."""
+    try:
+        cursor.execute(
+            """
+            alter table project_discovery_rows
+              alter column "permitDate" type text
+              using (
+                case
+                  when "permitDate" is null then null::text
+                  else to_char("permitDate", 'YYYY-MM-DD')
+                end
+              )
+            """
+        )
+    except Exception:
+        logger.debug(
+            "project_discovery_rows.permitDate type migration skipped or already text",
+            exc_info=True,
+        )
 
 
 def _migrate_weekly_work_reports_text_columns(cursor) -> None:
@@ -522,7 +545,7 @@ def init_db():
                 """
                 create table if not exists project_discovery_rows (
                   id uuid primary key default gen_random_uuid(),
-                  "permitDate" date,
+                  "permitDate" text,
                   "checkStatus" text not null default '',
                   "salesTarget" text not null default '',
                   "projectCategory" text not null default '',
