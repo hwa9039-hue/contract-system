@@ -78,7 +78,13 @@ import {
   resolveRegistryImportanceStatus,
 } from './registryImportance.jsx'
 import { ImportanceLegend } from './ImportanceLegend.jsx'
-import { CMS_TABLE_ALIGN_MIDDLE, CMS_TABLE_CELL_INNER } from './tableLayoutConstants.js'
+import {
+  CONTRACT_TABLE_DATA_TD_CLASS,
+  CONTRACT_TABLE_HEADER_TH_CLASS,
+  ContractTableCellShell,
+  ContractTableHeaderShell,
+} from './ContractTableCellShell.jsx'
+import './contractTableCell.css'
 import { EditableTextCell, isEditableTextColumn } from './EditableTextCell.jsx'
 import {
   getTableAlignClass,
@@ -9894,9 +9900,16 @@ function App() {
     }
   }
 
-  const renderContractCellInlineEditor = (column) => {
+  const getContractCellShellAlign = (column, bodyAlignClass) => {
+    if (column?.key === 'amount') return 'right'
+    if (bodyAlignClass?.includes('right')) return 'right'
+    if (bodyAlignClass?.includes('center')) return 'center'
+    return column?.align === 'right' ? 'right' : column?.align === 'center' ? 'center' : 'left'
+  }
+
+  const renderContractCellInlineEditor = (column, shellAlign = 'left') => {
     const commonProps = {
-      className: TABLE_INLINE_INPUT_STANDARD_CLASS,
+      className: `${TABLE_INLINE_INPUT_STANDARD_CLASS} min-h-[2.5rem] py-2`,
       style: { textAlign: column.align || 'left' },
       value: contractEditDraft,
       autoFocus: true,
@@ -9925,13 +9938,29 @@ function App() {
       },
     }
 
+    let control
     if (column.type === 'date') {
-      return <input {...commonProps} type="date" />
+      control = <input {...commonProps} type="date" />
+    } else if (column.type === 'textarea') {
+      control = (
+        <textarea
+          {...commonProps}
+          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} resize-none min-h-[2.5rem] py-2`}
+          rows={2}
+        />
+      )
+    } else {
+      control = <input {...commonProps} type="text" />
     }
-    if (column.type === 'textarea') {
-      return <textarea {...commonProps} className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} resize-none`} rows={2} />
-    }
-    return <input {...commonProps} type="text" />
+
+    return (
+      <ContractTableCellShell
+        align={shellAlign}
+        multiline={column.type === 'textarea' || isLongTextTableColumn(column)}
+      >
+        {control}
+      </ContractTableCellShell>
+    )
   }
 
   const addManualEvent = async () => {
@@ -12879,53 +12908,60 @@ function App() {
                   <thead>
                     <tr>
                       {canEditContracts && (
-                        <th className={`th-align-center registry-check-header ${CMS_TABLE_ALIGN_MIDDLE}`}>
-                          <input
-                            className="registry-row-checkbox"
-                            type="checkbox"
-                            role="checkbox"
-                            aria-disabled={false}
-                            checked={allContractsSelected}
-                            style={{ cursor: 'pointer', pointerEvents: 'auto', opacity: 1 }}
-                            onChange={(e) => {
-                              const checked = e.target.checked
-                              setSelectedContractRowKeys((prev) => {
-                                const next = new Set(prev)
-                                const keys = contractVisibleRowKeysFlat
-                                if (checked) {
-                                  keys.forEach((k) => next.add(k))
-                                } else {
-                                  keys.forEach((k) => next.delete(k))
-                                }
-                                return next
-                              })
-                            }}
-                          />
+                        <th className={`th-align-center registry-check-header ${CONTRACT_TABLE_HEADER_TH_CLASS}`}>
+                          <ContractTableHeaderShell align="center">
+                            <input
+                              className="registry-row-checkbox"
+                              type="checkbox"
+                              role="checkbox"
+                              aria-disabled={false}
+                              checked={allContractsSelected}
+                              style={{ cursor: 'pointer', pointerEvents: 'auto', opacity: 1 }}
+                              onChange={(e) => {
+                                const checked = e.target.checked
+                                setSelectedContractRowKeys((prev) => {
+                                  const next = new Set(prev)
+                                  const keys = contractVisibleRowKeysFlat
+                                  if (checked) {
+                                    keys.forEach((k) => next.add(k))
+                                  } else {
+                                    keys.forEach((k) => next.delete(k))
+                                  }
+                                  return next
+                                })
+                              }}
+                            />
+                          </ContractTableHeaderShell>
                         </th>
                       )}
-                      <th className={`col-dday th-align-center table-col-tight ${CMS_TABLE_ALIGN_MIDDLE}`}>
-                        D-Day
+                      <th className={`col-dday th-align-center table-col-tight ${CONTRACT_TABLE_HEADER_TH_CLASS}`}>
+                        <ContractTableHeaderShell align="center">D-Day</ContractTableHeaderShell>
                       </th>
                       {CONTRACT_COLUMNS.map((column) => (
                           <th
                             key={column.key}
-                            className={`${column.className} ${getTableColumnLayoutClass(column)} ${CMS_TABLE_ALIGN_MIDDLE} ${
+                            className={`${column.className} ${getTableColumnLayoutClass(column)} ${CONTRACT_TABLE_HEADER_TH_CLASS} ${
                               column.key === 'amount'
                                 ? 'th-align-center'
                                 : getTableAlignClass(column.align, column)
                             } contract-th-filterable`}
                           >
-                            <div className={`contract-th-filter-wrap ${CMS_TABLE_CELL_INNER}`}>
-                              <span className="contract-th-label">{column.label}</span>
-                              <ContractColumnHeaderFilter
-                                columnKey={column.key}
-                                options={contractColumnFilterOptionsMap[column.key] ?? []}
-                                selected={activeFilters[column.key] ?? []}
-                                onApply={handleActiveFiltersApply}
-                                isOpen={openContractColumnFilterKey === column.key}
-                                onOpenChange={setOpenContractColumnFilterKey}
-                              />
-                            </div>
+                            <ContractTableHeaderShell
+                              align={column.key === 'amount' ? 'center' : column.align || 'center'}
+                            >
+                              <div className="contract-th-filter-wrap">
+                                <span className="contract-th-label">{column.label}</span>
+                                <ContractColumnHeaderFilter
+                                  columnKey={column.key}
+                                  options={contractColumnFilterOptionsMap[column.key] ?? []}
+                                  selected={activeFilters[column.key] ?? []}
+                                  onApply={handleActiveFiltersApply}
+                                  isOpen={openContractColumnFilterKey === column.key}
+                                  onOpenChange={setOpenContractColumnFilterKey}
+                                  normalizeSelection={normalizeContractColumnFilterSelection}
+                                />
+                              </div>
+                            </ContractTableHeaderShell>
                           </th>
                         ))}
                     </tr>
@@ -13010,33 +13046,35 @@ function App() {
                             rows.push(
                               <tr key={domRowKey} className={rowStripe}>
                                 {canEditContracts && (
-                                  <td className={`td-align-center registry-check-cell ${CMS_TABLE_ALIGN_MIDDLE}`}>
-                                    <input
-                                      className="registry-row-checkbox"
-                                      type="checkbox"
-                                      role="checkbox"
-                                      aria-disabled={false}
-                                      checked={selectedContractRowKeys.has(rowSelectKey)}
-                                      style={{ cursor: 'pointer', pointerEvents: 'auto', opacity: 1 }}
-                                      onClick={(e) => e.stopPropagation()}
-                                      onChange={(e) => {
-                                        e.stopPropagation()
-                                        const checked = e.target.checked
-                                        setSelectedContractRowKeys((prev) => {
-                                          const next = new Set(prev)
-                                          if (checked) next.add(rowSelectKey)
-                                          else next.delete(rowSelectKey)
-                                          return next
-                                        })
-                                      }}
-                                    />
+                                  <td className={`td-align-center registry-check-cell ${CONTRACT_TABLE_DATA_TD_CLASS}`}>
+                                    <ContractTableCellShell align="center">
+                                      <input
+                                        className="registry-row-checkbox"
+                                        type="checkbox"
+                                        role="checkbox"
+                                        aria-disabled={false}
+                                        checked={selectedContractRowKeys.has(rowSelectKey)}
+                                        style={{ cursor: 'pointer', pointerEvents: 'auto', opacity: 1 }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onChange={(e) => {
+                                          e.stopPropagation()
+                                          const checked = e.target.checked
+                                          setSelectedContractRowKeys((prev) => {
+                                            const next = new Set(prev)
+                                            if (checked) next.add(rowSelectKey)
+                                            else next.delete(rowSelectKey)
+                                            return next
+                                          })
+                                        }}
+                                      />
+                                    </ContractTableCellShell>
                                   </td>
                                 )}
 
-                                <td className={`col-dday td-align-center table-col-tight ${CMS_TABLE_ALIGN_MIDDLE}`}>
-                                  <div className={`cell-display dday-cell ${CMS_TABLE_CELL_INNER}`}>
-                                    {getDdayText(item.dueDate)}
-                                  </div>
+                                <td className={`col-dday td-align-center table-col-tight ${CONTRACT_TABLE_DATA_TD_CLASS}`}>
+                                  <ContractTableCellShell align="center">
+                                    <div className="cell-display dday-cell">{getDdayText(item.dueDate)}</div>
+                                  </ContractTableCellShell>
                                 </td>
 
                                 {CONTRACT_COLUMNS.map((column) => {
@@ -13044,11 +13082,9 @@ function App() {
                                   const bodyAlignClass = isContractAmountColumn
                                     ? 'td-align-right'
                                     : getTableBodyAlignClass(column)
-                                  const cellAlign = bodyAlignClass.includes('right')
-                                    ? 'right'
-                                    : bodyAlignClass.includes('left')
-                                      ? 'left'
-                                      : 'center'
+                                  const shellAlign = getContractCellShellAlign(column, bodyAlignClass)
+                                  const cellAlign = shellAlign
+                                  const isLongCell = isLongTextTableColumn(column)
                                   const isThisContractCell =
                                     contractEdit?.rowKey === rowSelectKey &&
                                     contractEdit?.key === column.key
@@ -13056,12 +13092,10 @@ function App() {
                                   return (
                                     <td
                                       key={column.key}
-                                      className={`${column.className} ${bodyAlignClass} ${CMS_TABLE_ALIGN_MIDDLE} ${
-                                        isLongTextTableColumn(column) ? 'multiline-cell' : ''
+                                      className={`${column.className} ${bodyAlignClass} ${CONTRACT_TABLE_DATA_TD_CLASS} ${
+                                        isLongCell ? 'multiline-cell' : ''
                                       } ${column.key === 'note' ? 'note-cell' : ''} ${getTableColumnLayoutClass(column)} ${
-                                        canEditContracts
-                                          ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
-                                          : ''
+                                        canEditContracts ? 'editable-cell' : ''
                                       }`}
                                       onClick={
                                         canEditContracts && !isThisContractCell
@@ -13071,33 +13105,35 @@ function App() {
                                       }
                                     >
                                       {isThisContractCell ? (
-                                        renderContractCellInlineEditor(column)
+                                        renderContractCellInlineEditor(column, shellAlign)
                                       ) : (
-                                        <div
-                                          className={`cell-display editable-text-cell-display editable-text-cell-display--${cellAlign} ${CMS_TABLE_CELL_INNER}${
-                                            isLongTextTableColumn(column) ? ' table-cell-clamp' : ''
-                                          }`}
-                                          role={canEditContracts ? 'button' : undefined}
-                                          tabIndex={canEditContracts ? 0 : undefined}
-                                          onClick={(e) => {
-                                            if (!canEditContracts) return
-                                            e.stopPropagation()
-                                            startEdit(rowSelectKey, column.key, item[column.key], item)
-                                          }}
-                                          onKeyDown={(e) => {
-                                            if (!canEditContracts) return
-                                            if (e.key === 'Enter' || e.key === ' ') {
-                                              e.preventDefault()
+                                        <ContractTableCellShell align={shellAlign} multiline={isLongCell}>
+                                          <div
+                                            className={`cell-display editable-text-cell-display editable-text-cell-display--${cellAlign}${
+                                              isLongCell ? ' table-cell-clamp' : ''
+                                            }`}
+                                            role={canEditContracts ? 'button' : undefined}
+                                            tabIndex={canEditContracts ? 0 : undefined}
+                                            onClick={(e) => {
+                                              if (!canEditContracts) return
+                                              e.stopPropagation()
                                               startEdit(rowSelectKey, column.key, item[column.key], item)
-                                            }
-                                          }}
-                                        >
-                                          {column.key === 'amount'
-                                            ? formatAmountDisplay(item[column.key]) || '\u00a0'
-                                            : column.type === 'date'
-                                              ? item[column.key] || '-'
-                                              : item[column.key] || '\u00a0'}
-                                        </div>
+                                            }}
+                                            onKeyDown={(e) => {
+                                              if (!canEditContracts) return
+                                              if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault()
+                                                startEdit(rowSelectKey, column.key, item[column.key], item)
+                                              }
+                                            }}
+                                          >
+                                            {column.key === 'amount'
+                                              ? formatAmountDisplay(item[column.key]) || '\u00a0'
+                                              : column.type === 'date'
+                                                ? item[column.key] || '-'
+                                                : item[column.key] || '\u00a0'}
+                                          </div>
+                                        </ContractTableCellShell>
                                       )}
                                     </td>
                                   )

@@ -1,0 +1,103 @@
+/* 계약현황 — flex 셸 기반 세로 중앙 (align-middle 단독보다 우선) */
+
+table[data-contract-table-row-key].contracts-fixed-table
+  tbody
+  tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.contract-table-data-cell {
+  padding: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  vertical-align: middle !important;
+  height: 1px;
+}
+
+table[data-contract-table-row-key].contracts-fixed-table thead th.contract-table-header-cell {
+  padding: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  vertical-align: middle !important;
+  height: 1px;
+}
+
+/* td/th 자체 패딩 제거 — excel-table tbody td 6px 8px 덮어쓰기 */
+table[data-contract-table-row-key].contracts-fixed-table.excel-table tbody td.contract-table-data-cell,
+table[data-contract-table-row-key].contracts-fixed-table.excel-table thead th.contract-table-header-cell {
+  padding: 0 !important;
+}
+
+table[data-contract-table-row-key] tbody td.col-amount.contract-table-data-cell {
+  text-align: inherit !important;
+  padding-right: 0 !important;
+}
+
+.contract-table-cell-shell {
+  box-sizing: border-box;
+}
+
+/* 셸 안쪽 — 기존 cell-display flex·min-height 제거 */
+table[data-contract-table-row-key] .contract-table-cell-shell .cell-display,
+table[data-contract-table-row-key] .contract-table-cell-shell .editable-text-cell-display,
+table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell {
+  display: block;
+  width: 100%;
+  min-height: 0 !important;
+  max-height: none;
+  padding: 0 !important;
+  margin: 0;
+  white-space: inherit;
+  overflow: visible;
+}
+
+table[data-contract-table-row-key] .contract-table-cell-shell--center .cell-display,
+table[data-contract-table-row-key] .contract-table-cell-shell--center .editable-text-cell-display,
+table[data-contract-table-row-key] .contract-table-cell-shell--center .dday-cell {
+  text-align: center;
+}
+
+table[data-contract-table-row-key] .contract-table-cell-shell--right .cell-display,
+table[data-contract-table-row-key] .contract-table-cell-shell--right .editable-text-cell-display {
+  text-align: right;
+}
+
+table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell {
+  width: auto;
+}
+
+table[data-contract-table-row-key] .contract-table-cell-shell .registry-row-checkbox {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+table[data-contract-table-row-key] .contract-table-cell-shell--multiline .cell-display,
+table[data-contract-table-row-key] .contract-table-cell-shell--multiline .editable-text-cell-display {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+}
+
+table[data-contract-table-row-key] .contract-table-cell-shell .cell-display.table-cell-clamp,
+table[data-contract-table-row-key] .contract-table-cell-shell .editable-text-cell-display.table-cell-clamp {
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: calc(1.3em * 3);
+  width: 100%;
+  align-self: center;
+}
+
+table[data-contract-table-row-key] .contract-table-cell-shell > input,
+table[data-contract-table-row-key] .contract-table-cell-shell > textarea {
+  width: 100%;
+  min-height: 2.5rem;
+  margin: 0;
+  align-self: center;
+  box-sizing: border-box;
+}
+
+table[data-contract-table-row-key] .contract-table-header-shell .contract-th-filter-wrap {
+  width: 100%;
+  justify-content: center;
+}

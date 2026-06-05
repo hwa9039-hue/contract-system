@@ -1104,27 +1104,7 @@ table[data-contract-table-row-key] tbody td.col-project {
   vertical-align: middle !important;
 }
 
-table[data-contract-table-row-key] tbody td > .cell-display,
-table[data-contract-table-row-key] tbody td > .editable-text-cell-display,
-table[data-contract-table-row-key] tbody td > .dday-cell,
-table[data-contract-table-row-key] tbody td .cell-inline-editor {
-  display: flex;
-  align-items: center !important;
-  box-sizing: border-box;
-}
-
-table[data-contract-table-row-key] tbody td > .editable-text-cell-display.table-cell-clamp,
-table[data-contract-table-row-key] tbody td > .cell-display.table-cell-clamp {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-box-pack: center;
-  align-self: center;
-}
-
-table[data-contract-table-row-key] tbody td.editable-cell > input,
-table[data-contract-table-row-key] tbody td.editable-cell > textarea {
-  align-self: center;
-}
+/* 계약현황 셀 세로 정렬 — contractTableCell.css + ContractTableCellShell */
 
 /* 계약현황 긴 텍스트 컬럼: 줄바꿈 허용(한 줄 강제 금지) */
 table[data-contract-table-row-key] tbody td.table-col-long,
@@ -1153,8 +1133,8 @@ table[data-contract-table-row-key] tbody td.col-amount {
   padding-right: 16px !important;
 }
 
-table[data-contract-table-row-key] tbody td.col-amount .cell-display {
-  justify-content: flex-end;
+table[data-contract-table-row-key] tbody td.col-amount .contract-table-cell-shell .cell-display {
+  text-align: right;
 }
 
 .excel-table thead th {
