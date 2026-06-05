@@ -86,6 +86,13 @@ import {
   ContractTableHeaderShell,
 } from './ContractTableCellShell.jsx'
 import './contractTableCell.css'
+import {
+  getContractYearKey,
+  groupContractsForAccordion,
+  normalizeContractListRow,
+  parseContractAmount,
+  sumContractAmounts,
+} from './contractAggregation.js'
 import { EditableTextCell, isEditableTextColumn } from './EditableTextCell.jsx'
 import {
   getTableAlignClass,
@@ -3474,15 +3481,7 @@ function formatAmountWithWon(value) {
 }
 
 function parseAmount(value) {
-  const raw = normalizeAmountValue(value)
-  const n = raw ? Number(raw) : 0
-  return Number.isFinite(n) ? n : 0
-}
-
-/** 계약현황 그룹 헤더용 계약금액 합계 */
-function sumContractAmounts(items) {
-  if (!Array.isArray(items) || !items.length) return 0
-  return items.reduce((sum, item) => sum + parseAmount(item?.amount), 0)
+  return parseContractAmount(value)
 }
 
 function parseYearValue(value) {
@@ -3623,37 +3622,6 @@ function compareKoreanText(a, b) {
   })
 }
 
-/** 계약현황 2차 그룹: `contractType`에 "유지보수" 포함 시 유지보수, 그 외·빈 값은 전광판 */
-const CONTRACT_CATEGORY_SUBGROUPS = Object.freeze([
-  { groupId: 'signboard', label: '[전광판]' },
-  { groupId: 'maintenance', label: '[유지보수]' },
-])
-
-function getContractCategorySubgroupId(contractType) {
-  return safeString(contractType).includes('유지보수') ? 'maintenance' : 'signboard'
-}
-
-/** 그룹 내 정렬: 계약일자 내림차순(최신 먼저). 미입력·파싱 불가는 맨 뒤. */
-function compareContractsByContractDateDesc(a, b) {
-  const ts = (item) => {
-    const raw = safeString(item.contractDate ?? '').trim()
-    if (!raw) return null
-    const t = new Date(raw).getTime()
-    return Number.isNaN(t) ? null : t
-  }
-  const ta = ts(a)
-  const tb = ts(b)
-  if (ta === null && tb === null) {
-    /* fall through to secondary */
-  } else if (ta === null) return 1
-  else if (tb === null) return -1
-  else if (ta !== tb) return tb - ta
-
-  const seg = compareKoreanText(a.segment, b.segment)
-  if (seg !== 0) return seg
-  return compareKoreanText(a.projectName, b.projectName)
-}
-
 function getOptions(items, key) {
   return [
     ...new Set(
@@ -3704,45 +3672,6 @@ function sortContracts(items) {
     const bDate = b.contractDate || b.dueDate || '1900-01-01'
     return new Date(bDate).getTime() - new Date(aDate).getTime()
   })
-}
-
-/** [2단계] 필터링된 계약 목록 → 연도·카테고리 아코디언 그룹 (원본 데이터 사용 금지) */
-function groupContractsForAccordion(filteredData) {
-  const groups = new Map()
-
-  filteredData.forEach((item) => {
-    const year = getYearLabel(item.year) || '미분류'
-    if (!groups.has(year)) groups.set(year, [])
-    groups.get(year).push(item)
-  })
-
-  return [...groups.entries()]
-    .sort(([a], [b]) => Number(b) - Number(a))
-    .map(([year, yearItems]) => {
-      const buckets = { signboard: [], maintenance: [] }
-      yearItems.forEach((item) => {
-        buckets[getContractCategorySubgroupId(item.contractType)].push(item)
-      })
-
-      const subGroups = CONTRACT_CATEGORY_SUBGROUPS.map(({ groupId, label }) => {
-        const items = [...buckets[groupId]].sort(compareContractsByContractDateDesc)
-        return {
-          groupId,
-          label,
-          items,
-          totalAmount: sumContractAmounts(items),
-        }
-      })
-
-      const items = subGroups.flatMap((g) => g.items)
-
-      return {
-        year,
-        subGroups,
-        items,
-        totalAmount: sumContractAmounts(items),
-      }
-    })
 }
 
 function getDateDiffFromToday(dateString) {
@@ -4799,7 +4728,7 @@ function buildDashboardSummary(contracts) {
   const totalByYear = {}
 
   contracts.forEach((item) => {
-    const year = item.year || '미분류'
+    const year = getContractYearKey(item)
     const amt = parseAmount(item.amount)
 
     // 전체 합산
@@ -5257,12 +5186,15 @@ function App() {
         ? data.map((item, index) => {
             /** contractNo 는 중복될 수 있어 UI/API id 로 쓰지 않음 */
             const serverId = firstUsableContractPathId(item.id, item._id, item.contract_id, item.ID)
-            return {
-              ...item,
-              id: serverId,
-              key: serverId,
-              selectKey: serverId || `__ROW__${index}`,
-            }
+            return normalizeContractListRow(
+              {
+                ...item,
+                id: serverId,
+                key: serverId,
+                selectKey: serverId || `__ROW__${index}`,
+              },
+              index
+            )
           })
         : []
       setContracts(normalized)
@@ -5830,7 +5762,7 @@ function App() {
   const contractPageSummaryRows = useMemo(() => {
     const y = contractPageSummaryFocusYear
     if (!y) return []
-    return filteredData.filter((item) => (getYearLabel(item.year) || '미분류') === y)
+    return filteredData.filter((item) => getContractYearKey(item) === y)
   }, [filteredData, contractPageSummaryFocusYear])
 
   const contractPageYearSummaryBlock = useMemo(() => {
@@ -12999,7 +12931,7 @@ function App() {
                                 <span className="contract-year-sign">{collapsed ? '+' : '-'}</span>
                                 <span>{yearBlock.year}년</span>
                                 <span className="contract-year-count">
-                                  {yearBlock.items.length.toLocaleString('ko-KR')}건 (총{' '}
+                                  {(yearBlock.count ?? yearBlock.items.length).toLocaleString('ko-KR')}건 (총{' '}
                                   {yearBlock.totalAmount.toLocaleString('ko-KR')}원)
                                 </span>
                               </div>
@@ -13012,7 +12944,9 @@ function App() {
                         const rows = [yearRow]
                         let stripeIndex = 0
 
-                        yearBlock.subGroups.forEach((sub) => {
+                        yearBlock.subGroups
+                          .filter((sub) => (sub.count ?? sub.items.length) > 0)
+                          .forEach((sub) => {
                           const subCollapsed = !isContractCategoryGroupOpen(yearBlock.year, sub.groupId)
                           rows.push(
                             <tr
@@ -13028,7 +12962,7 @@ function App() {
                                   <span className="contract-year-sign">{subCollapsed ? '+' : '-'}</span>
                                   <span>{sub.label}</span>
                                   <span className="contract-year-count">
-                                    {sub.items.length.toLocaleString('ko-KR')}건 (총{' '}
+                                    {(sub.count ?? sub.items.length).toLocaleString('ko-KR')}건 (총{' '}
                                     {sub.totalAmount.toLocaleString('ko-KR')}원)
                                   </span>
                                 </div>
