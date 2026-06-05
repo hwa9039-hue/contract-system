@@ -12,6 +12,7 @@ import {
   contractMatchesSearch,
   filterContractRowsByActiveFilters,
   hasActiveContractColumnFilters,
+  normalizeContractColumnFilterSelection,
 } from './contractColumnFilter.js'
 import {
   buildDiscoveryColumnFilterOptions,
