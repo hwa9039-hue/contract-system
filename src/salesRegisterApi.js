@@ -124,6 +124,20 @@ export const salesRegisterApi = {
     return requestJson('/api/sales-register/import', {
       method: 'POST',
       body: JSON.stringify({ rows: data }),
-    }).then(normalizeRegistryImportResponse)
+    })
+      .then(normalizeRegistryImportResponse)
+      .catch(async (error) => {
+        if (error?.status !== 404) throw error
+
+        console.warn(
+          '[excel-upload] /api/sales-register/import not found. Falling back to row-by-row POST.',
+          error
+        )
+        const createdRows = []
+        for (const row of data) {
+          createdRows.push(await this.create(row))
+        }
+        return normalizeRegistryImportResponse({ rows: createdRows, duplicateItems: [] })
+      })
   },
 }

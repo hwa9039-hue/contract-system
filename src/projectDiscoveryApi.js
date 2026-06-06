@@ -210,10 +210,9 @@ export const projectDiscoveryApi = {
       })
       return normalizeRegistryImportResponse(raw)
     } catch (error) {
+      if (!DISCOVERY_API_USE_MOCK) throw error
       console.warn('[건축정보] POST import 실패 — 로컬 저장 폴백', error)
-      if (DISCOVERY_API_USE_MOCK) {
-        await mockDelay(MOCK_SAVE_DELAY_MS)
-      }
+      await mockDelay(MOCK_SAVE_DELAY_MS)
       const created = mockImportedRows(data)
       saveStoredDiscoveryRows([...loadStoredDiscoveryRows(), ...created])
       return normalizeRegistryImportResponse({ rows: created, duplicateItems: [] })

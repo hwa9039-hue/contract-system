@@ -407,9 +407,13 @@ function resolveDiscoveryCanonicalHeader(headerText) {
     for (const alias of rule.aliases) {
       const aliasNorm = normalizeExcelHeaderKey(alias)
       if (!aliasNorm) continue
-      if (norm === aliasNorm || norm.includes(aliasNorm) || aliasNorm.includes(norm)) {
+      if (norm === aliasNorm) {
         return rule.canonical
       }
+      // 짧고 흔한 단어(금액/구분/담당/내용 등)는 엉뚱한 열까지 잡기 쉬우므로
+      // 정확히 일치할 때만 매핑한다.
+      if (aliasNorm.length <= 2 || norm.length <= 2) continue
+      if (norm.includes(aliasNorm) || aliasNorm.includes(norm)) return rule.canonical
     }
   }
 
@@ -435,7 +439,7 @@ function detectDiscoveryHeaderRowIndex(rawData) {
   if (!Array.isArray(rawData) || !rawData.length) return -1
 
   const scored = detectExcelHeaderRowIndexFromAoA(rawData, DISCOVERY_HEADER_MARKERS, 40)
-  if (rowMatchesHeaderKeywords(rawData[scored], DISCOVERY_HEADER_MARKERS) >= 2) {
+  if (rowMatchesHeaderKeywords(rawData[scored], DISCOVERY_HEADER_MARKERS) >= 3) {
     return scored
   }
 
@@ -454,15 +458,10 @@ function detectDiscoveryHeaderRowIndex(rawData) {
       '허가일자',
       '인허가일',
     ])
-    const markerHits = [hasProject, hasClient, hasDate].filter(Boolean).length
+    const hasAmount = rowContainsText(row, ['사업금액', '사업 금액', '계약금액', '총사업비'])
+    const hasManager = rowContainsText(row, ['담당자', '영업자', '영업담당자'])
+    const markerHits = [hasProject, hasClient, hasDate, hasAmount, hasManager].filter(Boolean).length
     if (markerHits >= 2) return i
-  }
-
-  if (rawData[2] && Array.isArray(rawData[2]) && rawData[2].length >= 3) {
-    return 2
-  }
-  if (rawData[0] && Array.isArray(rawData[0]) && rawData[0].length >= 3) {
-    return 0
   }
 
   return -1
