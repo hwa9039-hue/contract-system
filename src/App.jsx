@@ -8712,7 +8712,11 @@ function App() {
 
       const arrayBuffer = await file.arrayBuffer()
       const workbook = XLSX.read(arrayBuffer, { type: 'array', raw: true, cellDates: false })
-      const firstSheetName = workbook.SheetNames[0]
+      const preferredSheetName =
+        target === 'discovery'
+          ? workbook.SheetNames.find((name) => safeString(name).trim() === '건축정보')
+          : ''
+      const firstSheetName = preferredSheetName || workbook.SheetNames[0]
 
       if (!firstSheetName) {
         showAppAlert('업로드할 시트를 찾을 수 없습니다.')
@@ -8721,6 +8725,11 @@ function App() {
 
       const worksheet = workbook.Sheets[firstSheetName]
       const headerKeywords = collectRegistryExcelHeaderKeywords(config.columns)
+      console.log('[excel-upload] sheet 선택', {
+        target,
+        sheetName: firstSheetName,
+        sheetNames: workbook.SheetNames,
+      })
 
       let rows = []
       let headerRowIndex = 0
