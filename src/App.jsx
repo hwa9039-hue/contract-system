@@ -3293,9 +3293,10 @@ function normalizeHeader(text) {
     .toLowerCase()
 }
 
-function getValueByHeader(row, candidates, fallback = '') {
+function getValueByHeader(row, candidates, fallback = '', options = {}) {
   const map = new Map()
   const entries = []
+  const exactOnly = options.exactOnly === true
 
   Object.keys(row).forEach((key) => {
     const norm = normalizeHeader(key)
@@ -3311,6 +3312,8 @@ function getValueByHeader(row, candidates, fallback = '') {
       return value
     }
   }
+
+  if (exactOnly) return fallback
 
   for (const candidate of candidates) {
     const candidateNorm = normalizeHeader(candidate)
@@ -8581,10 +8584,11 @@ function App() {
     return [...keywords]
   }
 
-  const buildRegistryImportRows = (rows, columns, createDraftRow, isEmptyRow) => {
+  const buildRegistryImportRows = (rows, columns, createDraftRow, isEmptyRow, options = {}) => {
     const preparedRows = []
     const skippedLines = []
     const issues = []
+    const exactHeaderOnly = options.exactHeaderOnly === true
 
     const isPlaceholderEmpty = (value) => {
       const t = safeString(value).trim()
@@ -8602,7 +8606,9 @@ function App() {
       columns.forEach((column) => {
         if (column.type === 'importance') return
 
-        const rawValue = getValueByHeader(sourceRow, getRegistryExcelHeaderCandidates(column), '')
+        const rawValue = exactHeaderOnly
+          ? getValueByHeader(sourceRow, [column.label, column.key], '', { exactOnly: true })
+          : getValueByHeader(sourceRow, getRegistryExcelHeaderCandidates(column), '')
 
         if (column.type === 'date') {
           const normalized = excelDateToInput(rawValue)
@@ -8769,7 +8775,8 @@ function App() {
         rows,
         config.columns,
         config.createDraftRow,
-        config.isEmptyRow
+        config.isEmptyRow,
+        { exactHeaderOnly: target === 'discovery' }
       )
 
       if (issues.length > 0) {
