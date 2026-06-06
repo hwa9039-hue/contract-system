@@ -170,13 +170,16 @@ export function normalizeExcelCompletionPeriodCell(cell) {
 /** 건축정보일자 셀: 포맷 텍스트 우선, 시리얼이면 YYYY-MM-DD, 그 외 문자열 유지 */
 export function normalizeExcelPermitDateCell(cell) {
   if (!cell) return ''
-  const formatted = getExcelCellFormattedText(cell)
-  if (formatted) return formatted
 
   const raw = cell.v
   if (raw === null || raw === undefined || raw === '') return ''
   if (typeof raw === 'number' && isExcelDateSerialNumber(raw)) {
     return excelCellToYmd(raw)
+  }
+  const formatted = getExcelCellFormattedText(cell)
+  if (formatted) {
+    const ymd = excelCellToYmd(formatted)
+    return /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : formatted
   }
   return String(raw).trim()
 }

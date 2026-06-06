@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
+import logging
+import psycopg
 from fastapi import APIRouter, HTTPException, status
 
 from app.database import get_connection
@@ -14,6 +16,9 @@ from app.schemas import (
     project_discovery_to_db_values,
     row_to_project_discovery,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/project-discovery", tags=["project-discovery"])
@@ -33,12 +38,34 @@ def now_text() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+TRUNCATE_TEXT_COLUMNS: set[str] = {
+    "permitDate",
+    "checkStatus",
+    "salesTarget",
+    "projectCategory",
+    "localGov",
+    "client",
+    "projectName",
+    "completionPeriod",
+    "manager",
+    "note",
+}
+
+
+def _truncate_text_values(values: dict) -> None:
+    """Guard VARCHAR-limited production schemas from Excel text overflow."""
+    for key in TRUNCATE_TEXT_COLUMNS:
+        if key in values and values[key] is not None:
+            values[key] = str(values[key])[:50]
+
+
 def prepare_insert_values(row: ProjectDiscoveryCreate) -> dict:
     values = project_discovery_to_db_values(row)
     timestamp = now_text()
     values["id"] = str(uuid4())
     values.setdefault("createdAt", timestamp)
     values.setdefault("updatedAt", timestamp)
+    _truncate_text_values(values)
     return values
 
 
@@ -47,14 +74,21 @@ def insert_discovery_row(cursor, row: ProjectDiscoveryCreate) -> dict:
     columns = list(values.keys())
     quoted_columns = [quote_identifier(column) for column in columns]
     placeholders = [f"%({column})s" for column in columns]
-    cursor.execute(
-        f"""
-        insert into project_discovery_rows ({", ".join(quoted_columns)})
-        values ({", ".join(placeholders)})
-        returning {RETURNING_COLUMNS}
-        """,
-        values,
-    )
+    try:
+        cursor.execute(
+            f"""
+            insert into project_discovery_rows ({", ".join(quoted_columns)})
+            values ({", ".join(placeholders)})
+            returning {RETURNING_COLUMNS}
+            """,
+            values,
+        )
+    except psycopg.Error as e:
+        logger.exception("Failed to insert project discovery row (id=%s)", values.get("id"))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="건축정보 데이터 저장 중 오류가 발생했습니다. 텍스트 길이 또는 금액 형식을 확인해주세요.",
+        ) from e
     return row_to_project_discovery(cursor.fetchone())
 
 
