@@ -6522,6 +6522,20 @@ textarea:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.sales-registry-table .sales-detail-preview--editable {
+  cursor: pointer;
+}
+
+.sales-registry-table .sales-detail-preview--editable:hover {
+  background: rgba(59, 130, 246, 0.08);
+  outline: 1px solid rgba(59, 130, 246, 0.24);
+}
+
+.sales-registry-table .sales-detail-inline-editor {
+  min-height: 8rem;
+  white-space: pre-wrap;
+}
+
 .registry-action-header,
 .registry-action-cell {
   width: 88px;

@@ -10700,11 +10700,15 @@ function App() {
       return <input {...commonProps} type="date" />
     }
     if (column.type === 'textarea') {
+      const isSalesDetailEditor =
+        scope === 'sales' && isSalesDetailHistoryColumn(column, scope)
       return (
         <textarea
           {...commonProps}
-          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} resize-none`}
-          rows={2}
+          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} resize-none${
+            isSalesDetailEditor ? ' sales-detail-inline-editor' : ''
+          }`}
+          rows={isSalesDetailEditor ? 6 : 2}
         />
       )
     }
@@ -10918,7 +10922,7 @@ function App() {
           const usesTableInlineInput =
             !isImportanceCell &&
             !canUseRegistryModalEditor &&
-            (isEditableText || showInput || (isSmartDetailCell && !isSalesDetailCell))
+            (isEditableText || showInput || isSmartDetailCell)
           const discoveryTextWrapClass =
             cellEditScope === 'discovery' && column.type !== 'amount'
               ? 'whitespace-pre-wrap break-words'
@@ -10933,12 +10937,19 @@ function App() {
               } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${discoveryTextWrapClass} ${
                 usesTableInlineInput
                   ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
-                  : isAdminForRegistry && !row.isDraft && !isImportanceCell && !isSalesDetailCell
+                  : isAdminForRegistry && !row.isDraft && !isImportanceCell
                     ? 'editable-cell'
                     : ''
               }`}
               onClick={() => {
-                if (isImportanceCell || isEditableText || isSalesDetailCell) return
+                if (isImportanceCell || isEditableText) return
+                if (isSalesDetailCell) {
+                  if (!isAdminForRegistry || row.isDraft) return
+                  if (useCellMode && onRegistryCellStart) {
+                    onRegistryCellStart(rowId, column.key, row[column.key], row)
+                  }
+                  return
+                }
                 if (!isAdminForRegistry) return
                 if (row.isDraft) return
                 if (canUseRegistryModalEditor) {
@@ -10961,12 +10972,43 @@ function App() {
                   />
                 </div>
               ) : isSalesDetailCell ? (
-                <div
-                  className={`cell-display table-cell-clamp-2 sales-detail-preview editable-text-cell-display editable-text-cell-display--${cellAlign}`}
-                  title={getRegistrySmartDetailDisplayValue(cellEditScope, column, row) || '세부내용'}
-                >
-                  {getRegistrySmartDetailDisplayValue(cellEditScope, column, row) || '\u00a0'}
-                </div>
+                isThisCell ? (
+                  renderRegistryCellInlineEditor(column, {
+                    scope: cellEditScope,
+                    rowId,
+                  })
+                ) : (
+                  <div
+                    className={`cell-display table-cell-clamp-2 sales-detail-preview editable-text-cell-display editable-text-cell-display--${cellAlign}${
+                      isAdminForRegistry && !row.isDraft ? ' sales-detail-preview--editable' : ''
+                    }`}
+                    role={isAdminForRegistry && !row.isDraft ? 'button' : undefined}
+                    tabIndex={isAdminForRegistry && !row.isDraft ? 0 : undefined}
+                    title={
+                      isAdminForRegistry && !row.isDraft
+                        ? '클릭하여 세부내용 수정'
+                        : getRegistrySmartDetailDisplayValue(cellEditScope, column, row) || '세부내용'
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (!isAdminForRegistry || row.isDraft) return
+                      if (onRegistryCellStart) {
+                        onRegistryCellStart(rowId, column.key, row[column.key], row)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (!isAdminForRegistry || row.isDraft) return
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        if (onRegistryCellStart) {
+                          onRegistryCellStart(rowId, column.key, row[column.key], row)
+                        }
+                      }
+                    }}
+                  >
+                    {getRegistrySmartDetailDisplayValue(cellEditScope, column, row) || '\u00a0'}
+                  </div>
+                )
               ) : isSmartDetailCell ? (
                 isThisCell ? (
                   renderRegistryCellInlineEditor(column, {
