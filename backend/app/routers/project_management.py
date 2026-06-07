@@ -190,10 +190,16 @@ def list_project_management_rows():
     for contract in contract_rows:
         row = row_to_contract(contract)
         item = items_by_contract.get(str(row.get("id") or ""), {})
-        for key in PROJECT_MANAGEMENT_FIELDS:
-            if item.get(key) not in (None, ""):
-                row[key] = item[key]
-        row["projectManagementId"] = item.get("id", "")
+        pm_id = str(item.get("id") or "").strip()
+        if pm_id:
+            # 사업관리 전용 행이 있으면 빈 값(삭제)까지 그대로 반영 — contracts_rows 값으로 되돌리지 않음
+            for key in PROJECT_MANAGEMENT_FIELDS:
+                row[key] = item.get(key, "")
+        else:
+            for key in PROJECT_MANAGEMENT_FIELDS:
+                if item.get(key) not in (None, ""):
+                    row[key] = item[key]
+        row["projectManagementId"] = pm_id
         row["contractSignature"] = item.get("contractSignature") or _contract_signature(contract)
         result.append(row)
     return result

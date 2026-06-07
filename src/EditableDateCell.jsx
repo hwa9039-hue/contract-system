@@ -3,6 +3,11 @@ import { TABLE_INLINE_INPUT_STANDARD_CLASS } from './tableInlineInputClass.js'
 import { toDateInputValue } from './dateFieldUtils.js'
 import { isDateTableCellEmpty, tableCellStateClass } from './tableCellEmptyState.js'
 
+function safeString(value) {
+  if (value === null || value === undefined) return ''
+  return String(value)
+}
+
 export function EditableDateCell({
   value,
   onSave,
@@ -18,12 +23,16 @@ export function EditableDateCell({
     setDraft(displayValue)
   }, [displayValue])
 
-  const commitDraft = () => {
-    const nextDb = draft.trim() === '' ? null : draft.trim()
+  const commitValue = (nextRaw) => {
+    const nextDb = safeString(nextRaw).trim() === '' ? null : safeString(nextRaw).trim()
     const prevDb = displayValue.trim() === '' ? null : displayValue.trim()
     if (nextDb !== prevDb) {
       onSave?.(nextDb)
     }
+  }
+
+  const commitDraft = () => {
+    commitValue(draft)
   }
 
   if (disabled) {
@@ -44,7 +53,13 @@ export function EditableDateCell({
       className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} editable-date-cell-input ${stateClass} ${className}`.trim()}
       value={draft}
       disabled={disabled}
-      onChange={(e) => setDraft(e.target.value)}
+      onChange={(e) => {
+        const next = e.target.value
+        setDraft(next)
+        if (next.trim() === '') {
+          commitValue('')
+        }
+      }}
       onBlur={commitDraft}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => {

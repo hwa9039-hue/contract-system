@@ -372,12 +372,23 @@ export default function ProjectManagement({ canEdit = true }) {
     async (row, field, rawValue) => {
       const column = columns.find((c) => c.field === field)
       const nextSnapshot = rowToSavedSnapshot(row)
+      let displayValue = ''
       if (column?.type === 'date') {
         nextSnapshot[field] =
           rawValue === null || rawValue === undefined ? null : toDbDate(rawValue)
+        displayValue = formatDateDisplay(nextSnapshot[field])
       } else {
         nextSnapshot[field] = safeString(rawValue).trim()
+        displayValue = nextSnapshot[field]
       }
+
+      const contractId = safeString(row.id).trim()
+      setContracts((prev) =>
+        prev.map((item) =>
+          item.id === contractId ? { ...item, [field]: displayValue } : item
+        )
+      )
+
       await persistContractFields(row, nextSnapshot)
     },
     [persistContractFields]
