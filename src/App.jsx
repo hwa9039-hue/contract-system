@@ -455,6 +455,17 @@ const DISCOVERY_COLUMNS = [
   },
 ]
 
+const DISCOVERY_IMPORT_COLUMNS = [
+  ...DISCOVERY_COLUMNS.slice(0, 2),
+  {
+    key: 'salesTarget',
+    label: '영업자',
+    align: 'center',
+    type: 'text',
+  },
+  ...DISCOVERY_COLUMNS.slice(2),
+]
+
 const EXCLUDED_CATEGORY_OPTIONS = ['발주계획', '사전규격', '입찰공고', '정보공개']
 const EXCLUDED_KEYWORD_OPTIONS = [
   '(N)안내전광판',
@@ -8494,6 +8505,7 @@ function App() {
         return {
           importEndpoint: DISCOVERY_API_PATHS.import,
           columns: DISCOVERY_COLUMNS,
+          importColumns: DISCOVERY_IMPORT_COLUMNS,
           rows: discoveryRows,
           createDraftRow: createDiscoveryDraftRow,
           isEmptyRow: isDiscoveryRowEmpty,
@@ -8772,7 +8784,7 @@ function App() {
 
       const { prepared: preparedRows, skippedLines, issues } = buildRegistryImportRows(
         rows,
-        config.columns,
+        config.importColumns || config.columns,
         config.createDraftRow,
         config.isEmptyRow,
         { exactHeaderOnly: target === 'discovery' }
