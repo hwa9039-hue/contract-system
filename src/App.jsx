@@ -2708,6 +2708,22 @@ function extractLatestSalesDetailEntry(detail) {
   return safeString(parts[0]).trim()
 }
 
+const SALES_RECORD_DATE_STAMP_PATTERN = /^\[\d{2}-\d{2}-\d{2}\]/
+
+/** 요약 기록 — 날짜 스탬프와 본문을 줄바꿈으로 분리 */
+function attachSalesRecordDateStamp(stamp, body) {
+  const trimmedBody = safeString(body).trim()
+  if (!trimmedBody) return safeString(stamp).trim()
+  if (SALES_RECORD_DATE_STAMP_PATTERN.test(trimmedBody)) return trimmedBody
+  return `${safeString(stamp).trim()}\n${trimmedBody}`
+}
+
+function prettifySalesRecordHistoryEntry(chunk) {
+  const trimmed = safeString(chunk).trim()
+  if (!trimmed) return ''
+  return trimmed.replace(/^(\[\d{2}-\d{2}-\d{2}\])\s+(?=\S)/, '$1\n')
+}
+
 function formatSalesRecordHistoryForDisplay(detail, registerDate) {
   const raw = safeString(detail).trim()
   if (!raw) return ''
@@ -2717,8 +2733,10 @@ function formatSalesRecordHistoryForDisplay(detail, registerDate) {
     .map((chunk) => {
       const trimmed = safeString(chunk).trim()
       if (!trimmed) return ''
-      if (trimmed.startsWith('[')) return trimmed
-      return `${stamp} ${trimmed}`
+      const stamped = trimmed.startsWith('[')
+        ? trimmed
+        : attachSalesRecordDateStamp(stamp, trimmed)
+      return prettifySalesRecordHistoryEntry(stamped)
     })
     .filter(Boolean)
     .join('\n\n')
@@ -2737,7 +2755,7 @@ function buildSalesSummaryFallbackFromRow(row) {
   if (existingSummary) return existingSummary
   const existingDetail = safeString(row?.detail).trim()
   if (!existingDetail) return ''
-  return `${formatSalesRegisterDateStamp(row?.registerDate)} ${existingDetail}`
+  return attachSalesRecordDateStamp(formatSalesRegisterDateStamp(row?.registerDate), existingDetail)
 }
 
 function isSalesDetailHistoryColumn(column, scope) {
@@ -2774,8 +2792,11 @@ function buildRegistrySmartDetailSavePayload(scope, column, row, rawValue) {
     if (newDetail === oldDetail) return null
     const existingSummary = safeString(row?.summary).trim()
     const baseSummary =
-      existingSummary || (oldDetail ? `${formatSalesRegisterDateStamp(row?.registerDate)} ${oldDetail}` : '')
-    const stampedSummaryLine = `${formatSalesRecordDateStamp()} ${newDetail}`
+      existingSummary ||
+      (oldDetail
+        ? attachSalesRecordDateStamp(formatSalesRegisterDateStamp(row?.registerDate), oldDetail)
+        : '')
+    const stampedSummaryLine = attachSalesRecordDateStamp(formatSalesRecordDateStamp(), newDetail)
     return {
       detail: normalizeSalesRecordForSave(newDetail),
       summary: normalizeSalesRecordForSave(
@@ -2803,7 +2824,7 @@ function buildSalesRecordDetailWithNewEntry(existingDetail, newEntryText) {
   const trimmed = safeString(newEntryText).trim()
   const existing = getSalesRecordRawHistory(existingDetail)
   if (!trimmed) return existing
-  const stamped = `${formatSalesRecordDateStamp()} ${trimmed}`
+  const stamped = attachSalesRecordDateStamp(formatSalesRecordDateStamp(), trimmed)
   return existing ? `${stamped}\n\n${existing}` : stamped
 }
 

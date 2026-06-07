@@ -2229,6 +2229,11 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
   word-break: break-word;
 }
 
+.sales-record-modal-history-text,
+.sales-record-modal-history-edit {
+  tab-size: 2;
+}
+
 .sales-record-modal-history-empty {
   margin: 0;
   font-size: 14px;
