@@ -5603,14 +5603,56 @@ function App() {
     const loadDashboardData = async () => {
       setIsDashboardLoading(true)
       try {
-        await Promise.all([
-          fetchContracts(true),
-          fetchDocuments(false, true),
-          fetchSalesRows(false, true),
-          fetchDiscoveryRows(false),
-          fetchExcludedRows(false, true),
-          fetchWorkReportRows(true),
+        const [
+          contractData,
+          documentRows,
+          salesApiRows,
+          discoveryApiRows,
+          excludedApiRows,
+          workApiRows,
+        ] = await Promise.all([
+          contractsApi.list(),
+          documentRegisterApi.list(),
+          salesRegisterApi.list(),
+          projectDiscoveryApi.list({ allowCacheFallback: false }),
+          excludedProjectsApi.list(),
+          weeklyWorkReportsApi.list(),
         ])
+
+        if (cancelled || fetchId !== dashboardFetchIdRef.current) return
+
+        const normalizedContracts = Array.isArray(contractData)
+          ? contractData.map((item, index) => {
+              const serverId = firstUsableContractPathId(item.id, item._id, item.contract_id, item.ID)
+              return normalizeContractListRow(
+                {
+                  ...item,
+                  id: serverId,
+                  key: serverId,
+                  selectKey: serverId || `__ROW__${index}`,
+                },
+                index
+              )
+            })
+          : []
+        const normalizedDiscoveryRows = (Array.isArray(discoveryApiRows) ? discoveryApiRows : []).map(
+          (item, index) => normalizeDiscoveryRow(item, index)
+        )
+        const normalizedWorkRows = (Array.isArray(workApiRows) ? workApiRows : []).map(normalizeWorkReportRow)
+
+        setContracts(normalizedContracts)
+        setDocuments((Array.isArray(documentRows) ? documentRows : []).map(normalizeDocumentRow))
+        setSalesRows((Array.isArray(salesApiRows) ? salesApiRows : []).map(normalizeSalesRow))
+        applyDiscoveryRowsToState(normalizedDiscoveryRows, false, {
+          setDiscoveryRows,
+          setDiscoveryTableData,
+          setSelectedDiscoveryIds,
+        })
+        setExcludedRows((Array.isArray(excludedApiRows) ? excludedApiRows : []).map(normalizeExcludedRow))
+        workReportRowsRef.current = normalizedWorkRows
+        setWorkReportRows(normalizedWorkRows)
+      } catch (error) {
+        console.error('[대시보드] 데이터 일괄 조회 실패 — 기존 화면 유지', error)
       } finally {
         if (!cancelled && fetchId === dashboardFetchIdRef.current) {
           setIsDashboardLoading(false)

@@ -106,14 +106,18 @@ export const projectDiscoveryApi = {
     return DISCOVERY_API_USE_MOCK
   },
 
-  async list() {
+  async list(options = {}) {
+    const allowCacheFallback = options?.allowCacheFallback !== false
     try {
       const rows = await requestJson(DISCOVERY_API_PATHS.list)
       if (Array.isArray(rows) && rows.length) {
         saveStoredDiscoveryRows(rows)
+      }
+      if (Array.isArray(rows)) {
         return rows
       }
     } catch (error) {
+      if (!allowCacheFallback) throw error
       console.warn('[건축정보] GET 실패 — 로컬 캐시 사용', error)
     }
     return loadStoredDiscoveryRows()
