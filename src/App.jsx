@@ -4851,9 +4851,16 @@ function getDashboardRecentUpdatedTime(row) {
   return Number.isNaN(updated.getTime()) ? 0 : updated.getTime()
 }
 
+function getDashboardRecentSortTime(row, config) {
+  const sortKey = config.sortDateKey || config.dateKey
+  const parsed = parseDateOnly(row?.[sortKey])
+  if (parsed) return parsed.getTime()
+  return getDashboardRecentUpdatedTime(row)
+}
+
 function getDashboardRecentItems(rows, config) {
   return [...rows]
-    .sort((a, b) => getDashboardRecentUpdatedTime(b) - getDashboardRecentUpdatedTime(a))
+    .sort((a, b) => getDashboardRecentSortTime(b, config) - getDashboardRecentSortTime(a, config))
     .slice(0, DASHBOARD_RECENT_ITEM_LIMIT)
     .map((row) => {
       const statusRaw = typeof config.getStatus === 'function' ? config.getStatus(row) : ''
