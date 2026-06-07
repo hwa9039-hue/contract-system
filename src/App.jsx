@@ -10968,9 +10968,11 @@ function App() {
                 ) : (
                   <div
                     className={`cell-display ${
-                      cellEditScope === 'discovery'
+                      cellEditScope === 'discovery' || isSalesDetailHistoryColumn(column, cellEditScope)
                         ? 'break-words whitespace-pre-wrap'
                         : 'table-cell-clamp'
+                    }${
+                      isSalesDetailHistoryColumn(column, cellEditScope) ? ' sales-detail-full-display' : ''
                     } editable-text-cell-display editable-text-cell-display--${cellAlign}`}
                     role="button"
                     tabIndex={0}
