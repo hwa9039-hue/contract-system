@@ -15196,8 +15196,8 @@ function App() {
                   </div>
                   {salesRecordModal.isEditingSummary ? (
                     <textarea
-                      className="sales-record-modal-history-edit resize-none"
-                      rows={6}
+                      className="sales-record-modal-history-edit"
+                      rows={16}
                       aria-labelledby="sales-record-history-label"
                       value={salesRecordModal.summaryDraft}
                       onChange={(e) =>
