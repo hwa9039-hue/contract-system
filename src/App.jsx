@@ -378,7 +378,6 @@ const SALES_COLUMNS = [
 ]
 
 const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
-const DISCOVERY_SALES_TARGET_OPTIONS = SALES_MANAGER_OPTIONS
 const DISCOVERY_COLUMNS = [
   {
     key: 'permitDate',
@@ -393,15 +392,6 @@ const DISCOVERY_COLUMNS = [
     label: '확인',
     align: 'center',
     type: 'text',
-    widthClass: 'discovery-w-24',
-    cellClass: 'discovery-col-tight discovery-w-24',
-  },
-  {
-    key: 'salesTarget',
-    label: '영업자',
-    align: 'center',
-    type: 'select',
-    options: DISCOVERY_SALES_TARGET_OPTIONS,
     widthClass: 'discovery-w-24',
     cellClass: 'discovery-col-tight discovery-w-24',
   },
