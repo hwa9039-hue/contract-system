@@ -4011,6 +4011,30 @@ function getRegistryRowDateYmd(row, dateKey) {
   return parsed ? formatDateInput(parsed) : ''
 }
 
+/** 등록일 등 — 최신 날짜가 위로 오도록 내림차순 */
+function compareRegistryRowsByDateDesc(rowA, rowB, dateKey) {
+  const dateA = getRegistryRowDateYmd(rowA, dateKey)
+  const dateB = getRegistryRowDateYmd(rowB, dateKey)
+  if (dateA && dateB) {
+    const byDate = dateB.localeCompare(dateA)
+    if (byDate !== 0) return byDate
+  } else if (dateA) return -1
+  else if (dateB) return 1
+
+  const updatedA = safeString(rowA?.updatedAt).trim()
+  const updatedB = safeString(rowB?.updatedAt).trim()
+  if (updatedA && updatedB) {
+    const byUpdated = updatedB.localeCompare(updatedA)
+    if (byUpdated !== 0) return byUpdated
+  }
+
+  return safeString(rowB?.id).localeCompare(safeString(rowA?.id))
+}
+
+function sortRegistryRowsByDateDesc(rows, dateKey) {
+  return [...rows].sort((rowA, rowB) => compareRegistryRowsByDateDesc(rowA, rowB, dateKey))
+}
+
 /** 기간 검색: startDate/endDate(yyyy-mm-dd) 중 하나라도 있으면 dateKey 기준으로 필터 */
 function matchesDateRangeFilter(row, dateKey, startDate, endDate) {
   const start = safeString(startDate).trim()
@@ -4186,11 +4210,13 @@ function partitionSalesRowsByContractClosed(rows) {
 function groupSalesRowsByYearWithCompletion(rows, dateKey) {
   const baseGroups = groupRegistryRowsByYear(rows, dateKey)
   return baseGroups.map((group) => {
-    const { activeItems, contractClosedItems } = partitionSalesRowsByContractClosed(group.items)
+    const sortedItems = sortRegistryRowsByDateDesc(group.items, dateKey)
+    const { activeItems, contractClosedItems } = partitionSalesRowsByContractClosed(sortedItems)
     return {
       ...group,
-      activeItems,
-      completedItems: contractClosedItems,
+      items: sortedItems,
+      activeItems: sortRegistryRowsByDateDesc(activeItems, dateKey),
+      completedItems: sortRegistryRowsByDateDesc(contractClosedItems, dateKey),
       contractClosedSectionLabel: SALES_CONTRACT_CLOSED_GROUP_LABEL,
     }
   })
@@ -10931,7 +10957,7 @@ function App() {
             <td
               key={column.key}
               className={`${getTableBodyAlignClass(column)} ${
-                isLongTextTableColumn(column) ? 'multiline-cell' : ''
+                isLongTextTableColumn(column) && !isSalesDetailCell ? 'multiline-cell' : ''
               } ${
                 isImportanceCell ? 'registry-importance-cell' : ''
               } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${discoveryTextWrapClass} ${
@@ -10979,7 +11005,7 @@ function App() {
                   })
                 ) : (
                   <div
-                    className={`cell-display table-cell-clamp-2 sales-detail-preview editable-text-cell-display editable-text-cell-display--${cellAlign}${
+                    className={`sales-detail-preview sales-detail-preview--${cellAlign}${
                       isAdminForRegistry && !row.isDraft ? ' sales-detail-preview--editable' : ''
                     }`}
                     role={isAdminForRegistry && !row.isDraft ? 'button' : undefined}
