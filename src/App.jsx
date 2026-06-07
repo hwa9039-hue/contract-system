@@ -371,8 +371,8 @@ const SALES_COLUMNS = [
     label: '세부내용',
     align: 'left',
     type: 'textarea',
-    width: 920,
-    cellClass: 'sales-modal-text-cell sales-detail-cell',
+    width: 360,
+    cellClass: 'sales-detail-cell',
   },
   { key: 'source', label: '출처', align: 'center', type: 'text', width: 140 },
 ]
@@ -10880,6 +10880,7 @@ function App() {
         {columns.map((column) => {
           const isImportanceCell = column.type === 'importance'
           const isSmartDetailCell = isRegistrySmartDetailColumn(column, cellEditScope)
+          const isSalesDetailCell = isSalesDetailHistoryColumn(column, cellEditScope)
           const canUseRegistryModalEditor =
             cellEditScope === 'contactsManage' &&
             column.modalEditor &&
@@ -10917,7 +10918,7 @@ function App() {
           const usesTableInlineInput =
             !isImportanceCell &&
             !canUseRegistryModalEditor &&
-            (isEditableText || showInput || isSmartDetailCell)
+            (isEditableText || showInput || (isSmartDetailCell && !isSalesDetailCell))
           const discoveryTextWrapClass =
             cellEditScope === 'discovery' && column.type !== 'amount'
               ? 'whitespace-pre-wrap break-words'
@@ -10932,12 +10933,12 @@ function App() {
               } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${discoveryTextWrapClass} ${
                 usesTableInlineInput
                   ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
-                  : isAdminForRegistry && !row.isDraft && !isImportanceCell
+                  : isAdminForRegistry && !row.isDraft && !isImportanceCell && !isSalesDetailCell
                     ? 'editable-cell'
                     : ''
               }`}
               onClick={() => {
-                if (isImportanceCell || isEditableText) return
+                if (isImportanceCell || isEditableText || isSalesDetailCell) return
                 if (!isAdminForRegistry) return
                 if (row.isDraft) return
                 if (canUseRegistryModalEditor) {
@@ -10959,6 +10960,13 @@ function App() {
                     status={resolveRegistryImportanceStatus(displayRow, column)}
                   />
                 </div>
+              ) : isSalesDetailCell ? (
+                <div
+                  className={`cell-display table-cell-clamp-2 sales-detail-preview editable-text-cell-display editable-text-cell-display--${cellAlign}`}
+                  title={getRegistrySmartDetailDisplayValue(cellEditScope, column, row) || '세부내용'}
+                >
+                  {getRegistrySmartDetailDisplayValue(cellEditScope, column, row) || '\u00a0'}
+                </div>
               ) : isSmartDetailCell ? (
                 isThisCell ? (
                   renderRegistryCellInlineEditor(column, {
@@ -10968,11 +10976,9 @@ function App() {
                 ) : (
                   <div
                     className={`cell-display ${
-                      cellEditScope === 'discovery' || isSalesDetailHistoryColumn(column, cellEditScope)
+                      cellEditScope === 'discovery'
                         ? 'break-words whitespace-pre-wrap'
                         : 'table-cell-clamp'
-                    }${
-                      isSalesDetailHistoryColumn(column, cellEditScope) ? ' sales-detail-full-display' : ''
                     } editable-text-cell-display editable-text-cell-display--${cellAlign}`}
                     role="button"
                     tabIndex={0}

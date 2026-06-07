@@ -6504,6 +6504,24 @@ textarea:focus-visible {
   cursor: pointer;
 }
 
+.sales-registry-table .sales-detail-cell {
+  max-width: 360px;
+  cursor: default;
+}
+
+.sales-registry-table .sales-detail-cell:hover {
+  background: transparent;
+  outline: none;
+}
+
+.sales-registry-table .sales-detail-preview {
+  min-height: 2.6em;
+  max-height: calc(1.3em * 2 + 4px);
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
 .registry-action-header,
 .registry-action-cell {
   width: 88px;
