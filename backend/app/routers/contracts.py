@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, HTTPException, Request, status
 
+from app.contract_identity import contract_signature_from_mapping
 from app.database import get_connection, repair_contract_row_ids
 from app.schemas import (
     CONTRACT_DATE_API_KEYS,
@@ -138,7 +139,12 @@ def _unit_price_fields_from_contract(contract: ContractCreate) -> dict:
 def _after_contract_insert_unit_price(cursor, contract_id: str, contract: ContractCreate) -> None:
     fields = _unit_price_fields_from_contract(contract)
     if has_unit_price_payload(contract.model_dump()):
-        insert_unit_price_item(cursor, contract_id, fields)
+        insert_unit_price_item(
+            cursor,
+            contract_id,
+            fields,
+            contract_signature=contract_signature_from_mapping(contract.model_dump()),
+        )
 
 
 def _execute_contract_row_insert(

@@ -13,6 +13,7 @@ from app.routers import contracts
 from app.routers.unit_prices import router as unit_prices_router
 from app.routers import document_register
 from app.routers import excluded_projects
+from app.routers import project_management
 from app.routers import project_discovery
 from app.routers import sales_register
 from app.routers import weekly_work_reports
@@ -134,6 +135,13 @@ def health_check():
             if getattr(route, "path", None) and "calendar-events" in route.path
         }
     )
+    project_management_paths = sorted(
+        {
+            getattr(route, "path", "")
+            for route in app.routes
+            if getattr(route, "path", None) and "project-management" in route.path
+        }
+    )
     contacts_manage_routes = sorted(
         {
             (
@@ -159,6 +167,8 @@ def health_check():
         "projectDiscoveryPaths": discovery_paths,
         "calendarEvents": bool(calendar_paths),
         "calendarEventsPaths": calendar_paths,
+        "projectManagement": bool(project_management_paths),
+        "projectManagementPaths": project_management_paths,
         "contactsManage": bool(contacts_manage_paths),
         "contactsManagePaths": contacts_manage_paths,
         "contactsManageMethods": contacts_manage_methods,
@@ -180,6 +190,7 @@ def health_check():
 app.include_router(auth.router)
 app.include_router(contracts.router)
 app.include_router(unit_prices_router)
+app.include_router(project_management.router)
 app.include_router(sales_register.router)
 app.include_router(project_discovery.router)
 app.include_router(excluded_projects.router)

@@ -4,7 +4,7 @@ import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.
 import { EditableTextCell } from '../EditableTextCell.jsx'
 import { EditableDateCell } from '../EditableDateCell.jsx'
 import { isAuthSessionExpiredError } from '../apiClient.js'
-import { contractsApi } from '../contractsApi.js'
+import { projectManagementApi } from '../api/projectManagementApi.js'
 import { formatDateDisplay, toDbDate } from '../dateFieldUtils.js'
 import {
   PROJECT_MANAGEMENT_FILTERABLE_COLUMN_KEYS,
@@ -261,7 +261,7 @@ export default function ProjectManagement({ canEdit = true }) {
     setError(null)
 
     try {
-      const data = await contractsApi.list()
+      const data = await projectManagementApi.list()
       const rows = filterProjectContracts(data)
       setContracts(rows)
       syncSavedSnapshots(rows)
@@ -341,7 +341,7 @@ export default function ProjectManagement({ canEdit = true }) {
 
       savingContractIdsRef.current.add(contractId)
       try {
-        const updated = await contractsApi.update(contractId, patch)
+        const updated = await projectManagementApi.update(contractId, patch)
         const normalized = normalizeContractFromApi(updated)
         if (normalized) {
           savedByContractIdRef.current[contractId] = rowToSavedSnapshot(normalized)

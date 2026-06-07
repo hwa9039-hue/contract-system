@@ -11,6 +11,7 @@ ADMIN_ONLY_PREFIXES = (
 
 USER_READ_ONLY_PREFIXES = (
     "/api/contracts",
+    "/api/project-management",
     "/api/materials-board",
     "/api/install-cases",
 )

@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.contract_identity import contract_signature_from_mapping
 from app.database import get_connection
 from app.unit_price_items import (
     UNIT_PRICE_ITEM_RETURNING,
@@ -81,25 +82,64 @@ def _row_to_contract_parent(row: dict) -> dict:
     return base
 
 
-def _fetch_items_by_contract_ids(cursor, contract_ids: list[str]) -> dict[str, list[dict]]:
-    if not contract_ids:
+def _contract_signature(row: dict) -> str:
+    return contract_signature_from_mapping(row)
+
+
+def _fetch_items_for_contracts(cursor, contract_rows: list[dict]) -> dict[str, list[dict]]:
+    contract_ids = [
+        str(r.get("id") or "").strip()
+        for r in contract_rows
+        if r.get("id") is not None and str(r.get("id")).strip()
+    ]
+    signatures = [_contract_signature(r) for r in contract_rows]
+    signatures = [s for s in signatures if s]
+    if not contract_ids and not signatures:
         return {}
     cursor.execute(
         f"""
         select {UNIT_PRICE_ITEM_RETURNING}
         from contract_unit_price_items
         where contract_id::text = any(%s)
-        order by contract_id, sort_order, "createdAt"
+           or (contract_signature <> '' and contract_signature = any(%s))
+        order by contract_id, contract_signature, sort_order, "createdAt"
         """,
-        (contract_ids,),
+        (contract_ids, signatures),
     )
-    grouped: dict[str, list[dict]] = {}
+    by_contract_id: dict[str, list[dict]] = {}
+    by_signature: dict[str, list[dict]] = {}
     for row in cursor.fetchall():
         item = row_to_unit_price_item(row)
         cid = str(item.get("contractId") or "").strip()
-        if not cid:
-            continue
-        grouped.setdefault(cid, []).append(item)
+        sig = str(item.get("contractSignature") or "").strip()
+        if cid:
+            by_contract_id.setdefault(cid, []).append(item)
+        if sig:
+            by_signature.setdefault(sig, []).append(item)
+
+    grouped: dict[str, list[dict]] = {}
+    for row in contract_rows:
+        cid = str(row.get("id") or "").strip()
+        sig = _contract_signature(row)
+        items = by_contract_id.get(cid) or by_signature.get(sig) or []
+        if items and any(str(item.get("contractId") or "") != cid for item in items):
+            item_ids = [str(item.get("id") or "").strip() for item in items if item.get("id")]
+            if item_ids:
+                cursor.execute(
+                    """
+                    update contract_unit_price_items
+                    set contract_id = %s,
+                        contract_signature = %s,
+                        "updatedAt" = now()
+                    where id::text = any(%s)
+                    """,
+                    (cid, sig, item_ids),
+                )
+                for item in items:
+                    item["contractId"] = cid
+                    item["contractSignature"] = sig
+        if cid:
+            grouped[cid] = items
     return grouped
 
 
@@ -122,12 +162,8 @@ def list_unit_prices_tree(contractType: str = CONTRACT_TYPE_FILTER_DEFAULT):
                 )
                 contract_rows = cursor.fetchall()
 
-                contract_ids = [
-                    str(r.get("id") or "").strip()
-                    for r in contract_rows
-                    if r.get("id") is not None and str(r.get("id")).strip()
-                ]
-                items_by_contract = _fetch_items_by_contract_ids(cursor, contract_ids)
+                items_by_contract = _fetch_items_for_contracts(cursor, contract_rows)
+                connection.commit()
 
         result = []
         for row in contract_rows:
@@ -176,16 +212,23 @@ def create_unit_price_item(contract_id: str, body: UnitPriceItemCreate):
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
-                'select 1 from contracts_rows where id::text = %s',
+                f"""
+                select {CONTRACT_PARENT_SELECT}
+                from contracts_rows c
+                where c.id::text = %s
+                """,
                 (contract_id,),
             )
-            if cursor.fetchone() is None:
+            contract_row = cursor.fetchone()
+            if contract_row is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
+            values["contract_signature"] = _contract_signature(contract_row)
 
             cursor.execute(
                 f"""
                 insert into contract_unit_price_items (
                   contract_id,
+                  contract_signature,
                   sort_order,
                   "costService",
                   "itemName",
@@ -196,6 +239,7 @@ def create_unit_price_item(contract_id: str, body: UnitPriceItemCreate):
                 )
                 values (
                   %(contract_id)s,
+                  %(contract_signature)s,
                   %(sort_order)s,
                   %(costService)s,
                   %(itemName)s,

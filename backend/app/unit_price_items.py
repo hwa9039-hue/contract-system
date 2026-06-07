@@ -7,6 +7,7 @@ from app.schemas import to_response_value
 UNIT_PRICE_ITEM_RETURNING = """
   id::text as id,
   contract_id::text as "contractId",
+  contract_signature as "contractSignature",
   sort_order as "sortOrder",
   "costService",
   "itemName",
@@ -72,6 +73,9 @@ def row_to_unit_price_item(row: dict) -> dict:
     return {
         "id": to_response_value(row.get("id")) or "",
         "contractId": to_response_value(row.get("contractId") or row.get("contract_id")) or "",
+        "contractSignature": to_response_value(
+            row.get("contractSignature") or row.get("contract_signature") or ""
+        ),
         "sortOrder": to_response_value(row.get("sortOrder") or row.get("sort_order") or 0),
         "costService": to_response_value(row.get("costService") or row.get("cost_service") or ""),
         "itemName": to_response_value(row.get("itemName") or row.get("item_name") or ""),
@@ -142,9 +146,10 @@ def has_unit_price_payload(data: dict) -> bool:
     )
 
 
-def insert_unit_price_item(cursor, contract_id: str, fields: dict, *, sort_order: int = 0):
+def insert_unit_price_item(cursor, contract_id: str, fields: dict, *, sort_order: int = 0, contract_signature: str = ""):
     values = {
         "contract_id": contract_id,
+        "contract_signature": contract_signature,
         "sort_order": sort_order,
         "costService": fields.get("costService", ""),
         "itemName": fields.get("itemName", ""),
@@ -157,6 +162,7 @@ def insert_unit_price_item(cursor, contract_id: str, fields: dict, *, sort_order
         f"""
         insert into contract_unit_price_items (
           contract_id,
+          contract_signature,
           sort_order,
           "costService",
           "itemName",
@@ -167,6 +173,7 @@ def insert_unit_price_item(cursor, contract_id: str, fields: dict, *, sort_order
         )
         values (
           %(contract_id)s,
+          %(contract_signature)s,
           %(sort_order)s,
           %(costService)s,
           %(itemName)s,

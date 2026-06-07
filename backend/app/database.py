@@ -672,6 +672,117 @@ def init_db():
             _migrate_contract_unit_price_items(cursor)
             cursor.execute(
                 """
+                create table if not exists project_management_items (
+                  id uuid primary key default gen_random_uuid(),
+                  contract_id text,
+                  contract_signature text not null default '',
+                  "commencementCert" date,
+                  "completionCert" date,
+                  "warrantyStart" date,
+                  "warrantyExpiry" date,
+                  "guaranteeRate" text not null default '',
+                  "createdAt" timestamptz not null default now(),
+                  "updatedAt" timestamptz not null default now()
+                )
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists project_management_items_contract_id_idx
+                  on project_management_items (contract_id)
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists project_management_items_signature_idx
+                  on project_management_items (contract_signature)
+                """
+            )
+            cursor.execute(
+                """
+                alter table contract_unit_price_items
+                  add column if not exists contract_signature text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists contract_unit_price_items_signature_idx
+                  on contract_unit_price_items (contract_signature)
+                """
+            )
+            cursor.execute(
+                """
+                alter table contract_unit_price_items
+                  drop constraint if exists contract_unit_price_items_contract_id_fkey
+                """
+            )
+            cursor.execute(
+                """
+                update contract_unit_price_items i
+                set contract_signature = case
+                  when coalesce(nullif(trim(c."contractNo"), ''), '') <> ''
+                    then 'contract:' || lower(regexp_replace(trim(c."contractNo"), '\\s+', '', 'g'))
+                  else 'project:' || lower(regexp_replace(trim(c."projectName"), '\\s+', '', 'g'))
+                    || '|client:' || lower(regexp_replace(trim(c.client), '\\s+', '', 'g'))
+                    || '|date:' || coalesce(c."contractDate"::text, '')
+                end
+                from contracts_rows c
+                where i.contract_id::text = c.id::text
+                  and coalesce(i.contract_signature, '') = ''
+                """
+            )
+            cursor.execute(
+                """
+                insert into project_management_items (
+                  contract_id,
+                  contract_signature,
+                  "commencementCert",
+                  "completionCert",
+                  "warrantyStart",
+                  "warrantyExpiry",
+                  "guaranteeRate"
+                )
+                select
+                  c.id::text,
+                  case
+                    when coalesce(nullif(trim(c."contractNo"), ''), '') <> ''
+                      then 'contract:' || lower(regexp_replace(trim(c."contractNo"), '\\s+', '', 'g'))
+                    else 'project:' || lower(regexp_replace(trim(c."projectName"), '\\s+', '', 'g'))
+                      || '|client:' || lower(regexp_replace(trim(c.client), '\\s+', '', 'g'))
+                      || '|date:' || coalesce(c."contractDate"::text, '')
+                  end,
+                  c."commencementCert",
+                  c."completionCert",
+                  c."warrantyStart",
+                  c."warrantyExpiry",
+                  c."guaranteeRate"
+                from contracts_rows c
+                where (
+                  c."commencementCert" is not null
+                  or c."completionCert" is not null
+                  or c."warrantyStart" is not null
+                  or c."warrantyExpiry" is not null
+                  or coalesce(c."guaranteeRate", '') <> ''
+                )
+                and not exists (
+                  select 1
+                  from project_management_items p
+                  where p.contract_id = c.id::text
+                     or (
+                       p.contract_signature <> ''
+                       and p.contract_signature = case
+                         when coalesce(nullif(trim(c."contractNo"), ''), '') <> ''
+                           then 'contract:' || lower(regexp_replace(trim(c."contractNo"), '\\s+', '', 'g'))
+                         else 'project:' || lower(regexp_replace(trim(c."projectName"), '\\s+', '', 'g'))
+                           || '|client:' || lower(regexp_replace(trim(c.client), '\\s+', '', 'g'))
+                           || '|date:' || coalesce(c."contractDate"::text, '')
+                       end
+                     )
+                )
+                """
+            )
+            cursor.execute(
+                """
                 create index if not exists contracts_rows_year_idx
                   on contracts_rows (year desc)
                 """
