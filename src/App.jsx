@@ -4860,6 +4860,7 @@ function getDashboardRecentSortTime(row, config) {
 
 function getDashboardRecentItems(rows, config) {
   return [...rows]
+    .filter((row) => (typeof config.filterRow === 'function' ? config.filterRow(row) : true))
     .sort((a, b) => getDashboardRecentSortTime(b, config) - getDashboardRecentSortTime(a, config))
     .slice(0, DASHBOARD_RECENT_ITEM_LIMIT)
     .map((row) => {
@@ -6722,6 +6723,7 @@ function App() {
           menu: 'discovery',
           items: getDashboardRecentItems(persistedDiscoveryRows, {
             dateKey: 'permitDate',
+            filterRow: (row) => Boolean(parseDateOnly(row.permitDate)),
             getTitle: (row) => safeString(row.projectName || row.client).trim() || '건축정보 항목',
             getMeta: (row) =>
               [row.client, row.manager || row.salesTarget].filter(Boolean).join(' · ') || '-',
