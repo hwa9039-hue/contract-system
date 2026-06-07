@@ -49,10 +49,7 @@ TRUNCATE_TEXT_COLUMNS: set[str] = {
     "manager",
     "projectType",
     "department",
-    "detail",
     "source",
-    "salesNote",
-    "actionRequest",
 }
 
 

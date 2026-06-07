@@ -186,6 +186,45 @@ def _migrate_contracts_text_columns(cursor) -> None:
             )
 
 
+def _migrate_sales_register_text_columns(cursor) -> None:
+    """구형 NAS DB: 영업관리대장 varchar(50) → text (긴 세부내용 보존)."""
+    text_columns = (
+        "client",
+        "projectName",
+        "projectCategory",
+        "projectStage",
+        "manager",
+        "projectType",
+        "department",
+        "detail",
+        "source",
+        "salesNote",
+        "actionRequest",
+        "summary",
+    )
+    for col in text_columns:
+        quoted = f'"{col}"'
+        try:
+            cursor.execute(
+                f"""
+                alter table sales_register_rows
+                  alter column {quoted} type text
+                  using (
+                    case
+                      when {quoted} is null then null::text
+                      else {quoted}::text
+                    end
+                  )
+                """
+            )
+        except Exception:
+            logger.debug(
+                "sales_register_rows.%s type migration skipped or already text",
+                col,
+                exc_info=True,
+            )
+
+
 def _migrate_excluded_projects_row_columns(cursor) -> None:
     for old, new in (
         ("orderno", "orderNo"),
@@ -490,6 +529,7 @@ def init_db():
                   add column if not exists summary text
                 """
             )
+            _migrate_sales_register_text_columns(cursor)
             cursor.execute(
                 """
                 create table if not exists budget_progress_rows (
