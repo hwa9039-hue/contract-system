@@ -409,14 +409,18 @@ function resolveDiscoveryCanonicalHeader(headerText) {
 
     for (const alias of rule.aliases) {
       const aliasNorm = normalizeExcelHeaderKey(alias)
+      if (aliasNorm && norm === aliasNorm) return rule.canonical
+    }
+  }
+
+  for (const rule of DISCOVERY_HEADER_CANONICAL_RULES) {
+    for (const alias of rule.aliases) {
+      const aliasNorm = normalizeExcelHeaderKey(alias)
       if (!aliasNorm) continue
-      if (norm === aliasNorm) {
-        return rule.canonical
-      }
       // 짧고 흔한 단어(금액/구분/담당/내용 등)는 엉뚱한 열까지 잡기 쉬우므로
       // 정확히 일치할 때만 매핑한다.
       if (aliasNorm.length <= 2 || norm.length <= 2) continue
-      if (norm.includes(aliasNorm) || aliasNorm.includes(norm)) return rule.canonical
+      if (norm.includes(aliasNorm)) return rule.canonical
     }
   }
 
