@@ -3004,6 +3004,34 @@ function resolveDashboardExternalScheduleRow(entry) {
   return { user, content, destination }
 }
 
+/** 내용·목적지 줄바꿈(한 칸에 여러 건) → 대시보드에서 항목별로 분리 */
+function expandDashboardExternalScheduleRows(row) {
+  if (!row) return []
+  const user = safeString(row.user).trim()
+  const contentLines = safeString(row.content)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const destinationLines = safeString(row.destination)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (contentLines.length <= 1 && destinationLines.length <= 1) {
+    return [row]
+  }
+
+  const lineCount = Math.max(contentLines.length, destinationLines.length, 1)
+  const expanded = []
+  for (let index = 0; index < lineCount; index += 1) {
+    const content = contentLines[index] ?? ''
+    const destination = destinationLines[index] ?? ''
+    if (!content && !destination) continue
+    expanded.push({ user, content, destination })
+  }
+  return expanded.length ? expanded : [row]
+}
+
 /** 대시보드 브리핑: 오늘 날짜의 외부일정 슬롯(저장분 + draft) */
 function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDrafts) {
   const section = WORK_REPORT_SECTION_KEYS.external
@@ -3014,8 +3042,11 @@ function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDr
     const stored = pickLatestWorkReportRow(
       workReportRows.filter((r) => workReportRowKeyMatch(r, dateYmd, section, oi))
     )
-    const resolved = resolveDashboardExternalScheduleRow(draftEntry || stored)
-    if (resolved) list.push(resolved)
+    const mergedEntry = draftEntry ? { ...(stored || {}), ...draftEntry } : stored
+    const resolved = resolveDashboardExternalScheduleRow(mergedEntry)
+    if (resolved) {
+      expandDashboardExternalScheduleRows(resolved).forEach((item) => list.push(item))
+    }
   }
   return list
 }
