@@ -246,6 +246,7 @@ export default function ProjectManagement({ canEdit = true }) {
 
   const savedByContractIdRef = useRef({})
   const savingContractIdsRef = useRef(new Set())
+  const pendingSnapshotByContractIdRef = useRef(new Map())
 
   const syncSavedSnapshots = useCallback((rows) => {
     const saved = {}
@@ -315,32 +316,23 @@ export default function ProjectManagement({ canEdit = true }) {
     })
   }, [])
 
-  const persistContractFields = useCallback(
-    async (row, nextSnapshot) => {
-      const contractId = safeString(row.id).trim()
-      if (!contractId || savingContractIdsRef.current.has(contractId)) return false
+  const flushContractFieldSaves = useCallback(async (contractId) => {
+    if (!contractId || savingContractIdsRef.current.has(contractId)) return false
 
-      const saved = savedByContractIdRef.current[contractId] || rowToSavedSnapshot(row)
-      const patch = buildContractPatchDiff(
-        {
-          ...row,
-          ...Object.fromEntries(
-            PROJECT_MANAGEMENT_EDITABLE_FIELDS.map((key) => {
-              const column = columns.find((c) => c.field === key)
-              if (column?.type === 'date') {
-                return [key, nextSnapshot[key] ?? toDbDate(row[key])]
-              }
-              return [key, nextSnapshot[key] ?? safeString(row[key]).trim()]
-            })
-          ),
-        },
-        saved
-      )
+    savingContractIdsRef.current.add(contractId)
+    let savedAny = false
 
-      if (Object.keys(patch).length === 0) return false
+    try {
+      while (pendingSnapshotByContractIdRef.current.has(contractId)) {
+        const nextSnapshot = {
+          ...pendingSnapshotByContractIdRef.current.get(contractId),
+        }
+        pendingSnapshotByContractIdRef.current.delete(contractId)
 
-      savingContractIdsRef.current.add(contractId)
-      try {
+        const saved = savedByContractIdRef.current[contractId] || rowToSavedSnapshot({ id: contractId })
+        const patch = buildContractPatchDiff(nextSnapshot, saved)
+        if (Object.keys(patch).length === 0) continue
+
         const updated = await projectManagementApi.update(contractId, patch)
         const normalized = normalizeContractFromApi(updated)
         if (normalized) {
@@ -358,30 +350,39 @@ export default function ProjectManagement({ canEdit = true }) {
             })
           )
         } else {
-          savedByContractIdRef.current[contractId] = rowToSavedSnapshot({
-            ...row,
-            ...patch,
-          })
+          savedByContractIdRef.current[contractId] = { ...nextSnapshot }
         }
+        savedAny = true
         setSaveError(null)
-        return true
-      } catch (saveErr) {
-        if (isAuthSessionExpiredError(saveErr)) return false
-        console.error('[사업관리] 계약 저장 실패', saveErr)
-        setSaveError(saveErr?.message || '사업관리 데이터 저장에 실패했습니다.')
-        return false
-      } finally {
-        savingContractIdsRef.current.delete(contractId)
       }
-    },
-    []
-  )
+      return savedAny
+    } catch (saveErr) {
+      if (isAuthSessionExpiredError(saveErr)) return false
+      console.error('[사업관리] 계약 저장 실패', saveErr)
+      setSaveError(saveErr?.message || '사업관리 데이터 저장에 실패했습니다.')
+      pendingSnapshotByContractIdRef.current.delete(contractId)
+      return false
+    } finally {
+      savingContractIdsRef.current.delete(contractId)
+      if (pendingSnapshotByContractIdRef.current.has(contractId)) {
+        void flushContractFieldSaves(contractId)
+      }
+    }
+  }, [])
 
   const handleFieldSave = useCallback(
     async (row, field, rawValue) => {
+      const contractId = safeString(row.id).trim()
+      if (!contractId) return
+
       const column = columns.find((c) => c.field === field)
-      const nextSnapshot = rowToSavedSnapshot(row)
+      const baseline =
+        pendingSnapshotByContractIdRef.current.get(contractId) ||
+        savedByContractIdRef.current[contractId] ||
+        rowToSavedSnapshot(row)
+      const nextSnapshot = { ...baseline }
       let displayValue = ''
+
       if (column?.type === 'date') {
         nextSnapshot[field] =
           rawValue === null || rawValue === undefined ? null : toDbDate(rawValue)
@@ -391,16 +392,16 @@ export default function ProjectManagement({ canEdit = true }) {
         displayValue = nextSnapshot[field]
       }
 
-      const contractId = safeString(row.id).trim()
+      pendingSnapshotByContractIdRef.current.set(contractId, nextSnapshot)
       setContracts((prev) =>
         prev.map((item) =>
           item.id === contractId ? { ...item, [field]: displayValue } : item
         )
       )
 
-      await persistContractFields(row, nextSnapshot)
+      await flushContractFieldSaves(contractId)
     },
-    [persistContractFields]
+    [flushContractFieldSaves]
   )
 
   const showEmpty = !loading && !error && contracts.length === 0
