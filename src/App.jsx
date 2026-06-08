@@ -4898,6 +4898,37 @@ function getDashboardRecentUpdatedTime(row) {
   return Number.isNaN(updated.getTime()) ? 0 : updated.getTime()
 }
 
+function getDashboardRecentCreatedTime(row) {
+  const created = new Date(row.createdAt || 0)
+  return Number.isNaN(created.getTime()) ? 0 : created.getTime()
+}
+
+/** 등록 후 내용이 수정·저장된 행 (요약·세부내용 등) */
+function isDashboardRowUpdatedSinceCreate(row) {
+  const created = getDashboardRecentCreatedTime(row)
+  const updated = getDashboardRecentUpdatedTime(row)
+  if (!updated) return false
+  if (!created) return true
+  return updated - created > 60_000
+}
+
+function compareDashboardRecentItems(a, b, config) {
+  if (config.sortStrategy === 'updatedFirstThenDate') {
+    const aUpdated = isDashboardRowUpdatedSinceCreate(a)
+    const bUpdated = isDashboardRowUpdatedSinceCreate(b)
+    if (aUpdated !== bUpdated) return aUpdated ? -1 : 1
+    if (aUpdated && bUpdated) {
+      return getDashboardRecentUpdatedTime(b) - getDashboardRecentUpdatedTime(a)
+    }
+    const dateA = parseDateOnly(a?.[config.dateKey])?.getTime() || 0
+    const dateB = parseDateOnly(b?.[config.dateKey])?.getTime() || 0
+    if (dateA !== dateB) return dateB - dateA
+    return getDashboardRecentUpdatedTime(b) - getDashboardRecentUpdatedTime(a)
+  }
+
+  return getDashboardRecentSortTime(b, config) - getDashboardRecentSortTime(a, config)
+}
+
 function getDashboardRecentSortTime(row, config) {
   const sortKey = config.sortDateKey || config.dateKey
   const parsed = parseDateOnly(row?.[sortKey])
@@ -4908,7 +4939,7 @@ function getDashboardRecentSortTime(row, config) {
 function getDashboardRecentItems(rows, config) {
   return [...rows]
     .filter((row) => (typeof config.filterRow === 'function' ? config.filterRow(row) : true))
-    .sort((a, b) => getDashboardRecentSortTime(b, config) - getDashboardRecentSortTime(a, config))
+    .sort((a, b) => compareDashboardRecentItems(a, b, config))
     .slice(0, DASHBOARD_RECENT_ITEM_LIMIT)
     .map((row) => {
       const statusRaw = typeof config.getStatus === 'function' ? config.getStatus(row) : ''
@@ -6800,6 +6831,7 @@ function App() {
           menu: 'sales',
           items: getDashboardRecentItems(persistedSalesRows, {
             dateKey: 'registerDate',
+            sortStrategy: 'updatedFirstThenDate',
             getTitle: (row) => safeString(row.projectName || row.client).trim() || '영업 항목',
             getMeta: (row) =>
               [row.client, row.manager || row.projectStage].filter(Boolean).join(' · ') || '-',
