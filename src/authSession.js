@@ -11,6 +11,16 @@ export const CONTRACT_TOKEN_REFRESH_INTERVAL_MS = 10 * 60 * 1000
 export const CONTRACT_PERSISTENT_SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000
 export const CONTRACT_SHARED_WARNING_MS = 5 * 60 * 1000
 
+/** 남은 세션 분 → "8시간", "1시간 30분", "45분" 등 */
+export function formatRemainingSessionLabel(minutes) {
+  const m = Math.max(0, Math.ceil(Number(minutes) || 0))
+  if (m < 60) return `${m}분`
+  const hours = Math.floor(m / 60)
+  const rest = m % 60
+  if (rest === 0) return `${hours}시간`
+  return `${hours}시간 ${rest}분`
+}
+
 import { AUTH_TOKEN_KEY } from './apiClient.js'
 
 export const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'smartdi2026!'

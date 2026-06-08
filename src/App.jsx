@@ -127,7 +127,7 @@ import {
   canEditMenu,
   filterSidebarMenuItems,
 } from './permissions.js'
-import { CONTRACT_SHARED_WARNING_MS } from './authSession.js'
+import { CONTRACT_SHARED_WARNING_MS, formatRemainingSessionLabel } from './authSession.js'
 import {
   CONTRACT_EXCEL_HEADER_KEYWORDS,
   sheetToJsonWithSmartHeader,
@@ -12526,7 +12526,7 @@ function App() {
               >
                 {isLongLivedSession
                   ? '🟢 자동 로그인'
-                  : `남은 시간 ${remainingSessionMinutes}분`}
+                  : `남은 시간 ${formatRemainingSessionLabel(remainingSessionMinutes)}`}
               </span>
               <button
                 className="secondary-btn"
@@ -12583,7 +12583,7 @@ function App() {
                 lineHeight: 1.45,
               }}
             >
-              세션이 곧 만료됩니다 (약 {remainingSessionMinutes}분 남음)
+              세션이 곧 만료됩니다 (약 {formatRemainingSessionLabel(remainingSessionMinutes)} 남음)
             </div>
 
             <button
