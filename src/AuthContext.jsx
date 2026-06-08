@@ -15,6 +15,7 @@ import {
   ADMIN_PASSWORD,
   CONTRACT_PERSISTENT_SESSION_DURATION_MS,
   CONTRACT_SHARED_SESSION_DURATION_MS,
+  CONTRACT_TOKEN_REFRESH_INTERVAL_MS,
   hydrateAuthSessionFromStorage,
   restoreAuthSessionFromStorages,
   readStoredAdminFlag,
@@ -130,6 +131,57 @@ export function AuthProvider({ children }) {
     }
   }, [authHydrated, isAuthenticated, refreshAccessToken])
 
+  const bumpSessionExpiry = useCallback((persistence) => {
+    const effectivePersistence = persistence === 'persistent' ? 'persistent' : 'session'
+    const duration =
+      effectivePersistence === 'persistent'
+        ? CONTRACT_PERSISTENT_SESSION_DURATION_MS
+        : CONTRACT_SHARED_SESSION_DURATION_MS
+    const expiresAt = Date.now() + duration
+    if (effectivePersistence === 'persistent' || effectivePersistence === 'session') {
+      writeSharedAuthSession(expiresAt, effectivePersistence)
+      syncAuthTokenToActiveStorage(effectivePersistence)
+    }
+    setSharedSessionExpiresAt(expiresAt)
+    return expiresAt
+  }, [])
+
+  useEffect(() => {
+    if (!authHydrated || !isAuthenticated) return
+
+    const persistence = authPersistence === 'persistent' ? 'persistent' : 'session'
+
+    const maintainSession = async () => {
+      if (document.visibilityState !== 'visible') return
+      const result = await refreshAccessToken(persistence)
+      if (result === 'ok') {
+        bumpSessionExpiry(authPersistence)
+      }
+    }
+
+    const onTabActive = () => {
+      if (document.visibilityState === 'visible') {
+        void maintainSession()
+      }
+    }
+
+    const intervalId = setInterval(() => void maintainSession(), CONTRACT_TOKEN_REFRESH_INTERVAL_MS)
+    document.addEventListener('visibilitychange', onTabActive)
+    window.addEventListener('focus', onTabActive)
+
+    return () => {
+      clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', onTabActive)
+      window.removeEventListener('focus', onTabActive)
+    }
+  }, [
+    authHydrated,
+    isAuthenticated,
+    authPersistence,
+    refreshAccessToken,
+    bumpSessionExpiry,
+  ])
+
   const clearSessionExpiredNotice = useCallback(() => {
     setSessionExpiredNotice('')
   }, [])
@@ -239,18 +291,8 @@ export function AuthProvider({ children }) {
   const extendLogin = useCallback(async () => {
     const persistence = authPersistence === 'persistent' ? 'persistent' : 'session'
     await refreshAccessToken(persistence)
-    const duration =
-      authPersistence === 'persistent'
-        ? CONTRACT_PERSISTENT_SESSION_DURATION_MS
-        : CONTRACT_SHARED_SESSION_DURATION_MS
-    const expiresAt = Date.now() + duration
-    if (authPersistence === 'persistent' || authPersistence === 'session') {
-      writeSharedAuthSession(expiresAt, authPersistence)
-      syncAuthTokenToActiveStorage(authPersistence)
-    }
-    setSharedSessionExpiresAt(expiresAt)
-    return expiresAt
-  }, [authPersistence, refreshAccessToken])
+    return bumpSessionExpiry(authPersistence)
+  }, [authPersistence, refreshAccessToken, bumpSessionExpiry])
 
   const value = useMemo(
     () => ({

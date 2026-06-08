@@ -13,7 +13,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from app.contract_import_backup_xlsx import _format_amount_cell, _normalize_cell
+from app.contract_import_backup_xlsx import (
+    _format_amount_cell,
+    _normalize_cell,
+    _sanitize_openpyxl_text,
+)
 from app.database import get_connection
 from app.schemas import (
     row_to_calendar_manual_event,
@@ -268,6 +272,12 @@ def _fetch_table_rows(cursor, table: str, order_by: str) -> list[dict]:
     return list(cursor.fetchall())
 
 
+def _xlsx_cell_value(value: Any) -> Any:
+    if isinstance(value, (int, float, bool)):
+        return value
+    return _sanitize_openpyxl_text(value if value is not None else "")
+
+
 def _write_workbook(path: Path, sheet_title: str, rows: list[dict[str, Any]]) -> None:
     from openpyxl import Workbook
     from openpyxl.styles import Font
@@ -281,11 +291,11 @@ def _write_workbook(path: Path, sheet_title: str, rows: list[dict[str, Any]]) ->
         headers = list(rows[0].keys())
         hdr_font = Font(bold=True)
         for col, label in enumerate(headers, start=1):
-            cell = ws.cell(row=1, column=col, value=label)
+            cell = ws.cell(row=1, column=col, value=_xlsx_cell_value(label))
             cell.font = hdr_font
         for row_idx, row in enumerate(rows, start=2):
             for col_idx, key in enumerate(headers, start=1):
-                ws.cell(row=row_idx, column=col_idx, value=row.get(key, ""))
+                ws.cell(row=row_idx, column=col_idx, value=_xlsx_cell_value(row.get(key, "")))
     else:
         ws.cell(row=1, column=1, value="(데이터 없음)")
 
@@ -308,12 +318,15 @@ def export_all_menu_excel_backups(output_dir: Path, stamp: str | None = None) ->
                 if not _table_exists(cursor, table):
                     raise RuntimeError(f"Required table missing for excel export: {table}")
 
-                db_rows = _fetch_table_rows(cursor, table, spec["order_by"])
-                projected = [spec["project"](row) for row in db_rows]
-                out_path = output_dir / f"{spec['file_prefix']}_백업_{stamp}.xlsx"
-                _write_workbook(out_path, spec["sheet_title"], projected)
-                written.append(out_path)
-                logger.info("excel backup: %s (%s rows)", out_path.name, len(projected))
+                try:
+                    db_rows = _fetch_table_rows(cursor, table, spec["order_by"])
+                    projected = [spec["project"](row) for row in db_rows]
+                    out_path = output_dir / f"{spec['file_prefix']}_백업_{stamp}.xlsx"
+                    _write_workbook(out_path, spec["sheet_title"], projected)
+                    written.append(out_path)
+                    logger.info("excel backup: %s (%s rows)", out_path.name, len(projected))
+                except Exception:
+                    logger.exception("excel backup failed for table %s", table)
 
     return written
 
@@ -331,10 +344,9 @@ def main() -> int:
     if target is None:
         print("ERROR: MENU_EXCEL_EXPORT_DIR is not set.", file=sys.stderr)
         return 1
-    try:
-        files = export_all_menu_excel_backups(target)
-    except Exception:
-        logger.exception("menu excel export failed")
+    files = export_all_menu_excel_backups(target)
+    if not files:
+        print("ERROR: no excel files exported.", file=sys.stderr)
         return 1
     print(f"Excel export OK: {target} ({len(files)} files)")
     for path in files:

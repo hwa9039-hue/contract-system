@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 20
+# 프론트 CONTRACT_SHARED_SESSION_DURATION_MS(8h)와 맞춤 — 업무 중 재로그인 최소화
+ACCESS_TOKEN_EXPIRE_MINUTES = 480
 
 
 def get_jwt_secret() -> str:

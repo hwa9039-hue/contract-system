@@ -7,12 +7,26 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# openpyxl / Excel XML 에서 금지되는 제어 문자 (탭·LF·CR 제외)
+_OPENPYXL_ILLEGAL_CHARACTERS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+def _sanitize_openpyxl_text(value: Any) -> str:
+    """주간보고 등 복붙 텍스트에 섞인 제어 문자 제거 — IllegalCharacterError 방지."""
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        value = str(value)
+    return _OPENPYXL_ILLEGAL_CHARACTERS_RE.sub("", value)
+
 
 # 프론트 handleExcelDownload / 엑셀 업로드 컬럼과 동일 순서·헤더
 CONTRACT_BACKUP_HEADERS: tuple[tuple[str, str], ...] = (
@@ -57,7 +71,9 @@ def _normalize_cell(value: Any) -> Any:
         return value.isoformat()
     if isinstance(value, bool):
         return str(value)
-    return value
+    if isinstance(value, (int, float)):
+        return value
+    return _sanitize_openpyxl_text(value)
 
 
 def _format_amount_cell(value: Any) -> str:
@@ -75,7 +91,7 @@ def _format_amount_cell(value: Any) -> str:
             n = 0
         return f"{n:,}"
     except (InvalidOperation, ValueError, TypeError):
-        return str(value)
+        return _sanitize_openpyxl_text(value)
 
 
 def write_contract_import_excel_backup(
