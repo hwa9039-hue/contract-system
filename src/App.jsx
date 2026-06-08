@@ -140,6 +140,7 @@ import {
 import {
   WorkReportMeetingMinutesSection,
   buildMeetingMinutesPdfMarkup,
+  clearMeetingMinutesSessionBackup,
   isMeetingMinutesDataEmpty,
   parseMeetingMinutesFromEntry,
   getDashboardMeetingMinutesDisplayRows,
@@ -5104,6 +5105,7 @@ function App() {
   const workReportDraftsRef = useRef({})
   const workReportSaveChainRef = useRef(Promise.resolve())
   const saveWorkReportBoardEntryRef = useRef(() => Promise.resolve())
+  const meetingMinutesSaveTimerRef = useRef(null)
   const skipWorkReportWeekFlushRef = useRef(true)
   useLayoutEffect(() => {
     workReportRowsRef.current = workReportRows
@@ -9483,6 +9485,9 @@ function App() {
         }
 
         trackWorkWeek(targetRow.date, { selectWeek: false })
+        if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
+          clearMeetingMinutesSessionBackup(normalizeWorkReportDateKey(date))
+        }
         setToastMessage('저장되었습니다.')
 
         setWorkReportDrafts((prev) => {
@@ -9549,6 +9554,26 @@ function App() {
     return saveWorkReportBoardEntry(date, sectionNorm, oi)
   }
 
+  const scheduleMeetingMinutesSave = useCallback((weekStartDate) => {
+    const dateKey = normalizeWorkReportDateKey(weekStartDate)
+    if (!dateKey) return
+    if (meetingMinutesSaveTimerRef.current) {
+      window.clearTimeout(meetingMinutesSaveTimerRef.current)
+    }
+    meetingMinutesSaveTimerRef.current = window.setTimeout(() => {
+      meetingMinutesSaveTimerRef.current = null
+      void saveWorkReportBoardEntryRef.current(
+        dateKey,
+        WORK_REPORT_SECTION_KEYS.meetingMinutes,
+        1
+      )
+    }, 600)
+  }, [])
+
+  const handleMeetingMinutesAgendaCommit = useCallback(() => {
+    scheduleMeetingMinutesSave(selectedWorkWeekMeta.weekStartDate)
+  }, [scheduleMeetingMinutesSave, selectedWorkWeekMeta.weekStartDate])
+
   const flushAllPendingWorkReportSaves = () => {
     const flushed = new Set()
     const pending = []
@@ -9572,6 +9597,10 @@ function App() {
 
   useEffect(() => {
     const onPageHide = () => {
+      if (meetingMinutesSaveTimerRef.current) {
+        window.clearTimeout(meetingMinutesSaveTimerRef.current)
+        meetingMinutesSaveTimerRef.current = null
+      }
       void flushAllPendingWorkReportSaves()
     }
     const onVisibilityChange = () => {
@@ -12943,6 +12972,23 @@ function App() {
                 <button className="secondary-btn" type="button" onClick={handleMeetingMinutesPdfDownload}>
                   PDF 다운로드
                 </button>
+                <button
+                  className="primary-btn"
+                  type="button"
+                  onClick={() => {
+                    if (meetingMinutesSaveTimerRef.current) {
+                      window.clearTimeout(meetingMinutesSaveTimerRef.current)
+                      meetingMinutesSaveTimerRef.current = null
+                    }
+                    void flushWorkReportEntrySave(
+                      selectedWorkWeekMeta.weekStartDate,
+                      WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                      1
+                    )
+                  }}
+                >
+                  저장
+                </button>
               </div>
 
               <div className="work-report-summary-card">
@@ -12952,6 +12998,7 @@ function App() {
                 <div className="work-report-summary-meta">
                   <span>주차 {selectedWorkWeekMeta.weekNumber}주차</span>
                   <span>시작일 {selectedWorkWeekMeta.weekStartDate}</span>
+                  <span>입력 후 자동 저장 · 새로고침 전 「저장」 버튼 권장</span>
                 </div>
               </div>
 
@@ -12960,6 +13007,7 @@ function App() {
                   weekStartDate={selectedWorkWeekMeta.weekStartDate}
                   getEntry={getWorkReportBoardEntry}
                   updateEntry={updateWorkReportBoardEntry}
+                  onAgendaCommit={handleMeetingMinutesAgendaCommit}
                   onEntryBlur={handleWorkReportBoardBlur(
                     selectedWorkWeekMeta.weekStartDate,
                     WORK_REPORT_SECTION_KEYS.meetingMinutes,

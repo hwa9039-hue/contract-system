@@ -56,6 +56,10 @@ export function writeMeetingMinutesSessionBackup(weekStartDate, content) {
   }
 }
 
+export function clearMeetingMinutesSessionBackup(weekStartDate) {
+  writeMeetingMinutesSessionBackup(weekStartDate, '')
+}
+
 function safeString(value) {
   if (value === null || value === undefined) return ''
   return String(value)
@@ -640,10 +644,19 @@ export function loadMeetingMinutesDocument(weekStartDate, getEntry) {
   }
 }
 
+function loadMeetingMinutesDocumentFromSessionBackup(weekStartDate) {
+  const backup = readMeetingMinutesSessionBackup(weekStartDate)
+  if (!safeString(backup).trim()) return null
+  const doc = tryParseMeetingMinutesDocJson(decodeWorkReportWireText(backup))
+  if (!doc || isMeetingMinutesDocumentEmpty(doc)) return null
+  return doc
+}
+
 function loadMeetingMinutesDocumentUnsafe(weekStartDate, getEntry) {
   const entry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
   if (entry && isMeetingMinutesDocEntry(entry)) {
-    return parseMeetingMinutesDocumentFromEntry(entry)
+    const doc = parseMeetingMinutesDocumentFromEntry(entry)
+    if (!isMeetingMinutesDocumentEmpty(doc)) return doc
   }
 
   if (!weekHasPerRowMeetingMinutes(weekStartDate, getEntry)) {
@@ -674,7 +687,14 @@ function loadMeetingMinutesDocumentUnsafe(weekStartDate, getEntry) {
     return normalizeMeetingMinutesDocument({ agenda })
   }
 
-  if (entry) return parseMeetingMinutesDocumentFromEntry(entry)
+  if (entry) {
+    const doc = parseMeetingMinutesDocumentFromEntry(entry)
+    if (!isMeetingMinutesDocumentEmpty(doc)) return doc
+  }
+
+  const sessionDoc = loadMeetingMinutesDocumentFromSessionBackup(weekStartDate)
+  if (sessionDoc) return sessionDoc
+
   return getDefaultMeetingMinutesDocument()
 }
 
@@ -749,6 +769,7 @@ export function WorkReportMeetingMinutesSection({
   getEntry,
   updateEntry,
   onEntryBlur,
+  onAgendaCommit,
 }) {
   const boardEntry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
   const agendaRowsRef = useRef(getDefaultMeetingMinutesAgenda())
@@ -764,19 +785,33 @@ export function WorkReportMeetingMinutesSection({
     const merged = mergeMeetingMinutesAgendaForState(doc.agenda)
     agendaRowsRef.current = merged
     setAgendaRows(merged)
-  }, [loadSyncKey, weekStartDate])
+  }, [loadSyncKey, weekStartDate, getEntry])
+
+  useEffect(() => {
+    const backup = readMeetingMinutesSessionBackup(weekStartDate)
+    if (!safeString(backup).trim()) return
+    const entry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
+    const serverEmpty =
+      !safeString(entry?.id).trim() ||
+      isMeetingMinutesDataEmpty(parseMeetingMinutesFromEntry(entry))
+    if (!serverEmpty) return
+    onAgendaCommit?.()
+  }, [weekStartDate, loadSyncKey, getEntry, onAgendaCommit])
 
   const commitAgendaRows = useCallback(
     (nextAgenda) => {
       const merged = mergeMeetingMinutesAgendaForState(nextAgenda)
       agendaRowsRef.current = merged
       setAgendaRows(merged)
+      const boardEntry = buildMeetingMinutesBoardEntry(weekStartDate, null, merged)
       updateEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1, (prevEntry) =>
         buildMeetingMinutesBoardEntry(weekStartDate, prevEntry, merged)
       )
+      writeMeetingMinutesSessionBackup(weekStartDate, boardEntry.content)
+      onAgendaCommit?.()
       return merged
     },
-    [updateEntry, weekStartDate]
+    [updateEntry, weekStartDate, onAgendaCommit]
   )
 
   const patchAgendaRow = useCallback(

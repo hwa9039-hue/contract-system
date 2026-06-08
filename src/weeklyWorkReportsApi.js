@@ -1,6 +1,6 @@
 import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { readApiErrorMessage } from './apiErrors.js'
-import { toWeeklyWorkReportWirePayload } from './workReportWire.js'
+import { buildWorkReportWireVariants } from './workReportWire.js'
 
 async function requestJson(path, options = {}, attempt = 0) {
   const { headers: optHeaders, body: rawBody, ...rest } = options
@@ -44,8 +44,33 @@ function safeString(value) {
   return String(value)
 }
 
-function wireWritePayload(payload) {
-  return toWeeklyWorkReportWirePayload(payload)
+function isRetryableWireWriteError(error) {
+  const message = safeString(error?.message)
+  return /failed to fetch|networkerror|load failed|500|502|503|504|cloudflare|waf/i.test(message)
+}
+
+async function requestJsonWithWireVariants(path, method, payload, options = {}) {
+  const variants = options.alreadyWired ? [payload] : buildWorkReportWireVariants(payload)
+  let lastError = null
+
+  for (let index = 0; index < variants.length; index += 1) {
+    try {
+      return await requestJson(path, {
+        method,
+        body: variants[index],
+        ...options,
+        alreadyWired: true,
+      })
+    } catch (error) {
+      lastError = error
+      if (index < variants.length - 1 && isRetryableWireWriteError(error)) {
+        continue
+      }
+      throw error
+    }
+  }
+
+  throw lastError || new Error('weekly work report save failed')
 }
 
 export const weeklyWorkReportsApi = {
@@ -53,16 +78,15 @@ export const weeklyWorkReportsApi = {
     return requestJson('/api/weekly-work-reports')
   },
   create(payload, options = {}) {
-    return requestJson('/api/weekly-work-reports', {
-      method: 'POST',
-      body: options.alreadyWired ? payload : wireWritePayload(payload),
-    })
+    return requestJsonWithWireVariants('/api/weekly-work-reports', 'POST', payload, options)
   },
   update(id, patch, options = {}) {
-    return requestJson(`/api/weekly-work-reports/${encodeURIComponent(String(id))}`, {
-      method: 'PATCH',
-      body: options.alreadyWired ? patch : wireWritePayload(patch),
-    })
+    return requestJsonWithWireVariants(
+      `/api/weekly-work-reports/${encodeURIComponent(String(id))}`,
+      'PATCH',
+      patch,
+      options
+    )
   },
   remove(id) {
     return requestJson(`/api/weekly-work-reports/${encodeURIComponent(String(id))}`, {

@@ -9,6 +9,11 @@ export const WORK_REPORT_WIRE_PREFIX = 'wr1:'
 export const REPORT_PAYLOAD_PART_MAX = 48
 
 const MEETING_MINUTES_TEXT_PREFIX = 'mm2\n'
+const MEETING_MINUTES_DOC_PREFIX = 'mm3\n'
+
+function isMeetingMinutesWireContent(raw) {
+  return raw.startsWith(MEETING_MINUTES_TEXT_PREFIX) || raw.startsWith(MEETING_MINUTES_DOC_PREFIX)
+}
 
 export function decodeWorkReportWireText(value) {
   const s = value == null ? '' : String(value)
@@ -89,9 +94,7 @@ export function buildWorkReportWireVariants(payload) {
   if (!raw) return [rest]
 
   const variants = []
-  const isMeetingWire = raw.startsWith(MEETING_MINUTES_TEXT_PREFIX)
-
-  if (isMeetingWire) {
+  if (isMeetingMinutesWireContent(raw)) {
     variants.push({ ...rest, body: encodeWorkReportWireBody(raw) })
     variants.push({ ...rest, reportPayloadParts: splitReportPayloadParts(raw) })
     if (raw.length <= REPORT_PAYLOAD_PART_MAX) {
