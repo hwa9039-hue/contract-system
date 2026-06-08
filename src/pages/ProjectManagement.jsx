@@ -346,7 +346,16 @@ export default function ProjectManagement({ canEdit = true }) {
         if (normalized) {
           savedByContractIdRef.current[contractId] = rowToSavedSnapshot(normalized)
           setContracts((prev) =>
-            prev.map((item) => (item.id === contractId ? { ...item, ...normalized } : item))
+            prev.map((item) => {
+              if (item.id !== contractId) return item
+              const merged = { ...item }
+              for (const key of PROJECT_MANAGEMENT_EDITABLE_FIELDS) {
+                if (Object.prototype.hasOwnProperty.call(normalized, key)) {
+                  merged[key] = normalized[key]
+                }
+              }
+              return merged
+            })
           )
         } else {
           savedByContractIdRef.current[contractId] = rowToSavedSnapshot({

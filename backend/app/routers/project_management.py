@@ -108,6 +108,51 @@ def _date_to_text(value: Any) -> str:
     return str(value)
 
 
+def _text_to_date(value: Any) -> date | None:
+    text = _date_to_text(value).strip()
+    if not text or text in ("-", "—", "–", "2000-01-01", "1970-01-01"):
+        return None
+    try:
+        return date.fromisoformat(text[:10])
+    except ValueError:
+        return None
+
+
+def _apply_pm_item_to_contract_row(contract_row: dict, item_row: dict, contract_mapping: dict) -> dict:
+    pm_id = str(item_row.get("id") or "").strip()
+    if pm_id:
+        for key in PROJECT_MANAGEMENT_FIELDS:
+            contract_row[key] = item_row.get(key, "")
+    else:
+        for key in PROJECT_MANAGEMENT_FIELDS:
+            if item_row.get(key) not in (None, ""):
+                contract_row[key] = item_row[key]
+    contract_row["projectManagementId"] = pm_id
+    contract_row["contractSignature"] = (
+        item_row.get("contractSignature") or _contract_signature(contract_mapping)
+    )
+    return contract_row
+
+
+def _build_pm_values(contract_mapping: dict, patch_data: dict) -> dict:
+    contract_row = row_to_contract(contract_mapping)
+    values = {
+        "contract_id": str(contract_mapping.get("id") or contract_row.get("id") or "").strip(),
+        "contract_signature": _contract_signature(contract_mapping),
+    }
+    for key in PROJECT_MANAGEMENT_FIELDS:
+        if key in patch_data:
+            if key == "guaranteeRate":
+                values[key] = patch_data[key] or ""
+            else:
+                values[key] = patch_data[key]
+        elif key == "guaranteeRate":
+            values[key] = contract_row.get("guaranteeRate") or ""
+        else:
+            values[key] = _text_to_date(contract_row.get(key))
+    return values
+
+
 def _fetch_management_items(cursor, contract_rows: list[dict]) -> dict[str, dict]:
     contract_ids = [
         str(row.get("id") or "").strip()
@@ -189,19 +234,8 @@ def list_project_management_rows():
     result = []
     for contract in contract_rows:
         row = row_to_contract(contract)
-        item = items_by_contract.get(str(row.get("id") or ""), {})
-        pm_id = str(item.get("id") or "").strip()
-        if pm_id:
-            # 사업관리 전용 행이 있으면 빈 값(삭제)까지 그대로 반영 — contracts_rows 값으로 되돌리지 않음
-            for key in PROJECT_MANAGEMENT_FIELDS:
-                row[key] = item.get(key, "")
-        else:
-            for key in PROJECT_MANAGEMENT_FIELDS:
-                if item.get(key) not in (None, ""):
-                    row[key] = item[key]
-        row["projectManagementId"] = pm_id
-        row["contractSignature"] = item.get("contractSignature") or _contract_signature(contract)
-        result.append(row)
+        item = _row_to_project_management_item(items_by_contract.get(str(row.get("id") or ""), {}))
+        result.append(_apply_pm_item_to_contract_row(row, item, contract))
     return result
 
 
@@ -233,16 +267,7 @@ async def update_project_management_row(contract_id: str, request: Request):
             if contract is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
 
-            signature = _contract_signature(contract)
-            values = {
-                "contract_id": contract_id,
-                "contract_signature": signature,
-                "commencementCert": patch_data.get("commencementCert"),
-                "completionCert": patch_data.get("completionCert"),
-                "warrantyStart": patch_data.get("warrantyStart"),
-                "warrantyExpiry": patch_data.get("warrantyExpiry"),
-                "guaranteeRate": patch_data.get("guaranteeRate") or "",
-            }
+            values = _build_pm_values(contract, patch_data)
             cursor.execute(
                 f"""
                 select {PROJECT_MANAGEMENT_RETURNING}
@@ -308,9 +333,4 @@ async def update_project_management_row(contract_id: str, request: Request):
 
     contract_row = row_to_contract(contract)
     item_row = _row_to_project_management_item(item)
-    for key in PROJECT_MANAGEMENT_FIELDS:
-        if key in patch_data:
-            contract_row[key] = item_row.get(key, "")
-    contract_row["projectManagementId"] = item_row.get("id", "")
-    contract_row["contractSignature"] = item_row.get("contractSignature", signature)
-    return contract_row
+    return _apply_pm_item_to_contract_row(contract_row, item_row, contract)
