@@ -769,7 +769,6 @@ export function WorkReportMeetingMinutesSection({
   getEntry,
   updateEntry,
   onEntryBlur,
-  onAgendaCommit,
 }) {
   const boardEntry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
   const agendaRowsRef = useRef(getDefaultMeetingMinutesAgenda())
@@ -787,17 +786,6 @@ export function WorkReportMeetingMinutesSection({
     setAgendaRows(merged)
   }, [loadSyncKey, weekStartDate, getEntry])
 
-  useEffect(() => {
-    const backup = readMeetingMinutesSessionBackup(weekStartDate)
-    if (!safeString(backup).trim()) return
-    const entry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
-    const serverEmpty =
-      !safeString(entry?.id).trim() ||
-      isMeetingMinutesDataEmpty(parseMeetingMinutesFromEntry(entry))
-    if (!serverEmpty) return
-    onAgendaCommit?.()
-  }, [weekStartDate, loadSyncKey, getEntry, onAgendaCommit])
-
   const commitAgendaRows = useCallback(
     (nextAgenda) => {
       const merged = mergeMeetingMinutesAgendaForState(nextAgenda)
@@ -808,10 +796,9 @@ export function WorkReportMeetingMinutesSection({
         buildMeetingMinutesBoardEntry(weekStartDate, prevEntry, merged)
       )
       writeMeetingMinutesSessionBackup(weekStartDate, boardEntry.content)
-      onAgendaCommit?.()
       return merged
     },
-    [updateEntry, weekStartDate, onAgendaCommit]
+    [updateEntry, weekStartDate]
   )
 
   const patchAgendaRow = useCallback(
