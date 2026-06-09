@@ -114,6 +114,42 @@ def _migrate_project_discovery_permit_date_to_text(cursor) -> None:
         )
 
 
+def _migrate_project_discovery_text_columns(cursor) -> None:
+    """구형 NAS DB: project_discovery_rows varchar(50) → text (긴 세부내용·사업명 보존)."""
+    text_columns = (
+        "checkStatus",
+        "salesTarget",
+        "projectCategory",
+        "localGov",
+        "client",
+        "projectName",
+        "completionPeriod",
+        "manager",
+        "note",
+    )
+    for col in text_columns:
+        quoted = f'"{col}"'
+        try:
+            cursor.execute(
+                f"""
+                alter table project_discovery_rows
+                  alter column {quoted} type text
+                  using (
+                    case
+                      when {quoted} is null then null::text
+                      else trim({quoted}::text)
+                    end
+                  )
+                """
+            )
+        except Exception:
+            logger.debug(
+                "project_discovery_rows.%s type migration skipped or already text",
+                col,
+                exc_info=True,
+            )
+
+
 def _migrate_weekly_work_reports_text_columns(cursor) -> None:
     """구형 NAS DB: weekly_work_reports_rows varchar(50) → text (회의록 참석자·담당자 다중 선택 저장)."""
     text_columns = (
@@ -602,6 +638,7 @@ def init_db():
                 """
             )
             _migrate_project_discovery_row_columns(cursor)
+            _migrate_project_discovery_text_columns(cursor)
             cursor.execute(
                 """
                 create table if not exists excluded_projects_rows (

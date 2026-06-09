@@ -8859,7 +8859,12 @@ function App() {
       })
 
       const arrayBuffer = await file.arrayBuffer()
-      const workbook = XLSX.read(arrayBuffer, { type: 'array', raw: true, cellDates: false })
+      const workbook = XLSX.read(arrayBuffer, {
+        type: 'array',
+        raw: false,
+        cellText: true,
+        cellDates: false,
+      })
       const preferredSheetName =
         target === 'discovery'
           ? workbook.SheetNames.find((name) => safeString(name).trim() === '건축정보')

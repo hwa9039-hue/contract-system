@@ -143,21 +143,31 @@ export function getExcelCellFormattedText(cell) {
   return ''
 }
 
-/** 세부내용 등 긴 텍스트 — w가 첫 줄만 담는 경우 v(줄바꿈 포함)를 우선 */
+/** 세부내용 등 긴 텍스트 — w·v·format_cell 중 가장 긴 문자열 선택 */
 export function getExcelCellLongText(cell) {
   if (!cell) return ''
-  const formatted = getExcelCellFormattedText(cell)
-  const raw =
-    cell.v === null || cell.v === undefined
-      ? ''
-      : typeof cell.v === 'string'
-        ? cell.v
-        : String(cell.v)
-  const rawTrimmed = raw.trim()
-  if (!formatted) return rawTrimmed
-  if (!rawTrimmed) return formatted
-  if (rawTrimmed.includes('\n') && !formatted.includes('\n')) return rawTrimmed
-  return rawTrimmed.length > formatted.length ? rawTrimmed : formatted
+
+  const candidates = []
+  const push = (value) => {
+    const text = value === null || value === undefined ? '' : String(value).trim()
+    if (text) candidates.push(text)
+  }
+
+  push(getExcelCellFormattedText(cell))
+  push(cell.v)
+  try {
+    push(XLSX.utils.format_cell(cell))
+  } catch {
+    /* ignore */
+  }
+
+  if (!candidates.length) return ''
+
+  return candidates.reduce((best, cur) => {
+    if (!best) return cur
+    if (cur.includes('\n') && !best.includes('\n')) return cur
+    return cur.length > best.length ? cur : best
+  }, '')
 }
 
 /** 엑셀 날짜 시리얼 → 'YYYY년 M월' (준공시기 등 월 단위 표기) */
@@ -523,8 +533,20 @@ function discoveryExcelRowHasPrimaryData(row) {
   )
 }
 
+function discoveryExcelRowMergeKey(row) {
+  if (!row || typeof row !== 'object') return ''
+  return DISCOVERY_EXCEL_DATA_FIELDS.map((key) => stripCellForMatch(row[key])).join('|')
+}
+
+function appendDiscoveryExcelNote(targetRow, note) {
+  const trimmed = String(note ?? '').trim()
+  if (!trimmed) return
+  const prevNote = String(targetRow.세부내용 ?? '').trim()
+  targetRow.세부내용 = prevNote ? `${prevNote}\n${trimmed}` : trimmed
+}
+
 /**
- * 엑셀에서 세부내용만 다음 행에 이어지는 경우(줄바꿈·셀 병합) 한 레코드로 합침
+ * 엑셀에서 세부내용이 다음 행으로 이어지거나 동일 사업이 여러 행로 나뉜 경우 한 레코드로 합침
  */
 export function mergeDiscoveryExcelNoteContinuationRows(rows) {
   if (!Array.isArray(rows) || rows.length < 2) return rows
@@ -533,12 +555,27 @@ export function mergeDiscoveryExcelNoteContinuationRows(rows) {
   for (const row of rows) {
     const note = String(row?.세부내용 ?? '').trim()
     const hasPrimary = discoveryExcelRowHasPrimaryData(row)
+    const prev = merged[merged.length - 1]
 
-    if (!hasPrimary && note && merged.length > 0) {
-      const prev = merged[merged.length - 1]
+    if (prev && note) {
       const prevNote = String(prev.세부내용 ?? '').trim()
-      prev.세부내용 = prevNote ? `${prevNote}\n${note}` : note
-      continue
+      const mergeKey = discoveryExcelRowMergeKey(row)
+      const prevKey = discoveryExcelRowMergeKey(prev)
+
+      if (!hasPrimary) {
+        appendDiscoveryExcelNote(prev, note)
+        continue
+      }
+
+      if (
+        mergeKey &&
+        mergeKey === prevKey &&
+        note !== prevNote &&
+        (!prevNote || !prevNote.includes(note))
+      ) {
+        appendDiscoveryExcelNote(prev, note)
+        continue
+      }
     }
 
     merged.push({ ...row })
