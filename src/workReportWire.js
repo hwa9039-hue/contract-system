@@ -43,37 +43,7 @@ export function splitReportPayloadParts(text) {
   if (!raw) return []
   if (raw.length <= REPORT_PAYLOAD_PART_MAX) return [raw]
 
-  if (raw.includes('\n')) {
-    const lines = raw.split('\n')
-    const parts = []
-    let buffer = ''
-
-    for (const line of lines) {
-      const candidate = buffer ? `${buffer}\n${line}` : line
-      if (candidate.length <= REPORT_PAYLOAD_PART_MAX) {
-        buffer = candidate
-        continue
-      }
-
-      if (buffer) {
-        parts.push(buffer)
-        buffer = ''
-      }
-
-      if (line.length <= REPORT_PAYLOAD_PART_MAX) {
-        buffer = line
-        continue
-      }
-
-      for (let i = 0; i < line.length; i += REPORT_PAYLOAD_PART_MAX) {
-        parts.push(line.slice(i, i + REPORT_PAYLOAD_PART_MAX))
-      }
-    }
-
-    if (buffer) parts.push(buffer)
-    return parts
-  }
-
+  // 48자 고정 분할 — join 시 newlines·구분자(\u001f)가 그대로 복원됨 (줄 단위 분할은 join 시 \n 소실)
   const parts = []
   for (let i = 0; i < raw.length; i += REPORT_PAYLOAD_PART_MAX) {
     parts.push(raw.slice(i, i + REPORT_PAYLOAD_PART_MAX))
@@ -104,8 +74,8 @@ export function buildWorkReportWireVariants(payload) {
   }
 
   if (raw.length > REPORT_PAYLOAD_PART_MAX) {
-    variants.push({ ...rest, reportPayloadParts: splitReportPayloadParts(raw) })
     variants.push({ ...rest, body: encodeWorkReportWireBody(raw) })
+    variants.push({ ...rest, reportPayloadParts: splitReportPayloadParts(raw) })
     return variants
   }
 
