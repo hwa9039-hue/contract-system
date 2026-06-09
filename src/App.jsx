@@ -2763,21 +2763,13 @@ function isSalesDetailHistoryColumn(column, scope) {
   return scope === 'sales' && column?.key === 'detail'
 }
 
-function isDiscoveryDetailColumn(column, scope) {
-  return scope === 'discovery' && column?.key === 'note'
-}
-
 function isRegistrySmartDetailColumn(column, scope) {
-  return isSalesDetailHistoryColumn(column, scope) || isDiscoveryDetailColumn(column, scope)
+  return isSalesDetailHistoryColumn(column, scope)
 }
 
 function getRegistrySmartDetailEditValue(scope, column, row) {
   if (isSalesDetailHistoryColumn(column, scope)) {
     return safeString(row?.detail).trim()
-  }
-  if (isDiscoveryDetailColumn(column, scope)) {
-    const latest = extractLatestSalesDetailEntry(row?.note)
-    return latest || safeString(row?.note).trim()
   }
   return safeString(row?.[column?.key]).trim()
 }
@@ -2806,15 +2798,6 @@ function buildRegistrySmartDetailSavePayload(scope, column, row, rawValue) {
             ? `${stampedSummaryLine}\n${baseSummary}`
             : stampedSummaryLine
           : existingSummary
-      ),
-    }
-  }
-  if (isDiscoveryDetailColumn(column, scope)) {
-    const oldLatest = getRegistrySmartDetailEditValue(scope, column, row)
-    if (newDetail === oldLatest) return null
-    return {
-      note: normalizeSalesRecordForSave(
-        buildSalesRecordDetailWithNewEntry(row?.note, newDetail)
       ),
     }
   }
@@ -10576,32 +10559,17 @@ function App() {
       const payload = buildRegistrySmartDetailSavePayload(scope, column, targetRow, rawValue)
       if (!payload) return false
 
-      const previous =
-        scope === 'sales'
-          ? { detail: targetRow.detail, summary: targetRow.summary }
-          : { note: targetRow.note }
+      const previous = { detail: targetRow.detail, summary: targetRow.summary }
 
-      if (scope === 'sales') {
-        applyRegistryRowFieldPatch(scope, rowId, { key: 'detail', type: 'textarea' }, payload.detail)
-        applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, payload.summary)
-      } else if (scope === 'discovery') {
-        applyRegistryRowFieldPatch(scope, rowId, { key: 'note', type: 'textarea' }, payload.note)
-      }
+      applyRegistryRowFieldPatch(scope, rowId, { key: 'detail', type: 'textarea' }, payload.detail)
+      applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, payload.summary)
 
       try {
-        if (scope === 'sales') {
-          await salesRegisterApi.update(rowId, payload)
-        } else if (scope === 'discovery') {
-          await projectDiscoveryApi.update(rowId, payload)
-        }
+        await salesRegisterApi.update(rowId, payload)
         return true
       } catch (error) {
-        if (scope === 'sales') {
-          applyRegistryRowFieldPatch(scope, rowId, { key: 'detail', type: 'textarea' }, previous.detail)
-          applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, previous.summary)
-        } else if (scope === 'discovery') {
-          applyRegistryRowFieldPatch(scope, rowId, { key: 'note', type: 'textarea' }, previous.note)
-        }
+        applyRegistryRowFieldPatch(scope, rowId, { key: 'detail', type: 'textarea' }, previous.detail)
+        applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, previous.summary)
         const labelMap = {
           sales: '영업관리대장',
           discovery: '건축정보',
@@ -10834,13 +10802,14 @@ function App() {
     if (column.type === 'textarea') {
       const isSalesDetailEditor =
         scope === 'sales' && isSalesDetailHistoryColumn(column, scope)
+      const isDiscoveryNoteEditor = scope === 'discovery' && column.key === 'note'
       return (
         <textarea
           {...commonProps}
           className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} resize-none${
             isSalesDetailEditor ? ' sales-detail-inline-editor' : ''
-          }`}
-          rows={isSalesDetailEditor ? 6 : 2}
+          }${isDiscoveryNoteEditor ? ' discovery-note-inline-editor' : ''}`}
+          rows={isSalesDetailEditor || isDiscoveryNoteEditor ? 6 : 2}
         />
       )
     }
@@ -11030,7 +10999,9 @@ function App() {
             isEditableTextColumn(column) &&
             !(
               column.type === 'textarea' &&
-              (cellEditScope === 'excluded' || cellEditScope === 'documents')
+              (cellEditScope === 'excluded' ||
+                cellEditScope === 'documents' ||
+                cellEditScope === 'discovery')
             ) &&
             useCellMode &&
             isAdminForRegistry &&

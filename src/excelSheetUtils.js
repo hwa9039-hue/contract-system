@@ -143,6 +143,23 @@ export function getExcelCellFormattedText(cell) {
   return ''
 }
 
+/** 세부내용 등 긴 텍스트 — w가 첫 줄만 담는 경우 v(줄바꿈 포함)를 우선 */
+export function getExcelCellLongText(cell) {
+  if (!cell) return ''
+  const formatted = getExcelCellFormattedText(cell)
+  const raw =
+    cell.v === null || cell.v === undefined
+      ? ''
+      : typeof cell.v === 'string'
+        ? cell.v
+        : String(cell.v)
+  const rawTrimmed = raw.trim()
+  if (!formatted) return rawTrimmed
+  if (!rawTrimmed) return formatted
+  if (rawTrimmed.includes('\n') && !formatted.includes('\n')) return rawTrimmed
+  return rawTrimmed.length > formatted.length ? rawTrimmed : formatted
+}
+
 /** 엑셀 날짜 시리얼 → 'YYYY년 M월' (준공시기 등 월 단위 표기) */
 export function excelSerialToYearMonthKorean(serial) {
   const parsed = XLSX.SSF.parse_date_code(serial)
@@ -487,6 +504,48 @@ function assignDiscoveryRowField(rowData, canonicalHeader, value) {
   }
 }
 
+const DISCOVERY_EXCEL_DATA_FIELDS = [
+  '건축정보일자',
+  '확인',
+  '영업자',
+  '사업구분',
+  '발주처',
+  '사업명',
+  '사업금액',
+  '준공시기',
+  '담당자',
+]
+
+function discoveryExcelRowHasPrimaryData(row) {
+  if (!row || typeof row !== 'object') return false
+  return DISCOVERY_EXCEL_DATA_FIELDS.some(
+    (key) => stripCellForMatch(row[key]) !== ''
+  )
+}
+
+/**
+ * 엑셀에서 세부내용만 다음 행에 이어지는 경우(줄바꿈·셀 병합) 한 레코드로 합침
+ */
+export function mergeDiscoveryExcelNoteContinuationRows(rows) {
+  if (!Array.isArray(rows) || rows.length < 2) return rows
+
+  const merged = []
+  for (const row of rows) {
+    const note = String(row?.세부내용 ?? '').trim()
+    const hasPrimary = discoveryExcelRowHasPrimaryData(row)
+
+    if (!hasPrimary && note && merged.length > 0) {
+      const prev = merged[merged.length - 1]
+      const prevNote = String(prev.세부내용 ?? '').trim()
+      prev.세부내용 = prevNote ? `${prevNote}\n${note}` : note
+      continue
+    }
+
+    merged.push({ ...row })
+  }
+  return merged
+}
+
 export const DISCOVERY_EXCEL_FORMAT_ERROR = '엑셀 양식이 올바르지 않습니다.'
 export const DISCOVERY_EXCEL_NO_DATA_ERROR = '업로드할 유효한 데이터가 없습니다.'
 
@@ -536,6 +595,8 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
         value = normalizeExcelCompletionPeriodCell(cell)
       } else if (isDiscoveryPermitDateHeader(canonical, raw)) {
         value = normalizeExcelPermitDateCell(cell)
+      } else if (canonical === '세부내용') {
+        value = getExcelCellLongText(cell)
       } else {
         const formatted = getExcelCellFormattedText(cell)
         if (formatted) {
@@ -556,7 +617,7 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
   }
 
   return {
-    rows: parsedData,
+    rows: mergeDiscoveryExcelNoteContinuationRows(parsedData),
     headerRowIndex: headerIndex,
     raw_data: rawData,
     headers: headers.map((h) => h.canonical || h.raw).filter(Boolean),
