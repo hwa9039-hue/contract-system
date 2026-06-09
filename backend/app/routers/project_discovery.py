@@ -38,34 +38,12 @@ def now_text() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-TRUNCATE_TEXT_COLUMNS: set[str] = {
-    "permitDate",
-    "checkStatus",
-    "salesTarget",
-    "projectCategory",
-    "localGov",
-    "client",
-    "projectName",
-    "completionPeriod",
-    "manager",
-    "note",
-}
-
-
-def _truncate_text_values(values: dict) -> None:
-    """Guard VARCHAR-limited production schemas from Excel text overflow."""
-    for key in TRUNCATE_TEXT_COLUMNS:
-        if key in values and values[key] is not None:
-            values[key] = str(values[key])[:50]
-
-
 def prepare_insert_values(row: ProjectDiscoveryCreate) -> dict:
     values = project_discovery_to_db_values(row)
     timestamp = now_text()
     values["id"] = str(uuid4())
     values.setdefault("createdAt", timestamp)
     values.setdefault("updatedAt", timestamp)
-    _truncate_text_values(values)
     return values
 
 
