@@ -1,4 +1,4 @@
-const NARA_MARKET_URL = 'https://tkdwns5119-del.github.io/nara-scout/di'
+const NARA_MARKET_URL = 'https://tkdwns5119-del.github.io/nara-scout'
 
 export default function NaraMarket() {
   return (
