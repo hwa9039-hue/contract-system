@@ -11744,121 +11744,104 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   z-index: 90;
 }
 
-/* Mobile-only layout: preserve desktop UI, but let the whole page pan/scroll. */
+/* Mobile-only: desktop-like layout, document scroll (no nested panes), pinch zoom allowed. */
 @media (max-width: 768px) {
-  html,
-  body {
-    width: 100%;
-    min-width: 0;
+  html {
     height: auto;
-    min-height: 100dvh;
-    overflow: auto;
+    min-height: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   body {
-    zoom: 0.72;
+    width: auto;
+    min-width: 100%;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    zoom: 1 !important;
   }
 
   #root {
+    display: block;
     width: max-content;
     min-width: 100%;
     height: auto;
-    min-height: 100dvh;
+    min-height: 0;
+    max-height: none;
     overflow: visible;
   }
 
   .app-shell {
     flex-direction: row;
-    align-items: stretch;
+    align-items: flex-start;
     width: max-content;
     min-width: 1180px;
     height: auto;
-    min-height: 100dvh;
+    min-height: 0;
     max-height: none;
     overflow: visible;
   }
 
   .sidebar {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
     width: 180px;
     min-width: 180px;
     height: auto;
-    min-height: 100dvh;
+    min-height: 0;
     max-height: none;
     border-right: 1px solid rgba(255, 255, 255, 0.08);
     border-bottom: none;
   }
 
   .sidebar-top {
-    flex: 1 1 auto;
-    min-height: 0;
+    flex: none;
     padding: 8px;
-    overflow-x: hidden;
-    overflow-y: visible;
-  }
-
-  .menu {
-    gap: 8px;
-  }
-
-  .menu-group-items {
-    margin: 0;
-    padding-left: 0.5rem;
-  }
-
-  .menu-btn,
-  .menu-group-btn {
-    min-height: 44px;
-  }
-
-  .sidebar-bottom {
-    display: block;
-    padding: 8px;
-  }
-
-  .sidebar-bottom .viewer-badge {
-    margin-bottom: 8px;
-  }
-
-  .sidebar-bottom .logout-btn {
-    width: 100% !important;
+    overflow: visible;
   }
 
   .main-area {
-    flex: 1 1 auto;
+    flex: none;
     min-width: 1000px;
-    min-height: 100dvh;
     width: auto;
+    min-height: 0;
+    height: auto;
     padding: 6px 10px 12px;
     overflow: visible;
   }
 
-  .top-system-title,
-  .unified-title-bar h1 {
-    min-height: 58px;
-    padding: 0 18px;
-    font-size: 21px;
-    gap: 10px;
-  }
-
-  .main-area > section.stat-card {
+  .stat-card,
+  .main-area > section.stat-card,
+  .main-area > section.stat-card.stat-card--dashboard,
+  .main-area > section.stat-card.stat-card--iframe-embed {
     display: block;
-    min-height: auto;
-    overflow: visible;
+    flex: none !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   .main-area > section.stat-card .contract-table-panel,
   .main-area > section.stat-card.stat-card--work-reports,
   .main-area > section.stat-card.stat-card--work-reports > .work-report-page-body,
   .main-area > section.stat-card.stat-card--work-reports > .work-report-page-body--dual-scroll,
+  .main-area > section.stat-card.stat-card--unit-price .unit-price-page-stack,
+  .main-area > section.stat-card.stat-card--project-management .unit-price-page-stack,
   .table-wrap,
+  .table-wrap.contracts-only-scroll,
   .contracts-only-scroll,
   .unit-price-table-scroll,
   .work-report-week-board-area,
   .work-report-day-sections,
   .work-report-meeting-minutes-block,
   .meeting-minutes-table-wrap {
-    height: auto;
-    max-height: none;
-    overflow: visible;
+    flex: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
 }
