@@ -12386,7 +12386,7 @@ function App() {
         <div className="work-report-day-weekday">{day.label}</div>
         <div className="work-report-day-date">{day.date}</div>
       </div>
-      <div className="work-report-day-sections work-report-day-sections-dense h-full overflow-y-auto">
+      <div className="work-report-day-sections work-report-day-sections-dense">
         {renderWorkReportChecklistSectionV4(day.date)}
         {renderWorkReportExternalSectionV4(day.date)}
         {renderWorkReportManagedSection(

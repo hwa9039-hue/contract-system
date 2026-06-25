@@ -3700,7 +3700,7 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
   margin-bottom: 0;
   padding-bottom: 0;
 }
@@ -3777,16 +3777,17 @@ textarea:focus-visible {
 .main-area > section.stat-card .work-report-week-grid {
   width: max-content;
   min-width: 100%;
-  height: 100%;
-  align-items: stretch;
+  height: auto;
+  min-height: 100%;
+  align-items: flex-start;
 }
 
 .main-area > section.stat-card.stat-card--work-reports .work-report-day-board {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  max-height: 100%;
-  min-height: 0;
+  height: auto;
+  max-height: none;
+  min-height: 100%;
 }
 
 .main-area > section.stat-card.stat-card--work-reports .work-report-day-head {
@@ -3794,11 +3795,11 @@ textarea:focus-visible {
 }
 
 .main-area > section.stat-card.stat-card--work-reports .work-report-day-sections {
-  flex: 1 1 auto;
-  min-height: 0;
-  height: 100%;
+  flex: 0 0 auto;
+  min-height: auto;
+  height: auto;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -7714,8 +7715,9 @@ textarea:focus-visible {
   gap: 1rem;
   width: max-content;
   min-width: 100%;
-  height: 100%;
-  align-items: stretch;
+  height: auto;
+  min-height: 100%;
+  align-items: flex-start;
   overflow: visible;
   -webkit-overflow-scrolling: touch;
 }
