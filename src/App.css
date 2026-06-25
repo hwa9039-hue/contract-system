@@ -11671,6 +11671,7 @@ table[data-contract-table-row-key] thead th {
   font-size: var(--cms-table-header-font-size) !important;
   font-weight: var(--cms-table-header-font-weight) !important;
   line-height: var(--cms-table-cell-line-height) !important;
+  color: #1f2937 !important;
 }
 
 .excel-table tbody td,
@@ -11686,6 +11687,7 @@ table[data-contract-table-row-key] tbody td,
   font-size: var(--cms-table-cell-font-size) !important;
   font-weight: var(--cms-table-cell-font-weight) !important;
   line-height: var(--cms-table-cell-line-height) !important;
+  color: #111827 !important;
 }
 
 .contract-table.excel-table.registry-table .contract-year-toggle,
