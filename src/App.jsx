@@ -5036,6 +5036,7 @@ function App() {
   const workReportRowsRef = useRef([])
   const initialMenu = resolveInitialMenu()
   const [menu, setMenu] = useState(initialMenu)
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const [expandedMenuGroups, setExpandedMenuGroups] = useState(() =>
     loadExpandedMenuGroups(initialMenu)
   )
@@ -5235,6 +5236,19 @@ function App() {
       /* ignore */
     }
   }, [authHydrated, isAdmin, menu, showAppAlert])
+
+  useEffect(() => {
+    setIsMobileNavOpen(false)
+  }, [menu])
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const handleViewportChange = () => {
+      if (!mq.matches) setIsMobileNavOpen(false)
+    }
+    mq.addEventListener('change', handleViewportChange)
+    return () => mq.removeEventListener('change', handleViewportChange)
+  }, [])
 
   const applyInstallCaseFormDraftSnapshot = useCallback((snap) => {
     if (!snap?.form) return
@@ -12410,7 +12424,15 @@ function App() {
 
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${isMobileNavOpen ? ' app-shell--mobile-nav-open' : ''}`}>
+      {isMobileNavOpen ? (
+        <button
+          type="button"
+          className="mobile-nav-backdrop"
+          aria-label="메뉴 닫기"
+          onClick={() => setIsMobileNavOpen(false)}
+        />
+      ) : null}
       <aside className="sidebar">
         <div className="sidebar-top">
           <div className="company-logo-box">
@@ -12516,7 +12538,16 @@ function App() {
       <main className="main-area">
         <div className="top-system-bar">
           <div className="top-system-title">
-            <span>스마트DI사업부 통합관리 시스템</span>
+            <button
+              type="button"
+              className="mobile-nav-toggle"
+              aria-label={isMobileNavOpen ? '메뉴 닫기' : '메뉴 열기'}
+              aria-expanded={isMobileNavOpen}
+              onClick={() => setIsMobileNavOpen((open) => !open)}
+            >
+              ☰
+            </button>
+            <span className="top-system-title-text">스마트DI사업부 통합관리 시스템</span>
             <div
               style={{
                 marginLeft: 'auto',
