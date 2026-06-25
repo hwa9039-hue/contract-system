@@ -9293,11 +9293,12 @@ textarea:focus-visible {
   position: fixed;
   margin: 0;
   z-index: 3000;
-  /* Portal은 JS(getBoundingClientRect)로 top/left/width를 직접 지정 */
-  top: 0;
-  left: 0;
+  top: auto;
+  left: auto;
   right: auto;
+  bottom: auto;
   min-width: 0;
+  /* top/left/width는 JS(getBoundingClientRect)에서 !important로 지정 */
 }
 
 .work-report-external-manager-multi-item {

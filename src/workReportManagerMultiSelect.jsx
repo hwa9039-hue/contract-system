@@ -48,21 +48,21 @@ export function toggleManagerMultiSelectCsv(currentValue, managerName, optionLis
 
 function applyMenuPosition(triggerEl, menuEl) {
   const rect = triggerEl.getBoundingClientRect()
+  const x = Math.round(rect.left)
+  const y = Math.round(rect.bottom + MENU_GAP_PX)
+  const width = Math.round(rect.width)
 
-  // 항상 트리거 버튼 아래로 열림 (Portal로 overflow 잘림 방지, flip 없음)
-  const top = rect.bottom + MENU_GAP_PX
-
-  let left = rect.left
-  const menuWidth = Math.max(rect.width, menuEl.offsetWidth || rect.width)
-  const maxLeft = window.innerWidth - menuWidth - MENU_GAP_PX
-  left = Math.max(MENU_GAP_PX, Math.min(left, maxLeft))
-
-  menuEl.style.position = 'fixed'
-  menuEl.style.top = `${top}px`
-  menuEl.style.left = `${left}px`
-  menuEl.style.width = `${rect.width}px`
-  menuEl.style.minWidth = `${rect.width}px`
-  menuEl.style.zIndex = '3000'
+  // transform translate + fixed(0,0): body zoom(0.8) 환경에서도 버튼과 정확히 맞춤
+  menuEl.style.setProperty('position', 'fixed', 'important')
+  menuEl.style.setProperty('top', '0', 'important')
+  menuEl.style.setProperty('left', '0', 'important')
+  menuEl.style.setProperty('width', `${width}px`, 'important')
+  menuEl.style.setProperty('min-width', `${width}px`, 'important')
+  menuEl.style.setProperty('right', 'auto', 'important')
+  menuEl.style.setProperty('bottom', 'auto', 'important')
+  menuEl.style.setProperty('margin', '0', 'important')
+  menuEl.style.setProperty('transform', `translate(${x}px, ${y}px)`, 'important')
+  menuEl.style.setProperty('z-index', '3000', 'important')
   menuEl.style.visibility = 'visible'
 }
 
@@ -138,7 +138,7 @@ export function WorkReportExternalManagerMultiSelect({ value, onChange, options 
           className="work-report-external-manager-multi-menu work-report-external-manager-multi-menu--portal"
           role="listbox"
           aria-multiselectable="true"
-          style={{ visibility: 'hidden' }}
+          style={{ visibility: 'hidden', pointerEvents: 'auto' }}
           onMouseDown={(e) => e.stopPropagation()}
         >
           {options.map((option) => {
