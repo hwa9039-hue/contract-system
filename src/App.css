@@ -9290,7 +9290,14 @@ textarea:focus-visible {
 }
 
 .work-report-external-manager-multi-menu--portal {
-  display: none;
+  position: fixed;
+  margin: 0;
+  z-index: 3000;
+  /* Portal은 JS(getBoundingClientRect)로 top/left/width를 직접 지정 */
+  top: 0;
+  left: 0;
+  right: auto;
+  min-width: 0;
 }
 
 .work-report-external-manager-multi-item {
