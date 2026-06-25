@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 export const WORK_REPORT_MANAGER_OPTIONS = [
   '전기웅',
@@ -14,7 +13,20 @@ export const WORK_REPORT_MANAGER_OPTIONS = [
   '신상준',
 ]
 
-const MENU_GAP_PX = 4
+const BODY_MENU_OPEN_CLASS = 'work-report-manager-menu-open'
+let openMenuCount = 0
+
+function setBodyMenuOpen(isOpen) {
+  if (isOpen) {
+    openMenuCount += 1
+    document.body.classList.add(BODY_MENU_OPEN_CLASS)
+    return
+  }
+  openMenuCount = Math.max(0, openMenuCount - 1)
+  if (openMenuCount === 0) {
+    document.body.classList.remove(BODY_MENU_OPEN_CLASS)
+  }
+}
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -46,31 +58,9 @@ export function toggleManagerMultiSelectCsv(currentValue, managerName, optionLis
   return optionList.filter((option) => set.has(option)).join(', ')
 }
 
-function applyMenuPosition(triggerEl, menuEl) {
-  const rect = triggerEl.getBoundingClientRect()
-  const x = Math.round(rect.left)
-  const y = Math.round(rect.bottom + MENU_GAP_PX)
-  const width = Math.round(rect.width)
-
-  // transform translate + fixed(0,0): body zoom(0.8) 환경에서도 버튼과 정확히 맞춤
-  menuEl.style.setProperty('position', 'fixed', 'important')
-  menuEl.style.setProperty('top', '0', 'important')
-  menuEl.style.setProperty('left', '0', 'important')
-  menuEl.style.setProperty('width', `${width}px`, 'important')
-  menuEl.style.setProperty('min-width', `${width}px`, 'important')
-  menuEl.style.setProperty('right', 'auto', 'important')
-  menuEl.style.setProperty('bottom', 'auto', 'important')
-  menuEl.style.setProperty('margin', '0', 'important')
-  menuEl.style.setProperty('transform', `translate(${x}px, ${y}px)`, 'important')
-  menuEl.style.setProperty('z-index', '3000', 'important')
-  menuEl.style.visibility = 'visible'
-}
-
 export function WorkReportExternalManagerMultiSelect({ value, onChange, options = WORK_REPORT_MANAGER_OPTIONS }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
-  const triggerRef = useRef(null)
-  const menuRef = useRef(null)
   const selected = useMemo(() => parseManagerMultiSelectValue(value), [value])
 
   const handleToggleOption = (option) => {
@@ -81,64 +71,54 @@ export function WorkReportExternalManagerMultiSelect({ value, onChange, options 
     setOpen(false)
   }, [])
 
-  const syncMenuPosition = useCallback(() => {
-    const trigger = triggerRef.current
-    const menu = menuRef.current
-    if (!trigger || !menu) return
-    applyMenuPosition(trigger, menu)
-  }, [])
-
-  useLayoutEffect(() => {
-    if (!open) return
-
-    const menu = menuRef.current
-    if (menu) {
-      menu.style.visibility = 'hidden'
-    }
-
-    syncMenuPosition()
-    const rafId = requestAnimationFrame(syncMenuPosition)
-
-    const onResize = () => {
-      syncMenuPosition()
-    }
-
-    const onScroll = (event) => {
-      const target = event.target
-      if (menuRef.current?.contains(target)) return
-      closeMenu()
-    }
-
-    window.addEventListener('resize', onResize)
-    window.addEventListener('scroll', onScroll, true)
-
-    return () => {
-      cancelAnimationFrame(rafId)
-      window.removeEventListener('resize', onResize)
-      window.removeEventListener('scroll', onScroll, true)
-    }
-  }, [open, options.length, selected.length, closeMenu, syncMenuPosition])
+  useEffect(() => {
+    if (!open) return undefined
+    setBodyMenuOpen(true)
+    return () => setBodyMenuOpen(false)
+  }, [open])
 
   useEffect(() => {
     if (!open) return
     const onDocDown = (e) => {
       const target = e.target
       if (rootRef.current?.contains(target)) return
-      if (menuRef.current?.contains(target)) return
       closeMenu()
     }
     document.addEventListener('mousedown', onDocDown)
     return () => document.removeEventListener('mousedown', onDocDown)
   }, [open, closeMenu])
 
-  const menu = open
-    ? createPortal(
+  return (
+    <div
+      className={`work-report-external-manager-multi relative${open ? ' is-open' : ''}`}
+      ref={rootRef}
+    >
+      <button
+        type="button"
+        className="work-report-external-manager-multi-trigger"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="work-report-external-manager-multi-value">
+          {selected.length ? (
+            selected.map((name) => (
+              <span key={name} className="work-report-external-manager-multi-chip">
+                {name}
+              </span>
+            ))
+          ) : (
+            <span className="work-report-external-manager-multi-placeholder">담당자 선택</span>
+          )}
+        </span>
+        <span className="work-report-external-manager-multi-chevron" aria-hidden>
+          ▼
+        </span>
+      </button>
+      {open ? (
         <div
-          ref={menuRef}
-          className="work-report-external-manager-multi-menu work-report-external-manager-multi-menu--portal"
+          className="work-report-external-manager-multi-menu"
           role="listbox"
           aria-multiselectable="true"
-          style={{ visibility: 'hidden', pointerEvents: 'auto' }}
           onMouseDown={(e) => e.stopPropagation()}
         >
           {options.map((option) => {
@@ -160,36 +140,8 @@ export function WorkReportExternalManagerMultiSelect({ value, onChange, options 
               </button>
             )
           })}
-        </div>,
-        document.body
-      )
-    : null
-
-  return (
-    <div className="work-report-external-manager-multi relative" ref={rootRef}>
-      <button
-        ref={triggerRef}
-        type="button"
-        className="work-report-external-manager-multi-trigger"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <span className="work-report-external-manager-multi-value">
-          {selected.length ? (
-            selected.map((name) => (
-              <span key={name} className="work-report-external-manager-multi-chip">
-                {name}
-              </span>
-            ))
-          ) : (
-            <span className="work-report-external-manager-multi-placeholder">담당자 선택</span>
-          )}
-        </span>
-        <span className="work-report-external-manager-multi-chevron" aria-hidden>
-          ▼
-        </span>
-      </button>
-      {menu}
+        </div>
+      ) : null}
     </div>
   )
 }

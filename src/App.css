@@ -9273,7 +9273,7 @@ textarea:focus-visible {
 
 .work-report-external-manager-multi-menu {
   position: absolute;
-  z-index: 50;
+  z-index: 3000;
   left: 0;
   right: auto;
   top: calc(100% + 4px);
@@ -9289,16 +9289,30 @@ textarea:focus-visible {
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
 }
 
-.work-report-external-manager-multi-menu--portal {
-  position: fixed;
-  margin: 0;
-  z-index: 3000;
-  top: auto;
-  left: auto;
-  right: auto;
-  bottom: auto;
-  min-width: 0;
-  /* top/left/width는 JS(getBoundingClientRect)에서 !important로 지정 */
+.work-report-external-manager-multi.is-open {
+  z-index: 3001;
+}
+
+/* 드롭다운 열릴 때 overflow:hidden 조상이 메뉴를 자르지 않도록 */
+body.work-report-manager-menu-open .main-area > section.stat-card.stat-card--work-reports {
+  overflow: visible !important;
+}
+
+body.work-report-manager-menu-open .work-report-week-board-area {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+}
+
+body.work-report-manager-menu-open .work-report-day-board {
+  overflow: visible !important;
+}
+
+body.work-report-manager-menu-open .work-report-day-sections {
+  overflow: visible !important;
+}
+
+body.work-report-manager-menu-open .work-report-board-section {
+  overflow: visible !important;
 }
 
 .work-report-external-manager-multi-item {
