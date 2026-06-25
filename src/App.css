@@ -11744,35 +11744,48 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   z-index: 90;
 }
 
-/* Mobile-only layout: keep desktop rules untouched above 768px. */
+/* Mobile-only layout: preserve desktop UI, but let the whole page pan/scroll. */
 @media (max-width: 768px) {
   html,
-  body,
-  #root {
-    width: 100%;
-    height: 100dvh;
-    overflow: hidden;
-  }
-
   body {
-    zoom: 1;
-  }
-
-  .app-shell {
-    flex-direction: column;
-    width: 100%;
-    height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
-  }
-
-  .sidebar {
     width: 100%;
     min-width: 0;
     height: auto;
-    max-height: 34dvh;
-    border-right: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  body {
+    zoom: 0.72;
+  }
+
+  #root {
+    width: max-content;
+    min-width: 100%;
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .app-shell {
+    flex-direction: row;
+    align-items: stretch;
+    width: max-content;
+    min-width: 1180px;
+    height: auto;
+    min-height: 100dvh;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .sidebar {
+    width: 180px;
+    min-width: 180px;
+    height: auto;
+    min-height: 100dvh;
+    max-height: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: none;
   }
 
   .sidebar-top {
@@ -11780,101 +11793,72 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     min-height: 0;
     padding: 8px;
     overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .company-logo-box {
-    display: none;
+    overflow-y: visible;
   }
 
   .menu {
-    gap: 6px;
+    gap: 8px;
   }
 
   .menu-group-items {
-    margin: 6px 0 0;
-    padding-left: 0;
+    margin: 0;
+    padding-left: 0.5rem;
   }
 
   .menu-btn,
   .menu-group-btn {
-    min-height: 38px;
+    min-height: 44px;
   }
 
   .sidebar-bottom {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    display: block;
     padding: 8px;
   }
 
   .sidebar-bottom .viewer-badge {
-    flex: 1 1 auto;
-    min-width: 0;
-    margin: 0;
+    margin-bottom: 8px;
   }
 
   .sidebar-bottom .logout-btn {
-    flex: 0 0 auto;
-    width: auto !important;
-    min-height: 34px;
-    padding: 7px 12px;
+    width: 100% !important;
   }
 
   .main-area {
     flex: 1 1 auto;
-    min-height: 0;
-    width: 100%;
-    padding: 8px;
-    overflow: hidden;
+    min-width: 1000px;
+    min-height: 100dvh;
+    width: auto;
+    padding: 6px 10px 12px;
+    overflow: visible;
   }
 
   .top-system-title,
   .unified-title-bar h1 {
-    min-height: 48px;
-    padding: 8px 10px;
-    font-size: 16px;
-    gap: 8px;
+    min-height: 58px;
+    padding: 0 18px;
+    font-size: 21px;
+    gap: 10px;
   }
 
   .main-area > section.stat-card {
-    min-height: 0;
-    padding: 10px;
-    border-radius: 10px;
-    overflow: hidden;
+    display: block;
+    min-height: auto;
+    overflow: visible;
   }
 
-  .contracts-header-actions,
-  .table-toolbar,
-  .contract-filter-row,
-  .install-cases-toolbar,
-  .materials-board-toolbar,
-  .work-report-toolbar {
-    gap: 6px;
-  }
-
-  .table-search-input,
-  .registry-search-toolbar-split > .table-search-input,
-  .registry-date-range-picker,
-  .work-report-week-select {
-    flex: 1 1 100%;
-    min-width: 0;
-    width: 100%;
-  }
-
+  .main-area > section.stat-card .contract-table-panel,
+  .main-area > section.stat-card.stat-card--work-reports,
+  .main-area > section.stat-card.stat-card--work-reports > .work-report-page-body,
+  .main-area > section.stat-card.stat-card--work-reports > .work-report-page-body--dual-scroll,
   .table-wrap,
   .contracts-only-scroll,
   .unit-price-table-scroll,
   .work-report-week-board-area,
+  .work-report-day-sections,
+  .work-report-meeting-minutes-block,
   .meeting-minutes-table-wrap {
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .work-report-week-grid > .work-report-day-board,
-  .work-report-day-board {
-    width: min(92vw, 400px);
-    min-width: min(92vw, 400px);
+    height: auto;
+    max-height: none;
+    overflow: visible;
   }
 }
