@@ -11743,3 +11743,138 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   transform: translateX(-50%);
   z-index: 90;
 }
+
+/* Mobile-only layout: keep desktop rules untouched above 768px. */
+@media (max-width: 768px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  body {
+    zoom: 1;
+  }
+
+  .app-shell {
+    flex-direction: column;
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    max-height: 34dvh;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .sidebar-top {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 8px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .company-logo-box {
+    display: none;
+  }
+
+  .menu {
+    gap: 6px;
+  }
+
+  .menu-group-items {
+    margin: 6px 0 0;
+    padding-left: 0;
+  }
+
+  .menu-btn,
+  .menu-group-btn {
+    min-height: 38px;
+  }
+
+  .sidebar-bottom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .sidebar-bottom .viewer-badge {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .sidebar-bottom .logout-btn {
+    flex: 0 0 auto;
+    width: auto !important;
+    min-height: 34px;
+    padding: 7px 12px;
+  }
+
+  .main-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    padding: 8px;
+    overflow: hidden;
+  }
+
+  .top-system-title,
+  .unified-title-bar h1 {
+    min-height: 48px;
+    padding: 8px 10px;
+    font-size: 16px;
+    gap: 8px;
+  }
+
+  .main-area > section.stat-card {
+    min-height: 0;
+    padding: 10px;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .contracts-header-actions,
+  .table-toolbar,
+  .contract-filter-row,
+  .install-cases-toolbar,
+  .materials-board-toolbar,
+  .work-report-toolbar {
+    gap: 6px;
+  }
+
+  .table-search-input,
+  .registry-search-toolbar-split > .table-search-input,
+  .registry-date-range-picker,
+  .work-report-week-select {
+    flex: 1 1 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .table-wrap,
+  .contracts-only-scroll,
+  .unit-price-table-scroll,
+  .work-report-week-board-area,
+  .meeting-minutes-table-wrap {
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .work-report-week-grid > .work-report-day-board,
+  .work-report-day-board {
+    width: min(92vw, 400px);
+    min-width: min(92vw, 400px);
+  }
+}
