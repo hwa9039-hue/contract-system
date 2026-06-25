@@ -8573,10 +8573,17 @@ textarea:focus-visible {
 
 .meeting-minutes-doc__table-panel {
   width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .meeting-minutes-doc .meeting-minutes-table-wrap {
-  overflow: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: auto;
 }
 
 .meeting-minutes-doc__table.contract-table {
