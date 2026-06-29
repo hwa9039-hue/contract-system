@@ -14,12 +14,10 @@ function safeString(value) {
 }
 
 function normalizeCommencementCertApiValue(raw) {
-  if (isCommencementCertOmitValue(raw)) return null
   return toCommencementCertApiValue(raw)
 }
 
 function currentCommencementCertApiValue(value) {
-  if (isCommencementCertOmitValue(value)) return null
   return toCommencementCertApiValue(value)
 }
 

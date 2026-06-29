@@ -72,19 +72,18 @@ export function formatCommencementCertDisplay(value) {
   return formatDateDisplay(value)
 }
 
-/** API 응답 → 화면 상태 (null·'생략' → '생략', 빈 문자열 → 미입력) */
+/** API 응답 → 화면 상태 ('생략' → '생략', null·빈 문자열 → 미입력) */
 export function mapCommencementCertFromApi(apiValue) {
-  if (apiValue === null) return COMMENCEMENT_CERT_OMIT_LABEL
-  if (apiValue === undefined) return ''
+  if (apiValue === null || apiValue === undefined) return ''
   const str = safeString(apiValue).trim()
   if (!str) return ''
   if (isCommencementCertOmitValue(str)) return COMMENCEMENT_CERT_OMIT_LABEL
   return formatDateDisplay(apiValue)
 }
 
-/** 화면 상태 → API 저장값 ('생략' → null, 날짜 → YYYY-MM-DD, 미입력 → null) */
+/** 화면 상태 → API 저장값 ('생략' → '생략', 날짜 → YYYY-MM-DD, 미입력 → null) */
 export function toCommencementCertApiValue(uiValue) {
-  if (isCommencementCertOmitValue(uiValue)) return null
+  if (isCommencementCertOmitValue(uiValue)) return COMMENCEMENT_CERT_OMIT_LABEL
   const str = safeString(uiValue).trim()
   if (!str) return null
   return toDbDate(uiValue)
