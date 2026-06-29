@@ -18,6 +18,13 @@ export const MEETING_MINUTES_AGENDA_DEFAULT_ROWS = MEETING_MINUTES_AGENDA_FIXED_
 
 export const WORK_REPORT_MEETING_MINUTES_SECTION = '회의록'
 
+/** 회의록 테이블 담당자 드롭다운 (인명 + 영업지원) */
+export const MEETING_MINUTES_ASSIGNEE_OPTIONS = [...WORK_REPORT_MANAGER_OPTIONS, '영업지원']
+
+function serializeMeetingMinutesAssignees(assignees) {
+  return serializeManagerMultiSelectValue(assignees, MEETING_MINUTES_ASSIGNEE_OPTIONS)
+}
+
 const MEETING_MINUTES_SESSION_KEY_PREFIX = 'cms-meeting-mm3:'
 const MEETING_MINUTES_DOC_PREFIX = 'mm3\n'
 const MEETING_MINUTES_DOC_VERSION = 3
@@ -204,7 +211,7 @@ export function normalizeMeetingMinutesAgenda(agenda) {
       const assignees = parseManagerMultiSelectValue(row[1])
       return {
         content: safeString(row[0]),
-        assignee: serializeManagerMultiSelectValue(assignees),
+        assignee: serializeMeetingMinutesAssignees(assignees),
         assignees,
         dueDate: safeString(row[2]),
       }
@@ -212,7 +219,7 @@ export function normalizeMeetingMinutesAgenda(agenda) {
     const assignees = parseManagerMultiSelectValue(row?.assignees ?? row?.assignee ?? row?.person)
     return {
       content: safeString(row?.content ?? row?.text),
-      assignee: serializeManagerMultiSelectValue(assignees),
+      assignee: serializeMeetingMinutesAssignees(assignees),
       assignees,
       dueDate: safeString(row?.dueDate ?? row?.due),
     }
@@ -372,7 +379,7 @@ function parseMeetingMinutesTextRows(raw) {
       const assignees = parseManagerMultiSelectValue(row.assignee)
       agenda[idx] = {
         content: safeString(row.content).trim(),
-        assignee: serializeManagerMultiSelectValue(assignees),
+        assignee: serializeMeetingMinutesAssignees(assignees),
         assignees,
         dueDate: '',
       }
@@ -384,7 +391,7 @@ function parseMeetingMinutesTextRows(raw) {
     const assignees = parseManagerMultiSelectValue(row.assignee)
     return {
       content: safeString(row.content).trim(),
-      assignee: serializeManagerMultiSelectValue(assignees),
+      assignee: serializeMeetingMinutesAssignees(assignees),
       assignees,
       dueDate: '',
     }
@@ -541,7 +548,7 @@ function serializeMeetingMinutesTextBody(agenda) {
   for (let index = 0; index < rows.length; index += 1) {
     const text = sanitizeMeetingMinutesCell(rows[index].content)
     const person = sanitizeMeetingMinutesCell(
-      serializeManagerMultiSelectValue(rows[index].assignees ?? rows[index].assignee)
+      serializeMeetingMinutesAssignees(rows[index].assignees ?? rows[index].assignee)
     )
     const due = sanitizeMeetingMinutesCell(rows[index].dueDate)
     if (!text && !person && !due) continue
@@ -679,7 +686,7 @@ function loadMeetingMinutesDocumentUnsafe(weekStartDate, getEntry) {
       const assignees = parseManagerMultiSelectValue(rowEntry?.user)
       agenda[index] = {
         content: rowContent,
-        assignee: serializeManagerMultiSelectValue(assignees),
+        assignee: serializeMeetingMinutesAssignees(assignees),
         assignees,
         dueDate: safeString(rowEntry?.destination ?? rowEntry?.deadline),
       }
@@ -814,7 +821,7 @@ export function WorkReportMeetingMinutesSection({
         return {
           ...row,
           content: patch.content !== undefined ? patch.content : row.content,
-          assignee: serializeManagerMultiSelectValue(nextAssignees),
+          assignee: serializeMeetingMinutesAssignees(nextAssignees),
           assignees: nextAssignees,
           dueDate: patch.dueDate !== undefined ? patch.dueDate : row.dueDate,
         }
@@ -877,7 +884,7 @@ export function WorkReportMeetingMinutesSection({
                   <td className="meeting-minutes-doc__agenda-assignee">
                     <WorkReportExternalManagerMultiSelect
                       value={row.assignees ?? row.assignee}
-                      options={WORK_REPORT_MANAGER_OPTIONS}
+                      options={MEETING_MINUTES_ASSIGNEE_OPTIONS}
                       onChange={(nextCsv) =>
                         patchAgendaRow(index, { assignees: parseManagerMultiSelectValue(nextCsv) })
                       }

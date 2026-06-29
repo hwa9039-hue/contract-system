@@ -45,9 +45,12 @@ export function parseManagerMultiSelectValue(value) {
 }
 
 /** 담당자 배열 → API·DB용 CSV (옵션 순서 유지) */
-export function serializeManagerMultiSelectValue(assignees) {
+export function serializeManagerMultiSelectValue(
+  assignees,
+  optionList = WORK_REPORT_MANAGER_OPTIONS
+) {
   const selected = new Set(parseManagerMultiSelectValue(assignees))
-  return WORK_REPORT_MANAGER_OPTIONS.filter((name) => selected.has(name)).join(', ')
+  return optionList.filter((name) => selected.has(name)).join(', ')
 }
 
 export function toggleManagerMultiSelectCsv(currentValue, managerName, optionList = WORK_REPORT_MANAGER_OPTIONS) {
