@@ -1,6 +1,6 @@
 /** 사업관리 평면 리스트 — 헤더 열 필터·통합 검색 */
 
-import { formatDateDisplay } from './dateFieldUtils.js'
+import { formatCommencementCertDisplay, formatDateDisplay } from './dateFieldUtils.js'
 
 export const PROJECT_MANAGEMENT_FILTERABLE_COLUMN_KEYS = Object.freeze([
   'year',
@@ -65,6 +65,11 @@ export function getProjectManagementColumnFilterCellValue(item, columnKey) {
   if (columnKey === 'year') {
     const label = getYearLabel(row.year)
     return label || PROJECT_MANAGEMENT_COLUMN_FILTER_BLANK
+  }
+
+  if (columnKey === 'commencementCert') {
+    const displayed = formatCommencementCertDisplay(row[columnKey])
+    return displayed || PROJECT_MANAGEMENT_COLUMN_FILTER_BLANK
   }
 
   if (DATE_COLUMN_KEYS.has(columnKey)) {

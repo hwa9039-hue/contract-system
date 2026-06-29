@@ -114,6 +114,28 @@ def _migrate_project_discovery_permit_date_to_text(cursor) -> None:
         )
 
 
+def _migrate_project_management_commencement_cert_to_text(cursor) -> None:
+    """사업관리 착수계: date → text (날짜·'생략' 혼용 저장)."""
+    try:
+        cursor.execute(
+            """
+            alter table project_management_items
+              alter column "commencementCert" type text
+              using (
+                case
+                  when "commencementCert" is null then null::text
+                  else to_char("commencementCert", 'YYYY-MM-DD')
+                end
+              )
+            """
+        )
+    except Exception:
+        logger.debug(
+            "project_management_items.commencementCert type migration skipped or already text",
+            exc_info=True,
+        )
+
+
 def _migrate_project_discovery_text_columns(cursor) -> None:
     """구형 NAS DB: project_discovery_rows varchar(50) → text (긴 세부내용·사업명 보존)."""
     text_columns = (
@@ -763,6 +785,7 @@ def init_db():
                 )
                 """
             )
+            _migrate_project_management_commencement_cert_to_text(cursor)
             cursor.execute(
                 """
                 create index if not exists project_management_items_contract_id_idx

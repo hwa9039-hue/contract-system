@@ -3,9 +3,16 @@ import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.js'
 import { EditableTextCell } from '../EditableTextCell.jsx'
 import { EditableDateCell } from '../EditableDateCell.jsx'
+import { EditableCommencementCertCell } from '../EditableCommencementCertCell.jsx'
 import { isAuthSessionExpiredError } from '../apiClient.js'
 import { projectManagementApi } from '../api/projectManagementApi.js'
-import { formatDateDisplay, toDbDate } from '../dateFieldUtils.js'
+import {
+  formatCommencementCertDisplay,
+  formatDateDisplay,
+  isCommencementCertOmitValue,
+  toCommencementCertDbValue,
+  toDbDate,
+} from '../dateFieldUtils.js'
 import {
   PROJECT_MANAGEMENT_FILTERABLE_COLUMN_KEYS,
   buildProjectManagementColumnFilterOptions,
@@ -112,7 +119,7 @@ const columns = [
     width: 140,
     filterable: true,
     editable: true,
-    type: 'date',
+    type: 'commencementCert',
     colClass: 'unit-price-col-date-picker',
   },
   {
@@ -171,7 +178,7 @@ function normalizeContractFromApi(contract) {
     salesOwner: safeString(contract?.salesOwner).trim(),
     pm: safeString(contract?.pm).trim(),
     contractType: safeString(contract?.contractType).trim(),
-    commencementCert: formatDateDisplay(contract?.commencementCert),
+    commencementCert: formatCommencementCertDisplay(contract?.commencementCert),
     completionCert: formatDateDisplay(contract?.completionCert),
     warrantyStart: formatDateDisplay(contract?.warrantyStart),
     warrantyExpiry: formatDateDisplay(contract?.warrantyExpiry),
@@ -198,14 +205,21 @@ function filterProjectContracts(contracts) {
     .filter(Boolean)
 }
 
+function fieldToSavedSnapshotValue(field, rowValue, column) {
+  if (column?.type === 'commencementCert') {
+    return toCommencementCertDbValue(rowValue)
+  }
+  if (column?.type === 'date') {
+    return toDbDate(rowValue)
+  }
+  return safeString(rowValue).trim()
+}
+
 function rowToSavedSnapshot(row) {
   const snap = {}
   for (const key of PROJECT_MANAGEMENT_EDITABLE_FIELDS) {
-    if (columns.find((c) => c.field === key)?.type === 'date') {
-      snap[key] = toDbDate(row[key])
-    } else {
-      snap[key] = safeString(row[key]).trim()
-    }
+    const column = columns.find((c) => c.field === key)
+    snap[key] = fieldToSavedSnapshotValue(key, row[key], column)
   }
   return snap
 }
@@ -214,8 +228,7 @@ function buildContractPatchDiff(current, saved) {
   const patch = {}
   for (const key of PROJECT_MANAGEMENT_EDITABLE_FIELDS) {
     const column = columns.find((c) => c.field === key)
-    const cur =
-      column?.type === 'date' ? toDbDate(current[key]) : safeString(current[key]).trim()
+    const cur = fieldToSavedSnapshotValue(key, current[key], column)
     const prev = saved[key]
     if (cur !== prev) {
       patch[key] = cur
@@ -226,6 +239,12 @@ function buildContractPatchDiff(current, saved) {
 
 function getEditableColumnCellState(row, column) {
   const raw = row[column.field]
+  if (column.type === 'commencementCert') {
+    if (isCommencementCertOmitValue(raw)) {
+      return { isEmpty: false, text: formatCommencementCertDisplay(raw) }
+    }
+    return formatEditableTableCellText(raw, { isDate: true })
+  }
   if (column.type === 'date') {
     return formatEditableTableCellText(raw, { isDate: true })
   }
@@ -383,7 +402,10 @@ export default function ProjectManagement({ canEdit = true }) {
       const nextSnapshot = { ...baseline }
       let displayValue = ''
 
-      if (column?.type === 'date') {
+      if (column?.type === 'commencementCert') {
+        nextSnapshot[field] = toCommencementCertDbValue(rawValue)
+        displayValue = formatCommencementCertDisplay(nextSnapshot[field])
+      } else if (column?.type === 'date') {
         nextSnapshot[field] =
           rawValue === null || rawValue === undefined ? null : toDbDate(rawValue)
         displayValue = formatDateDisplay(nextSnapshot[field])
@@ -445,6 +467,23 @@ export default function ProjectManagement({ canEdit = true }) {
             }`}
           >
             {text}
+          </td>
+        )
+      }
+
+      if (column.editable && column.type === 'commencementCert') {
+        const isEmpty = !isCommencementCertOmitValue(row[column.field]) && isDateTableCellEmpty(row[column.field])
+        return (
+          <td
+            key={column.field}
+            className={`unit-price-editable-cell p-0 align-middle ${colClass} ${tableCellStateClass(!isEmpty)}`}
+          >
+            <EditableCommencementCertCell
+              value={row[column.field] ?? ''}
+              disabled={tableBusy}
+              className="unit-price-cell-input"
+              onSave={(nextValue) => void handleFieldSave(row, column.field, nextValue)}
+            />
           </td>
         )
       }

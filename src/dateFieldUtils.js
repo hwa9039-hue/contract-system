@@ -59,6 +59,33 @@ export function toDbDate(value) {
   return isPlaceholderEmptyDateYmd(ymd) ? null : ymd
 }
 
+/** 사업관리 착수계 — 날짜 대신 표시·저장하는 예외 텍스트 */
+export const COMMENCEMENT_CERT_OMIT_LABEL = '생략'
+
+export function isCommencementCertOmitValue(value) {
+  return safeString(value).trim() === COMMENCEMENT_CERT_OMIT_LABEL
+}
+
+/** 착수계 표시용 (날짜 YYYY-MM-DD 또는 '생략') */
+export function formatCommencementCertDisplay(value) {
+  if (isCommencementCertOmitValue(value)) return COMMENCEMENT_CERT_OMIT_LABEL
+  return formatDateDisplay(value)
+}
+
+/** 착수계 API 저장용 (YYYY-MM-DD | '생략' | null) */
+export function toCommencementCertDbValue(value) {
+  if (value === null || value === undefined) return null
+  const str = safeString(value).trim()
+  if (!str) return null
+  if (isCommencementCertOmitValue(str)) return COMMENCEMENT_CERT_OMIT_LABEL
+  return toDbDate(str)
+}
+
+export function isCommencementCertCellEmpty(value) {
+  if (isCommencementCertOmitValue(value)) return false
+  return !safeString(toDateInputValue(value)).trim()
+}
+
 /** 테이블 표시용 YYYY-MM-DD (빈 값은 '') */
 export function toDateInputValue(value) {
   return toDbDate(value) ?? ''

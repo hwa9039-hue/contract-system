@@ -62,14 +62,30 @@ PROJECT_MANAGEMENT_FIELDS = (
 )
 
 
+COMMENCEMENT_CERT_OMIT_LABEL = "생략"
+
+
 class ProjectManagementPatch(BaseModel):
-    commencementCert: date | None = None
+    commencementCert: date | str | None = None
     completionCert: date | None = None
     warrantyStart: date | None = None
     warrantyExpiry: date | None = None
     guaranteeRate: str | None = None
 
-    @field_validator("commencementCert", "completionCert", "warrantyStart", "warrantyExpiry", mode="before")
+    @field_validator("commencementCert", mode="before")
+    @classmethod
+    def normalize_commencement_cert(cls, value: Any):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            text = value.strip()
+            if text in ("", "-", "—", "–", "2000-01-01", "1970-01-01"):
+                return None
+            if text == COMMENCEMENT_CERT_OMIT_LABEL:
+                return COMMENCEMENT_CERT_OMIT_LABEL
+        return value
+
+    @field_validator("completionCert", "warrantyStart", "warrantyExpiry", mode="before")
     @classmethod
     def empty_dates_to_none(cls, value: Any):
         if value is None:
@@ -103,9 +119,21 @@ def _row_to_project_management_item(row: dict | None) -> dict:
 def _date_to_text(value: Any) -> str:
     if value is None:
         return ""
+    if isinstance(value, str):
+        return value.strip()
     if hasattr(value, "isoformat"):
         return value.isoformat()
     return str(value)
+
+
+def _normalize_commencement_cert_storage(value: Any) -> str | None:
+    text = _date_to_text(value).strip()
+    if not text or text in ("-", "—", "–", "2000-01-01", "1970-01-01"):
+        return None
+    if text == COMMENCEMENT_CERT_OMIT_LABEL:
+        return COMMENCEMENT_CERT_OMIT_LABEL
+    parsed = _text_to_date(text)
+    return parsed.isoformat() if parsed else None
 
 
 def _text_to_date(value: Any) -> date | None:
@@ -144,10 +172,14 @@ def _build_pm_values(contract_mapping: dict, patch_data: dict) -> dict:
         if key in patch_data:
             if key == "guaranteeRate":
                 values[key] = patch_data[key] or ""
+            elif key == "commencementCert":
+                values[key] = _normalize_commencement_cert_storage(patch_data[key])
             else:
                 values[key] = patch_data[key]
         elif key == "guaranteeRate":
             values[key] = contract_row.get("guaranteeRate") or ""
+        elif key == "commencementCert":
+            values[key] = _normalize_commencement_cert_storage(contract_row.get(key))
         else:
             values[key] = _text_to_date(contract_row.get(key))
     return values
