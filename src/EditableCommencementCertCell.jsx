@@ -3,7 +3,7 @@ import { TABLE_INLINE_INPUT_STANDARD_CLASS } from './tableInlineInputClass.js'
 import {
   COMMENCEMENT_CERT_OMIT_LABEL,
   isCommencementCertOmitValue,
-  toCommencementCertDbValue,
+  toCommencementCertApiValue,
   toDateInputValue,
 } from './dateFieldUtils.js'
 import { tableCellStateClass } from './tableCellEmptyState.js'
@@ -13,9 +13,14 @@ function safeString(value) {
   return String(value)
 }
 
-function normalizeCommencementCertSaveValue(raw) {
-  const normalized = toCommencementCertDbValue(raw)
-  return normalized === null ? null : normalized
+function normalizeCommencementCertApiValue(raw) {
+  if (isCommencementCertOmitValue(raw)) return null
+  return toCommencementCertApiValue(raw)
+}
+
+function currentCommencementCertApiValue(value) {
+  if (isCommencementCertOmitValue(value)) return null
+  return toCommencementCertApiValue(value)
 }
 
 export function EditableCommencementCertCell({
@@ -27,9 +32,10 @@ export function EditableCommencementCertCell({
   const omitActive = isCommencementCertOmitValue(value)
   const displayDate = omitActive ? '' : toDateInputValue(value)
   const isEmpty = !omitActive && displayDate.trim() === ''
-  const stateClass = tableCellStateClass(!omitActive && isEmpty)
+  const stateClass = tableCellStateClass(isEmpty)
   const [omitMode, setOmitMode] = useState(omitActive)
   const [draft, setDraft] = useState(displayDate)
+  const hasDateValue = !omitActive && safeString(draft).trim() !== ''
 
   useEffect(() => {
     const nextOmit = isCommencementCertOmitValue(value)
@@ -38,12 +44,17 @@ export function EditableCommencementCertCell({
   }, [value])
 
   const commitValue = (nextRaw) => {
-    const nextDb = normalizeCommencementCertSaveValue(nextRaw)
-    const prevDb = normalizeCommencementCertSaveValue(
-      isCommencementCertOmitValue(value) ? COMMENCEMENT_CERT_OMIT_LABEL : value
-    )
-    if (nextDb !== prevDb) {
-      onSave?.(nextDb)
+    if (isCommencementCertOmitValue(nextRaw)) {
+      if (!isCommencementCertOmitValue(value)) {
+        onSave?.(COMMENCEMENT_CERT_OMIT_LABEL)
+      }
+      return
+    }
+
+    const nextApi = normalizeCommencementCertApiValue(nextRaw)
+    const prevApi = currentCommencementCertApiValue(value)
+    if (nextApi !== prevApi) {
+      onSave?.(nextRaw === null || safeString(nextRaw).trim() === '' ? null : safeString(nextRaw).trim())
     }
   }
 
@@ -70,9 +81,9 @@ export function EditableCommencementCertCell({
   if (disabled) {
     return (
       <div
-        className={`cell-display editable-date-cell-display text-center ${stateClass} ${
-          isEmpty && !omitActive ? 'table-cell-empty-placeholder' : ''
-        } ${className}`.trim()}
+        className={`cell-display editable-date-cell-display text-center ${
+          omitActive ? 'commencement-cert-readonly-omit' : stateClass
+        } ${isEmpty && !omitActive ? 'table-cell-empty-placeholder' : ''} ${className}`.trim()}
       >
         {omitActive ? COMMENCEMENT_CERT_OMIT_LABEL : displayDate || '\u00a0'}
       </div>
@@ -80,7 +91,9 @@ export function EditableCommencementCertCell({
   }
 
   return (
-    <div className={`commencement-cert-cell ${stateClass} ${className}`.trim()}>
+    <div
+      className={`commencement-cert-cell${omitMode ? ' is-omit' : ' is-date'}${omitMode ? '' : ` ${stateClass}`} ${className}`.trim()}
+    >
       {omitMode ? (
         <>
           <span className="commencement-cert-omit-label">{COMMENCEMENT_CERT_OMIT_LABEL}</span>
@@ -97,7 +110,9 @@ export function EditableCommencementCertCell({
         <>
           <input
             type="date"
-            className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} editable-date-cell-input commencement-cert-date-input`}
+            className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} editable-date-cell-input commencement-cert-date-input${
+              hasDateValue ? ' has-value' : ''
+            }`}
             value={draft}
             disabled={disabled}
             onChange={(e) => {

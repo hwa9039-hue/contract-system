@@ -11229,6 +11229,11 @@ div[class*='MuiDataGrid-licenseWatermark'] {
   min-width: 140px;
 }
 
+.unit-price-table .unit-price-col-commencement-cert {
+  width: 172px;
+  min-width: 172px;
+}
+
 .unit-price-table .unit-price-col-guarantee-rate {
   width: 110px;
   min-width: 110px;
@@ -11396,7 +11401,30 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 .unit-price-table tbody td.unit-price-editable-cell {
   padding: 0 !important;
   vertical-align: middle;
-  background: #ffffff;
+  background: #ffffff !important;
+}
+
+/* 날짜·착수계 편집 셀 — 미입력이어도 주변 텍스트 셀과 동일한 흰 배경 */
+.unit-price-table tbody td.unit-price-editable-cell.table-cell--empty {
+  background-color: #ffffff !important;
+}
+
+.unit-price-table tbody td.unit-price-editable-cell .editable-date-cell-input,
+.unit-price-table tbody td.unit-price-editable-cell .editable-text-cell-input,
+.unit-price-table tbody td.unit-price-editable-cell .commencement-cert-cell {
+  background-color: #ffffff;
+}
+
+.unit-price-table tbody td.unit-price-editable-cell.table-cell--empty .editable-date-cell-input:not(.has-value),
+.unit-price-table tbody td.unit-price-editable-cell.table-cell--empty .editable-text-cell-input {
+  background-color: #ffffff;
+  color: #9ca3af;
+}
+
+.unit-price-table tbody td.unit-price-editable-cell .editable-date-cell-input.has-value,
+.unit-price-table tbody td.table-cell--filled .editable-date-cell-input {
+  color: #111827;
+  -webkit-text-fill-color: #111827;
 }
 
 .unit-price-table .unit-price-cell-input {
@@ -11462,7 +11490,9 @@ table[data-contract-table-row-key] tbody td.table-cell--filled {
 
 .commencement-cert-date-input {
   flex: 1 1 auto;
-  min-width: 0;
+  min-width: 118px;
+  font-size: 12px;
+  letter-spacing: -0.01em;
 }
 
 .commencement-cert-omit-label {
@@ -11470,14 +11500,42 @@ table[data-contract-table-row-key] tbody td.table-cell--filled {
   min-width: 0;
   text-align: center;
   font-size: 13px;
-  font-weight: 700;
-  color: #1f2937;
+  font-weight: 600;
+  color: #9ca3af;
+}
+
+/* 착수계 — 날짜는 진하게, 생략은 연하게 (table-cell empty/filled 규칙보다 우선) */
+.commencement-cert-cell.is-date .commencement-cert-date-input.has-value,
+.unit-price-table tbody td .commencement-cert-cell.is-date .commencement-cert-date-input.has-value {
+  color: #111827 !important;
+  -webkit-text-fill-color: #111827;
+}
+
+.commencement-cert-cell.is-date.table-cell--empty .commencement-cert-date-input:not(.has-value) {
+  color: #9ca3af;
+}
+
+.unit-price-table tbody td.table-cell--filled .commencement-cert-cell.is-date .commencement-cert-date-input,
+.unit-price-table tbody td.table-cell--empty .commencement-cert-cell.is-date.table-cell--empty .commencement-cert-date-input:focus,
+.unit-price-table tbody td.table-cell--filled .commencement-cert-cell.is-date .commencement-cert-date-input:focus {
+  color: #111827;
+  -webkit-text-fill-color: #111827;
+}
+
+.unit-price-table tbody td.table-cell--filled .commencement-cert-cell.is-omit .commencement-cert-omit-label,
+.unit-price-table tbody td.table-cell--empty .commencement-cert-cell.is-omit .commencement-cert-omit-label {
+  color: #9ca3af;
+}
+
+.commencement-cert-readonly-omit {
+  color: #9ca3af !important;
+  font-weight: 600;
 }
 
 .commencement-cert-mode-btn {
   flex: 0 0 auto;
-  height: 28px;
-  padding: 0 7px;
+  height: 26px;
+  padding: 0 5px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   background: #f8fafc;

@@ -111,7 +111,15 @@ export function AuthProvider({ children }) {
         )
         const data = await res.json().catch(() => ({}))
         if (cancelled) return
-        if (data.auth_disabled || data.valid) return
+        if (data.auth_disabled) return
+
+        if (data.valid && (data.role === 'admin' || data.role === 'user')) {
+          const roleIsAdmin = data.role === 'admin'
+          setIsAdmin(roleIsAdmin)
+          writeAdminFlag(roleIsAdmin, stored.persistence)
+        }
+
+        if (data.valid) return
 
         if (!hadBearerToken) return
 

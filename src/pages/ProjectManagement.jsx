@@ -7,10 +7,12 @@ import { EditableCommencementCertCell } from '../EditableCommencementCertCell.js
 import { isAuthSessionExpiredError } from '../apiClient.js'
 import { projectManagementApi } from '../api/projectManagementApi.js'
 import {
+  COMMENCEMENT_CERT_OMIT_LABEL,
   formatCommencementCertDisplay,
   formatDateDisplay,
   isCommencementCertOmitValue,
-  toCommencementCertDbValue,
+  mapCommencementCertFromApi,
+  toCommencementCertApiValue,
   toDbDate,
 } from '../dateFieldUtils.js'
 import {
@@ -116,11 +118,11 @@ const columns = [
   {
     field: 'commencementCert',
     headerName: '착수계',
-    width: 140,
+    width: 172,
     filterable: true,
     editable: true,
     type: 'commencementCert',
-    colClass: 'unit-price-col-date-picker',
+    colClass: 'unit-price-col-date-picker unit-price-col-commencement-cert',
   },
   {
     field: 'completionCert',
@@ -178,7 +180,7 @@ function normalizeContractFromApi(contract) {
     salesOwner: safeString(contract?.salesOwner).trim(),
     pm: safeString(contract?.pm).trim(),
     contractType: safeString(contract?.contractType).trim(),
-    commencementCert: formatCommencementCertDisplay(contract?.commencementCert),
+    commencementCert: mapCommencementCertFromApi(contract?.commencementCert),
     completionCert: formatDateDisplay(contract?.completionCert),
     warrantyStart: formatDateDisplay(contract?.warrantyStart),
     warrantyExpiry: formatDateDisplay(contract?.warrantyExpiry),
@@ -207,7 +209,7 @@ function filterProjectContracts(contracts) {
 
 function fieldToSavedSnapshotValue(field, rowValue, column) {
   if (column?.type === 'commencementCert') {
-    return toCommencementCertDbValue(rowValue)
+    return toCommencementCertApiValue(rowValue)
   }
   if (column?.type === 'date') {
     return toDbDate(rowValue)
@@ -378,8 +380,14 @@ export default function ProjectManagement({ canEdit = true }) {
     } catch (saveErr) {
       if (isAuthSessionExpiredError(saveErr)) return false
       console.error('[사업관리] 계약 저장 실패', saveErr)
-      setSaveError(saveErr?.message || '사업관리 데이터 저장에 실패했습니다.')
+      const message = safeString(saveErr?.message).trim()
+      setSaveError(
+        message === 'Forbidden'
+          ? '사업관리 저장은 관리자 권한이 필요합니다. 좌측 하단이 「관리자」인지 확인하고, 「일반 사용자」이면 로그아웃 후 관리자로 다시 로그인해 주세요.'
+          : message || '사업관리 데이터 저장에 실패했습니다.'
+      )
       pendingSnapshotByContractIdRef.current.delete(contractId)
+      void fetchContracts({ silent: true, isRefetch: true })
       return false
     } finally {
       savingContractIdsRef.current.delete(contractId)
@@ -387,7 +395,7 @@ export default function ProjectManagement({ canEdit = true }) {
         void flushContractFieldSaves(contractId)
       }
     }
-  }, [])
+  }, [fetchContracts])
 
   const handleFieldSave = useCallback(
     async (row, field, rawValue) => {
@@ -403,8 +411,10 @@ export default function ProjectManagement({ canEdit = true }) {
       let displayValue = ''
 
       if (column?.type === 'commencementCert') {
-        nextSnapshot[field] = toCommencementCertDbValue(rawValue)
-        displayValue = formatCommencementCertDisplay(nextSnapshot[field])
+        nextSnapshot[field] = toCommencementCertApiValue(rawValue)
+        displayValue = isCommencementCertOmitValue(rawValue)
+          ? COMMENCEMENT_CERT_OMIT_LABEL
+          : formatDateDisplay(nextSnapshot[field])
       } else if (column?.type === 'date') {
         nextSnapshot[field] =
           rawValue === null || rawValue === undefined ? null : toDbDate(rawValue)

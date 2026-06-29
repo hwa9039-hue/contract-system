@@ -50,7 +50,9 @@ export function EditableDateCell({
   return (
     <input
       type="date"
-      className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} editable-date-cell-input ${stateClass} ${className}`.trim()}
+      className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} editable-date-cell-input ${stateClass}${
+        draft.trim() ? ' has-value' : ''
+      } ${className}`.trim()}
       value={draft}
       disabled={disabled}
       onChange={(e) => {

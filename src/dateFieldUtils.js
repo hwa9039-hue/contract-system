@@ -66,19 +66,33 @@ export function isCommencementCertOmitValue(value) {
   return safeString(value).trim() === COMMENCEMENT_CERT_OMIT_LABEL
 }
 
-/** 착수계 표시용 (날짜 YYYY-MM-DD 또는 '생략') */
+/** 착수계 화면 표시용 (내부 상태: 날짜 YYYY-MM-DD 또는 '생략') */
 export function formatCommencementCertDisplay(value) {
   if (isCommencementCertOmitValue(value)) return COMMENCEMENT_CERT_OMIT_LABEL
   return formatDateDisplay(value)
 }
 
-/** 착수계 API 저장용 (YYYY-MM-DD | '생략' | null) */
-export function toCommencementCertDbValue(value) {
-  if (value === null || value === undefined) return null
-  const str = safeString(value).trim()
-  if (!str) return null
+/** API 응답 → 화면 상태 (null·'생략' → '생략', 빈 문자열 → 미입력) */
+export function mapCommencementCertFromApi(apiValue) {
+  if (apiValue === null) return COMMENCEMENT_CERT_OMIT_LABEL
+  if (apiValue === undefined) return ''
+  const str = safeString(apiValue).trim()
+  if (!str) return ''
   if (isCommencementCertOmitValue(str)) return COMMENCEMENT_CERT_OMIT_LABEL
-  return toDbDate(str)
+  return formatDateDisplay(apiValue)
+}
+
+/** 화면 상태 → API 저장값 ('생략' → null, 날짜 → YYYY-MM-DD, 미입력 → null) */
+export function toCommencementCertApiValue(uiValue) {
+  if (isCommencementCertOmitValue(uiValue)) return null
+  const str = safeString(uiValue).trim()
+  if (!str) return null
+  return toDbDate(uiValue)
+}
+
+/** @deprecated toCommencementCertApiValue 사용 */
+export function toCommencementCertDbValue(uiValue) {
+  return toCommencementCertApiValue(uiValue)
 }
 
 export function isCommencementCertCellEmpty(value) {
