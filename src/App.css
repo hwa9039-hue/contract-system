@@ -2005,6 +2005,13 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
   color: #0f172a;
 }
 
+.contract-row-copy-btn {
+  min-height: 28px;
+  padding: 5px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .global-register-control,
 .global-register-control-select {
   width: 100%;

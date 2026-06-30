@@ -2551,6 +2551,22 @@ const emptyContract = {
   note: '',
 }
 
+function buildContractCopyDraft(source) {
+  const draft = { ...emptyContract }
+  if (!source || typeof source !== 'object') return draft
+
+  CONTRACT_COLUMNS.forEach((column) => {
+    if (column.key === 'contractNo') return
+    const rawValue = source[column.key]
+    draft[column.key] =
+      column.key === 'amount' || column.type === 'amount'
+        ? formatAmount(rawValue)
+        : safeString(rawValue)
+  })
+
+  return draft
+}
+
 const emptyEvent = {
   dateStart: '',
   dateEnd: '',
@@ -6426,7 +6442,7 @@ function App() {
     return groupedContracts.flatMap((yb) => yb.items.map((item) => getContractTableRowKey(item)))
   }, [groupedContracts])
 
-  const contractTableColSpan = canEditContracts ? CONTRACT_COLUMNS.length + 2 : CONTRACT_COLUMNS.length + 1
+  const contractTableColSpan = canEditContracts ? CONTRACT_COLUMNS.length + 3 : CONTRACT_COLUMNS.length + 1
 
   const documentsRawData = documents
 
@@ -9874,6 +9890,15 @@ function App() {
     setNewRow({ ...emptyContract })
   }
 
+  const openContractDuplicateModal = (source) => {
+    if (!requireAdmin()) return
+    setContractEdit(null)
+    setContractEditDraft('')
+    setContractRegisterModalOpen(true)
+    setNewRow(buildContractCopyDraft(source))
+    setToastMessage('선택한 계약 내용을 신규 등록 폼에 복사했습니다.')
+  }
+
   const saveAddRow = async () => {
     if (!requireAdmin()) return
 
@@ -13192,6 +13217,9 @@ function App() {
                     {canEditContracts && (
                       <col className="contract-check-col" style={{ width: 44, minWidth: 44 }} />
                     )}
+                    {canEditContracts && (
+                      <col className="contract-copy-col" style={{ width: 76, minWidth: 76 }} />
+                    )}
                     <col className="contract-dday-col" style={{ width: 74, minWidth: 74 }} />
                     {CONTRACT_COLUMNS.map((column) => (
                       <col
@@ -13232,6 +13260,11 @@ function App() {
                               }}
                             />
                           </ContractTableHeaderShell>
+                        </th>
+                      )}
+                      {canEditContracts && (
+                        <th className={`th-align-center table-col-tight ${CONTRACT_TABLE_HEADER_TH_CLASS}`}>
+                          <ContractTableHeaderShell align="center">복사</ContractTableHeaderShell>
                         </th>
                       )}
                       <th className={`col-dday th-align-center table-col-tight ${CONTRACT_TABLE_HEADER_TH_CLASS}`}>
@@ -13367,6 +13400,23 @@ function App() {
                                           })
                                         }}
                                       />
+                                    </ContractTableCellShell>
+                                  </td>
+                                )}
+
+                                {canEditContracts && (
+                                  <td className={`td-align-center table-col-tight ${CONTRACT_TABLE_DATA_TD_CLASS}`}>
+                                    <ContractTableCellShell align="center">
+                                      <button
+                                        type="button"
+                                        className="secondary-btn contract-row-copy-btn"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          openContractDuplicateModal(item)
+                                        }}
+                                      >
+                                        복사
+                                      </button>
                                     </ContractTableCellShell>
                                   </td>
                                 )}
