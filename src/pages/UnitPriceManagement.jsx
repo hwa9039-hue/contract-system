@@ -304,7 +304,7 @@ function displayReadonlyCell(row, key) {
   return value || '-'
 }
 
-export default function UnitPriceManagement() {
+export default function UnitPriceManagement({ canEdit = true }) {
   const [contracts, setContracts] = useState([])
   const [loading, setLoading] = useState(true)
   const [refetching, setRefetching] = useState(false)
@@ -380,6 +380,10 @@ export default function UnitPriceManagement() {
     () => flatRows.length > 0 && filteredFlatRows.length === 0,
     [filteredFlatRows.length, flatRows.length]
   )
+  const visibleColumns = useMemo(
+    () => (canEdit ? columns : columns.filter((column) => column.field !== 'actions')),
+    [canEdit]
+  )
 
   const handleActiveFiltersApply = useCallback((columnKey, selected) => {
     setActiveFilters((prev) => {
@@ -394,6 +398,7 @@ export default function UnitPriceManagement() {
   const persistItemSnapshot = useCallback(
     async (row, nextSnapshot) => {
       const rowId = safeString(row.id).trim()
+      if (!canEdit) return false
       if (!rowId || savingItemIdsRef.current.has(rowId)) return false
 
       const contractId = safeString(row.contractId).trim()
@@ -446,12 +451,13 @@ export default function UnitPriceManagement() {
         savingItemIdsRef.current.delete(rowId)
       }
     },
-    [fetchTree]
+    [canEdit, fetchTree]
   )
 
   const handleItemFieldSave = useCallback(
     async (row, field, rawValue) => {
       const nextSnapshot = rowToSavedSnapshot(row)
+      if (!canEdit) return
       if (field === 'designUnitPrice') {
         nextSnapshot.designUnitPrice = formatDesignUnitPrice(rawValue)
       } else {
@@ -459,12 +465,13 @@ export default function UnitPriceManagement() {
       }
       await persistItemSnapshot(row, nextSnapshot)
     },
-    [persistItemSnapshot]
+    [canEdit, persistItemSnapshot]
   )
 
   const handleAddItem = useCallback(
     async (contractId) => {
       const cid = safeString(contractId).trim()
+      if (!canEdit) return
       if (!cid || tableBusy) return
 
       setTableBusy(true)
@@ -480,12 +487,13 @@ export default function UnitPriceManagement() {
         setTableBusy(false)
       }
     },
-    [fetchTree, tableBusy]
+    [canEdit, fetchTree, tableBusy]
   )
 
   const handleDeleteItem = useCallback(
     async (row) => {
       if (row?.isPlaceholder || isPlaceholderRowId(row?.id)) return
+      if (!canEdit) return
       const itemId = safeString(row?.id).trim()
       if (!itemId || tableBusy) return
       if (!window.confirm('이 품목을 삭제할까요?')) return
@@ -504,11 +512,11 @@ export default function UnitPriceManagement() {
         setTableBusy(false)
       }
     },
-    [fetchTree, tableBusy]
+    [canEdit, fetchTree, tableBusy]
   )
 
   const showEmpty = !loading && !error && flatRows.length === 0
-  const tableColSpan = columns.length
+  const tableColSpan = visibleColumns.length
 
   const renderBodyCell = useCallback(
     (row, column) => {
@@ -565,6 +573,22 @@ export default function UnitPriceManagement() {
           column.field === 'designUnitPrice'
             ? isTableCellEmpty(formatDesignUnitPrice(raw))
             : isTableCellEmpty(raw)
+        if (!canEdit) {
+          const displayValue =
+            column.field === 'designUnitPrice'
+              ? formatDesignUnitPrice(raw)
+              : safeString(raw).trim()
+          return (
+            <td
+              key={column.field}
+              className={`unit-price-readonly ${colClass} ${
+                column.align === 'right' ? 'text-right pr-4' : 'text-center'
+              } ${tableCellStateClass(isEmpty)}${isEmpty ? ' table-cell-empty-placeholder' : ''}`}
+            >
+              {displayValue || '-'}
+            </td>
+          )
+        }
         return (
           <td
             key={column.field}
@@ -583,7 +607,7 @@ export default function UnitPriceManagement() {
 
       return null
     },
-    [handleAddItem, handleDeleteItem, handleItemFieldSave, tableBusy]
+    [canEdit, handleAddItem, handleDeleteItem, handleItemFieldSave, tableBusy]
   )
 
   return (
@@ -623,7 +647,7 @@ export default function UnitPriceManagement() {
             <div className={unitPriceTableWrapClass({ refetching, tableBusy })}>
                 <table className={UNIT_PRICE_TABLE_CLASS}>
                   <colgroup>
-                    {columns.map((column) => (
+                    {visibleColumns.map((column) => (
                       <col
                         key={column.field}
                         className={column.colClass}
@@ -633,7 +657,7 @@ export default function UnitPriceManagement() {
                   </colgroup>
                   <thead>
                     <tr>
-                      {columns.map((column) => (
+                      {visibleColumns.map((column) => (
                         <th
                           key={column.field}
                           className={`${column.colClass} th-align-center${
@@ -670,7 +694,7 @@ export default function UnitPriceManagement() {
                   ) : (
                     filteredFlatRows.map((row, rowIndex) => (
                       <tr key={row.id} className={tableRowStripeClass(rowIndex)}>
-                        {columns.map((column) => renderBodyCell(row, column))}
+                        {visibleColumns.map((column) => renderBodyCell(row, column))}
                       </tr>
                     ))
                   )}
@@ -678,7 +702,9 @@ export default function UnitPriceManagement() {
               </table>
             </div>
             <p className="unit-price-grid-hint">
-              품목 셀을 클릭하면 수정할 수 있으며, 편집 후 다른 셀을 클릭하면 자동 저장됩니다.
+              {canEdit
+                ? '품목 셀을 클릭하면 수정할 수 있으며, 편집 후 다른 셀을 클릭하면 자동 저장됩니다.'
+                : '일반 사용자는 단가관리 내용을 조회만 할 수 있습니다.'}
             </p>
           </div>
         )}

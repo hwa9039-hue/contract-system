@@ -6,7 +6,7 @@ export const ROLES = Object.freeze({
 })
 
 /** 접근 불가 — 메뉴 숨김 + API 전체 차단 */
-export const ADMIN_ONLY_MENUS = new Set(['contactsManage', 'unitPrice'])
+export const ADMIN_ONLY_MENUS = new Set([])
 
 /** 조회 전용 — GET만 허용, 편집 UI 숨김 */
 export const VIEWER_ONLY_MENUS = new Set([
@@ -14,6 +14,8 @@ export const VIEWER_ONLY_MENUS = new Set([
   'projectManagement',
   'materialsBoard',
   'installCases',
+  'contactsManage',
+  'unitPrice',
 ])
 
 /** 일반 사용자도 조회·편집 가능 */
@@ -47,7 +49,6 @@ export function filterSidebarMenuItems(items, isAdmin) {
 }
 
 export function isAdminOnlyMenuPath(pathname) {
-  if (pathname === '/unit-price') return true
   return false
 }
 

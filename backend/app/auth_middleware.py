@@ -15,9 +15,11 @@ _DEFAULT_CORS_ORIGINS = (
     "https://contract-system-2ev.pages.dev",
     "https://contract.signtelecom-smartdi.com",
     "http://contract.signtelecom-smartdi.com",
+    "https://contract.smart-di.com",
+    "http://contract.smart-di.com",
 )
 _CORS_ORIGIN_REGEX = (
-    r"https://(.*\.pages\.dev|([a-zA-Z0-9-]+\.)*(signtelecom|signtelcom)-smartdi\.com)$"
+    r"https://(.*\.pages\.dev|([a-zA-Z0-9-]+\.)*((signtelecom|signtelcom)-smartdi|smart-di)\.com)$"
 )
 
 

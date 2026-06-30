@@ -5011,6 +5011,8 @@ function App() {
   const canEditProjectManagement = canEditMenu('projectManagement', isAdmin)
   const canEditMaterialsBoard = canEditMenu('materialsBoard', isAdmin)
   const canEditInstallCases = canEditMenu('installCases', isAdmin)
+  const canEditContactsManage = canEditMenu('contactsManage', isAdmin)
+  const canEditUnitPrice = canEditMenu('unitPrice', isAdmin)
   const canEditSales = canEditMenu('sales', isAdmin)
   const canEditDiscovery = canEditMenu('discovery', isAdmin)
   const canEditExcluded = canEditMenu('excluded', isAdmin)
@@ -7115,6 +7117,7 @@ function App() {
   }
 
   const openContactsRegisterModal = () => {
+    if (!requireMenuEdit('contactsManage')) return
     setContactsRegisterForm({ ...EMPTY_CONTACTS_REGISTER_FORM })
     setContactsRegisterModalOpen(true)
   }
@@ -7129,6 +7132,7 @@ function App() {
   }
 
   const saveContactsRegister = async () => {
+    if (!requireMenuEdit('contactsManage')) return
     setIsSavingContactsRegister(true)
     try {
       await contactsManageApi.create(contactsRegisterForm)
@@ -7144,16 +7148,19 @@ function App() {
   }
 
   const handleContactsExcelUpload = () => {
+    if (!requireMenuEdit('contactsManage')) return
     showAppAlert('연락처 엑셀 업로드 기능은 준비 중입니다.')
   }
 
   const toggleContactsSelection = (rowId) => {
+    if (!canEditContactsManage) return
     setSelectedContactsIds((prev) =>
       prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
     )
   }
 
   const deleteSelectedContactsRows = () => {
+    if (!requireMenuEdit('contactsManage')) return
     const validSelectedIds = selectedContactsIds.filter((id) => safeString(id).trim() !== '')
 
     if (validSelectedIds.length === 0) {
@@ -10972,6 +10979,7 @@ function App() {
     registryCellEdit: registryCellEditProp = null,
     onRegistryCellStart = null,
     renderAfterImportanceCell = null,
+    showSelection = true,
   }) => {
     const rowKey = rowKeyProp ?? getRegistryTableRowDomKey(row, index)
     const rowId = safeString(row?.id).trim() || rowKey
@@ -10990,16 +10998,18 @@ function App() {
             : undefined
         }
       >
-        <td
-          className="td-align-center registry-check-cell discovery-check-col"
-        >
-          <input
-            className="registry-row-checkbox"
-            type="checkbox"
-            checked={selectedIds.includes(rowId)}
-            onChange={() => onToggleSelection(rowId)}
-          />
-        </td>
+        {showSelection ? (
+          <td
+            className="td-align-center registry-check-cell discovery-check-col"
+          >
+            <input
+              className="registry-row-checkbox"
+              type="checkbox"
+              checked={selectedIds.includes(rowId)}
+              onChange={() => onToggleSelection(rowId)}
+            />
+          </td>
+        ) : null}
 
         {columns.map((column) => {
           const isImportanceCell = column.type === 'importance'
@@ -11259,11 +11269,13 @@ function App() {
     isAdminForRegistry = false,
     registryCellEdit: registryCellEditFlat = null,
     onRegistryCellStart = null,
+    showSelection = true,
   }) => {
+    const colSpan = columns.length + (showSelection ? 1 : 0)
     if (rows.length === 0) {
       return (
         <tr>
-          <td colSpan={columns.length + 1} className="empty-cell">
+          <td colSpan={colSpan} className="empty-cell">
             {emptyMessage}
           </td>
         </tr>
@@ -11289,6 +11301,7 @@ function App() {
         isAdminForRegistry,
         registryCellEdit: registryCellEditFlat,
         onRegistryCellStart,
+        showSelection,
       })
     )
   }
@@ -11394,6 +11407,7 @@ function App() {
     registryCellEdit: registryCellEditGrouped = null,
     onRegistryCellStart = null,
     renderAfterImportanceCell = null,
+    showSelection = true,
   }) => {
     const tableColSpan = columns.length + 1 + (renderAfterImportanceCell ? 1 : 0)
 
@@ -14107,20 +14121,24 @@ function App() {
         {menu === 'contactsManage' && canAccessMenu('contactsManage', isAdmin) && (
           <section className="stat-card">
               <div className="contracts-header-actions">
-                <button className="primary-btn" type="button" onClick={handleAddContactsRow}>
-                  등록
-                </button>
-                <button className="secondary-btn" type="button" onClick={handleContactsExcelUpload}>
-                  엑셀 업로드
-                </button>
-                <button
-                  className="secondary-btn"
-                  type="button"
-                  onClick={deleteSelectedContactsRows}
-                  disabled={selectedContactsIds.length === 0}
-                >
-                  선택 삭제
-                </button>
+                {canEditContactsManage ? (
+                  <>
+                    <button className="primary-btn" type="button" onClick={handleAddContactsRow}>
+                      등록
+                    </button>
+                    <button className="secondary-btn" type="button" onClick={handleContactsExcelUpload}>
+                      엑셀 업로드
+                    </button>
+                    <button
+                      className="secondary-btn"
+                      type="button"
+                      onClick={deleteSelectedContactsRows}
+                      disabled={selectedContactsIds.length === 0}
+                    >
+                      선택 삭제
+                    </button>
+                  </>
+                ) : null}
                 <button className="secondary-btn" type="button" onClick={handleContactsExcelDownload}>
                   엑셀 다운로드
                 </button>
@@ -14139,27 +14157,29 @@ function App() {
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
                 <table className="contract-table excel-table registry-table contacts-registry-table ledger-table-ui table-w-full-min">
                   <colgroup>
-                    <col className="registry-check-col" />
+                    {canEditContactsManage ? <col className="registry-check-col" /> : null}
                     {CONTACTS_MANAGE_COLUMNS.map((column) => (
                       <col key={column.key} className={column.widthClass || ''} />
                     ))}
                   </colgroup>
                   <thead>
                     <tr>
-                      <th className="th-align-center registry-check-header table-col-tight">
-                        <input
-                          className="registry-row-checkbox"
-                          type="checkbox"
-                          checked={allContactsSelected}
-                          onChange={() =>
-                            setSelectedContactsIds((prev) =>
-                              allContactsSelected
-                                ? prev.filter((id) => !filteredContactsRows.some((row) => row.id === id))
-                                : [...new Set([...prev, ...filteredContactsRows.map((row) => row.id)])]
-                            )
-                          }
-                        />
-                      </th>
+                      {canEditContactsManage ? (
+                        <th className="th-align-center registry-check-header table-col-tight">
+                          <input
+                            className="registry-row-checkbox"
+                            type="checkbox"
+                            checked={allContactsSelected}
+                            onChange={() =>
+                              setSelectedContactsIds((prev) =>
+                                allContactsSelected
+                                  ? prev.filter((id) => !filteredContactsRows.some((row) => row.id === id))
+                                  : [...new Set([...prev, ...filteredContactsRows.map((row) => row.id)])]
+                              )
+                            }
+                          />
+                        </th>
+                      ) : null}
                       {CONTACTS_MANAGE_COLUMNS.map((column) => (
                         <th
                           key={column.key}
@@ -14184,19 +14204,19 @@ function App() {
                   <tbody>
                     {isLoadingContactsManage ? (
                       <tr>
-                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + 1} className="empty-cell">
+                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + (canEditContactsManage ? 1 : 0)} className="empty-cell">
                           불러오는 중...
                         </td>
                       </tr>
                     ) : contactsRawData.length === 0 ? (
                       <tr>
-                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + 1} className="empty-cell">
+                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + (canEditContactsManage ? 1 : 0)} className="empty-cell">
                           등록된 데이터가 없습니다.
                         </td>
                       </tr>
                     ) : isContactsTableFilterResultEmpty ? (
                       <tr>
-                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + 1} className="empty-cell">
+                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + (canEditContactsManage ? 1 : 0)} className="empty-cell">
                           필터 조건에 맞는 데이터가 없습니다.
                         </td>
                       </tr>
@@ -14215,10 +14235,11 @@ function App() {
                         onChange: handleContactsCellChange,
                         isEmptyRow: () => false,
                         cellEditScope: 'contactsManage',
-                        isAdminForRegistry: isAdmin,
+                        isAdminForRegistry: canEditContactsManage,
                         registryCellEdit,
                         onRegistryCellStart: (rowId, columnKey, value, row) =>
                           startRegistryCellEdit('contactsManage', rowId, columnKey, value, row),
+                        showSelection: canEditContactsManage,
                       })
                     )}
                   </tbody>
@@ -14341,7 +14362,7 @@ function App() {
 
         {menu === 'unitPrice' && canAccessMenu('unitPrice', isAdmin) && (
           <section className="stat-card stat-card--unit-price">
-            <UnitPriceManagement />
+            <UnitPriceManagement canEdit={canEditUnitPrice} />
           </section>
         )}
 

@@ -4,16 +4,15 @@ admin  — all endpoints
 user   — admin-only menus blocked; viewer-only menus GET-only; rest full access
 """
 
-ADMIN_ONLY_PREFIXES = (
-    "/api/contacts-manage",
-    "/api/unit-prices",
-)
+ADMIN_ONLY_PREFIXES = ()
 
 USER_READ_ONLY_PREFIXES = (
     "/api/contracts",
     "/api/project-management",
     "/api/materials-board",
     "/api/install-cases",
+    "/api/contacts-manage",
+    "/api/unit-prices",
 )
 
 VALID_ROLES = frozenset({"admin", "user"})

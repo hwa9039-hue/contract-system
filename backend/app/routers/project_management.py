@@ -285,83 +285,92 @@ async def update_project_management_row(contract_id: str, request: Request):
     if not patch_data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
 
-    with get_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"""
-                select {CONTRACT_PARENT_SELECT}
-                from contracts_rows c
-                where c.id::text = %s
-                """,
-                (contract_id,),
-            )
-            contract = cursor.fetchone()
-            if contract is None:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
-
-            values = _build_pm_values(contract, patch_data)
-            cursor.execute(
-                f"""
-                select {PROJECT_MANAGEMENT_RETURNING}
-                from project_management_items
-                where contract_id = %(contract_id)s
-                   or (contract_signature <> '' and contract_signature = %(contract_signature)s)
-                order by "updatedAt" desc nulls last, "createdAt" desc nulls last
-                limit 1
-                """,
-                values,
-            )
-            existing = cursor.fetchone()
-
-            if existing is not None:
-                assignments = [
-                    f'"{key}" = %({key})s' if key != "guaranteeRate" else f'"{key}" = %({key})s'
-                    for key in PROJECT_MANAGEMENT_FIELDS
-                    if key in patch_data
-                ]
-                assignments.extend([
-                    "contract_id = %(contract_id)s",
-                    "contract_signature = %(contract_signature)s",
-                    '"updatedAt" = now()',
-                ])
-                values["id"] = existing["id"]
+    try:
+        with get_connection() as connection:
+            with connection.cursor() as cursor:
                 cursor.execute(
                     f"""
-                    update project_management_items
-                    set {", ".join(assignments)}
-                    where id::text = %(id)s
-                    returning {PROJECT_MANAGEMENT_RETURNING}
+                    select {CONTRACT_PARENT_SELECT}
+                    from contracts_rows c
+                    where c.id::text = %s
+                    """,
+                    (contract_id,),
+                )
+                contract = cursor.fetchone()
+                if contract is None:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found")
+
+                values = _build_pm_values(contract, patch_data)
+                cursor.execute(
+                    f"""
+                    select {PROJECT_MANAGEMENT_RETURNING}
+                    from project_management_items
+                    where contract_id = %(contract_id)s
+                       or (contract_signature <> '' and contract_signature = %(contract_signature)s)
+                    order by "updatedAt" desc nulls last, "createdAt" desc nulls last
+                    limit 1
                     """,
                     values,
                 )
-                item = cursor.fetchone()
-            else:
-                cursor.execute(
-                    f"""
-                    insert into project_management_items (
-                      contract_id,
-                      contract_signature,
-                      "commencementCert",
-                      "completionCert",
-                      "warrantyStart",
-                      "warrantyExpiry",
-                      "guaranteeRate"
+                existing = cursor.fetchone()
+
+                if existing is not None:
+                    assignments = [
+                        f'"{key}" = %({key})s' if key != "guaranteeRate" else f'"{key}" = %({key})s'
+                        for key in PROJECT_MANAGEMENT_FIELDS
+                        if key in patch_data
+                    ]
+                    assignments.extend([
+                        "contract_id = %(contract_id)s",
+                        "contract_signature = %(contract_signature)s",
+                        '"updatedAt" = now()',
+                    ])
+                    values["id"] = existing["id"]
+                    cursor.execute(
+                        f"""
+                        update project_management_items
+                        set {", ".join(assignments)}
+                        where id::text = %(id)s
+                        returning {PROJECT_MANAGEMENT_RETURNING}
+                        """,
+                        values,
                     )
-                    values (
-                      %(contract_id)s,
-                      %(contract_signature)s,
-                      %(commencementCert)s,
-                      %(completionCert)s,
-                      %(warrantyStart)s,
-                      %(warrantyExpiry)s,
-                      %(guaranteeRate)s
+                    item = cursor.fetchone()
+                else:
+                    cursor.execute(
+                        f"""
+                        insert into project_management_items (
+                          contract_id,
+                          contract_signature,
+                          "commencementCert",
+                          "completionCert",
+                          "warrantyStart",
+                          "warrantyExpiry",
+                          "guaranteeRate"
+                        )
+                        values (
+                          %(contract_id)s,
+                          %(contract_signature)s,
+                          %(commencementCert)s,
+                          %(completionCert)s,
+                          %(warrantyStart)s,
+                          %(warrantyExpiry)s,
+                          %(guaranteeRate)s
+                        )
+                        returning {PROJECT_MANAGEMENT_RETURNING}
+                        """,
+                        values,
                     )
-                    returning {PROJECT_MANAGEMENT_RETURNING}
-                    """,
-                    values,
-                )
-                item = cursor.fetchone()
-        connection.commit()
+                    item = cursor.fetchone()
+            connection.commit()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("PATCH /api/project-management/contracts/%s failed", contract_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"project-management update failed: {exc}",
+        ) from exc
 
     contract_row = row_to_contract(contract)
     item_row = _row_to_project_management_item(item)
