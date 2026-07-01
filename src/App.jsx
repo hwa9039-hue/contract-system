@@ -7930,7 +7930,9 @@ function App() {
       return
     }
     const sourceRow = salesRows.find((row) => row.id === rowId)
+    const todayRegisterDate = formatDateInput(new Date())
     const payload = {
+      registerDate: todayRegisterDate,
       detail: normalizeSalesRecordForSave(sourceRow?.detail),
       summary: normalizeSalesRecordForSave(summaryText),
     }
