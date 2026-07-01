@@ -1,4 +1,6 @@
 export const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
+/** 로그인한 실제 역할('admin' | 'manager' | 'user') 저장 키 — Role 기반 상태 관리의 핵심 */
+export const ROLE_SESSION_KEY = 'contract_manager_role_session_v1'
 export const CONTRACT_SHARED_AUTH_KEY = 'CONTRACT_SHARED_AUTH'
 export const CONTRACT_SHARED_EXPIRES_AT_KEY = 'CONTRACT_SHARED_EXPIRES_AT'
 export const CONTRACT_REMEMBER_ME_FLAG_KEY = 'CONTRACT_REMEMBER_ME'
@@ -22,9 +24,49 @@ export function formatRemainingSessionLabel(minutes) {
 }
 
 import { AUTH_TOKEN_KEY } from './apiClient.js'
+import { hasAdminPrivileges, normalizeRole, ROLES } from './permissions.js'
 
 export const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'smartdi2026!'
 export const ADMIN_PASSWORD = import.meta.env.VITE_APP_ADMIN_PASSWORD || 'admin2026!'
+/**
+ * 부서장(MANAGER) 비밀번호.
+ * UI 에는 부서장 전용 탭이 없습니다. 대신 '일반 사용자' 탭에서 이 비밀번호를
+ * 입력하면 부서장 권한으로 로그인됩니다. (아래 resolveEffectiveRole 참고)
+ */
+export const MANAGER_PASSWORD = import.meta.env.VITE_APP_MANAGER_PASSWORD || 'kk2331!'
+
+/**
+ * 로그인 role 별로 클라이언트에서 1차 검증할 기대 비밀번호.
+ * (백엔드에서도 동일하게 검증하므로 여기 값은 UX용 사전 체크 목적입니다.)
+ * ▶ 역할을 추가하면 여기에 매핑만 추가하면 됩니다.
+ */
+export const ROLE_EXPECTED_PASSWORD = Object.freeze({
+  [ROLES.ADMIN]: ADMIN_PASSWORD,
+  [ROLES.MANAGER]: MANAGER_PASSWORD,
+  [ROLES.USER]: SHARED_APP_PASSWORD,
+})
+
+/**
+ * ★ 비밀번호 기반 역할 분기 ★
+ * 로그인 탭에서 요청한 역할 + 입력 비밀번호로 "실제 부여할 역할"을 결정합니다.
+ *
+ *  - 관리자 탭         → 그대로 admin
+ *  - 일반 사용자 탭    → 입력값이 부서장 비밀번호(MANAGER_PASSWORD=kk2331!)면 manager,
+ *                        그 외에는 user
+ *
+ * 즉 UI 탭은 2개(일반 사용자/관리자)지만, '일반 사용자' 입력창 하나에서
+ * 비밀번호 값에 따라 user / manager 로 나뉩니다.
+ *
+ * ▶ 부서장 승격 조건을 바꾸려면 이 함수 한 곳만 수정하면 됩니다.
+ */
+export function resolveEffectiveRole(requestedRole, password) {
+  const requested = normalizeRole(requestedRole)
+  const trimmed = String(password).trim()
+  if (requested === ROLES.USER && trimmed && trimmed === MANAGER_PASSWORD) {
+    return ROLES.MANAGER
+  }
+  return requested
+}
 
 function readAuthFromStorage(storage) {
   try {
@@ -142,6 +184,54 @@ export function clearAdminFlag() {
   }
 }
 
+/**
+ * 로그인한 실제 역할('admin' | 'manager' | 'user') 을 스토리지에서 읽습니다.
+ * 예전 세션(role 키 없음) 하위 호환: admin 플래그만 있으면 'admin' 으로 간주.
+ * @param {'session' | 'persistent'} persistence
+ */
+export function readStoredRole(persistence = 'session') {
+  try {
+    const raw =
+      persistence === 'persistent'
+        ? localStorage.getItem(ROLE_SESSION_KEY) || sessionStorage.getItem(ROLE_SESSION_KEY)
+        : sessionStorage.getItem(ROLE_SESSION_KEY)
+    if (raw) return normalizeRole(raw)
+  } catch {
+    /* ignore */
+  }
+  // 하위 호환: role 키가 없던 이전 세션은 admin 플래그로 판단
+  return readStoredAdminFlag(persistence) ? ROLES.ADMIN : ROLES.USER
+}
+
+/** @param {'session' | 'persistent'} persistence */
+export function writeRole(role, persistence = 'session') {
+  const normalized = normalizeRole(role)
+  try {
+    localStorage.removeItem(ROLE_SESSION_KEY)
+    sessionStorage.removeItem(ROLE_SESSION_KEY)
+
+    const primary = persistence === 'persistent' ? localStorage : sessionStorage
+    primary.setItem(ROLE_SESSION_KEY, normalized)
+    if (persistence === 'persistent') {
+      sessionStorage.setItem(ROLE_SESSION_KEY, normalized)
+    }
+  } catch {
+    /* ignore */
+  }
+  // 관리자급(admin·manager) 여부를 admin 플래그에도 동기화 (기존 코드 하위 호환)
+  writeAdminFlag(hasAdminPrivileges(normalized), persistence)
+}
+
+export function clearRole() {
+  try {
+    localStorage.removeItem(ROLE_SESSION_KEY)
+    sessionStorage.removeItem(ROLE_SESSION_KEY)
+  } catch {
+    /* ignore */
+  }
+  clearAdminFlag()
+}
+
 /** localStorage·sessionStorage 중 존재하는 토큰을 활성 스토리지에 복원 */
 export function syncAuthTokenToActiveStorage(persistence = 'session') {
   try {
@@ -162,7 +252,7 @@ export function syncAuthTokenToActiveStorage(persistence = 'session') {
 
 /**
  * 새로고침 시 localStorage·sessionStorage 모두 확인해 세션 복구
- * @returns {{ isAuthenticated: boolean, expiresAt: number, persistence: 'none' | 'session' | 'persistent', isAdmin: boolean }}
+ * @returns {{ isAuthenticated: boolean, expiresAt: number, persistence: 'none' | 'session' | 'persistent', isAdmin: boolean, role: 'admin' | 'manager' | 'user' }}
  */
 export function restoreAuthSessionFromStorages() {
   const fromLocal = readAuthFromStorage(localStorage)
@@ -189,22 +279,27 @@ export function restoreAuthSessionFromStorages() {
       expiresAt: 0,
       persistence: 'none',
       isAdmin: false,
+      role: ROLES.USER,
     }
   }
 
   syncAuthTokenToActiveStorage(persistence)
 
+  const role = readStoredRole(persistence)
+
   return {
     isAuthenticated: true,
     expiresAt: chosen.expiresAt,
     persistence,
-    isAdmin: readStoredAdminFlag(persistence),
+    role,
+    // isAdmin 은 "관리자급 여부" — 부서장(manager)도 true 로 취급 (permissions.js 참고)
+    isAdmin: hasAdminPrivileges(role),
   }
 }
 
 /**
  * 앱 마운트 시 storage → 상태 복구용 스냅샷
- * @returns {{ isAuthenticated: boolean, expiresAt: number, persistence: 'none' | 'session' | 'persistent', isAdmin: boolean }}
+ * @returns {{ isAuthenticated: boolean, expiresAt: number, persistence: 'none' | 'session' | 'persistent', isAdmin: boolean, role: 'admin' | 'manager' | 'user' }}
  */
 export function hydrateAuthSessionFromStorage() {
   return restoreAuthSessionFromStorages()

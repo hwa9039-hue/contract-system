@@ -7,18 +7,33 @@ import {
   purgeSavedAdminPassword,
   saveLoginPassword,
 } from './loginCredentials.js'
+import { ROLES } from './permissions.js'
 import './LoginPage.css'
 
 const LOGIN_PAGE_ACTIVE_CLASS = 'login-page-active'
 
+/**
+ * 로그인 탭 정의 — '일반 사용자' / '관리자' 2개만 노출합니다.
+ *
+ * 부서장(MANAGER)은 별도 탭이 없습니다. '일반 사용자' 탭에서 부서장 비밀번호
+ * (kk2331!)를 입력하면 부서장 권한으로 로그인됩니다.
+ * (역할 분기 로직: src/authSession.js 의 resolveEffectiveRole)
+ */
+const LOGIN_TABS = [
+  { role: ROLES.USER, label: '사용자', passwordLabel: '공용 비밀번호' },
+  { role: ROLES.ADMIN, label: '관리자', passwordLabel: '관리자 비밀번호' },
+]
+
 export default function LoginPage() {
   const { login, sessionExpiredNotice, clearSessionExpiredNotice } = useAuth()
-  const [role, setRole] = useState('user')
+  const [role, setRole] = useState(ROLES.USER)
   const [password, setPassword] = useState(() => readSavedLoginPassword('user'))
   const [rememberMe, setRememberMe] = useState(() => readRememberMePreference())
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const isAdmin = role === 'admin'
+  // 관리자·부서장 = "관리자급" 로그인: 비밀번호 자동저장/자동완성을 하지 않습니다.
+  const isPrivilegedRole = role !== ROLES.USER
+  const activeTab = LOGIN_TABS.find((tab) => tab.role === role) || LOGIN_TABS[0]
 
   useEffect(() => {
     if (!sessionExpiredNotice) return undefined
@@ -37,7 +52,8 @@ export default function LoginPage() {
   }, [])
 
   useEffect(() => {
-    if (isAdmin) {
+    // 관리자급(관리자·부서장) 탭에서는 저장된 비밀번호를 자동으로 채우지 않습니다.
+    if (isPrivilegedRole) {
       setPassword('')
       return undefined
     }
@@ -59,7 +75,7 @@ export default function LoginPage() {
     return () => {
       cancelled = true
     }
-  }, [role, isAdmin])
+  }, [role, isPrivilegedRole])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -71,7 +87,8 @@ export default function LoginPage() {
       setError(result.error || '로그인에 실패했습니다.')
       return
     }
-    if (!isAdmin) {
+    // 비밀번호 저장은 일반 사용자만 (관리자·부서장은 저장하지 않음)
+    if (role === ROLES.USER) {
       await saveLoginPassword('user', result.password || password, rememberMe)
     } else {
       purgeSavedAdminPassword()
@@ -80,7 +97,7 @@ export default function LoginPage() {
 
   const switchRole = (nextRole) => {
     setRole(nextRole)
-    setPassword(nextRole === 'user' ? readSavedLoginPassword('user') : '')
+    setPassword(nextRole === ROLES.USER ? readSavedLoginPassword('user') : '')
     setError('')
   }
 
@@ -101,35 +118,29 @@ export default function LoginPage() {
         </div>
 
         <div className="login-role-tabs" role="tablist" aria-label="로그인 권한">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={role === 'user'}
-            className={`login-role-tab${role === 'user' ? ' login-role-tab--active' : ''}`}
-            onClick={() => switchRole('user')}
-          >
-            사용자
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={isAdmin}
-            className={`login-role-tab${isAdmin ? ' login-role-tab--active' : ''}`}
-            onClick={() => switchRole('admin')}
-          >
-            관리자
-          </button>
+          {LOGIN_TABS.map((tab) => (
+            <button
+              key={tab.role}
+              type="button"
+              role="tab"
+              aria-selected={role === tab.role}
+              className={`login-role-tab${role === tab.role ? ' login-role-tab--active' : ''}`}
+              onClick={() => switchRole(tab.role)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         <form
           key={`login-form-${role}`}
           className="login-page-form"
           onSubmit={handleSubmit}
-          autoComplete={isAdmin ? 'off' : 'on'}
+          autoComplete={isPrivilegedRole ? 'off' : 'on'}
           method="post"
           action="/login"
         >
-          {!isAdmin ? (
+          {!isPrivilegedRole ? (
             <input
               type="text"
               name="username"
@@ -142,11 +153,11 @@ export default function LoginPage() {
             />
           ) : null}
           <label className="login-page-label" htmlFor={`login-password-${role}`}>
-            {isAdmin ? '관리자 비밀번호' : '공용 비밀번호'}
+            {activeTab.passwordLabel}
           </label>
           <input
             id={`login-password-${role}`}
-            name={isAdmin ? 'admin-password' : 'password'}
+            name={isPrivilegedRole ? 'admin-password' : 'password'}
             type="password"
             className="login-page-input"
             value={password}
@@ -155,7 +166,7 @@ export default function LoginPage() {
               if (error) setError('')
             }}
             placeholder="비밀번호를 입력하세요"
-            autoComplete={isAdmin ? 'new-password' : 'current-password'}
+            autoComplete={isPrivilegedRole ? 'new-password' : 'current-password'}
             autoFocus
           />
 
@@ -168,7 +179,7 @@ export default function LoginPage() {
             />
             <span className="login-page-remember-box" aria-hidden="true" />
             <span className="login-page-remember-label">
-              {isAdmin ? '자동 로그인 (30일)' : '자동 로그인 · 비밀번호 저장 (30일)'}
+              {isPrivilegedRole ? '자동 로그인 (30일)' : '자동 로그인 · 비밀번호 저장 (30일)'}
             </span>
           </label>
 

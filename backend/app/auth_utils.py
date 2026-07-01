@@ -24,13 +24,22 @@ def get_auth_admin_password() -> str:
     return os.getenv("AUTH_ADMIN_PASSWORD", "").strip()
 
 
+def get_auth_manager_password() -> str:
+    """부서장(MANAGER) 전용 비밀번호."""
+    return os.getenv("AUTH_MANAGER_PASSWORD", "").strip()
+
+
 def is_auth_disabled() -> bool:
     return os.getenv("AUTH_DISABLED", "").lower() in ("1", "true", "yes")
 
 
+# 시스템에서 허용하는 역할 목록. 역할을 추가/삭제하려면 여기만 고치면 됩니다.
+VALID_ROLES = ("admin", "manager", "user")
+
+
 def normalize_token_role(role: str | None) -> str:
     normalized = (role or "user").strip().lower()
-    return normalized if normalized in ("admin", "user") else "user"
+    return normalized if normalized in VALID_ROLES else "user"
 
 
 def create_access_token(role: str = "user") -> str:
@@ -69,10 +78,16 @@ def verify_shared_password(password: str) -> bool:
 
 
 def verify_login_password(password: str, role: str = "user") -> bool:
-    """user → AUTH_SHARED_PASSWORD, admin → AUTH_ADMIN_PASSWORD 만 허용."""
-    normalized_role = (role or "user").strip().lower()
+    """역할별 비밀번호 검증:
+    admin   → AUTH_ADMIN_PASSWORD
+    manager → AUTH_MANAGER_PASSWORD (부서장)
+    user    → AUTH_SHARED_PASSWORD
+    """
+    normalized_role = normalize_token_role(role)
     if normalized_role == "admin":
         expected = get_auth_admin_password()
+    elif normalized_role == "manager":
+        expected = get_auth_manager_password()
     else:
         expected = get_auth_shared_password()
     if not expected:

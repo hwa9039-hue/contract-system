@@ -5126,7 +5126,7 @@ function splitDashboardRecentTitleLabel(fullLabel) {
 }
 
 function App() {
-  const { isAdmin, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
+  const { isAdmin, roleLabel, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
     useAuth()
   const canEditContracts = canEditMenu('contracts', isAdmin)
   const canEditProjectManagement = canEditMenu('projectManagement', isAdmin)
@@ -12806,7 +12806,7 @@ function App() {
         </div>
 
         <div className="sidebar-bottom">
-          <div className="viewer-badge">{isAdmin ? '관리자' : '일반 사용자'}</div>
+          <div className="viewer-badge">{roleLabel}</div>
           <button
             className="logout-btn"
             type="button"

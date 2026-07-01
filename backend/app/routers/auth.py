@@ -4,10 +4,12 @@ from pydantic import BaseModel
 
 from app.auth_utils import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
+    VALID_ROLES,
     create_access_token,
     decode_token,
     decode_token_allow_expired,
     get_auth_admin_password,
+    get_auth_manager_password,
     get_auth_shared_password,
     get_jwt_secret,
     is_auth_disabled,
@@ -26,7 +28,7 @@ class LoginBody(BaseModel):
 @router.post("/login")
 def login(body: LoginBody):
     login_role = (body.role or "user").strip().lower()
-    if login_role not in ("admin", "user"):
+    if login_role not in VALID_ROLES:
         login_role = "user"
     if is_auth_disabled():
         return {
@@ -50,6 +52,11 @@ def login(body: LoginBody):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AUTH_ADMIN_PASSWORD is not set on the server",
+        )
+    if login_role == "manager" and not get_auth_manager_password():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AUTH_MANAGER_PASSWORD is not set on the server",
         )
 
     if not verify_login_password(body.password, login_role):
