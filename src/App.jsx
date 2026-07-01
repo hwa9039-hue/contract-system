@@ -1,5 +1,6 @@
 ﻿import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
+  Copy,
   Download,
   FileText,
   Pencil,
@@ -13265,7 +13266,7 @@ function App() {
                         </th>
                       )}
                       {canEditContracts && (
-                        <th className={`th-align-center table-col-tight ${CONTRACT_TABLE_HEADER_TH_CLASS}`}>
+                        <th className={`th-align-center table-col-tight contract-copy-col ${CONTRACT_TABLE_HEADER_TH_CLASS}`}>
                           <ContractTableHeaderShell align="center">복사</ContractTableHeaderShell>
                         </th>
                       )}
@@ -13407,17 +13408,19 @@ function App() {
                                 )}
 
                                 {canEditContracts && (
-                                  <td className={`td-align-center table-col-tight ${CONTRACT_TABLE_DATA_TD_CLASS}`}>
+                                  <td className={`td-align-center table-col-tight contract-copy-col ${CONTRACT_TABLE_DATA_TD_CLASS}`}>
                                     <ContractTableCellShell align="center">
                                       <button
                                         type="button"
-                                        className="secondary-btn contract-row-copy-btn"
+                                        className="contract-row-copy-btn"
+                                        title="복사"
+                                        aria-label="복사"
                                         onClick={(e) => {
                                           e.stopPropagation()
                                           openContractDuplicateModal(item)
                                         }}
                                       >
-                                        복사
+                                        <Copy size={14} strokeWidth={2.2} aria-hidden="true" />
                                       </button>
                                     </ContractTableCellShell>
                                   </td>

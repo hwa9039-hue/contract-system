@@ -2005,11 +2005,35 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
   color: #0f172a;
 }
 
+.excel-table th.contract-copy-col,
+.excel-table td.contract-copy-col {
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+}
+
 .contract-row-copy-btn {
-  min-height: 28px;
-  padding: 5px 10px;
-  font-size: 12px;
-  white-space: nowrap;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.contract-row-copy-btn:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .global-register-control,
