@@ -3373,87 +3373,13 @@ function firstUsableContractPathId(...parts) {
   return ''
 }
 
-function isUuidLikeId(value) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    normalizeRegistryRowId(value)
-  )
-}
-
-function collectContactsManageIdCandidates(value, path = 'row', depth = 0, seen = new WeakSet()) {
-  if (!value || typeof value !== 'object' || depth > 4 || seen.has(value)) return []
-  seen.add(value)
-
-  const idKeyPattern = /^(id|_id|ID|contactId|contactID|contact_id|dbId|dbID|db_id|realId|realID|real_id|pk|primaryKey)$/
-  const candidates = []
-
-  Object.entries(value).forEach(([key, child]) => {
-    if (idKeyPattern.test(key)) {
-      const id = normalizeRegistryRowId(child)
-      if (id && id !== '[object Object]') {
-        candidates.push({ id, path: `${path}.${key}` })
-      }
-    }
-    if (child && typeof child === 'object') {
-      candidates.push(...collectContactsManageIdCandidates(child, `${path}.${key}`, depth + 1, seen))
-    }
-  })
-
-  return candidates
-}
-
-function pickContactsManageServerRowId(row) {
-  if (!row || typeof row !== 'object') return normalizeRegistryRowId(row)
-  const idCandidates = collectContactsManageIdCandidates(row)
-  const numericCandidate = idCandidates.find(({ id }) => /^\d+$/.test(id))
-  if (numericCandidate) return numericCandidate.id
-
-  const original =
-    row.original && typeof row.original === 'object' && !Array.isArray(row.original)
-      ? row.original
-      : null
-  const data = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data : null
-  const candidates = [
-    original?.id,
-    original?._id,
-    original?.contact_id,
-    original?.contactId,
-    original?.ID,
-    data?.id,
-    data?._id,
-    data?.contact_id,
-    data?.contactId,
-    data?.ID,
-    row.__contactsManageServerId,
-    row.contact_id,
-    row.contactId,
-    row._id,
-    row.ID,
-    row.id,
-  ]
-  for (const candidate of candidates) {
-    const id = normalizeRegistryRowId(candidate)
-    if (id && id !== '[object Object]' && !isUuidLikeId(id)) return id
-  }
-  const nonUuidCandidate = idCandidates.find(({ id }) => !isUuidLikeId(id))
-  if (nonUuidCandidate) return nonUuidCandidate.id
-  for (const candidate of candidates) {
-    const id = normalizeRegistryRowId(candidate)
-    if (id && id !== '[object Object]') return id
-  }
-  return ''
-}
-
 function normalizeContactsManageRow(row, index = 0) {
   if (!row || typeof row !== 'object') return row
-  const originalRow = row.__contactsManageOriginalRow || { ...row }
-  const serverId = pickContactsManageServerRowId(originalRow)
-  const rowId = serverId || normalizeRegistryRowId(row.id) || `contacts-row-${index}`
+  const originalDbId = normalizeRegistryRowId(row.id)
   return {
     ...row,
-    id: rowId,
-    __contactsManageOriginalRow: originalRow,
-    __contactsManageServerId: serverId,
-    __contactsManageStateIndex: index,
+    id: originalDbId || normalizeRegistryRowId(row.id) || `contacts-row-${index}`,
+    _original_db_id: originalDbId,
   }
 }
 
@@ -7281,16 +7207,15 @@ function App() {
       const rows = await contactsManageApi.list()
       if (Array.isArray(rows) && rows.length > 0) {
         console.log('[연락처] GET 원본 Row sample:', rows[0])
-        console.log('[연락처] GET 원본 Row ID 후보:', collectContactsManageIdCandidates(rows[0]))
       }
       const normalizedRows = Array.isArray(rows)
         ? rows.map((row, index) => normalizeContactsManageRow(row, index))
         : []
       if (normalizedRows.length > 0) {
         console.log('[연락처] 테이블 바인딩 Row sample:', normalizedRows[0])
-        console.log('[연락처] 테이블 row.id / serverId:', {
+        console.log('[연락처] 테이블 row.id / _original_db_id:', {
           rowId: normalizedRows[0].id,
-          serverId: normalizedRows[0].__contactsManageServerId,
+          originalDbId: normalizedRows[0]._original_db_id,
         })
       }
       setContactsManageRows(normalizedRows)
@@ -7371,7 +7296,7 @@ function App() {
       onConfirm: async () => {
         const persistedIds = contactsManageRows
           .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
-          .map((row) => pickContactsManageServerRowId(row))
+          .map((row) => safeString(row._original_db_id).trim())
           .filter((id) => safeString(id).trim() !== '')
 
         if (persistedIds.length > 0) {
@@ -10823,7 +10748,11 @@ function App() {
         return false
     }
 
-    const targetRow = rows.find((r) => safeString(r.id).trim() === safeString(rowId).trim())
+    const targetRow =
+      scope === 'contactsManage'
+        ? rows.find((r) => safeString(r._original_db_id).trim() === safeString(rowId).trim()) ||
+          rows.find((r) => safeString(r.id).trim() === safeString(rowId).trim())
+        : rows.find((r) => safeString(r.id).trim() === safeString(rowId).trim())
     if (!targetRow || targetRow.isDraft) return false
 
     if (isRegistrySmartDetailColumn(column, scope)) {
@@ -10868,23 +10797,12 @@ function App() {
       safeString(prevVal ?? '').trim() === safeString(patchValue ?? '').trim()
     if (sameAmount || sameText) return false
 
-    const contactsManageServerRowId =
-      scope === 'contactsManage' ? pickContactsManageServerRowId(targetRow) : ''
     if (scope === 'contactsManage') {
-      console.log('업데이트 대상 전체 Row 데이터:', targetRow)
-      console.log('업데이트 대상 ID 후보:', collectContactsManageIdCandidates(targetRow))
-      console.log('요청할 진짜 DB ID:', contactsManageServerRowId, {
-        tableRowId: rowId,
-        originalId: targetRow?.original?.id,
-        dataId: targetRow?.data?.id,
-        preservedOriginalId: targetRow?.__contactsManageOriginalRow?.id,
-        preservedServerId: targetRow?.__contactsManageServerId,
-        rowId: targetRow?.id,
-      })
-    }
-    if (scope === 'contactsManage' && !contactsManageServerRowId) {
-      setToastMessage('저장할 연락처 ID를 찾을 수 없습니다.')
-      return false
+      console.log('🔥 강제 주입된 진짜 ID:', targetRow._original_db_id)
+      if (!targetRow._original_db_id) {
+        setToastMessage('저장할 연락처 ID를 찾을 수 없습니다.')
+        return false
+      }
     }
 
     const previous = targetRow[column.key]
@@ -10905,7 +10823,7 @@ function App() {
           await documentRegisterApi.update(rowId, patch)
           break
         case 'contactsManage':
-          await contactsManageApi.update(contactsManageServerRowId, patch)
+          await contactsManageApi.update(targetRow._original_db_id, patch)
           break
         default:
           return false
@@ -11252,19 +11170,8 @@ function App() {
     showSelection = true,
   }) => {
     const rowKey = rowKeyProp ?? getRegistryTableRowDomKey(row, index)
-    const contactsManageStateIndex = Number.isInteger(row?.__contactsManageStateIndex)
-      ? row.__contactsManageStateIndex
-      : -1
-    const contactsManageStateRow =
-      cellEditScope === 'contactsManage' && contactsManageStateIndex >= 0
-        ? contactsManageRows[contactsManageStateIndex]
-        : null
-    const contactsManageServerRowId =
-      cellEditScope === 'contactsManage'
-        ? pickContactsManageServerRowId(contactsManageStateRow || row)
-        : ''
     const rowId =
-      (cellEditScope === 'contactsManage' ? contactsManageServerRowId : '') ||
+      (cellEditScope === 'contactsManage' ? safeString(row?._original_db_id).trim() : '') ||
       safeString(row?.id).trim() ||
       rowKey
     const displayRow = safeString(row?.id).trim() ? row : { ...row, id: rowId }
