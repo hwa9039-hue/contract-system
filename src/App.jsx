@@ -13244,10 +13244,7 @@ function App() {
                             <input
                               className="registry-row-checkbox"
                               type="checkbox"
-                              role="checkbox"
-                              aria-disabled={false}
                               checked={allContractsSelected}
-                              style={{ cursor: 'pointer', pointerEvents: 'auto', opacity: 1 }}
                               onChange={(e) => {
                                 const checked = e.target.checked
                                 setSelectedContractRowKeys((prev) => {
@@ -13387,10 +13384,7 @@ function App() {
                                       <input
                                         className="registry-row-checkbox"
                                         type="checkbox"
-                                        role="checkbox"
-                                        aria-disabled={false}
                                         checked={selectedContractRowKeys.has(rowSelectKey)}
-                                        style={{ cursor: 'pointer', pointerEvents: 'auto', opacity: 1 }}
                                         onClick={(e) => e.stopPropagation()}
                                         onChange={(e) => {
                                           e.stopPropagation()

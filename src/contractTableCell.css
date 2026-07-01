@@ -97,6 +97,17 @@ table[data-contract-table-row-key] .contract-table-cell-shell > textarea {
   box-sizing: border-box;
 }
 
+table[data-contract-table-row-key] .contract-table-header-shell > input.registry-row-checkbox,
+table[data-contract-table-row-key] .contract-table-cell-shell > input.registry-row-checkbox {
+  width: 16px;
+  height: 16px;
+  min-width: 0;
+  min-height: 0;
+  cursor: pointer;
+  accent-color: #3b82f6;
+  flex: 0 0 auto;
+}
+
 table[data-contract-table-row-key] .contract-table-header-shell .contract-th-filter-wrap {
   width: 100%;
   justify-content: center;
