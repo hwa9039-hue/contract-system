@@ -5097,6 +5097,7 @@ function App() {
   const canEditExcluded = canEditMenu('excluded', isAdmin)
   const canEditDocuments = canEditMenu('documents', isAdmin)
   const [contactsManageRows, setContactsManageRows] = useState([])
+  const contactsManageRawRowsRef = useRef([])
   const [isLoadingContactsManage, setIsLoadingContactsManage] = useState(false)
   const [contactsRegisterModalOpen, setContactsRegisterModalOpen] = useState(false)
   const [contactsRegisterForm, setContactsRegisterForm] = useState(EMPTY_CONTACTS_REGISTER_FORM)
@@ -7205,6 +7206,7 @@ function App() {
     setIsLoadingContactsManage(true)
     try {
       const rows = await contactsManageApi.list()
+      contactsManageRawRowsRef.current = Array.isArray(rows) ? rows : []
       if (Array.isArray(rows) && rows.length > 0) {
         console.log('[연락처] GET 원본 Row sample:', rows[0])
       }
@@ -7225,10 +7227,12 @@ function App() {
         error?.response?.status === 404
       if (isNotFound) {
         console.warn('연락처 API 미구현(404) — 빈 목록으로 표시합니다.')
+        contactsManageRawRowsRef.current = []
         setContactsManageRows([])
       } else {
         console.error('연락처 데이터를 불러오지 못했습니다.', error)
         showAppAlert('연락처 데이터를 불러오지 못했습니다.')
+        contactsManageRawRowsRef.current = []
         setContactsManageRows([])
       }
     } finally {
@@ -11170,8 +11174,17 @@ function App() {
     showSelection = true,
   }) => {
     const rowKey = rowKeyProp ?? getRegistryTableRowDomKey(row, index)
+    const contactsManageForcedDbId =
+      cellEditScope === 'contactsManage'
+        ? safeString(
+            contactsManageRawRowsRef.current.find(
+              (rawRow) =>
+                safeString(rawRow?.id).trim() === safeString(row?._original_db_id).trim()
+            )?.id
+          ).trim() || safeString(row?._original_db_id).trim()
+        : ''
     const rowId =
-      (cellEditScope === 'contactsManage' ? safeString(row?._original_db_id).trim() : '') ||
+      contactsManageForcedDbId ||
       safeString(row?.id).trim() ||
       rowKey
     const displayRow = safeString(row?.id).trim() ? row : { ...row, id: rowId }
@@ -11478,17 +11491,21 @@ function App() {
       )
     }
 
-    return rows.map((row, index) =>
-      renderRegistryDataRow({
+    return rows.map((row, index) => {
+      const registryRowKey =
+        cellEditScope === 'contactsManage'
+          ? safeString(row._original_db_id).trim() || getRegistryTableRowDomKey(row, index)
+          : getRegistryTableRowDomKey(row, index)
+      return renderRegistryDataRow({
         row,
         index,
-        rowKey: getRegistryTableRowDomKey(row, index),
+        rowKey: registryRowKey,
         columns,
         editingIds,
         isSaving,
-        onStartEdit: () => onStartEdit(safeString(row.id).trim() || getRegistryTableRowDomKey(row, index)),
-        onSaveRow: () => onSaveRow(safeString(row.id).trim() || getRegistryTableRowDomKey(row, index)),
-        onCancelRow: () => onCancelRow(safeString(row.id).trim() || getRegistryTableRowDomKey(row, index)),
+        onStartEdit: () => onStartEdit(safeString(row.id).trim() || registryRowKey),
+        onSaveRow: () => onSaveRow(safeString(row.id).trim() || registryRowKey),
+        onCancelRow: () => onCancelRow(safeString(row.id).trim() || registryRowKey),
         onChange,
         isEmptyRow,
         selectedIds,
@@ -11500,7 +11517,7 @@ function App() {
         renderAfterSelectionCell,
         showSelection,
       })
-    )
+    })
   }
 
   const renderGroupedRegistryRows = ({
