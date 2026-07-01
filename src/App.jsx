@@ -238,7 +238,7 @@ const CONTACTS_MANAGE_COLUMNS = [
   {
     key: 'business_content',
     label: '사업내용',
-    align: 'left',
+    align: 'center',
     type: 'textarea',
     widthClass: 'contacts-w-business',
     cellClass: 'contacts-w-business',
@@ -270,7 +270,7 @@ const CONTACTS_MANAGE_COLUMNS = [
   {
     key: 'email',
     label: '이메일',
-    align: 'left',
+    align: 'center',
     type: 'text',
     widthClass: 'contacts-w-email',
     cellClass: 'contacts-col-tight contacts-w-email',
@@ -278,7 +278,7 @@ const CONTACTS_MANAGE_COLUMNS = [
   {
     key: 'notes',
     label: '비고',
-    align: 'left',
+    align: 'center',
     type: 'textarea',
     widthClass: 'contacts-w-notes',
     cellClass: 'contacts-w-notes',
@@ -14458,7 +14458,7 @@ function App() {
                       {CONTACTS_MANAGE_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
+                          className={`${getTableColumnLayoutClass(column)} th-align-center ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
                         >
                           <div className="contract-th-filter-wrap">
                             <span className="contract-th-label">{column.label}</span>

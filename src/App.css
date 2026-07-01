@@ -7207,6 +7207,42 @@ textarea:focus-visible {
   max-width: 44px;
 }
 
+.contacts-registry-table .registry-check-header,
+.contacts-registry-table .registry-check-cell {
+  vertical-align: middle;
+  text-align: center;
+}
+
+.contacts-registry-table .registry-check-header .registry-row-checkbox,
+.contacts-registry-table .registry-check-cell .registry-row-checkbox {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.contacts-registry-table.excel-table thead th.contract-th-filterable {
+  overflow: visible;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.contacts-registry-table.excel-table thead th.contract-th-filterable .contract-th-label {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.contacts-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
+  text-align: center;
+}
+
+.contacts-registry-table td .cell-display,
+.contacts-registry-table td .editable-text-cell-display,
+.contacts-registry-table td .editable-text-cell-input,
+.contacts-registry-table td .contacts-modal-text-display {
+  justify-content: center;
+  text-align: center;
+}
+
 .contacts-registry-table col.contacts-w-category,
 .contacts-registry-table th.contacts-w-category,
 .contacts-registry-table td.contacts-w-category {
