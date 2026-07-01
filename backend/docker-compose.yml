@@ -17,6 +17,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-20262026signtelecomsmartdi20262026}
       AUTH_SHARED_PASSWORD: ${AUTH_SHARED_PASSWORD:-smartdi2026!}
       AUTH_ADMIN_PASSWORD: ${AUTH_ADMIN_PASSWORD:-admin2026!}
+      # 부서장(MANAGER) 비밀번호. '일반 사용자' 탭에서 이 값을 입력하면 부서장 권한으로 로그인됩니다.
+      AUTH_MANAGER_PASSWORD: ${AUTH_MANAGER_PASSWORD:-kk2331!}
       AUTH_DISABLED: ${AUTH_DISABLED:-false}
       UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
       CONTRACT_IMPORT_EXCEL_BACKUP_DIR: ${CONTRACT_IMPORT_EXCEL_BACKUP_DIR:-/data/contract_excel_backup}
