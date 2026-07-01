@@ -12841,7 +12841,9 @@ function App() {
                     </div>
 
                     <div className="dashboard-briefing-box">
-                      <h3 className="dashboard-briefing-box-title">준공임박</h3>
+                      <h3 className="dashboard-briefing-box-title">
+                        준공임박 <span className="dashboard-briefing-box-title-note">(금주 준공 사업)</span>
+                      </h3>
                       <div className="dashboard-briefing-box-body">
                         {dashboardWeekDueRows.length > 0 ? (
                           <ul className="dashboard-briefing-due-list">
