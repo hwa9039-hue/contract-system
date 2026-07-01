@@ -3453,6 +3453,7 @@ function normalizeContactsManageRow(row, index = 0) {
     id: rowId,
     __contactsManageOriginalRow: originalRow,
     __contactsManageServerId: serverId,
+    __contactsManageStateIndex: index,
   }
 }
 
@@ -11251,7 +11252,21 @@ function App() {
     showSelection = true,
   }) => {
     const rowKey = rowKeyProp ?? getRegistryTableRowDomKey(row, index)
-    const rowId = safeString(row?.id).trim() || rowKey
+    const contactsManageStateIndex = Number.isInteger(row?.__contactsManageStateIndex)
+      ? row.__contactsManageStateIndex
+      : -1
+    const contactsManageStateRow =
+      cellEditScope === 'contactsManage' && contactsManageStateIndex >= 0
+        ? contactsManageRows[contactsManageStateIndex]
+        : null
+    const contactsManageServerRowId =
+      cellEditScope === 'contactsManage'
+        ? pickContactsManageServerRowId(contactsManageStateRow || row)
+        : ''
+    const rowId =
+      (cellEditScope === 'contactsManage' ? contactsManageServerRowId : '') ||
+      safeString(row?.id).trim() ||
+      rowKey
     const displayRow = safeString(row?.id).trim() ? row : { ...row, id: rowId }
     const useCellMode = Boolean(cellEditScope && onRegistryCellStart)
     const isRowLegacyEditing = !useCellMode && (row.isDraft || editingIds.includes(rowId))
