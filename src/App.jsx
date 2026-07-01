@@ -3373,8 +3373,40 @@ function firstUsableContractPathId(...parts) {
   return ''
 }
 
+function isUuidLikeId(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    normalizeRegistryRowId(value)
+  )
+}
+
+function collectContactsManageIdCandidates(value, path = 'row', depth = 0, seen = new WeakSet()) {
+  if (!value || typeof value !== 'object' || depth > 4 || seen.has(value)) return []
+  seen.add(value)
+
+  const idKeyPattern = /^(id|_id|ID|contactId|contactID|contact_id|dbId|dbID|db_id|realId|realID|real_id|pk|primaryKey)$/
+  const candidates = []
+
+  Object.entries(value).forEach(([key, child]) => {
+    if (idKeyPattern.test(key)) {
+      const id = normalizeRegistryRowId(child)
+      if (id && id !== '[object Object]') {
+        candidates.push({ id, path: `${path}.${key}` })
+      }
+    }
+    if (child && typeof child === 'object') {
+      candidates.push(...collectContactsManageIdCandidates(child, `${path}.${key}`, depth + 1, seen))
+    }
+  })
+
+  return candidates
+}
+
 function pickContactsManageServerRowId(row) {
   if (!row || typeof row !== 'object') return normalizeRegistryRowId(row)
+  const idCandidates = collectContactsManageIdCandidates(row)
+  const numericCandidate = idCandidates.find(({ id }) => /^\d+$/.test(id))
+  if (numericCandidate) return numericCandidate.id
+
   const original =
     row.original && typeof row.original === 'object' && !Array.isArray(row.original)
       ? row.original
@@ -3400,6 +3432,12 @@ function pickContactsManageServerRowId(row) {
   ]
   for (const candidate of candidates) {
     const id = normalizeRegistryRowId(candidate)
+    if (id && id !== '[object Object]' && !isUuidLikeId(id)) return id
+  }
+  const nonUuidCandidate = idCandidates.find(({ id }) => !isUuidLikeId(id))
+  if (nonUuidCandidate) return nonUuidCandidate.id
+  for (const candidate of candidates) {
+    const id = normalizeRegistryRowId(candidate)
     if (id && id !== '[object Object]') return id
   }
   return ''
@@ -3407,9 +3445,11 @@ function pickContactsManageServerRowId(row) {
 
 function normalizeContactsManageRow(row) {
   if (!row || typeof row !== 'object') return row
+  const originalRow = row.__contactsManageOriginalRow || { ...row }
   return {
     ...row,
-    __contactsManageServerId: pickContactsManageServerRowId(row),
+    __contactsManageOriginalRow: originalRow,
+    __contactsManageServerId: pickContactsManageServerRowId(originalRow),
   }
 }
 
@@ -7235,6 +7275,10 @@ function App() {
     setIsLoadingContactsManage(true)
     try {
       const rows = await contactsManageApi.list()
+      if (Array.isArray(rows) && rows.length > 0) {
+        console.log('[연락처] GET 원본 Row sample:', rows[0])
+        console.log('[연락처] GET 원본 Row ID 후보:', collectContactsManageIdCandidates(rows[0]))
+      }
       setContactsManageRows(Array.isArray(rows) ? rows.map(normalizeContactsManageRow) : [])
     } catch (error) {
       const isNotFound =
@@ -10812,6 +10856,18 @@ function App() {
 
     const contactsManageServerRowId =
       scope === 'contactsManage' ? pickContactsManageServerRowId(targetRow) : ''
+    if (scope === 'contactsManage') {
+      console.log('업데이트 대상 전체 Row 데이터:', targetRow)
+      console.log('업데이트 대상 ID 후보:', collectContactsManageIdCandidates(targetRow))
+      console.log('요청할 진짜 DB ID:', contactsManageServerRowId, {
+        tableRowId: rowId,
+        originalId: targetRow?.original?.id,
+        dataId: targetRow?.data?.id,
+        preservedOriginalId: targetRow?.__contactsManageOriginalRow?.id,
+        preservedServerId: targetRow?.__contactsManageServerId,
+        rowId: targetRow?.id,
+      })
+    }
     if (scope === 'contactsManage' && !contactsManageServerRowId) {
       setToastMessage('저장할 연락처 ID를 찾을 수 없습니다.')
       return false
@@ -10835,12 +10891,6 @@ function App() {
           await documentRegisterApi.update(rowId, patch)
           break
         case 'contactsManage':
-          console.log('요청할 진짜 DB ID:', contactsManageServerRowId, {
-            tableRowId: rowId,
-            originalId: targetRow?.original?.id,
-            dataId: targetRow?.data?.id,
-            rowId: targetRow?.id,
-          })
           await contactsManageApi.update(contactsManageServerRowId, patch)
           break
         default:
