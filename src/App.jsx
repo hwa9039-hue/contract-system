@@ -3443,13 +3443,16 @@ function pickContactsManageServerRowId(row) {
   return ''
 }
 
-function normalizeContactsManageRow(row) {
+function normalizeContactsManageRow(row, index = 0) {
   if (!row || typeof row !== 'object') return row
   const originalRow = row.__contactsManageOriginalRow || { ...row }
+  const serverId = pickContactsManageServerRowId(originalRow)
+  const rowId = serverId || normalizeRegistryRowId(row.id) || `contacts-row-${index}`
   return {
     ...row,
+    id: rowId,
     __contactsManageOriginalRow: originalRow,
-    __contactsManageServerId: pickContactsManageServerRowId(originalRow),
+    __contactsManageServerId: serverId,
   }
 }
 
@@ -7279,7 +7282,17 @@ function App() {
         console.log('[연락처] GET 원본 Row sample:', rows[0])
         console.log('[연락처] GET 원본 Row ID 후보:', collectContactsManageIdCandidates(rows[0]))
       }
-      setContactsManageRows(Array.isArray(rows) ? rows.map(normalizeContactsManageRow) : [])
+      const normalizedRows = Array.isArray(rows)
+        ? rows.map((row, index) => normalizeContactsManageRow(row, index))
+        : []
+      if (normalizedRows.length > 0) {
+        console.log('[연락처] 테이블 바인딩 Row sample:', normalizedRows[0])
+        console.log('[연락처] 테이블 row.id / serverId:', {
+          rowId: normalizedRows[0].id,
+          serverId: normalizedRows[0].__contactsManageServerId,
+        })
+      }
+      setContactsManageRows(normalizedRows)
     } catch (error) {
       const isNotFound =
         error?.status === 404 ||
