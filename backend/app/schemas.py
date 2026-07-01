@@ -487,6 +487,16 @@ class ContactsManageCreate(ContactsManageBase):
     pass
 
 
+class ContactsManagePatch(BaseModel):
+    category: Optional[Any] = None
+    business_content: Optional[Any] = None
+    manager_name: Optional[Any] = None
+    position: Optional[Any] = None
+    phone: Optional[Any] = None
+    email: Optional[Any] = None
+    notes: Optional[Any] = None
+
+
 class ContactsManageOut(ContactsManageBase):
     id: Optional[Any] = None
 
@@ -1297,6 +1307,15 @@ def contacts_manage_to_db_values(row: ContactsManageBase) -> dict:
     return {
         db_key: data.get(api_key, "")
         for api_key, db_key in CONTACTS_MANAGE_DB_COLUMNS.items()
+    }
+
+
+def contacts_manage_patch_to_db_values(row: ContactsManagePatch) -> dict:
+    data = row.model_dump(exclude_unset=True)
+    return {
+        db_key: data[api_key]
+        for api_key, db_key in CONTACTS_MANAGE_DB_COLUMNS.items()
+        if api_key in data
     }
 
 

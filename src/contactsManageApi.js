@@ -63,6 +63,12 @@ export const contactsManageApi = {
       body: JSON.stringify(payload),
     })
   },
+  update(id, patch) {
+    return requestJson(`${CONTACTS_MANAGE_API_PATH}/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    })
+  },
   bulkDelete(ids) {
     return requestJson(CONTACTS_MANAGE_API_PATH, {
       method: 'DELETE',

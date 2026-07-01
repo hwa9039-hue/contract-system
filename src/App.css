@@ -7270,20 +7270,6 @@ textarea:focus-visible {
   text-overflow: ellipsis;
 }
 
-.contacts-registry-table .contacts-modal-text-cell {
-  cursor: pointer;
-  white-space: normal !important;
-}
-
-.contacts-registry-table .contacts-modal-text-cell:hover {
-  background: rgba(59, 130, 246, 0.08);
-  outline: 1px solid rgba(59, 130, 246, 0.24);
-}
-
-.contacts-registry-table .contacts-modal-text-cell .contacts-modal-text-display {
-  cursor: pointer;
-}
-
 .registry-table td .cell-display {
   width: 100%;
   overflow-wrap: anywhere;

@@ -241,8 +241,7 @@ const CONTACTS_MANAGE_COLUMNS = [
     align: 'left',
     type: 'textarea',
     widthClass: 'contacts-w-business',
-    cellClass: 'contacts-modal-text-cell contacts-w-business',
-    modalEditor: true,
+    cellClass: 'contacts-w-business',
   },
   {
     key: 'manager_name',
@@ -282,8 +281,7 @@ const CONTACTS_MANAGE_COLUMNS = [
     align: 'left',
     type: 'textarea',
     widthClass: 'contacts-w-notes',
-    cellClass: 'contacts-modal-text-cell contacts-w-notes',
-    modalEditor: true,
+    cellClass: 'contacts-w-notes',
   },
 ]
 
@@ -10775,10 +10773,6 @@ function App() {
     const previous = targetRow[column.key]
     applyRegistryRowFieldPatch(scope, rowId, column, rawValue)
 
-    if (scope === 'contactsManage') {
-      return true
-    }
-
     try {
       switch (scope) {
         case 'sales':
@@ -10792,6 +10786,9 @@ function App() {
           break
         case 'documents':
           await documentRegisterApi.update(rowId, patch)
+          break
+        case 'contactsManage':
+          await contactsManageApi.update(rowId, patch)
           break
         default:
           return false
