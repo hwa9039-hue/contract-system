@@ -98,6 +98,12 @@ import {
 } from './contractAggregation.js'
 import { EditableTextCell, isEditableTextColumn } from './EditableTextCell.jsx'
 import {
+  TABLE_CELL_EMPTY_LABEL,
+  formatEditableTableCellText,
+  isTableCellEmpty,
+  tableCellStateClass,
+} from './tableCellEmptyState.js'
+import {
   getTableAlignClass,
   getTableBodyAlignClass,
   getTableColumnLayoutClass,
@@ -4366,23 +4372,59 @@ function registryCellDisplayText(value) {
   return text
 }
 
-function getRegistryPlainDisplayValue(row, column) {
+function getRegistryPlainDisplayState(row, column) {
   if (column.type === 'amount') {
     const amountText = registryCellDisplayText(formatAmountDisplay(row[column.key]))
-    return amountText || '-'
+    if (isTableCellEmpty(amountText)) {
+      return { isEmpty: true, text: TABLE_CELL_EMPTY_LABEL }
+    }
+    return { isEmpty: false, text: amountText }
   }
 
   if (column.type === 'importance') {
     const { label } = getImportanceStyle(resolveRegistryImportanceStatus(row, column))
-    return label || '-'
+    if (isTableCellEmpty(label)) {
+      return { isEmpty: true, text: TABLE_CELL_EMPTY_LABEL }
+    }
+    return { isEmpty: false, text: label }
   }
 
   if (column.key === 'projectStage') {
     const stage = normalizeSalesProjectStage(row.projectStage)
-    return stage || '-'
+    if (isTableCellEmpty(stage)) {
+      return { isEmpty: true, text: TABLE_CELL_EMPTY_LABEL }
+    }
+    return { isEmpty: false, text: stage }
   }
 
-  return registryCellDisplayText(row[column.key]) || '-'
+  if (column.type === 'date') {
+    return formatEditableTableCellText(row[column.key], { isDate: true })
+  }
+
+  return formatEditableTableCellText(registryCellDisplayText(row[column.key]))
+}
+
+function getRegistryPlainDisplayValue(row, column) {
+  return getRegistryPlainDisplayState(row, column).text
+}
+
+function getContractCellDisplayState(item, column) {
+  const raw = item[column.key]
+  if (column.key === 'amount') {
+    const text = formatAmountDisplay(raw)
+    if (isTableCellEmpty(text)) {
+      return { isEmpty: true, text: TABLE_CELL_EMPTY_LABEL }
+    }
+    return { isEmpty: false, text }
+  }
+  if (column.type === 'date') {
+    return formatEditableTableCellText(raw, { isDate: true })
+  }
+  const text = registryCellDisplayText(raw)
+  if (isTableCellEmpty(text)) {
+    return { isEmpty: true, text: TABLE_CELL_EMPTY_LABEL }
+  }
+  return { isEmpty: false, text }
 }
 
 /** 외부일정 본문·목적지 구분자 (JSON 미사용 → Cloudflare WAF 회피) */
@@ -11267,6 +11309,14 @@ function App() {
             cellEditScope === 'discovery' && column.type !== 'amount'
               ? 'whitespace-pre-wrap break-words'
               : ''
+          const plainDisplay = getRegistryPlainDisplayState(row, column)
+          const usesPlainDisplayState =
+            !isImportanceCell &&
+            !isSalesDetailCell &&
+            !isSmartDetailCell &&
+            !isEditableText &&
+            !showInput &&
+            !isThisCell
           const cells = [
             <td
               key={column.key}
@@ -11275,6 +11325,10 @@ function App() {
               } ${
                 isImportanceCell ? 'registry-importance-cell' : ''
               } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${discoveryTextWrapClass} ${
+                usesPlainDisplayState || canUseRegistryModalEditor
+                  ? tableCellStateClass(plainDisplay.isEmpty)
+                  : ''
+              } ${
                 usesTableInlineInput
                   ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
                   : isAdminForRegistry && !row.isDraft && !isImportanceCell
@@ -11389,7 +11443,9 @@ function App() {
                     cellEditScope === 'contactsManage' ? ' table-cell-clamp-2' : ''
                   } sales-modal-text-display${
                     cellEditScope === 'discovery' ? ' discovery-modal-text-display' : ''
-                  }${cellEditScope === 'contactsManage' ? ' contacts-modal-text-display' : ''}`}
+                  }${cellEditScope === 'contactsManage' ? ' contacts-modal-text-display' : ''}${
+                    plainDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''
+                  }`}
                   role="button"
                   tabIndex={0}
                   onClick={(e) => {
@@ -11403,7 +11459,7 @@ function App() {
                     }
                   }}
                 >
-                  {getRegistryPlainDisplayValue(row, column) || '\u00a0'}
+                  {plainDisplay.text}
                 </div>
               ) : isEditableText ? (
                 <EditableTextCell
@@ -11440,9 +11496,9 @@ function App() {
                         ? ' break-words whitespace-pre-wrap'
                         : ' table-cell-clamp'
                       : ''
-                  }`}
+                  }${plainDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''}`}
                 >
-                  {getRegistryPlainDisplayValue(row, column)}
+                  {plainDisplay.text}
                 </div>
               )}
             </td>,
@@ -13635,6 +13691,7 @@ function App() {
                                   const isThisContractCell =
                                     contractEdit?.rowKey === rowSelectKey &&
                                     contractEdit?.key === column.key
+                                  const contractDisplay = getContractCellDisplayState(item, column)
 
                                   return (
                                     <td
@@ -13643,7 +13700,7 @@ function App() {
                                         isLongCell ? 'multiline-cell' : ''
                                       } ${column.key === 'note' ? 'note-cell' : ''} ${getTableColumnLayoutClass(column)} ${
                                         canEditContracts ? 'editable-cell' : ''
-                                      }`}
+                                      } ${tableCellStateClass(contractDisplay.isEmpty)}`}
                                       onClick={
                                         canEditContracts && !isThisContractCell
                                           ? () =>
@@ -13658,7 +13715,7 @@ function App() {
                                           <div
                                             className={`cell-display editable-text-cell-display editable-text-cell-display--${cellAlign}${
                                               isLongCell ? ' table-cell-clamp' : ''
-                                            }`}
+                                            }${contractDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''}`}
                                             role={canEditContracts ? 'button' : undefined}
                                             tabIndex={canEditContracts ? 0 : undefined}
                                             onClick={(e) => {
@@ -13674,11 +13731,7 @@ function App() {
                                               }
                                             }}
                                           >
-                                            {column.key === 'amount'
-                                              ? formatAmountDisplay(item[column.key]) || '\u00a0'
-                                              : column.type === 'date'
-                                                ? item[column.key] || '-'
-                                                : item[column.key] || '\u00a0'}
+                                            {contractDisplay.text}
                                           </div>
                                         </ContractTableCellShell>
                                       )}

@@ -6,7 +6,7 @@ import {
   toCommencementCertApiValue,
   toDateInputValue,
 } from './dateFieldUtils.js'
-import { tableCellStateClass } from './tableCellEmptyState.js'
+import { TABLE_CELL_EMPTY_LABEL, tableCellStateClass } from './tableCellEmptyState.js'
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -33,12 +33,14 @@ export function EditableCommencementCertCell({
   const stateClass = tableCellStateClass(isEmpty)
   const [omitMode, setOmitMode] = useState(omitActive)
   const [draft, setDraft] = useState(displayDate)
+  const [dateEditing, setDateEditing] = useState(false)
   const hasDateValue = !omitActive && safeString(draft).trim() !== ''
 
   useEffect(() => {
     const nextOmit = isCommencementCertOmitValue(value)
     setOmitMode(nextOmit)
     setDraft(nextOmit ? '' : toDateInputValue(value))
+    setDateEditing(false)
   }, [value])
 
   const commitValue = (nextRaw) => {
@@ -62,17 +64,22 @@ export function EditableCommencementCertCell({
       return
     }
     commitValue(draft)
+    if (safeString(draft).trim() === '') {
+      setDateEditing(false)
+    }
   }
 
   const enableOmitMode = () => {
     setOmitMode(true)
     setDraft('')
+    setDateEditing(false)
     commitValue(COMMENCEMENT_CERT_OMIT_LABEL)
   }
 
   const enableDateMode = () => {
     setOmitMode(false)
     setDraft('')
+    setDateEditing(false)
     commitValue(null)
   }
 
@@ -83,7 +90,7 @@ export function EditableCommencementCertCell({
           omitActive ? 'commencement-cert-readonly-omit' : stateClass
         } ${isEmpty && !omitActive ? 'table-cell-empty-placeholder' : ''} ${className}`.trim()}
       >
-        {omitActive ? COMMENCEMENT_CERT_OMIT_LABEL : displayDate || '\u00a0'}
+        {omitActive ? COMMENCEMENT_CERT_OMIT_LABEL : isEmpty ? TABLE_CELL_EMPTY_LABEL : displayDate}
       </div>
     )
   }
@@ -104,6 +111,34 @@ export function EditableCommencementCertCell({
             날짜
           </button>
         </>
+      ) : isEmpty && !dateEditing ? (
+        <>
+          <span
+            className="commencement-cert-empty-label table-cell-empty-placeholder"
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation()
+              setDateEditing(true)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setDateEditing(true)
+              }
+            }}
+          >
+            {TABLE_CELL_EMPTY_LABEL}
+          </span>
+          <button
+            type="button"
+            className="commencement-cert-mode-btn"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={enableOmitMode}
+          >
+            {COMMENCEMENT_CERT_OMIT_LABEL}
+          </button>
+        </>
       ) : (
         <>
           <input
@@ -113,6 +148,7 @@ export function EditableCommencementCertCell({
             }`}
             value={draft}
             disabled={disabled}
+            autoFocus={isEmpty && dateEditing}
             onChange={(e) => {
               const next = e.target.value
               setDraft(next)

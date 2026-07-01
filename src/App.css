@@ -11577,8 +11577,16 @@ table[data-contract-table-row-key] tbody td.table-cell--filled {
 .table-cell-empty-placeholder,
 .unit-price-table tbody td.table-cell--empty .editable-text-cell-display,
 .unit-price-table tbody td.table-cell--empty .editable-date-cell-display,
-.excel-table tbody td.table-cell--empty .editable-text-cell-display {
+.excel-table tbody td.table-cell--empty .editable-text-cell-display,
+.registry-table tbody td.table-cell--empty .cell-display,
+.registry-table tbody td .table-cell-empty-placeholder,
+table[data-contract-table-row-key] tbody td.table-cell--empty .cell-display,
+table[data-contract-table-row-key] tbody td .table-cell-empty-placeholder {
   color: #9ca3af !important;
+}
+
+table[data-contract-table-row-key] tbody td.editable-cell.table-cell--empty {
+  background-color: #ffffff !important;
 }
 
 .unit-price-table tbody td.table-cell--filled .editable-text-cell-display,
@@ -11904,11 +11912,12 @@ table[data-contract-table-row-key] thead th {
 .unit-price-table tbody td,
 .materials-board-table tbody td,
 table[data-contract-table-row-key] tbody td,
-.cell-display,
-.editable-text-cell-display,
+.cell-display:not(.table-cell-empty-placeholder),
+.editable-text-cell-display:not(.table-cell-empty-placeholder),
+.editable-date-cell-display:not(.table-cell-empty-placeholder),
 .editable-text-cell-input,
 .unit-price-table .unit-price-cell-input,
-.unit-price-table tbody td.unit-price-readonly {
+.unit-price-table tbody td.unit-price-readonly:not(.table-cell-empty-placeholder) {
   font-size: var(--cms-table-cell-font-size) !important;
   font-weight: var(--cms-table-cell-font-weight) !important;
   line-height: var(--cms-table-cell-line-height) !important;

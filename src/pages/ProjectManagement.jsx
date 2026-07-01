@@ -448,10 +448,14 @@ export default function ProjectManagement({ canEdit = true }) {
         const isProject = column.field === 'projectName'
         const isClient = column.field === 'client'
         const projectTitle = isProject ? safeString(row.projectName).trim() : ''
-        const cellText =
+        const readonlyState =
           column.type === 'date'
-            ? formatDateDisplay(row[column.field]) || '-'
-            : safeString(row[column.field]).trim() || '-'
+            ? formatEditableTableCellText(row[column.field], { isDate: true })
+            : {
+                isEmpty: isTableCellEmpty(safeString(row[column.field]).trim()),
+                text: safeString(row[column.field]).trim() || '-',
+              }
+        const cellText = readonlyState.text
         return (
           <td
             key={column.field}
@@ -459,6 +463,8 @@ export default function ProjectManagement({ canEdit = true }) {
               isProject ? ' text-left pl-4 unit-price-cell-project' : ''
             }${isClient ? ' text-center unit-price-cell-truncate' : ''}${
               !isProject && !isClient ? ' text-center' : ''
+            } ${tableCellStateClass(readonlyState.isEmpty)}${
+              readonlyState.isEmpty ? ' table-cell-empty-placeholder' : ''
             }`}
             title={isProject && projectTitle && cellText !== '-' ? projectTitle : undefined}
           >
