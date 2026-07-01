@@ -2808,6 +2808,7 @@ function buildRegistrySmartDetailSavePayload(scope, column, row, rawValue) {
         : '')
     const stampedSummaryLine = attachSalesRecordDateStamp(formatSalesRecordDateStamp(), newDetail)
     return {
+      registerDate: formatDateInput(new Date()),
       detail: normalizeSalesRecordForSave(newDetail),
       summary: normalizeSalesRecordForSave(
         newDetail
@@ -7930,9 +7931,7 @@ function App() {
       return
     }
     const sourceRow = salesRows.find((row) => row.id === rowId)
-    const todayRegisterDate = formatDateInput(new Date())
     const payload = {
-      registerDate: todayRegisterDate,
       detail: normalizeSalesRecordForSave(sourceRow?.detail),
       summary: normalizeSalesRecordForSave(summaryText),
     }
@@ -10613,8 +10612,13 @@ function App() {
       const payload = buildRegistrySmartDetailSavePayload(scope, column, targetRow, rawValue)
       if (!payload) return false
 
-      const previous = { detail: targetRow.detail, summary: targetRow.summary }
+      const previous = {
+        registerDate: targetRow.registerDate,
+        detail: targetRow.detail,
+        summary: targetRow.summary,
+      }
 
+      applyRegistryRowFieldPatch(scope, rowId, { key: 'registerDate', type: 'date' }, payload.registerDate)
       applyRegistryRowFieldPatch(scope, rowId, { key: 'detail', type: 'textarea' }, payload.detail)
       applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, payload.summary)
 
@@ -10622,6 +10626,7 @@ function App() {
         await salesRegisterApi.update(rowId, payload)
         return true
       } catch (error) {
+        applyRegistryRowFieldPatch(scope, rowId, { key: 'registerDate', type: 'date' }, previous.registerDate)
         applyRegistryRowFieldPatch(scope, rowId, { key: 'detail', type: 'textarea' }, previous.detail)
         applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, previous.summary)
         const labelMap = {
