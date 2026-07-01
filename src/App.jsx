@@ -3375,8 +3375,17 @@ function firstUsableContractPathId(...parts) {
 
 function pickContactsManageServerRowId(row) {
   if (!row || typeof row !== 'object') return normalizeRegistryRowId(row)
+  const original =
+    row.original && typeof row.original === 'object' && !Array.isArray(row.original)
+      ? row.original
+      : null
   const data = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data : null
   const candidates = [
+    original?.id,
+    original?._id,
+    original?.contact_id,
+    original?.contactId,
+    original?.ID,
     data?.id,
     data?._id,
     data?.contact_id,
@@ -10826,6 +10835,12 @@ function App() {
           await documentRegisterApi.update(rowId, patch)
           break
         case 'contactsManage':
+          console.log('요청할 진짜 DB ID:', contactsManageServerRowId, {
+            tableRowId: rowId,
+            originalId: targetRow?.original?.id,
+            dataId: targetRow?.data?.id,
+            rowId: targetRow?.id,
+          })
           await contactsManageApi.update(contactsManageServerRowId, patch)
           break
         default:
