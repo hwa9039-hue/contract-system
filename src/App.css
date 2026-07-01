@@ -6597,6 +6597,14 @@ textarea:focus-visible {
   justify-content: flex-end;
 }
 
+/* 영업관리대장 — 미입력은 회색 텍스트만 (연락처와 동일, 셀·태그 배경 없음) */
+.sales-registry-table.excel-table.registry-table tbody td.table-cell--empty,
+.sales-registry-table.excel-table.registry-table tbody td .cell-display.table-cell--empty,
+.sales-registry-table.excel-table.registry-table tbody td .editable-text-cell-display.table-cell--empty {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
 .sales-registry-table .sales-modal-text-cell {
   cursor: pointer;
   white-space: normal !important;

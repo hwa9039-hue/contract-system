@@ -11310,13 +11310,6 @@ function App() {
               ? 'whitespace-pre-wrap break-words'
               : ''
           const plainDisplay = getRegistryPlainDisplayState(row, column)
-          const usesPlainDisplayState =
-            !isImportanceCell &&
-            !isSalesDetailCell &&
-            !isSmartDetailCell &&
-            !isEditableText &&
-            !showInput &&
-            !isThisCell
           const cells = [
             <td
               key={column.key}
@@ -11325,10 +11318,6 @@ function App() {
               } ${
                 isImportanceCell ? 'registry-importance-cell' : ''
               } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${discoveryTextWrapClass} ${
-                usesPlainDisplayState || canUseRegistryModalEditor
-                  ? tableCellStateClass(plainDisplay.isEmpty)
-                  : ''
-              } ${
                 usesTableInlineInput
                   ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
                   : isAdminForRegistry && !row.isDraft && !isImportanceCell
