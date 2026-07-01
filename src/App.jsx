@@ -3373,6 +3373,37 @@ function firstUsableContractPathId(...parts) {
   return ''
 }
 
+function pickContactsManageServerRowId(row) {
+  if (!row || typeof row !== 'object') return normalizeRegistryRowId(row)
+  const data = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data : null
+  const candidates = [
+    data?.id,
+    data?._id,
+    data?.contact_id,
+    data?.contactId,
+    data?.ID,
+    row.__contactsManageServerId,
+    row.contact_id,
+    row.contactId,
+    row._id,
+    row.ID,
+    row.id,
+  ]
+  for (const candidate of candidates) {
+    const id = normalizeRegistryRowId(candidate)
+    if (id && id !== '[object Object]') return id
+  }
+  return ''
+}
+
+function normalizeContactsManageRow(row) {
+  if (!row || typeof row !== 'object') return row
+  return {
+    ...row,
+    __contactsManageServerId: pickContactsManageServerRowId(row),
+  }
+}
+
 /** 테이블 UI 키 — 행마다 고유. 저장 API 는 `record.id`(DB PK)만 사용 */
 function getContractTableRowKey(record) {
   if (record == null || typeof record !== 'object') return ''
@@ -7195,7 +7226,7 @@ function App() {
     setIsLoadingContactsManage(true)
     try {
       const rows = await contactsManageApi.list()
-      setContactsManageRows(Array.isArray(rows) ? rows : [])
+      setContactsManageRows(Array.isArray(rows) ? rows.map(normalizeContactsManageRow) : [])
     } catch (error) {
       const isNotFound =
         error?.status === 404 ||
@@ -7273,7 +7304,7 @@ function App() {
       onConfirm: async () => {
         const persistedIds = contactsManageRows
           .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
-          .map((row) => row.id)
+          .map((row) => pickContactsManageServerRowId(row))
           .filter((id) => safeString(id).trim() !== '')
 
         if (persistedIds.length > 0) {
@@ -10770,6 +10801,13 @@ function App() {
       safeString(prevVal ?? '').trim() === safeString(patchValue ?? '').trim()
     if (sameAmount || sameText) return false
 
+    const contactsManageServerRowId =
+      scope === 'contactsManage' ? pickContactsManageServerRowId(targetRow) : ''
+    if (scope === 'contactsManage' && !contactsManageServerRowId) {
+      setToastMessage('저장할 연락처 ID를 찾을 수 없습니다.')
+      return false
+    }
+
     const previous = targetRow[column.key]
     applyRegistryRowFieldPatch(scope, rowId, column, rawValue)
 
@@ -10788,7 +10826,7 @@ function App() {
           await documentRegisterApi.update(rowId, patch)
           break
         case 'contactsManage':
-          await contactsManageApi.update(rowId, patch)
+          await contactsManageApi.update(contactsManageServerRowId, patch)
           break
         default:
           return false
