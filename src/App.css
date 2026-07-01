@@ -6478,7 +6478,7 @@ textarea:focus-visible {
 .sales-registry-table {
   table-layout: fixed !important;
   width: 100%;
-  min-width: 2642px;
+  min-width: 2698px;
 }
 
 .sales-registry-table.excel-table thead th,
@@ -6512,12 +6512,75 @@ textarea:focus-visible {
   max-width: 44px;
 }
 
+.sales-registry-table col.sales-archive-col,
+.sales-registry-table .sales-archive-header,
+.sales-registry-table .sales-archive-cell {
+  width: 56px;
+  min-width: 56px;
+  max-width: 56px;
+}
+
 .sales-registry-table col.sales-record-col,
 .sales-registry-table .sales-record-header,
 .sales-registry-table .sales-record-cell {
   width: 56px;
   min-width: 56px;
   max-width: 56px;
+}
+
+.sales-hidden-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sales-hidden-toggle input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #2563eb;
+}
+
+.sales-hidden-toggle-count {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sales-archive-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.sales-archive-btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.sales-archive-btn--restore {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #2563eb;
 }
 
 .sales-registry-table .sales-amount-header {

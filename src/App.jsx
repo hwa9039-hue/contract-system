@@ -2,6 +2,8 @@
 import {
   Copy,
   Download,
+  Eye,
+  EyeOff,
   FileText,
   Pencil,
   Trash2,
@@ -1230,6 +1232,55 @@ function isWorkReportRelatedMenu(menuKey) {
 
 const ACTIVE_MENU_STORAGE_KEY = 'cms-active-menu'
 const SIDEBAR_GROUPS_EXPANDED_KEY = 'cms-sidebar-groups-expanded'
+const SALES_HIDDEN_ROW_IDS_STORAGE_KEY = 'cms-sales-hidden-row-ids'
+
+function parseRegistryHiddenFlag(value) {
+  if (value === true) return true
+  if (value === false || value === null || value === undefined) return false
+  if (typeof value === 'number') return value === 1
+  const normalized = safeString(value).trim().toLowerCase()
+  return ['1', 'true', 'yes', 'y', 'hidden', 'archived'].includes(normalized)
+}
+
+function getSalesRowHiddenStorageId(row) {
+  const id = normalizeRegistryRowId(row?.id)
+  if (!id || id === 'undefined' || id.startsWith('sales-draft-')) return ''
+  return id
+}
+
+function hasSalesRowHiddenFlagFromApi(row) {
+  return parseRegistryHiddenFlag(
+    row?.isHidden ?? row?.ishidden ?? row?.is_hidden ?? row?.archived ?? row?.isArchived
+  )
+}
+
+function loadStoredSalesHiddenRowIds() {
+  try {
+    const raw = localStorage.getItem(SALES_HIDDEN_ROW_IDS_STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(parsed)) return []
+    return parsed.map((id) => safeString(id).trim()).filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
+function saveStoredSalesHiddenRowIds(ids) {
+  try {
+    localStorage.setItem(SALES_HIDDEN_ROW_IDS_STORAGE_KEY, JSON.stringify(ids))
+  } catch {
+    /* ignore */
+  }
+}
+
+function applySalesHiddenState(row, hiddenIds) {
+  const hiddenSet = hiddenIds instanceof Set ? hiddenIds : new Set(hiddenIds || [])
+  const storageId = getSalesRowHiddenStorageId(row)
+  return {
+    ...row,
+    isHidden: hasSalesRowHiddenFlagFromApi(row) || (storageId ? hiddenSet.has(storageId) : false),
+  }
+}
 
 const SIDEBAR_MENU_GROUPS = [
   {
@@ -2612,6 +2663,7 @@ function createSalesDraftRow() {
     summary: '',
     createdAt: '',
     updatedAt: '',
+    isHidden: false,
     isDraft: true,
   }
 }
@@ -3826,6 +3878,7 @@ function normalizeSalesRow(item) {
     summary: safeString(item.summary).trim(),
     createdAt: safeString(item.createdAt ?? item.createdat),
     updatedAt: safeString(item.updatedAt ?? item.updatedat),
+    isHidden: hasSalesRowHiddenFlagFromApi(item),
     isDraft: false,
   }
 }
@@ -5118,6 +5171,8 @@ function App() {
   const [salesDateRange, setSalesDateRange] = useState({ startDate: '', endDate: '' })
   const [salesActiveFilters, setSalesActiveFilters] = useState({})
   const [openSalesColumnFilterKey, setOpenSalesColumnFilterKey] = useState(null)
+  const [showHiddenSalesRows, setShowHiddenSalesRows] = useState(false)
+  const [salesHiddenRowIds, setSalesHiddenRowIds] = useState(() => loadStoredSalesHiddenRowIds())
   const [selectedDiscoveryIds, setSelectedDiscoveryIds] = useState([])
   const [editingDiscoveryIds, setEditingDiscoveryIds] = useState([])
   const [discoveryEditSnapshots, setDiscoveryEditSnapshots] = useState({})
@@ -5411,6 +5466,10 @@ function App() {
       return []
     }
   }
+
+  useEffect(() => {
+    saveStoredSalesHiddenRowIds(salesHiddenRowIds)
+  }, [salesHiddenRowIds])
 
   const fetchDiscoveryRows = async (preserveDrafts = true) => {
     try {
@@ -6549,10 +6608,32 @@ function App() {
     [contactsRawData.length, filteredContactsRows.length]
   )
 
-  const salesRawData = salesRows
+  const salesRawData = useMemo(
+    () => salesRows.map((row) => applySalesHiddenState(row, salesHiddenRowIds)),
+    [salesHiddenRowIds, salesRows]
+  )
+
+  const visibleModeSalesRows = useMemo(
+    () =>
+      salesRawData.filter((row) => {
+        if (row.isDraft) return !showHiddenSalesRows
+        return showHiddenSalesRows ? row.isHidden : !row.isHidden
+      }),
+    [salesRawData, showHiddenSalesRows]
+  )
+
+  const visibleSalesRowsForDashboard = useMemo(
+    () => salesRawData.filter((row) => !row.isHidden),
+    [salesRawData]
+  )
+
+  const hiddenSalesCount = useMemo(
+    () => salesRawData.filter((row) => !row.isDraft && row.isHidden).length,
+    [salesRawData]
+  )
 
   const salesColumnFilterOptionsMap = useMemo(() => {
-    const basePool = salesRawData.filter(
+    const basePool = visibleModeSalesRows.filter(
       (row) =>
         matchesRegistrySearch(row, SALES_COLUMNS, salesSearch) &&
         matchesDateRangeFilter(
@@ -6574,8 +6655,8 @@ function App() {
     salesActiveFilters,
     salesDateRange.endDate,
     salesDateRange.startDate,
-    salesRawData,
     salesSearch,
+    visibleModeSalesRows,
   ])
 
   const handleSalesActiveFiltersApply = useCallback((columnKey, selected) => {
@@ -6629,7 +6710,7 @@ function App() {
 
   /** [1단계] rawData → 검색·기간·헤더 열 필터(AND) → filteredData */
   const filteredSalesRows = useMemo(() => {
-    const toolbarFiltered = salesRawData.filter(
+    const toolbarFiltered = visibleModeSalesRows.filter(
       (row) =>
         matchesRegistrySearch(row, SALES_COLUMNS, salesSearch) &&
         matchesDateRangeFilter(
@@ -6644,13 +6725,13 @@ function App() {
     salesActiveFilters,
     salesDateRange.endDate,
     salesDateRange.startDate,
-    salesRawData,
     salesSearch,
+    visibleModeSalesRows,
   ])
 
   const isSalesTableFilterResultEmpty = useMemo(
-    () => salesRawData.length > 0 && filteredSalesRows.length === 0,
-    [filteredSalesRows.length, salesRawData.length]
+    () => visibleModeSalesRows.length > 0 && filteredSalesRows.length === 0,
+    [filteredSalesRows.length, visibleModeSalesRows.length]
   )
 
   const filteredDiscoveryRows = useMemo(() => {
@@ -6863,7 +6944,7 @@ function App() {
     }
   }, [contracts, dashboardCurrentYear])
   const dashboardData = useMemo(() => {
-    const persistedSalesRows = getPersistedRows(salesRows)
+    const persistedSalesRows = getPersistedRows(visibleSalesRowsForDashboard)
     const persistedDiscoveryRows = getPersistedRows(discoveryRows)
     const persistedExcludedRows = getPersistedRows(excludedRows)
     const persistedDocuments = getPersistedRows(documents)
@@ -6925,7 +7006,7 @@ function App() {
         },
       ],
     }
-  }, [discoveryRows, documents, excludedRows, salesRows])
+  }, [discoveryRows, documents, excludedRows, visibleSalesRowsForDashboard])
   const currentRegistryYear = String(new Date().getFullYear())
   const defaultContractYear = groupedContracts.find((group) => group.year === currentRegistryYear)?.year ?? groupedContracts[0]?.year
   const defaultSalesYear = groupedSalesRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedSalesRows)
@@ -7866,6 +7947,47 @@ function App() {
             }
           : row
       )
+    )
+  }
+
+  const toggleSalesRowHidden = (row, nextHidden) => {
+    const rowId = getSalesRowHiddenStorageId(row)
+    if (!rowId) {
+      showAppAlert('저장된 행만 숨김 처리할 수 있습니다.', '알림')
+      return
+    }
+
+    setSalesRows((prev) =>
+      prev.map((item) => (getSalesRowHiddenStorageId(item) === rowId ? { ...item, isHidden: nextHidden } : item))
+    )
+    setSalesHiddenRowIds((prev) => {
+      const next = new Set(prev.map((id) => safeString(id).trim()).filter(Boolean))
+      if (nextHidden) next.add(rowId)
+      else next.delete(rowId)
+      return [...next]
+    })
+    setSelectedSalesIds((prev) => prev.filter((id) => normalizeRegistryRowId(id) !== rowId))
+    setToastMessage(nextHidden ? '숨김 처리되었습니다.' : '숨김 해제되었습니다.')
+  }
+
+  const renderSalesArchiveCell = (row) => {
+    if (!canEditSales || row.isDraft) return null
+    const isHidden = Boolean(row.isHidden)
+    const label = isHidden ? '숨기기 해제' : '숨기기'
+    const Icon = isHidden ? Eye : EyeOff
+    return (
+      <button
+        type="button"
+        className={`sales-archive-btn${isHidden ? ' sales-archive-btn--restore' : ''}`}
+        title={label}
+        aria-label={label}
+        onClick={(e) => {
+          e.stopPropagation()
+          toggleSalesRowHidden(row, !isHidden)
+        }}
+      >
+        <Icon size={16} strokeWidth={2.2} aria-hidden />
+      </button>
     )
   }
 
@@ -11011,6 +11133,7 @@ function App() {
     isAdminForRegistry = false,
     registryCellEdit: registryCellEditProp = null,
     onRegistryCellStart = null,
+    renderAfterSelectionCell = null,
     renderAfterImportanceCell = null,
     showSelection = true,
   }) => {
@@ -11042,6 +11165,10 @@ function App() {
               onChange={() => onToggleSelection(rowId)}
             />
           </td>
+        ) : null}
+
+        {showSelection && renderAfterSelectionCell ? (
+          <td className="td-align-center sales-archive-cell">{renderAfterSelectionCell(displayRow)}</td>
         ) : null}
 
         {columns.map((column) => {
@@ -11302,9 +11429,10 @@ function App() {
     isAdminForRegistry = false,
     registryCellEdit: registryCellEditFlat = null,
     onRegistryCellStart = null,
+    renderAfterSelectionCell = null,
     showSelection = true,
   }) => {
-    const colSpan = columns.length + (showSelection ? 1 : 0)
+    const colSpan = columns.length + (showSelection ? 1 : 0) + (renderAfterSelectionCell ? 1 : 0)
     if (rows.length === 0) {
       return (
         <tr>
@@ -11334,6 +11462,7 @@ function App() {
         isAdminForRegistry,
         registryCellEdit: registryCellEditFlat,
         onRegistryCellStart,
+        renderAfterSelectionCell,
         showSelection,
       })
     )
@@ -11358,11 +11487,13 @@ function App() {
     isAdminForRegistry = false,
     registryCellEdit: registryCellEditGrouped = null,
     onRegistryCellStart = null,
+    renderAfterSelectionCell = null,
   }) => {
+    const tableColSpan = columns.length + 1 + (renderAfterSelectionCell ? 1 : 0)
     if (groups.length === 0) {
       return (
         <tr>
-          <td colSpan={columns.length + 1} className="empty-cell">
+          <td colSpan={tableColSpan} className="empty-cell">
             {emptyMessage}
           </td>
         </tr>
@@ -11377,7 +11508,7 @@ function App() {
           key={`year-${yearBlock.year}`}
           {...bindExpandCollapseRow(() => onToggleYear(yearBlock.year), !collapsed)}
         >
-          <td colSpan={columns.length + 1}>
+          <td colSpan={tableColSpan}>
             <div className="contract-year-toggle" aria-hidden="true">
               <span className="contract-year-sign">{collapsed ? '+' : '-'}</span>
               <span>{yearBlock.year}년</span>
@@ -11414,6 +11545,7 @@ function App() {
             isAdminForRegistry,
             registryCellEdit: registryCellEditGrouped,
             onRegistryCellStart,
+            renderAfterSelectionCell,
           })
         }),
       ]
@@ -11439,10 +11571,15 @@ function App() {
     isAdminForRegistry = false,
     registryCellEdit: registryCellEditGrouped = null,
     onRegistryCellStart = null,
+    renderAfterSelectionCell = null,
     renderAfterImportanceCell = null,
     showSelection = true,
   }) => {
-    const tableColSpan = columns.length + 1 + (renderAfterImportanceCell ? 1 : 0)
+    const tableColSpan =
+      columns.length +
+      (showSelection ? 1 : 0) +
+      (renderAfterSelectionCell ? 1 : 0) +
+      (renderAfterImportanceCell ? 1 : 0)
 
     if (groups.length === 0) {
       return (
@@ -11511,6 +11648,7 @@ function App() {
           isAdminForRegistry,
           registryCellEdit: registryCellEditGrouped,
           onRegistryCellStart,
+          renderAfterSelectionCell,
           renderAfterImportanceCell,
         })
       })
@@ -11564,6 +11702,7 @@ function App() {
               isAdminForRegistry,
               registryCellEdit: registryCellEditGrouped,
               onRegistryCellStart,
+              renderAfterSelectionCell,
               renderAfterImportanceCell,
             })
           })
@@ -13549,6 +13688,20 @@ function App() {
                     setSalesDateRange((prev) => ({ ...prev, endDate: value }))
                   }
                 />
+                <label className="sales-hidden-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showHiddenSalesRows}
+                    onChange={(e) => {
+                      setShowHiddenSalesRows(e.target.checked)
+                      setSelectedSalesIds([])
+                    }}
+                  />
+                  <span>숨긴 항목 보기</span>
+                  <span className="sales-hidden-toggle-count">
+                    {hiddenSalesCount.toLocaleString('ko-KR')}건
+                  </span>
+                </label>
               </div>
             </div>
 
@@ -13558,6 +13711,7 @@ function App() {
                 <table className="contract-table excel-table registry-table sales-registry-table ledger-table-ui table-w-full-min">
                   <colgroup>
                     <col className="sales-registry-check-col" />
+                    <col className="sales-archive-col" />
                     {SALES_COLUMNS.flatMap((column) => {
                       const cols = [
                         <col
@@ -13587,6 +13741,9 @@ function App() {
                             )
                           }
                         />
+                      </th>
+                      <th className="th-align-center sales-archive-header table-col-tight">
+                        숨김
                       </th>
                       {SALES_COLUMNS.flatMap((column) => {
                         const headerCells = [
@@ -13627,16 +13784,25 @@ function App() {
                     {salesRawData.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={SALES_COLUMNS.length + 2}
+                          colSpan={SALES_COLUMNS.length + 3}
                           className="empty-cell"
                         >
                           등록된 데이터가 없습니다.
                         </td>
                       </tr>
+                    ) : visibleModeSalesRows.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={SALES_COLUMNS.length + 3}
+                          className="empty-cell"
+                        >
+                          {showHiddenSalesRows ? '숨긴 항목이 없습니다.' : '표시할 데이터가 없습니다.'}
+                        </td>
+                      </tr>
                     ) : isSalesTableFilterResultEmpty ? (
                       <tr>
                         <td
-                          colSpan={SALES_COLUMNS.length + 2}
+                          colSpan={SALES_COLUMNS.length + 3}
                           className="empty-cell"
                         >
                           필터 조건에 맞는 데이터가 없습니다.
@@ -13663,6 +13829,7 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('sales', rowId, columnKey, value, row),
+                      renderAfterSelectionCell: renderSalesArchiveCell,
                       renderAfterImportanceCell: renderSalesSummaryCell,
                     })
                     )}
