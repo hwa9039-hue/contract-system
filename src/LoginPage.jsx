@@ -193,7 +193,7 @@ export default function LoginPage() {
         <div className="login-page-permissions">
           <div className="login-page-permissions-heading">💡 로그인 권한 안내</div>
 
-          <div className="login-page-permissions-role">관리자</div>
+          <div className="login-page-permissions-role">관리자 &amp; 부서장</div>
           <div className="login-page-permissions-item">- 모든 메뉴 편집 가능</div>
 
           <div className="login-page-permissions-role">일반 사용자</div>
@@ -202,7 +202,7 @@ export default function LoginPage() {
           </div>
 
           <div className="login-page-permissions-footnote">
-            * 그 외 메뉴(계약현황, 설치사례, 게시판)는 조회(뷰어)만 가능
+            * 그 외 메뉴는 조회(뷰어)만 가능
           </div>
         </div>
       </div>
