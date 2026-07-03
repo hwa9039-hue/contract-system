@@ -7014,6 +7014,9 @@ function App() {
           items: getDashboardRecentItems(persistedSalesRows, {
             dateKey: 'registerDate',
             sortStrategy: 'updatedFirstThenDate',
+            // 대시보드에는 진행 중 항목만 노출 — projectStage 가 '계약'·'마감'(레거시 '완료')인
+            // 계약/마감 완료 건은 제외한다.
+            filterRow: (row) => !isSalesStageInContractClosedGroup(row),
             getTitle: (row) => safeString(row.projectName || row.client).trim() || '영업 항목',
             getMeta: (row) =>
               [row.client, row.manager || row.projectStage].filter(Boolean).join(' · ') || '-',
