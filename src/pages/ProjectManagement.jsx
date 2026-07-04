@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import * as XLSX from 'xlsx'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.js'
 import { EditableTextCell } from '../EditableTextCell.jsx'
@@ -253,6 +254,43 @@ function getEditableColumnCellState(row, column) {
   return formatEditableTableCellText(raw)
 }
 
+function excelExportCellText(value) {
+  const text = safeString(value).trim()
+  return text || '-'
+}
+
+function projectManagementRowToExcelRow(row) {
+  const commencementCol = columns.find((c) => c.field === 'commencementCert')
+  const completionCol = columns.find((c) => c.field === 'completionCert')
+  const warrantyStartCol = columns.find((c) => c.field === 'warrantyStart')
+  const warrantyExpiryCol = columns.find((c) => c.field === 'warrantyExpiry')
+  const guaranteeRateCol = columns.find((c) => c.field === 'guaranteeRate')
+
+  const contractDateState = formatEditableTableCellText(row.contractDate, { isDate: true })
+  const dueDateState = formatEditableTableCellText(row.dueDate, { isDate: true })
+
+  return {
+    사업년도: excelExportCellText(row.year),
+    발주처: excelExportCellText(row.client),
+    계약일자: contractDateState.text,
+    '납기일(준공일자)': dueDateState.text,
+    사업명: excelExportCellText(row.projectName),
+    영업담당자: excelExportCellText(row.salesOwner),
+    현장PM: excelExportCellText(row.pm),
+    착수계: getEditableColumnCellState(row, commencementCol).text,
+    준공계: getEditableColumnCellState(row, completionCol).text,
+    '하자보증 시작': getEditableColumnCellState(row, warrantyStartCol).text,
+    '하자보증 만기': getEditableColumnCellState(row, warrantyExpiryCol).text,
+    보증금율: getEditableColumnCellState(row, guaranteeRateCol).text,
+  }
+}
+
+function buildMenuExcelFilename(menuLabel) {
+  const now = new Date()
+  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
+  return `${menuLabel}_${ymd}.xlsx`
+}
+
 export default function ProjectManagement({ canEdit = true }) {
   const [contracts, setContracts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -436,6 +474,14 @@ export default function ProjectManagement({ canEdit = true }) {
     [flushContractFieldSaves]
   )
 
+  const handleExcelDownload = useCallback(() => {
+    const rows = filteredRows.map(projectManagementRowToExcelRow)
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, '사업관리')
+    XLSX.writeFile(workbook, buildMenuExcelFilename('사업관리'))
+  }, [filteredRows])
+
   const showEmpty = !loading && !error && contracts.length === 0
   const tableColSpan = columns.length
 
@@ -570,6 +616,12 @@ export default function ProjectManagement({ canEdit = true }) {
           </div>
         ) : (
           <div className={UNIT_PRICE_PAGE_STACK}>
+            <div className="contracts-header-actions">
+              <button className="secondary-btn" type="button" onClick={handleExcelDownload}>
+                엑셀로 내려받기
+              </button>
+            </div>
+
             <div className={UNIT_PRICE_TOOLBAR}>
               <input
                 className={UNIT_PRICE_SEARCH_INPUT}

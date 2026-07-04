@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import * as XLSX from 'xlsx'
 import { Plus, Trash2 } from 'lucide-react'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.js'
@@ -304,6 +305,32 @@ function displayReadonlyCell(row, key) {
   return value || '-'
 }
 
+function excelExportCellText(value) {
+  const text = safeString(value).trim()
+  return text || '-'
+}
+
+function unitPriceRowToExcelRow(row) {
+  const designPrice = formatDesignUnitPrice(row.designUnitPrice)
+  return {
+    사업년도: displayReadonlyCell(row, 'year'),
+    발주처: displayReadonlyCell(row, 'client'),
+    사업명: displayReadonlyCell(row, 'projectName'),
+    원가용역: excelExportCellText(row.costService),
+    품명: excelExportCellText(row.itemName),
+    설계단가: designPrice || '-',
+    Pitch: excelExportCellText(row.pitch),
+    W: excelExportCellText(row.capW),
+    H: excelExportCellText(row.capH),
+  }
+}
+
+function buildMenuExcelFilename(menuLabel) {
+  const now = new Date()
+  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
+  return `${menuLabel}_${ymd}.xlsx`
+}
+
 export default function UnitPriceManagement({ canEdit = true }) {
   const [contracts, setContracts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -384,6 +411,16 @@ export default function UnitPriceManagement({ canEdit = true }) {
     () => (canEdit ? columns : columns.filter((column) => column.field !== 'actions')),
     [canEdit]
   )
+
+  const handleExcelDownload = useCallback(() => {
+    const rows = filteredFlatRows
+      .filter((row) => !row.isPlaceholder && !isPlaceholderRowId(row.id))
+      .map(unitPriceRowToExcelRow)
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, '단가관리')
+    XLSX.writeFile(workbook, buildMenuExcelFilename('단가관리'))
+  }, [filteredFlatRows])
 
   const handleActiveFiltersApply = useCallback((columnKey, selected) => {
     setActiveFilters((prev) => {
@@ -635,6 +672,12 @@ export default function UnitPriceManagement({ canEdit = true }) {
           </div>
         ) : (
           <div className={UNIT_PRICE_PAGE_STACK}>
+            <div className="contracts-header-actions">
+              <button className="secondary-btn" type="button" onClick={handleExcelDownload}>
+                엑셀로 내려받기
+              </button>
+            </div>
+
             <div className={UNIT_PRICE_TOOLBAR}>
               <input
                 className={UNIT_PRICE_SEARCH_INPUT}
