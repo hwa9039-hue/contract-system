@@ -318,6 +318,21 @@ textarea {
   flex-wrap: wrap;
 }
 
+/* 그리드 체크박스 선택 건수 실시간 표시 배지 (계약현황·영업관리대장·건축정보·사업검색이력·문서수발신대장·연락처 공용) */
+.registry-selection-count {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  padding: 4px 12px;
+  border-radius: 8px;
+  background: var(--accent-soft, #EAF1FF);
+  color: var(--accent-strong, #1f4fd1);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 /* contract — 계약현황 상단 요약: 대시보드와 동일 카드 클래스 사용, 래퍼만 구분 */
 .contracts-year-summary-embed {
   margin: 0 0 12px;
