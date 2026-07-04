@@ -5073,9 +5073,18 @@ function getDashboardRecentSortTime(row, config) {
 }
 
 function getDashboardRecentItems(rows, config) {
+  const dateKey = config.dateKey
   return [...rows]
     .filter((row) => (typeof config.filterRow === 'function' ? config.filterRow(row) : true))
     .sort((a, b) => compareDashboardRecentItems(a, b, config))
+    // 목록 렌더링(map) 직전, 기준 날짜(dateKey)로 최신순(내림차순) 정렬을 강제한다.
+    // updatedFirst 전략이 오래된(수정된) 항목을 최상단으로 끌어올려 이번 주 항목을
+    // 아래로 밀어내던 문제를 방지하기 위한 최종 정렬이다.
+    .sort((a, b) => {
+      const tb = parseDateOnly(b?.[dateKey])?.getTime() ?? 0
+      const ta = parseDateOnly(a?.[dateKey])?.getTime() ?? 0
+      return tb - ta
+    })
     .slice(0, DASHBOARD_RECENT_ITEM_LIMIT)
     .map((row) => {
       const statusRaw = typeof config.getStatus === 'function' ? config.getStatus(row) : ''
@@ -5090,13 +5099,17 @@ function getDashboardRecentItems(rows, config) {
     })
 }
 
-/** 등록일이 이번 주(월요일~일요일, 로컬)에 포함되는 행 수 */
-function countRowsRegisteredInCurrentWeek(rows, dateKey) {
+/**
+ * 등록일이 이번 주(월요일~일요일, 로컬)에 포함되는 행 수.
+ * filterRow: 목록 렌더링에 쓰는 것과 동일한 필터를 넘겨 헤더 건수와 목록을 100% 동기화한다.
+ */
+function countRowsRegisteredInCurrentWeek(rows, dateKey, filterRow) {
   const monday = getWeekStartMonday(new Date())
   const sunday = addDays(monday, 6)
   const startYmd = formatDateInput(monday)
   const endYmd = formatDateInput(sunday)
   return rows.filter((row) => {
+    if (typeof filterRow === 'function' && !filterRow(row)) return false
     const parsed = parseDateOnly(row[dateKey])
     if (!parsed) return false
     const ymd = formatDateInput(parsed)
@@ -6999,7 +7012,12 @@ function App() {
     const persistedDiscoveryRows = getPersistedRows(discoveryRows)
     const persistedExcludedRows = getPersistedRows(excludedRows)
     const persistedDocuments = getPersistedRows(documents)
-    const salesWeekCount = countRowsRegisteredInCurrentWeek(persistedSalesRows, 'registerDate')
+    // 헤더 건수 filter == 목록 filter(계약/마감 제외)로 통일해 카운트와 목록을 동기화한다.
+    const salesWeekCount = countRowsRegisteredInCurrentWeek(
+      persistedSalesRows,
+      'registerDate',
+      (row) => !isSalesStageInContractClosedGroup(row)
+    )
     const discoveryWeekCount = countRowsRegisteredInCurrentWeek(persistedDiscoveryRows, 'permitDate')
     const excludedWeekCount = countRowsRegisteredInCurrentWeek(persistedExcludedRows, 'writeDate')
     const { inbound: docInboundCount, outbound: docOutboundCount } =
@@ -7013,9 +7031,8 @@ function App() {
           menu: 'sales',
           items: getDashboardRecentItems(persistedSalesRows, {
             dateKey: 'registerDate',
-            sortStrategy: 'updatedFirstThenDate',
             // 대시보드에는 진행 중 항목만 노출 — projectStage 가 '계약'·'마감'(레거시 '완료')인
-            // 계약/마감 완료 건은 제외한다.
+            // 계약/마감 완료 건은 제외한다. (헤더 salesWeekCount 와 동일 조건)
             filterRow: (row) => !isSalesStageInContractClosedGroup(row),
             getTitle: (row) => safeString(row.projectName || row.client).trim() || '영업 항목',
             getMeta: (row) =>
