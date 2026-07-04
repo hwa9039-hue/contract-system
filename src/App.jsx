@@ -13403,9 +13403,16 @@ function App() {
                     선택 삭제
                   </button>
                   {selectedContractRowKeys.size > 0 && (
-                    <span className="registry-selection-count" role="status" aria-live="polite">
+                    <button
+                      type="button"
+                      className="secondary-btn registry-selection-count"
+                      tabIndex={-1}
+                      aria-disabled="true"
+                      role="status"
+                      aria-live="polite"
+                    >
                       총 {selectedContractRowKeys.size}건 선택됨
-                    </span>
+                    </button>
                   )}
                 </>
               )}
@@ -13800,9 +13807,16 @@ function App() {
                 선택 삭제
               </button>
               {selectedSalesIds.length > 0 && (
-                <span className="registry-selection-count" role="status" aria-live="polite">
+                <button
+                  type="button"
+                  className="secondary-btn registry-selection-count"
+                  tabIndex={-1}
+                  aria-disabled="true"
+                  role="status"
+                  aria-live="polite"
+                >
                   총 {selectedSalesIds.length}건 선택됨
-                </span>
+                </button>
               )}
               <button className="secondary-btn" type="button" onClick={handleSalesExcelDownload}>
                 엑셀 다운로드
@@ -13997,9 +14011,16 @@ function App() {
                 선택 삭제
               </button>
               {selectedDiscoveryIds.length > 0 && (
-                <span className="registry-selection-count" role="status" aria-live="polite">
+                <button
+                  type="button"
+                  className="secondary-btn registry-selection-count"
+                  tabIndex={-1}
+                  aria-disabled="true"
+                  role="status"
+                  aria-live="polite"
+                >
                   총 {selectedDiscoveryIds.length}건 선택됨
-                </span>
+                </button>
               )}
               <button className="secondary-btn" type="button" onClick={handleDiscoveryExcelDownload}>
                 엑셀 다운로드
@@ -14173,9 +14194,16 @@ function App() {
                 선택 삭제
               </button>
               {selectedExcludedIds.length > 0 && (
-                <span className="registry-selection-count" role="status" aria-live="polite">
+                <button
+                  type="button"
+                  className="secondary-btn registry-selection-count"
+                  tabIndex={-1}
+                  aria-disabled="true"
+                  role="status"
+                  aria-live="polite"
+                >
                   총 {selectedExcludedIds.length}건 선택됨
-                </span>
+                </button>
               )}
               <button className="secondary-btn" type="button" onClick={handleExcludedExcelDownload}>
                 엑셀 다운로드
@@ -14369,9 +14397,16 @@ function App() {
                 선택 삭제
               </button>
               {selectedDocumentIds.length > 0 && (
-                <span className="registry-selection-count" role="status" aria-live="polite">
+                <button
+                  type="button"
+                  className="secondary-btn registry-selection-count"
+                  tabIndex={-1}
+                  aria-disabled="true"
+                  role="status"
+                  aria-live="polite"
+                >
                   총 {selectedDocumentIds.length}건 선택됨
-                </span>
+                </button>
               )}
               <button className="secondary-btn" type="button" onClick={handleDocumentExcelDownload}>
                 엑셀 다운로드
@@ -14515,9 +14550,16 @@ function App() {
                       선택 삭제
                     </button>
                     {selectedContactsIds.length > 0 && (
-                      <span className="registry-selection-count" role="status" aria-live="polite">
+                      <button
+                        type="button"
+                        className="secondary-btn registry-selection-count"
+                        tabIndex={-1}
+                        aria-disabled="true"
+                        role="status"
+                        aria-live="polite"
+                      >
                         총 {selectedContactsIds.length}건 선택됨
-                      </span>
+                      </button>
                     )}
                   </>
                 ) : null}
