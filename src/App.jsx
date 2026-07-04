@@ -10761,7 +10761,7 @@ function App() {
     const col = columns.find((c) => c.key === columnKey)
     if (!col) return
 
-    setRegistryCellEdit({ scope, rowId, columnKey })
+    setRegistryCellEdit({ scope, rowId, columnKey, originalValue: safeString(value ?? '') })
     if (isRegistrySmartDetailColumn(col, scope)) {
       setRegistryCellEditDraft(getRegistrySmartDetailEditValue(scope, col, row))
       return
@@ -10773,7 +10773,7 @@ function App() {
     setRegistryCellEditDraft(safeString(value ?? ''))
   }
 
-  const persistRegistryCellPatch = async (scope, rowId, column, rawValue) => {
+  const persistRegistryCellPatch = async (scope, rowId, column, rawValue, previousValueOverride) => {
     if (!scope || !rowId || !column) return false
 
     let rows
@@ -10837,7 +10837,12 @@ function App() {
 
     const patch = buildRegistryCellApiPatch(column, rawValue)
     const patchValue = patch[column.key]
-    const prevVal = targetRow[column.key]
+    // 변경 여부 판정은 "편집 시작 시점의 원본 값"과 비교해야 한다.
+    // 인라인 셀 편집은 입력 중 낙관적 업데이트로 targetRow[column.key] 를 미리 바꿔 두기 때문에,
+    // targetRow 값을 그대로 쓰면 항상 "변경 없음"으로 오판되어 PATCH 가 스킵된다.
+    // (등록일을 수동 수정해도 서버에 저장되지 않던 버그의 원인)
+    const prevVal =
+      previousValueOverride !== undefined ? previousValueOverride : targetRow[column.key]
     const sameAmount =
       column.type === 'amount' &&
       parseAmount(String(prevVal ?? '')) === parseAmount(String(rawValue ?? ''))
@@ -10854,7 +10859,7 @@ function App() {
       }
     }
 
-    const previous = targetRow[column.key]
+    const previous = previousValueOverride !== undefined ? previousValueOverride : targetRow[column.key]
     applyRegistryRowFieldPatch(scope, rowId, column, rawValue)
 
     try {
@@ -10968,7 +10973,13 @@ function App() {
     const colDef = columns.find((c) => c.key === snap.columnKey)
     if (!colDef) return
 
-    const saved = await persistRegistryCellPatch(snap.scope, snap.rowId, colDef, draft)
+    const saved = await persistRegistryCellPatch(
+      snap.scope,
+      snap.rowId,
+      colDef,
+      draft,
+      snap.originalValue
+    )
     if (!saved) {
       cancelRegistryCellEdit()
       return
@@ -11012,7 +11023,11 @@ function App() {
     }
     const row = rows.find((r) => r.id === snap.rowId)
     if (!row) return
-    setRegistryCellEdit({ ...snap, columnKey: nextCol.key })
+    setRegistryCellEdit({
+      ...snap,
+      columnKey: nextCol.key,
+      originalValue: safeString(row[nextCol.key] ?? ''),
+    })
     if (nextCol.type === 'amount') {
       setRegistryCellEditDraft(normalizeAmountValue(row[nextCol.key]))
     } else {
