@@ -5099,11 +5099,12 @@ function getDashboardRecentItems(rows, config) {
 }
 
 /**
- * 등록일이 이번 주(월요일~일요일, 로컬)에 포함되는 행 수.
+ * 등록일이 기준일이 속한 주(월요일~일요일, 로컬)에 포함되는 행 수.
  * filterRow: 목록 렌더링에 쓰는 것과 동일한 필터를 넘겨 헤더 건수와 목록을 100% 동기화한다.
+ * referenceDate: 주 구간을 계산할 기준 날짜. 금주는 오늘, 전주는 오늘-7일을 넘긴다.
  */
-function countRowsRegisteredInCurrentWeek(rows, dateKey, filterRow) {
-  const monday = getWeekStartMonday(new Date())
+function countRowsRegisteredInWeekOf(rows, dateKey, filterRow, referenceDate = new Date()) {
+  const monday = getWeekStartMonday(referenceDate)
   const sunday = addDays(monday, 6)
   const startYmd = formatDateInput(monday)
   const endYmd = formatDateInput(sunday)
@@ -5114,6 +5115,22 @@ function countRowsRegisteredInCurrentWeek(rows, dateKey, filterRow) {
     const ymd = formatDateInput(parsed)
     return ymd >= startYmd && ymd <= endYmd
   }).length
+}
+
+/**
+ * 등록일이 이번 주(월요일~일요일, 로컬)에 포함되는 행 수.
+ * filterRow: 목록 렌더링에 쓰는 것과 동일한 필터를 넘겨 헤더 건수와 목록을 100% 동기화한다.
+ */
+function countRowsRegisteredInCurrentWeek(rows, dateKey, filterRow) {
+  return countRowsRegisteredInWeekOf(rows, dateKey, filterRow, new Date())
+}
+
+/**
+ * 등록일이 전주(지난주 월요일~일요일, 로컬)에 포함되는 행 수.
+ * 금주 기준일(오늘)에서 7일을 뺀 날짜가 속한 주를 전주로 본다.
+ */
+function countRowsRegisteredInLastWeek(rows, dateKey, filterRow) {
+  return countRowsRegisteredInWeekOf(rows, dateKey, filterRow, addDays(new Date(), -7))
 }
 
 /** 문서 접수·수신 vs 발송·발신 — 텍스트 필드에서 키워드 탐지(발신류 우선) */
@@ -7012,10 +7029,17 @@ function App() {
     const persistedExcludedRows = getPersistedRows(excludedRows)
     const persistedDocuments = getPersistedRows(documents)
     // 헤더 건수 filter == 목록 filter(계약/마감 제외)로 통일해 카운트와 목록을 동기화한다.
+    // 전주/금주 동일 필터(계약·마감 제외)로 계산해 비교 기준을 일치시킨다.
+    const salesStageFilter = (row) => !isSalesStageInContractClosedGroup(row)
     const salesWeekCount = countRowsRegisteredInCurrentWeek(
       persistedSalesRows,
       'registerDate',
-      (row) => !isSalesStageInContractClosedGroup(row)
+      salesStageFilter
+    )
+    const salesLastWeekCount = countRowsRegisteredInLastWeek(
+      persistedSalesRows,
+      'registerDate',
+      salesStageFilter
     )
     const discoveryWeekCount = countRowsRegisteredInCurrentWeek(persistedDiscoveryRows, 'permitDate')
     const excludedWeekCount = countRowsRegisteredInCurrentWeek(persistedExcludedRows, 'writeDate')
@@ -7026,7 +7050,7 @@ function App() {
       recentGroups: [
         {
           key: 'sales',
-          label: `영업관리대장 (이번 주 ${salesWeekCount.toLocaleString('ko-KR')}건)`,
+          label: `영업관리대장 (전주 ${salesLastWeekCount.toLocaleString('ko-KR')}건 / 금주 ${salesWeekCount.toLocaleString('ko-KR')}건)`,
           menu: 'sales',
           items: getDashboardRecentItems(persistedSalesRows, {
             dateKey: 'registerDate',
