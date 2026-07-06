@@ -6406,6 +6406,12 @@ textarea:focus-visible {
   color: #a16207;
 }
 
+.registry-importance-badge--blue {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
 .registry-importance-badge--green {
   background: #f0fdf4;
   border-color: #bbf7d0;
@@ -6445,6 +6451,10 @@ textarea:focus-visible {
 
 .registry-importance-dot--yellow {
   background: #fbbf24;
+}
+
+.registry-importance-dot--blue {
+  background: #3b82f6;
 }
 
 .registry-importance-dot--green {

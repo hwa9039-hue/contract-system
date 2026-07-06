@@ -302,7 +302,7 @@ const EMPTY_CONTACTS_REGISTER_FORM = {
 }
 
 const SALES_STAGE_OPTIONS = [
-  '대기',
+  '보고',
   '대응중',
   '확인필요',
   '보류',

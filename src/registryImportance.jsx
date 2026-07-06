@@ -1,7 +1,8 @@
 /** 상태값 → 중요도 색상 (영업관리대장·사업검색이력 공통) */
 
 const IMPORTANCE_RED_STATUSES = new Set(['확인필요', '보류'])
-const IMPORTANCE_YELLOW_STATUSES = new Set(['대기', '대응중'])
+const IMPORTANCE_YELLOW_STATUSES = new Set(['대응중'])
+const IMPORTANCE_BLUE_STATUSES = new Set(['보고'])
 const IMPORTANCE_GREEN_STATUSES = new Set(['발주계획', '사전규격', '입찰공고', '정보공개'])
 const IMPORTANCE_GRAY_STATUSES = new Set(['계약', '마감', '완료'])
 
@@ -18,7 +19,7 @@ export function normalizeStatusForImportance(status) {
 
 /**
  * @param {string} status
- * @returns {{ tone: 'red'|'yellow'|'green'|'gray'|'empty', label: string }}
+ * @returns {{ tone: 'red'|'yellow'|'blue'|'green'|'gray'|'empty', label: string }}
  */
 export function getImportanceStyle(status) {
   const normalized = normalizeStatusForImportance(status)
@@ -29,6 +30,10 @@ export function getImportanceStyle(status) {
 
   if (IMPORTANCE_RED_STATUSES.has(normalized)) {
     return { tone: 'red', label: '검토' }
+  }
+
+  if (IMPORTANCE_BLUE_STATUSES.has(normalized)) {
+    return { tone: 'blue', label: '보고' }
   }
 
   if (IMPORTANCE_YELLOW_STATUSES.has(normalized)) {
@@ -43,6 +48,7 @@ export function getImportanceStyle(status) {
     return { tone: 'gray', label: '종료' }
   }
 
+  // 삭제된 '대기' 등 매핑되지 않는 상태값 fallback (회색 기본 텍스트)
   return { tone: 'gray', label: '기타' }
 }
 
