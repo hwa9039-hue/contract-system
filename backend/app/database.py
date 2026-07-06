@@ -659,6 +659,12 @@ def init_db():
                 )
                 """
             )
+            cursor.execute(
+                """
+                alter table project_discovery_rows
+                add column if not exists "projectStage" text not null default ''
+                """
+            )
             _migrate_project_discovery_row_columns(cursor)
             _migrate_project_discovery_text_columns(cursor)
             cursor.execute(

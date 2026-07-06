@@ -385,7 +385,19 @@ const SALES_COLUMNS = [
 ]
 
 const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
+// 건축정보 상태 옵션 — 영업관리대장 규칙(빨강 검토 / 노랑 대응중 / 파랑 보고)만 이식.
+// 초록색(사업공고: 발주계획·사전규격·입찰공고·정보공개) 계열은 의도적으로 제외한다.
+const DISCOVERY_STAGE_OPTIONS = ['확인필요', '대응중', '보고']
 const DISCOVERY_COLUMNS = [
+  {
+    key: 'importance',
+    label: '중요도',
+    align: 'center',
+    type: 'importance',
+    statusKey: 'projectStage',
+    widthClass: 'discovery-w-24',
+    cellClass: 'discovery-col-tight discovery-w-24',
+  },
   {
     key: 'permitDate',
     label: '건축정보일자',
@@ -399,6 +411,15 @@ const DISCOVERY_COLUMNS = [
     label: '확인',
     align: 'center',
     type: 'text',
+    widthClass: 'discovery-w-24',
+    cellClass: 'discovery-col-tight discovery-w-24',
+  },
+  {
+    key: 'projectStage',
+    label: '상태',
+    align: 'center',
+    type: 'select',
+    options: DISCOVERY_STAGE_OPTIONS,
     widthClass: 'discovery-w-24',
     cellClass: 'discovery-col-tight discovery-w-24',
   },
@@ -462,15 +483,20 @@ const DISCOVERY_COLUMNS = [
   },
 ]
 
+// 엑셀 업로드 매핑용 컬럼 — 중요도(계산 컬럼)와 상태(앱 내 수동 관리)는 제외해
+// 기존 엑셀 포맷/중복 판정 시그니처를 그대로 유지한다.
+const DISCOVERY_IMPORTABLE_COLUMNS = DISCOVERY_COLUMNS.filter(
+  (column) => column.type !== 'importance' && column.key !== 'projectStage'
+)
 const DISCOVERY_IMPORT_COLUMNS = [
-  ...DISCOVERY_COLUMNS.slice(0, 2),
+  ...DISCOVERY_IMPORTABLE_COLUMNS.slice(0, 2),
   {
     key: 'salesTarget',
     label: '영업자',
     align: 'center',
     type: 'text',
   },
-  ...DISCOVERY_COLUMNS.slice(2),
+  ...DISCOVERY_IMPORTABLE_COLUMNS.slice(2),
 ]
 
 const EXCLUDED_CATEGORY_OPTIONS = ['발주계획', '사전규격', '입찰공고', '정보공개']
@@ -2676,6 +2702,7 @@ function createDiscoveryDraftRow() {
     id: `discovery-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     permitDate: '',
     checkStatus: '',
+    projectStage: '',
     salesTarget: '',
     projectCategory: '',
     localGov: '',
@@ -3945,6 +3972,7 @@ function normalizeDiscoveryRow(item, rowIndex = 0) {
     id,
     permitDate: normalizePermitDateDisplay(safeString(item.permitDate ?? item.permitdate)),
     checkStatus: safeString(item.checkStatus ?? item.checkstatus),
+    projectStage: safeString(item.projectStage ?? item.projectstage),
     salesTarget: safeString(item.salesTarget ?? item.salestarget),
     projectCategory: safeString(item.projectCategory ?? item.projectcategory),
     localGov: safeString(item.localGov ?? item.localgov),
@@ -4043,6 +4071,7 @@ function toDiscoveryPayload(row, timestamp) {
   return {
     permitDate: safeString(row.permitDate).trim(),
     checkStatus: safeString(row.checkStatus).trim(),
+    projectStage: safeString(row.projectStage).trim(),
     salesTarget: safeString(row.salesTarget).trim(),
     projectCategory: safeString(row.projectCategory).trim(),
     localGov: safeString(row.localGov).trim(),
@@ -7073,6 +7102,7 @@ function App() {
             getTitle: (row) => safeString(row.projectName || row.client).trim() || '건축정보 항목',
             getMeta: (row) =>
               [row.client, row.manager || row.salesTarget].filter(Boolean).join(' · ') || '-',
+            getStatus: (row) => row.projectStage,
           }),
         },
         {
@@ -8628,6 +8658,7 @@ function App() {
     const rows = filteredDiscoveryRows.filter((row) => !row.isDraft).map((row) => ({
       건축정보일자: row.permitDate,
       확인: row.checkStatus,
+      상태: row.projectStage,
       영업자: row.salesTarget,
       사업구분: row.projectCategory,
       발주처: row.client,

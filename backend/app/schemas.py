@@ -336,6 +336,7 @@ class BudgetProgressBulkDelete(BaseModel):
 class ProjectDiscoveryBase(BaseModel):
     permitDate: Optional[Any] = None
     checkStatus: Optional[Any] = ""
+    projectStage: Optional[Any] = ""
     salesTarget: Optional[Any] = ""
     projectCategory: Optional[Any] = ""
     localGov: Optional[Any] = ""
@@ -356,6 +357,7 @@ class ProjectDiscoveryCreate(ProjectDiscoveryBase):
 class ProjectDiscoveryPatch(BaseModel):
     permitDate: Optional[Any] = None
     checkStatus: Optional[Any] = None
+    projectStage: Optional[Any] = None
     salesTarget: Optional[Any] = None
     projectCategory: Optional[Any] = None
     localGov: Optional[Any] = None
@@ -835,6 +837,7 @@ def row_to_project_discovery(row) -> dict:
         "id": to_response_value(row["id"]),
         "permitDate": to_response_value(row.get("permitDate") or row.get("permitdate")),
         "checkStatus": to_response_value(row.get("checkStatus") or row.get("checkstatus")),
+        "projectStage": to_response_value(row.get("projectStage") or row.get("projectstage")),
         "salesTarget": to_response_value(row.get("salesTarget") or row.get("salestarget")),
         "projectCategory": to_response_value(row.get("projectCategory") or row.get("projectcategory")),
         "localGov": to_response_value(row.get("localGov") or row.get("localgov")),
@@ -1139,6 +1142,7 @@ TABLE_COLUMN_MAPPINGS = {
     "project_discovery_rows": {
         "permitDate": "permitDate",
         "checkStatus": "checkStatus",
+        "projectStage": "projectStage",
         "salesTarget": "salesTarget",
         "projectCategory": "projectCategory",
         "localGov": "localGov",

@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/project-discovery", tags=["project-discovery"])
 
 RETURNING_COLUMNS = """
-  id, "permitDate", "checkStatus", "salesTarget", "projectCategory",
+  id, "permitDate", "checkStatus", "projectStage", "salesTarget", "projectCategory",
   "localGov", client, "projectName", "projectAmount", "completionPeriod",
   manager, note, "createdAt", "updatedAt"
 """
