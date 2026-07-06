@@ -1,5 +1,7 @@
 /** 상태값 → 중요도 색상 (영업관리대장·사업검색이력 공통) */
 
+// '보류'는 상태 옵션에서 삭제되었으나(신규 선택 불가), 레거시 DB 데이터 호환을 위해
+// 렌더링 시에는 '확인필요'와 동일하게 빨간색(검토)으로 표시되도록 유지한다.
 const IMPORTANCE_RED_STATUSES = new Set(['확인필요', '보류'])
 const IMPORTANCE_YELLOW_STATUSES = new Set(['대응중'])
 const IMPORTANCE_BLUE_STATUSES = new Set(['보고'])
