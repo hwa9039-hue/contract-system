@@ -322,6 +322,17 @@ function normalizeSalesProjectStage(stage) {
   return trimmed === '완료' ? '마감' : trimmed
 }
 
+/**
+ * 중요도 컬럼은 자체 DB 필드가 없고 상태 필드(projectStage 등)로 색상을 계산한다.
+ * 따라서 PATCH/낙관적 업데이트/변경 감지 시에는 항상 statusKey 로 매핑해야
+ * "No fields to update"(중요도 키를 그대로 보내 백엔드가 인식 못함) 오류를 막을 수 있다.
+ */
+function getRegistryColumnFieldKey(column) {
+  if (!column) return ''
+  if (column.type === 'importance') return column.statusKey || column.key
+  return column.key
+}
+
 /** API·레거시 그룹명 → 화면 표시명 (마감된 건 / 완료된 건 등 강제 치환) */
 function formatSalesContractClosedGroupLabel(label) {
   const text = safeString(label).trim()
@@ -395,6 +406,9 @@ const DISCOVERY_COLUMNS = [
     align: 'center',
     type: 'importance',
     statusKey: 'projectStage',
+    // 중요도 셀을 직접 드롭다운으로 편집 → 선택값은 statusKey(projectStage)에 저장된다.
+    editable: true,
+    options: DISCOVERY_STAGE_OPTIONS,
     widthClass: 'discovery-w-24',
     cellClass: 'discovery-col-tight discovery-w-24',
   },
@@ -10765,17 +10779,20 @@ function App() {
     if (column.type === 'date') {
       return safeString(rawValue).trim()
     }
-    if (column.key === 'projectStage') {
+    if (column.type === 'importance' || column.key === 'projectStage') {
       return normalizeSalesProjectStage(rawValue)
     }
     return safeString(rawValue ?? '').trim()
   }
 
   const applyRegistryRowFieldPatch = (scope, rowId, column, rawValue) => {
-    if (!scope || !rowId || !column || column.type === 'importance') return
+    if (!scope || !rowId || !column) return
+    // 읽기 전용 중요도(예: 영업관리대장)는 editable 플래그가 없으므로 그대로 건너뛴다.
+    if (column.type === 'importance' && !column.editable) return
 
+    const fieldKey = getRegistryColumnFieldKey(column)
     const value = normalizeRegistryCellDraftValue(column, rawValue)
-    const patch = { [column.key]: value }
+    const patch = { [fieldKey]: value }
     const matchesRow = (row) => safeString(row.id).trim() === safeString(rowId).trim()
 
     switch (scope) {
@@ -10800,6 +10817,10 @@ function App() {
   }
 
   const buildRegistryCellApiPatch = (column, draftStr) => {
+    // 중요도 컬럼은 상태 필드(statusKey)로 매핑해 저장한다.
+    if (column.type === 'importance') {
+      return { [getRegistryColumnFieldKey(column)]: normalizeSalesProjectStage(draftStr) }
+    }
     if (column.type === 'amount') {
       return { [column.key]: parseAmount(draftStr) }
     }
@@ -10907,13 +10928,15 @@ function App() {
     }
 
     const patch = buildRegistryCellApiPatch(column, rawValue)
-    const patchValue = patch[column.key]
+    // 중요도 컬럼은 patch/row 값이 column.key('importance')가 아니라 statusKey 로 존재한다.
+    const fieldKey = getRegistryColumnFieldKey(column)
+    const patchValue = patch[fieldKey]
     // 변경 여부 판정은 "편집 시작 시점의 원본 값"과 비교해야 한다.
-    // 인라인 셀 편집은 입력 중 낙관적 업데이트로 targetRow[column.key] 를 미리 바꿔 두기 때문에,
+    // 인라인 셀 편집은 입력 중 낙관적 업데이트로 targetRow[fieldKey] 를 미리 바꿔 두기 때문에,
     // targetRow 값을 그대로 쓰면 항상 "변경 없음"으로 오판되어 PATCH 가 스킵된다.
     // (등록일을 수동 수정해도 서버에 저장되지 않던 버그의 원인)
     const prevVal =
-      previousValueOverride !== undefined ? previousValueOverride : targetRow[column.key]
+      previousValueOverride !== undefined ? previousValueOverride : targetRow[fieldKey]
     const sameAmount =
       column.type === 'amount' &&
       parseAmount(String(prevVal ?? '')) === parseAmount(String(rawValue ?? ''))
@@ -10930,7 +10953,7 @@ function App() {
       }
     }
 
-    const previous = previousValueOverride !== undefined ? previousValueOverride : targetRow[column.key]
+    const previous = previousValueOverride !== undefined ? previousValueOverride : targetRow[fieldKey]
     applyRegistryRowFieldPatch(scope, rowId, column, rawValue)
 
     try {
@@ -11161,7 +11184,8 @@ function App() {
         />
       )
     }
-    if (column.type === 'select') {
+    // 중요도(editable) 셀도 상태 옵션 드롭다운으로 편집한다.
+    if (column.type === 'select' || (column.type === 'importance' && column.editable)) {
       return (
         <select
           {...commonProps}
@@ -11181,7 +11205,7 @@ function App() {
           }}
         >
           <option value="">선택</option>
-          {column.options.map((option) => (
+          {(column.options || []).map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
@@ -11352,6 +11376,12 @@ function App() {
 
         {columns.map((column) => {
           const isImportanceCell = column.type === 'importance'
+          const isEditableImportance =
+            isImportanceCell &&
+            column.editable &&
+            useCellMode &&
+            isAdminForRegistry &&
+            !row.isDraft
           const isSmartDetailCell = isRegistrySmartDetailColumn(column, cellEditScope)
           const isSalesDetailCell = isSalesDetailHistoryColumn(column, cellEditScope)
           const canUseRegistryModalEditor =
@@ -11379,7 +11409,7 @@ function App() {
           const cellAlign =
             getTableBodyAlignClass(column).replace('td-align-', '') || 'center'
           const isThisCell =
-            !isImportanceCell &&
+            (!isImportanceCell || isEditableImportance) &&
             !isEditableText &&
             useCellMode &&
             !row.isDraft &&
@@ -11409,12 +11439,12 @@ function App() {
               } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${discoveryTextWrapClass} ${
                 usesTableInlineInput
                   ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
-                  : isAdminForRegistry && !row.isDraft && !isImportanceCell
+                  : isAdminForRegistry && !row.isDraft && (!isImportanceCell || isEditableImportance)
                     ? 'editable-cell'
                     : ''
               }`}
               onClick={() => {
-                if (isImportanceCell || isEditableText) return
+                if ((isImportanceCell && !isEditableImportance) || isEditableText) return
                 if (isSalesDetailCell) {
                   if (!isAdminForRegistry || row.isDraft) return
                   if (useCellMode && onRegistryCellStart) {
@@ -11428,6 +11458,11 @@ function App() {
                   openRegistryLongTextModal(cellEditScope, rowId, column, row)
                   return
                 }
+                if (isEditableImportance && useCellMode && onRegistryCellStart) {
+                  // 중요도 셀 편집값은 상태 필드(statusKey)를 기준으로 시작한다.
+                  onRegistryCellStart(rowId, column.key, row[getRegistryColumnFieldKey(column)], row)
+                  return
+                }
                 if (useCellMode && onRegistryCellStart) {
                   onRegistryCellStart(rowId, column.key, row[column.key], row)
                   return
@@ -11438,11 +11473,23 @@ function App() {
               }}
             >
               {isImportanceCell ? (
-                <div className="cell-display cell-display--importance">
-                  <RegistryImportanceBadge
-                    status={resolveRegistryImportanceStatus(displayRow, column)}
-                  />
-                </div>
+                isEditableImportance && isThisCell ? (
+                  renderRegistryCellInlineEditor(column, {
+                    scope: cellEditScope,
+                    rowId,
+                  })
+                ) : (
+                  <div
+                    className={`cell-display cell-display--importance${
+                      isEditableImportance ? ' cell-display--importance-editable' : ''
+                    }`}
+                    title={isEditableImportance ? '클릭하여 중요도(상태) 변경' : undefined}
+                  >
+                    <RegistryImportanceBadge
+                      status={resolveRegistryImportanceStatus(displayRow, column)}
+                    />
+                  </div>
+                )
               ) : isSalesDetailCell ? (
                 isThisCell ? (
                   renderRegistryCellInlineEditor(column, {

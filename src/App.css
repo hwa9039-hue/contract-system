@@ -6375,6 +6375,10 @@ textarea:focus-visible {
   min-height: 20px;
 }
 
+.cell-display--importance-editable {
+  cursor: pointer;
+}
+
 .registry-importance-badge,
 .registry-importance-dot-only {
   display: inline-flex;
