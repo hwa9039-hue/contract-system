@@ -14,7 +14,10 @@ function safeString(value) {
 export function normalizeStatusForImportance(status) {
   const trimmed = safeString(status).trim()
   if (!trimmed) return ''
-  return trimmed === '완료' ? '마감' : trimmed
+  if (trimmed === '완료') return '마감'
+  // 레거시 DB 값 호환: 예전에 저장된 '대기중' → '대응중'으로 통일
+  if (trimmed === '대기중') return '대응중'
+  return trimmed
 }
 
 /**
@@ -37,7 +40,7 @@ export function getImportanceStyle(status) {
   }
 
   if (IMPORTANCE_YELLOW_STATUSES.has(normalized)) {
-    return { tone: 'yellow', label: '대기중' }
+    return { tone: 'yellow', label: '대응중' }
   }
 
   if (IMPORTANCE_GREEN_STATUSES.has(normalized)) {
