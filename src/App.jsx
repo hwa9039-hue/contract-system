@@ -97,6 +97,7 @@ import {
   sumContractAmounts,
 } from './contractAggregation.js'
 import { EditableTextCell, isEditableTextColumn } from './EditableTextCell.jsx'
+import { AutoGrowTextarea } from './AutoGrowTextarea.jsx'
 import {
   TABLE_CELL_EMPTY_LABEL,
   formatEditableTableCellText,
@@ -12105,7 +12106,7 @@ function App() {
                   </option>
                 ))}
               </select>
-              <textarea
+              <AutoGrowTextarea
                 className={`work-report-board-textarea ${contentClassName}`}
                 value={entry.content}
                 placeholder="내용 입력"
