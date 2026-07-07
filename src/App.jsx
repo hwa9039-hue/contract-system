@@ -11453,11 +11453,28 @@ function App() {
               ? 'whitespace-pre-wrap break-words'
               : ''
           const plainDisplay = getRegistryPlainDisplayState(row, column)
-          // 영업관리대장 '등록일' 컬럼에 한정해, 금주/전주 등록건을 텍스트 뱃지로 구분 표시한다.
-          const salesRegisterWeekTag =
-            cellEditScope === 'sales' && column.key === 'registerDate' && !plainDisplay.isEmpty
-              ? getRegisterDateWeekTag(row?.registerDate)
-              : null
+          // 영업관리대장 '등록일'(sales.registerDate) / 건축정보 '건축정보일자'(discovery.permitDate)
+          // 컬럼에 한정해, 금주/전주 등록건을 텍스트 뱃지로 구분 표시한다.
+          const isRegistryWeekBadgeColumn =
+            (cellEditScope === 'sales' && column.key === 'registerDate') ||
+            (cellEditScope === 'discovery' && column.key === 'permitDate')
+          const registryWeekTag = isRegistryWeekBadgeColumn
+            ? getRegisterDateWeekTag(row?.[column.key])
+            : null
+          const registryWeekHighlightClass =
+            registryWeekTag === 'current'
+              ? 'sales-register-date--this-week'
+              : registryWeekTag === 'last'
+                ? 'sales-register-date--last-week'
+                : ''
+          const registryWeekBadge = registryWeekTag ? (
+            <span
+              className={`sales-register-week-badge sales-register-week-badge--${registryWeekTag}`}
+              title={registryWeekTag === 'current' ? '금주 신규·수정 항목' : '전주 신규·수정 항목'}
+            >
+              {registryWeekTag === 'current' ? '금주' : '전주'}
+            </span>
+          ) : null
           const cells = [
             <td
               key={column.key}
@@ -11466,6 +11483,8 @@ function App() {
               } ${
                 isImportanceCell ? 'registry-importance-cell' : ''
               } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${discoveryTextWrapClass} ${
+                registryWeekTag ? 'registry-week-badge-cell' : ''
+              } ${
                 usesTableInlineInput
                   ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
                   : isAdminForRegistry && !row.isDraft && !isImportanceCell
@@ -11602,13 +11621,14 @@ function App() {
                 <EditableTextCell
                   value={row[column.key]}
                   align={cellAlign}
-                  className={
+                  className={`${
                     isLongTextTableColumn(column)
                       ? cellEditScope === 'discovery'
                         ? 'break-words whitespace-pre-wrap'
                         : 'table-cell-clamp'
                       : ''
-                  }
+                  } ${registryWeekHighlightClass}`.trim()}
+                  suffix={registryWeekBadge}
                   onSave={(nextValue) =>
                     handleRegistryTextCellSave(cellEditScope, rowId, column, nextValue)
                   }
@@ -11634,18 +11654,11 @@ function App() {
                         : ' table-cell-clamp'
                       : ''
                   }${plainDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''}${
-                    salesRegisterWeekTag === 'current' ? ' sales-register-date--this-week' : ''
-                  }${salesRegisterWeekTag === 'last' ? ' sales-register-date--last-week' : ''}`}
+                    registryWeekHighlightClass ? ` ${registryWeekHighlightClass}` : ''
+                  }`}
                 >
                   {plainDisplay.text}
-                  {salesRegisterWeekTag ? (
-                    <span
-                      className={`sales-register-week-badge sales-register-week-badge--${salesRegisterWeekTag}`}
-                      title={salesRegisterWeekTag === 'current' ? '금주 신규·수정 항목' : '전주 신규·수정 항목'}
-                    >
-                      {salesRegisterWeekTag === 'current' ? '금주' : '전주'}
-                    </span>
-                  ) : null}
+                  {registryWeekBadge}
                 </div>
               )}
             </td>,

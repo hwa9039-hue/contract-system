@@ -12352,3 +12352,15 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   transform: scale(1.08);
   background: #dde9ff;
 }
+
+/* 건축정보 '건축정보일자'(permitDate) 셀 이식 — discovery 테이블은 td와 셀에 overflow:hidden을
+   높은 우선순위로 걸어 뱃지를 자르므로, 뱃지가 있는 셀에 한해 overflow를 개방한다. */
+.discovery-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td.registry-week-badge-cell {
+  overflow: visible;
+}
+
+.discovery-registry-table .discovery-col-tight .cell-display.sales-register-date--this-week,
+.discovery-registry-table .discovery-col-tight .cell-display.sales-register-date--last-week {
+  overflow: visible;
+  text-overflow: clip;
+}

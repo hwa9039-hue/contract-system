@@ -25,6 +25,7 @@ export function EditableTextCell({
   disabled = false,
   align = 'left',
   className = '',
+  suffix = null,
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState(() => (value == null ? '' : String(value)))
@@ -60,6 +61,7 @@ export function EditableTextCell({
         } ${className}`.trim()}
       >
         {isEmpty ? TABLE_CELL_EMPTY_LABEL : displayValue}
+        {suffix}
       </div>
     )
   }
@@ -109,6 +111,7 @@ export function EditableTextCell({
       }}
     >
       {isEmpty ? TABLE_CELL_EMPTY_LABEL : displayValue}
+      {suffix}
     </div>
   )
 }
