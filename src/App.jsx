@@ -12882,6 +12882,224 @@ function App() {
     </div>
   )
 
+  const renderWorkReportChecklistCell = (date) => (
+    <div className="work-report-board-section work-report-board-section-cell">
+      <div className="work-report-board-table work-report-board-checklist-single-wrap">
+        <div
+          className="work-report-board-row work-report-board-row-checklist-single"
+          onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.checklist, 1)}
+        >
+          <textarea
+            className="work-report-board-textarea work-report-board-textarea-checklist-combined"
+            value={getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content}
+            placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
+            onChange={(e) => {
+              const current = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content
+              updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
+                content: applyWorkReportChecklistInputValue(current, e.target.value),
+              })
+            }}
+            onFocus={(e) => {
+              const current = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1).content
+              handleWorkReportChecklistTextareaFocus(e, current, (content) =>
+                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              )
+            }}
+            onKeyDown={(e) =>
+              handleWorkReportChecklistTextEditKeyDown(e, (content) =>
+                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              )
+            }
+          />
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderWorkReportExternalCell = (date) => (
+    <div className="work-report-board-section work-report-board-section-cell">
+      <div className="work-report-board-table">
+        <div className="work-report-board-header-row-external-no-index">
+          <div className="work-report-board-manager-header">담당자</div>
+          <div className="work-report-board-content-header">내용</div>
+          <div className="work-report-board-destination-header">목적지</div>
+        </div>
+        {Array.from({ length: WORK_REPORT_EXTERNAL_ROW_COUNT }, (_, index) => {
+          const orderIndex = index + 1
+          const entry = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)
+
+          return (
+            <div
+              key={`external-cell-${date}-${orderIndex}`}
+              className="work-report-board-row-external-no-index"
+              onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
+            >
+              <WorkReportExternalManagerMultiSelect
+                value={entry.user}
+                onChange={(next) =>
+                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                    user: next,
+                  })
+                }
+                options={WORK_REPORT_EXTERNAL_USER_OPTIONS}
+              />
+              <textarea
+                className="work-report-board-textarea work-report-board-textarea-external resize-none"
+                value={entry.content}
+                placeholder="내용 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                    content: e.target.value,
+                  })
+                }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
+              />
+              <textarea
+                className="work-report-board-textarea work-report-board-textarea-destination resize-none"
+                value={entry.destination}
+                placeholder="목적지 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
+                    destination: e.target.value,
+                  })
+                }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
+              />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+
+  const renderWorkReportManagedCell = (date, section, rowCount, contentClassName) => (
+    <div className="work-report-board-section work-report-board-section-cell">
+      <div className="work-report-board-table">
+        <div className="work-report-board-header-row work-report-board-header-row-journal">
+          <div className="work-report-board-index">#</div>
+          <div className="work-report-board-manager-header">담당자</div>
+          <div className="work-report-board-content-header">내용</div>
+          <div className="work-report-board-deadline-header">기한</div>
+        </div>
+        {Array.from({ length: rowCount }, (_, index) => {
+          const orderIndex = index + 1
+          const entry = getWorkReportBoardEntry(date, section, orderIndex)
+
+          return (
+            <div
+              key={`managed-cell-${date}-${section}-${orderIndex}`}
+              className="work-report-board-row work-report-board-row-journal"
+              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
+            >
+              <div className="work-report-board-index">{orderIndex}</div>
+              <select
+                className="work-report-board-select"
+                value={entry.user}
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
+                }
+              >
+                <option value="">선택</option>
+                {WORK_REPORT_MANAGER_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <AutoGrowTextarea
+                className={`work-report-board-textarea ${contentClassName}`}
+                value={entry.content}
+                placeholder="내용 입력"
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
+                }
+                onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
+              />
+              <input
+                type="date"
+                className="work-report-board-date-input work-report-board-date-input-support"
+                value={normalizeWorkReportDeadlineForDateInput(entry.deadline)}
+                onChange={(e) =>
+                  updateWorkReportBoardEntry(date, section, orderIndex, {
+                    deadline: normalizeWorkReportDeadlineForDateInput(e.target.value),
+                  })
+                }
+                onKeyDown={(e) =>
+                  handleWorkReportTextEditKeyDown(e, {
+                    multiline: false,
+                    onSave: () => e.currentTarget.blur(),
+                  })
+                }
+              />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+
+  const renderWorkReportSupportCell = (date) => (
+    <div className="work-report-board-section work-report-board-section-cell work-report-board-section-cell-support">
+      <div className="work-report-board-support-wrap">
+        {renderWorkReportSupportAreaListV4(date, '진행업무', WORK_REPORT_SECTION_KEYS.supportProgress)}
+        {renderWorkReportSupportAreaListV4(date, '완료업무', WORK_REPORT_SECTION_KEYS.supportDone)}
+      </div>
+    </div>
+  )
+
+  const renderWorkReportWeekSectionRow = (title, renderCell, sectionClassName = '') => (
+    <section className={`work-report-week-section ${sectionClassName}`.trim()}>
+      <div className="work-report-board-section-title work-report-week-section-title">{title}</div>
+      <div className="work-report-week-section-cols">
+        {selectedWorkWeekDays.map((day) => (
+          <div key={`${title}-${day.date}`} className="work-report-week-section-col">
+            {renderCell(day.date)}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+
+  const renderWorkReportWeekBoardV5 = () => (
+    <div className="work-report-week-board-area work-report-week-board-scroll flex-1 min-h-0">
+      <div className="work-report-week-board-inner">
+        <div className="work-report-week-day-headers" aria-label="요일 헤더">
+          {selectedWorkWeekDays.map((day) => (
+            <div
+              key={`header-${day.date}`}
+              className={`work-report-day-head work-report-week-day-head ${day.isToday ? 'is-today' : ''}`}
+            >
+              <div className="work-report-day-weekday">{day.label}</div>
+              <div className="work-report-day-date">{day.date}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="work-report-week-section-stack">
+          {renderWorkReportWeekSectionRow('주요 확인사항', renderWorkReportChecklistCell)}
+          {renderWorkReportWeekSectionRow('외부일정', renderWorkReportExternalCell)}
+          {renderWorkReportWeekSectionRow('DI사업', (date) =>
+            renderWorkReportManagedCell(
+              date,
+              WORK_REPORT_SECTION_KEYS.di,
+              WORK_REPORT_DI_ROW_COUNT,
+              'work-report-board-textarea-di'
+            )
+          )}
+          {renderWorkReportWeekSectionRow('도로사업', (date) =>
+            renderWorkReportManagedCell(
+              date,
+              WORK_REPORT_SECTION_KEYS.road,
+              WORK_REPORT_ROAD_ROW_COUNT,
+              'work-report-board-textarea-road'
+            )
+          )}
+          {renderWorkReportWeekSectionRow('영업지원', renderWorkReportSupportCell, 'work-report-week-section-support')}
+        </div>
+      </div>
+    </div>
+  )
+
 
   return (
     <div className={`app-shell${isMobileNavOpen ? ' app-shell--mobile-nav-open' : ''}`}>
@@ -13395,7 +13613,7 @@ function App() {
         {menu === 'workReports' && (
           <section className="stat-card stat-card--work-reports">
             <div className="work-report-page-body work-report-page-body--dual-scroll flex flex-col h-full">
-              <div className="contracts-header-actions work-report-toolbar">
+              <div className="contracts-header-actions work-report-toolbar work-report-toolbar-sticky">
                 <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
                   이전 주
                 </button>
@@ -13439,11 +13657,7 @@ function App() {
                 </div>
               </div>
 
-              <div className="work-report-week-board-area work-report-week-board-scroll flex-1 min-h-0">
-                <div className="work-report-week-grid flex flex-nowrap gap-4">
-                  {selectedWorkWeekDays.map((day) => renderWorkReportDayBoardV4(day))}
-                </div>
-              </div>
+              {renderWorkReportWeekBoardV5()}
 
               {isSavingWorkReports && (
                 <div className="work-report-saving-indicator">업무보고 내용을 저장하고 있습니다.</div>

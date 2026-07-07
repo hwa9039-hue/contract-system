@@ -3740,6 +3740,18 @@ textarea:focus-visible {
   margin-bottom: 10px;
 }
 
+.main-area > section.stat-card.stat-card--work-reports .work-report-toolbar-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: #ffffff;
+  padding-top: 4px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
 .main-area > section.stat-card.stat-card--work-reports .work-report-week-board-area {
   flex: 1 1 auto;
   min-height: 0;
@@ -7886,6 +7898,116 @@ textarea:focus-visible {
   max-width: none;
   flex: none;
   flex-shrink: 0;
+}
+
+/* 주간업무보고서 V5: 섹션 행 × 요일 열 그리드 (높이 동기화) */
+.work-report-week-board-inner {
+  width: max-content;
+  min-width: 100%;
+  padding-bottom: 8px;
+}
+
+.work-report-week-day-headers,
+.work-report-week-section-cols {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(400px, 1fr));
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.work-report-week-day-headers {
+  position: sticky;
+  top: 0;
+  z-index: 52;
+  margin-bottom: 10px;
+  padding-bottom: 2px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+.work-report-week-day-head {
+  border: 1px solid #d9dee6;
+  border-radius: 10px 10px 0 0;
+  background: #ffffff;
+}
+
+.work-report-week-day-head.is-today {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.18);
+}
+
+.work-report-week-section-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.work-report-week-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.work-report-week-section-title {
+  border-radius: 8px 8px 0 0;
+}
+
+.work-report-week-section-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  min-width: 0;
+}
+
+.work-report-board-section-cell {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  height: 100%;
+  border-radius: 0 0 8px 8px;
+}
+
+.work-report-board-section-cell .work-report-board-table,
+.work-report-board-section-cell-support .work-report-board-support-wrap {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  height: 100%;
+}
+
+.work-report-board-section-cell-support .work-report-board-support-wrap {
+  gap: 8px;
+  padding: 8px;
+}
+
+.work-report-week-section-col .work-report-board-support-block {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.work-report-week-section-col .work-report-board-support-block .work-report-board-table {
+  flex: 1 1 auto;
+}
+
+.work-report-week-section-col .work-report-board-row-checklist-single,
+.work-report-week-section-col .work-report-board-textarea-checklist-combined {
+  flex: 1 1 auto;
+  min-height: 150px;
+  height: 100%;
+}
+
+.work-report-week-section-col .work-report-board-row-journal {
+  align-items: stretch;
+}
+
+.work-report-week-section-col .work-report-board-row-journal .work-report-board-textarea {
+  min-height: 72px;
 }
 
 .work-report-day-board {
@@ -12235,6 +12357,15 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   .work-report-day-board {
     width: min(88vw, 360px);
     min-width: min(88vw, 360px);
+  }
+
+  .work-report-week-day-headers,
+  .work-report-week-section-cols {
+    grid-template-columns: repeat(7, minmax(min(88vw, 360px), 1fr));
+  }
+
+  .main-area > section.stat-card.stat-card--work-reports .work-report-week-day-headers {
+    top: 58px;
   }
 
   .dashboard-overview-grid,
