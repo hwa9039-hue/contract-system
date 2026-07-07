@@ -81,6 +81,23 @@ function compareContractsByContractDateDesc(a, b) {
   })
 }
 
+/**
+ * 계약현황 기본 정렬 — '참고번호'(refNo) 내림차순(예: 100, 99, 98...).
+ * refNo가 비어 있으면 맨 뒤로 보내고, 동일/무효 값은 계약일자 최신순으로 보조 정렬한다.
+ * numeric 옵션으로 "100" > "99"가 문자열이 아닌 숫자 크기로 비교되도록 한다.
+ */
+function compareContractsByRefNoDesc(a, b) {
+  const ra = safeString(a.refNo).trim()
+  const rb = safeString(b.refNo).trim()
+  if (ra && !rb) return -1
+  if (!ra && rb) return 1
+  if (ra && rb) {
+    const byRef = rb.localeCompare(ra, 'ko-KR', { numeric: true, sensitivity: 'base' })
+    if (byRef !== 0) return byRef
+  }
+  return compareContractsByContractDateDesc(a, b)
+}
+
 function createEmptyBuckets() {
   return { signboard: [], maintenance: [] }
 }
@@ -115,7 +132,7 @@ export function groupContractsForAccordion(filteredData) {
       })
 
       const subGroups = CONTRACT_CATEGORY_SUBGROUPS.map(({ groupId, label }) => {
-        const items = [...buckets[groupId]].sort(compareContractsByContractDateDesc)
+        const items = [...buckets[groupId]].sort(compareContractsByRefNoDesc)
         return {
           groupId,
           label,

@@ -13870,6 +13870,25 @@ function App() {
                                     contractEdit?.rowKey === rowSelectKey &&
                                     contractEdit?.key === column.key
                                   const contractDisplay = getContractCellDisplayState(item, column)
+                                  // 계약현황 기준 날짜(계약일자) 셀에 금주/전주 뱃지 표시 — 영업관리대장과 동일 로직/UI
+                                  const contractWeekTag =
+                                    column.key === 'contractDate' && !contractDisplay.isEmpty
+                                      ? getRegisterDateWeekTag(item?.contractDate)
+                                      : null
+                                  const contractWeekHighlightClass =
+                                    contractWeekTag === 'current'
+                                      ? 'sales-register-date--this-week'
+                                      : contractWeekTag === 'last'
+                                        ? 'sales-register-date--last-week'
+                                        : ''
+                                  const contractWeekBadge = contractWeekTag ? (
+                                    <span
+                                      className={`sales-register-week-badge sales-register-week-badge--${contractWeekTag}`}
+                                      title={contractWeekTag === 'current' ? '금주 신규·수정 항목' : '전주 신규·수정 항목'}
+                                    >
+                                      {contractWeekTag === 'current' ? '금주' : '전주'}
+                                    </span>
+                                  ) : null
 
                                   return (
                                     <td
@@ -13878,7 +13897,7 @@ function App() {
                                         isLongCell ? 'multiline-cell' : ''
                                       } ${column.key === 'note' ? 'note-cell' : ''} ${getTableColumnLayoutClass(column)} ${
                                         canEditContracts ? 'editable-cell' : ''
-                                      } ${tableCellStateClass(contractDisplay.isEmpty)}`}
+                                      } ${contractWeekTag ? 'registry-week-badge-cell' : ''} ${tableCellStateClass(contractDisplay.isEmpty)}`}
                                       onClick={
                                         canEditContracts && !isThisContractCell
                                           ? () =>
@@ -13893,7 +13912,9 @@ function App() {
                                           <div
                                             className={`cell-display editable-text-cell-display editable-text-cell-display--${cellAlign}${
                                               isLongCell ? ' table-cell-clamp' : ''
-                                            }${contractDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''}`}
+                                            }${contractDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''}${
+                                              contractWeekHighlightClass ? ` ${contractWeekHighlightClass}` : ''
+                                            }`}
                                             role={canEditContracts ? 'button' : undefined}
                                             tabIndex={canEditContracts ? 0 : undefined}
                                             onClick={(e) => {
@@ -13910,6 +13931,7 @@ function App() {
                                             }}
                                           >
                                             {contractDisplay.text}
+                                            {contractWeekBadge}
                                           </div>
                                         </ContractTableCellShell>
                                       )}

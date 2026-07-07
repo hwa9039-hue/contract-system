@@ -12364,3 +12364,9 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   overflow: visible;
   text-overflow: clip;
 }
+
+/* 계약현황 '계약일자'(contractDate) 셀 이식 — contracts-fixed-table은 td에 overflow:hidden을
+   높은 우선순위로 걸어 뱃지를 자르므로, 뱃지가 있는 셀에 한해 overflow를 개방한다. */
+table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td.registry-week-badge-cell {
+  overflow: visible;
+}
