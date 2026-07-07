@@ -12293,30 +12293,43 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
 }
 
 /* 영업관리대장 '등록일' 컬럼 — 금주(월~일) 신규·수정 항목 하이라이트 */
+/* 하이라이트 셀은 'N' 뱃지가 셀 경계에 잘리지 않도록 overflow를 개방한다. */
 .cell-display.sales-register-date--this-week {
-  position: relative;
+  overflow: visible;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
   color: var(--accent, #2F6BFF);
   font-weight: 700;
 }
 
+/* 파란 원형 뱃지 + 미세한 흰색 테두리. 텍스트 위쪽에 살짝 뜬 superscript 형태이지만
+   셀 padding 안에 머물도록 음수 오프셋을 최소화해 잘림을 방지한다. */
 .sales-register-date-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 3px;
-  border-radius: 999px;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  align-self: flex-start;
+  margin-top: -1px;
+  border-radius: 50%;
   background: var(--accent, #2F6BFF);
+  border: 1.5px solid #ffffff;
   color: #fff;
   font-size: 9px;
   font-weight: 700;
   line-height: 1;
-  letter-spacing: 0.02em;
-  transform: translateY(-6px);
-  box-shadow: 0 1px 3px rgba(47, 107, 255, 0.4);
+  letter-spacing: 0.01em;
+  box-shadow: 0 1px 3px rgba(47, 107, 255, 0.45);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  cursor: default;
+}
+
+.sales-register-date-badge:hover {
+  transform: scale(1.18);
+  background: #3b82f6;
+  box-shadow: 0 2px 6px rgba(47, 107, 255, 0.6);
 }
