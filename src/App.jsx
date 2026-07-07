@@ -6979,8 +6979,14 @@ function App() {
   )
 
   /** [2단계] filteredData만 그룹화 — 원본 discoveryRows 미사용 */
+  /* 기본 정렬: 연도 그룹은 최신 연도가 위(groupRegistryRowsByYear), 각 연도 내부는
+     '건축정보일자'(permitDate) 최신순(내림차순)으로 정렬해 첫 진입 시 최근 날짜가 맨 위에 오게 한다. */
   const groupedDiscoveryRows = useMemo(
-    () => groupRegistryRowsByYear(filteredDiscoveryRows, 'permitDate'),
+    () =>
+      groupRegistryRowsByYear(filteredDiscoveryRows, 'permitDate').map((group) => ({
+        ...group,
+        items: sortRegistryRowsByDateDesc(group.items, 'permitDate'),
+      })),
     [filteredDiscoveryRows]
   )
 
