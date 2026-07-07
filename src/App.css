@@ -12291,3 +12291,32 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     height: auto;
   }
 }
+
+/* 영업관리대장 '등록일' 컬럼 — 금주(월~일) 신규·수정 항목 하이라이트 */
+.cell-display.sales-register-date--this-week {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--accent, #2F6BFF);
+  font-weight: 700;
+}
+
+.sales-register-date-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--accent, #2F6BFF);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  transform: translateY(-6px);
+  box-shadow: 0 1px 3px rgba(47, 107, 255, 0.4);
+}

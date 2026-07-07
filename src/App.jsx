@@ -5177,6 +5177,21 @@ function countRowsRegisteredInLastWeek(rows, dateKey, filterRow) {
   return countRowsRegisteredInWeekOf(rows, dateKey, filterRow, addDays(new Date(), -7))
 }
 
+/**
+ * 등록일(dateValue)이 오늘이 속한 주(월요일~일요일, 로컬)에 포함되는지 판별.
+ * 대시보드 '금주' 건수 계산(countRowsRegisteredInWeekOf)과 동일한 주 구간 기준을 사용해
+ * 헤더 건수와 목록 하이라이트가 서로 어긋나지 않도록 한다.
+ */
+function isDateInCurrentWeek(dateValue) {
+  const parsed = parseDateOnly(dateValue)
+  if (!parsed) return false
+  const monday = getWeekStartMonday(new Date())
+  const startYmd = formatDateInput(monday)
+  const endYmd = formatDateInput(addDays(monday, 6))
+  const ymd = formatDateInput(parsed)
+  return ymd >= startYmd && ymd <= endYmd
+}
+
 /** 문서 접수·수신 vs 발송·발신 — 텍스트 필드에서 키워드 탐지(발신류 우선) */
 function countDocumentsInboundOutbound(rows) {
   let inbound = 0
@@ -11429,6 +11444,12 @@ function App() {
               ? 'whitespace-pre-wrap break-words'
               : ''
           const plainDisplay = getRegistryPlainDisplayState(row, column)
+          // 영업관리대장 '등록일' 컬럼에 한정해, 금주(월~일)에 등록/수정된 건을 시각적으로 강조한다.
+          const isThisWeekSalesRegisterDate =
+            cellEditScope === 'sales' &&
+            column.key === 'registerDate' &&
+            !plainDisplay.isEmpty &&
+            isDateInCurrentWeek(row?.registerDate)
           const cells = [
             <td
               key={column.key}
@@ -11604,9 +11625,16 @@ function App() {
                         ? ' break-words whitespace-pre-wrap'
                         : ' table-cell-clamp'
                       : ''
-                  }${plainDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''}`}
+                  }${plainDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''}${
+                    isThisWeekSalesRegisterDate ? ' sales-register-date--this-week' : ''
+                  }`}
                 >
                   {plainDisplay.text}
+                  {isThisWeekSalesRegisterDate ? (
+                    <span className="sales-register-date-badge" title="금주 신규·수정 항목">
+                      N
+                    </span>
+                  ) : null}
                 </div>
               )}
             </td>,
