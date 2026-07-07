@@ -405,10 +405,10 @@ const DISCOVERY_COLUMNS = [
     label: '중요도',
     align: 'center',
     type: 'importance',
+    // 중요도는 상태(projectStage)에 종속되는 읽기 전용 컬럼. 사용자가 직접 편집할 수 없다.
+    // 상태 변경 시 색상(빨강/노랑/파랑)이 자동으로 재계산된다.
     statusKey: 'projectStage',
-    // 중요도 셀을 직접 드롭다운으로 편집 → 선택값은 statusKey(projectStage)에 저장된다.
-    editable: true,
-    options: DISCOVERY_STAGE_OPTIONS,
+    editable: false,
     widthClass: 'discovery-w-24',
     cellClass: 'discovery-col-tight discovery-w-24',
   },
@@ -10931,6 +10931,12 @@ function App() {
     // 중요도 컬럼은 patch/row 값이 column.key('importance')가 아니라 statusKey 로 존재한다.
     const fieldKey = getRegistryColumnFieldKey(column)
     const patchValue = patch[fieldKey]
+    // 방어: 어떤 이유로든 매핑되는 필드가 없어 빈 객체({})가 만들어지면 서버로 보내지 않는다.
+    // (백엔드의 "No fields to update" 400 을 근본적으로 차단)
+    if (!patch || Object.keys(patch).length === 0) {
+      console.warn('[registry] 빈 PATCH payload 감지 — 전송 취소', { scope, columnKey: column.key })
+      return false
+    }
     // 변경 여부 판정은 "편집 시작 시점의 원본 값"과 비교해야 한다.
     // 인라인 셀 편집은 입력 중 낙관적 업데이트로 targetRow[fieldKey] 를 미리 바꿔 두기 때문에,
     // targetRow 값을 그대로 쓰면 항상 "변경 없음"으로 오판되어 PATCH 가 스킵된다.
@@ -11184,8 +11190,7 @@ function App() {
         />
       )
     }
-    // 중요도(editable) 셀도 상태 옵션 드롭다운으로 편집한다.
-    if (column.type === 'select' || (column.type === 'importance' && column.editable)) {
+    if (column.type === 'select') {
       return (
         <select
           {...commonProps}
@@ -11376,12 +11381,6 @@ function App() {
 
         {columns.map((column) => {
           const isImportanceCell = column.type === 'importance'
-          const isEditableImportance =
-            isImportanceCell &&
-            column.editable &&
-            useCellMode &&
-            isAdminForRegistry &&
-            !row.isDraft
           const isSmartDetailCell = isRegistrySmartDetailColumn(column, cellEditScope)
           const isSalesDetailCell = isSalesDetailHistoryColumn(column, cellEditScope)
           const canUseRegistryModalEditor =
@@ -11409,7 +11408,7 @@ function App() {
           const cellAlign =
             getTableBodyAlignClass(column).replace('td-align-', '') || 'center'
           const isThisCell =
-            (!isImportanceCell || isEditableImportance) &&
+            !isImportanceCell &&
             !isEditableText &&
             useCellMode &&
             !row.isDraft &&
@@ -11439,12 +11438,12 @@ function App() {
               } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${discoveryTextWrapClass} ${
                 usesTableInlineInput
                   ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
-                  : isAdminForRegistry && !row.isDraft && (!isImportanceCell || isEditableImportance)
+                  : isAdminForRegistry && !row.isDraft && !isImportanceCell
                     ? 'editable-cell'
                     : ''
               }`}
               onClick={() => {
-                if ((isImportanceCell && !isEditableImportance) || isEditableText) return
+                if (isImportanceCell || isEditableText) return
                 if (isSalesDetailCell) {
                   if (!isAdminForRegistry || row.isDraft) return
                   if (useCellMode && onRegistryCellStart) {
@@ -11458,11 +11457,6 @@ function App() {
                   openRegistryLongTextModal(cellEditScope, rowId, column, row)
                   return
                 }
-                if (isEditableImportance && useCellMode && onRegistryCellStart) {
-                  // 중요도 셀 편집값은 상태 필드(statusKey)를 기준으로 시작한다.
-                  onRegistryCellStart(rowId, column.key, row[getRegistryColumnFieldKey(column)], row)
-                  return
-                }
                 if (useCellMode && onRegistryCellStart) {
                   onRegistryCellStart(rowId, column.key, row[column.key], row)
                   return
@@ -11473,23 +11467,11 @@ function App() {
               }}
             >
               {isImportanceCell ? (
-                isEditableImportance && isThisCell ? (
-                  renderRegistryCellInlineEditor(column, {
-                    scope: cellEditScope,
-                    rowId,
-                  })
-                ) : (
-                  <div
-                    className={`cell-display cell-display--importance${
-                      isEditableImportance ? ' cell-display--importance-editable' : ''
-                    }`}
-                    title={isEditableImportance ? '클릭하여 중요도(상태) 변경' : undefined}
-                  >
-                    <RegistryImportanceBadge
-                      status={resolveRegistryImportanceStatus(displayRow, column)}
-                    />
-                  </div>
-                )
+                <div className="cell-display cell-display--importance">
+                  <RegistryImportanceBadge
+                    status={resolveRegistryImportanceStatus(displayRow, column)}
+                  />
+                </div>
               ) : isSalesDetailCell ? (
                 isThisCell ? (
                   renderRegistryCellInlineEditor(column, {
