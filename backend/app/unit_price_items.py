@@ -14,7 +14,10 @@ UNIT_PRICE_ITEM_RETURNING = """
   "designUnitPrice",
   pitch,
   "capW",
-  "capH"
+  "capH",
+  enclosure,
+  "quotePrice",
+  "replacementType"
 """
 
 UNIT_PRICE_ITEM_PATCH_KEYS = frozenset(
@@ -25,6 +28,9 @@ UNIT_PRICE_ITEM_PATCH_KEYS = frozenset(
         "pitch",
         "capW",
         "capH",
+        "enclosure",
+        "quotePrice",
+        "replacementType",
         "cost_service",
         "item_name",
         "unit_price",
@@ -45,6 +51,9 @@ UNIT_PRICE_PAYLOAD_TO_DB = {
     "width_w": "capW",
     "capH": "capH",
     "height_h": "capH",
+    "enclosure": "enclosure",
+    "quotePrice": "quotePrice",
+    "replacementType": "replacementType",
 }
 
 
@@ -53,7 +62,7 @@ def quote_identifier(identifier: str) -> str:
 
 
 def normalize_unit_price_value(api_key: str, value):
-    if api_key not in ("designUnitPrice", "unit_price"):
+    if api_key not in ("designUnitPrice", "unit_price", "quotePrice"):
         if value is None:
             return ""
         return str(value).strip()
@@ -85,6 +94,9 @@ def row_to_unit_price_item(row: dict) -> dict:
         "pitch": to_response_value(row.get("pitch") or ""),
         "capW": to_response_value(row.get("capW") or row.get("width_w") or ""),
         "capH": to_response_value(row.get("capH") or row.get("height_h") or ""),
+        "enclosure": to_response_value(row.get("enclosure") or ""),
+        "quotePrice": to_response_value(row.get("quotePrice") or 0),
+        "replacementType": to_response_value(row.get("replacementType") or ""),
     }
 
 
@@ -142,6 +154,9 @@ def has_unit_price_payload(data: dict) -> bool:
             bool(fields.get("pitch")),
             bool(fields.get("capW")),
             bool(fields.get("capH")),
+            bool(fields.get("enclosure")),
+            int(fields.get("quotePrice") or 0) != 0,
+            bool(fields.get("replacementType")),
         )
     )
 
@@ -157,6 +172,9 @@ def insert_unit_price_item(cursor, contract_id: str, fields: dict, *, sort_order
         "pitch": fields.get("pitch", ""),
         "capW": fields.get("capW", ""),
         "capH": fields.get("capH", ""),
+        "enclosure": fields.get("enclosure", ""),
+        "quotePrice": fields.get("quotePrice", 0),
+        "replacementType": fields.get("replacementType", ""),
     }
     cursor.execute(
         f"""
@@ -169,7 +187,10 @@ def insert_unit_price_item(cursor, contract_id: str, fields: dict, *, sort_order
           "designUnitPrice",
           pitch,
           "capW",
-          "capH"
+          "capH",
+          enclosure,
+          "quotePrice",
+          "replacementType"
         )
         values (
           %(contract_id)s,
@@ -180,7 +201,10 @@ def insert_unit_price_item(cursor, contract_id: str, fields: dict, *, sort_order
           %(designUnitPrice)s,
           %(pitch)s,
           %(capW)s,
-          %(capH)s
+          %(capH)s,
+          %(enclosure)s,
+          %(quotePrice)s,
+          %(replacementType)s
         )
         """,
         values,

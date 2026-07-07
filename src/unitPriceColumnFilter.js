@@ -11,11 +11,14 @@ export const UNIT_PRICE_FILTERABLE_COLUMN_KEYS = Object.freeze([
   'pitch',
   'capW',
   'capH',
+  'enclosure',
+  'quotePrice',
+  'replacementType',
 ])
 
 export const UNIT_PRICE_COLUMN_FILTER_BLANK = '(비어 있음)'
 
-const NUMERIC_SORT_COLUMN_KEYS = new Set(['year', 'designUnitPrice'])
+const NUMERIC_SORT_COLUMN_KEYS = new Set(['year', 'designUnitPrice', 'quotePrice'])
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -51,7 +54,7 @@ function compareNumericColumnValues(a, b, columnKey) {
     if (ya !== yb) return yb - ya
     return compareKoreanText(a, b)
   }
-  if (columnKey === 'designUnitPrice') {
+  if (columnKey === 'designUnitPrice' || columnKey === 'quotePrice') {
     const na = Number(safeString(a).replace(/[^\d]/g, '')) || 0
     const nb = Number(safeString(b).replace(/[^\d]/g, '')) || 0
     if (na !== nb) return nb - na
@@ -68,8 +71,9 @@ export function getUnitPriceColumnFilterCellValue(item, columnKey) {
     return label || UNIT_PRICE_COLUMN_FILTER_BLANK
   }
 
-  if (columnKey === 'designUnitPrice') {
-    const displayed = formatAmountForFilter(row.designUnitPrice)
+  if (columnKey === 'designUnitPrice' || columnKey === 'quotePrice') {
+    const value = columnKey === 'quotePrice' ? row.quotePrice : row.designUnitPrice
+    const displayed = formatAmountForFilter(value)
     return displayed || UNIT_PRICE_COLUMN_FILTER_BLANK
   }
 

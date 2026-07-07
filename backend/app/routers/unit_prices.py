@@ -51,6 +51,9 @@ class UnitPriceItemPatch(BaseModel):
     pitch: str | None = None
     capW: str | None = None
     capH: str | None = None
+    enclosure: str | None = None
+    quotePrice: int | None = None
+    replacementType: str | None = None
     sortOrder: int | None = Field(default=None, alias="sortOrder")
 
 
@@ -63,6 +66,9 @@ class UnitPriceItemCreate(BaseModel):
     pitch: str = ""
     capW: str = ""
     capH: str = ""
+    enclosure: str = ""
+    quotePrice: int = 0
+    replacementType: str = ""
     sortOrder: int | None = None
 
 
@@ -77,6 +83,9 @@ def _row_to_contract_parent(row: dict) -> dict:
         "pitch",
         "capW",
         "capH",
+        "enclosure",
+        "quotePrice",
+        "replacementType",
     ):
         base.pop(key, None)
     return base
@@ -199,13 +208,16 @@ def create_unit_price_item(contract_id: str, body: UnitPriceItemCreate):
     values = {
         "contract_id": contract_id,
         "sort_order": sort_order,
-        **{k: fields.get(k, "" if k != "designUnitPrice" else 0) for k in (
+        **{k: fields.get(k, 0 if k in ("designUnitPrice", "quotePrice") else "") for k in (
             "costService",
             "itemName",
             "designUnitPrice",
             "pitch",
             "capW",
             "capH",
+            "enclosure",
+            "quotePrice",
+            "replacementType",
         )},
     }
 
@@ -235,7 +247,10 @@ def create_unit_price_item(contract_id: str, body: UnitPriceItemCreate):
                   "designUnitPrice",
                   pitch,
                   "capW",
-                  "capH"
+                  "capH",
+                  enclosure,
+                  "quotePrice",
+                  "replacementType"
                 )
                 values (
                   %(contract_id)s,
@@ -246,7 +261,10 @@ def create_unit_price_item(contract_id: str, body: UnitPriceItemCreate):
                   %(designUnitPrice)s,
                   %(pitch)s,
                   %(capW)s,
-                  %(capH)s
+                  %(capH)s,
+                  %(enclosure)s,
+                  %(quotePrice)s,
+                  %(replacementType)s
                 )
                 returning {UNIT_PRICE_ITEM_RETURNING}
                 """,

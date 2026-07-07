@@ -205,6 +205,9 @@ UNIT_PRICE_PAYLOAD_TO_DB = {
     "width_w": "capW",
     "capH": "capH",
     "height_h": "capH",
+    "enclosure": "enclosure",
+    "quotePrice": "quotePrice",
+    "replacementType": "replacementType",
 }
 
 # contracts_rows(Parent) 전용 — 단가 6컬럼은 contract_unit_price_items 에만 존재

@@ -51,6 +51,9 @@ class ContractBase(BaseModel):
     pitch: str = ""
     capW: str = ""
     capH: str = ""
+    enclosure: str = ""
+    quotePrice: int = 0
+    replacementType: str = ""
     commencementCert: Optional[date] = None
     completionCert: Optional[date] = None
     warrantyStart: Optional[date] = None
@@ -125,6 +128,9 @@ class ContractPatch(BaseModel):
     pitch: Optional[str] = None
     capW: Optional[str] = None
     capH: Optional[str] = None
+    enclosure: Optional[str] = None
+    quotePrice: Optional[int] = None
+    replacementType: Optional[str] = None
     commencementCert: Optional[date] = None
     completionCert: Optional[date] = None
     warrantyStart: Optional[date] = None
@@ -201,6 +207,9 @@ class ContractOut(BaseModel):
     pitch: Optional[Any] = None
     capW: Optional[Any] = None
     capH: Optional[Any] = None
+    enclosure: Optional[Any] = None
+    quotePrice: Optional[Any] = None
+    replacementType: Optional[Any] = None
     commencementCert: Optional[Any] = None
     completionCert: Optional[Any] = None
     warrantyStart: Optional[Any] = None
@@ -767,6 +776,9 @@ def row_to_contract(row) -> dict:
         "pitch": "",
         "capW": "",
         "capH": "",
+        "enclosure": "",
+        "quotePrice": 0,
+        "replacementType": "",
         "commencementCert": contract_date_to_response(
             _contract_row_field(row, "commencementCert", default=None)
         ),
@@ -1053,6 +1065,9 @@ CONTRACT_DB_COLUMNS = {
     "pitch": "pitch",
     "capW": "capW",
     "capH": "capH",
+    "enclosure": "enclosure",
+    "quotePrice": "quotePrice",
+    "replacementType": "replacementType",
     "commencementCert": "commencementCert",
     "completionCert": "completionCert",
     "warrantyStart": "warrantyStart",
@@ -1075,6 +1090,9 @@ _UNIT_PRICE_API_KEYS = frozenset(
         "pitch",
         "capW",
         "capH",
+        "enclosure",
+        "quotePrice",
+        "replacementType",
         "cost_service",
         "item_name",
         "unit_price",
@@ -1486,7 +1504,7 @@ def contract_to_db_values(contract: ContractBase) -> dict:
                     out[db_key] = 0
             continue
 
-        if api_key == "designUnitPrice":
+        if api_key in ("designUnitPrice", "quotePrice"):
             if val is None:
                 out[db_key] = 0
             elif isinstance(val, bool):

@@ -36,7 +36,16 @@ const UNIT_PRICE_FIELDS = [
   'pitch',
   'capW',
   'capH',
+  'enclosure',
+  'quotePrice',
+  'replacementType',
 ]
+
+/** 천 단위 콤마 포맷을 적용하는 숫자형 컬럼 */
+const NUMBER_FIELDS = ['designUnitPrice', 'quotePrice']
+
+/** 신규/교체 여부 드롭다운 옵션 */
+const REPLACEMENT_TYPE_OPTIONS = ['신규', '교체']
 
 const EMPTY_ITEM_PAYLOAD = Object.freeze({
   costService: '',
@@ -45,6 +54,9 @@ const EMPTY_ITEM_PAYLOAD = Object.freeze({
   pitch: '',
   capW: '',
   capH: '',
+  enclosure: '',
+  quotePrice: 0,
+  replacementType: '',
 })
 
 const PLACEHOLDER_ID_PREFIX = '__empty__'
@@ -135,6 +147,35 @@ const columns = [
     editable: true,
     colClass: 'unit-price-col-caph',
   },
+  {
+    field: 'enclosure',
+    headerName: '함체',
+    width: 180,
+    filterable: true,
+    editable: true,
+    colClass: 'unit-price-col-enclosure',
+  },
+  {
+    field: 'quotePrice',
+    headerName: '견적 단가',
+    width: 160,
+    filterable: true,
+    editable: true,
+    type: 'number',
+    align: 'right',
+    colClass: 'unit-price-col-quote',
+  },
+  {
+    field: 'replacementType',
+    headerName: '신규/교체 여부',
+    width: 140,
+    filterable: true,
+    editable: true,
+    type: 'select',
+    options: REPLACEMENT_TYPE_OPTIONS,
+    align: 'center',
+    colClass: 'unit-price-col-replacement',
+  },
 ]
 
 function safeString(value) {
@@ -173,6 +214,9 @@ function normalizeItemFromApi(item) {
     pitch: safeString(item?.pitch).trim(),
     capW: safeString(item?.capW).trim(),
     capH: safeString(item?.capH).trim(),
+    enclosure: safeString(item?.enclosure).trim(),
+    quotePrice: formatDesignUnitPrice(item?.quotePrice),
+    replacementType: safeString(item?.replacementType).trim(),
   }
 }
 
@@ -184,6 +228,9 @@ function emptyItemFields() {
     pitch: '',
     capW: '',
     capH: '',
+    enclosure: '',
+    quotePrice: '',
+    replacementType: '',
   }
 }
 
@@ -195,6 +242,9 @@ function itemFieldsToApiPatch(fields) {
     pitch: safeString(fields.pitch).trim(),
     capW: safeString(fields.capW).trim(),
     capH: safeString(fields.capH).trim(),
+    enclosure: safeString(fields.enclosure).trim(),
+    quotePrice: parseDesignUnitPrice(fields.quotePrice),
+    replacementType: safeString(fields.replacementType).trim(),
   }
 }
 
@@ -250,6 +300,9 @@ function flattenContractsToRows(contracts) {
         pitch: item.pitch,
         capW: item.capW,
         capH: item.capH,
+        enclosure: item.enclosure,
+        quotePrice: item.quotePrice,
+        replacementType: item.replacementType,
       })
     }
   }
@@ -265,6 +318,9 @@ function rowToSavedSnapshot(row) {
     pitch: row.pitch,
     capW: row.capW,
     capH: row.capH,
+    enclosure: row.enclosure,
+    quotePrice: row.quotePrice,
+    replacementType: row.replacementType,
   }
 }
 
@@ -278,6 +334,9 @@ function itemFieldsToTreeItem(normalized, itemId) {
     pitch: patch.pitch,
     capW: patch.capW,
     capH: patch.capH,
+    enclosure: patch.enclosure,
+    quotePrice: patch.quotePrice,
+    replacementType: patch.replacementType,
   }
 }
 
@@ -312,6 +371,7 @@ function excelExportCellText(value) {
 
 function unitPriceRowToExcelRow(row) {
   const designPrice = formatDesignUnitPrice(row.designUnitPrice)
+  const quotePrice = formatDesignUnitPrice(row.quotePrice)
   return {
     사업년도: displayReadonlyCell(row, 'year'),
     발주처: displayReadonlyCell(row, 'client'),
@@ -322,6 +382,9 @@ function unitPriceRowToExcelRow(row) {
     Pitch: excelExportCellText(row.pitch),
     W: excelExportCellText(row.capW),
     H: excelExportCellText(row.capH),
+    함체: excelExportCellText(row.enclosure),
+    '견적 단가': quotePrice || '-',
+    '신규/교체 여부': excelExportCellText(row.replacementType),
   }
 }
 
@@ -444,7 +507,7 @@ export default function UnitPriceManagement({ canEdit = true }) {
       if (isPlaceholder) {
         const payload = itemFieldsToApiPatch(nextSnapshot)
         const hasContent = UNIT_PRICE_FIELDS.some((key) => {
-          if (key === 'designUnitPrice') return payload.designUnitPrice > 0
+          if (NUMBER_FIELDS.includes(key)) return Number(payload[key]) > 0
           return Boolean(safeString(payload[key]).trim())
         })
         if (!hasContent) return false
@@ -495,8 +558,8 @@ export default function UnitPriceManagement({ canEdit = true }) {
     async (row, field, rawValue) => {
       const nextSnapshot = rowToSavedSnapshot(row)
       if (!canEdit) return
-      if (field === 'designUnitPrice') {
-        nextSnapshot.designUnitPrice = formatDesignUnitPrice(rawValue)
+      if (NUMBER_FIELDS.includes(field)) {
+        nextSnapshot[field] = formatDesignUnitPrice(rawValue)
       } else {
         nextSnapshot[field] = safeString(rawValue).trim()
       }
@@ -607,12 +670,12 @@ export default function UnitPriceManagement({ canEdit = true }) {
       if (column.editable) {
         const raw = row[column.field]
         const isEmpty =
-          column.field === 'designUnitPrice'
+          NUMBER_FIELDS.includes(column.field)
             ? isTableCellEmpty(formatDesignUnitPrice(raw))
             : isTableCellEmpty(raw)
         if (!canEdit) {
           const displayValue =
-            column.field === 'designUnitPrice'
+            NUMBER_FIELDS.includes(column.field)
               ? formatDesignUnitPrice(raw)
               : safeString(raw).trim()
           return (
@@ -623,6 +686,28 @@ export default function UnitPriceManagement({ canEdit = true }) {
               } ${tableCellStateClass(isEmpty)}${isEmpty ? ' table-cell-empty-placeholder' : ''}`}
             >
               {displayValue || '-'}
+            </td>
+          )
+        }
+        if (column.type === 'select') {
+          return (
+            <td
+              key={column.field}
+              className={`unit-price-editable-cell p-0 align-middle ${colClass} ${tableCellStateClass(isEmpty)}`}
+            >
+              <select
+                className="unit-price-cell-input unit-price-cell-select"
+                value={safeString(row[column.field]).trim()}
+                disabled={tableBusy}
+                onChange={(e) => void handleItemFieldSave(row, column.field, e.target.value)}
+              >
+                <option value="">선택</option>
+                {(column.options || []).map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
             </td>
           )
         }
