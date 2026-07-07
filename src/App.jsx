@@ -5178,18 +5178,27 @@ function countRowsRegisteredInLastWeek(rows, dateKey, filterRow) {
 }
 
 /**
- * 등록일(dateValue)이 오늘이 속한 주(월요일~일요일, 로컬)에 포함되는지 판별.
- * 대시보드 '금주' 건수 계산(countRowsRegisteredInWeekOf)과 동일한 주 구간 기준을 사용해
- * 헤더 건수와 목록 하이라이트가 서로 어긋나지 않도록 한다.
+ * 등록일(dateValue)이 오늘 기준으로 '금주'(current)·'전주'(last) 중 어디에 속하는지 판별.
+ * 그 이전(또는 미래·무효 날짜)이면 null.
+ * 대시보드 금주/전주 건수 계산(countRowsRegisteredInCurrentWeek / ...InLastWeek)과 동일한
+ * 주 구간 기준(금주=오늘 주, 전주=오늘-7일 주, 월~일)을 사용해 헤더 건수와 뱃지가 어긋나지 않게 한다.
  */
-function isDateInCurrentWeek(dateValue) {
+function getRegisterDateWeekTag(dateValue) {
   const parsed = parseDateOnly(dateValue)
-  if (!parsed) return false
-  const monday = getWeekStartMonday(new Date())
-  const startYmd = formatDateInput(monday)
-  const endYmd = formatDateInput(addDays(monday, 6))
+  if (!parsed) return null
   const ymd = formatDateInput(parsed)
-  return ymd >= startYmd && ymd <= endYmd
+
+  const thisMonday = getWeekStartMonday(new Date())
+  if (ymd >= formatDateInput(thisMonday) && ymd <= formatDateInput(addDays(thisMonday, 6))) {
+    return 'current'
+  }
+
+  const lastMonday = getWeekStartMonday(addDays(new Date(), -7))
+  if (ymd >= formatDateInput(lastMonday) && ymd <= formatDateInput(addDays(lastMonday, 6))) {
+    return 'last'
+  }
+
+  return null
 }
 
 /** 문서 접수·수신 vs 발송·발신 — 텍스트 필드에서 키워드 탐지(발신류 우선) */
@@ -11444,12 +11453,11 @@ function App() {
               ? 'whitespace-pre-wrap break-words'
               : ''
           const plainDisplay = getRegistryPlainDisplayState(row, column)
-          // 영업관리대장 '등록일' 컬럼에 한정해, 금주(월~일)에 등록/수정된 건을 시각적으로 강조한다.
-          const isThisWeekSalesRegisterDate =
-            cellEditScope === 'sales' &&
-            column.key === 'registerDate' &&
-            !plainDisplay.isEmpty &&
-            isDateInCurrentWeek(row?.registerDate)
+          // 영업관리대장 '등록일' 컬럼에 한정해, 금주/전주 등록건을 텍스트 뱃지로 구분 표시한다.
+          const salesRegisterWeekTag =
+            cellEditScope === 'sales' && column.key === 'registerDate' && !plainDisplay.isEmpty
+              ? getRegisterDateWeekTag(row?.registerDate)
+              : null
           const cells = [
             <td
               key={column.key}
@@ -11626,13 +11634,16 @@ function App() {
                         : ' table-cell-clamp'
                       : ''
                   }${plainDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''}${
-                    isThisWeekSalesRegisterDate ? ' sales-register-date--this-week' : ''
-                  }`}
+                    salesRegisterWeekTag === 'current' ? ' sales-register-date--this-week' : ''
+                  }${salesRegisterWeekTag === 'last' ? ' sales-register-date--last-week' : ''}`}
                 >
                   {plainDisplay.text}
-                  {isThisWeekSalesRegisterDate ? (
-                    <span className="sales-register-date-badge" title="금주 신규·수정 항목">
-                      N
+                  {salesRegisterWeekTag ? (
+                    <span
+                      className={`sales-register-week-badge sales-register-week-badge--${salesRegisterWeekTag}`}
+                      title={salesRegisterWeekTag === 'current' ? '금주 신규·수정 항목' : '전주 신규·수정 항목'}
+                    >
+                      {salesRegisterWeekTag === 'current' ? '금주' : '전주'}
                     </span>
                   ) : null}
                 </div>

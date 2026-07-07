@@ -12292,44 +12292,63 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   }
 }
 
-/* 영업관리대장 '등록일' 컬럼 — 금주(월~일) 신규·수정 항목 하이라이트 */
-/* 하이라이트 셀은 'N' 뱃지가 셀 경계에 잘리지 않도록 overflow를 개방한다. */
-.cell-display.sales-register-date--this-week {
+/* 영업관리대장 '등록일' 컬럼 — 금주/전주 등록건 텍스트 뱃지 */
+/* 하이라이트 셀은 뱃지가 셀 경계에 잘리지 않도록 overflow를 개방한다. */
+.cell-display.sales-register-date--this-week,
+.cell-display.sales-register-date--last-week {
   overflow: visible;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
+}
+
+/* '금주'는 테마 포인트 컬러로 강조, '전주'는 일반 텍스트로 덜 눈에 띄게 유지 */
+.cell-display.sales-register-date--this-week {
   color: var(--accent, #2F6BFF);
   font-weight: 700;
 }
 
-/* 파란 원형 뱃지 + 미세한 흰색 테두리. 텍스트 위쪽에 살짝 뜬 superscript 형태이지만
-   셀 padding 안에 머물도록 음수 오프셋을 최소화해 잘림을 방지한다. */
-.sales-register-date-badge {
+/* 둥근 사각형 텍스트 뱃지(Chip) 공통 */
+.sales-register-week-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 16px;
   height: 16px;
-  align-self: flex-start;
-  margin-top: -1px;
-  border-radius: 50%;
-  background: var(--accent, #2F6BFF);
-  border: 1.5px solid #ffffff;
-  color: #fff;
-  font-size: 9px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 1;
-  letter-spacing: 0.01em;
-  box-shadow: 0 1px 3px rgba(47, 107, 255, 0.45);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
   transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
   cursor: default;
 }
 
-.sales-register-date-badge:hover {
-  transform: scale(1.18);
+/* '금주' — 파란 배경 + 흰색 텍스트로 강조 */
+.sales-register-week-badge--current {
+  background: var(--accent, #2F6BFF);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(47, 107, 255, 0.4);
+}
+
+.sales-register-week-badge--current:hover {
+  transform: scale(1.08);
   background: #3b82f6;
-  box-shadow: 0 2px 6px rgba(47, 107, 255, 0.6);
+  box-shadow: 0 2px 6px rgba(47, 107, 255, 0.55);
+}
+
+/* '전주' — 연한 파랑 배경 + 짙은 텍스트로 구분되되 덜 강조 */
+.sales-register-week-badge--last {
+  background: var(--accent-soft, #EAF1FF);
+  border: 1px solid #cdddfb;
+  color: var(--accent-strong, #1f4fd1);
+}
+
+.sales-register-week-badge--last:hover {
+  transform: scale(1.08);
+  background: #dde9ff;
 }
