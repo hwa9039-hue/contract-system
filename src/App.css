@@ -8244,7 +8244,7 @@ textarea:focus-visible {
 
 .work-report-board-header-row-journal,
 .work-report-board-row-journal {
-  grid-template-columns: 30px 96px minmax(120px, 1fr) 140px;
+  grid-template-columns: 30px 96px minmax(120px, 1fr);
 }
 
 .work-report-board-header-row {
@@ -8262,7 +8262,7 @@ textarea:focus-visible {
 }
 
 .work-report-board-row-simple {
-  grid-template-columns: 30px minmax(0, 1fr) 140px;
+  grid-template-columns: 30px minmax(0, 1fr);
 }
 
 .work-report-board-index,
@@ -8361,7 +8361,7 @@ textarea:focus-visible {
 }
 
 .work-report-board-row-journal .work-report-board-textarea {
-  border-right: 1px solid #dbe4ee;
+  border-right: none;
 }
 
 .work-report-board-textarea-check {

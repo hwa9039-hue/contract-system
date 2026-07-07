@@ -12818,22 +12818,6 @@ function App() {
                 }
                 onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
-              <input
-                type="date"
-                className="work-report-board-date-input work-report-board-date-input-support"
-                value={normalizeWorkReportDeadlineForDateInput(entry.deadline)}
-                onChange={(e) =>
-                  updateWorkReportBoardEntry(date, section, orderIndex, {
-                    deadline: normalizeWorkReportDeadlineForDateInput(e.target.value),
-                  })
-                }
-                onKeyDown={(e) =>
-                  handleWorkReportTextEditKeyDown(e, {
-                    multiline: false,
-                    onSave: () => e.currentTarget.blur(),
-                  })
-                }
-              />
             </div>
           )
         })}
@@ -12979,7 +12963,6 @@ function App() {
           <div className="work-report-board-index">#</div>
           <div className="work-report-board-manager-header">담당자</div>
           <div className="work-report-board-content-header">내용</div>
-          <div className="work-report-board-deadline-header">기한</div>
         </div>
         {Array.from({ length: rowCount }, (_, index) => {
           const orderIndex = index + 1
@@ -13014,22 +12997,6 @@ function App() {
                   updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
                 }
                 onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
-              />
-              <input
-                type="date"
-                className="work-report-board-date-input work-report-board-date-input-support"
-                value={normalizeWorkReportDeadlineForDateInput(entry.deadline)}
-                onChange={(e) =>
-                  updateWorkReportBoardEntry(date, section, orderIndex, {
-                    deadline: normalizeWorkReportDeadlineForDateInput(e.target.value),
-                  })
-                }
-                onKeyDown={(e) =>
-                  handleWorkReportTextEditKeyDown(e, {
-                    multiline: false,
-                    onSave: () => e.currentTarget.blur(),
-                  })
-                }
               />
             </div>
           )
