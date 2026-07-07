@@ -7901,9 +7901,11 @@ textarea:focus-visible {
 }
 
 /* 주간업무보고서 V5: 섹션 행 × 요일 열 그리드 (높이 동기화 + 가로 스크롤)
- * - inner: width max-content → 열이 min-width 합보다 넓으면 컨테이너를 넘겨 가로 스크롤 유발
- *          min-width 100% → 화면이 넓으면 컨테이너를 꽉 채워 1fr 로 균등 분배
- * - 헤더/본문 그리드 모두 동일한 열 정의 + min-width 100% 라서 좌우 스크롤 시 칼같이 싱크됨 */
+ * - 요일 열은 고정 폭(520px) — 1fr(신축) 을 쓰지 않아 화면이 넓어도 절대 늘어나(=채워지)거나
+ *   좁아도 줄어들지 않는다. 따라서 7개 합(7×520 + gap)이 뷰포트를 항상 넘겨 가로 스크롤이 확실히 생긴다.
+ *   (참고: body { zoom: 0.8 } 로 레이아웃 뷰포트가 넓어져 열이 더 많이 들어가 보이므로 넉넉히 520px)
+ * - inner/그리드 모두 width: max-content → 실제 콘텐츠 폭(7×520)만큼 확장되어 부모(overflow-x:auto)에서 스크롤
+ * - 헤더/본문 그리드가 동일한 고정 열 정의라서 좌우 스크롤 시 칼같이 싱크됨 */
 .work-report-week-board-inner {
   width: max-content;
   min-width: 100%;
@@ -7913,10 +7915,10 @@ textarea:focus-visible {
 .work-report-week-day-headers,
 .work-report-week-section-cols {
   display: grid;
-  grid-template-columns: repeat(7, minmax(360px, 1fr));
+  grid-template-columns: repeat(7, 520px);
   gap: 1rem;
   align-items: stretch;
-  min-width: 100%;
+  width: max-content;
 }
 
 .work-report-week-day-headers {
@@ -12365,7 +12367,7 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
 
   .work-report-week-day-headers,
   .work-report-week-section-cols {
-    grid-template-columns: repeat(7, minmax(min(88vw, 360px), 1fr));
+    grid-template-columns: repeat(7, min(88vw, 360px));
   }
 
   .main-area > section.stat-card.stat-card--work-reports .work-report-week-day-headers {
