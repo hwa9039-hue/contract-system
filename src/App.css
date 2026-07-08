@@ -3869,19 +3869,19 @@ textarea:focus-visible {
   min-height: 150px;
 }
 
-.main-area > section.stat-card.stat-card--work-reports .work-report-board-textarea-external {
+.main-area > section.stat-card.stat-card--work-reports .work-report-day-sections .work-report-board-textarea-external {
   height: auto;
   min-height: 72px;
 }
 
-.main-area > section.stat-card.stat-card--work-reports .work-report-board-row-journal .work-report-board-textarea,
-.main-area > section.stat-card.stat-card--work-reports .work-report-board-row-no-index .work-report-board-textarea,
-.main-area > section.stat-card.stat-card--work-reports .work-report-board-row-external-no-index .work-report-board-textarea {
+.main-area > section.stat-card.stat-card--work-reports .work-report-day-sections .work-report-board-row-journal .work-report-board-textarea,
+.main-area > section.stat-card.stat-card--work-reports .work-report-day-sections .work-report-board-row-no-index .work-report-board-textarea,
+.main-area > section.stat-card.stat-card--work-reports .work-report-day-sections .work-report-board-row-external-no-index .work-report-board-textarea {
   height: auto;
   min-height: 72px;
 }
 
-.main-area > section.stat-card.stat-card--work-reports .work-report-board-textarea-support-line {
+.main-area > section.stat-card.stat-card--work-reports .work-report-day-sections .work-report-board-textarea-support-line {
   min-height: 36px;
   height: auto;
 }
@@ -7921,6 +7921,15 @@ textarea:focus-visible {
   width: max-content;
 }
 
+/* 요일 열 구획: 본문·헤더 모두 오른쪽 구분선을 표 내부선보다 굵게 */
+.work-report-week-section-col:not(:last-child) {
+  border-right: 2px solid #b8c4d4;
+}
+
+.work-report-week-day-headers > .work-report-week-day-head:not(:last-child) {
+  border-right: 2px solid #b8c4d4;
+}
+
 .work-report-week-day-headers {
   position: sticky;
   top: 0;
@@ -8009,11 +8018,50 @@ textarea:focus-visible {
 }
 
 .work-report-week-section-col .work-report-board-row-journal {
-  align-items: stretch;
+  align-items: start;
 }
 
 .work-report-week-section-col .work-report-board-row-journal .work-report-board-textarea {
   min-height: 72px;
+  height: 100%;
+  align-self: stretch;
+}
+
+/* V5 높이 동기화: 부모 열이 stretch 로 늘어난 만큼 표 내부 데이터 행도 함께 늘어나
+ * 짧은 요일의 흰 입력칸/회색 배경이 밑바닥까지 채워지도록 한다.
+ * - 헤더(#·담당자·내용 라벨) 행은 고정 → flex: 0 0 auto
+ * - 데이터 행은 남은 세로 공간을 균등 분배 → flex: 1 1 auto
+ * - 데이터 행 내부 단일 그리드 트랙을 stretch 시켜 textarea 가 행 높이를 꽉 채움 */
+.work-report-week-section-col .work-report-board-header-row,
+.work-report-week-section-col .work-report-board-header-row-journal,
+.work-report-week-section-col .work-report-board-header-row-external,
+.work-report-week-section-col .work-report-board-header-row-no-index,
+.work-report-week-section-col .work-report-board-header-row-external-no-index,
+.work-report-week-section-col .work-report-board-support-title {
+  flex: 0 0 auto;
+}
+
+.work-report-week-section-col .work-report-board-row,
+.work-report-week-section-col .work-report-board-row-no-index,
+.work-report-week-section-col .work-report-board-row-external-no-index {
+  flex: 1 1 auto;
+  align-content: stretch;
+}
+
+.work-report-week-section-col .work-report-board-row .work-report-board-textarea,
+.work-report-week-section-col .work-report-board-row-no-index .work-report-board-textarea,
+.work-report-week-section-col .work-report-board-row-external-no-index .work-report-board-textarea,
+.work-report-week-section-col .work-report-board-row-external-no-index .work-report-board-textarea-external,
+.work-report-week-section-col .work-report-board-row-external-no-index .work-report-board-textarea-destination {
+  flex-grow: 1;
+  height: 100%;
+  min-height: 100%;
+  align-self: stretch;
+}
+
+/* 외부일정(담당자 다중선택) 셀은 상단 고정 유지 */
+.work-report-week-section-col .work-report-board-row-external-no-index .work-report-external-manager-multi {
+  align-self: start;
 }
 
 .work-report-day-board {
@@ -8237,9 +8285,13 @@ textarea:focus-visible {
   grid-template-columns: 30px 104px minmax(260px, 1fr);
 }
 
-.work-report-board-header-row-external,
+.work-report-board-header-row-external {
+  grid-template-columns: 30px 104px minmax(260px, 1fr) 118px;
+}
+
 .work-report-board-row-external {
   grid-template-columns: 30px 104px minmax(260px, 1fr) 118px;
+  align-items: start;
 }
 
 .work-report-board-header-row-journal,
@@ -8254,7 +8306,7 @@ textarea:focus-visible {
 
 .work-report-board-row {
   border-bottom: 1px solid #e5ebf2;
-  align-items: stretch;
+  align-items: start;
 }
 
 .work-report-board-row:last-child {
@@ -8263,6 +8315,12 @@ textarea:focus-visible {
 
 .work-report-board-row-simple {
   grid-template-columns: 30px minmax(0, 1fr);
+  align-items: start;
+}
+
+.work-report-board-row-simple .work-report-board-index {
+  align-self: start;
+  align-items: flex-start;
 }
 
 .work-report-board-index,
@@ -8288,7 +8346,6 @@ textarea:focus-visible {
 
 .work-report-board-destination-header,
 .work-report-board-deadline-header,
-.work-report-board-row-external .work-report-board-textarea:last-child,
 .work-report-board-row-journal .work-report-board-date-input {
   border-right: none;
 }
@@ -8298,9 +8355,14 @@ textarea:focus-visible {
   color: #64748b;
 }
 
+.work-report-board-row .work-report-board-index {
+  align-self: start;
+  align-items: flex-start;
+}
+
 .work-report-board-select {
   width: 100%;
-  min-height: 100%;
+  align-self: start;
   padding: 8px 8px;
   border: 0;
   border-right: 1px solid #dbe4ee;
@@ -8313,8 +8375,8 @@ textarea:focus-visible {
 
 .work-report-board-fixed-manager {
   display: flex;
-  align-items: center;
-  min-height: 100%;
+  align-items: flex-start;
+  align-self: start;
   padding: 8px 8px;
   border-right: 1px solid #dbe4ee;
   background: #f8fafc;
@@ -8325,26 +8387,32 @@ textarea:focus-visible {
 
 .work-report-board-textarea {
   width: 100%;
+  box-sizing: border-box;
   padding: 8px;
-  border: 0;
-  border-right: 1px solid #dbe4ee;
-  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 3px;
+  background: #f9fafb;
   resize: none;
   font-size: 12px;
   color: #1f2937;
   line-height: 1.5;
   outline: none;
+  align-self: stretch;
+  height: 100%;
+  min-height: 100%;
 }
 
-.work-report-board-row-simple .work-report-board-textarea,
-.work-report-board-row .work-report-board-textarea:last-child {
-  border-right: none;
+.work-report-board-textarea:focus {
+  border-color: #93c5fd;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
 }
 
 .work-report-board-date-input {
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  align-self: start;
   min-height: 34px;
   padding: 6px 8px;
   border: 0;
@@ -8360,10 +8428,6 @@ textarea:focus-visible {
   opacity: 1;
 }
 
-.work-report-board-row-journal .work-report-board-textarea {
-  border-right: none;
-}
-
 .work-report-board-textarea-check {
   min-height: 32px;
 }
@@ -8373,13 +8437,15 @@ textarea:focus-visible {
   height: 100%;
   min-height: 72px;
   box-sizing: border-box;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background: #f9fafb;
   padding: 8px;
   resize: none;
   outline: none;
   font-size: 13px;
   line-height: 1.45;
+  align-self: stretch;
 }
 
 .work-report-board-textarea-external:focus {
@@ -8389,11 +8455,14 @@ textarea:focus-visible {
 
 .work-report-board-textarea-destination {
   min-height: 40px;
+  height: 100%;
   padding: 6px 8px;
   box-sizing: border-box;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background: #f9fafb;
   outline: none;
+  align-self: stretch;
 }
 
 .work-report-board-textarea-destination:focus {
@@ -8458,8 +8527,20 @@ textarea:focus-visible {
 
 .work-report-board-row-no-index,
 .work-report-board-row-external-no-index {
+  align-items: start;
   background: #ffffff;
   border-bottom: 1px solid #d7e0eb;
+}
+
+.work-report-board-row-no-index .work-report-external-manager-multi,
+.work-report-board-row-external-no-index .work-report-external-manager-multi {
+  align-self: start;
+}
+
+.work-report-board-row-no-index .work-report-board-textarea,
+.work-report-board-row-external-no-index .work-report-board-textarea {
+  align-self: stretch;
+  height: 100%;
 }
 
 .work-report-board-row-no-index > *,
@@ -8541,7 +8622,13 @@ textarea:focus-visible {
 
 .work-report-board-textarea-support-line {
   min-height: 30px;
+  height: 100%;
   padding: 5px 8px;
+  align-self: stretch;
+}
+
+.work-report-week-section-col .work-report-board-textarea-support-line {
+  min-height: 36px;
 }
 
 .work-report-board-date-input-support {
