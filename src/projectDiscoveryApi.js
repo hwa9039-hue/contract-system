@@ -64,6 +64,8 @@ function mockImportedRows(rows) {
     completionPeriod: row.completionPeriod ?? '',
     manager: row.manager ?? '',
     note: row.note ?? '',
+    summary: row.summary ?? '',
+    reportMarkedAt: row.reportMarkedAt ?? '',
     isHidden: row.isHidden ?? false,
     createdAt: row.createdAt ?? new Date(base + index).toISOString(),
     updatedAt: row.updatedAt ?? new Date(base + index).toISOString(),

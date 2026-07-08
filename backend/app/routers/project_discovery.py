@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api/project-discovery", tags=["project-discovery"])
 RETURNING_COLUMNS = """
   id, "permitDate", "checkStatus", "projectStage", "salesTarget", "projectCategory",
   "localGov", client, "projectName", "projectAmount", "completionPeriod",
-  manager, note, "isHidden", "createdAt", "updatedAt"
+  manager, note, summary, "reportMarkedAt", "isHidden", "createdAt", "updatedAt"
 """
 
 
@@ -42,6 +42,8 @@ def prepare_insert_values(row: ProjectDiscoveryCreate) -> dict:
     values = project_discovery_to_db_values(row)
     timestamp = now_text()
     values["id"] = str(uuid4())
+    if values.get("projectStage") == "보고" and not values.get("reportMarkedAt"):
+        values["reportMarkedAt"] = timestamp
     values.setdefault("createdAt", timestamp)
     values.setdefault("updatedAt", timestamp)
     return values
@@ -102,6 +104,8 @@ def update_project_discovery_row(row_id: str, patch: ProjectDiscoveryPatch):
 
     values["id"] = row_id
     values["updatedAt"] = now_text()
+    if "projectStage" in values:
+        values["reportMarkedAt"] = values["updatedAt"] if values.get("projectStage") == "보고" else None
     assignments = [
         f"{quote_identifier(column)} = %({column})s"
         for column in values.keys()

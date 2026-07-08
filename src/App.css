@@ -6838,6 +6838,22 @@ textarea:focus-visible {
   min-width: 0;
 }
 
+/* 세부내용 — 남는 가로 공간을 넉넉히 차지 (table-fixed에서도 최소 너비 보장) */
+.discovery-registry-table col.discovery-w-flex,
+.discovery-registry-table th.discovery-w-flex,
+.discovery-registry-table td.discovery-w-flex {
+  width: auto;
+  min-width: 320px;
+}
+
+.discovery-registry-table col.sales-record-col,
+.discovery-registry-table .sales-record-header,
+.discovery-registry-table .sales-record-cell {
+  width: 56px;
+  min-width: 56px;
+  max-width: 56px;
+}
+
 .discovery-registry-table .discovery-check-col {
   vertical-align: middle;
   text-align: center;
@@ -6887,6 +6903,14 @@ textarea:focus-visible {
   white-space: normal;
   word-break: break-word;
   overflow-wrap: break-word;
+  min-width: 320px;
+}
+
+.discovery-registry-table .discovery-col-detail .cell-display,
+.discovery-registry-table .discovery-col-detail .sales-detail-preview,
+.discovery-registry-table .discovery-col-detail .editable-text-cell-display {
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
 }
 
 .discovery-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
@@ -12581,6 +12605,25 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   letter-spacing: 0.02em;
   white-space: nowrap;
   transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  cursor: default;
+}
+
+.discovery-report-new-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  height: 16px;
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  background: var(--accent, #2F6BFF);
+  color: #fff;
   cursor: default;
 }
 

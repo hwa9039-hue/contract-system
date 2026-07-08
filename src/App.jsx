@@ -493,8 +493,8 @@ const DISCOVERY_COLUMNS = [
     label: '세부내용',
     align: 'left',
     type: 'textarea',
-    widthClass: 'discovery-w-p30',
-    cellClass: 'discovery-col-detail discovery-w-p30',
+    widthClass: 'discovery-w-flex',
+    cellClass: 'discovery-col-detail discovery-w-flex',
   },
 ]
 
@@ -2793,6 +2793,8 @@ function createDiscoveryDraftRow() {
     completionPeriod: '',
     manager: '',
     note: '',
+    summary: '',
+    reportMarkedAt: '',
     createdAt: '',
     updatedAt: '',
     isHidden: false,
@@ -2942,17 +2944,32 @@ function buildSalesSummaryFallbackFromRow(row) {
   return attachSalesRecordDateStamp(formatSalesRegisterDateStamp(row?.registerDate), existingDetail)
 }
 
+function buildDiscoverySummaryFallbackFromRow(row) {
+  const existingSummary = safeString(row?.summary).trim()
+  if (existingSummary) return existingSummary
+  const existingNote = safeString(row?.note).trim()
+  if (!existingNote) return ''
+  return attachSalesRecordDateStamp(formatSalesRegisterDateStamp(row?.permitDate), existingNote)
+}
+
 function isSalesDetailHistoryColumn(column, scope) {
   return scope === 'sales' && column?.key === 'detail'
 }
 
+function isDiscoveryNoteHistoryColumn(column, scope) {
+  return scope === 'discovery' && column?.key === 'note'
+}
+
 function isRegistrySmartDetailColumn(column, scope) {
-  return isSalesDetailHistoryColumn(column, scope)
+  return isSalesDetailHistoryColumn(column, scope) || isDiscoveryNoteHistoryColumn(column, scope)
 }
 
 function getRegistrySmartDetailEditValue(scope, column, row) {
   if (isSalesDetailHistoryColumn(column, scope)) {
     return safeString(row?.detail).trim()
+  }
+  if (isDiscoveryNoteHistoryColumn(column, scope)) {
+    return safeString(row?.note).trim()
   }
   return safeString(row?.[column?.key]).trim()
 }
@@ -2962,8 +2979,8 @@ function getRegistrySmartDetailDisplayValue(scope, column, row) {
 }
 
 function buildRegistrySmartDetailSavePayload(scope, column, row, rawValue) {
-  const newDetail = safeString(rawValue).trim()
   if (isSalesDetailHistoryColumn(column, scope)) {
+    const newDetail = safeString(rawValue).trim()
     const oldDetail = safeString(row?.detail).trim()
     if (newDetail === oldDetail) return null
     const existingSummary = safeString(row?.summary).trim()
@@ -2972,12 +2989,34 @@ function buildRegistrySmartDetailSavePayload(scope, column, row, rawValue) {
       (oldDetail
         ? attachSalesRecordDateStamp(formatSalesRegisterDateStamp(row?.registerDate), oldDetail)
         : '')
-    const stampedSummaryLine = attachSalesRecordDateStamp(formatSalesRecordDateStamp(), newDetail)
+    const stampedSummaryLine = attachSalesRecordDateStamp(formatSalesRegisterDateStamp(), newDetail)
     return {
       registerDate: formatDateInput(new Date()),
       detail: normalizeSalesRecordForSave(newDetail),
       summary: normalizeSalesRecordForSave(
         newDetail
+          ? baseSummary
+            ? `${stampedSummaryLine}\n${baseSummary}`
+            : stampedSummaryLine
+          : existingSummary
+      ),
+    }
+  }
+  if (isDiscoveryNoteHistoryColumn(column, scope)) {
+    const newNote = safeString(rawValue).trim()
+    const oldNote = safeString(row?.note).trim()
+    if (newNote === oldNote) return null
+    const existingSummary = safeString(row?.summary).trim()
+    const baseSummary =
+      existingSummary ||
+      (oldNote
+        ? attachSalesRecordDateStamp(formatSalesRegisterDateStamp(row?.permitDate), oldNote)
+        : '')
+    const stampedSummaryLine = attachSalesRecordDateStamp(formatSalesRecordDateStamp(), newNote)
+    return {
+      note: normalizeSalesRecordForSave(newNote),
+      summary: normalizeSalesRecordForSave(
+        newNote
           ? baseSummary
             ? `${stampedSummaryLine}\n${baseSummary}`
             : stampedSummaryLine
@@ -4068,6 +4107,8 @@ function normalizeDiscoveryRow(item, rowIndex = 0) {
     ),
     manager: safeString(item.manager),
     note: safeString(item.note),
+    summary: safeString(item.summary).trim(),
+    reportMarkedAt: safeString(item.reportMarkedAt ?? item.reportmarkedat),
     createdAt: safeString(item.createdAt ?? item.createdat),
     updatedAt: safeString(item.updatedAt ?? item.updatedat),
     isHidden: hasDiscoveryRowHiddenFlagFromApi(item),
@@ -4153,10 +4194,11 @@ function matchesDiscoveryExcelTableSearch(item, searchText) {
 }
 
 function toDiscoveryPayload(row, timestamp) {
+  const projectStage = safeString(row.projectStage).trim()
   return {
     permitDate: safeString(row.permitDate).trim(),
     checkStatus: safeString(row.checkStatus).trim(),
-    projectStage: safeString(row.projectStage).trim(),
+    projectStage,
     salesTarget: safeString(row.salesTarget).trim(),
     projectCategory: safeString(row.projectCategory).trim(),
     localGov: safeString(row.localGov).trim(),
@@ -4166,6 +4208,8 @@ function toDiscoveryPayload(row, timestamp) {
     completionPeriod: safeString(row.completionPeriod).trim(),
     manager: safeString(row.manager).trim(),
     note: safeString(row.note).trim(),
+    summary: safeString(row.summary).trim() || null,
+    reportMarkedAt: normalizeSalesProjectStage(projectStage) === '보고' ? timestamp : null,
     createdAt: timestamp,
     updatedAt: timestamp,
   }
@@ -5280,6 +5324,49 @@ function getRegisterDateWeekTag(dateValue) {
   return null
 }
 
+function isDiscoveryReportStatus(row) {
+  return normalizeSalesProjectStage(row?.projectStage) === '보고'
+}
+
+function getDiscoveryReportMarkedDate(row) {
+  const markedAt = safeString(row?.reportMarkedAt ?? row?.reportmarkedat).trim()
+  const parsed = parseDateOnly(markedAt)
+  if (parsed) return parsed
+  // reportMarkedAt 도입 전 이미 '보고'로 저장된 행은 최신 updatedAt을 1회성 판단 기준으로 사용한다.
+  if (isDiscoveryReportStatus(row)) {
+    const updated = parseDateOnly(row?.updatedAt ?? row?.updatedat)
+    if (updated) return updated
+  }
+  return null
+}
+
+/** 상태 '보고' + 보고로 올라간 시점부터 7일 동안만 상단/N 표시 */
+function isDiscoveryReportRecentlyMarked(row, referenceDate = new Date()) {
+  if (!isDiscoveryReportStatus(row)) return false
+  const markedDate = getDiscoveryReportMarkedDate(row)
+  if (!markedDate) return false
+  const today = parseDateOnly(referenceDate) ?? new Date()
+  const expireDate = addDays(markedDate, 7)
+  return markedDate <= today && today <= expireDate
+}
+
+function shouldShowDiscoveryReportNewBadge(row, referenceDate = new Date()) {
+  return isDiscoveryReportRecentlyMarked(row, referenceDate)
+}
+
+/**
+ * 건축정보 평면(1차원) 정렬 — 그룹핑/아코디언 없이 정렬만 적용.
+ * 1순위: 최근 보고로 올라간 항목 먼저, 2순위: 건축정보일자(permitDate) 최신순(내림차순).
+ */
+function sortDiscoveryRowsReportFirst(rows, dateKey) {
+  return [...rows].sort((rowA, rowB) => {
+    const reportA = isDiscoveryReportRecentlyMarked(rowA) ? 0 : 1
+    const reportB = isDiscoveryReportRecentlyMarked(rowB) ? 0 : 1
+    if (reportA !== reportB) return reportA - reportB
+    return compareRegistryRowsByDateDesc(rowA, rowB, dateKey)
+  })
+}
+
 /** 문서 접수·수신 vs 발송·발신 — 텍스트 필드에서 키워드 탐지(발신류 우선) */
 function countDocumentsInboundOutbound(rows) {
   let inbound = 0
@@ -5328,6 +5415,7 @@ function App() {
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
   const [salesRecordModal, setSalesRecordModal] = useState(null)
+  const [discoveryRecordModal, setDiscoveryRecordModal] = useState(null)
   const [registryLongTextModal, setRegistryLongTextModal] = useState(null)
   const [discoveryRows, setDiscoveryRows] = useState([])
   const [discoveryTableData, setDiscoveryTableData] = useState([])
@@ -7107,15 +7195,10 @@ function App() {
     [filteredSalesRows]
   )
 
-  /** [2단계] filteredData만 그룹화 — 원본 discoveryRows 미사용 */
-  /* 기본 정렬: 연도 그룹은 최신 연도가 위(groupRegistryRowsByYear), 각 연도 내부는
-     '건축정보일자'(permitDate) 최신순(내림차순)으로 정렬해 첫 진입 시 최근 날짜가 맨 위에 오게 한다. */
-  const groupedDiscoveryRows = useMemo(
-    () =>
-      groupRegistryRowsByYear(filteredDiscoveryRows, 'permitDate').map((group) => ({
-        ...group,
-        items: sortRegistryRowsByDateDesc(group.items, 'permitDate'),
-      })),
+  /* 건축정보는 그룹핑/아코디언 없이 평면 목록으로 렌더링한다.
+     정렬: 1순위 '보고' 상태 우선, 2순위 건축정보일자 최신순. */
+  const sortedDiscoveryRows = useMemo(
+    () => sortDiscoveryRowsReportFirst(filteredDiscoveryRows, 'permitDate'),
     [filteredDiscoveryRows]
   )
 
@@ -7322,7 +7405,7 @@ function App() {
   const currentRegistryYear = String(new Date().getFullYear())
   const defaultContractYear = groupedContracts.find((group) => group.year === currentRegistryYear)?.year ?? groupedContracts[0]?.year
   const defaultSalesYear = groupedSalesRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedSalesRows)
-  const defaultDiscoveryYear = groupedDiscoveryRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedDiscoveryRows)
+  const defaultDiscoveryYear = currentRegistryYear
   const defaultExcludedYear = groupedExcludedRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedExcludedRows)
   const defaultDocumentYear = groupedDocumentRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedDocumentRows)
 
@@ -8526,6 +8609,95 @@ function App() {
       const errorMessage = safeString(error?.message).trim()
       showAppAlert(errorMessage || '요약 저장에 실패했습니다.', '알림')
       setSalesRecordModal((prev) => (prev ? { ...prev, saving: false } : prev))
+    }
+  }
+
+  const renderDiscoverySummaryCell = (row) => {
+    const summaryPreview = extractLatestSalesDetailEntry(row.summary)
+    return (
+      <button
+        type="button"
+        className={`sales-record-btn${
+          hasSalesRecordStoredContent(row.summary) ? ' sales-record-btn--has-content' : ''
+        }`}
+        title={summaryPreview || '요약'}
+        aria-label="요약 보기 및 작성"
+        onClick={(e) => {
+          e.stopPropagation()
+          const rowId = safeString(row?.id).trim()
+          if (!rowId || rowId === 'undefined' || row.isDraft || rowId.startsWith('discovery-draft-')) {
+            showAppAlert('행을 저장한 뒤 요약을 작성할 수 있습니다.', '알림')
+            return
+          }
+          const sourceRow = discoveryRows.find((item) => item.id === rowId) || row
+          const summaryRawInitial = buildDiscoverySummaryFallbackFromRow(sourceRow)
+          const summaryDisplay = getSalesRecordHistoryForDisplay(
+            summaryRawInitial,
+            sourceRow.permitDate
+          )
+          setDiscoveryRecordModal({
+            rowId,
+            client: safeString(sourceRow.client).trim(),
+            projectName: safeString(sourceRow.projectName).trim(),
+            manager: safeString(sourceRow.manager).trim(),
+            permitDate: safeString(sourceRow.permitDate).trim(),
+            summary: summaryDisplay,
+            summaryRaw: getSalesRecordRawHistory(summaryRawInitial),
+            summaryDraft: summaryDisplay,
+            summaryDisplayInitial: summaryDisplay,
+            isEditingSummary: false,
+            saving: false,
+          })
+        }}
+      >
+        <FileText size={18} aria-hidden />
+      </button>
+    )
+  }
+
+  const closeDiscoveryRecordModal = () => setDiscoveryRecordModal(null)
+
+  const saveDiscoveryRecordModal = async () => {
+    if (!discoveryRecordModal?.rowId) return
+    const rowId = safeString(discoveryRecordModal.rowId).trim()
+    if (!rowId || rowId === 'undefined') {
+      showAppAlert('저장 경로를 찾을 수 없거나 서버 통신에 실패했습니다.', '알림')
+      return
+    }
+    const { hasChanges, summary: summaryText } = buildSalesRecordSummarySavePayload({
+      summaryDraft: discoveryRecordModal.summaryDraft,
+      summaryRaw: discoveryRecordModal.summaryRaw,
+      summaryDisplayInitial: discoveryRecordModal.summaryDisplayInitial,
+    })
+    if (!hasChanges) {
+      showAppAlert('변경된 내용이 없습니다.', '알림')
+      return
+    }
+    const sourceRow = discoveryRows.find((row) => row.id === rowId)
+    const payload = {
+      note: normalizeSalesRecordForSave(sourceRow?.note),
+      summary: normalizeSalesRecordForSave(summaryText),
+    }
+    setDiscoveryRecordModal((prev) => (prev ? { ...prev, saving: true } : prev))
+    try {
+      await projectDiscoveryApi.update(rowId, payload)
+      setDiscoveryRows((prev) =>
+        prev.map((row) =>
+          row.id === rowId ? { ...row, ...payload } : row
+        )
+      )
+      closeDiscoveryRecordModal()
+      setToastMessage('저장되었습니다.')
+      await fetchDiscoveryRows(true)
+    } catch (error) {
+      console.error('건축정보 요약 저장 실패', {
+        rowId,
+        summaryLength: safeString(payload.summary).length,
+        error,
+      })
+      const errorMessage = safeString(error?.message).trim()
+      showAppAlert(errorMessage || '요약 저장에 실패했습니다.', '알림')
+      setDiscoveryRecordModal((prev) => (prev ? { ...prev, saving: false } : prev))
     }
   }
 
@@ -11195,23 +11367,43 @@ function App() {
       const payload = buildRegistrySmartDetailSavePayload(scope, column, targetRow, rawValue)
       if (!payload) return false
 
-      const previous = {
-        registerDate: targetRow.registerDate,
-        detail: targetRow.detail,
-        summary: targetRow.summary,
+      const previous =
+        scope === 'discovery'
+          ? {
+              note: targetRow.note,
+              summary: targetRow.summary,
+            }
+          : {
+              registerDate: targetRow.registerDate,
+              detail: targetRow.detail,
+              summary: targetRow.summary,
+            }
+
+      if (scope === 'discovery') {
+        applyRegistryRowFieldPatch(scope, rowId, { key: 'note', type: 'textarea' }, payload.note)
+        applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, payload.summary)
+      } else {
+        applyRegistryRowFieldPatch(scope, rowId, { key: 'registerDate', type: 'date' }, payload.registerDate)
+        applyRegistryRowFieldPatch(scope, rowId, { key: 'detail', type: 'textarea' }, payload.detail)
+        applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, payload.summary)
       }
 
-      applyRegistryRowFieldPatch(scope, rowId, { key: 'registerDate', type: 'date' }, payload.registerDate)
-      applyRegistryRowFieldPatch(scope, rowId, { key: 'detail', type: 'textarea' }, payload.detail)
-      applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, payload.summary)
-
       try {
-        await salesRegisterApi.update(rowId, payload)
+        if (scope === 'discovery') {
+          await projectDiscoveryApi.update(rowId, payload)
+        } else {
+          await salesRegisterApi.update(rowId, payload)
+        }
         return true
       } catch (error) {
-        applyRegistryRowFieldPatch(scope, rowId, { key: 'registerDate', type: 'date' }, previous.registerDate)
-        applyRegistryRowFieldPatch(scope, rowId, { key: 'detail', type: 'textarea' }, previous.detail)
-        applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, previous.summary)
+        if (scope === 'discovery') {
+          applyRegistryRowFieldPatch(scope, rowId, { key: 'note', type: 'textarea' }, previous.note)
+          applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, previous.summary)
+        } else {
+          applyRegistryRowFieldPatch(scope, rowId, { key: 'registerDate', type: 'date' }, previous.registerDate)
+          applyRegistryRowFieldPatch(scope, rowId, { key: 'detail', type: 'textarea' }, previous.detail)
+          applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, previous.summary)
+        }
         const labelMap = {
           sales: '영업관리대장',
           discovery: '건축정보',
@@ -11223,6 +11415,13 @@ function App() {
     }
 
     const patch = buildRegistryCellApiPatch(column, rawValue)
+    // 건축정보: 상태(projectStage) 변경 시 permitDate(건축정보일자)는 절대 PATCH에 포함하지 않는다.
+    // 보고 상단/N 노출 기간은 건축정보일자가 아니라 보고로 올린 시점(reportMarkedAt)을 기준으로 한다.
+    if (scope === 'discovery' && column.key === 'projectStage') {
+      const nextStage = normalizeSalesProjectStage(rawValue)
+      delete patch.permitDate
+      patch.reportMarkedAt = nextStage === '보고' ? new Date().toISOString() : null
+    }
     // 중요도 컬럼은 patch/row 값이 column.key('importance')가 아니라 statusKey 로 존재한다.
     const fieldKey = getRegistryColumnFieldKey(column)
     const patchValue = patch[fieldKey]
@@ -11255,7 +11454,16 @@ function App() {
     }
 
     const previous = previousValueOverride !== undefined ? previousValueOverride : targetRow[fieldKey]
+    const previousReportMarkedAt = targetRow.reportMarkedAt
     applyRegistryRowFieldPatch(scope, rowId, column, rawValue)
+    if (scope === 'discovery' && column.key === 'projectStage') {
+      applyRegistryRowFieldPatch(
+        scope,
+        rowId,
+        { key: 'reportMarkedAt', type: 'text' },
+        patch.reportMarkedAt
+      )
+    }
 
     try {
       switch (scope) {
@@ -11280,6 +11488,14 @@ function App() {
       return true
     } catch (error) {
       applyRegistryRowFieldPatch(scope, rowId, column, previous)
+      if (scope === 'discovery' && column.key === 'projectStage') {
+        applyRegistryRowFieldPatch(
+          scope,
+          rowId,
+          { key: 'reportMarkedAt', type: 'text' },
+          previousReportMarkedAt
+        )
+      }
       const labelMap = {
         sales: '영업관리대장',
         discovery: '건축정보',
@@ -11498,6 +11714,14 @@ function App() {
             registryCellEditDraftRef.current = value
             if (scope && rowId) {
               applyRegistryRowFieldPatch(scope, rowId, column, value)
+              if (scope === 'discovery' && column.key === 'projectStage') {
+                applyRegistryRowFieldPatch(
+                  scope,
+                  rowId,
+                  { key: 'reportMarkedAt', type: 'text' },
+                  normalizeSalesProjectStage(value) === '보고' ? new Date().toISOString() : null
+                )
+              }
             }
             queueMicrotask(() => {
               void saveRegistryCellEdit()
@@ -11678,6 +11902,8 @@ function App() {
           const isImportanceCell = column.type === 'importance'
           const isSmartDetailCell = isRegistrySmartDetailColumn(column, cellEditScope)
           const isSalesDetailCell = isSalesDetailHistoryColumn(column, cellEditScope)
+          const isDiscoveryNoteCell = isDiscoveryNoteHistoryColumn(column, cellEditScope)
+          const isHistoryDetailCell = isSalesDetailCell || isDiscoveryNoteCell
           const canUseRegistryModalEditor =
             cellEditScope === 'contactsManage' &&
             column.modalEditor &&
@@ -11723,11 +11949,11 @@ function App() {
               ? 'whitespace-pre-wrap break-words'
               : ''
           const plainDisplay = getRegistryPlainDisplayState(row, column)
-          // 영업관리대장 '등록일'(sales.registerDate) / 건축정보 '건축정보일자'(discovery.permitDate)
-          // / 사업공유 '등록일'(excluded.writeDate) 컬럼에 한정해, 금주/전주 등록건을 텍스트 뱃지로 구분 표시한다.
+          // 영업관리대장 '등록일'(sales.registerDate) / 사업공유 '등록일'(excluded.writeDate)
+          // 컬럼에 한정해 금주/전주 등록건 텍스트 뱃지로 구분 표시한다.
+          // 건축정보 permitDate의 전주/금주 뱃지는 제거 — '보고' 상태 N 뱃지로 대체한다.
           const isRegistryWeekBadgeColumn =
             (cellEditScope === 'sales' && column.key === 'registerDate') ||
-            (cellEditScope === 'discovery' && column.key === 'permitDate') ||
             (cellEditScope === 'excluded' && column.key === 'writeDate')
           const registryWeekTag = isRegistryWeekBadgeColumn
             ? getRegisterDateWeekTag(row?.[column.key])
@@ -11746,15 +11972,24 @@ function App() {
               {registryWeekTag === 'current' ? '금주' : '전주'}
             </span>
           ) : null
+          const discoveryReportNewBadge =
+            cellEditScope === 'discovery' &&
+            column.key === 'permitDate' &&
+            shouldShowDiscoveryReportNewBadge(row) ? (
+              <span className="discovery-report-new-badge" title="보고 후 7일 이내">
+                N
+              </span>
+            ) : null
+          const registryDateSuffixBadge = registryWeekBadge || discoveryReportNewBadge
           const cells = [
             <td
               key={column.key}
               className={`${getTableBodyAlignClass(column)} ${
-                isLongTextTableColumn(column) && !isSalesDetailCell ? 'multiline-cell' : ''
+                isLongTextTableColumn(column) && !isHistoryDetailCell ? 'multiline-cell' : ''
               } ${
                 isImportanceCell ? 'registry-importance-cell' : ''
               } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${discoveryTextWrapClass} ${
-                registryWeekTag ? 'registry-week-badge-cell' : ''
+                registryDateSuffixBadge ? 'registry-week-badge-cell' : ''
               } ${
                 usesTableInlineInput
                   ? `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
@@ -11764,7 +11999,7 @@ function App() {
               }`}
               onClick={() => {
                 if (isImportanceCell || isEditableText) return
-                if (isSalesDetailCell) {
+                if (isHistoryDetailCell) {
                   if (!isAdminForRegistry || row.isDraft) return
                   if (useCellMode && onRegistryCellStart) {
                     onRegistryCellStart(rowId, column.key, row[column.key], row)
@@ -11792,7 +12027,7 @@ function App() {
                     status={resolveRegistryImportanceStatus(displayRow, column)}
                   />
                 </div>
-              ) : isSalesDetailCell ? (
+              ) : isHistoryDetailCell ? (
                 isThisCell ? (
                   renderRegistryCellInlineEditor(column, {
                     scope: cellEditScope,
@@ -11899,7 +12134,7 @@ function App() {
                         : 'table-cell-clamp'
                       : ''
                   } ${registryWeekHighlightClass}`.trim()}
-                  suffix={registryWeekBadge}
+                  suffix={registryDateSuffixBadge}
                   onSave={(nextValue) =>
                     handleRegistryTextCellSave(cellEditScope, rowId, column, nextValue)
                   }
@@ -11929,7 +12164,7 @@ function App() {
                   }`}
                 >
                   {plainDisplay.text}
-                  {registryWeekBadge}
+                  {registryDateSuffixBadge}
                 </div>
               )}
             </td>,
@@ -11965,9 +12200,14 @@ function App() {
     registryCellEdit: registryCellEditFlat = null,
     onRegistryCellStart = null,
     renderAfterSelectionCell = null,
+    renderAfterImportanceCell = null,
     showSelection = true,
   }) => {
-    const colSpan = columns.length + (showSelection ? 1 : 0) + (renderAfterSelectionCell ? 1 : 0)
+    const colSpan =
+      columns.length +
+      (showSelection ? 1 : 0) +
+      (renderAfterSelectionCell ? 1 : 0) +
+      (renderAfterImportanceCell ? 1 : 0)
     if (rows.length === 0) {
       return (
         <tr>
@@ -12002,6 +12242,7 @@ function App() {
         registryCellEdit: registryCellEditFlat,
         onRegistryCellStart,
         renderAfterSelectionCell,
+        renderAfterImportanceCell,
         showSelection,
       })
     })
@@ -12027,8 +12268,14 @@ function App() {
     registryCellEdit: registryCellEditGrouped = null,
     onRegistryCellStart = null,
     renderAfterSelectionCell = null,
+    renderAfterImportanceCell = null,
+    formatYearLabel = null,
   }) => {
-    const tableColSpan = columns.length + 1 + (renderAfterSelectionCell ? 1 : 0)
+    const tableColSpan =
+      columns.length +
+      1 +
+      (renderAfterSelectionCell ? 1 : 0) +
+      (renderAfterImportanceCell ? 1 : 0)
     if (groups.length === 0) {
       return (
         <tr>
@@ -12041,6 +12288,9 @@ function App() {
 
     return groups.flatMap((yearBlock) => {
       const collapsed = !isYearOpen(yearBlock.year)
+      const yearLabel = formatYearLabel
+        ? formatYearLabel(yearBlock.year, yearBlock)
+        : `${yearBlock.year}년`
       const yearRow = (
         <tr
           className="contract-year-row contract-year-row--toggle"
@@ -12050,7 +12300,7 @@ function App() {
           <td colSpan={tableColSpan}>
             <div className="contract-year-toggle" aria-hidden="true">
               <span className="contract-year-sign">{collapsed ? '+' : '-'}</span>
-              <span>{yearBlock.year}년</span>
+              <span>{yearLabel}</span>
               <span className="contract-year-count">
                 {yearBlock.items.length.toLocaleString('ko-KR')}건
               </span>
@@ -12085,6 +12335,7 @@ function App() {
             registryCellEdit: registryCellEditGrouped,
             onRegistryCellStart,
             renderAfterSelectionCell,
+            renderAfterImportanceCell,
           })
         }),
       ]
@@ -14681,9 +14932,13 @@ function App() {
                   <colgroup>
                     <col className="registry-check-col" />
                     <col className="sales-archive-col" />
-                    {DISCOVERY_COLUMNS.map((column) => (
-                      <col key={column.key} className={column.widthClass || ''} />
-                    ))}
+                    {DISCOVERY_COLUMNS.flatMap((column) => {
+                      const cols = [<col key={column.key} className={column.widthClass || ''} />]
+                      if (column.key === 'importance') {
+                        cols.push(<col key="discovery-record" className="sales-record-col" />)
+                      }
+                      return cols
+                    })}
                   </colgroup>
                   <thead>
                     <tr>
@@ -14704,32 +14959,45 @@ function App() {
                       <th className="th-align-center sales-archive-header table-col-tight">
                         숨김
                       </th>
-                      {DISCOVERY_COLUMNS.map((column) => (
-                        <th
-                          key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
-                        >
-                          <div className="contract-th-filter-wrap">
-                            <span className="contract-th-label">{column.label}</span>
-                            <ContractColumnHeaderFilter
-                              columnKey={column.key}
-                              options={discoveryColumnFilterOptionsMap[column.key] ?? []}
-                              selected={discoveryActiveFilters[column.key] ?? []}
-                              onApply={handleDiscoveryActiveFiltersApply}
-                              isOpen={openDiscoveryColumnFilterKey === column.key}
-                              onOpenChange={setOpenDiscoveryColumnFilterKey}
-                              normalizeSelection={normalizeDiscoveryColumnFilterSelection}
-                            />
-                          </div>
-                        </th>
-                      ))}
+                      {DISCOVERY_COLUMNS.map((column) => {
+                        const headerCells = [
+                          <th
+                            key={column.key}
+                            className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
+                          >
+                            <div className="contract-th-filter-wrap">
+                              <span className="contract-th-label">{column.label}</span>
+                              <ContractColumnHeaderFilter
+                                columnKey={column.key}
+                                options={discoveryColumnFilterOptionsMap[column.key] ?? []}
+                                selected={discoveryActiveFilters[column.key] ?? []}
+                                onApply={handleDiscoveryActiveFiltersApply}
+                                isOpen={openDiscoveryColumnFilterKey === column.key}
+                                onOpenChange={setOpenDiscoveryColumnFilterKey}
+                                normalizeSelection={normalizeDiscoveryColumnFilterSelection}
+                              />
+                            </div>
+                          </th>,
+                        ]
+                        if (column.key === 'importance') {
+                          headerCells.push(
+                            <th
+                              key="discovery-record"
+                              className="th-align-center sales-record-header table-col-tight"
+                            >
+                              요약
+                            </th>
+                          )
+                        }
+                        return headerCells
+                      })}
                     </tr>
                   </thead>
                   <tbody>
                     {discoveryRawData.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={DISCOVERY_COLUMNS.length + 2}
+                          colSpan={DISCOVERY_COLUMNS.length + 3}
                           className="empty-cell"
                         >
                           등록된 데이터가 없습니다.
@@ -14738,7 +15006,7 @@ function App() {
                     ) : visibleModeDiscoveryRows.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={DISCOVERY_COLUMNS.length + 2}
+                          colSpan={DISCOVERY_COLUMNS.length + 3}
                           className="empty-cell"
                         >
                           {showHiddenDiscoveryRows ? '숨긴 항목이 없습니다.' : '표시할 데이터가 없습니다.'}
@@ -14747,15 +15015,15 @@ function App() {
                     ) : isDiscoveryTableFilterResultEmpty ? (
                       <tr>
                         <td
-                          colSpan={DISCOVERY_COLUMNS.length + 2}
+                          colSpan={DISCOVERY_COLUMNS.length + 3}
                           className="empty-cell"
                         >
                           필터 조건에 맞는 데이터가 없습니다.
                         </td>
                       </tr>
                     ) : (
-                    renderGroupedRegistryRows({
-                      groups: groupedDiscoveryRows,
+                    renderFlatRegistryRows({
+                      rows: sortedDiscoveryRows,
                       columns: DISCOVERY_COLUMNS,
                       emptyMessage: showHiddenDiscoveryRows ? '숨긴 항목이 없습니다.' : '등록된 데이터가 없습니다.',
                       selectedIds: selectedDiscoveryIds,
@@ -14767,14 +15035,13 @@ function App() {
                       onCancelRow: cancelDiscoveryRow,
                       onChange: handleDiscoveryCellChange,
                       isEmptyRow: isDiscoveryRowEmpty,
-                      isYearOpen: isDiscoveryYearOpen,
-                      onToggleYear: toggleDiscoveryYear,
                       cellEditScope: 'discovery',
                       isAdminForRegistry: canEditDiscovery,
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('discovery', rowId, columnKey, value, row),
                       renderAfterSelectionCell: renderDiscoveryArchiveCell,
+                      renderAfterImportanceCell: renderDiscoverySummaryCell,
                     })
                     )}
                   </tbody>
@@ -16358,6 +16625,121 @@ function App() {
             </div>
           )
         })()}
+
+      {discoveryRecordModal && (
+        <div className="modal-backdrop" onClick={closeDiscoveryRecordModal}>
+          <div
+            className="sales-record-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="discovery-record-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sales-record-modal-header">
+              <div>
+                <h3 id="discovery-record-modal-title" className="sales-record-modal-title">
+                  요약
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={closeDiscoveryRecordModal}
+                aria-label="닫기"
+                disabled={discoveryRecordModal.saving}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="sales-record-modal-body">
+              <div className="sales-record-modal-info" aria-label="선택 항목 기본 정보">
+                <div className="sales-record-modal-info-item">
+                  <span className="sales-record-modal-info-label">발주처</span>
+                  <span className="sales-record-modal-info-value">{discoveryRecordModal.client || '-'}</span>
+                </div>
+                <div className="sales-record-modal-info-item">
+                  <span className="sales-record-modal-info-label">사업명</span>
+                  <span className="sales-record-modal-info-value">{discoveryRecordModal.projectName || '-'}</span>
+                </div>
+                <div className="sales-record-modal-info-item">
+                  <span className="sales-record-modal-info-label">담당자</span>
+                  <span className="sales-record-modal-info-value">{discoveryRecordModal.manager || '-'}</span>
+                </div>
+                <div className="sales-record-modal-info-item">
+                  <span className="sales-record-modal-info-label">건축정보일자</span>
+                  <span className="sales-record-modal-info-value">{discoveryRecordModal.permitDate || '-'}</span>
+                </div>
+              </div>
+              <div className="sales-record-modal-timeline">
+                <div className="sales-record-modal-section">
+                  <div className="sales-record-modal-section-label-row">
+                    <span className="sales-record-modal-section-label" id="discovery-record-history-label">
+                      지난 기록
+                    </span>
+                    <button
+                      type="button"
+                      className="sales-record-modal-history-edit-toggle"
+                      onClick={() =>
+                        setDiscoveryRecordModal((prev) =>
+                          prev ? { ...prev, isEditingSummary: !prev.isEditingSummary } : prev
+                        )
+                      }
+                      disabled={discoveryRecordModal.saving}
+                      aria-pressed={discoveryRecordModal.isEditingSummary}
+                    >
+                      {discoveryRecordModal.isEditingSummary ? '완료' : '수정'}
+                    </button>
+                  </div>
+                  {discoveryRecordModal.isEditingSummary ? (
+                    <textarea
+                      className="sales-record-modal-history-edit"
+                      rows={16}
+                      aria-labelledby="discovery-record-history-label"
+                      value={discoveryRecordModal.summaryDraft}
+                      onChange={(e) =>
+                        setDiscoveryRecordModal((prev) =>
+                          prev ? { ...prev, summaryDraft: e.target.value } : prev
+                        )
+                      }
+                      disabled={discoveryRecordModal.saving}
+                    />
+                  ) : (
+                    <div
+                      className="sales-record-modal-history"
+                      role="region"
+                      aria-labelledby="discovery-record-history-label"
+                    >
+                      {discoveryRecordModal.summaryDraft ? (
+                        <div className="sales-record-modal-history-text">{discoveryRecordModal.summaryDraft}</div>
+                      ) : (
+                        <p className="sales-record-modal-history-empty">기록된 요약이 없습니다.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="sales-record-modal-actions">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={closeDiscoveryRecordModal}
+                disabled={discoveryRecordModal.saving}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => void saveDiscoveryRecordModal()}
+                disabled={discoveryRecordModal.saving}
+              >
+                {discoveryRecordModal.saving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {salesRecordModal && (
         <div className="modal-backdrop" onClick={closeSalesRecordModal}>

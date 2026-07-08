@@ -85,6 +85,8 @@ PROJECT_DISCOVERY_ROW_FIELDS = (
     "completionPeriod",
     "manager",
     "note",
+    "summary",
+    "reportMarkedAt",
     "isHidden",
     "createdAt",
     "updatedAt",
@@ -107,6 +109,8 @@ class ProjectDiscoveryRow:
     completion_period: str
     manager: str
     note: str
+    summary: str
+    report_marked_at: Optional[str]
     is_hidden: bool
     created_at: Optional[str]
     updated_at: Optional[str]

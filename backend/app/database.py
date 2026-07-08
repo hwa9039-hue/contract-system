@@ -665,6 +665,7 @@ def init_db():
                   "completionPeriod" text not null default '',
                   manager text not null default '',
                   note text not null default '',
+                  "reportMarkedAt" text,
                   "isHidden" boolean not null default false,
                   "createdAt" timestamptz not null default now(),
                   "updatedAt" timestamptz not null default now()
@@ -685,6 +686,18 @@ def init_db():
             )
             _migrate_project_discovery_row_columns(cursor)
             _migrate_project_discovery_text_columns(cursor)
+            cursor.execute(
+                """
+                alter table project_discovery_rows
+                  add column if not exists summary text
+                """
+            )
+            cursor.execute(
+                """
+                alter table project_discovery_rows
+                  add column if not exists "reportMarkedAt" text
+                """
+            )
             cursor.execute(
                 """
                 create table if not exists excluded_projects_rows (

@@ -355,6 +355,8 @@ class ProjectDiscoveryBase(BaseModel):
     completionPeriod: Optional[Any] = ""
     manager: Optional[Any] = ""
     note: Optional[Any] = ""
+    summary: Optional[Any] = ""
+    reportMarkedAt: Optional[Any] = None
     isHidden: Optional[Any] = False
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
@@ -377,6 +379,8 @@ class ProjectDiscoveryPatch(BaseModel):
     completionPeriod: Optional[Any] = None
     manager: Optional[Any] = None
     note: Optional[Any] = None
+    summary: Optional[Any] = None
+    reportMarkedAt: Optional[Any] = None
     isHidden: Optional[Any] = None
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
@@ -865,6 +869,8 @@ def row_to_project_discovery(row) -> dict:
         "completionPeriod": to_response_value(row.get("completionPeriod") or row.get("completionperiod")),
         "manager": to_response_value(row["manager"]),
         "note": to_response_value(row["note"]),
+        "summary": to_response_value(row.get("summary")),
+        "reportMarkedAt": to_response_value(row.get("reportMarkedAt") or row.get("reportmarkedat")),
         "isHidden": bool(_contract_row_field(row, "isHidden", "ishidden", default=False)),
         "createdAt": to_response_value(row.get("createdAt") or row.get("createdat")),
         "updatedAt": to_response_value(row.get("updatedAt") or row.get("updatedat")),
@@ -1179,6 +1185,8 @@ TABLE_COLUMN_MAPPINGS = {
         "completionPeriod": "completionPeriod",
         "manager": "manager",
         "note": "note",
+        "summary": "summary",
+        "reportMarkedAt": "reportMarkedAt",
         "isHidden": "isHidden",
         "createdAt": "createdAt",
         "updatedAt": "updatedAt",
