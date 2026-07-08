@@ -1257,7 +1257,7 @@ const PAGE_TITLE_MAP = {
   calendar: '캘린더',
   sales: '영업관리대장',
   discovery: '건축정보',
-  excluded: '사업검색이력',
+  excluded: '사업공유',
   documents: '문서수발신대장',
   contactsManage: '연락처',
   installCases: '설치사례',
@@ -1338,6 +1338,18 @@ function hasDiscoveryRowHiddenFlagFromApi(row) {
   )
 }
 
+function getExcludedRowHiddenStorageId(row) {
+  const id = normalizeRegistryRowId(row?.id)
+  if (!id || id === 'undefined' || id.startsWith('excluded-draft-')) return ''
+  return id
+}
+
+function hasExcludedRowHiddenFlagFromApi(row) {
+  return parseRegistryHiddenFlag(
+    row?.isHidden ?? row?.ishidden ?? row?.is_hidden ?? row?.archived ?? row?.isArchived
+  )
+}
+
 const SIDEBAR_MENU_GROUPS = [
   {
     id: 'work',
@@ -1355,7 +1367,7 @@ const SIDEBAR_MENU_GROUPS = [
       { key: 'contracts', label: '계약현황' },
       { key: 'sales', label: '영업관리대장' },
       { key: 'discovery', label: '건축정보' },
-      { key: 'excluded', label: '사업검색이력' },
+      { key: 'excluded', label: '사업공유' },
       { key: 'documents', label: '문서수발신대장' },
       { key: 'contactsManage', label: '연락처' },
     ],
@@ -2759,6 +2771,7 @@ function createExcludedDraftRow() {
     client: '',
     projectAmount: '',
     exclusionReason: '',
+    isHidden: false,
     createdAt: '',
     updatedAt: '',
     isDraft: true,
@@ -4128,6 +4141,7 @@ function normalizeExcludedRow(item) {
     client: safeString(item.client),
     projectAmount: safeString(item.projectAmount ?? item.projectamount),
     exclusionReason: safeString(item.exclusionReason ?? item.exclusionreason),
+    isHidden: hasExcludedRowHiddenFlagFromApi(item),
     createdAt: safeString(item.createdAt ?? item.createdat),
     updatedAt: safeString(item.updatedAt ?? item.updatedat),
     isDraft: false,
@@ -5352,6 +5366,7 @@ function App() {
   const [excludedDateRange, setExcludedDateRange] = useState({ startDate: '', endDate: '' })
   const [excludedActiveFilters, setExcludedActiveFilters] = useState({})
   const [openExcludedColumnFilterKey, setOpenExcludedColumnFilterKey] = useState(null)
+  const [showHiddenExcludedRows, setShowHiddenExcludedRows] = useState(false)
   const [editingWorkCellKey, setEditingWorkCellKey] = useState('')
   const [editingWorkCellData, setEditingWorkCellData] = useState(null)
   const [workReportDrafts, setWorkReportDrafts] = useState({})
@@ -5383,7 +5398,7 @@ function App() {
   /** 계약 셀 편집: UI 행 키(rowKey) + 컬럼 + PATCH용 serverRowId(행의 서버 PK) */
   const [contractEdit, setContractEdit] = useState(null)
   const [contractEditDraft, setContractEditDraft] = useState('')
-  /** 영업·건축·사업검색이력·문서 — 계약현황과 동일한 셀 단위 인라인 편집 */
+  /** 영업·건축·사업공유·문서 — 계약현황과 동일한 셀 단위 인라인 편집 */
   const [registryCellEdit, setRegistryCellEdit] = useState(null)
   const [registryCellEditDraft, setRegistryCellEditDraft] = useState('')
   /** 계약 삭제: payloadIds + single | 일반: alert / onConfirm + destructive + confirmLabel */
@@ -5662,7 +5677,7 @@ function App() {
       setSelectedExcludedIds([])
       return rows
     } catch (error) {
-      console.error('[사업검색이력] API fetch failed', error)
+      console.error('[사업공유] API fetch failed', error)
       if (!preserveOnError) {
         setExcludedRows([])
         setSelectedExcludedIds([])
@@ -6943,8 +6958,27 @@ function App() {
 
   const excludedRawData = excludedRows
 
+  const visibleModeExcludedRows = useMemo(
+    () =>
+      excludedRawData.filter((row) => {
+        if (row.isDraft) return !showHiddenExcludedRows
+        return showHiddenExcludedRows ? row.isHidden : !row.isHidden
+      }),
+    [excludedRawData, showHiddenExcludedRows]
+  )
+
+  const visibleExcludedRowsForDashboard = useMemo(
+    () => excludedRawData.filter((row) => !row.isHidden),
+    [excludedRawData]
+  )
+
+  const hiddenExcludedCount = useMemo(
+    () => excludedRawData.filter((row) => !row.isDraft && row.isHidden).length,
+    [excludedRawData]
+  )
+
   const excludedColumnFilterOptionsMap = useMemo(() => {
-    const basePool = excludedRawData.filter(
+    const basePool = visibleModeExcludedRows.filter(
       (row) =>
         matchesRegistrySearch(row, EXCLUDED_COLUMNS, excludedSearch) &&
         matchesDateRangeFilter(
@@ -6966,8 +7000,8 @@ function App() {
     excludedActiveFilters,
     excludedDateRange.endDate,
     excludedDateRange.startDate,
-    excludedRawData,
     excludedSearch,
+    visibleModeExcludedRows,
   ])
 
   const handleExcludedActiveFiltersApply = useCallback((columnKey, selected) => {
@@ -6982,7 +7016,7 @@ function App() {
 
   /** [1단계] rawData → 검색·기간·헤더 열 필터(AND) → filteredData */
   const filteredExcludedRows = useMemo(() => {
-    const toolbarFiltered = excludedRawData.filter(
+    const toolbarFiltered = visibleModeExcludedRows.filter(
       (row) =>
         matchesRegistrySearch(row, EXCLUDED_COLUMNS, excludedSearch) &&
         matchesDateRangeFilter(
@@ -6997,13 +7031,13 @@ function App() {
     excludedActiveFilters,
     excludedDateRange.endDate,
     excludedDateRange.startDate,
-    excludedRawData,
     excludedSearch,
+    visibleModeExcludedRows,
   ])
 
   const isExcludedTableFilterResultEmpty = useMemo(
-    () => excludedRawData.length > 0 && filteredExcludedRows.length === 0,
-    [excludedRawData.length, filteredExcludedRows.length]
+    () => visibleModeExcludedRows.length > 0 && filteredExcludedRows.length === 0,
+    [filteredExcludedRows.length, visibleModeExcludedRows.length]
   )
 
   /** [2단계] filteredData만 그룹화 — 원본 salesRows 미사용 */
@@ -7134,7 +7168,7 @@ function App() {
   const dashboardData = useMemo(() => {
     const persistedSalesRows = getPersistedRows(visibleSalesRowsForDashboard)
     const persistedDiscoveryRows = getPersistedRows(visibleDiscoveryRowsForDashboard)
-    const persistedExcludedRows = getPersistedRows(excludedRows)
+    const persistedExcludedRows = getPersistedRows(visibleExcludedRowsForDashboard)
     const persistedDocuments = getPersistedRows(documents)
     // 헤더 건수 filter == 목록 filter(계약/마감 제외)로 통일해 카운트와 목록을 동기화한다.
     // 전주/금주 동일 필터(계약·마감 제외)로 계산해 비교 기준을 일치시킨다.
@@ -7160,6 +7194,7 @@ function App() {
       (row) => Boolean(parseDateOnly(row.permitDate))
     )
     const excludedWeekCount = countRowsRegisteredInCurrentWeek(persistedExcludedRows, 'writeDate')
+    const excludedLastWeekCount = countRowsRegisteredInLastWeek(persistedExcludedRows, 'writeDate')
     const { inbound: docInboundCount, outbound: docOutboundCount } =
       countDocumentsInboundOutbound(persistedDocuments)
 
@@ -7195,11 +7230,11 @@ function App() {
         },
         {
           key: 'excluded',
-          label: `사업검색이력 (이번 주 ${excludedWeekCount.toLocaleString('ko-KR')}건)`,
+          label: `사업공유 (전주 ${excludedLastWeekCount.toLocaleString('ko-KR')}건 / 금주 ${excludedWeekCount.toLocaleString('ko-KR')}건)`,
           menu: 'excluded',
           items: getDashboardRecentItems(persistedExcludedRows, {
             dateKey: 'writeDate',
-            getTitle: (row) => safeString(row.projectName || row.client).trim() || '검색이력 항목',
+            getTitle: (row) => safeString(row.projectName || row.client).trim() || '사업공유 항목',
             getMeta: (row) =>
               [row.client, row.writer || row.category].filter(Boolean).join(' · ') || '-',
             getStatus: (row) => row.category,
@@ -7218,7 +7253,7 @@ function App() {
         },
       ],
     }
-  }, [discoveryRows, documents, excludedRows, visibleDiscoveryRowsForDashboard, visibleSalesRowsForDashboard])
+  }, [discoveryRows, documents, excludedRows, visibleDiscoveryRowsForDashboard, visibleExcludedRowsForDashboard, visibleSalesRowsForDashboard])
   const currentRegistryYear = String(new Date().getFullYear())
   const defaultContractYear = groupedContracts.find((group) => group.year === currentRegistryYear)?.year ?? groupedContracts[0]?.year
   const defaultSalesYear = groupedSalesRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedSalesRows)
@@ -7890,7 +7925,7 @@ function App() {
         setToastMessage('저장되었습니다.')
         closeRegistryCreateModal()
       } catch (error) {
-        logApiOperationError('사업검색이력 등록', error)
+        logApiOperationError('사업공유 등록', error)
       } finally {
         setIsSavingExcluded(false)
       }
@@ -8263,6 +8298,57 @@ function App() {
         onClick={(e) => {
           e.stopPropagation()
           toggleDiscoveryRowHidden(row, !isHidden)
+        }}
+      >
+        <Icon size={16} strokeWidth={2.2} aria-hidden />
+      </button>
+    )
+  }
+
+  const toggleExcludedRowHidden = async (row, nextHidden) => {
+    const rowId = getExcludedRowHiddenStorageId(row)
+    if (!rowId) {
+      showAppAlert('저장된 행만 숨김 처리할 수 있습니다.', '알림')
+      return
+    }
+
+    setExcludedRows((prev) =>
+      prev.map((item) =>
+        getExcludedRowHiddenStorageId(item) === rowId ? { ...item, isHidden: nextHidden } : item
+      )
+    )
+    setSelectedExcludedIds((prev) => prev.filter((id) => normalizeRegistryRowId(id) !== rowId))
+    setToastMessage(nextHidden ? '숨김 처리되었습니다.' : '숨김 해제되었습니다.')
+
+    try {
+      await excludedProjectsApi.update(rowId, { isHidden: nextHidden })
+    } catch (error) {
+      setExcludedRows((prev) =>
+        prev.map((item) =>
+          getExcludedRowHiddenStorageId(item) === rowId ? { ...item, isHidden: !nextHidden } : item
+        )
+      )
+      showAppAlert(
+        error?.message || '숨김 상태 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+        '오류'
+      )
+    }
+  }
+
+  const renderExcludedArchiveCell = (row) => {
+    if (!canEditExcluded || row.isDraft) return null
+    const isHidden = Boolean(row.isHidden)
+    const label = isHidden ? '숨기기 해제' : '숨기기'
+    const Icon = isHidden ? Eye : EyeOff
+    return (
+      <button
+        type="button"
+        className={`sales-archive-btn${isHidden ? ' sales-archive-btn--restore' : ''}`}
+        title={label}
+        aria-label={label}
+        onClick={(e) => {
+          e.stopPropagation()
+          toggleExcludedRowHidden(row, !isHidden)
         }}
       >
         <Icon size={16} strokeWidth={2.2} aria-hidden />
@@ -8876,15 +8962,15 @@ function App() {
     }
 
     setContractConfirmDialog({
-      title: '사업검색이력 삭제',
-      message: '이 사업검색이력 항목을 삭제하시겠습니까?',
+      title: '사업공유 삭제',
+      message: '이 사업공유 항목을 삭제하시겠습니까?',
       destructive: true,
       confirmLabel: '삭제',
       onConfirm: async () => {
         try {
           await excludedProjectsApi.remove(rowId)
         } catch (error) {
-          logApiOperationError('사업검색이력 삭제', error)
+          logApiOperationError('사업공유 삭제', error)
           return
         }
 
@@ -8923,7 +9009,7 @@ function App() {
       setExcludedEditSnapshots((prev) => removeObjectKey(prev, rowId))
       setToastMessage('저장되었습니다.')
     } catch (error) {
-      logApiOperationError('사업검색이력 저장', error)
+      logApiOperationError('사업공유 저장', error)
     } finally {
       setIsSavingExcluded(false)
     }
@@ -8961,7 +9047,7 @@ function App() {
           try {
             await excludedProjectsApi.bulkDelete(persistedIds)
           } catch (error) {
-            logApiOperationError('사업검색이력 선택 삭제', error)
+            logApiOperationError('사업공유 선택 삭제', error)
             return
           }
 
@@ -9026,7 +9112,7 @@ function App() {
       setEditingExcludedIds([])
       setToastMessage('저장되었습니다.')
     } catch (error) {
-      logApiOperationError('사업검색이력 일괄 저장', error)
+      logApiOperationError('사업공유 일괄 저장', error)
     } finally {
       setIsSavingExcluded(false)
     }
@@ -9047,10 +9133,10 @@ function App() {
 
     const worksheet = XLSX.utils.json_to_sheet(rows)
     const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, '사업검색이력')
+    XLSX.utils.book_append_sheet(workbook, worksheet, '사업공유')
 
     const now = new Date()
-    const filename = `사업검색이력_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
+    const filename = `사업공유_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
     XLSX.writeFile(workbook, filename)
   }
 
@@ -11113,7 +11199,7 @@ function App() {
       const labelMap = {
         sales: '영업관리대장',
         discovery: '건축정보',
-        excluded: '사업검색이력',
+        excluded: '사업공유',
         documents: '문서수발신대장',
         contactsManage: '연락처',
       }
@@ -11554,10 +11640,11 @@ function App() {
               : ''
           const plainDisplay = getRegistryPlainDisplayState(row, column)
           // 영업관리대장 '등록일'(sales.registerDate) / 건축정보 '건축정보일자'(discovery.permitDate)
-          // 컬럼에 한정해, 금주/전주 등록건을 텍스트 뱃지로 구분 표시한다.
+          // / 사업공유 '등록일'(excluded.writeDate) 컬럼에 한정해, 금주/전주 등록건을 텍스트 뱃지로 구분 표시한다.
           const isRegistryWeekBadgeColumn =
             (cellEditScope === 'sales' && column.key === 'registerDate') ||
-            (cellEditScope === 'discovery' && column.key === 'permitDate')
+            (cellEditScope === 'discovery' && column.key === 'permitDate') ||
+            (cellEditScope === 'excluded' && column.key === 'writeDate')
           const registryWeekTag = isRegistryWeekBadgeColumn
             ? getRegisterDateWeekTag(row?.[column.key])
             : null
@@ -14618,7 +14705,7 @@ function App() {
             <div className="guide-panel excluded-guide-panel">
               <div
                 className="guide-panel-header guide-panel-header--toggle"
-                aria-label={`사업검색이력 안내 ${isExcludedGuideCollapsed ? '펼치기' : '접기'}`}
+                aria-label={`사업공유 안내 ${isExcludedGuideCollapsed ? '펼치기' : '접기'}`}
                 {...bindExpandCollapseRow(
                   () => setIsExcludedGuideCollapsed((prev) => !prev),
                   !isExcludedGuideCollapsed
@@ -14695,6 +14782,20 @@ function App() {
                     setExcludedDateRange((prev) => ({ ...prev, endDate: value }))
                   }
                 />
+                <label className="sales-hidden-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showHiddenExcludedRows}
+                    onChange={(e) => {
+                      setShowHiddenExcludedRows(e.target.checked)
+                      setSelectedExcludedIds([])
+                    }}
+                  />
+                  <span>숨긴 항목 보기</span>
+                  <span className="sales-hidden-toggle-count">
+                    {hiddenExcludedCount.toLocaleString('ko-KR')}건
+                  </span>
+                </label>
               </div>
             </div>
 
@@ -14704,6 +14805,7 @@ function App() {
                 <table className="contract-table excel-table registry-table excluded-registry-table ledger-table-ui table-w-full-min">
                   <colgroup>
                     <col className="registry-check-col" />
+                    <col className="sales-archive-col" />
                     {EXCLUDED_COLUMNS.map((column) => (
                       <col key={column.key} className={column.widthClass || ''} />
                     ))}
@@ -14723,6 +14825,9 @@ function App() {
                             )
                           }
                         />
+                      </th>
+                      <th className="th-align-center sales-archive-header table-col-tight">
+                        숨김
                       </th>
                       {EXCLUDED_COLUMNS.map((column) => (
                         <th
@@ -14750,16 +14855,25 @@ function App() {
                     {excludedRawData.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={EXCLUDED_COLUMNS.length + 1}
+                          colSpan={EXCLUDED_COLUMNS.length + 2}
                           className="empty-cell"
                         >
                           등록된 데이터가 없습니다.
                         </td>
                       </tr>
+                    ) : visibleModeExcludedRows.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={EXCLUDED_COLUMNS.length + 2}
+                          className="empty-cell"
+                        >
+                          {showHiddenExcludedRows ? '숨긴 항목이 없습니다.' : '표시할 데이터가 없습니다.'}
+                        </td>
+                      </tr>
                     ) : isExcludedTableFilterResultEmpty ? (
                       <tr>
                         <td
-                          colSpan={EXCLUDED_COLUMNS.length + 1}
+                          colSpan={EXCLUDED_COLUMNS.length + 2}
                           className="empty-cell"
                         >
                           필터 조건에 맞는 데이터가 없습니다.
@@ -14769,7 +14883,7 @@ function App() {
                     renderGroupedRegistryRows({
                       groups: groupedExcludedRows,
                       columns: EXCLUDED_COLUMNS,
-                      emptyMessage: '등록된 데이터가 없습니다.',
+                      emptyMessage: showHiddenExcludedRows ? '숨긴 항목이 없습니다.' : '등록된 데이터가 없습니다.',
                       selectedIds: selectedExcludedIds,
                       onToggleSelection: toggleExcludedSelection,
                       editingIds: [],
@@ -14786,6 +14900,7 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('excluded', rowId, columnKey, value, row),
+                      renderAfterSelectionCell: renderExcludedArchiveCell,
                     })
                     )}
                   </tbody>

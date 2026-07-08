@@ -699,9 +699,16 @@ def init_db():
                   client text not null default '',
                   "projectAmount" numeric(18, 0) not null default 0,
                   "exclusionReason" text not null default '',
+                  "isHidden" boolean not null default false,
                   "createdAt" timestamptz not null default now(),
                   "updatedAt" timestamptz not null default now()
                 )
+                """
+            )
+            cursor.execute(
+                """
+                alter table excluded_projects_rows
+                add column if not exists "isHidden" boolean not null default false
                 """
             )
             _migrate_excluded_projects_row_columns(cursor)

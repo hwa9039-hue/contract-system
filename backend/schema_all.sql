@@ -127,9 +127,12 @@ CREATE TABLE IF NOT EXISTS excluded_projects_rows (
   client text NOT NULL DEFAULT '',
   "projectAmount" numeric(18, 0) NOT NULL DEFAULT 0,
   "exclusionReason" text NOT NULL DEFAULT '',
+  "isHidden" boolean NOT NULL DEFAULT false,
   "createdAt" timestamptz NOT NULL DEFAULT now(),
   "updatedAt" timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE excluded_projects_rows ADD COLUMN IF NOT EXISTS "isHidden" boolean NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS weekly_work_reports_rows (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

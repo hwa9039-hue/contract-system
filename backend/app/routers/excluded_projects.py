@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/excluded-projects", tags=["excluded-projects"])
 RETURNING_COLUMNS = """
   id, "orderNo", "writeDate", "openDate", category,
   keyword, writer, "projectName", client, "projectAmount",
-  "exclusionReason", "createdAt", "updatedAt"
+  "exclusionReason", "isHidden", "createdAt", "updatedAt"
 """
 
 

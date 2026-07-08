@@ -110,3 +110,41 @@ class ProjectDiscoveryRow:
     is_hidden: bool
     created_at: Optional[str]
     updated_at: Optional[str]
+
+
+# excluded_projects_rows 전체 컬럼 (API camelCase)
+EXCLUDED_PROJECT_ROW_FIELDS = (
+    "id",
+    "orderNo",
+    "writeDate",
+    "openDate",
+    "category",
+    "keyword",
+    "writer",
+    "projectName",
+    "client",
+    "projectAmount",
+    "exclusionReason",
+    "isHidden",
+    "createdAt",
+    "updatedAt",
+)
+
+
+class ExcludedProjectRow:
+    """사업공유 1행 — 타입 힌트용 (DB 매핑은 schemas.row_to_excluded_project)."""
+
+    id: str
+    order_no: str
+    write_date: Optional[date]
+    open_date: Optional[date]
+    category: str
+    keyword: str
+    writer: str
+    project_name: str
+    client: str
+    project_amount: int
+    exclusion_reason: str
+    is_hidden: bool
+    created_at: Optional[str]
+    updated_at: Optional[str]

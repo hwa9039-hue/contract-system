@@ -407,6 +407,7 @@ class ExcludedProjectBase(BaseModel):
     client: Optional[Any] = ""
     projectAmount: Optional[Any] = 0
     exclusionReason: Optional[Any] = ""
+    isHidden: Optional[Any] = False
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
 
@@ -426,6 +427,7 @@ class ExcludedProjectPatch(BaseModel):
     client: Optional[Any] = None
     projectAmount: Optional[Any] = None
     exclusionReason: Optional[Any] = None
+    isHidden: Optional[Any] = None
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
 
@@ -880,6 +882,7 @@ def row_to_excluded_project(row) -> dict:
         "client": to_response_value(row["client"]),
         "projectAmount": to_response_value(row["projectAmount"]),
         "exclusionReason": to_response_value(row["exclusionReason"]),
+        "isHidden": bool(_contract_row_field(row, "isHidden", "ishidden", default=False)),
         "createdAt": to_response_value(row["createdAt"]),
         "updatedAt": to_response_value(row["updatedAt"]),
     }
@@ -1188,6 +1191,7 @@ TABLE_COLUMN_MAPPINGS = {
         "client": "client",
         "projectAmount": "projectAmount",
         "exclusionReason": "exclusionReason",
+        "isHidden": "isHidden",
         "createdAt": "createdAt",
         "updatedAt": "updatedAt",
     },
@@ -1315,11 +1319,16 @@ def project_discovery_to_db_values(row: ProjectDiscoveryBase) -> dict:
 
 def excluded_project_to_db_values(row: ExcludedProjectBase) -> dict:
     data = row.model_dump(exclude_unset=True)
-    return {
-        db_key: data[api_key]
-        for api_key, db_key in EXCLUDED_PROJECT_DB_COLUMNS.items()
-        if api_key in data
-    }
+    out = {}
+    for api_key, db_key in EXCLUDED_PROJECT_DB_COLUMNS.items():
+        if api_key not in data:
+            continue
+        val = data[api_key]
+        if api_key == "isHidden":
+            out[db_key] = bool(val) if val is not None else False
+            continue
+        out[db_key] = val
+    return out
 
 
 def document_register_to_db_values(row: DocumentRegisterBase) -> dict:
