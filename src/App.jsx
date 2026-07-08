@@ -14805,7 +14805,7 @@ function App() {
                 <table className="contract-table excel-table registry-table excluded-registry-table ledger-table-ui table-w-full-min">
                   <colgroup>
                     <col className="registry-check-col" />
-                    <col className="sales-archive-col" />
+                    <col className="sales-archive-col" style={{ width: 60 }} />
                     {EXCLUDED_COLUMNS.map((column) => (
                       <col key={column.key} className={column.widthClass || ''} />
                     ))}

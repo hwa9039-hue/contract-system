@@ -6986,6 +6986,28 @@ textarea:focus-visible {
   max-width: 44px;
 }
 
+.excluded-registry-table col.sales-archive-col,
+.excluded-registry-table .sales-archive-header,
+.excluded-registry-table .sales-archive-cell {
+  width: 60px;
+  min-width: 60px;
+  max-width: 60px;
+}
+
+.excluded-registry-table.excel-table th.sales-archive-header.table-col-tight,
+.excluded-registry-table.excel-table td.sales-archive-cell {
+  width: 60px;
+  min-width: 60px;
+  max-width: 60px;
+}
+
+.excluded-registry-table.excel-table th.table-col-tight,
+.excluded-registry-table.excel-table td.table-col-tight {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+}
+
 .excluded-registry-table col.excluded-w-24,
 .excluded-registry-table th.excluded-w-24,
 .excluded-registry-table td.excluded-w-24 {
@@ -7021,14 +7043,14 @@ textarea:focus-visible {
 .excluded-registry-table col.excluded-w-p18,
 .excluded-registry-table th.excluded-w-p18,
 .excluded-registry-table td.excluded-w-p18 {
-  width: 18%;
+  width: 22%;
   min-width: 0;
 }
 
 .excluded-registry-table col.excluded-w-p38,
 .excluded-registry-table th.excluded-w-p38,
 .excluded-registry-table td.excluded-w-p38 {
-  width: 38%;
+  width: 42%;
   min-width: 0;
 }
 
