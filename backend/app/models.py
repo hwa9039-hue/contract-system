@@ -68,3 +68,45 @@ class ContractRow:
     guarantee_rate: str
     inspection_request_date: Optional[date]
     tax_invoice: str
+
+
+# project_discovery_rows 전체 컬럼 (API camelCase)
+PROJECT_DISCOVERY_ROW_FIELDS = (
+    "id",
+    "permitDate",
+    "checkStatus",
+    "projectStage",
+    "salesTarget",
+    "projectCategory",
+    "localGov",
+    "client",
+    "projectName",
+    "projectAmount",
+    "completionPeriod",
+    "manager",
+    "note",
+    "isHidden",
+    "createdAt",
+    "updatedAt",
+)
+
+
+class ProjectDiscoveryRow:
+    """건축정보 1행 — 타입 힌트용 (DB 매핑은 schemas.row_to_project_discovery)."""
+
+    id: str
+    permit_date: str
+    check_status: str
+    project_stage: str
+    sales_target: str
+    project_category: str
+    local_gov: str
+    client: str
+    project_name: str
+    project_amount: int
+    completion_period: str
+    manager: str
+    note: str
+    is_hidden: bool
+    created_at: Optional[str]
+    updated_at: Optional[str]

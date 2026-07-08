@@ -1326,6 +1326,18 @@ function applySalesHiddenState(row, hiddenIds) {
   }
 }
 
+function getDiscoveryRowHiddenStorageId(row) {
+  const id = normalizeRegistryRowId(row?.id)
+  if (!id || id === 'undefined' || id.startsWith('discovery-draft-')) return ''
+  return id
+}
+
+function hasDiscoveryRowHiddenFlagFromApi(row) {
+  return parseRegistryHiddenFlag(
+    row?.isHidden ?? row?.ishidden ?? row?.is_hidden ?? row?.archived ?? row?.isArchived
+  )
+}
+
 const SIDEBAR_MENU_GROUPS = [
   {
     id: 'work',
@@ -2729,6 +2741,7 @@ function createDiscoveryDraftRow() {
     note: '',
     createdAt: '',
     updatedAt: '',
+    isHidden: false,
     isDraft: true,
   }
 }
@@ -4001,6 +4014,7 @@ function normalizeDiscoveryRow(item, rowIndex = 0) {
     note: safeString(item.note),
     createdAt: safeString(item.createdAt ?? item.createdat),
     updatedAt: safeString(item.updatedAt ?? item.updatedat),
+    isHidden: hasDiscoveryRowHiddenFlagFromApi(item),
     isDraft: false,
   }
 }
@@ -5329,6 +5343,7 @@ function App() {
   const [discoveryDateRange, setDiscoveryDateRange] = useState({ startDate: '', endDate: '' })
   const [discoveryActiveFilters, setDiscoveryActiveFilters] = useState({})
   const [openDiscoveryColumnFilterKey, setOpenDiscoveryColumnFilterKey] = useState(null)
+  const [showHiddenDiscoveryRows, setShowHiddenDiscoveryRows] = useState(false)
   const [selectedExcludedIds, setSelectedExcludedIds] = useState([])
   const [editingExcludedIds, setEditingExcludedIds] = useState([])
   const [excludedEditSnapshots, setExcludedEditSnapshots] = useState({})
@@ -6819,8 +6834,27 @@ function App() {
 
   const discoveryRawData = discoveryRows
 
+  const visibleModeDiscoveryRows = useMemo(
+    () =>
+      discoveryRawData.filter((row) => {
+        if (row.isDraft) return !showHiddenDiscoveryRows
+        return showHiddenDiscoveryRows ? row.isHidden : !row.isHidden
+      }),
+    [discoveryRawData, showHiddenDiscoveryRows]
+  )
+
+  const visibleDiscoveryRowsForDashboard = useMemo(
+    () => discoveryRawData.filter((row) => !row.isHidden),
+    [discoveryRawData]
+  )
+
+  const hiddenDiscoveryCount = useMemo(
+    () => discoveryRawData.filter((row) => !row.isDraft && row.isHidden).length,
+    [discoveryRawData]
+  )
+
   const discoveryColumnFilterOptionsMap = useMemo(() => {
-    const basePool = discoveryRawData.filter(
+    const basePool = visibleModeDiscoveryRows.filter(
       (row) =>
         matchesRegistrySearch(row, DISCOVERY_COLUMNS, discoverySearch) &&
         matchesDateRangeFilter(
@@ -6842,8 +6876,8 @@ function App() {
     discoveryActiveFilters,
     discoveryDateRange.endDate,
     discoveryDateRange.startDate,
-    discoveryRawData,
     discoverySearch,
+    visibleModeDiscoveryRows,
   ])
 
   const handleDiscoveryActiveFiltersApply = useCallback((columnKey, selected) => {
@@ -6883,7 +6917,7 @@ function App() {
   )
 
   const filteredDiscoveryRows = useMemo(() => {
-    const toolbarFiltered = discoveryRawData.filter(
+    const toolbarFiltered = visibleModeDiscoveryRows.filter(
       (row) =>
         matchesRegistrySearch(row, DISCOVERY_COLUMNS, discoverySearch) &&
         matchesDateRangeFilter(
@@ -6898,13 +6932,13 @@ function App() {
     discoveryActiveFilters,
     discoveryDateRange.endDate,
     discoveryDateRange.startDate,
-    discoveryRawData,
     discoverySearch,
+    visibleModeDiscoveryRows,
   ])
 
   const isDiscoveryTableFilterResultEmpty = useMemo(
-    () => discoveryRawData.length > 0 && filteredDiscoveryRows.length === 0,
-    [discoveryRawData.length, filteredDiscoveryRows.length]
+    () => visibleModeDiscoveryRows.length > 0 && filteredDiscoveryRows.length === 0,
+    [filteredDiscoveryRows.length, visibleModeDiscoveryRows.length]
   )
 
   const excludedRawData = excludedRows
@@ -7099,7 +7133,7 @@ function App() {
   }, [contracts, dashboardCurrentYear])
   const dashboardData = useMemo(() => {
     const persistedSalesRows = getPersistedRows(visibleSalesRowsForDashboard)
-    const persistedDiscoveryRows = getPersistedRows(discoveryRows)
+    const persistedDiscoveryRows = getPersistedRows(visibleDiscoveryRowsForDashboard)
     const persistedExcludedRows = getPersistedRows(excludedRows)
     const persistedDocuments = getPersistedRows(documents)
     // 헤더 건수 filter == 목록 filter(계약/마감 제외)로 통일해 카운트와 목록을 동기화한다.
@@ -7115,7 +7149,16 @@ function App() {
       'registerDate',
       salesStageFilter
     )
-    const discoveryWeekCount = countRowsRegisteredInCurrentWeek(persistedDiscoveryRows, 'permitDate')
+    const discoveryWeekCount = countRowsRegisteredInCurrentWeek(
+      persistedDiscoveryRows,
+      'permitDate',
+      (row) => Boolean(parseDateOnly(row.permitDate))
+    )
+    const discoveryLastWeekCount = countRowsRegisteredInLastWeek(
+      persistedDiscoveryRows,
+      'permitDate',
+      (row) => Boolean(parseDateOnly(row.permitDate))
+    )
     const excludedWeekCount = countRowsRegisteredInCurrentWeek(persistedExcludedRows, 'writeDate')
     const { inbound: docInboundCount, outbound: docOutboundCount } =
       countDocumentsInboundOutbound(persistedDocuments)
@@ -7139,7 +7182,7 @@ function App() {
         },
         {
           key: 'discovery',
-          label: `건축정보 (이번 주 ${discoveryWeekCount.toLocaleString('ko-KR')}건)`,
+          label: `건축정보 (전주 ${discoveryLastWeekCount.toLocaleString('ko-KR')}건 / 금주 ${discoveryWeekCount.toLocaleString('ko-KR')}건)`,
           menu: 'discovery',
           items: getDashboardRecentItems(persistedDiscoveryRows, {
             dateKey: 'permitDate',
@@ -7175,7 +7218,7 @@ function App() {
         },
       ],
     }
-  }, [discoveryRows, documents, excludedRows, visibleSalesRowsForDashboard])
+  }, [discoveryRows, documents, excludedRows, visibleDiscoveryRowsForDashboard, visibleSalesRowsForDashboard])
   const currentRegistryYear = String(new Date().getFullYear())
   const defaultContractYear = groupedContracts.find((group) => group.year === currentRegistryYear)?.year ?? groupedContracts[0]?.year
   const defaultSalesYear = groupedSalesRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedSalesRows)
@@ -8169,6 +8212,57 @@ function App() {
         onClick={(e) => {
           e.stopPropagation()
           toggleSalesRowHidden(row, !isHidden)
+        }}
+      >
+        <Icon size={16} strokeWidth={2.2} aria-hidden />
+      </button>
+    )
+  }
+
+  const toggleDiscoveryRowHidden = async (row, nextHidden) => {
+    const rowId = getDiscoveryRowHiddenStorageId(row)
+    if (!rowId) {
+      showAppAlert('저장된 행만 숨김 처리할 수 있습니다.', '알림')
+      return
+    }
+
+    setDiscoveryRows((prev) =>
+      prev.map((item) =>
+        getDiscoveryRowHiddenStorageId(item) === rowId ? { ...item, isHidden: nextHidden } : item
+      )
+    )
+    setSelectedDiscoveryIds((prev) => prev.filter((id) => normalizeRegistryRowId(id) !== rowId))
+    setToastMessage(nextHidden ? '숨김 처리되었습니다.' : '숨김 해제되었습니다.')
+
+    try {
+      await projectDiscoveryApi.update(rowId, { isHidden: nextHidden })
+    } catch (error) {
+      setDiscoveryRows((prev) =>
+        prev.map((item) =>
+          getDiscoveryRowHiddenStorageId(item) === rowId ? { ...item, isHidden: !nextHidden } : item
+        )
+      )
+      showAppAlert(
+        error?.message || '숨김 상태 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+        '오류'
+      )
+    }
+  }
+
+  const renderDiscoveryArchiveCell = (row) => {
+    if (!canEditDiscovery || row.isDraft) return null
+    const isHidden = Boolean(row.isHidden)
+    const label = isHidden ? '숨기기 해제' : '숨기기'
+    const Icon = isHidden ? Eye : EyeOff
+    return (
+      <button
+        type="button"
+        className={`sales-archive-btn${isHidden ? ' sales-archive-btn--restore' : ''}`}
+        title={label}
+        aria-label={label}
+        onClick={(e) => {
+          e.stopPropagation()
+          toggleDiscoveryRowHidden(row, !isHidden)
         }}
       >
         <Icon size={16} strokeWidth={2.2} aria-hidden />
@@ -14390,6 +14484,20 @@ function App() {
                     setDiscoveryDateRange((prev) => ({ ...prev, endDate: value }))
                   }
                 />
+                <label className="sales-hidden-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showHiddenDiscoveryRows}
+                    onChange={(e) => {
+                      setShowHiddenDiscoveryRows(e.target.checked)
+                      setSelectedDiscoveryIds([])
+                    }}
+                  />
+                  <span>숨긴 항목 보기</span>
+                  <span className="sales-hidden-toggle-count">
+                    {hiddenDiscoveryCount.toLocaleString('ko-KR')}건
+                  </span>
+                </label>
               </div>
             </div>
 
@@ -14401,6 +14509,7 @@ function App() {
                 >
                   <colgroup>
                     <col className="registry-check-col" />
+                    <col className="sales-archive-col" />
                     {DISCOVERY_COLUMNS.map((column) => (
                       <col key={column.key} className={column.widthClass || ''} />
                     ))}
@@ -14420,6 +14529,9 @@ function App() {
                             )
                           }
                         />
+                      </th>
+                      <th className="th-align-center sales-archive-header table-col-tight">
+                        숨김
                       </th>
                       {DISCOVERY_COLUMNS.map((column) => (
                         <th
@@ -14446,16 +14558,25 @@ function App() {
                     {discoveryRawData.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={DISCOVERY_COLUMNS.length + 1}
+                          colSpan={DISCOVERY_COLUMNS.length + 2}
                           className="empty-cell"
                         >
                           등록된 데이터가 없습니다.
                         </td>
                       </tr>
+                    ) : visibleModeDiscoveryRows.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={DISCOVERY_COLUMNS.length + 2}
+                          className="empty-cell"
+                        >
+                          {showHiddenDiscoveryRows ? '숨긴 항목이 없습니다.' : '표시할 데이터가 없습니다.'}
+                        </td>
+                      </tr>
                     ) : isDiscoveryTableFilterResultEmpty ? (
                       <tr>
                         <td
-                          colSpan={DISCOVERY_COLUMNS.length + 1}
+                          colSpan={DISCOVERY_COLUMNS.length + 2}
                           className="empty-cell"
                         >
                           필터 조건에 맞는 데이터가 없습니다.
@@ -14465,7 +14586,7 @@ function App() {
                     renderGroupedRegistryRows({
                       groups: groupedDiscoveryRows,
                       columns: DISCOVERY_COLUMNS,
-                      emptyMessage: '등록된 데이터가 없습니다.',
+                      emptyMessage: showHiddenDiscoveryRows ? '숨긴 항목이 없습니다.' : '등록된 데이터가 없습니다.',
                       selectedIds: selectedDiscoveryIds,
                       onToggleSelection: toggleDiscoverySelection,
                       editingIds: editingDiscoveryIds,
@@ -14482,6 +14603,7 @@ function App() {
                       registryCellEdit,
                       onRegistryCellStart: (rowId, columnKey, value, row) =>
                         startRegistryCellEdit('discovery', rowId, columnKey, value, row),
+                      renderAfterSelectionCell: renderDiscoveryArchiveCell,
                     })
                     )}
                   </tbody>

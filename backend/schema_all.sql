@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS project_discovery_rows (
   "completionPeriod" text NOT NULL DEFAULT '',
   manager text NOT NULL DEFAULT '',
   note text NOT NULL DEFAULT '',
+  "isHidden" boolean NOT NULL DEFAULT false,
   "createdAt" timestamptz NOT NULL DEFAULT now(),
   "updatedAt" timestamptz NOT NULL DEFAULT now()
 );

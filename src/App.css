@@ -6553,7 +6553,10 @@ textarea:focus-visible {
 
 .sales-registry-table col.sales-archive-col,
 .sales-registry-table .sales-archive-header,
-.sales-registry-table .sales-archive-cell {
+.sales-registry-table .sales-archive-cell,
+.discovery-registry-table col.sales-archive-col,
+.discovery-registry-table .sales-archive-header,
+.discovery-registry-table .sales-archive-cell {
   width: 56px;
   min-width: 56px;
   max-width: 56px;

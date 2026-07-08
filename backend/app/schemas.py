@@ -355,6 +355,7 @@ class ProjectDiscoveryBase(BaseModel):
     completionPeriod: Optional[Any] = ""
     manager: Optional[Any] = ""
     note: Optional[Any] = ""
+    isHidden: Optional[Any] = False
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
 
@@ -376,6 +377,7 @@ class ProjectDiscoveryPatch(BaseModel):
     completionPeriod: Optional[Any] = None
     manager: Optional[Any] = None
     note: Optional[Any] = None
+    isHidden: Optional[Any] = None
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
 
@@ -859,6 +861,7 @@ def row_to_project_discovery(row) -> dict:
         "completionPeriod": to_response_value(row.get("completionPeriod") or row.get("completionperiod")),
         "manager": to_response_value(row["manager"]),
         "note": to_response_value(row["note"]),
+        "isHidden": bool(_contract_row_field(row, "isHidden", "ishidden", default=False)),
         "createdAt": to_response_value(row.get("createdAt") or row.get("createdat")),
         "updatedAt": to_response_value(row.get("updatedAt") or row.get("updatedat")),
     }
@@ -1170,6 +1173,7 @@ TABLE_COLUMN_MAPPINGS = {
         "completionPeriod": "completionPeriod",
         "manager": "manager",
         "note": "note",
+        "isHidden": "isHidden",
         "createdAt": "createdAt",
         "updatedAt": "updatedAt",
     },
@@ -1301,6 +1305,9 @@ def project_discovery_to_db_values(row: ProjectDiscoveryBase) -> dict:
         val = data[api_key]
         if api_key == "permitDate":
             out[db_key] = _coerce_permit_date_text(val)
+            continue
+        if api_key == "isHidden":
+            out[db_key] = bool(val) if val is not None else False
             continue
         out[db_key] = val
     return out
