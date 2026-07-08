@@ -11313,6 +11313,7 @@ function App() {
     setRegistryCellEdit(null)
     setRegistryCellEditDraft('')
     registryCellEditDraftRef.current = ''
+    registryCellEditRef.current = null
   }
 
   const startRegistryCellEdit = (scope, rowId, columnKey, value, row) => {
@@ -11321,7 +11322,14 @@ function App() {
     const col = columns.find((c) => c.key === columnKey)
     if (!col) return
 
-    setRegistryCellEdit({ scope, rowId, columnKey, originalValue: safeString(value ?? '') })
+    const editSnap = {
+      scope,
+      rowId,
+      columnKey,
+      originalValue: safeString(value ?? ''),
+    }
+    setRegistryCellEdit(editSnap)
+    registryCellEditRef.current = editSnap
     let nextDraft
     if (isRegistrySmartDetailColumn(col, scope)) {
       nextDraft = getRegistrySmartDetailEditValue(scope, col, row)
@@ -11642,11 +11650,13 @@ function App() {
     }
     const row = rows.find((r) => r.id === snap.rowId)
     if (!row) return
-    setRegistryCellEdit({
+    const nextEditSnap = {
       ...snap,
       columnKey: nextCol.key,
       originalValue: safeString(row[nextCol.key] ?? ''),
-    })
+    }
+    setRegistryCellEdit(nextEditSnap)
+    registryCellEditRef.current = nextEditSnap
     let nextDraft
     if (nextCol.type === 'amount') {
       nextDraft = normalizeAmountValue(row[nextCol.key])
@@ -11724,18 +11734,20 @@ function App() {
             const value = e.target.value
             setRegistryCellEditDraft(value)
             registryCellEditDraftRef.current = value
-            if (scope && rowId) {
-              applyRegistryRowFieldPatch(scope, rowId, column, value)
-              if (scope === 'discovery' && column.key === 'projectStage') {
-                applyRegistryRowFieldPatch(
-                  scope,
-                  rowId,
-                  { key: 'reportMarkedAt', type: 'text' },
-                  normalizeSalesProjectStage(value) === '보고' ? new Date().toISOString() : null
-                )
-              }
-            }
-            void saveRegistryCellEdit(value)
+            if (!scope || !rowId) return
+
+            const snap = registryCellEditRef.current
+            const originalValue =
+              snap?.scope === scope &&
+              safeString(snap.rowId).trim() === safeString(rowId).trim() &&
+              snap.columnKey === column.key
+                ? snap.originalValue
+                : undefined
+
+            void persistRegistryCellPatch(scope, rowId, column, value, originalValue).then((saved) => {
+              if (!saved) return
+              cancelRegistryCellEdit()
+            })
           }}
         >
           <option value="">선택</option>
