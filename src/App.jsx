@@ -11312,6 +11312,7 @@ function App() {
   const cancelRegistryCellEdit = () => {
     setRegistryCellEdit(null)
     setRegistryCellEditDraft('')
+    registryCellEditDraftRef.current = ''
   }
 
   const startRegistryCellEdit = (scope, rowId, columnKey, value, row) => {
@@ -11321,15 +11322,22 @@ function App() {
     if (!col) return
 
     setRegistryCellEdit({ scope, rowId, columnKey, originalValue: safeString(value ?? '') })
+    let nextDraft
     if (isRegistrySmartDetailColumn(col, scope)) {
-      setRegistryCellEditDraft(getRegistrySmartDetailEditValue(scope, col, row))
+      nextDraft = getRegistrySmartDetailEditValue(scope, col, row)
+      setRegistryCellEditDraft(nextDraft)
+      registryCellEditDraftRef.current = nextDraft
       return
     }
     if (col.type === 'amount') {
-      setRegistryCellEditDraft(normalizeAmountValue(value))
+      nextDraft = normalizeAmountValue(value)
+      setRegistryCellEditDraft(nextDraft)
+      registryCellEditDraftRef.current = nextDraft
       return
     }
-    setRegistryCellEditDraft(safeString(value ?? ''))
+    nextDraft = safeString(value ?? '')
+    setRegistryCellEditDraft(nextDraft)
+    registryCellEditDraftRef.current = nextDraft
   }
 
   const persistRegistryCellPatch = async (scope, rowId, column, rawValue, previousValueOverride) => {
@@ -11575,9 +11583,9 @@ function App() {
     [salesRows, discoveryRows, excludedRows, documents, contactsManageRows]
   )
 
-  const saveRegistryCellEdit = async () => {
+  const saveRegistryCellEdit = async (draftOverride) => {
     const snap = registryCellEditRef.current
-    const draft = registryCellEditDraftRef.current
+    const draft = draftOverride !== undefined ? draftOverride : registryCellEditDraftRef.current
     if (!snap?.scope || !snap.rowId || !snap.columnKey) return
 
     const columns = getRegistryColumnsByScope(snap.scope)
@@ -11639,11 +11647,14 @@ function App() {
       columnKey: nextCol.key,
       originalValue: safeString(row[nextCol.key] ?? ''),
     })
+    let nextDraft
     if (nextCol.type === 'amount') {
-      setRegistryCellEditDraft(normalizeAmountValue(row[nextCol.key]))
+      nextDraft = normalizeAmountValue(row[nextCol.key])
     } else {
-      setRegistryCellEditDraft(safeString(row[nextCol.key] ?? ''))
+      nextDraft = safeString(row[nextCol.key] ?? '')
     }
+    setRegistryCellEditDraft(nextDraft)
+    registryCellEditDraftRef.current = nextDraft
   }
 
   const renderRegistryCellInlineEditor = (column, editContext) => {
@@ -11656,6 +11667,7 @@ function App() {
       onChange: (e) => {
         const value = column.type === 'amount' ? normalizeAmountValue(e.target.value) : e.target.value
         setRegistryCellEditDraft(value)
+        registryCellEditDraftRef.current = value
         if (scope && rowId && !isRegistrySmartDetailColumn(column, scope)) {
           applyRegistryRowFieldPatch(scope, rowId, column, value)
         }
@@ -11706,7 +11718,7 @@ function App() {
         <select
           {...commonProps}
           onBlur={() => {
-            void saveRegistryCellEdit()
+            cancelRegistryCellEdit()
           }}
           onChange={(e) => {
             const value = e.target.value
@@ -11723,9 +11735,7 @@ function App() {
                 )
               }
             }
-            queueMicrotask(() => {
-              void saveRegistryCellEdit()
-            })
+            void saveRegistryCellEdit(value)
           }}
         >
           <option value="">선택</option>
