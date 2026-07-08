@@ -7120,7 +7120,11 @@ function App() {
   )
 
   const groupedExcludedRows = useMemo(
-    () => groupRegistryRowsByYear(filteredExcludedRows, 'writeDate'),
+    () =>
+      groupRegistryRowsByYear(filteredExcludedRows, 'writeDate').map((group) => ({
+        ...group,
+        items: sortRegistryRowsByDateDesc(group.items, 'writeDate'),
+      })),
     [filteredExcludedRows]
   )
 
