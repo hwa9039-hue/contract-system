@@ -122,6 +122,7 @@ CREATE TABLE IF NOT EXISTS excluded_projects_rows (
   "openDate" date,
   category text NOT NULL DEFAULT '',
   keyword text NOT NULL DEFAULT '',
+  "shareStatus" text NOT NULL DEFAULT '',
   writer text NOT NULL DEFAULT '',
   "projectName" text NOT NULL DEFAULT '',
   client text NOT NULL DEFAULT '',
@@ -133,6 +134,7 @@ CREATE TABLE IF NOT EXISTS excluded_projects_rows (
 );
 
 ALTER TABLE excluded_projects_rows ADD COLUMN IF NOT EXISTS "isHidden" boolean NOT NULL DEFAULT false;
+ALTER TABLE excluded_projects_rows ADD COLUMN IF NOT EXISTS "shareStatus" text NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS weekly_work_reports_rows (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

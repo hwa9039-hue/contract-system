@@ -694,6 +694,7 @@ def init_db():
                   "openDate" date,
                   category text not null default '',
                   keyword text not null default '',
+                  "shareStatus" text not null default '',
                   writer text not null default '',
                   "projectName" text not null default '',
                   client text not null default '',
@@ -709,6 +710,12 @@ def init_db():
                 """
                 alter table excluded_projects_rows
                 add column if not exists "isHidden" boolean not null default false
+                """
+            )
+            cursor.execute(
+                """
+                alter table excluded_projects_rows
+                add column if not exists "shareStatus" text not null default ''
                 """
             )
             _migrate_excluded_projects_row_columns(cursor)

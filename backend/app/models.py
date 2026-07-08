@@ -120,6 +120,7 @@ EXCLUDED_PROJECT_ROW_FIELDS = (
     "openDate",
     "category",
     "keyword",
+    "shareStatus",
     "writer",
     "projectName",
     "client",
@@ -140,6 +141,7 @@ class ExcludedProjectRow:
     open_date: Optional[date]
     category: str
     keyword: str
+    share_status: str
     writer: str
     project_name: str
     client: str

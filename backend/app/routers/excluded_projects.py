@@ -11,6 +11,7 @@ from app.schemas import (
     ExcludedProjectImport,
     ExcludedProjectOut,
     ExcludedProjectPatch,
+    excluded_project_patch_to_db_values,
     excluded_project_to_db_values,
     row_to_excluded_project,
 )
@@ -20,7 +21,7 @@ router = APIRouter(prefix="/api/excluded-projects", tags=["excluded-projects"])
 
 RETURNING_COLUMNS = """
   id, "orderNo", "writeDate", "openDate", category,
-  keyword, writer, "projectName", client, "projectAmount",
+  keyword, "shareStatus", writer, "projectName", client, "projectAmount",
   "exclusionReason", "isHidden", "createdAt", "updatedAt"
 """
 
@@ -84,7 +85,7 @@ def create_excluded_project_row(row: ExcludedProjectCreate):
 
 @router.patch("/{row_id}", response_model=ExcludedProjectOut)
 def update_excluded_project_row(row_id: str, patch: ExcludedProjectPatch):
-    values = excluded_project_to_db_values(patch)
+    values = excluded_project_patch_to_db_values(patch)
     if not values:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
 

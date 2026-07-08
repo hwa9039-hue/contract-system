@@ -587,6 +587,15 @@ const EXCLUDED_COLUMNS = [
     cellClass: 'excluded-col-tight excluded-w-24',
   },
   {
+    key: 'shareStatus',
+    label: '공유',
+    align: 'center',
+    type: 'select',
+    options: ['O', 'X'],
+    widthClass: 'excluded-w-20',
+    cellClass: 'excluded-col-tight excluded-w-20',
+  },
+  {
     key: 'writer',
     label: '작성자',
     align: 'center',
@@ -1277,6 +1286,7 @@ function isWorkReportRelatedMenu(menuKey) {
 const ACTIVE_MENU_STORAGE_KEY = 'cms-active-menu'
 const SIDEBAR_GROUPS_EXPANDED_KEY = 'cms-sidebar-groups-expanded'
 const SALES_HIDDEN_ROW_IDS_STORAGE_KEY = 'cms-sales-hidden-row-ids'
+const EXCLUDED_HIDDEN_ROW_IDS_STORAGE_KEY = 'cms-excluded-hidden-row-ids'
 
 function parseRegistryHiddenFlag(value) {
   if (value === true) return true
@@ -1348,6 +1358,38 @@ function hasExcludedRowHiddenFlagFromApi(row) {
   return parseRegistryHiddenFlag(
     row?.isHidden ?? row?.ishidden ?? row?.is_hidden ?? row?.archived ?? row?.isArchived
   )
+}
+
+function loadStoredExcludedHiddenRowIds() {
+  try {
+    const raw = localStorage.getItem(EXCLUDED_HIDDEN_ROW_IDS_STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(parsed)) return []
+    return parsed.map((id) => safeString(id).trim()).filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
+function saveStoredExcludedHiddenRowIds(ids) {
+  try {
+    localStorage.setItem(EXCLUDED_HIDDEN_ROW_IDS_STORAGE_KEY, JSON.stringify(ids))
+  } catch {
+    /* ignore */
+  }
+}
+
+function applyExcludedHiddenState(row, hiddenIds) {
+  if (row?.apiReportsHidden) {
+    return row
+  }
+  const hiddenSet = hiddenIds instanceof Set ? hiddenIds : new Set(hiddenIds || [])
+  const storageId = getExcludedRowHiddenStorageId(row)
+  return {
+    ...row,
+    isHidden:
+      hasExcludedRowHiddenFlagFromApi(row) || (storageId ? hiddenSet.has(storageId) : false),
+  }
 }
 
 const SIDEBAR_MENU_GROUPS = [
@@ -2766,6 +2808,7 @@ function createExcludedDraftRow() {
     openDate: '',
     category: '',
     keyword: '',
+    shareStatus: '',
     writer: '',
     projectName: '',
     client: '',
@@ -4129,6 +4172,11 @@ function toDiscoveryPayload(row, timestamp) {
 }
 
 function normalizeExcludedRow(item) {
+  const source = item && typeof item === 'object' ? item : {}
+  const apiReportsHidden =
+    Object.prototype.hasOwnProperty.call(source, 'isHidden') ||
+    Object.prototype.hasOwnProperty.call(source, 'ishidden') ||
+    Object.prototype.hasOwnProperty.call(source, 'is_hidden')
   return {
     id: safeString(item.id),
     orderNo: safeString(item.orderNo ?? item.orderno),
@@ -4136,12 +4184,14 @@ function normalizeExcludedRow(item) {
     openDate: safeString(item.openDate ?? item.opendate),
     category: safeString(item.category),
     keyword: safeString(item.keyword),
+    shareStatus: safeString(item.shareStatus ?? item.sharestatus),
     writer: safeString(item.writer),
     projectName: safeString(item.projectName ?? item.projectname),
     client: safeString(item.client),
     projectAmount: safeString(item.projectAmount ?? item.projectamount),
     exclusionReason: safeString(item.exclusionReason ?? item.exclusionreason),
     isHidden: hasExcludedRowHiddenFlagFromApi(item),
+    apiReportsHidden,
     createdAt: safeString(item.createdAt ?? item.createdat),
     updatedAt: safeString(item.updatedAt ?? item.updatedat),
     isDraft: false,
@@ -4162,6 +4212,7 @@ function toExcludedPayload(row, timestamp) {
     openDate: toDbDate(row.openDate),
     category: safeString(row.category).trim(),
     keyword: safeString(row.keyword).trim(),
+    shareStatus: safeString(row.shareStatus).trim(),
     writer: safeString(row.writer).trim(),
     projectName: safeString(row.projectName).trim(),
     client: safeString(row.client).trim(),
@@ -5367,6 +5418,9 @@ function App() {
   const [excludedActiveFilters, setExcludedActiveFilters] = useState({})
   const [openExcludedColumnFilterKey, setOpenExcludedColumnFilterKey] = useState(null)
   const [showHiddenExcludedRows, setShowHiddenExcludedRows] = useState(false)
+  const [excludedHiddenRowIds, setExcludedHiddenRowIds] = useState(() =>
+    loadStoredExcludedHiddenRowIds()
+  )
   const [editingWorkCellKey, setEditingWorkCellKey] = useState('')
   const [editingWorkCellData, setEditingWorkCellData] = useState(null)
   const [workReportDrafts, setWorkReportDrafts] = useState({})
@@ -5648,6 +5702,10 @@ function App() {
   useEffect(() => {
     saveStoredSalesHiddenRowIds(salesHiddenRowIds)
   }, [salesHiddenRowIds])
+
+  useEffect(() => {
+    saveStoredExcludedHiddenRowIds(excludedHiddenRowIds)
+  }, [excludedHiddenRowIds])
 
   const fetchDiscoveryRows = async (preserveDrafts = true) => {
     try {
@@ -6956,7 +7014,10 @@ function App() {
     [filteredDiscoveryRows.length, visibleModeDiscoveryRows.length]
   )
 
-  const excludedRawData = excludedRows
+  const excludedRawData = useMemo(
+    () => excludedRows.map((row) => applyExcludedHiddenState(row, excludedHiddenRowIds)),
+    [excludedHiddenRowIds, excludedRows]
+  )
 
   const visibleModeExcludedRows = useMemo(
     () =>
@@ -8317,19 +8378,38 @@ function App() {
         getExcludedRowHiddenStorageId(item) === rowId ? { ...item, isHidden: nextHidden } : item
       )
     )
+    setExcludedHiddenRowIds((prev) => {
+      const next = new Set(prev.map((id) => safeString(id).trim()).filter(Boolean))
+      if (nextHidden) next.add(rowId)
+      else next.delete(rowId)
+      return [...next]
+    })
     setSelectedExcludedIds((prev) => prev.filter((id) => normalizeRegistryRowId(id) !== rowId))
     setToastMessage(nextHidden ? '숨김 처리되었습니다.' : '숨김 해제되었습니다.')
 
     try {
       await excludedProjectsApi.update(rowId, { isHidden: nextHidden })
     } catch (error) {
+      const message = safeString(error?.message).trim()
+      const apiMissingHiddenSupport =
+        message === 'No fields to update' || message.includes('No fields to update')
+      if (apiMissingHiddenSupport) {
+        console.warn('[사업공유] API가 isHidden PATCH를 지원하지 않아 로컬 숨김 상태만 저장합니다.')
+        return
+      }
       setExcludedRows((prev) =>
         prev.map((item) =>
           getExcludedRowHiddenStorageId(item) === rowId ? { ...item, isHidden: !nextHidden } : item
         )
       )
+      setExcludedHiddenRowIds((prev) => {
+        const next = new Set(prev.map((id) => safeString(id).trim()).filter(Boolean))
+        if (nextHidden) next.delete(rowId)
+        else next.add(rowId)
+        return [...next]
+      })
       showAppAlert(
-        error?.message || '숨김 상태 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+        message || '숨김 상태 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.',
         '오류'
       )
     }

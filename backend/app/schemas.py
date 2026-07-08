@@ -402,6 +402,7 @@ class ExcludedProjectBase(BaseModel):
     openDate: Optional[Any] = None
     category: Optional[Any] = ""
     keyword: Optional[Any] = ""
+    shareStatus: Optional[Any] = ""
     writer: Optional[Any] = ""
     projectName: Optional[Any] = ""
     client: Optional[Any] = ""
@@ -422,6 +423,7 @@ class ExcludedProjectPatch(BaseModel):
     openDate: Optional[Any] = None
     category: Optional[Any] = None
     keyword: Optional[Any] = None
+    shareStatus: Optional[Any] = None
     writer: Optional[Any] = None
     projectName: Optional[Any] = None
     client: Optional[Any] = None
@@ -877,6 +879,7 @@ def row_to_excluded_project(row) -> dict:
         "openDate": to_response_value(row["openDate"]),
         "category": to_response_value(row["category"]),
         "keyword": to_response_value(row["keyword"]),
+        "shareStatus": to_response_value(_contract_row_field(row, "shareStatus", "sharestatus", default="")),
         "writer": to_response_value(row["writer"]),
         "projectName": to_response_value(row["projectName"]),
         "client": to_response_value(row["client"]),
@@ -1186,6 +1189,7 @@ TABLE_COLUMN_MAPPINGS = {
         "openDate": "openDate",
         "category": "category",
         "keyword": "keyword",
+        "shareStatus": "shareStatus",
         "writer": "writer",
         "projectName": "projectName",
         "client": "client",
@@ -1310,6 +1314,22 @@ def project_discovery_to_db_values(row: ProjectDiscoveryBase) -> dict:
         if api_key == "permitDate":
             out[db_key] = _coerce_permit_date_text(val)
             continue
+        if api_key == "isHidden":
+            out[db_key] = bool(val) if val is not None else False
+            continue
+        out[db_key] = val
+    return out
+
+
+def excluded_project_patch_to_db_values(patch: ExcludedProjectPatch) -> dict:
+    """PATCH 본문 — isHidden 단독 갱신 등 exclude_unset 필드만 DB로."""
+    data = patch.model_dump(exclude_unset=True)
+    fields_set = getattr(patch, "model_fields_set", None) or set()
+    out: dict = {}
+    for api_key, db_key in EXCLUDED_PROJECT_DB_COLUMNS.items():
+        if api_key not in data and api_key not in fields_set:
+            continue
+        val = data.get(api_key)
         if api_key == "isHidden":
             out[db_key] = bool(val) if val is not None else False
             continue
