@@ -6819,6 +6819,14 @@ textarea:focus-visible {
   max-width: 11.5rem;
 }
 
+.discovery-registry-table col.discovery-w-58,
+.discovery-registry-table th.discovery-w-58,
+.discovery-registry-table td.discovery-w-58 {
+  width: 14.5rem;
+  min-width: 14.5rem;
+  max-width: 14.5rem;
+}
+
 .discovery-registry-table col.discovery-w-48,
 .discovery-registry-table th.discovery-w-48,
 .discovery-registry-table td.discovery-w-48 {
@@ -6859,6 +6867,13 @@ textarea:focus-visible {
 .discovery-registry-table th.discovery-w-p17,
 .discovery-registry-table td.discovery-w-p17 {
   width: 17%;
+  min-width: 0;
+}
+
+.discovery-registry-table col.discovery-w-p14,
+.discovery-registry-table th.discovery-w-p14,
+.discovery-registry-table td.discovery-w-p14 {
+  width: 14%;
   min-width: 0;
 }
 
@@ -6950,7 +6965,7 @@ textarea:focus-visible {
   white-space: normal;
   word-break: break-word;
   overflow-wrap: break-word;
-  min-width: 280px;
+  min-width: 235px;
 }
 
 .discovery-registry-table .discovery-col-detail {
