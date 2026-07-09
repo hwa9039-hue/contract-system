@@ -7070,6 +7070,22 @@ textarea:focus-visible {
   box-shadow: inset 0 0 0 1px #93c5fd;
 }
 
+/* 사업공유 — 행 높이가 늘어날 때 모든 셀 내용을 상단 기준으로 정렬 */
+.excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
+  vertical-align: top !important;
+}
+
+.excluded-registry-table .cell-display,
+.excluded-registry-table .editable-text-cell-display,
+.excluded-registry-table .editable-text-cell-input,
+.excluded-registry-table .cell-display--importance,
+.excluded-registry-table .cell-inline-editor,
+.excluded-registry-table .inline-row-editor,
+.excluded-registry-table .sales-detail-preview,
+.excluded-registry-table .registry-importance-cell {
+  align-items: flex-start !important;
+}
+
 .excluded-registry-table.excel-table thead th,
 .excluded-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
   box-sizing: border-box;
@@ -7214,7 +7230,6 @@ textarea:focus-visible {
   > td.excluded-col-text {
   overflow: visible;
   height: auto;
-  vertical-align: top;
 }
 
 .excluded-multiline-display {

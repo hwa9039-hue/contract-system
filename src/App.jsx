@@ -11882,7 +11882,10 @@ function App() {
     }
 
     if (column.type === 'textarea') {
-      if (e.key === 'Enter' && e.ctrlKey) {
+      if (e.key === 'Enter' && e.shiftKey) {
+        return
+      }
+      if (e.key === 'Enter') {
         e.preventDefault()
         await onSave()
       }
