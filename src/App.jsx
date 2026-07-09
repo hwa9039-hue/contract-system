@@ -2803,8 +2803,12 @@ function createDiscoveryDraftRow() {
 }
 
 function createExcludedDraftRow() {
+  const draftId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? `excluded-draft-${crypto.randomUUID()}`
+      : `excluded-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   return {
-    id: `excluded-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: draftId,
     orderNo: '',
     writeDate: '',
     openDate: '',
@@ -5518,6 +5522,7 @@ function App() {
   const [excludedActiveFilters, setExcludedActiveFilters] = useState({})
   const [openExcludedColumnFilterKey, setOpenExcludedColumnFilterKey] = useState(null)
   const [showHiddenExcludedRows, setShowHiddenExcludedRows] = useState(false)
+  const [excludedDraftFocusRowId, setExcludedDraftFocusRowId] = useState(null)
   const [excludedHiddenRowIds, setExcludedHiddenRowIds] = useState(() =>
     loadStoredExcludedHiddenRowIds()
   )
@@ -6107,8 +6112,21 @@ function App() {
     if (menu === 'excluded') return
     setEditingExcludedIds([])
     setExcludedEditSnapshots({})
+    setExcludedDraftFocusRowId(null)
     setExcludedRows((prev) => prev.filter((row) => !(row.isDraft && isExcludedRowEmpty(row))))
   }, [menu])
+
+  useEffect(() => {
+    if (!excludedDraftFocusRowId || menu !== 'excluded') return
+    const timer = window.setTimeout(() => {
+      const rowEl = document.querySelector(
+        `[data-excluded-draft-row="${excludedDraftFocusRowId}"]`
+      )
+      const focusable = rowEl?.querySelector('input:not([type="checkbox"]), textarea, select')
+      focusable?.focus({ preventScroll: true })
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [excludedDraftFocusRowId, menu])
 
   useLayoutEffect(() => {
     if (menu === 'dashboard') {
@@ -7215,9 +7233,17 @@ function App() {
     [filteredDiscoveryRows]
   )
 
+  const excludedDraftRows = useMemo(
+    () => visibleModeExcludedRows.filter((row) => row.isDraft),
+    [visibleModeExcludedRows]
+  )
+
   const groupedExcludedRows = useMemo(
     () =>
-      groupRegistryRowsByYear(filteredExcludedRows, 'writeDate').map((group) => ({
+      groupRegistryRowsByYear(
+        filteredExcludedRows.filter((row) => !row.isDraft),
+        'writeDate'
+      ).map((group) => ({
         ...group,
         items: sortRegistryRowsByDateDesc(group.items, 'writeDate'),
       })),
@@ -9182,8 +9208,13 @@ function App() {
   }
 
   const handleAddExcludedRow = () => {
-    setRegistryCreateModal({ scope: 'excluded', draft: createExcludedDraftRow() })
+    const draft = createExcludedDraftRow()
+    setExcludedRows((prev) => {
+      const withoutEmptyDrafts = prev.filter((row) => !(row.isDraft && isExcludedRowEmpty(row)))
+      return [draft, ...withoutEmptyDrafts]
+    })
     setSelectedExcludedIds([])
+    setExcludedDraftFocusRowId(draft.id)
   }
 
   const handleExcludedCellChange = (rowId, key, value) => {
@@ -9220,6 +9251,7 @@ function App() {
 
     if (targetRow.isDraft) {
       setExcludedRows((prev) => prev.filter((row) => row.id !== rowId))
+      setExcludedDraftFocusRowId((prev) => (prev === rowId ? null : prev))
       return
     }
 
@@ -9274,19 +9306,33 @@ function App() {
       const timestamp = new Date().toISOString()
 
       if (targetRow.isDraft) {
-        await excludedProjectsApi.create({
+        const created = await excludedProjectsApi.create({
           ...toExcludedPayload(targetRow, timestamp),
           createdAt: timestamp,
         })
+        const normalized = normalizeExcludedRow(created)
+        setExcludedRows((prev) =>
+          prev.map((row) => (row.id === rowId ? normalized : row))
+        )
+        setSelectedExcludedIds((prev) => prev.map((id) => (id === rowId ? normalized.id : id)))
+        setExcludedDraftFocusRowId((prev) => (prev === rowId ? null : prev))
       } else {
-        await excludedProjectsApi.update(rowId, toExcludedPayload(targetRow, timestamp))
+        const updated = await excludedProjectsApi.update(rowId, toExcludedPayload(targetRow, timestamp))
+        const normalized = normalizeExcludedRow(updated)
+        setExcludedRows((prev) =>
+          prev.map((row) => (row.id === rowId ? normalized : row))
+        )
       }
 
-      await fetchExcludedRows(false)
       setEditingExcludedIds((prev) => prev.filter((id) => id !== rowId))
       setExcludedEditSnapshots((prev) => removeObjectKey(prev, rowId))
       setToastMessage('저장되었습니다.')
     } catch (error) {
+      if (targetRow.isDraft) {
+        setExcludedRows((prev) => prev.filter((row) => row.id !== rowId))
+        setSelectedExcludedIds((prev) => prev.filter((id) => id !== rowId))
+        setExcludedDraftFocusRowId((prev) => (prev === rowId ? null : prev))
+      }
       logApiOperationError('사업공유 저장', error)
     } finally {
       setIsSavingExcluded(false)
@@ -11860,7 +11906,7 @@ function App() {
     await onSave()
   }
 
-  const renderRegistryEditor = (row, column, onChange, { onSave, onCancel }) => {
+  const renderRegistryEditor = (row, column, onChange, { onSave, onCancel, autoFocus = false }) => {
     if (column.type === 'textarea') {
       return (
         <textarea
@@ -11868,6 +11914,7 @@ function App() {
           style={{ textAlign: column.align || 'left' }}
           rows={1}
           value={row[column.key] ?? ''}
+          autoFocus={autoFocus}
           onChange={(e) => onChange(row.id, column.key, e.target.value)}
           onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
         />
@@ -11881,6 +11928,7 @@ function App() {
           style={{ textAlign: 'center' }}
           type="date"
           value={row[column.key] ?? ''}
+          autoFocus={autoFocus}
           onChange={(e) => onChange(row.id, column.key, e.target.value)}
           onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
         />
@@ -11893,6 +11941,7 @@ function App() {
           className={TABLE_INLINE_INPUT_STANDARD_CLASS}
           style={{ textAlign: 'center' }}
           value={row[column.key] ?? ''}
+          autoFocus={autoFocus}
           onChange={(e) => onChange(row.id, column.key, e.target.value)}
           onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
         >
@@ -11912,6 +11961,7 @@ function App() {
         style={{ textAlign: column.align || 'left' }}
         type="text"
         value={row[column.key] ?? ''}
+        autoFocus={autoFocus}
         onChange={(e) => onChange(row.id, column.key, e.target.value)}
         onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
       />
@@ -11939,6 +11989,8 @@ function App() {
     renderAfterSelectionCell = null,
     renderAfterImportanceCell = null,
     showSelection = true,
+    draftFocusRowId = null,
+    draftFocusColumnKey = null,
   }) => {
     const rowKey = rowKeyProp ?? getRegistryTableRowDomKey(row, index)
     const contactsManageForcedDbId =
@@ -11962,7 +12014,12 @@ function App() {
     return (
       <tr
         key={rowKey}
-        className={index % 2 === 0 ? 'row-even' : 'row-odd'}
+        className={`${index % 2 === 0 ? 'row-even' : 'row-odd'}${
+          row.isDraft && cellEditScope === 'excluded' ? ' excluded-draft-row' : ''
+        }`}
+        data-excluded-draft-row={
+          row.isDraft && cellEditScope === 'excluded' ? rowId : undefined
+        }
         onBlur={
           row.isDraft && showDraftOrLegacyRow
             ? (e) => handleRegistryRowBlur(e, row, isSaving, onSaveRow, onCancelRow, isEmptyRow)
@@ -12242,6 +12299,10 @@ function App() {
                   renderRegistryEditor(displayRow, column, onChange, {
                     onSave: onSaveRow,
                     onCancel: onCancelRow,
+                    autoFocus:
+                      row.isDraft &&
+                      draftFocusRowId === rowId &&
+                      draftFocusColumnKey === column.key,
                   })
                 )
               ) : (
@@ -15298,7 +15359,7 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {excludedRawData.length === 0 ? (
+                    {excludedRawData.length === 0 && excludedDraftRows.length === 0 ? (
                       <tr>
                         <td
                           colSpan={EXCLUDED_COLUMNS.length + 2}
@@ -15307,7 +15368,7 @@ function App() {
                           등록된 데이터가 없습니다.
                         </td>
                       </tr>
-                    ) : visibleModeExcludedRows.length === 0 ? (
+                    ) : visibleModeExcludedRows.length === 0 && excludedDraftRows.length === 0 ? (
                       <tr>
                         <td
                           colSpan={EXCLUDED_COLUMNS.length + 2}
@@ -15316,7 +15377,7 @@ function App() {
                           {showHiddenExcludedRows ? '숨긴 항목이 없습니다.' : '표시할 데이터가 없습니다.'}
                         </td>
                       </tr>
-                    ) : isExcludedTableFilterResultEmpty ? (
+                    ) : isExcludedTableFilterResultEmpty && excludedDraftRows.length === 0 ? (
                       <tr>
                         <td
                           colSpan={EXCLUDED_COLUMNS.length + 2}
@@ -15326,28 +15387,57 @@ function App() {
                         </td>
                       </tr>
                     ) : (
-                    renderGroupedRegistryRows({
-                      groups: groupedExcludedRows,
-                      columns: EXCLUDED_COLUMNS,
-                      emptyMessage: showHiddenExcludedRows ? '숨긴 항목이 없습니다.' : '등록된 데이터가 없습니다.',
-                      selectedIds: selectedExcludedIds,
-                      onToggleSelection: toggleExcludedSelection,
-                      editingIds: [],
-                      isSaving: isSavingExcluded,
-                      onStartEdit: startExcludedEdit,
-                      onSaveRow: saveExcludedRow,
-                      onCancelRow: cancelExcludedRow,
-                      onChange: handleExcludedCellChange,
-                      isEmptyRow: isExcludedRowEmpty,
-                      isYearOpen: isExcludedYearOpen,
-                      onToggleYear: toggleExcludedYear,
-                      cellEditScope: 'excluded',
-                      isAdminForRegistry: canEditExcluded,
-                      registryCellEdit,
-                      onRegistryCellStart: (rowId, columnKey, value, row) =>
-                        startRegistryCellEdit('excluded', rowId, columnKey, value, row),
-                      renderAfterSelectionCell: renderExcludedArchiveCell,
-                    })
+                    <>
+                      {excludedDraftRows.map((row, index) =>
+                        renderRegistryDataRow({
+                          row,
+                          index,
+                          columns: EXCLUDED_COLUMNS,
+                          editingIds: [],
+                          isSaving: isSavingExcluded,
+                          onStartEdit: () => startExcludedEdit(row.id),
+                          onSaveRow: () => saveExcludedRow(row.id),
+                          onCancelRow: () => cancelExcludedRow(row.id),
+                          onChange: handleExcludedCellChange,
+                          isEmptyRow: isExcludedRowEmpty,
+                          selectedIds: selectedExcludedIds,
+                          onToggleSelection: toggleExcludedSelection,
+                          cellEditScope: 'excluded',
+                          isAdminForRegistry: canEditExcluded,
+                          registryCellEdit,
+                          onRegistryCellStart: (rowId, columnKey, value, draftRow) =>
+                            startRegistryCellEdit('excluded', rowId, columnKey, value, draftRow),
+                          renderAfterSelectionCell: renderExcludedArchiveCell,
+                          draftFocusRowId: excludedDraftFocusRowId,
+                          draftFocusColumnKey: 'writeDate',
+                        })
+                      )}
+                      {groupedExcludedRows.length > 0 || excludedDraftRows.length === 0
+                        ? renderGroupedRegistryRows({
+                            groups: groupedExcludedRows,
+                            columns: EXCLUDED_COLUMNS,
+                            emptyMessage:
+                              showHiddenExcludedRows ? '숨긴 항목이 없습니다.' : '등록된 데이터가 없습니다.',
+                            selectedIds: selectedExcludedIds,
+                            onToggleSelection: toggleExcludedSelection,
+                            editingIds: [],
+                            isSaving: isSavingExcluded,
+                            onStartEdit: startExcludedEdit,
+                            onSaveRow: saveExcludedRow,
+                            onCancelRow: cancelExcludedRow,
+                            onChange: handleExcludedCellChange,
+                            isEmptyRow: isExcludedRowEmpty,
+                            isYearOpen: isExcludedYearOpen,
+                            onToggleYear: toggleExcludedYear,
+                            cellEditScope: 'excluded',
+                            isAdminForRegistry: canEditExcluded,
+                            registryCellEdit,
+                            onRegistryCellStart: (rowId, columnKey, value, draftRow) =>
+                              startRegistryCellEdit('excluded', rowId, columnKey, value, draftRow),
+                            renderAfterSelectionCell: renderExcludedArchiveCell,
+                          })
+                        : null}
+                    </>
                     )}
                   </tbody>
                 </table>
