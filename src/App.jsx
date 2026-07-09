@@ -452,8 +452,8 @@ const DISCOVERY_COLUMNS = [
     label: '발주처',
     align: 'center',
     type: 'text',
-    widthClass: 'discovery-w-32',
-    cellClass: 'discovery-col-tight discovery-w-32',
+    widthClass: 'discovery-w-48',
+    cellClass: 'discovery-col-client discovery-w-48',
   },
   {
     key: 'projectName',
@@ -12203,7 +12203,9 @@ function App() {
                         ? 'break-words whitespace-pre-wrap'
                         : 'table-cell-clamp'
                       : ''
-                  } ${registryWeekHighlightClass}`.trim()}
+                  } ${registryWeekHighlightClass}${
+                    discoveryReportNewBadge ? ' discovery-permit-date-with-badge' : ''
+                  }`.trim()}
                   suffix={registryDateSuffixBadge}
                   onSave={(nextValue) =>
                     handleRegistryTextCellSave(cellEditScope, rowId, column, nextValue)
@@ -12231,7 +12233,7 @@ function App() {
                       : ''
                   }${plainDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''}${
                     registryWeekHighlightClass ? ` ${registryWeekHighlightClass}` : ''
-                  }`}
+                  }${discoveryReportNewBadge ? ' discovery-permit-date-with-badge' : ''}`}
                 >
                   {plainDisplay.text}
                   {registryDateSuffixBadge}

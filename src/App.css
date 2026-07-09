@@ -6803,6 +6803,14 @@ textarea:focus-visible {
   max-width: 10rem;
 }
 
+.discovery-registry-table col.discovery-w-48,
+.discovery-registry-table th.discovery-w-48,
+.discovery-registry-table td.discovery-w-48 {
+  width: 12rem;
+  min-width: 12rem;
+  max-width: 12rem;
+}
+
 .discovery-registry-table col.discovery-w-p10,
 .discovery-registry-table th.discovery-w-p10,
 .discovery-registry-table td.discovery-w-p10 {
@@ -6896,6 +6904,23 @@ textarea:focus-visible {
   text-align: center;
   line-height: 1.25;
   font-size: 13px;
+}
+
+.discovery-registry-table .discovery-col-client {
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.discovery-registry-table .discovery-col-client .cell-display {
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  overflow: visible;
+  text-overflow: clip;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.25;
 }
 
 .discovery-registry-table .discovery-col-project,
@@ -12634,6 +12659,17 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   background: var(--accent, #2F6BFF);
   color: #fff;
   cursor: default;
+}
+
+/* 건축정보일자 + N 뱃지 — 날짜와 뱃지 사이 간격 */
+.discovery-registry-table .discovery-col-tight .cell-display.discovery-permit-date-with-badge,
+.discovery-registry-table .editable-text-cell-display.discovery-permit-date-with-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 /* '금주' — 파란 배경 + 흰색 텍스트로 강조 */
