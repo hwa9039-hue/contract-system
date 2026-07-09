@@ -7107,6 +7107,38 @@ textarea:focus-visible {
   padding: 12px 8px !important;
 }
 
+/* MUI 입력 컴포넌트가 섞여 렌더링되는 경우에도 흰 박스/외곽선을 제거한다. */
+.excluded-registry-table .MuiInputBase-root,
+.excluded-registry-table .MuiInputBase-input,
+.excluded-registry-table .MuiSelect-select {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.excluded-registry-table .MuiOutlinedInput-notchedOutline {
+  border: none !important;
+}
+
+.excluded-registry-table .MuiInputBase-root:hover,
+.excluded-registry-table .MuiInputBase-root.Mui-focused,
+.excluded-registry-table .MuiOutlinedInput-root:hover,
+.excluded-registry-table .MuiOutlinedInput-root.Mui-focused,
+.excluded-registry-table .MuiSelect-select:hover,
+.excluded-registry-table .MuiSelect-select:focus {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.excluded-registry-table .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline,
+.excluded-registry-table .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border: none !important;
+}
+
+.excluded-registry-table .MuiDataGrid-cell {
+  align-items: flex-start !important;
+  padding-top: 12px !important;
+}
+
 .excluded-registry-table .excluded-inline-editor:focus,
 .excluded-registry-table .excluded-inline-editor:focus-visible,
 .excluded-registry-table td.editable-cell > input:not([type='checkbox']):focus,
@@ -7194,7 +7226,7 @@ textarea:focus-visible {
 
 .excluded-registry-table .editable-text-cell-display {
   min-height: 0 !important;
-  padding: 0 !important;
+  padding: 12px 8px !important;
 }
 
 .excluded-registry-table .registry-check-cell,
