@@ -7181,10 +7181,54 @@ textarea:focus-visible {
 }
 
 .excluded-registry-table .excluded-col-project,
-.excluded-registry-table .excluded-col-reason {
+.excluded-registry-table .excluded-col-reason,
+.excluded-registry-table .excluded-col-text {
   white-space: normal;
-  word-break: break-word;
+  word-break: keep-all;
   overflow-wrap: break-word;
+}
+
+.excluded-registry-table .excluded-col-project .cell-display,
+.excluded-registry-table .excluded-col-reason .cell-display,
+.excluded-registry-table .excluded-col-text .cell-display,
+.excluded-registry-table .excluded-col-project .editable-text-cell-display,
+.excluded-registry-table .excluded-col-reason .editable-text-cell-display,
+.excluded-registry-table .excluded-col-text .editable-text-cell-display {
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.excluded-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.excluded-col-project,
+.excluded-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.excluded-col-reason,
+.excluded-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.excluded-col-text {
+  overflow: visible;
+  height: auto;
+  vertical-align: top;
+}
+
+.excluded-multiline-display {
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  overflow: visible;
+  line-height: 1.35;
+}
+
+.excluded-registry-table tbody td.p-0 > textarea.excluded-multiline-inline-editor {
+  min-height: 96px;
+  height: auto;
+  resize: vertical;
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  line-height: 1.35;
+  overflow: auto;
 }
 
 .excluded-registry-table .excluded-amount-header {
@@ -7220,8 +7264,8 @@ textarea:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: normal !important;
-  word-break: break-word;
-  overflow-wrap: anywhere;
+  word-break: keep-all;
+  overflow-wrap: break-word;
   cursor: pointer;
 }
 

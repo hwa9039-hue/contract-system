@@ -617,7 +617,7 @@ const EXCLUDED_COLUMNS = [
     align: 'center',
     type: 'text',
     widthClass: 'excluded-w-32',
-    cellClass: 'excluded-col-tight excluded-w-32',
+    cellClass: 'excluded-col-text excluded-w-32',
   },
   {
     key: 'projectAmount',
@@ -4252,6 +4252,13 @@ function isExcludedRowEmpty(row) {
 /** 대시보드 노출: 공유 상태가 'O'인 사업공유 행만 */
 function isExcludedShareStatusOpen(row) {
   return safeString(row?.shareStatus).trim().toUpperCase() === 'O'
+}
+
+/** 사업공유 — 사업명·발주처·세부내용 등 긴 텍스트 인라인 편집(멀티라인) */
+function isExcludedMultilineEditColumn(column, scope) {
+  if (scope !== 'excluded' || !column) return false
+  if (column.type === 'textarea') return true
+  return column.key === 'projectName' || column.key === 'client'
 }
 
 function toExcludedPayload(row, timestamp) {
@@ -11691,6 +11698,8 @@ function App() {
 
   const renderRegistryCellInlineEditor = (column, editContext) => {
     const { scope, rowId } = editContext || {}
+    const isMultilineColumn =
+      column.type === 'textarea' || isExcludedMultilineEditColumn(column, scope)
     const commonProps = {
       className: TABLE_INLINE_INPUT_STANDARD_CLASS,
       style: { textAlign: column.align || 'left' },
@@ -11718,7 +11727,7 @@ function App() {
           moveRegistryCellEdit(e.shiftKey ? 'prev' : 'next')
           return
         }
-        if (column.type === 'textarea' && e.shiftKey && e.key === 'Enter') {
+        if (isMultilineColumn && e.shiftKey && e.key === 'Enter') {
           return
         }
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -11731,17 +11740,26 @@ function App() {
     if (column.type === 'date') {
       return <input {...commonProps} type="date" />
     }
-    if (column.type === 'textarea') {
+    if (column.type === 'textarea' || isExcludedMultilineEditColumn(column, scope)) {
       const isSalesDetailEditor =
         scope === 'sales' && isSalesDetailHistoryColumn(column, scope)
       const isDiscoveryNoteEditor = scope === 'discovery' && column.key === 'note'
+      const isExcludedLongTextEditor = isExcludedMultilineEditColumn(column, scope)
       return (
         <textarea
           {...commonProps}
           className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} resize-none${
             isSalesDetailEditor ? ' sales-detail-inline-editor' : ''
-          }${isDiscoveryNoteEditor ? ' discovery-note-inline-editor' : ''}`}
-          rows={isSalesDetailEditor || isDiscoveryNoteEditor ? 6 : 2}
+          }${isDiscoveryNoteEditor ? ' discovery-note-inline-editor' : ''}${
+            isExcludedLongTextEditor ? ' excluded-multiline-inline-editor' : ''
+          }`}
+          rows={
+            isSalesDetailEditor || isDiscoveryNoteEditor
+              ? 6
+              : isExcludedLongTextEditor
+                ? 4
+                : 2
+          }
         />
       )
     }
@@ -11991,6 +12009,7 @@ function App() {
                 cellEditScope === 'documents' ||
                 cellEditScope === 'discovery')
             ) &&
+            !(cellEditScope === 'excluded' && isExcludedMultilineEditColumn(column, cellEditScope)) &&
             useCellMode &&
             isAdminForRegistry &&
             !row.isDraft &&
@@ -12201,7 +12220,9 @@ function App() {
                     isLongTextTableColumn(column)
                       ? cellEditScope === 'discovery'
                         ? 'break-words whitespace-pre-wrap'
-                        : 'table-cell-clamp'
+                        : cellEditScope === 'excluded'
+                          ? 'excluded-multiline-display'
+                          : 'table-cell-clamp'
                       : ''
                   } ${registryWeekHighlightClass}${
                     discoveryReportNewBadge ? ' discovery-permit-date-with-badge' : ''
@@ -12229,7 +12250,9 @@ function App() {
                     isLongTextTableColumn(column)
                       ? cellEditScope === 'discovery'
                         ? ' break-words whitespace-pre-wrap'
-                        : ' table-cell-clamp'
+                        : cellEditScope === 'excluded'
+                          ? ' excluded-multiline-display'
+                          : ' table-cell-clamp'
                       : ''
                   }${plainDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''}${
                     registryWeekHighlightClass ? ` ${registryWeekHighlightClass}` : ''
