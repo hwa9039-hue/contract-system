@@ -25,6 +25,7 @@ export function EditableTextCell({
   disabled = false,
   align = 'left',
   className = '',
+  inputClassName = '',
   suffix = null,
 }) {
   const [isEditing, setIsEditing] = useState(false)
@@ -70,7 +71,7 @@ export function EditableTextCell({
     return (
       <input
         type="text"
-        className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+        className={`${TABLE_INLINE_INPUT_STANDARD_CLASS}${inputClassName ? ` ${inputClassName}` : ''}`.trim()}
         style={{ textAlign: align }}
         value={draft}
         autoFocus

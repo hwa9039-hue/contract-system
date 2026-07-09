@@ -113,6 +113,7 @@ import {
 import {
   TABLE_INLINE_EDITABLE_CELL_CLASS,
   TABLE_INLINE_INPUT_STANDARD_CLASS,
+  EXCLUDED_INLINE_EDITOR_CLASS,
 } from './tableInlineInputClass.js'
 import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
 import {
@@ -11746,8 +11747,12 @@ function App() {
     const { scope, rowId } = editContext || {}
     const isMultilineColumn =
       column.type === 'textarea' || isExcludedMultilineEditColumn(column, scope)
+    const inlineEditorClass =
+      scope === 'excluded'
+        ? `${TABLE_INLINE_INPUT_STANDARD_CLASS} ${EXCLUDED_INLINE_EDITOR_CLASS}`
+        : TABLE_INLINE_INPUT_STANDARD_CLASS
     const commonProps = {
-      className: TABLE_INLINE_INPUT_STANDARD_CLASS,
+      className: inlineEditorClass,
       style: { textAlign: column.align || 'left' },
       value: registryCellEditDraft,
       autoFocus: true,
@@ -11794,7 +11799,7 @@ function App() {
       return (
         <textarea
           {...commonProps}
-          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} resize-none${
+          className={`${inlineEditorClass} resize-none${
             isSalesDetailEditor ? ' sales-detail-inline-editor' : ''
           }${isDiscoveryNoteEditor ? ' discovery-note-inline-editor' : ''}${
             isExcludedLongTextEditor ? ' excluded-multiline-inline-editor' : ''
@@ -11829,7 +11834,7 @@ function App() {
 
       return (
         <select
-          className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+          className={inlineEditorClass}
           style={{ textAlign: column.align || 'left' }}
           value={registryCellEditDraft}
           autoFocus
@@ -11909,11 +11914,12 @@ function App() {
     await onSave()
   }
 
-  const renderRegistryEditor = (row, column, onChange, { onSave, onCancel, autoFocus = false }) => {
+  const renderRegistryEditor = (row, column, onChange, { onSave, onCancel, autoFocus = false, extraClassName = '' }) => {
+    const inputClassName = `${TABLE_INLINE_INPUT_STANDARD_CLASS}${extraClassName ? ` ${extraClassName}` : ''}`.trim()
     if (column.type === 'textarea') {
       return (
         <textarea
-          className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+          className={inputClassName}
           style={{ textAlign: column.align || 'left' }}
           rows={1}
           value={row[column.key] ?? ''}
@@ -11927,7 +11933,7 @@ function App() {
     if (column.type === 'date') {
       return (
         <input
-          className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+          className={inputClassName}
           style={{ textAlign: 'center' }}
           type="date"
           value={row[column.key] ?? ''}
@@ -11941,7 +11947,7 @@ function App() {
     if (column.type === 'select') {
       return (
         <select
-          className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+          className={inputClassName}
           style={{ textAlign: 'center' }}
           value={row[column.key] ?? ''}
           autoFocus={autoFocus}
@@ -11960,7 +11966,7 @@ function App() {
 
     return (
       <input
-        className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+        className={inputClassName}
         style={{ textAlign: column.align || 'left' }}
         type="text"
         value={row[column.key] ?? ''}
@@ -12276,6 +12282,7 @@ function App() {
                 <EditableTextCell
                   value={row[column.key]}
                   align={cellAlign}
+                  inputClassName={cellEditScope === 'excluded' ? EXCLUDED_INLINE_EDITOR_CLASS : ''}
                   className={`${
                     isLongTextTableColumn(column)
                       ? cellEditScope === 'discovery'
@@ -12302,6 +12309,8 @@ function App() {
                   renderRegistryEditor(displayRow, column, onChange, {
                     onSave: onSaveRow,
                     onCancel: onCancelRow,
+                    extraClassName:
+                      cellEditScope === 'excluded' ? EXCLUDED_INLINE_EDITOR_CLASS : '',
                     autoFocus:
                       row.isDraft &&
                       draftFocusRowId === rowId &&
