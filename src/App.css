@@ -7070,7 +7070,13 @@ textarea:focus-visible {
   box-shadow: inset 0 0 0 1px #93c5fd;
 }
 
-/* 사업공유 — 인라인 편집 Flat (엑셀 스타일) */
+/* 사업공유 — 데이터 행 공통: 상단 정렬 + 읽기 쉬운 여백 */
+.excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
+  vertical-align: top !important;
+  padding: 12px 8px !important;
+}
+
+/* 사업공유 — 인라인 편집 Flat (엑셀 스타일, 네이티브 input/select/textarea) */
 .excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td.editable-cell,
 .excluded-registry-table.excel-table.registry-table tbody tr.excluded-draft-row > td:not(.registry-check-cell):not(.sales-archive-cell):not(.registry-importance-cell) {
   padding: 0 !important;
@@ -7082,13 +7088,12 @@ textarea:focus-visible {
 .excluded-registry-table td.editable-cell > textarea {
   display: block;
   width: 100% !important;
-  height: 100%;
-  min-height: 100% !important;
+  height: auto;
+  min-height: 0 !important;
   box-sizing: border-box;
   margin: 0;
   border: 0 !important;
   border-radius: 0 !important;
-  background: transparent !important;
   background-color: transparent !important;
   outline: none !important;
   box-shadow: none !important;
@@ -7099,7 +7104,7 @@ textarea:focus-visible {
   font-size: inherit;
   line-height: inherit;
   color: inherit;
-  padding: 6px 8px !important;
+  padding: 12px 8px !important;
 }
 
 .excluded-registry-table .excluded-inline-editor:focus,
@@ -7113,7 +7118,6 @@ textarea:focus-visible {
   outline: none !important;
   outline-offset: 0 !important;
   box-shadow: none !important;
-  background: transparent !important;
   background-color: transparent !important;
 }
 
@@ -7124,32 +7128,59 @@ textarea:focus-visible {
   box-shadow: inset 0 0 0 1px #3b82f6;
 }
 
+/* 전역 focus-visible 윤곽선이 사업공유 인라인 편집에 겹치지 않도록 차단 */
+.excluded-registry-table input:focus-visible:not([type='checkbox']),
+.excluded-registry-table select:focus-visible,
+.excluded-registry-table textarea:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+}
+
 .excluded-registry-table select.excluded-inline-editor,
 .excluded-registry-table td.editable-cell > select {
   cursor: pointer;
-  padding-right: 1.25rem;
+  padding-right: 1.5rem !important;
+  background-color: transparent !important;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M3 4.5L6 7.5L9 4.5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 6px center;
+  background-position: right 8px top 50%;
+}
+
+.excluded-registry-table select::-moz-focus-inner {
+  border: 0;
 }
 
 .excluded-registry-table input[type='date'].excluded-inline-editor,
 .excluded-registry-table td.editable-cell > input[type='date'] {
   color-scheme: light;
+  background-color: transparent !important;
+}
+
+.excluded-registry-table input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+  background: transparent;
+}
+
+.excluded-registry-table input[type='date']::-webkit-datetime-edit,
+.excluded-registry-table input[type='date']::-webkit-datetime-edit-fields-wrapper,
+.excluded-registry-table input[type='date']::-webkit-datetime-edit-text,
+.excluded-registry-table input[type='date']::-webkit-datetime-edit-month-field,
+.excluded-registry-table input[type='date']::-webkit-datetime-edit-day-field,
+.excluded-registry-table input[type='date']::-webkit-datetime-edit-year-field {
+  background: transparent !important;
+  color: inherit;
+  padding: 0;
 }
 
 .excluded-registry-table textarea.excluded-multiline-inline-editor,
 .excluded-registry-table textarea.excluded-inline-editor {
-  min-height: 2.5rem !important;
+  min-height: 3rem !important;
   resize: vertical;
   white-space: pre-wrap;
 }
 
-/* 사업공유 — 행 높이가 늘어날 때 모든 셀 내용을 상단 기준으로 정렬 */
-.excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
-  vertical-align: top !important;
-}
-
+/* 사업공유 — 표시 모드 셀 내용 상단 기준선 (td padding과 맞춤) */
 .excluded-registry-table .cell-display,
 .excluded-registry-table .editable-text-cell-display,
 .excluded-registry-table .editable-text-cell-input,
@@ -7159,6 +7190,23 @@ textarea:focus-visible {
 .excluded-registry-table .sales-detail-preview,
 .excluded-registry-table .registry-importance-cell {
   align-items: flex-start !important;
+}
+
+.excluded-registry-table .editable-text-cell-display {
+  min-height: 0 !important;
+  padding: 0 !important;
+}
+
+.excluded-registry-table .registry-check-cell,
+.excluded-registry-table .sales-archive-cell,
+.excluded-registry-table .registry-importance-cell {
+  vertical-align: top !important;
+}
+
+.excluded-registry-table .registry-check-cell .registry-row-checkbox,
+.excluded-registry-table .sales-archive-cell .sales-archive-btn,
+.excluded-registry-table .registry-importance-cell .cell-display--importance {
+  margin-top: 0;
 }
 
 .excluded-registry-table.excel-table thead th,
@@ -7325,9 +7373,10 @@ textarea:focus-visible {
   line-height: 1.35;
   overflow: auto;
   border: 0 !important;
-  background: transparent !important;
+  background-color: transparent !important;
   outline: none !important;
   box-shadow: none !important;
+  padding: 12px 8px !important;
 }
 
 .excluded-registry-table .excluded-amount-header {
