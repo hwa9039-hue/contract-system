@@ -574,8 +574,8 @@ const EXCLUDED_COLUMNS = [
     label: '등록일',
     align: 'center',
     type: 'date',
-    widthClass: 'excluded-w-28',
-    cellClass: 'excluded-col-tight excluded-w-28',
+    widthClass: 'excluded-w-34',
+    cellClass: 'excluded-col-tight excluded-col-register-date excluded-w-34',
   },
   {
     key: 'category',
@@ -630,7 +630,7 @@ const EXCLUDED_COLUMNS = [
   },
   {
     key: 'exclusionReason',
-    label: '제외 사유',
+    label: '세부내용',
     align: 'left',
     type: 'textarea',
     widthClass: 'excluded-w-p38',
@@ -11489,9 +11489,16 @@ function App() {
         case 'discovery':
           await projectDiscoveryApi.update(rowId, patch)
           break
-        case 'excluded':
-          await excludedProjectsApi.update(rowId, patch)
+        case 'excluded': {
+          const updated = await excludedProjectsApi.update(rowId, patch)
+          const normalized = normalizeExcludedRow(updated)
+          setExcludedRows((prev) =>
+            prev.map((row) =>
+              safeString(row.id).trim() === safeString(rowId).trim() ? normalized : row
+            )
+          )
           break
+        }
         case 'documents':
           await documentRegisterApi.update(rowId, patch)
           break
@@ -11724,30 +11731,56 @@ function App() {
       )
     }
     if (column.type === 'select') {
+      const commitSelectValue = async (nextValue) => {
+        if (!scope || !rowId) return
+        const snap = registryCellEditRef.current
+        const originalValue =
+          snap?.scope === scope &&
+          safeString(snap.rowId).trim() === safeString(rowId).trim() &&
+          snap.columnKey === column.key
+            ? snap.originalValue
+            : undefined
+
+        try {
+          await persistRegistryCellPatch(scope, rowId, column, nextValue, originalValue)
+        } finally {
+          cancelRegistryCellEdit()
+        }
+      }
+
       return (
         <select
-          {...commonProps}
-          onBlur={() => {
-            cancelRegistryCellEdit()
+          className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+          style={{ textAlign: column.align || 'left' }}
+          value={registryCellEditDraft}
+          autoFocus
+          onMouseDown={(e) => {
+            e.stopPropagation()
           }}
           onChange={(e) => {
             const value = e.target.value
             setRegistryCellEditDraft(value)
             registryCellEditDraftRef.current = value
-            if (!scope || !rowId) return
-
-            const snap = registryCellEditRef.current
-            const originalValue =
-              snap?.scope === scope &&
-              safeString(snap.rowId).trim() === safeString(rowId).trim() &&
-              snap.columnKey === column.key
-                ? snap.originalValue
-                : undefined
-
-            void persistRegistryCellPatch(scope, rowId, column, value, originalValue).then((saved) => {
-              if (!saved) return
+            void commitSelectValue(value)
+          }}
+          onBlur={() => {
+            window.setTimeout(() => {
+              if (!registryCellEditRef.current) return
+              if (
+                registryCellEditRef.current.scope !== scope ||
+                safeString(registryCellEditRef.current.rowId).trim() !== safeString(rowId).trim() ||
+                registryCellEditRef.current.columnKey !== column.key
+              ) {
+                return
+              }
               cancelRegistryCellEdit()
-            })
+            }, 150)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault()
+              cancelRegistryCellEdit()
+            }
           }}
         >
           <option value="">선택</option>
