@@ -4249,6 +4249,11 @@ function isExcludedRowEmpty(row) {
   })
 }
 
+/** 대시보드 노출: 공유 상태가 'O'인 사업공유 행만 */
+function isExcludedShareStatusOpen(row) {
+  return safeString(row?.shareStatus).trim().toUpperCase() === 'O'
+}
+
 function toExcludedPayload(row, timestamp) {
   return {
     orderNo: safeString(row.orderNo).trim(),
@@ -7117,7 +7122,8 @@ function App() {
   )
 
   const visibleExcludedRowsForDashboard = useMemo(
-    () => excludedRawData.filter((row) => !row.isHidden),
+    () =>
+      excludedRawData.filter((row) => !row.isHidden && isExcludedShareStatusOpen(row)),
     [excludedRawData]
   )
 
@@ -7341,8 +7347,16 @@ function App() {
       'permitDate',
       (row) => Boolean(parseDateOnly(row.permitDate))
     )
-    const excludedWeekCount = countRowsRegisteredInCurrentWeek(persistedExcludedRows, 'writeDate')
-    const excludedLastWeekCount = countRowsRegisteredInLastWeek(persistedExcludedRows, 'writeDate')
+    const excludedWeekCount = countRowsRegisteredInCurrentWeek(
+      persistedExcludedRows,
+      'writeDate',
+      isExcludedShareStatusOpen
+    )
+    const excludedLastWeekCount = countRowsRegisteredInLastWeek(
+      persistedExcludedRows,
+      'writeDate',
+      isExcludedShareStatusOpen
+    )
     const { inbound: docInboundCount, outbound: docOutboundCount } =
       countDocumentsInboundOutbound(persistedDocuments)
 
@@ -7382,6 +7396,7 @@ function App() {
           menu: 'excluded',
           items: getDashboardRecentItems(persistedExcludedRows, {
             dateKey: 'writeDate',
+            filterRow: isExcludedShareStatusOpen,
             getTitle: (row) => safeString(row.projectName || row.client).trim() || '사업공유 항목',
             getMeta: (row) =>
               [row.client, row.writer || row.category].filter(Boolean).join(' · ') || '-',
