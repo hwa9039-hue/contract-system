@@ -6795,12 +6795,28 @@ textarea:focus-visible {
   max-width: 8rem;
 }
 
+.discovery-registry-table col.discovery-w-38,
+.discovery-registry-table th.discovery-w-38,
+.discovery-registry-table td.discovery-w-38 {
+  width: 9.5rem;
+  min-width: 9.5rem;
+  max-width: 9.5rem;
+}
+
 .discovery-registry-table col.discovery-w-40,
 .discovery-registry-table th.discovery-w-40,
 .discovery-registry-table td.discovery-w-40 {
   width: 10rem;
   min-width: 10rem;
   max-width: 10rem;
+}
+
+.discovery-registry-table col.discovery-w-46,
+.discovery-registry-table th.discovery-w-46,
+.discovery-registry-table td.discovery-w-46 {
+  width: 11.5rem;
+  min-width: 11.5rem;
+  max-width: 11.5rem;
 }
 
 .discovery-registry-table col.discovery-w-48,
@@ -6839,6 +6855,13 @@ textarea:focus-visible {
   min-width: 0;
 }
 
+.discovery-registry-table col.discovery-w-p17,
+.discovery-registry-table th.discovery-w-p17,
+.discovery-registry-table td.discovery-w-p17 {
+  width: 17%;
+  min-width: 0;
+}
+
 .discovery-registry-table col.discovery-w-p30,
 .discovery-registry-table th.discovery-w-p30,
 .discovery-registry-table td.discovery-w-p30 {
@@ -6851,7 +6874,7 @@ textarea:focus-visible {
 .discovery-registry-table th.discovery-w-flex,
 .discovery-registry-table td.discovery-w-flex {
   width: auto;
-  min-width: 320px;
+  min-width: 345px;
 }
 
 .discovery-registry-table col.sales-record-col,
@@ -6923,12 +6946,18 @@ textarea:focus-visible {
   line-height: 1.25;
 }
 
-.discovery-registry-table .discovery-col-project,
+.discovery-registry-table .discovery-col-project {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 280px;
+}
+
 .discovery-registry-table .discovery-col-detail {
   white-space: normal;
   word-break: break-word;
   overflow-wrap: break-word;
-  min-width: 320px;
+  min-width: 345px;
 }
 
 .discovery-registry-table .discovery-col-detail .cell-display,

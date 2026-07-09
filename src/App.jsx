@@ -418,8 +418,8 @@ const DISCOVERY_COLUMNS = [
     label: '건축정보일자',
     align: 'center',
     type: 'text',
-    widthClass: 'discovery-w-32',
-    cellClass: 'discovery-col-tight discovery-w-32',
+    widthClass: 'discovery-w-38',
+    cellClass: 'discovery-col-tight discovery-w-38',
   },
   {
     key: 'checkStatus',
@@ -460,8 +460,8 @@ const DISCOVERY_COLUMNS = [
     label: '사업명',
     align: 'left',
     type: 'text',
-    widthClass: 'discovery-w-p20',
-    cellClass: 'discovery-col-project discovery-w-p20',
+    widthClass: 'discovery-w-p17',
+    cellClass: 'discovery-col-project discovery-w-p17',
   },
   {
     key: 'projectAmount',
@@ -485,8 +485,8 @@ const DISCOVERY_COLUMNS = [
     label: '담당자',
     align: 'center',
     type: 'text',
-    widthClass: 'discovery-w-40',
-    cellClass: 'discovery-col-manager discovery-w-40',
+    widthClass: 'discovery-w-46',
+    cellClass: 'discovery-col-manager discovery-w-46',
   },
   {
     key: 'note',
