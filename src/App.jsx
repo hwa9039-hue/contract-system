@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   Copy,
   Download,
@@ -156,6 +156,52 @@ import {
   parseMeetingMinutesFromEntry,
   getDashboardMeetingMinutesDisplayRows,
 } from './workReportMeetingMinutes.jsx'
+
+const EXCLUDED_INLINE_EDITOR_STYLE = {
+  display: 'block',
+  background: 'transparent',
+  backgroundColor: 'transparent',
+  border: 0,
+  borderStyle: 'none',
+  borderRadius: 0,
+  outline: 'none',
+  outlineOffset: 0,
+  boxShadow: 'none',
+  WebkitBoxShadow: 'none',
+  boxSizing: 'border-box',
+  width: '100%',
+  height: 'auto',
+  minHeight: 40,
+  padding: '12px 8px',
+  color: 'inherit',
+}
+
+const EXCLUDED_SELECT_INLINE_EDITOR_STYLE = {
+  ...EXCLUDED_INLINE_EDITOR_STYLE,
+  appearance: 'none',
+  WebkitAppearance: 'none',
+  MozAppearance: 'none',
+  paddingRight: '1.5rem',
+}
+
+const EXCLUDED_TABLE_CELL_STYLE = {
+  verticalAlign: 'top',
+  padding: '12px 8px',
+  background: 'transparent',
+  backgroundColor: 'transparent',
+}
+
+const EXCLUDED_TABLE_EDIT_CELL_STYLE = {
+  verticalAlign: 'top',
+  padding: 0,
+  background: 'transparent',
+  backgroundColor: 'transparent',
+}
+
+const EXCLUDED_DRAFT_CELL_BACKGROUND_STYLE = {
+  background: '#eff6ff',
+  backgroundColor: '#eff6ff',
+}
 
 const CONTRACT_COLUMNS = [
   { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text', width: 112 },
@@ -11751,9 +11797,16 @@ function App() {
       scope === 'excluded'
         ? `${TABLE_INLINE_INPUT_STANDARD_CLASS} ${EXCLUDED_INLINE_EDITOR_CLASS}`
         : TABLE_INLINE_INPUT_STANDARD_CLASS
+    const inlineEditorStyle =
+      scope === 'excluded'
+        ? {
+            ...EXCLUDED_INLINE_EDITOR_STYLE,
+            textAlign: column.align || 'left',
+          }
+        : { textAlign: column.align || 'left' }
     const commonProps = {
       className: inlineEditorClass,
-      style: { textAlign: column.align || 'left' },
+      style: inlineEditorStyle,
       value: registryCellEditDraft,
       autoFocus: true,
       onChange: (e) => {
@@ -11835,7 +11888,14 @@ function App() {
       return (
         <select
           className={inlineEditorClass}
-          style={{ textAlign: column.align || 'left' }}
+          style={
+            scope === 'excluded'
+              ? {
+                  ...EXCLUDED_SELECT_INLINE_EDITOR_STYLE,
+                  textAlign: column.align || 'left',
+                }
+              : { textAlign: column.align || 'left' }
+          }
           value={registryCellEditDraft}
           autoFocus
           onMouseDown={(e) => {
@@ -11914,13 +11974,13 @@ function App() {
     await onSave()
   }
 
-  const renderRegistryEditor = (row, column, onChange, { onSave, onCancel, autoFocus = false, extraClassName = '' }) => {
+  const renderRegistryEditor = (row, column, onChange, { onSave, onCancel, autoFocus = false, extraClassName = '', extraStyle = null }) => {
     const inputClassName = `${TABLE_INLINE_INPUT_STANDARD_CLASS}${extraClassName ? ` ${extraClassName}` : ''}`.trim()
     if (column.type === 'textarea') {
       return (
         <textarea
           className={inputClassName}
-          style={{ textAlign: column.align || 'left' }}
+          style={{ ...(extraStyle || {}), textAlign: column.align || 'left' }}
           rows={1}
           value={row[column.key] ?? ''}
           autoFocus={autoFocus}
@@ -11934,7 +11994,7 @@ function App() {
       return (
         <input
           className={inputClassName}
-          style={{ textAlign: 'center' }}
+          style={{ ...(extraStyle || {}), textAlign: 'center' }}
           type="date"
           value={row[column.key] ?? ''}
           autoFocus={autoFocus}
@@ -11948,7 +12008,7 @@ function App() {
       return (
         <select
           className={inputClassName}
-          style={{ textAlign: 'center' }}
+          style={{ ...(extraStyle || {}), textAlign: 'center' }}
           value={row[column.key] ?? ''}
           autoFocus={autoFocus}
           onChange={(e) => onChange(row.id, column.key, e.target.value)}
@@ -11967,7 +12027,7 @@ function App() {
     return (
       <input
         className={inputClassName}
-        style={{ textAlign: column.align || 'left' }}
+        style={{ ...(extraStyle || {}), textAlign: column.align || 'left' }}
         type="text"
         value={row[column.key] ?? ''}
         autoFocus={autoFocus}
@@ -12019,6 +12079,23 @@ function App() {
     const useCellMode = Boolean(cellEditScope && onRegistryCellStart)
     const isRowLegacyEditing = !useCellMode && (row.isDraft || editingIds.includes(rowId))
     const showDraftOrLegacyRow = row.isDraft || isRowLegacyEditing
+    const isExcludedScope = cellEditScope === 'excluded'
+    const excludedCellBackgroundStyle =
+      isExcludedScope && row.isDraft ? EXCLUDED_DRAFT_CELL_BACKGROUND_STYLE : null
+    const excludedDisplayCellStyle =
+      isExcludedScope
+        ? {
+            ...EXCLUDED_TABLE_CELL_STYLE,
+            ...(excludedCellBackgroundStyle || {}),
+          }
+        : undefined
+    const excludedEditCellStyle =
+      isExcludedScope
+        ? {
+            ...EXCLUDED_TABLE_EDIT_CELL_STYLE,
+            ...(excludedCellBackgroundStyle || {}),
+          }
+        : undefined
 
     return (
       <tr
@@ -12038,6 +12115,7 @@ function App() {
         {showSelection ? (
           <td
             className="td-align-center registry-check-cell discovery-check-col"
+            style={excludedDisplayCellStyle}
           >
             <input
               className="registry-row-checkbox"
@@ -12049,7 +12127,12 @@ function App() {
         ) : null}
 
         {showSelection && renderAfterSelectionCell ? (
-          <td className="td-align-center sales-archive-cell">{renderAfterSelectionCell(displayRow)}</td>
+          <td
+            className="td-align-center sales-archive-cell"
+            style={excludedDisplayCellStyle}
+          >
+            {renderAfterSelectionCell(displayRow)}
+          </td>
         ) : null}
 
         {columns.map((column) => {
@@ -12136,9 +12219,15 @@ function App() {
               </span>
             ) : null
           const registryDateSuffixBadge = registryWeekBadge || discoveryReportNewBadge
+          const cellStyle = isExcludedScope
+            ? usesTableInlineInput
+              ? excludedEditCellStyle
+              : excludedDisplayCellStyle
+            : undefined
           const cells = [
             <td
               key={column.key}
+              style={cellStyle}
               className={`${getTableBodyAlignClass(column)} ${
                 isLongTextTableColumn(column) && !isHistoryDetailCell ? 'multiline-cell' : ''
               } ${
@@ -12283,6 +12372,16 @@ function App() {
                   value={row[column.key]}
                   align={cellAlign}
                   inputClassName={cellEditScope === 'excluded' ? EXCLUDED_INLINE_EDITOR_CLASS : ''}
+                  inputStyle={cellEditScope === 'excluded' ? EXCLUDED_INLINE_EDITOR_STYLE : null}
+                  displayStyle={
+                    cellEditScope === 'excluded'
+                      ? {
+                          padding: '12px 8px',
+                          alignItems: 'flex-start',
+                          boxSizing: 'border-box',
+                        }
+                      : null
+                  }
                   className={`${
                     isLongTextTableColumn(column)
                       ? cellEditScope === 'discovery'
@@ -12311,6 +12410,12 @@ function App() {
                     onCancel: onCancelRow,
                     extraClassName:
                       cellEditScope === 'excluded' ? EXCLUDED_INLINE_EDITOR_CLASS : '',
+                    extraStyle:
+                      cellEditScope === 'excluded'
+                        ? column.type === 'select'
+                          ? EXCLUDED_SELECT_INLINE_EDITOR_STYLE
+                          : EXCLUDED_INLINE_EDITOR_STYLE
+                        : null,
                     autoFocus:
                       row.isDraft &&
                       draftFocusRowId === rowId &&

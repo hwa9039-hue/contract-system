@@ -26,6 +26,8 @@ export function EditableTextCell({
   align = 'left',
   className = '',
   inputClassName = '',
+  inputStyle = null,
+  displayStyle = null,
   suffix = null,
 }) {
   const [isEditing, setIsEditing] = useState(false)
@@ -60,6 +62,7 @@ export function EditableTextCell({
         className={`cell-display editable-text-cell-display editable-text-cell-display--${align} ${stateClass} ${
           isEmpty ? 'table-cell-empty-placeholder' : ''
         } ${className}`.trim()}
+        style={displayStyle || undefined}
       >
         {isEmpty ? TABLE_CELL_EMPTY_LABEL : displayValue}
         {suffix}
@@ -72,7 +75,7 @@ export function EditableTextCell({
       <input
         type="text"
         className={`${TABLE_INLINE_INPUT_STANDARD_CLASS}${inputClassName ? ` ${inputClassName}` : ''}`.trim()}
-        style={{ textAlign: align }}
+        style={{ ...(inputStyle || {}), textAlign: align }}
         value={draft}
         autoFocus
         onChange={(e) => setDraft(e.target.value)}
@@ -98,6 +101,7 @@ export function EditableTextCell({
       className={`cell-display editable-text-cell-display editable-text-cell-display--${align} ${stateClass} ${
         isEmpty ? 'table-cell-empty-placeholder' : ''
       } ${className}`.trim()}
+      style={displayStyle || undefined}
       role="button"
       tabIndex={0}
       onClick={(e) => {
