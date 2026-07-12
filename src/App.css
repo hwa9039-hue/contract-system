@@ -7641,6 +7641,179 @@ textarea:focus-visible {
   cursor: pointer;
 }
 
+/* 문서수발신대장 — 사업공유와 동일한 인라인 편집 Flat (엑셀 스타일) */
+.documents-registry-table tr.documents-draft-row > td {
+  background: #eff6ff;
+  box-shadow: inset 0 0 0 1px #93c5fd;
+}
+
+.documents-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
+  vertical-align: top !important;
+  padding: 12px 8px !important;
+}
+
+.documents-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td.editable-cell,
+.documents-registry-table.excel-table.registry-table tbody tr.documents-draft-row > td:not(.registry-check-cell):not(.sales-archive-cell):not(.registry-importance-cell) {
+  padding: 0 !important;
+}
+
+.documents-registry-table .excluded-inline-editor,
+.documents-registry-table td.editable-cell > input:not([type='checkbox']),
+.documents-registry-table td.editable-cell > select,
+.documents-registry-table td.editable-cell > textarea {
+  display: block;
+  width: 100% !important;
+  height: auto;
+  min-height: 0 !important;
+  box-sizing: border-box;
+  margin: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  padding: 12px 8px !important;
+}
+
+.documents-registry-table .MuiInputBase-root,
+.documents-registry-table .MuiInputBase-input,
+.documents-registry-table .MuiSelect-select {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.documents-registry-table .MuiOutlinedInput-notchedOutline {
+  border: none !important;
+}
+
+.documents-registry-table .MuiInputBase-root:hover,
+.documents-registry-table .MuiInputBase-root.Mui-focused,
+.documents-registry-table .MuiOutlinedInput-root:hover,
+.documents-registry-table .MuiOutlinedInput-root.Mui-focused,
+.documents-registry-table .MuiSelect-select:hover,
+.documents-registry-table .MuiSelect-select:focus {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.documents-registry-table .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline,
+.documents-registry-table .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border: none !important;
+}
+
+.documents-registry-table .excluded-inline-editor:focus,
+.documents-registry-table .excluded-inline-editor:focus-visible,
+.documents-registry-table td.editable-cell > input:not([type='checkbox']):focus,
+.documents-registry-table td.editable-cell > input:not([type='checkbox']):focus-visible,
+.documents-registry-table td.editable-cell > select:focus,
+.documents-registry-table td.editable-cell > select:focus-visible,
+.documents-registry-table td.editable-cell > textarea:focus,
+.documents-registry-table td.editable-cell > textarea:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+}
+
+.documents-registry-table td:has(> .excluded-inline-editor:focus),
+.documents-registry-table td:has(> input:not([type='checkbox']):focus),
+.documents-registry-table td:has(> select:focus),
+.documents-registry-table td:has(> textarea:focus) {
+  box-shadow: inset 0 0 0 1px #3b82f6;
+}
+
+.documents-registry-table input:focus-visible:not([type='checkbox']),
+.documents-registry-table select:focus-visible,
+.documents-registry-table textarea:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+}
+
+.documents-registry-table input[type='date'].excluded-inline-editor,
+.documents-registry-table td.editable-cell > input[type='date'] {
+  color-scheme: light;
+  background-color: transparent !important;
+}
+
+.documents-registry-table input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+  background: transparent;
+}
+
+.documents-registry-table input[type='date']::-webkit-datetime-edit,
+.documents-registry-table input[type='date']::-webkit-datetime-edit-fields-wrapper,
+.documents-registry-table input[type='date']::-webkit-datetime-edit-text,
+.documents-registry-table input[type='date']::-webkit-datetime-edit-month-field,
+.documents-registry-table input[type='date']::-webkit-datetime-edit-day-field,
+.documents-registry-table input[type='date']::-webkit-datetime-edit-year-field {
+  background: transparent !important;
+  color: inherit;
+  padding: 0;
+}
+
+.documents-registry-table textarea.excluded-inline-editor {
+  min-height: 3rem !important;
+  resize: vertical;
+  white-space: pre-wrap;
+}
+
+.documents-registry-table .cell-display,
+.documents-registry-table .editable-text-cell-display,
+.documents-registry-table .editable-text-cell-input,
+.documents-registry-table .multiline-cell .cell-display,
+.documents-registry-table .td-align-center .cell-display,
+.documents-registry-table .documents-col-tight .cell-display,
+.documents-registry-table .documents-col-party .cell-display,
+.documents-registry-table .documents-col-title .cell-display,
+.documents-registry-table .documents-col-note .cell-display {
+  align-items: flex-start !important;
+}
+
+.documents-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.editable-cell .cell-display,
+.documents-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.editable-cell .editable-text-cell-display {
+  padding: 12px 8px !important;
+  box-sizing: border-box;
+}
+
+.documents-registry-table .editable-text-cell-display {
+  min-height: 0 !important;
+  padding: 12px 8px !important;
+}
+
+.documents-registry-table .registry-check-cell {
+  vertical-align: top !important;
+  text-align: center !important;
+}
+
+.documents-registry-table .excluded-registry-icon-cell-inner {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.documents-registry-table .registry-check-cell .registry-row-checkbox {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.documents-registry-table .documents-col-tight .cell-display,
+.documents-registry-table .documents-col-note .cell-display {
+  justify-content: center;
+  text-align: center;
+}
+
 /* 연락처 표: 문서수발신대장과 동일한 레지스트리 UI */
 .contacts-registry-table {
   table-layout: fixed !important;

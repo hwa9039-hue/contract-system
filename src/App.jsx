@@ -2791,8 +2791,12 @@ const emptyEvent = {
 }
 
 function createDocumentDraftRow() {
+  const draftId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? `document-draft-${crypto.randomUUID()}`
+      : `document-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   return {
-    id: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: draftId,
     docDate: '',
     docNo: '',
     senderReceiver: '',
@@ -4311,6 +4315,10 @@ function isExcludedShareStatusOpen(row) {
 }
 
 /** 사업공유 — 사업명·발주처·세부내용 등 긴 텍스트 인라인 편집(멀티라인) */
+function isRegistryFlatInlineTableScope(scope) {
+  return scope === 'excluded' || scope === 'documents'
+}
+
 function isExcludedMultilineEditColumn(column, scope) {
   if (scope !== 'excluded' || !column) return false
   if (column.type === 'textarea') return true
@@ -5541,6 +5549,7 @@ function App() {
   const [selectedDocumentIds, setSelectedDocumentIds] = useState([])
   const [editingDocumentIds, setEditingDocumentIds] = useState([])
   const [documentEditSnapshots, setDocumentEditSnapshots] = useState({})
+  const [documentDraftFocusRowId, setDocumentDraftFocusRowId] = useState(null)
   const [isSavingDocuments, setIsSavingDocuments] = useState(false)
   const [documentSearch, setDocumentSearch] = useState('')
   const [documentDateRange, setDocumentDateRange] = useState({ startDate: '', endDate: '' })
@@ -6143,6 +6152,7 @@ function App() {
     if (menu === 'documents') return
     setEditingDocumentIds([])
     setDocumentEditSnapshots({})
+    setDocumentDraftFocusRowId(null)
     setDocuments((prev) => prev.filter((row) => !(row.isDraft && isDocumentRowEmpty(row))))
   }, [menu])
 
@@ -6179,6 +6189,18 @@ function App() {
     }, 0)
     return () => window.clearTimeout(timer)
   }, [excludedDraftFocusRowId, menu])
+
+  useEffect(() => {
+    if (!documentDraftFocusRowId || menu !== 'documents') return
+    const timer = window.setTimeout(() => {
+      const rowEl = document.querySelector(
+        `[data-documents-draft-row="${documentDraftFocusRowId}"]`
+      )
+      const focusable = rowEl?.querySelector('input:not([type="checkbox"]), textarea, select')
+      focusable?.focus({ preventScroll: true })
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [documentDraftFocusRowId, menu])
 
   useLayoutEffect(() => {
     if (menu === 'dashboard') {
@@ -7302,9 +7324,14 @@ function App() {
     [filteredExcludedRows]
   )
 
-  /** [2단계] filteredData만 그룹화 — 원본 documents 미사용 */
+  const documentDraftRows = useMemo(
+    () => filteredDocuments.filter((row) => row.isDraft),
+    [filteredDocuments]
+  )
+
+  /** [2단계] filteredData만 그룹화 — 원본 documents 미사용 (신규 draft 행 제외) */
   const groupedDocumentRows = useMemo(
-    () => groupRegistryRowsByYear(filteredDocuments, 'docDate'),
+    () => groupRegistryRowsByYear(filteredDocuments.filter((row) => !row.isDraft), 'docDate'),
     [filteredDocuments]
   )
 
@@ -8179,32 +8206,16 @@ function App() {
       }
       return
     }
-
-    if (scope === 'documents') {
-      if (isDocumentRowEmpty(draft)) {
-        showAppAlert('입력 내용을 확인해주세요.')
-        return
-      }
-      setIsSavingDocuments(true)
-      try {
-        await documentRegisterApi.create({
-          ...toDocumentPayload(draft, timestamp),
-          createdAt: timestamp,
-        })
-        await fetchDocuments(false)
-        setToastMessage('저장되었습니다.')
-        closeRegistryCreateModal()
-      } catch (error) {
-        logApiOperationError('문서수발신대장 등록', error)
-      } finally {
-        setIsSavingDocuments(false)
-      }
-    }
   }
 
   const handleAddDocumentRow = () => {
-    setRegistryCreateModal({ scope: 'documents', draft: createDocumentDraftRow() })
+    const draft = createDocumentDraftRow()
+    setDocuments((prev) => {
+      const withoutEmptyDrafts = prev.filter((row) => !(row.isDraft && isDocumentRowEmpty(row)))
+      return [draft, ...withoutEmptyDrafts]
+    })
     setSelectedDocumentIds([])
+    setDocumentDraftFocusRowId(draft.id)
   }
 
   const handleDocumentCellChange = (rowId, key, value) => {
@@ -8241,6 +8252,7 @@ function App() {
 
     if (targetRow.isDraft) {
       setDocuments((prev) => prev.filter((row) => row.id !== rowId))
+      setDocumentDraftFocusRowId((prev) => (prev === rowId ? null : prev))
       return
     }
 
@@ -8257,6 +8269,7 @@ function App() {
 
     if (targetRow.isDraft) {
       setDocuments((prev) => prev.filter((row) => row.id !== rowId))
+      setDocumentDraftFocusRowId((prev) => (prev === rowId ? null : prev))
       return
     }
 
@@ -8295,19 +8308,36 @@ function App() {
       const timestamp = new Date().toISOString()
 
       if (targetRow.isDraft) {
-        await documentRegisterApi.create({
+        const created = await documentRegisterApi.create({
           ...toDocumentPayload(targetRow, timestamp),
           createdAt: timestamp,
         })
+        const normalized = normalizeDocumentRow(created)
+        setDocuments((prev) =>
+          prev.map((row) => (row.id === rowId ? normalized : row))
+        )
+        setSelectedDocumentIds((prev) => prev.map((id) => (id === rowId ? normalized.id : id)))
+        setDocumentDraftFocusRowId((prev) => (prev === rowId ? null : prev))
       } else {
-        await documentRegisterApi.update(rowId, toDocumentPayload(targetRow, timestamp))
+        const updated = await documentRegisterApi.update(
+          rowId,
+          toDocumentPayload(targetRow, timestamp)
+        )
+        const normalized = normalizeDocumentRow(updated)
+        setDocuments((prev) =>
+          prev.map((row) => (row.id === rowId ? normalized : row))
+        )
       }
 
-      await fetchDocuments(false)
       setEditingDocumentIds((prev) => prev.filter((id) => id !== rowId))
       setDocumentEditSnapshots((prev) => removeObjectKey(prev, rowId))
       setToastMessage('저장되었습니다.')
     } catch (error) {
+      if (targetRow.isDraft) {
+        setDocuments((prev) => prev.filter((row) => row.id !== rowId))
+        setSelectedDocumentIds((prev) => prev.filter((id) => id !== rowId))
+        setDocumentDraftFocusRowId((prev) => (prev === rowId ? null : prev))
+      }
       logApiOperationError('문서수발신대장 저장', error)
     } finally {
       setIsSavingDocuments(false)
@@ -11798,17 +11828,16 @@ function App() {
     const { scope, rowId } = editContext || {}
     const isMultilineColumn =
       column.type === 'textarea' || isExcludedMultilineEditColumn(column, scope)
-    const inlineEditorClass =
-      scope === 'excluded'
-        ? `${TABLE_INLINE_INPUT_STANDARD_CLASS} ${EXCLUDED_INLINE_EDITOR_CLASS}`
-        : TABLE_INLINE_INPUT_STANDARD_CLASS
-    const inlineEditorStyle =
-      scope === 'excluded'
-        ? {
-            ...EXCLUDED_INLINE_EDITOR_STYLE,
-            textAlign: column.align || 'left',
-          }
-        : { textAlign: column.align || 'left' }
+    const useFlatInlineStyle = isRegistryFlatInlineTableScope(scope)
+    const inlineEditorClass = useFlatInlineStyle
+      ? `${TABLE_INLINE_INPUT_STANDARD_CLASS} ${EXCLUDED_INLINE_EDITOR_CLASS}`
+      : TABLE_INLINE_INPUT_STANDARD_CLASS
+    const inlineEditorStyle = useFlatInlineStyle
+      ? {
+          ...EXCLUDED_INLINE_EDITOR_STYLE,
+          textAlign: column.align || 'left',
+        }
+      : { textAlign: column.align || 'left' }
     const commonProps = {
       className: inlineEditorClass,
       style: inlineEditorStyle,
@@ -11894,7 +11923,7 @@ function App() {
         <select
           className={inlineEditorClass}
           style={
-            scope === 'excluded'
+            useFlatInlineStyle
               ? {
                   ...EXCLUDED_SELECT_INLINE_EDITOR_STYLE,
                   textAlign: column.align || 'left',
@@ -12084,32 +12113,33 @@ function App() {
     const useCellMode = Boolean(cellEditScope && onRegistryCellStart)
     const isRowLegacyEditing = !useCellMode && (row.isDraft || editingIds.includes(rowId))
     const showDraftOrLegacyRow = row.isDraft || isRowLegacyEditing
-    const isExcludedScope = cellEditScope === 'excluded'
-    const excludedCellBackgroundStyle =
-      isExcludedScope && row.isDraft ? EXCLUDED_DRAFT_CELL_BACKGROUND_STYLE : null
-    const excludedDisplayCellStyle =
-      isExcludedScope
-        ? {
-            ...EXCLUDED_TABLE_CELL_STYLE,
-            ...(excludedCellBackgroundStyle || {}),
-          }
-        : undefined
-    const excludedEditCellStyle =
-      isExcludedScope
-        ? {
-            ...EXCLUDED_TABLE_EDIT_CELL_STYLE,
-            ...(excludedCellBackgroundStyle || {}),
-          }
-        : undefined
+    const isFlatInlineScope = isRegistryFlatInlineTableScope(cellEditScope)
+    const flatInlineCellBackgroundStyle =
+      isFlatInlineScope && row.isDraft ? EXCLUDED_DRAFT_CELL_BACKGROUND_STYLE : null
+    const flatInlineDisplayCellStyle = isFlatInlineScope
+      ? {
+          ...EXCLUDED_TABLE_CELL_STYLE,
+          ...(flatInlineCellBackgroundStyle || {}),
+        }
+      : undefined
+    const flatInlineEditCellStyle = isFlatInlineScope
+      ? {
+          ...EXCLUDED_TABLE_EDIT_CELL_STYLE,
+          ...(flatInlineCellBackgroundStyle || {}),
+        }
+      : undefined
 
     return (
       <tr
         key={rowKey}
         className={`${index % 2 === 0 ? 'row-even' : 'row-odd'}${
           row.isDraft && cellEditScope === 'excluded' ? ' excluded-draft-row' : ''
-        }`}
+        }${row.isDraft && cellEditScope === 'documents' ? ' documents-draft-row' : ''}`}
         data-excluded-draft-row={
           row.isDraft && cellEditScope === 'excluded' ? rowId : undefined
+        }
+        data-documents-draft-row={
+          row.isDraft && cellEditScope === 'documents' ? rowId : undefined
         }
         onBlur={
           row.isDraft && showDraftOrLegacyRow
@@ -12120,9 +12150,9 @@ function App() {
         {showSelection ? (
           <td
             className="td-align-center registry-check-cell discovery-check-col"
-            style={isExcludedScope ? EXCLUDED_TABLE_ICON_CELL_STYLE : excludedDisplayCellStyle}
+            style={isFlatInlineScope ? EXCLUDED_TABLE_ICON_CELL_STYLE : flatInlineDisplayCellStyle}
           >
-            {isExcludedScope ? (
+            {isFlatInlineScope ? (
               <div className="excluded-registry-icon-cell-inner">
                 <input
                   className="registry-row-checkbox"
@@ -12145,9 +12175,9 @@ function App() {
         {showSelection && renderAfterSelectionCell ? (
           <td
             className="td-align-center sales-archive-cell"
-            style={isExcludedScope ? EXCLUDED_TABLE_ICON_CELL_STYLE : excludedDisplayCellStyle}
+            style={isFlatInlineScope ? EXCLUDED_TABLE_ICON_CELL_STYLE : flatInlineDisplayCellStyle}
           >
-            {isExcludedScope ? (
+            {isFlatInlineScope ? (
               <div className="excluded-registry-icon-cell-inner">
                 {renderAfterSelectionCell(displayRow)}
               </div>
@@ -12241,10 +12271,10 @@ function App() {
               </span>
             ) : null
           const registryDateSuffixBadge = registryWeekBadge || discoveryReportNewBadge
-          const cellStyle = isExcludedScope
+          const cellStyle = isFlatInlineScope
             ? usesTableInlineInput
-              ? excludedEditCellStyle
-              : excludedDisplayCellStyle
+              ? flatInlineEditCellStyle
+              : flatInlineDisplayCellStyle
             : undefined
           const cells = [
             <td
@@ -12393,10 +12423,10 @@ function App() {
                 <EditableTextCell
                   value={row[column.key]}
                   align={cellAlign}
-                  inputClassName={cellEditScope === 'excluded' ? EXCLUDED_INLINE_EDITOR_CLASS : ''}
-                  inputStyle={cellEditScope === 'excluded' ? EXCLUDED_INLINE_EDITOR_STYLE : null}
+                  inputClassName={isFlatInlineScope ? EXCLUDED_INLINE_EDITOR_CLASS : ''}
+                  inputStyle={isFlatInlineScope ? EXCLUDED_INLINE_EDITOR_STYLE : null}
                   displayStyle={
-                    cellEditScope === 'excluded'
+                    isFlatInlineScope
                       ? {
                           padding: '12px 8px',
                           alignItems: 'flex-start',
@@ -12431,9 +12461,9 @@ function App() {
                     onSave: onSaveRow,
                     onCancel: onCancelRow,
                     extraClassName:
-                      cellEditScope === 'excluded' ? EXCLUDED_INLINE_EDITOR_CLASS : '',
+                      isFlatInlineScope ? EXCLUDED_INLINE_EDITOR_CLASS : '',
                     extraStyle:
-                      cellEditScope === 'excluded'
+                      isFlatInlineScope
                         ? column.type === 'select'
                           ? EXCLUDED_SELECT_INLINE_EDITOR_STYLE
                           : EXCLUDED_INLINE_EDITOR_STYLE
@@ -15739,7 +15769,7 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {documentsRawData.length === 0 ? (
+                    {documentsRawData.length === 0 && documentDraftRows.length === 0 ? (
                       <tr>
                         <td
                           colSpan={DOCUMENT_COLUMNS.length + 1}
@@ -15748,7 +15778,7 @@ function App() {
                           등록된 데이터가 없습니다.
                         </td>
                       </tr>
-                    ) : isDocumentTableFilterResultEmpty ? (
+                    ) : isDocumentTableFilterResultEmpty && documentDraftRows.length === 0 ? (
                       <tr>
                         <td
                           colSpan={DOCUMENT_COLUMNS.length + 1}
@@ -15758,27 +15788,54 @@ function App() {
                         </td>
                       </tr>
                     ) : (
-                    renderGroupedRegistryRows({
-                      groups: groupedDocumentRows,
-                      columns: DOCUMENT_COLUMNS,
-                      emptyMessage: '등록된 데이터가 없습니다.',
-                      selectedIds: selectedDocumentIds,
-                      onToggleSelection: toggleDocumentSelection,
-                      editingIds: [],
-                      isSaving: isSavingDocuments,
-                      onStartEdit: startDocumentEdit,
-                      onSaveRow: saveDocumentRow,
-                      onCancelRow: cancelDocumentRow,
-                      onChange: handleDocumentCellChange,
-                      isEmptyRow: isDocumentRowEmpty,
-                      isYearOpen: isDocumentYearOpen,
-                      onToggleYear: toggleDocumentYear,
-                      cellEditScope: 'documents',
-                      isAdminForRegistry: canEditDocuments,
-                      registryCellEdit,
-                      onRegistryCellStart: (rowId, columnKey, value, row) =>
-                        startRegistryCellEdit('documents', rowId, columnKey, value, row),
-                    })
+                    <>
+                      {documentDraftRows.map((row, index) =>
+                        renderRegistryDataRow({
+                          row,
+                          index,
+                          columns: DOCUMENT_COLUMNS,
+                          editingIds: [],
+                          isSaving: isSavingDocuments,
+                          onStartEdit: () => startDocumentEdit(row.id),
+                          onSaveRow: () => saveDocumentRow(row.id),
+                          onCancelRow: () => cancelDocumentRow(row.id),
+                          onChange: handleDocumentCellChange,
+                          isEmptyRow: isDocumentRowEmpty,
+                          selectedIds: selectedDocumentIds,
+                          onToggleSelection: toggleDocumentSelection,
+                          cellEditScope: 'documents',
+                          isAdminForRegistry: canEditDocuments,
+                          registryCellEdit,
+                          onRegistryCellStart: (rowId, columnKey, value, draftRow) =>
+                            startRegistryCellEdit('documents', rowId, columnKey, value, draftRow),
+                          draftFocusRowId: documentDraftFocusRowId,
+                          draftFocusColumnKey: 'docDate',
+                        })
+                      )}
+                      {groupedDocumentRows.length > 0 || documentDraftRows.length === 0
+                        ? renderGroupedRegistryRows({
+                            groups: groupedDocumentRows,
+                            columns: DOCUMENT_COLUMNS,
+                            emptyMessage: '등록된 데이터가 없습니다.',
+                            selectedIds: selectedDocumentIds,
+                            onToggleSelection: toggleDocumentSelection,
+                            editingIds: [],
+                            isSaving: isSavingDocuments,
+                            onStartEdit: startDocumentEdit,
+                            onSaveRow: saveDocumentRow,
+                            onCancelRow: cancelDocumentRow,
+                            onChange: handleDocumentCellChange,
+                            isEmptyRow: isDocumentRowEmpty,
+                            isYearOpen: isDocumentYearOpen,
+                            onToggleYear: toggleDocumentYear,
+                            cellEditScope: 'documents',
+                            isAdminForRegistry: canEditDocuments,
+                            registryCellEdit,
+                            onRegistryCellStart: (rowId, columnKey, value, row) =>
+                              startRegistryCellEdit('documents', rowId, columnKey, value, row),
+                          })
+                        : null}
+                    </>
                     )}
                   </tbody>
                 </table>
@@ -16841,16 +16898,13 @@ function App() {
             sales: PAGE_TITLE_MAP.sales,
             discovery: PAGE_TITLE_MAP.discovery,
             excluded: PAGE_TITLE_MAP.excluded,
-            documents: PAGE_TITLE_MAP.documents,
           }
           const saving =
             scope === 'sales'
               ? isSavingSales
               : scope === 'discovery'
                 ? isSavingDiscovery
-                : scope === 'excluded'
-                  ? isSavingExcluded
-                  : isSavingDocuments
+                : isSavingExcluded
           return (
             <div className="modal-backdrop" onClick={closeRegistryCreateModal}>
               <div
