@@ -191,6 +191,11 @@ const EXCLUDED_TABLE_CELL_STYLE = {
   backgroundColor: 'transparent',
 }
 
+const EXCLUDED_TABLE_ICON_CELL_STYLE = {
+  ...EXCLUDED_TABLE_CELL_STYLE,
+  textAlign: 'center',
+}
+
 const EXCLUDED_TABLE_EDIT_CELL_STYLE = {
   verticalAlign: 'top',
   padding: 0,
@@ -12115,23 +12120,40 @@ function App() {
         {showSelection ? (
           <td
             className="td-align-center registry-check-cell discovery-check-col"
-            style={excludedDisplayCellStyle}
+            style={isExcludedScope ? EXCLUDED_TABLE_ICON_CELL_STYLE : excludedDisplayCellStyle}
           >
-            <input
-              className="registry-row-checkbox"
-              type="checkbox"
-              checked={selectedIds.includes(rowId)}
-              onChange={() => onToggleSelection(rowId)}
-            />
+            {isExcludedScope ? (
+              <div className="excluded-registry-icon-cell-inner">
+                <input
+                  className="registry-row-checkbox"
+                  type="checkbox"
+                  checked={selectedIds.includes(rowId)}
+                  onChange={() => onToggleSelection(rowId)}
+                />
+              </div>
+            ) : (
+              <input
+                className="registry-row-checkbox"
+                type="checkbox"
+                checked={selectedIds.includes(rowId)}
+                onChange={() => onToggleSelection(rowId)}
+              />
+            )}
           </td>
         ) : null}
 
         {showSelection && renderAfterSelectionCell ? (
           <td
             className="td-align-center sales-archive-cell"
-            style={excludedDisplayCellStyle}
+            style={isExcludedScope ? EXCLUDED_TABLE_ICON_CELL_STYLE : excludedDisplayCellStyle}
           >
-            {renderAfterSelectionCell(displayRow)}
+            {isExcludedScope ? (
+              <div className="excluded-registry-icon-cell-inner">
+                {renderAfterSelectionCell(displayRow)}
+              </div>
+            ) : (
+              renderAfterSelectionCell(displayRow)
+            )}
           </td>
         ) : null}
 

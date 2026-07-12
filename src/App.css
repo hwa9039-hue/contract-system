@@ -7246,10 +7246,22 @@ textarea:focus-visible {
 }
 
 .excluded-registry-table .registry-check-cell,
-.excluded-registry-table .sales-archive-cell,
+.excluded-registry-table .sales-archive-cell {
+  vertical-align: top !important;
+  text-align: center !important;
+}
+
 .excluded-registry-table .registry-importance-cell {
   vertical-align: top !important;
   text-align: center;
+}
+
+.excluded-registry-table .excluded-registry-icon-cell-inner {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .excluded-registry-table .registry-importance-cell .cell-display--importance {
@@ -7259,10 +7271,8 @@ textarea:focus-visible {
 
 .excluded-registry-table .registry-check-cell .registry-row-checkbox,
 .excluded-registry-table .sales-archive-cell .sales-archive-btn {
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-  margin-top: 0;
+  margin: 0;
+  flex: 0 0 auto;
 }
 
 .excluded-registry-table .registry-importance-cell .cell-display--importance {
