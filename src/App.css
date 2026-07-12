@@ -7073,7 +7073,7 @@ textarea:focus-visible {
 /* 사업공유 — 데이터 행 공통: 상단 정렬 + 읽기 쉬운 여백 */
 .excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
   vertical-align: top !important;
-  padding: 12px 8px !important;
+  padding: 16px 8px !important;
 }
 
 /* 사업공유 — 인라인 편집 Flat (엑셀 스타일, 네이티브 input/select/textarea) */
@@ -7104,7 +7104,7 @@ textarea:focus-visible {
   font-size: inherit;
   line-height: inherit;
   color: inherit;
-  padding: 12px 8px !important;
+  padding: 16px 8px !important;
 }
 
 /* MUI 입력 컴포넌트가 섞여 렌더링되는 경우에도 흰 박스/외곽선을 제거한다. */
@@ -7136,7 +7136,7 @@ textarea:focus-visible {
 
 .excluded-registry-table .MuiDataGrid-cell {
   align-items: flex-start !important;
-  padding-top: 12px !important;
+  padding-top: 16px !important;
 }
 
 .excluded-registry-table .excluded-inline-editor:focus,
@@ -7220,19 +7220,47 @@ textarea:focus-visible {
 .excluded-registry-table .cell-inline-editor,
 .excluded-registry-table .inline-row-editor,
 .excluded-registry-table .sales-detail-preview,
-.excluded-registry-table .registry-importance-cell {
+.excluded-registry-table .multiline-cell .cell-display,
+.excluded-registry-table .td-align-center .cell-display,
+.excluded-registry-table .excluded-col-tight .cell-display,
+.excluded-registry-table .excluded-col-amount .cell-display,
+.excluded-registry-table .excluded-col-project .cell-display,
+.excluded-registry-table .excluded-col-reason .cell-display,
+.excluded-registry-table .excluded-col-text .cell-display {
   align-items: flex-start !important;
+}
+
+.excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.editable-cell .cell-display,
+.excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.editable-cell .editable-text-cell-display,
+.excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.editable-cell .sales-detail-preview {
+  padding: 16px 8px !important;
+  box-sizing: border-box;
 }
 
 .excluded-registry-table .editable-text-cell-display {
   min-height: 0 !important;
-  padding: 12px 8px !important;
+  padding: 16px 8px !important;
 }
 
 .excluded-registry-table .registry-check-cell,
 .excluded-registry-table .sales-archive-cell,
 .excluded-registry-table .registry-importance-cell {
   vertical-align: top !important;
+}
+
+.excluded-registry-table .registry-check-cell,
+.excluded-registry-table .sales-archive-cell {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.excluded-registry-table .registry-importance-cell .cell-display--importance {
+  align-items: flex-start !important;
+  justify-content: center;
 }
 
 .excluded-registry-table .registry-check-cell .registry-row-checkbox,
@@ -7408,7 +7436,7 @@ textarea:focus-visible {
   background-color: transparent !important;
   outline: none !important;
   box-shadow: none !important;
-  padding: 12px 8px !important;
+  padding: 16px 8px !important;
 }
 
 .excluded-registry-table .excluded-amount-header {

@@ -172,7 +172,7 @@ const EXCLUDED_INLINE_EDITOR_STYLE = {
   width: '100%',
   height: 'auto',
   minHeight: 40,
-  padding: '12px 8px',
+  padding: '16px 8px',
   color: 'inherit',
 }
 
@@ -186,7 +186,7 @@ const EXCLUDED_SELECT_INLINE_EDITOR_STYLE = {
 
 const EXCLUDED_TABLE_CELL_STYLE = {
   verticalAlign: 'top',
-  padding: '12px 8px',
+  padding: '16px 8px',
   background: 'transparent',
   backgroundColor: 'transparent',
 }
@@ -12376,7 +12376,7 @@ function App() {
                   displayStyle={
                     cellEditScope === 'excluded'
                       ? {
-                          padding: '12px 8px',
+                          padding: '16px 8px',
                           alignItems: 'flex-start',
                           boxSizing: 'border-box',
                         }
