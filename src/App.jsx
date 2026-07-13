@@ -98,6 +98,7 @@ import {
 } from './contractAggregation.js'
 import { EditableTextCell, isEditableTextColumn } from './EditableTextCell.jsx'
 import { AutoGrowTextarea } from './AutoGrowTextarea.jsx'
+import { RegistryTableDateInput } from './RegistryTableDateInput.jsx'
 import {
   TABLE_CELL_EMPTY_LABEL,
   formatEditableTableCellText,
@@ -626,8 +627,8 @@ const EXCLUDED_COLUMNS = [
     label: '등록일',
     align: 'center',
     type: 'date',
-    widthClass: 'excluded-w-34',
-    cellClass: 'excluded-col-tight excluded-col-register-date excluded-w-34',
+    widthClass: 'excluded-w-date',
+    cellClass: 'excluded-col-tight excluded-col-register-date excluded-w-date',
   },
   {
     key: 'category',
@@ -11876,6 +11877,15 @@ function App() {
     }
 
     if (column.type === 'date') {
+      if (useFlatInlineStyle) {
+        const { className: _inlineClass, ...dateInputProps } = commonProps
+        return (
+          <RegistryTableDateInput
+            {...dateInputProps}
+            className={EXCLUDED_INLINE_EDITOR_CLASS}
+          />
+        )
+      }
       return <input {...commonProps} type="date" />
     }
     if (column.type === 'textarea' || isExcludedMultilineEditColumn(column, scope)) {
@@ -12025,6 +12035,19 @@ function App() {
     }
 
     if (column.type === 'date') {
+      const isFlatInlineDate = extraClassName.includes(EXCLUDED_INLINE_EDITOR_CLASS)
+      if (isFlatInlineDate) {
+        return (
+          <RegistryTableDateInput
+            className={EXCLUDED_INLINE_EDITOR_CLASS}
+            style={{ ...(extraStyle || {}), textAlign: 'center' }}
+            value={row[column.key] ?? ''}
+            autoFocus={autoFocus}
+            onChange={(e) => onChange(row.id, column.key, e.target.value)}
+            onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
+          />
+        )
+      }
       return (
         <input
           className={inputClassName}

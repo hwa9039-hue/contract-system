@@ -7188,10 +7188,88 @@ textarea:focus-visible {
   background-color: transparent !important;
 }
 
-.excluded-registry-table input[type='date']::-webkit-calendar-picker-indicator {
-  opacity: 0.55;
+.excluded-registry-table input[type='date']::-webkit-calendar-picker-indicator,
+.documents-registry-table input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 1;
   cursor: pointer;
   background: transparent;
+}
+
+/* 사업공유·문서수발신 — 등록일 date 입력 래퍼 (공통) */
+.excluded-registry-table td.editable-cell > .registry-table-date-input,
+.excluded-registry-table tr.excluded-draft-row > td:not(.registry-check-cell):not(.sales-archive-cell):not(.registry-importance-cell) > .registry-table-date-input,
+.documents-registry-table td.editable-cell > .registry-table-date-input,
+.documents-registry-table tr.documents-draft-row > td:not(.registry-check-cell):not(.sales-archive-cell):not(.registry-importance-cell) > .registry-table-date-input {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  width: max-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 8px 6px !important;
+  vertical-align: top;
+}
+
+.excluded-registry-table .registry-table-date-input .registry-table-date-input-field,
+.excluded-registry-table .registry-table-date-input .excluded-inline-editor,
+.documents-registry-table .registry-table-date-input .registry-table-date-input-field,
+.documents-registry-table .registry-table-date-input .excluded-inline-editor {
+  display: block;
+  width: 110px !important;
+  max-width: 110px !important;
+  min-width: 110px !important;
+  flex: 0 0 110px;
+  padding: 0 !important;
+  margin: 0;
+  min-height: 0 !important;
+  height: auto;
+}
+
+.excluded-registry-table .registry-table-date-input-icon,
+.documents-registry-table .registry-table-date-input-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #2563eb;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.excluded-registry-table .registry-table-date-input-icon:hover,
+.documents-registry-table .registry-table-date-input-icon:hover {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.excluded-registry-table td:has(> .registry-table-date-input:focus-within),
+.documents-registry-table td:has(> .registry-table-date-input:focus-within) {
+  box-shadow: inset 0 0 0 1px #3b82f6;
+}
+
+/* 사업공유 — 등록일 열: date 입력 + 아이콘이 셀 안에 들어가도록 너비 확보 */
+.excluded-registry-table col.excluded-w-date,
+.excluded-registry-table th.excluded-w-date,
+.excluded-registry-table td.excluded-w-date {
+  width: 9.5rem;
+  min-width: 9.5rem;
+  max-width: 9.5rem;
+}
+
+.excluded-registry-table .excluded-col-register-date:has(> .registry-table-date-input) {
+  text-align: center;
+}
+
+.documents-registry-table .documents-col-tight:has(> .registry-table-date-input) {
+  text-align: center;
 }
 
 .excluded-registry-table input[type='date']::-webkit-datetime-edit,
@@ -7740,12 +7818,6 @@ textarea:focus-visible {
 .documents-registry-table td.editable-cell > input[type='date'] {
   color-scheme: light;
   background-color: transparent !important;
-}
-
-.documents-registry-table input[type='date']::-webkit-calendar-picker-indicator {
-  opacity: 0.55;
-  cursor: pointer;
-  background: transparent;
 }
 
 .documents-registry-table input[type='date']::-webkit-datetime-edit,
