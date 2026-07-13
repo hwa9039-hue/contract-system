@@ -7259,9 +7259,9 @@ textarea:focus-visible {
 .excluded-registry-table col.excluded-w-date,
 .excluded-registry-table th.excluded-w-date,
 .excluded-registry-table td.excluded-w-date {
-  width: 9.5rem;
-  min-width: 9.5rem;
-  max-width: 9.5rem;
+  width: 190px !important;
+  min-width: 190px !important;
+  max-width: 190px !important;
 }
 
 .excluded-registry-table .excluded-col-register-date:has(> .registry-table-date-input) {

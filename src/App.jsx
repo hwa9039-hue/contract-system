@@ -15506,7 +15506,11 @@ function App() {
                     <col className="registry-check-col" />
                     <col className="sales-archive-col" style={{ width: 60 }} />
                     {EXCLUDED_COLUMNS.map((column) => (
-                      <col key={column.key} className={column.widthClass || ''} />
+                      <col
+                        key={column.key}
+                        className={column.widthClass || ''}
+                        style={column.key === 'writeDate' ? { width: 190, minWidth: 190 } : undefined}
+                      />
                     ))}
                   </colgroup>
                   <thead>
@@ -15532,7 +15536,13 @@ function App() {
                         <th
                           key={column.key}
                           className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
-                          style={column.widthClass ? { minWidth: 'max(3rem, 100%)' } : undefined}
+                          style={
+                            column.key === 'writeDate'
+                              ? { minWidth: 190, width: 190 }
+                              : column.widthClass
+                                ? { minWidth: 'max(3rem, 100%)' }
+                                : undefined
+                          }
                         >
                           <div className="contract-th-filter-wrap">
                             <span className="contract-th-label">{column.label}</span>
