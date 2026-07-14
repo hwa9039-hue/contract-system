@@ -7935,6 +7935,122 @@ textarea:focus-visible {
   text-align: center;
 }
 
+/* 연락처 — 사업공유·문서수발신과 동일한 엑셀 스타일 투명 인라인 편집 */
+.contacts-registry-table tr.contacts-draft-row > td {
+  background: #eff6ff;
+  box-shadow: inset 0 0 0 1px #93c5fd;
+}
+
+.contacts-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
+  vertical-align: top !important;
+  padding: 12px 8px !important;
+}
+
+.contacts-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td.editable-cell,
+.contacts-registry-table.excel-table.registry-table tbody tr.contacts-draft-row > td:not(.registry-check-cell):not(.sales-archive-cell):not(.registry-importance-cell) {
+  padding: 0 !important;
+}
+
+.contacts-registry-table .excluded-inline-editor,
+.contacts-registry-table td.editable-cell > input:not([type='checkbox']),
+.contacts-registry-table td.editable-cell > select,
+.contacts-registry-table td.editable-cell > textarea {
+  display: block;
+  width: 100% !important;
+  height: auto;
+  min-height: 0 !important;
+  box-sizing: border-box;
+  margin: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  padding: 12px 8px !important;
+  text-align: center;
+}
+
+.contacts-registry-table .excluded-inline-editor:focus,
+.contacts-registry-table .excluded-inline-editor:focus-visible,
+.contacts-registry-table td.editable-cell > input:not([type='checkbox']):focus,
+.contacts-registry-table td.editable-cell > input:not([type='checkbox']):focus-visible,
+.contacts-registry-table td.editable-cell > select:focus,
+.contacts-registry-table td.editable-cell > select:focus-visible,
+.contacts-registry-table td.editable-cell > textarea:focus,
+.contacts-registry-table td.editable-cell > textarea:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+}
+
+.contacts-registry-table td:has(> .excluded-inline-editor:focus),
+.contacts-registry-table td:has(> input:not([type='checkbox']):focus),
+.contacts-registry-table td:has(> select:focus),
+.contacts-registry-table td:has(> textarea:focus) {
+  box-shadow: inset 0 0 0 1px #3b82f6;
+}
+
+.contacts-registry-table input:focus-visible:not([type='checkbox']),
+.contacts-registry-table select:focus-visible,
+.contacts-registry-table textarea:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+}
+
+.contacts-registry-table textarea.excluded-inline-editor {
+  min-height: 3rem !important;
+  resize: vertical;
+  white-space: pre-wrap;
+}
+
+.contacts-registry-table .cell-display,
+.contacts-registry-table .editable-text-cell-display,
+.contacts-registry-table .editable-text-cell-input,
+.contacts-registry-table .contacts-modal-text-display,
+.contacts-registry-table .multiline-cell .cell-display,
+.contacts-registry-table .td-align-center .cell-display {
+  align-items: flex-start !important;
+}
+
+.contacts-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.editable-cell .cell-display,
+.contacts-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.editable-cell .editable-text-cell-display {
+  padding: 12px 8px !important;
+  box-sizing: border-box;
+}
+
+.contacts-registry-table .editable-text-cell-display {
+  min-height: 0 !important;
+  padding: 12px 8px !important;
+}
+
+.contacts-registry-table .registry-check-cell {
+  vertical-align: top !important;
+  text-align: center !important;
+}
+
+.contacts-registry-table .excluded-registry-icon-cell-inner {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.contacts-registry-table .registry-check-cell .registry-row-checkbox {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
 .contacts-registry-table td .cell-display,
 .contacts-registry-table td .editable-text-cell-display,
 .contacts-registry-table td .editable-text-cell-input,

@@ -345,16 +345,6 @@ const CONTACTS_MANAGE_COLUMNS = [
   },
 ]
 
-const EMPTY_CONTACTS_REGISTER_FORM = {
-  category: '',
-  business_content: '',
-  manager_name: '',
-  position: '',
-  phone: '',
-  email: '',
-  notes: '',
-}
-
 const SALES_STAGE_OPTIONS = [
   '보고',
   '대응중',
@@ -2894,6 +2884,25 @@ function createExcludedDraftRow() {
   }
 }
 
+function createContactsManageDraftRow() {
+  const draftId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? `contacts-draft-${crypto.randomUUID()}`
+      : `contacts-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  return {
+    id: draftId,
+    _original_db_id: '',
+    category: '',
+    business_content: '',
+    manager_name: '',
+    position: '',
+    phone: '',
+    email: '',
+    notes: '',
+    isDraft: true,
+  }
+}
+
 function createWorkReportDraftRow({
   reportDate,
   section,
@@ -3606,7 +3615,19 @@ function normalizeContactsManageRow(row, index = 0) {
     ...row,
     id: originalDbId || normalizeRegistryRowId(row.id) || `contacts-row-${index}`,
     _original_db_id: originalDbId,
+    category: safeString(row.category),
+    business_content: safeString(row.business_content),
+    manager_name: safeString(row.manager_name),
+    position: safeString(row.position),
+    phone: safeString(row.phone),
+    email: safeString(row.email),
+    notes: safeString(row.notes),
+    isDraft: false,
   }
+}
+
+function isContactsManageRowEmpty(row) {
+  return CONTACTS_MANAGE_COLUMNS.every((column) => safeString(row[column.key]).trim() === '')
 }
 
 /** 테이블 UI 키 — 행마다 고유. 저장 API 는 `record.id`(DB PK)만 사용 */
@@ -4325,9 +4346,9 @@ function isExcludedShareStatusOpen(row) {
   return safeString(row?.shareStatus).trim().toUpperCase() === 'O'
 }
 
-/** 사업공유 — 사업명·발주처·세부내용 등 긴 텍스트 인라인 편집(멀티라인) */
+/** 사업공유·문서수발신·연락처 — 엑셀 스타일 투명 인라인 편집 */
 function isRegistryFlatInlineTableScope(scope) {
-  return scope === 'excluded' || scope === 'documents'
+  return scope === 'excluded' || scope === 'documents' || scope === 'contactsManage'
 }
 
 function isExcludedMultilineEditColumn(column, scope) {
@@ -5491,9 +5512,8 @@ function App() {
   const [contactsManageRows, setContactsManageRows] = useState([])
   const contactsManageRawRowsRef = useRef([])
   const [isLoadingContactsManage, setIsLoadingContactsManage] = useState(false)
-  const [contactsRegisterModalOpen, setContactsRegisterModalOpen] = useState(false)
-  const [contactsRegisterForm, setContactsRegisterForm] = useState(EMPTY_CONTACTS_REGISTER_FORM)
-  const [isSavingContactsRegister, setIsSavingContactsRegister] = useState(false)
+  const [isSavingContactsManage, setIsSavingContactsManage] = useState(false)
+  const [contactsDraftFocusRowId, setContactsDraftFocusRowId] = useState(null)
   const [selectedContactsIds, setSelectedContactsIds] = useState([])
   const [contactsSearch, setContactsSearch] = useState('')
   const [contactsActiveFilters, setContactsActiveFilters] = useState({})
@@ -6190,6 +6210,14 @@ function App() {
   }, [menu])
 
   useEffect(() => {
+    if (menu === 'contactsManage') return
+    setContactsDraftFocusRowId(null)
+    setContactsManageRows((prev) =>
+      prev.filter((row) => !(row.isDraft && isContactsManageRowEmpty(row)))
+    )
+  }, [menu])
+
+  useEffect(() => {
     if (!excludedDraftFocusRowId || menu !== 'excluded') return
     const timer = window.setTimeout(() => {
       const rowEl = document.querySelector(
@@ -6212,6 +6240,18 @@ function App() {
     }, 0)
     return () => window.clearTimeout(timer)
   }, [documentDraftFocusRowId, menu])
+
+  useEffect(() => {
+    if (!contactsDraftFocusRowId || menu !== 'contactsManage') return
+    const timer = window.setTimeout(() => {
+      const rowEl = document.querySelector(
+        `[data-contacts-draft-row="${contactsDraftFocusRowId}"]`
+      )
+      const focusable = rowEl?.querySelector('input:not([type="checkbox"]), textarea, select')
+      focusable?.focus({ preventScroll: true })
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [contactsDraftFocusRowId, menu])
 
   useLayoutEffect(() => {
     if (menu === 'dashboard') {
@@ -7042,9 +7082,22 @@ function App() {
     return filterContactsManageRowsByActiveFilters(toolbarFiltered, contactsActiveFilters)
   }, [contactsActiveFilters, contactsRawData, contactsSearch])
 
+  const contactsDraftRows = useMemo(
+    () => filteredContactsRows.filter((row) => row.isDraft),
+    [filteredContactsRows]
+  )
+
+  const filteredPersistedContactsRows = useMemo(
+    () => filteredContactsRows.filter((row) => !row.isDraft),
+    [filteredContactsRows]
+  )
+
   const isContactsTableFilterResultEmpty = useMemo(
-    () => contactsRawData.length > 0 && filteredContactsRows.length === 0,
-    [contactsRawData.length, filteredContactsRows.length]
+    () =>
+      contactsRawData.some((row) => !row.isDraft) &&
+      filteredPersistedContactsRows.length === 0 &&
+      contactsDraftRows.length === 0,
+    [contactsRawData, filteredPersistedContactsRows.length, contactsDraftRows.length]
   )
 
   const salesRawData = useMemo(
@@ -7726,17 +7779,16 @@ function App() {
     setShowSessionWarning(false)
   }
 
-  const fetchContactsManageRows = async () => {
+  const fetchContactsManageRows = async (preserveDrafts = true) => {
     setIsLoadingContactsManage(true)
     try {
       const rows = await contactsManageApi.list()
-      contactsManageRawRowsRef.current = Array.isArray(rows) ? rows : []
-      if (Array.isArray(rows) && rows.length > 0) {
-        console.log('[연락처] GET 원본 Row sample:', rows[0])
+      const list = Array.isArray(rows) ? rows : []
+      contactsManageRawRowsRef.current = list
+      if (list.length > 0) {
+        console.log('[연락처] GET 원본 Row sample:', list[0])
       }
-      const normalizedRows = Array.isArray(rows)
-        ? rows.map((row, index) => normalizeContactsManageRow(row, index))
-        : []
+      const normalizedRows = list.map((row, index) => normalizeContactsManageRow(row, index))
       if (normalizedRows.length > 0) {
         console.log('[연락처] 테이블 바인딩 Row sample:', normalizedRows[0])
         console.log('[연락처] 테이블 row.id / _original_db_id:', {
@@ -7744,7 +7796,10 @@ function App() {
           originalDbId: normalizedRows[0]._original_db_id,
         })
       }
-      setContactsManageRows(normalizedRows)
+      setContactsManageRows((prev) => {
+        const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
+        return [...normalizedRows, ...draftRows]
+      })
     } catch (error) {
       const isNotFound =
         error?.status === 404 ||
@@ -7752,46 +7807,83 @@ function App() {
       if (isNotFound) {
         console.warn('연락처 API 미구현(404) — 빈 목록으로 표시합니다.')
         contactsManageRawRowsRef.current = []
-        setContactsManageRows([])
+        setContactsManageRows((prev) =>
+          preserveDrafts ? prev.filter((row) => row.isDraft) : []
+        )
       } else {
         console.error('연락처 데이터를 불러오지 못했습니다.', error)
         showAppAlert('연락처 데이터를 불러오지 못했습니다.')
         contactsManageRawRowsRef.current = []
-        setContactsManageRows([])
+        setContactsManageRows((prev) =>
+          preserveDrafts ? prev.filter((row) => row.isDraft) : []
+        )
       }
     } finally {
       setIsLoadingContactsManage(false)
     }
   }
 
-  const openContactsRegisterModal = () => {
-    if (!requireMenuEdit('contactsManage')) return
-    setContactsRegisterForm({ ...EMPTY_CONTACTS_REGISTER_FORM })
-    setContactsRegisterModalOpen(true)
-  }
-
-  const closeContactsRegisterModal = () => {
-    if (isSavingContactsRegister) return
-    setContactsRegisterModalOpen(false)
-  }
-
   const handleAddContactsRow = () => {
-    openContactsRegisterModal()
+    if (!requireMenuEdit('contactsManage')) return
+    const draft = createContactsManageDraftRow()
+    setContactsManageRows((prev) => {
+      const withoutEmptyDrafts = prev.filter(
+        (row) => !(row.isDraft && isContactsManageRowEmpty(row))
+      )
+      return [draft, ...withoutEmptyDrafts]
+    })
+    setSelectedContactsIds([])
+    setContactsDraftFocusRowId(draft.id)
   }
 
-  const saveContactsRegister = async () => {
+  const cancelContactsRow = (rowId) => {
+    const targetRow = contactsManageRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (targetRow.isDraft) {
+      setContactsManageRows((prev) => prev.filter((row) => row.id !== rowId))
+      setContactsDraftFocusRowId((prev) => (prev === rowId ? null : prev))
+      setSelectedContactsIds((prev) => prev.filter((id) => id !== rowId))
+    }
+  }
+
+  const saveContactsRow = async (rowId) => {
     if (!requireMenuEdit('contactsManage')) return
-    setIsSavingContactsRegister(true)
+    const targetRow = contactsManageRows.find((row) => row.id === rowId)
+    if (!targetRow) return
+
+    if (!targetRow.isDraft) return
+
+    if (isContactsManageRowEmpty(targetRow)) {
+      showAppAlert('입력 내용을 확인해주세요.')
+      return
+    }
+
+    setIsSavingContactsManage(true)
     try {
-      await contactsManageApi.create(contactsRegisterForm)
-      setContactsRegisterModalOpen(false)
+      const created = await contactsManageApi.create(targetRow)
+      const normalized = normalizeContactsManageRow(created)
+      contactsManageRawRowsRef.current = [
+        created,
+        ...(Array.isArray(contactsManageRawRowsRef.current)
+          ? contactsManageRawRowsRef.current
+          : []),
+      ]
+      setContactsManageRows((prev) =>
+        prev.map((row) => (row.id === rowId ? normalized : row))
+      )
+      setSelectedContactsIds((prev) =>
+        prev.map((id) => (id === rowId ? normalized.id : id))
+      )
+      setContactsDraftFocusRowId((prev) => (prev === rowId ? null : prev))
       setToastMessage('저장되었습니다.')
-      await fetchContactsManageRows()
     } catch (error) {
-      console.error('연락처 등록 실패', error)
-      showAppAlert(error?.message || '연락처 등록에 실패했습니다.', '알림')
+      setContactsManageRows((prev) => prev.filter((row) => row.id !== rowId))
+      setSelectedContactsIds((prev) => prev.filter((id) => id !== rowId))
+      setContactsDraftFocusRowId((prev) => (prev === rowId ? null : prev))
+      logApiOperationError('연락처 저장', error)
     } finally {
-      setIsSavingContactsRegister(false)
+      setIsSavingContactsManage(false)
     }
   }
 
@@ -7836,8 +7928,14 @@ function App() {
           }
         }
 
+        setContactsManageRows((prev) =>
+          prev.filter((row) => !(row.isDraft && validSelectedIds.includes(row.id)))
+        )
         setSelectedContactsIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
-        await fetchContactsManageRows()
+        setContactsDraftFocusRowId((prev) =>
+          prev && validSelectedIds.includes(prev) ? null : prev
+        )
+        await fetchContactsManageRows(true)
         setToastMessage('삭제되었습니다.')
       },
     })
@@ -12302,12 +12400,17 @@ function App() {
         key={rowKey}
         className={`${index % 2 === 0 ? 'row-even' : 'row-odd'}${
           row.isDraft && cellEditScope === 'excluded' ? ' excluded-draft-row' : ''
-        }${row.isDraft && cellEditScope === 'documents' ? ' documents-draft-row' : ''}`}
+        }${row.isDraft && cellEditScope === 'documents' ? ' documents-draft-row' : ''}${
+          row.isDraft && cellEditScope === 'contactsManage' ? ' contacts-draft-row' : ''
+        }`}
         data-excluded-draft-row={
           row.isDraft && cellEditScope === 'excluded' ? rowId : undefined
         }
         data-documents-draft-row={
           row.isDraft && cellEditScope === 'documents' ? rowId : undefined
+        }
+        data-contacts-draft-row={
+          row.isDraft && cellEditScope === 'contactsManage' ? rowId : undefined
         }
         onBlur={
           row.isDraft && showDraftOrLegacyRow
@@ -12376,7 +12479,8 @@ function App() {
               column.type === 'textarea' &&
               (cellEditScope === 'excluded' ||
                 cellEditScope === 'documents' ||
-                cellEditScope === 'discovery')
+                cellEditScope === 'discovery' ||
+                cellEditScope === 'contactsManage')
             ) &&
             !(cellEditScope === 'excluded' && isExcludedMultilineEditColumn(column, cellEditScope)) &&
             useCellMode &&
@@ -16143,7 +16247,8 @@ function App() {
                           불러오는 중...
                         </td>
                       </tr>
-                    ) : contactsRawData.length === 0 ? (
+                    ) : contactsRawData.filter((row) => !row.isDraft).length === 0 &&
+                      contactsDraftRows.length === 0 ? (
                       <tr>
                         <td colSpan={CONTACTS_MANAGE_COLUMNS.length + (canEditContactsManage ? 1 : 0)} className="empty-cell">
                           등록된 데이터가 없습니다.
@@ -16156,26 +16261,54 @@ function App() {
                         </td>
                       </tr>
                     ) : (
-                      renderFlatRegistryRows({
-                        rows: filteredContactsRows,
-                        columns: CONTACTS_MANAGE_COLUMNS,
-                        emptyMessage: '등록된 데이터가 없습니다.',
-                        selectedIds: selectedContactsIds,
-                        onToggleSelection: toggleContactsSelection,
-                        editingIds: [],
-                        isSaving: false,
-                        onStartEdit: () => {},
-                        onSaveRow: () => {},
-                        onCancelRow: () => {},
-                        onChange: handleContactsCellChange,
-                        isEmptyRow: () => false,
-                        cellEditScope: 'contactsManage',
-                        isAdminForRegistry: canEditContactsManage,
-                        registryCellEdit,
-                        onRegistryCellStart: (rowId, columnKey, value, row) =>
-                          startRegistryCellEdit('contactsManage', rowId, columnKey, value, row),
-                        showSelection: canEditContactsManage,
-                      })
+                      <>
+                        {contactsDraftRows.map((row, index) =>
+                          renderRegistryDataRow({
+                            row,
+                            index,
+                            columns: CONTACTS_MANAGE_COLUMNS,
+                            editingIds: [],
+                            isSaving: isSavingContactsManage,
+                            onStartEdit: () => {},
+                            onSaveRow: () => saveContactsRow(row.id),
+                            onCancelRow: () => cancelContactsRow(row.id),
+                            onChange: handleContactsCellChange,
+                            isEmptyRow: isContactsManageRowEmpty,
+                            selectedIds: selectedContactsIds,
+                            onToggleSelection: toggleContactsSelection,
+                            cellEditScope: 'contactsManage',
+                            isAdminForRegistry: canEditContactsManage,
+                            registryCellEdit,
+                            onRegistryCellStart: (rowId, columnKey, value, draftRow) =>
+                              startRegistryCellEdit('contactsManage', rowId, columnKey, value, draftRow),
+                            showSelection: canEditContactsManage,
+                            draftFocusRowId: contactsDraftFocusRowId,
+                            draftFocusColumnKey: 'category',
+                          })
+                        )}
+                        {filteredPersistedContactsRows.length > 0 || contactsDraftRows.length === 0
+                          ? renderFlatRegistryRows({
+                              rows: filteredPersistedContactsRows,
+                              columns: CONTACTS_MANAGE_COLUMNS,
+                              emptyMessage: '등록된 데이터가 없습니다.',
+                              selectedIds: selectedContactsIds,
+                              onToggleSelection: toggleContactsSelection,
+                              editingIds: [],
+                              isSaving: isSavingContactsManage,
+                              onStartEdit: () => {},
+                              onSaveRow: saveContactsRow,
+                              onCancelRow: cancelContactsRow,
+                              onChange: handleContactsCellChange,
+                              isEmptyRow: isContactsManageRowEmpty,
+                              cellEditScope: 'contactsManage',
+                              isAdminForRegistry: canEditContactsManage,
+                              registryCellEdit,
+                              onRegistryCellStart: (rowId, columnKey, value, row) =>
+                                startRegistryCellEdit('contactsManage', rowId, columnKey, value, row),
+                              showSelection: canEditContactsManage,
+                            })
+                          : null}
+                      </>
                     )}
                   </tbody>
                 </table>
@@ -16919,92 +17052,6 @@ function App() {
                 </button>
                 <button type="button" className="primary-btn" onClick={() => void saveAddRow()}>
                   등록
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {contactsRegisterModalOpen && (
-        <div className="modal-backdrop" onClick={closeContactsRegisterModal}>
-          <div
-            className="install-case-form-modal contract-register-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="contacts-register-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="install-case-form-modal-header">
-              <h3 id="contacts-register-title">연락처 등록</h3>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={closeContactsRegisterModal}
-                disabled={isSavingContactsRegister}
-                aria-label="닫기"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="install-case-form-modal-body">
-              <div className="global-register-form-grid">
-                {CONTACTS_MANAGE_COLUMNS.map((column) => (
-                  <div
-                    key={column.key}
-                    className={`global-register-field${
-                      column.type === 'textarea' ? ' global-register-field--full' : ''
-                    }`}
-                  >
-                    <label className="install-case-form-label" htmlFor={`contacts-reg-${column.key}`}>
-                      {column.label}
-                    </label>
-                    {column.type === 'textarea' ? (
-                      <textarea
-                        id={`contacts-reg-${column.key}`}
-                        className="table-search-input install-case-form-input global-register-control"
-                        rows={column.key === 'notes' ? 4 : 3}
-                        value={contactsRegisterForm[column.key] ?? ''}
-                        onChange={(e) =>
-                          setContactsRegisterForm((prev) => ({
-                            ...prev,
-                            [column.key]: e.target.value,
-                          }))
-                        }
-                      />
-                    ) : (
-                      <input
-                        id={`contacts-reg-${column.key}`}
-                        className="table-search-input install-case-form-input global-register-control"
-                        type="text"
-                        value={contactsRegisterForm[column.key] ?? ''}
-                        onChange={(e) =>
-                          setContactsRegisterForm((prev) => ({
-                            ...prev,
-                            [column.key]: e.target.value,
-                          }))
-                        }
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="install-case-form-actions">
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={closeContactsRegisterModal}
-                  disabled={isSavingContactsRegister}
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  className="primary-btn"
-                  onClick={() => void saveContactsRegister()}
-                  disabled={isSavingContactsRegister}
-                >
-                  {isSavingContactsRegister ? '저장 중...' : '저장'}
                 </button>
               </div>
             </div>
