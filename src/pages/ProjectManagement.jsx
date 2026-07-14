@@ -53,6 +53,7 @@ const PROJECT_MANAGEMENT_EDITABLE_FIELDS = Object.freeze([
   'warrantyStart',
   'warrantyExpiry',
   'guaranteeRate',
+  'performanceCertStatus',
 ])
 
 /** 단가관리와 동일 colgroup·colgroup 클래스 패턴 (열 정의만 사업관리용) */
@@ -160,6 +161,14 @@ const columns = [
     editable: true,
     colClass: 'unit-price-col-guarantee-rate',
   },
+  {
+    field: 'performanceCertStatus',
+    headerName: '실적증명 여부',
+    width: 140,
+    filterable: true,
+    editable: true,
+    colClass: 'unit-price-col-performance-cert',
+  },
 ]
 
 function safeString(value) {
@@ -186,6 +195,7 @@ function normalizeContractFromApi(contract) {
     warrantyStart: formatDateDisplay(contract?.warrantyStart),
     warrantyExpiry: formatDateDisplay(contract?.warrantyExpiry),
     guaranteeRate: safeString(contract?.guaranteeRate).trim(),
+    performanceCertStatus: safeString(contract?.performanceCertStatus).trim(),
   }
 
   return row
@@ -265,6 +275,7 @@ function projectManagementRowToExcelRow(row) {
   const warrantyStartCol = columns.find((c) => c.field === 'warrantyStart')
   const warrantyExpiryCol = columns.find((c) => c.field === 'warrantyExpiry')
   const guaranteeRateCol = columns.find((c) => c.field === 'guaranteeRate')
+  const performanceCertStatusCol = columns.find((c) => c.field === 'performanceCertStatus')
 
   const contractDateState = formatEditableTableCellText(row.contractDate, { isDate: true })
   const dueDateState = formatEditableTableCellText(row.dueDate, { isDate: true })
@@ -282,6 +293,7 @@ function projectManagementRowToExcelRow(row) {
     '하자보증 시작': getEditableColumnCellState(row, warrantyStartCol).text,
     '하자보증 만기': getEditableColumnCellState(row, warrantyExpiryCol).text,
     보증금율: getEditableColumnCellState(row, guaranteeRateCol).text,
+    '실적증명 여부': getEditableColumnCellState(row, performanceCertStatusCol).text,
   }
 }
 

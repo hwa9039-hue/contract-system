@@ -822,7 +822,8 @@ def init_db():
                   add column if not exists "warrantyExpiry" date,
                   add column if not exists "guaranteeRate" text not null default '',
                   add column if not exists "inspectionRequestDate" date,
-                  add column if not exists "taxInvoice" text not null default ''
+                  add column if not exists "taxInvoice" text not null default '',
+                  add column if not exists "performanceCertStatus" text not null default ''
                 """
             )
             _migrate_contract_unit_price_items(cursor)
@@ -837,6 +838,7 @@ def init_db():
                   "warrantyStart" date,
                   "warrantyExpiry" date,
                   "guaranteeRate" text not null default '',
+                  "performanceCertStatus" text not null default '',
                   "createdAt" timestamptz not null default now(),
                   "updatedAt" timestamptz not null default now()
                 )
@@ -853,6 +855,12 @@ def init_db():
                 """
                 create index if not exists project_management_items_signature_idx
                   on project_management_items (contract_signature)
+                """
+            )
+            cursor.execute(
+                """
+                alter table project_management_items
+                  add column if not exists "performanceCertStatus" text not null default ''
                 """
             )
             cursor.execute(

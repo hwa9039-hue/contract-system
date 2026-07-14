@@ -15,6 +15,7 @@ PROJECT_MANAGEMENT_DATE_FIELDS = (
 PROJECT_MANAGEMENT_TEXT_FIELDS = (
     "guaranteeRate",
     "taxInvoice",
+    "performanceCertStatus",
 )
 
 # contracts_rows 전체 컬럼 (API camelCase)
@@ -68,6 +69,7 @@ class ContractRow:
     guarantee_rate: str
     inspection_request_date: Optional[date]
     tax_invoice: str
+    performance_cert_status: str
 
 
 # project_discovery_rows 전체 컬럼 (API camelCase)

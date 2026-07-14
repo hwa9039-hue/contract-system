@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS contracts_rows (
   "warrantyExpiry" date,
   "guaranteeRate" text NOT NULL DEFAULT '',
   "inspectionRequestDate" date,
-  "taxInvoice" text NOT NULL DEFAULT ''
+  "taxInvoice" text NOT NULL DEFAULT '',
+  "performanceCertStatus" text NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS contract_unit_price_items (
@@ -221,7 +222,8 @@ ALTER TABLE weekly_work_reports_rows
   USING (CASE WHEN category IS NULL THEN NULL::text ELSE trim(category::text) END);
 
 ALTER TABLE contracts_rows
-  ADD COLUMN IF NOT EXISTS "identNo" text NOT NULL DEFAULT '';
+  ADD COLUMN IF NOT EXISTS "identNo" text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS "performanceCertStatus" text NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS contracts_rows_year_idx
   ON contracts_rows (year DESC);

@@ -37,7 +37,8 @@ CONTRACT_PARENT_SELECT = """
   c."warrantyExpiry",
   c."guaranteeRate",
   c."inspectionRequestDate",
-  c."taxInvoice"
+  c."taxInvoice",
+  c."performanceCertStatus"
 """
 
 PROJECT_MANAGEMENT_RETURNING = """
@@ -49,6 +50,7 @@ PROJECT_MANAGEMENT_RETURNING = """
   "warrantyStart",
   "warrantyExpiry",
   "guaranteeRate",
+  "performanceCertStatus",
   "createdAt",
   "updatedAt"
 """
@@ -59,7 +61,10 @@ PROJECT_MANAGEMENT_FIELDS = (
     "warrantyStart",
     "warrantyExpiry",
     "guaranteeRate",
+    "performanceCertStatus",
 )
+
+PROJECT_MANAGEMENT_TEXT_FIELDS = frozenset({"guaranteeRate", "performanceCertStatus"})
 
 
 COMMENCEMENT_CERT_OMIT_LABEL = "생략"
@@ -71,6 +76,7 @@ class ProjectManagementPatch(BaseModel):
     warrantyStart: date | None = None
     warrantyExpiry: date | None = None
     guaranteeRate: str | None = None
+    performanceCertStatus: str | None = None
 
     @field_validator("commencementCert", mode="before")
     @classmethod
@@ -113,6 +119,9 @@ def _row_to_project_management_item(row: dict | None) -> dict:
         "warrantyStart": _date_to_text(row.get("warrantyStart")),
         "warrantyExpiry": _date_to_text(row.get("warrantyExpiry")),
         "guaranteeRate": "" if row.get("guaranteeRate") is None else str(row.get("guaranteeRate")),
+        "performanceCertStatus": (
+            "" if row.get("performanceCertStatus") is None else str(row.get("performanceCertStatus"))
+        ),
     }
 
 
@@ -170,14 +179,14 @@ def _build_pm_values(contract_mapping: dict, patch_data: dict) -> dict:
     }
     for key in PROJECT_MANAGEMENT_FIELDS:
         if key in patch_data:
-            if key == "guaranteeRate":
+            if key in PROJECT_MANAGEMENT_TEXT_FIELDS:
                 values[key] = patch_data[key] or ""
             elif key == "commencementCert":
                 values[key] = _normalize_commencement_cert_storage(patch_data[key])
             else:
                 values[key] = patch_data[key]
-        elif key == "guaranteeRate":
-            values[key] = contract_row.get("guaranteeRate") or ""
+        elif key in PROJECT_MANAGEMENT_TEXT_FIELDS:
+            values[key] = contract_row.get(key) or ""
         elif key == "commencementCert":
             values[key] = _normalize_commencement_cert_storage(contract_row.get(key))
         else:
@@ -316,7 +325,7 @@ async def update_project_management_row(contract_id: str, request: Request):
 
                 if existing is not None:
                     assignments = [
-                        f'"{key}" = %({key})s' if key != "guaranteeRate" else f'"{key}" = %({key})s'
+                        f'"{key}" = %({key})s'
                         for key in PROJECT_MANAGEMENT_FIELDS
                         if key in patch_data
                     ]
@@ -346,7 +355,8 @@ async def update_project_management_row(contract_id: str, request: Request):
                           "completionCert",
                           "warrantyStart",
                           "warrantyExpiry",
-                          "guaranteeRate"
+                          "guaranteeRate",
+                          "performanceCertStatus"
                         )
                         values (
                           %(contract_id)s,
@@ -355,7 +365,8 @@ async def update_project_management_row(contract_id: str, request: Request):
                           %(completionCert)s,
                           %(warrantyStart)s,
                           %(warrantyExpiry)s,
-                          %(guaranteeRate)s
+                          %(guaranteeRate)s,
+                          %(performanceCertStatus)s
                         )
                         returning {PROJECT_MANAGEMENT_RETURNING}
                         """,

@@ -12384,7 +12384,7 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 
 /* 사업관리 — 단가관리와 동일 테이블 톤, 열 합 최소 너비만 별도 */
 .unit-price-table.unit-price-table--project-mgmt {
-  min-width: 1768px;
+  min-width: 1908px;
 }
 
 /* 단가관리 · 사업관리 — 검색창 가로 전체 (2열 그리드 여백 제거) */
@@ -12436,6 +12436,11 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 .unit-price-table .unit-price-col-guarantee-rate {
   width: 110px;
   min-width: 110px;
+}
+
+.unit-price-table .unit-price-col-performance-cert {
+  width: 140px;
+  min-width: 140px;
 }
 
 .unit-price-table .unit-price-action-cell {

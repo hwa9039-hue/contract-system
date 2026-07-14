@@ -15,6 +15,7 @@ export const PROJECT_MANAGEMENT_FILTERABLE_COLUMN_KEYS = Object.freeze([
   'warrantyStart',
   'warrantyExpiry',
   'guaranteeRate',
+  'performanceCertStatus',
 ])
 
 export const PROJECT_MANAGEMENT_COLUMN_FILTER_BLANK = '(비어 있음)'

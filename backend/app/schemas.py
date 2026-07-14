@@ -64,6 +64,7 @@ class ContractBase(BaseModel):
     guaranteeRate: str = ""
     inspectionRequestDate: Optional[date] = None
     taxInvoice: str = ""
+    performanceCertStatus: str = ""
 
     @field_validator(
         "contractDate",
@@ -144,6 +145,7 @@ class ContractPatch(BaseModel):
     guaranteeRate: Optional[str] = None
     inspectionRequestDate: Optional[date] = None
     taxInvoice: Optional[str] = None
+    performanceCertStatus: Optional[str] = None
     cost_service: Optional[str] = None
     item_name: Optional[str] = None
     unit_price: Optional[int] = None
@@ -226,6 +228,7 @@ class ContractOut(BaseModel):
     guaranteeRate: Optional[Any] = None
     inspectionRequestDate: Optional[Any] = None
     taxInvoice: Optional[Any] = None
+    performanceCertStatus: Optional[Any] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -822,6 +825,9 @@ def row_to_contract(row) -> dict:
         "taxInvoice": to_response_value(
             _contract_row_field(row, "taxInvoice", default="")
         ),
+        "performanceCertStatus": to_response_value(
+            _contract_row_field(row, "performanceCertStatus", default="")
+        ),
     }
 
 
@@ -1105,6 +1111,7 @@ CONTRACT_DB_COLUMNS = {
     "guaranteeRate": "guaranteeRate",
     "inspectionRequestDate": "inspectionRequestDate",
     "taxInvoice": "taxInvoice",
+    "performanceCertStatus": "performanceCertStatus",
     "cost_service": "costService",
     "item_name": "itemName",
     "unit_price": "designUnitPrice",
@@ -1622,6 +1629,7 @@ def contract_to_db_values(contract: ContractBase) -> dict:
                 "salesOwner",
                 "guaranteeRate",
                 "taxInvoice",
+                "performanceCertStatus",
             ):
                 s = _normalize_excel_placeholder_text(s)
             out[db_key] = s
@@ -1647,6 +1655,7 @@ def contract_to_db_values(contract: ContractBase) -> dict:
                 "salesOwner",
                 "guaranteeRate",
                 "taxInvoice",
+                "performanceCertStatus",
             ):
                 s = _normalize_excel_placeholder_text(s)
             out[db_key] = s
