@@ -425,7 +425,7 @@ const SALES_COLUMNS = [
     label: '담당부서',
     align: 'center',
     type: 'text',
-    width: 380,
+    width: 160,
     cellClass: 'sales-department-cell',
   },
   {
@@ -433,7 +433,8 @@ const SALES_COLUMNS = [
     label: '세부내용',
     align: 'left',
     type: 'textarea',
-    width: 360,
+    width: 480,
+    widthGrow: true,
     cellClass: 'sales-detail-cell',
   },
   { key: 'source', label: '출처', align: 'center', type: 'text', width: 140 },
@@ -15741,7 +15742,13 @@ function App() {
                         <col
                           key={column.key}
                           className={`sales-col-${column.key}`}
-                          style={{ width: column.width, minWidth: column.width }}
+                          style={
+                            column.widthGrow
+                              ? { minWidth: column.width, width: 'auto' }
+                              : column.key === 'department'
+                                ? { width: column.width, minWidth: column.width, maxWidth: column.width }
+                                : { width: column.width, minWidth: column.width }
+                          }
                         />,
                       ]
                       if (column.key === 'importance') {
@@ -15773,8 +15780,14 @@ function App() {
                         const headerCells = [
                           <th
                             key={column.key}
-                            className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} contract-th-filterable`}
-                            style={{ minWidth: column.width }}
+                            className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.cellClass || ''} contract-th-filterable`}
+                            style={
+                              column.widthGrow
+                                ? { minWidth: column.width }
+                                : column.key === 'department'
+                                  ? { width: column.width, minWidth: column.width, maxWidth: column.width }
+                                  : { minWidth: column.width }
+                            }
                           >
                             <div className="contract-th-filter-wrap">
                               <span className="contract-th-label">{column.label}</span>
