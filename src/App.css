@@ -6901,7 +6901,7 @@ textarea:focus-visible {
 }
 
 .discovery-registry-table .discovery-check-col {
-  vertical-align: middle;
+  vertical-align: top;
   text-align: center;
 }
 
@@ -7005,7 +7005,7 @@ textarea:focus-visible {
   white-space: normal;
   word-break: break-word;
   overflow-wrap: break-word;
-  align-items: center;
+  align-items: flex-start;
   line-height: 1.25;
   font-size: 13px;
 }
@@ -8331,11 +8331,84 @@ textarea:focus-visible {
 .discovery-registry-table .excluded-registry-icon-cell-inner,
 .contracts-fixed-table .excluded-registry-icon-cell-inner {
   display: flex;
-  align-items: flex-start;
   justify-content: center;
-  min-height: 40px;
-  padding-top: 2px;
+  align-items: flex-start;
+  width: 100%;
+  box-sizing: border-box;
 }
+
+/* 건축정보 — 사업공유와 동일: 표시 모드 셀 상단 여백·기준선 */
+.discovery-registry-table .cell-display,
+.discovery-registry-table .editable-text-cell-display,
+.discovery-registry-table .editable-text-cell-input,
+.discovery-registry-table .cell-display--importance,
+.discovery-registry-table .cell-inline-editor,
+.discovery-registry-table .inline-row-editor,
+.discovery-registry-table .sales-detail-preview,
+.discovery-registry-table .multiline-cell .cell-display,
+.discovery-registry-table .td-align-center .cell-display,
+.discovery-registry-table .discovery-col-tight .cell-display,
+.discovery-registry-table .discovery-col-amount .cell-display,
+.discovery-registry-table .discovery-col-project .cell-display,
+.discovery-registry-table .discovery-col-detail .cell-display,
+.discovery-registry-table .discovery-col-detail .sales-detail-preview,
+.discovery-registry-table .discovery-col-detail .editable-text-cell-display {
+  align-items: flex-start !important;
+}
+
+.discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.editable-cell .cell-display,
+.discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.editable-cell .editable-text-cell-display,
+.discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.editable-cell .sales-detail-preview {
+  padding: 12px 8px !important;
+  box-sizing: border-box;
+}
+
+.discovery-registry-table .editable-text-cell-display {
+  min-height: 0 !important;
+  padding: 12px 8px !important;
+  box-sizing: border-box;
+}
+
+.discovery-registry-table .registry-check-cell,
+.discovery-registry-table .sales-archive-cell {
+  vertical-align: top !important;
+  text-align: center !important;
+  padding: 12px 8px !important;
+}
+
+.discovery-registry-table .registry-importance-cell,
+.discovery-registry-table .sales-record-cell {
+  vertical-align: top !important;
+  text-align: center !important;
+  padding: 12px 8px !important;
+}
+
+.discovery-registry-table .registry-importance-cell .cell-display--importance {
+  align-items: flex-start !important;
+  justify-content: center !important;
+  margin-top: 0;
+  padding: 0 !important;
+}
+
+.discovery-registry-table .registry-check-cell .registry-row-checkbox,
+.discovery-registry-table .sales-archive-cell .sales-archive-btn,
+.discovery-registry-table .sales-record-cell .sales-record-btn {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.discovery-registry-table .sales-record-cell .excluded-registry-icon-cell-inner,
+.discovery-registry-table .registry-importance-cell .excluded-registry-icon-cell-inner {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 
 
 .registry-table td .cell-display {

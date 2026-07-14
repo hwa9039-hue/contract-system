@@ -13135,8 +13135,25 @@ function App() {
           ]
           if (isImportanceCell && renderAfterImportanceCell) {
             cells.push(
-              <td key={`${column.key}-record`} className="td-align-center sales-record-cell">
-                {renderAfterImportanceCell(displayRow)}
+              <td
+                key={`${column.key}-record`}
+                className="td-align-center sales-record-cell"
+                style={
+                  isFlatInlineScope
+                    ? {
+                        ...EXCLUDED_TABLE_ICON_CELL_STYLE,
+                        ...(flatInlineCellBackgroundStyle || {}),
+                      }
+                    : undefined
+                }
+              >
+                {isFlatInlineScope ? (
+                  <div className="excluded-registry-icon-cell-inner">
+                    {renderAfterImportanceCell(displayRow)}
+                  </div>
+                ) : (
+                  renderAfterImportanceCell(displayRow)
+                )}
               </td>
             )
           }
