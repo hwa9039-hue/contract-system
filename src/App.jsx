@@ -406,7 +406,7 @@ const SALES_COLUMNS = [
     statusKey: 'projectStage',
     width: 120,
   },
-  { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 108 },
+  { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 128, cellClass: 'sales-register-date-cell' },
   { key: 'client', label: '발주처', align: 'center', type: 'text', width: 170 },
   { key: 'projectName', label: '사업명', align: 'left', type: 'textarea', width: 340 },
   {
@@ -425,7 +425,7 @@ const SALES_COLUMNS = [
     label: '담당부서',
     align: 'center',
     type: 'text',
-    width: 160,
+    width: 220,
     cellClass: 'sales-department-cell',
   },
   {
@@ -433,8 +433,7 @@ const SALES_COLUMNS = [
     label: '세부내용',
     align: 'left',
     type: 'textarea',
-    width: 480,
-    widthGrow: true,
+    width: 420,
     cellClass: 'sales-detail-cell',
   },
   { key: 'source', label: '출처', align: 'center', type: 'text', width: 140 },
@@ -15743,8 +15742,8 @@ function App() {
                           key={column.key}
                           className={`sales-col-${column.key}`}
                           style={
-                            column.widthGrow
-                              ? { minWidth: column.width, width: 'auto' }
+                            column.key === 'detail'
+                              ? { width: '38%', minWidth: column.width }
                               : column.key === 'department'
                                 ? { width: column.width, minWidth: column.width, maxWidth: column.width }
                                 : { width: column.width, minWidth: column.width }
@@ -15782,8 +15781,8 @@ function App() {
                             key={column.key}
                             className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.cellClass || ''} contract-th-filterable`}
                             style={
-                              column.widthGrow
-                                ? { minWidth: column.width }
+                              column.key === 'detail'
+                                ? { width: '38%', minWidth: column.width }
                                 : column.key === 'department'
                                   ? { width: column.width, minWidth: column.width, maxWidth: column.width }
                                   : { minWidth: column.width }

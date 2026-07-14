@@ -6517,7 +6517,7 @@ textarea:focus-visible {
 .sales-registry-table {
   table-layout: fixed !important;
   width: 100%;
-  min-width: 2480px;
+  min-width: 2200px;
 }
 
 .sales-registry-table.excel-table thead th,
@@ -6570,28 +6570,70 @@ textarea:focus-visible {
   max-width: 56px;
 }
 
-/* 담당부서 — 고정 너비 (과확장 방지) */
+/* 담당부서 — 여유 너비 + 줄바꿈 (잘림 금지) */
 .sales-registry-table col.sales-col-department,
 .sales-registry-table th.sales-department-cell,
 .sales-registry-table td.sales-department-cell {
-  width: 160px !important;
-  min-width: 160px !important;
-  max-width: 160px !important;
+  width: 220px !important;
+  min-width: 220px !important;
+  max-width: 220px !important;
 }
 
+.sales-registry-table td.sales-department-cell,
 .sales-registry-table td.sales-department-cell .cell-display,
 .sales-registry-table td.sales-department-cell .editable-text-cell-display {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal !important;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  overflow: visible !important;
+  text-overflow: clip;
+  align-items: flex-start !important;
 }
 
-/* 세부내용 — 남는 공간을 우선 확보 */
+/* 세부내용 — 전체 대비 약 38%로 폭주 제어 */
 .sales-registry-table col.sales-col-detail,
 .sales-registry-table th.sales-detail-cell,
 .sales-registry-table td.sales-detail-cell {
-  width: auto !important;
-  min-width: 30% !important;
+  width: 38% !important;
+  min-width: 380px !important;
+  max-width: 42% !important;
+}
+
+/* 등록일 — 상단 패딩·기준선 (editable-cell padding:0 보정) */
+.sales-registry-table td.sales-register-date-cell,
+.sales-registry-table td.registry-week-badge-cell {
+  vertical-align: top !important;
+}
+
+.sales-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.editable-cell .cell-display,
+.sales-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.editable-cell .editable-text-cell-display,
+.sales-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.editable-cell .sales-detail-preview {
+  padding: 12px 8px !important;
+  box-sizing: border-box;
+  align-items: flex-start !important;
+}
+
+.sales-registry-table td.sales-register-date-cell .cell-display,
+.sales-registry-table td.sales-register-date-cell .editable-text-cell-display,
+.sales-registry-table td.registry-week-badge-cell .cell-display,
+.sales-registry-table td.registry-week-badge-cell .editable-text-cell-display {
+  display: inline-flex !important;
+  align-items: flex-start !important;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 8px !important;
+  box-sizing: border-box;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.sales-registry-table .editable-text-cell-display {
+  min-height: 0 !important;
+  padding: 12px 8px !important;
+  box-sizing: border-box;
 }
 
 .sales-hidden-toggle {
@@ -6695,9 +6737,9 @@ textarea:focus-visible {
 }
 
 .sales-registry-table td.sales-detail-cell {
-  max-width: none;
-  width: auto;
-  min-width: 30%;
+  width: 38% !important;
+  min-width: 380px !important;
+  max-width: 42% !important;
   vertical-align: top !important;
   overflow: visible !important;
   white-space: normal;
