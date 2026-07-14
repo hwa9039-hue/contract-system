@@ -1,7 +1,5 @@
 """contract_unit_price_items — 계약 1:N 단가 품목 공통 DB/직렬화."""
 
-from decimal import Decimal
-
 from app.schemas import to_response_value
 
 UNIT_PRICE_ITEM_RETURNING = """
@@ -16,8 +14,11 @@ UNIT_PRICE_ITEM_RETURNING = """
   "capW",
   "capH",
   enclosure,
+  "structureSpec",
+  "signboardQty",
+  "replacementType",
   "quotePrice",
-  "replacementType"
+  "constructionNote"
 """
 
 UNIT_PRICE_ITEM_PATCH_KEYS = frozenset(
@@ -29,8 +30,11 @@ UNIT_PRICE_ITEM_PATCH_KEYS = frozenset(
         "capW",
         "capH",
         "enclosure",
-        "quotePrice",
+        "structureSpec",
+        "signboardQty",
         "replacementType",
+        "quotePrice",
+        "constructionNote",
         "cost_service",
         "item_name",
         "unit_price",
@@ -52,8 +56,11 @@ UNIT_PRICE_PAYLOAD_TO_DB = {
     "capH": "capH",
     "height_h": "capH",
     "enclosure": "enclosure",
-    "quotePrice": "quotePrice",
+    "structureSpec": "structureSpec",
+    "signboardQty": "signboardQty",
     "replacementType": "replacementType",
+    "quotePrice": "quotePrice",
+    "constructionNote": "constructionNote",
 }
 
 
@@ -95,8 +102,11 @@ def row_to_unit_price_item(row: dict) -> dict:
         "capW": to_response_value(row.get("capW") or row.get("width_w") or ""),
         "capH": to_response_value(row.get("capH") or row.get("height_h") or ""),
         "enclosure": to_response_value(row.get("enclosure") or ""),
-        "quotePrice": to_response_value(row.get("quotePrice") or 0),
+        "structureSpec": to_response_value(row.get("structureSpec") or ""),
+        "signboardQty": to_response_value(row.get("signboardQty") or ""),
         "replacementType": to_response_value(row.get("replacementType") or ""),
+        "quotePrice": to_response_value(row.get("quotePrice") or 0),
+        "constructionNote": to_response_value(row.get("constructionNote") or ""),
     }
 
 
@@ -155,8 +165,11 @@ def has_unit_price_payload(data: dict) -> bool:
             bool(fields.get("capW")),
             bool(fields.get("capH")),
             bool(fields.get("enclosure")),
-            int(fields.get("quotePrice") or 0) != 0,
+            bool(fields.get("structureSpec")),
+            bool(fields.get("signboardQty")),
             bool(fields.get("replacementType")),
+            int(fields.get("quotePrice") or 0) != 0,
+            bool(fields.get("constructionNote")),
         )
     )
 
@@ -173,8 +186,11 @@ def insert_unit_price_item(cursor, contract_id: str, fields: dict, *, sort_order
         "capW": fields.get("capW", ""),
         "capH": fields.get("capH", ""),
         "enclosure": fields.get("enclosure", ""),
-        "quotePrice": fields.get("quotePrice", 0),
+        "structureSpec": fields.get("structureSpec", ""),
+        "signboardQty": fields.get("signboardQty", ""),
         "replacementType": fields.get("replacementType", ""),
+        "quotePrice": fields.get("quotePrice", 0),
+        "constructionNote": fields.get("constructionNote", ""),
     }
     cursor.execute(
         f"""
@@ -189,8 +205,11 @@ def insert_unit_price_item(cursor, contract_id: str, fields: dict, *, sort_order
           "capW",
           "capH",
           enclosure,
+          "structureSpec",
+          "signboardQty",
+          "replacementType",
           "quotePrice",
-          "replacementType"
+          "constructionNote"
         )
         values (
           %(contract_id)s,
@@ -203,8 +222,11 @@ def insert_unit_price_item(cursor, contract_id: str, fields: dict, *, sort_order
           %(capW)s,
           %(capH)s,
           %(enclosure)s,
+          %(structureSpec)s,
+          %(signboardQty)s,
+          %(replacementType)s,
           %(quotePrice)s,
-          %(replacementType)s
+          %(constructionNote)s
         )
         """,
         values,

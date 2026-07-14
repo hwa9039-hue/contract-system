@@ -52,8 +52,11 @@ class UnitPriceItemPatch(BaseModel):
     capW: str | None = None
     capH: str | None = None
     enclosure: str | None = None
-    quotePrice: int | None = None
+    structureSpec: str | None = None
+    signboardQty: str | None = None
     replacementType: str | None = None
+    quotePrice: int | None = None
+    constructionNote: str | None = None
     sortOrder: int | None = Field(default=None, alias="sortOrder")
 
 
@@ -67,8 +70,11 @@ class UnitPriceItemCreate(BaseModel):
     capW: str = ""
     capH: str = ""
     enclosure: str = ""
-    quotePrice: int = 0
+    structureSpec: str = ""
+    signboardQty: str = ""
     replacementType: str = ""
+    quotePrice: int = 0
+    constructionNote: str = ""
     sortOrder: int | None = None
 
 
@@ -84,8 +90,11 @@ def _row_to_contract_parent(row: dict) -> dict:
         "capW",
         "capH",
         "enclosure",
-        "quotePrice",
+        "structureSpec",
+        "signboardQty",
         "replacementType",
+        "quotePrice",
+        "constructionNote",
     ):
         base.pop(key, None)
     return base
@@ -216,8 +225,11 @@ def create_unit_price_item(contract_id: str, body: UnitPriceItemCreate):
             "capW",
             "capH",
             "enclosure",
-            "quotePrice",
+            "structureSpec",
+            "signboardQty",
             "replacementType",
+            "quotePrice",
+            "constructionNote",
         )},
     }
 
@@ -249,8 +261,11 @@ def create_unit_price_item(contract_id: str, body: UnitPriceItemCreate):
                   "capW",
                   "capH",
                   enclosure,
+                  "structureSpec",
+                  "signboardQty",
+                  "replacementType",
                   "quotePrice",
-                  "replacementType"
+                  "constructionNote"
                 )
                 values (
                   %(contract_id)s,
@@ -263,8 +278,11 @@ def create_unit_price_item(contract_id: str, body: UnitPriceItemCreate):
                   %(capW)s,
                   %(capH)s,
                   %(enclosure)s,
+                  %(structureSpec)s,
+                  %(signboardQty)s,
+                  %(replacementType)s,
                   %(quotePrice)s,
-                  %(replacementType)s
+                  %(constructionNote)s
                 )
                 returning {UNIT_PRICE_ITEM_RETURNING}
                 """,

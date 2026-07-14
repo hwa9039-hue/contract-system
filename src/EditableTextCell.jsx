@@ -19,6 +19,18 @@ export function isEditableTextColumn(column) {
 /** @deprecated — use isEditableTextColumn */
 export const isContractEditableTextColumn = isEditableTextColumn
 
+function normalizeAmountDigits(value) {
+  if (value === null || value === undefined || value === '') return ''
+  return String(value).replace(/[^0-9]/g, '')
+}
+
+/** 금액 입력용: 숫자만 남겨 3자리 콤마로 표시 (예: 1000000 → 1,000,000) */
+export function formatAmountInputValue(value) {
+  const raw = normalizeAmountDigits(value)
+  if (!raw) return ''
+  return Number(raw).toLocaleString('ko-KR')
+}
+
 export function EditableTextCell({
   value,
   onSave,
@@ -29,23 +41,30 @@ export function EditableTextCell({
   inputStyle = null,
   displayStyle = null,
   suffix = null,
+  /** 'amount' 이면 입력 중에도 콤마 포맷 + 숫자만 허용 */
+  formatMode = null,
 }) {
+  const toDisplay = (raw) => {
+    if (formatMode === 'amount') return formatAmountInputValue(raw)
+    return raw == null ? '' : String(raw)
+  }
+
   const [isEditing, setIsEditing] = useState(false)
-  const [draft, setDraft] = useState(() => (value == null ? '' : String(value)))
+  const [draft, setDraft] = useState(() => toDisplay(value))
 
   useEffect(() => {
     if (!isEditing) {
-      setDraft(value == null ? '' : String(value))
+      setDraft(toDisplay(value))
     }
-  }, [value, isEditing])
+  }, [value, isEditing, formatMode])
 
-  const displayValue = value == null ? '' : String(value)
+  const displayValue = toDisplay(value)
   const isEmpty = isTableCellEmpty(displayValue)
   const stateClass = tableCellStateClass(isEmpty)
 
   const handleCommit = () => {
     setIsEditing(false)
-    const next = draft
+    const next = formatMode === 'amount' ? formatAmountInputValue(draft) : draft
     if (next !== displayValue) {
       onSave?.(next)
     }
@@ -54,6 +73,15 @@ export function EditableTextCell({
   const handleCancel = () => {
     setDraft(displayValue)
     setIsEditing(false)
+  }
+
+  const handleChange = (e) => {
+    const next = e.target.value
+    if (formatMode === 'amount') {
+      setDraft(formatAmountInputValue(next))
+      return
+    }
+    setDraft(next)
   }
 
   if (disabled) {
@@ -74,11 +102,12 @@ export function EditableTextCell({
     return (
       <input
         type="text"
+        inputMode={formatMode === 'amount' ? 'numeric' : undefined}
         className={`${TABLE_INLINE_INPUT_STANDARD_CLASS}${inputClassName ? ` ${inputClassName}` : ''}`.trim()}
         style={{ ...(inputStyle || {}), textAlign: align }}
         value={draft}
         autoFocus
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={handleChange}
         onBlur={handleCommit}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {

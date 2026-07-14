@@ -52,8 +52,11 @@ class ContractBase(BaseModel):
     capW: str = ""
     capH: str = ""
     enclosure: str = ""
+    structureSpec: str = ""
+    signboardQty: str = ""
     quotePrice: int = 0
     replacementType: str = ""
+    constructionNote: str = ""
     commencementCert: Optional[date] = None
     completionCert: Optional[date] = None
     warrantyStart: Optional[date] = None
@@ -129,8 +132,11 @@ class ContractPatch(BaseModel):
     capW: Optional[str] = None
     capH: Optional[str] = None
     enclosure: Optional[str] = None
+    structureSpec: Optional[str] = None
+    signboardQty: Optional[str] = None
     quotePrice: Optional[int] = None
     replacementType: Optional[str] = None
+    constructionNote: Optional[str] = None
     commencementCert: Optional[date] = None
     completionCert: Optional[date] = None
     warrantyStart: Optional[date] = None
@@ -208,8 +214,11 @@ class ContractOut(BaseModel):
     capW: Optional[Any] = None
     capH: Optional[Any] = None
     enclosure: Optional[Any] = None
+    structureSpec: Optional[Any] = None
+    signboardQty: Optional[Any] = None
     quotePrice: Optional[Any] = None
     replacementType: Optional[Any] = None
+    constructionNote: Optional[Any] = None
     commencementCert: Optional[Any] = None
     completionCert: Optional[Any] = None
     warrantyStart: Optional[Any] = None
@@ -787,8 +796,11 @@ def row_to_contract(row) -> dict:
         "capW": "",
         "capH": "",
         "enclosure": "",
+        "structureSpec": "",
+        "signboardQty": "",
         "quotePrice": 0,
         "replacementType": "",
+        "constructionNote": "",
         "commencementCert": contract_date_to_response(
             _contract_row_field(row, "commencementCert", default=None)
         ),
@@ -1081,8 +1093,11 @@ CONTRACT_DB_COLUMNS = {
     "capW": "capW",
     "capH": "capH",
     "enclosure": "enclosure",
+    "structureSpec": "structureSpec",
+    "signboardQty": "signboardQty",
     "quotePrice": "quotePrice",
     "replacementType": "replacementType",
+    "constructionNote": "constructionNote",
     "commencementCert": "commencementCert",
     "completionCert": "completionCert",
     "warrantyStart": "warrantyStart",
@@ -1106,8 +1121,11 @@ _UNIT_PRICE_API_KEYS = frozenset(
         "capW",
         "capH",
         "enclosure",
+        "structureSpec",
+        "signboardQty",
         "quotePrice",
         "replacementType",
+        "constructionNote",
         "cost_service",
         "item_name",
         "unit_price",

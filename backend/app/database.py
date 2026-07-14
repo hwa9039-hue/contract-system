@@ -388,8 +388,11 @@ def _migrate_contract_unit_price_items(cursor) -> None:
           "capW" text not null default '',
           "capH" text not null default '',
           enclosure text not null default '',
-          "quotePrice" numeric(18, 0) not null default 0,
+          "structureSpec" text not null default '',
+          "signboardQty" text not null default '',
           "replacementType" text not null default '',
+          "quotePrice" numeric(18, 0) not null default 0,
+          "constructionNote" text not null default '',
           "createdAt" timestamptz not null default now(),
           "updatedAt" timestamptz not null default now()
         )
@@ -418,7 +421,10 @@ def _migrate_contract_unit_price_items(cursor) -> None:
         alter table contract_unit_price_items
           add column if not exists enclosure text not null default '',
           add column if not exists "quotePrice" numeric(18, 0) not null default 0,
-          add column if not exists "replacementType" text not null default ''
+          add column if not exists "replacementType" text not null default '',
+          add column if not exists "structureSpec" text not null default '',
+          add column if not exists "signboardQty" text not null default '',
+          add column if not exists "constructionNote" text not null default ''
         """
     )
     cursor.execute(

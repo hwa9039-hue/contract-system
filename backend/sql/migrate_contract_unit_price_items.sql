@@ -19,8 +19,11 @@ CREATE TABLE IF NOT EXISTS contract_unit_price_items (
   "capW" text NOT NULL DEFAULT '',
   "capH" text NOT NULL DEFAULT '',
   enclosure text NOT NULL DEFAULT '',
-  "quotePrice" numeric(18, 0) NOT NULL DEFAULT 0,
+  "structureSpec" text NOT NULL DEFAULT '',
+  "signboardQty" text NOT NULL DEFAULT '',
   "replacementType" text NOT NULL DEFAULT '',
+  "quotePrice" numeric(18, 0) NOT NULL DEFAULT 0,
+  "constructionNote" text NOT NULL DEFAULT '',
   "createdAt" timestamptz NOT NULL DEFAULT now(),
   "updatedAt" timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT contract_unit_price_items_contract_id_fkey
@@ -38,6 +41,9 @@ CREATE INDEX IF NOT EXISTS contract_unit_price_items_contract_sort_idx
 ALTER TABLE contract_unit_price_items
   ADD COLUMN IF NOT EXISTS enclosure text NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS "quotePrice" numeric(18, 0) NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS "replacementType" text NOT NULL DEFAULT '';
+  ADD COLUMN IF NOT EXISTS "replacementType" text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS "structureSpec" text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS "signboardQty" text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS "constructionNote" text NOT NULL DEFAULT '';
 
 COMMIT;

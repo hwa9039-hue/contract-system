@@ -42,12 +42,26 @@ CREATE TABLE IF NOT EXISTS contract_unit_price_items (
   pitch text NOT NULL DEFAULT '',
   "capW" text NOT NULL DEFAULT '',
   "capH" text NOT NULL DEFAULT '',
+  enclosure text NOT NULL DEFAULT '',
+  "structureSpec" text NOT NULL DEFAULT '',
+  "signboardQty" text NOT NULL DEFAULT '',
+  "replacementType" text NOT NULL DEFAULT '',
+  "quotePrice" numeric(18, 0) NOT NULL DEFAULT 0,
+  "constructionNote" text NOT NULL DEFAULT '',
   "createdAt" timestamptz NOT NULL DEFAULT now(),
   "updatedAt" timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS contract_unit_price_items_contract_id_idx
   ON contract_unit_price_items (contract_id);
+
+ALTER TABLE contract_unit_price_items
+  ADD COLUMN IF NOT EXISTS enclosure text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS "structureSpec" text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS "signboardQty" text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS "replacementType" text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS "quotePrice" numeric(18, 0) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS "constructionNote" text NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS sales_register_rows (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

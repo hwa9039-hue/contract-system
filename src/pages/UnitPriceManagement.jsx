@@ -37,14 +37,17 @@ const UNIT_PRICE_FIELDS = [
   'capW',
   'capH',
   'enclosure',
-  'quotePrice',
+  'structureSpec',
+  'signboardQty',
   'replacementType',
+  'quotePrice',
+  'constructionNote',
 ]
 
 /** 천 단위 콤마 포맷을 적용하는 숫자형 컬럼 */
 const NUMBER_FIELDS = ['designUnitPrice', 'quotePrice']
 
-/** 신규/교체 여부 드롭다운 옵션 */
+/** 신규/교체 드롭다운 옵션 */
 const REPLACEMENT_TYPE_OPTIONS = ['신규', '교체']
 
 const EMPTY_ITEM_PAYLOAD = Object.freeze({
@@ -55,15 +58,19 @@ const EMPTY_ITEM_PAYLOAD = Object.freeze({
   capW: '',
   capH: '',
   enclosure: '',
-  quotePrice: 0,
+  structureSpec: '',
+  signboardQty: '',
   replacementType: '',
+  quotePrice: 0,
+  constructionNote: '',
 })
 
 const PLACEHOLDER_ID_PREFIX = '__empty__'
 
 /**
  * DataGrid-style column definitions — array order and width are authoritative.
- * [앞] 작업 · 사업년도 · 발주처 → [중] 사업명(350) → [뒤] 원가용역 → 품명 → 설계단가 · Pitch · W · H
+ * 품목 12컬럼: 원가용역 · 품명 · 설계단가 · Pitch · W(가로) · H(세로) · 함체 규격 ·
+ * 구조물 규격 · 전광판 수량 · 신규/교체 · 견적단가 · 공사 특이사항
  */
 const columns = [
   {
@@ -133,7 +140,7 @@ const columns = [
   },
   {
     field: 'capW',
-    headerName: 'W',
+    headerName: 'W(가로)',
     width: 110,
     filterable: true,
     editable: true,
@@ -141,7 +148,7 @@ const columns = [
   },
   {
     field: 'capH',
-    headerName: 'H',
+    headerName: 'H(세로)',
     width: 110,
     filterable: true,
     editable: true,
@@ -149,15 +156,42 @@ const columns = [
   },
   {
     field: 'enclosure',
-    headerName: '함체',
+    headerName: '함체 규격',
     width: 180,
     filterable: true,
     editable: true,
     colClass: 'unit-price-col-enclosure',
   },
   {
+    field: 'structureSpec',
+    headerName: '구조물 규격',
+    width: 180,
+    filterable: true,
+    editable: true,
+    colClass: 'unit-price-col-structure',
+  },
+  {
+    field: 'signboardQty',
+    headerName: '전광판 수량',
+    width: 120,
+    filterable: true,
+    editable: true,
+    colClass: 'unit-price-col-signboard-qty',
+  },
+  {
+    field: 'replacementType',
+    headerName: '신규/교체',
+    width: 120,
+    filterable: true,
+    editable: true,
+    type: 'select',
+    options: REPLACEMENT_TYPE_OPTIONS,
+    align: 'center',
+    colClass: 'unit-price-col-replacement',
+  },
+  {
     field: 'quotePrice',
-    headerName: '견적 단가',
+    headerName: '견적단가',
     width: 160,
     filterable: true,
     editable: true,
@@ -166,15 +200,12 @@ const columns = [
     colClass: 'unit-price-col-quote',
   },
   {
-    field: 'replacementType',
-    headerName: '신규/교체 여부',
-    width: 140,
+    field: 'constructionNote',
+    headerName: '공사 특이사항',
+    width: 220,
     filterable: true,
     editable: true,
-    type: 'select',
-    options: REPLACEMENT_TYPE_OPTIONS,
-    align: 'center',
-    colClass: 'unit-price-col-replacement',
+    colClass: 'unit-price-col-construction-note',
   },
 ]
 
@@ -215,8 +246,11 @@ function normalizeItemFromApi(item) {
     capW: safeString(item?.capW).trim(),
     capH: safeString(item?.capH).trim(),
     enclosure: safeString(item?.enclosure).trim(),
-    quotePrice: formatDesignUnitPrice(item?.quotePrice),
+    structureSpec: safeString(item?.structureSpec).trim(),
+    signboardQty: safeString(item?.signboardQty).trim(),
     replacementType: safeString(item?.replacementType).trim(),
+    quotePrice: formatDesignUnitPrice(item?.quotePrice),
+    constructionNote: safeString(item?.constructionNote).trim(),
   }
 }
 
@@ -229,8 +263,11 @@ function emptyItemFields() {
     capW: '',
     capH: '',
     enclosure: '',
-    quotePrice: '',
+    structureSpec: '',
+    signboardQty: '',
     replacementType: '',
+    quotePrice: '',
+    constructionNote: '',
   }
 }
 
@@ -243,8 +280,11 @@ function itemFieldsToApiPatch(fields) {
     capW: safeString(fields.capW).trim(),
     capH: safeString(fields.capH).trim(),
     enclosure: safeString(fields.enclosure).trim(),
-    quotePrice: parseDesignUnitPrice(fields.quotePrice),
+    structureSpec: safeString(fields.structureSpec).trim(),
+    signboardQty: safeString(fields.signboardQty).trim(),
     replacementType: safeString(fields.replacementType).trim(),
+    quotePrice: parseDesignUnitPrice(fields.quotePrice),
+    constructionNote: safeString(fields.constructionNote).trim(),
   }
 }
 
@@ -301,8 +341,11 @@ function flattenContractsToRows(contracts) {
         capW: item.capW,
         capH: item.capH,
         enclosure: item.enclosure,
-        quotePrice: item.quotePrice,
+        structureSpec: item.structureSpec,
+        signboardQty: item.signboardQty,
         replacementType: item.replacementType,
+        quotePrice: item.quotePrice,
+        constructionNote: item.constructionNote,
       })
     }
   }
@@ -319,8 +362,11 @@ function rowToSavedSnapshot(row) {
     capW: row.capW,
     capH: row.capH,
     enclosure: row.enclosure,
-    quotePrice: row.quotePrice,
+    structureSpec: row.structureSpec,
+    signboardQty: row.signboardQty,
     replacementType: row.replacementType,
+    quotePrice: row.quotePrice,
+    constructionNote: row.constructionNote,
   }
 }
 
@@ -335,8 +381,11 @@ function itemFieldsToTreeItem(normalized, itemId) {
     capW: patch.capW,
     capH: patch.capH,
     enclosure: patch.enclosure,
-    quotePrice: patch.quotePrice,
+    structureSpec: patch.structureSpec,
+    signboardQty: patch.signboardQty,
     replacementType: patch.replacementType,
+    quotePrice: patch.quotePrice,
+    constructionNote: patch.constructionNote,
   }
 }
 
@@ -380,11 +429,14 @@ function unitPriceRowToExcelRow(row) {
     품명: excelExportCellText(row.itemName),
     설계단가: designPrice || '-',
     Pitch: excelExportCellText(row.pitch),
-    W: excelExportCellText(row.capW),
-    H: excelExportCellText(row.capH),
-    함체: excelExportCellText(row.enclosure),
-    '견적 단가': quotePrice || '-',
-    '신규/교체 여부': excelExportCellText(row.replacementType),
+    'W(가로)': excelExportCellText(row.capW),
+    'H(세로)': excelExportCellText(row.capH),
+    '함체 규격': excelExportCellText(row.enclosure),
+    '구조물 규격': excelExportCellText(row.structureSpec),
+    '전광판 수량': excelExportCellText(row.signboardQty),
+    '신규/교체': excelExportCellText(row.replacementType),
+    견적단가: quotePrice || '-',
+    '공사 특이사항': excelExportCellText(row.constructionNote),
   }
 }
 
@@ -721,6 +773,7 @@ export default function UnitPriceManagement({ canEdit = true }) {
               align={column.align || 'center'}
               disabled={tableBusy}
               className="unit-price-cell-input"
+              formatMode={NUMBER_FIELDS.includes(column.field) ? 'amount' : null}
               onSave={(nextValue) => void handleItemFieldSave(row, column.field, nextValue)}
             />
           </td>

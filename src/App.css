@@ -12302,7 +12302,7 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 
 /* 단가관리 — 좁은 화면에서만 가로 스크롤 (고정 열 최소 너비 합) */
 .unit-price-table:not(.unit-price-table--project-mgmt) {
-  min-width: 1500px;
+  min-width: 2100px;
 }
 
 .unit-price-table.w-full {
@@ -12358,6 +12358,28 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 .unit-price-table .unit-price-col-caph {
   width: 110px;
   min-width: 110px;
+}
+
+.unit-price-table .unit-price-col-enclosure,
+.unit-price-table .unit-price-col-structure {
+  width: 180px;
+  min-width: 180px;
+}
+
+.unit-price-table .unit-price-col-signboard-qty,
+.unit-price-table .unit-price-col-replacement {
+  width: 120px;
+  min-width: 120px;
+}
+
+.unit-price-table .unit-price-col-quote {
+  width: 160px;
+  min-width: 160px;
+}
+
+.unit-price-table .unit-price-col-construction-note {
+  width: 220px;
+  min-width: 220px;
 }
 
 /* 사업관리 — 단가관리와 동일 테이블 톤, 열 합 최소 너비만 별도 */

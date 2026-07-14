@@ -12,8 +12,11 @@ export const UNIT_PRICE_FILTERABLE_COLUMN_KEYS = Object.freeze([
   'capW',
   'capH',
   'enclosure',
-  'quotePrice',
+  'structureSpec',
+  'signboardQty',
   'replacementType',
+  'quotePrice',
+  'constructionNote',
 ])
 
 export const UNIT_PRICE_COLUMN_FILTER_BLANK = '(비어 있음)'
