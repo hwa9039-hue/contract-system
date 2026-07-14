@@ -8122,6 +8122,222 @@ textarea:focus-visible {
   text-overflow: ellipsis;
 }
 
+/* 영업·건축·계약 — 사업공유와 동일한 인라인 편집 Flat (엑셀 스타일) */
+.sales-registry-table tr.sales-draft-row > td,
+.discovery-registry-table tr.discovery-draft-row > td,
+.contracts-fixed-table tr.contracts-draft-row > td {
+  background: #eff6ff;
+  box-shadow: inset 0 0 0 1px #93c5fd;
+}
+
+.sales-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td,
+.discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td,
+.contracts-fixed-table.excel-table.registry-table tbody tr.contracts-draft-row > td {
+  vertical-align: top !important;
+  padding: 12px 8px !important;
+}
+
+.sales-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td.editable-cell,
+.sales-registry-table.excel-table.registry-table tbody tr.sales-draft-row > td:not(.registry-check-cell):not(.sales-archive-cell):not(.registry-importance-cell):not(.sales-record-cell),
+.discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td.editable-cell,
+.discovery-registry-table.excel-table.registry-table tbody tr.discovery-draft-row > td:not(.registry-check-cell):not(.sales-archive-cell):not(.registry-importance-cell):not(.sales-record-cell),
+.contracts-fixed-table.excel-table.registry-table tbody tr.contracts-draft-row > td.editable-cell,
+.contracts-fixed-table.excel-table.registry-table tbody tr.contracts-draft-row > td:not(.registry-check-cell):not(.contract-copy-col):not(.col-dday) {
+  padding: 0 !important;
+}
+
+.sales-registry-table .excluded-inline-editor,
+.sales-registry-table td.editable-cell > input:not([type='checkbox']),
+.sales-registry-table td.editable-cell > select,
+.sales-registry-table td.editable-cell > textarea,
+.discovery-registry-table .excluded-inline-editor,
+.discovery-registry-table td.editable-cell > input:not([type='checkbox']),
+.discovery-registry-table td.editable-cell > select,
+.discovery-registry-table td.editable-cell > textarea,
+.contracts-fixed-table tr.contracts-draft-row .excluded-inline-editor,
+.contracts-fixed-table tr.contracts-draft-row td.editable-cell > input:not([type='checkbox']),
+.contracts-fixed-table tr.contracts-draft-row td.editable-cell > select,
+.contracts-fixed-table tr.contracts-draft-row td.editable-cell > textarea {
+  display: block;
+  width: 100% !important;
+  height: auto;
+  min-height: 0 !important;
+  box-sizing: border-box;
+  margin: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  padding: 12px 8px !important;
+}
+
+.sales-registry-table .excluded-inline-editor:focus,
+.sales-registry-table .excluded-inline-editor:focus-visible,
+.sales-registry-table td.editable-cell > input:not([type='checkbox']):focus,
+.sales-registry-table td.editable-cell > input:not([type='checkbox']):focus-visible,
+.sales-registry-table td.editable-cell > select:focus,
+.sales-registry-table td.editable-cell > select:focus-visible,
+.sales-registry-table td.editable-cell > textarea:focus,
+.sales-registry-table td.editable-cell > textarea:focus-visible,
+.discovery-registry-table .excluded-inline-editor:focus,
+.discovery-registry-table .excluded-inline-editor:focus-visible,
+.discovery-registry-table td.editable-cell > input:not([type='checkbox']):focus,
+.discovery-registry-table td.editable-cell > input:not([type='checkbox']):focus-visible,
+.discovery-registry-table td.editable-cell > select:focus,
+.discovery-registry-table td.editable-cell > select:focus-visible,
+.discovery-registry-table td.editable-cell > textarea:focus,
+.discovery-registry-table td.editable-cell > textarea:focus-visible,
+.contracts-fixed-table tr.contracts-draft-row .excluded-inline-editor:focus,
+.contracts-fixed-table tr.contracts-draft-row .excluded-inline-editor:focus-visible,
+.contracts-fixed-table tr.contracts-draft-row td.editable-cell > input:not([type='checkbox']):focus,
+.contracts-fixed-table tr.contracts-draft-row td.editable-cell > input:not([type='checkbox']):focus-visible,
+.contracts-fixed-table tr.contracts-draft-row td.editable-cell > select:focus,
+.contracts-fixed-table tr.contracts-draft-row td.editable-cell > select:focus-visible,
+.contracts-fixed-table tr.contracts-draft-row td.editable-cell > textarea:focus,
+.contracts-fixed-table tr.contracts-draft-row td.editable-cell > textarea:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+}
+
+.sales-registry-table td:has(> .excluded-inline-editor:focus),
+.sales-registry-table td:has(> input:not([type='checkbox']):focus),
+.sales-registry-table td:has(> select:focus),
+.sales-registry-table td:has(> textarea:focus),
+.discovery-registry-table td:has(> .excluded-inline-editor:focus),
+.discovery-registry-table td:has(> input:not([type='checkbox']):focus),
+.discovery-registry-table td:has(> select:focus),
+.discovery-registry-table td:has(> textarea:focus),
+.contracts-fixed-table tr.contracts-draft-row td:has(> .excluded-inline-editor:focus),
+.contracts-fixed-table tr.contracts-draft-row td:has(> input:not([type='checkbox']):focus),
+.contracts-fixed-table tr.contracts-draft-row td:has(> select:focus),
+.contracts-fixed-table tr.contracts-draft-row td:has(> textarea:focus) {
+  box-shadow: inset 0 0 0 1px #3b82f6;
+}
+
+.sales-registry-table input:focus-visible:not([type='checkbox']),
+.sales-registry-table select:focus-visible,
+.sales-registry-table textarea:focus-visible,
+.discovery-registry-table input:focus-visible:not([type='checkbox']),
+.discovery-registry-table select:focus-visible,
+.discovery-registry-table textarea:focus-visible,
+.contracts-fixed-table tr.contracts-draft-row input:focus-visible:not([type='checkbox']),
+.contracts-fixed-table tr.contracts-draft-row select:focus-visible,
+.contracts-fixed-table tr.contracts-draft-row textarea:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+}
+
+.sales-registry-table select.excluded-inline-editor,
+.sales-registry-table td.editable-cell > select,
+.discovery-registry-table select.excluded-inline-editor,
+.discovery-registry-table td.editable-cell > select,
+.contracts-fixed-table tr.contracts-draft-row select.excluded-inline-editor,
+.contracts-fixed-table tr.contracts-draft-row td.editable-cell > select {
+  cursor: pointer;
+  padding-right: 1.5rem !important;
+  background-color: transparent !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M3 4.5L6 7.5L9 4.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px top 50%;
+}
+
+.sales-registry-table input[type='date']::-webkit-calendar-picker-indicator,
+.discovery-registry-table input[type='date']::-webkit-calendar-picker-indicator,
+.contracts-fixed-table tr.contracts-draft-row input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  cursor: pointer;
+  background: transparent;
+}
+
+.sales-registry-table td.editable-cell > .registry-table-date-input,
+.sales-registry-table tr.sales-draft-row > td:not(.registry-check-cell):not(.sales-archive-cell):not(.registry-importance-cell):not(.sales-record-cell) > .registry-table-date-input,
+.discovery-registry-table td.editable-cell > .registry-table-date-input,
+.discovery-registry-table tr.discovery-draft-row > td:not(.registry-check-cell):not(.sales-archive-cell):not(.registry-importance-cell):not(.sales-record-cell) > .registry-table-date-input,
+.contracts-fixed-table tr.contracts-draft-row td.editable-cell > .registry-table-date-input {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  width: max-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 8px 6px !important;
+  vertical-align: top;
+}
+
+.sales-registry-table .registry-table-date-input .registry-table-date-input-field,
+.sales-registry-table .registry-table-date-input .excluded-inline-editor,
+.discovery-registry-table .registry-table-date-input .registry-table-date-input-field,
+.discovery-registry-table .registry-table-date-input .excluded-inline-editor,
+.contracts-fixed-table tr.contracts-draft-row .registry-table-date-input .registry-table-date-input-field,
+.contracts-fixed-table tr.contracts-draft-row .registry-table-date-input .excluded-inline-editor {
+  display: block;
+  width: 110px !important;
+  max-width: 110px !important;
+  min-width: 110px !important;
+  flex: 0 0 110px;
+  padding: 0 !important;
+  margin: 0;
+  min-height: 0 !important;
+  height: auto;
+}
+
+.sales-registry-table .registry-table-date-input-icon,
+.discovery-registry-table .registry-table-date-input-icon,
+.contracts-fixed-table tr.contracts-draft-row .registry-table-date-input-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #2563eb;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.sales-registry-table td:has(> .registry-table-date-input:focus-within),
+.discovery-registry-table td:has(> .registry-table-date-input:focus-within),
+.contracts-fixed-table tr.contracts-draft-row td:has(> .registry-table-date-input:focus-within) {
+  box-shadow: inset 0 0 0 1px #3b82f6;
+}
+
+.sales-registry-table .registry-check-cell,
+.sales-registry-table .sales-archive-cell,
+.discovery-registry-table .registry-check-cell,
+.discovery-registry-table .sales-archive-cell,
+.contracts-fixed-table tr.contracts-draft-row .registry-check-cell,
+.contracts-fixed-table tr.contracts-draft-row .contract-copy-col {
+  vertical-align: top !important;
+  padding: 12px 8px !important;
+}
+
+.sales-registry-table .excluded-registry-icon-cell-inner,
+.discovery-registry-table .excluded-registry-icon-cell-inner,
+.contracts-fixed-table .excluded-registry-icon-cell-inner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 40px;
+  padding-top: 2px;
+}
+
+
 .registry-table td .cell-display {
   width: 100%;
   overflow-wrap: anywhere;

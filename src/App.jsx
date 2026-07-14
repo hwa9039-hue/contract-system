@@ -2812,8 +2812,12 @@ function createDocumentDraftRow() {
 }
 
 function createSalesDraftRow() {
+  const draftId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? `sales-draft-${crypto.randomUUID()}`
+      : `sales-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   return {
-    id: `sales-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: draftId,
     registerDate: '',
     client: '',
     projectName: '',
@@ -2836,8 +2840,12 @@ function createSalesDraftRow() {
 }
 
 function createDiscoveryDraftRow() {
+  const draftId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? `discovery-draft-${crypto.randomUUID()}`
+      : `discovery-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   return {
-    id: `discovery-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: draftId,
     permitDate: '',
     checkStatus: '',
     projectStage: '',
@@ -2857,6 +2865,29 @@ function createDiscoveryDraftRow() {
     isHidden: false,
     isDraft: true,
   }
+}
+
+function createContractDraftRow(source = null) {
+  const draftId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? `contract-draft-${crypto.randomUUID()}`
+      : `contract-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const base = source ? buildContractCopyDraft(source) : { ...emptyContract }
+  return {
+    ...base,
+    id: draftId,
+    key: draftId,
+    selectKey: draftId,
+    isDraft: true,
+  }
+}
+
+function isContractDraftRowEmpty(row) {
+  return CONTRACT_COLUMNS.every((column) => {
+    const value = row?.[column.key]
+    if (column.type === 'amount') return safeString(value).trim() === '' || parseAmount(value) === 0
+    return safeString(value).trim() === ''
+  })
 }
 
 function createExcludedDraftRow() {
@@ -4346,9 +4377,16 @@ function isExcludedShareStatusOpen(row) {
   return safeString(row?.shareStatus).trim().toUpperCase() === 'O'
 }
 
-/** 사업공유·문서수발신·연락처 — 엑셀 스타일 투명 인라인 편집 */
+/** 사업공유·문서수발신·연락처·영업·건축·계약 — 엑셀 스타일 투명 인라인 편집 */
 function isRegistryFlatInlineTableScope(scope) {
-  return scope === 'excluded' || scope === 'documents' || scope === 'contactsManage'
+  return (
+    scope === 'excluded' ||
+    scope === 'documents' ||
+    scope === 'contactsManage' ||
+    scope === 'sales' ||
+    scope === 'discovery' ||
+    scope === 'contracts'
+  )
 }
 
 function isExcludedMultilineEditColumn(column, scope) {
@@ -5589,6 +5627,7 @@ function App() {
   const [selectedSalesIds, setSelectedSalesIds] = useState([])
   const [editingSalesIds, setEditingSalesIds] = useState([])
   const [salesEditSnapshots, setSalesEditSnapshots] = useState({})
+  const [salesDraftFocusRowId, setSalesDraftFocusRowId] = useState(null)
   const [isSavingSales, setIsSavingSales] = useState(false)
   const [salesSearch, setSalesSearch] = useState('')
   const [salesDateRange, setSalesDateRange] = useState({ startDate: '', endDate: '' })
@@ -5599,6 +5638,7 @@ function App() {
   const [selectedDiscoveryIds, setSelectedDiscoveryIds] = useState([])
   const [editingDiscoveryIds, setEditingDiscoveryIds] = useState([])
   const [discoveryEditSnapshots, setDiscoveryEditSnapshots] = useState({})
+  const [discoveryDraftFocusRowId, setDiscoveryDraftFocusRowId] = useState(null)
   const [isSavingDiscovery, setIsSavingDiscovery] = useState(false)
   const [discoverySearch, setDiscoverySearch] = useState('')
   const [discoveryDateRange, setDiscoveryDateRange] = useState({ startDate: '', endDate: '' })
@@ -5644,6 +5684,8 @@ function App() {
   const [openContractColumnFilterKey, setOpenContractColumnFilterKey] = useState(null)
   const [contractRegisterModalOpen, setContractRegisterModalOpen] = useState(false)
   const [newRow, setNewRow] = useState({ ...emptyContract })
+  const [contractDraftFocusRowId, setContractDraftFocusRowId] = useState(null)
+  const [isSavingContractDraft, setIsSavingContractDraft] = useState(false)
   const [registryCreateModal, setRegistryCreateModal] = useState(null)
   const [calendarEventRegisterOpen, setCalendarEventRegisterOpen] = useState(false)
   /** 계약 셀 편집: UI 행 키(rowKey) + 컬럼 + PATCH용 serverRowId(행의 서버 PK) */
@@ -5825,7 +5867,7 @@ function App() {
     }
   }, [icImageFile, installCaseRegisterOpen, installCaseEditingId])
 
-  const fetchContracts = async (preserveOnError = false) => {
+  const fetchContracts = async (preserveOnError = false, preserveDrafts = true) => {
     try {
       const data = await contractsApi.list()
       if (Array.isArray(data) && data.length > 0) {
@@ -5847,12 +5889,15 @@ function App() {
             )
           })
         : []
-      setContracts(normalized)
+      setContracts((prev) => {
+        const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
+        return [...normalized, ...draftRows]
+      })
       return normalized
     } catch (error) {
       console.error('[계약현황] API fetch failed', error)
       if (!preserveOnError) {
-        setContracts([])
+        setContracts((prev) => (preserveDrafts ? prev.filter((row) => row.isDraft) : []))
       }
       return []
     }
@@ -6191,6 +6236,7 @@ function App() {
     if (menu === 'sales') return
     setEditingSalesIds([])
     setSalesEditSnapshots({})
+    setSalesDraftFocusRowId(null)
     setSalesRows((prev) => prev.filter((row) => !(row.isDraft && isSalesRowEmpty(row))))
   }, [menu])
 
@@ -6198,7 +6244,15 @@ function App() {
     if (menu === 'discovery') return
     setEditingDiscoveryIds([])
     setDiscoveryEditSnapshots({})
+    setDiscoveryDraftFocusRowId(null)
     setDiscoveryRows((prev) => prev.filter((row) => !(row.isDraft && isDiscoveryRowEmpty(row))))
+  }, [menu])
+
+  useEffect(() => {
+    if (menu === 'contracts') return
+    setContractDraftFocusRowId(null)
+    setContractRegisterModalOpen(false)
+    setContracts((prev) => prev.filter((row) => !(row.isDraft && isContractDraftRowEmpty(row))))
   }, [menu])
 
   useEffect(() => {
@@ -6240,6 +6294,42 @@ function App() {
     }, 0)
     return () => window.clearTimeout(timer)
   }, [documentDraftFocusRowId, menu])
+
+  useEffect(() => {
+    if (!salesDraftFocusRowId || menu !== 'sales') return
+    const timer = window.setTimeout(() => {
+      const rowEl = document.querySelector(
+        `[data-sales-draft-row="${salesDraftFocusRowId}"]`
+      )
+      const focusable = rowEl?.querySelector('input:not([type="checkbox"]), textarea, select')
+      focusable?.focus({ preventScroll: true })
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [salesDraftFocusRowId, menu])
+
+  useEffect(() => {
+    if (!discoveryDraftFocusRowId || menu !== 'discovery') return
+    const timer = window.setTimeout(() => {
+      const rowEl = document.querySelector(
+        `[data-discovery-draft-row="${discoveryDraftFocusRowId}"]`
+      )
+      const focusable = rowEl?.querySelector('input:not([type="checkbox"]), textarea, select')
+      focusable?.focus({ preventScroll: true })
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [discoveryDraftFocusRowId, menu])
+
+  useEffect(() => {
+    if (!contractDraftFocusRowId || menu !== 'contracts') return
+    const timer = window.setTimeout(() => {
+      const rowEl = document.querySelector(
+        `[data-contract-draft-row="${contractDraftFocusRowId}"]`
+      )
+      const focusable = rowEl?.querySelector('input:not([type="checkbox"]), textarea, select')
+      focusable?.focus({ preventScroll: true })
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [contractDraftFocusRowId, menu])
 
   useEffect(() => {
     if (!contactsDraftFocusRowId || menu !== 'contactsManage') return
@@ -6402,9 +6492,15 @@ function App() {
 
   const contractsRawData = contracts
 
+  const contractDraftRows = useMemo(
+    () => contractsRawData.filter((row) => row.isDraft),
+    [contractsRawData]
+  )
+
   const contractColumnFilterOptionsMap = useMemo(() => {
     const basePool = contractsRawData.filter(
       (item) =>
+        !item.isDraft &&
         contractMatchesSearch(item, search) &&
         matchesDateRangeFilter(
           item,
@@ -6443,6 +6539,7 @@ function App() {
   const filteredData = useMemo(() => {
     const toolbarFiltered = contractsRawData.filter(
       (item) =>
+        !item.isDraft &&
         contractMatchesSearch(item, search) &&
         matchesDateRangeFilter(
           item,
@@ -6461,6 +6558,14 @@ function App() {
     search,
   ])
 
+  const isContractTableFilterResultEmpty = useMemo(
+    () =>
+      contractsRawData.some((row) => !row.isDraft) &&
+      filteredData.length === 0 &&
+      contractDraftRows.length === 0,
+    [contractDraftRows.length, contractsRawData, filteredData.length]
+  )
+
   const filteredTotalAmount = useMemo(
     () => filteredData.reduce((sum, item) => sum + parseAmount(item.amount), 0),
     [filteredData]
@@ -6478,11 +6583,6 @@ function App() {
       contractDateRange.startDate,
       search,
     ]
-  )
-
-  const isContractTableFilterResultEmpty = useMemo(
-    () => contractsRawData.length > 0 && filteredData.length === 0,
-    [contractsRawData.length, filteredData.length]
   )
 
   const remainingSessionMinutes = useMemo(() => {
@@ -7240,11 +7340,6 @@ function App() {
     visibleModeSalesRows,
   ])
 
-  const isSalesTableFilterResultEmpty = useMemo(
-    () => visibleModeSalesRows.length > 0 && filteredSalesRows.length === 0,
-    [filteredSalesRows.length, visibleModeSalesRows.length]
-  )
-
   const filteredDiscoveryRows = useMemo(() => {
     const toolbarFiltered = visibleModeDiscoveryRows.filter(
       (row) =>
@@ -7264,11 +7359,6 @@ function App() {
     discoverySearch,
     visibleModeDiscoveryRows,
   ])
-
-  const isDiscoveryTableFilterResultEmpty = useMemo(
-    () => visibleModeDiscoveryRows.length > 0 && filteredDiscoveryRows.length === 0,
-    [filteredDiscoveryRows.length, visibleModeDiscoveryRows.length]
-  )
 
   const excludedRawData = useMemo(
     () => excludedRows.map((row) => applyExcludedHiddenState(row, excludedHiddenRowIds)),
@@ -7359,16 +7449,50 @@ function App() {
   )
 
   /** [2단계] filteredData만 그룹화 — 원본 salesRows 미사용 */
+  const salesDraftRows = useMemo(
+    () => visibleModeSalesRows.filter((row) => row.isDraft),
+    [visibleModeSalesRows]
+  )
+
   const groupedSalesRows = useMemo(
-    () => groupSalesRowsByYearWithCompletion(filteredSalesRows, 'registerDate'),
+    () =>
+      groupSalesRowsByYearWithCompletion(
+        filteredSalesRows.filter((row) => !row.isDraft),
+        'registerDate'
+      ),
     [filteredSalesRows]
   )
 
   /* 건축정보는 그룹핑/아코디언 없이 평면 목록으로 렌더링한다.
      정렬: 1순위 '보고' 상태 우선, 2순위 건축정보일자 최신순. */
+  const discoveryDraftRows = useMemo(
+    () => visibleModeDiscoveryRows.filter((row) => row.isDraft),
+    [visibleModeDiscoveryRows]
+  )
+
   const sortedDiscoveryRows = useMemo(
-    () => sortDiscoveryRowsReportFirst(filteredDiscoveryRows, 'permitDate'),
+    () =>
+      sortDiscoveryRowsReportFirst(
+        filteredDiscoveryRows.filter((row) => !row.isDraft),
+        'permitDate'
+      ),
     [filteredDiscoveryRows]
+  )
+
+  const isSalesTableFilterResultEmpty = useMemo(
+    () =>
+      visibleModeSalesRows.some((row) => !row.isDraft) &&
+      filteredSalesRows.filter((row) => !row.isDraft).length === 0 &&
+      salesDraftRows.length === 0,
+    [filteredSalesRows, salesDraftRows.length, visibleModeSalesRows]
+  )
+
+  const isDiscoveryTableFilterResultEmpty = useMemo(
+    () =>
+      visibleModeDiscoveryRows.some((row) => !row.isDraft) &&
+      filteredDiscoveryRows.filter((row) => !row.isDraft).length === 0 &&
+      discoveryDraftRows.length === 0,
+    [discoveryDraftRows.length, filteredDiscoveryRows, visibleModeDiscoveryRows]
   )
 
   const excludedDraftRows = useMemo(
@@ -8577,8 +8701,13 @@ function App() {
   }
 
   const handleAddSalesRow = () => {
-    setRegistryCreateModal({ scope: 'sales', draft: createSalesDraftRow() })
+    const draft = createSalesDraftRow()
+    setSalesRows((prev) => {
+      const withoutEmptyDrafts = prev.filter((row) => !(row.isDraft && isSalesRowEmpty(row)))
+      return [draft, ...withoutEmptyDrafts]
+    })
     setSelectedSalesIds([])
+    setSalesDraftFocusRowId(draft.id)
   }
 
   const handleSalesCellChange = (rowId, key, value) => {
@@ -8961,6 +9090,8 @@ function App() {
 
     if (targetRow.isDraft) {
       setSalesRows((prev) => prev.filter((row) => row.id !== rowId))
+      setSalesDraftFocusRowId((prev) => (prev === rowId ? null : prev))
+      setSelectedSalesIds((prev) => prev.filter((id) => id !== rowId))
       return
     }
 
@@ -9015,19 +9146,28 @@ function App() {
       const timestamp = new Date().toISOString()
 
       if (targetRow.isDraft) {
-        await salesRegisterApi.create({
+        const created = await salesRegisterApi.create({
           ...toSalesPayload(targetRow, timestamp),
           createdAt: timestamp,
         })
+        const normalized = normalizeSalesRow(created)
+        setSalesRows((prev) => prev.map((row) => (row.id === rowId ? normalized : row)))
+        setSelectedSalesIds((prev) => prev.map((id) => (id === rowId ? normalized.id : id)))
+        setSalesDraftFocusRowId((prev) => (prev === rowId ? null : prev))
       } else {
         await salesRegisterApi.update(rowId, toSalesPayload(targetRow, timestamp))
+        await fetchSalesRows(false)
       }
 
-      await fetchSalesRows(false)
       setEditingSalesIds((prev) => prev.filter((id) => id !== rowId))
       setSalesEditSnapshots((prev) => removeObjectKey(prev, rowId))
       setToastMessage('저장되었습니다.')
     } catch (error) {
+      if (targetRow.isDraft) {
+        setSalesRows((prev) => prev.filter((row) => row.id !== rowId))
+        setSelectedSalesIds((prev) => prev.filter((id) => id !== rowId))
+        setSalesDraftFocusRowId((prev) => (prev === rowId ? null : prev))
+      }
       logApiOperationError('영업관리대장 저장', error)
     } finally {
       setIsSavingSales(false)
@@ -9158,8 +9298,13 @@ function App() {
   }
 
   const handleAddDiscoveryRow = () => {
-    setRegistryCreateModal({ scope: 'discovery', draft: createDiscoveryDraftRow() })
+    const draft = createDiscoveryDraftRow()
+    setDiscoveryRows((prev) => {
+      const withoutEmptyDrafts = prev.filter((row) => !(row.isDraft && isDiscoveryRowEmpty(row)))
+      return [draft, ...withoutEmptyDrafts]
+    })
     setSelectedDiscoveryIds([])
+    setDiscoveryDraftFocusRowId(draft.id)
   }
 
   const handleDiscoveryCellChange = (rowId, key, value) => {
@@ -9196,6 +9341,8 @@ function App() {
 
     if (targetRow.isDraft) {
       setDiscoveryRows((prev) => prev.filter((row) => row.id !== rowId))
+      setDiscoveryDraftFocusRowId((prev) => (prev === rowId ? null : prev))
+      setSelectedDiscoveryIds((prev) => prev.filter((id) => id !== rowId))
       return
     }
 
@@ -9250,19 +9397,34 @@ function App() {
       const timestamp = new Date().toISOString()
 
       if (targetRow.isDraft) {
-        await projectDiscoveryApi.create({
+        const created = await projectDiscoveryApi.create({
           ...toDiscoveryPayload(targetRow, timestamp),
           createdAt: timestamp,
         })
+        const normalized = normalizeDiscoveryRow(created)
+        setDiscoveryRows((prev) => {
+          const next = prev.map((row) => (row.id === rowId ? normalized : row))
+          setDiscoveryTableData(
+            next.filter((row) => !row.isDraft).map(discoveryRowToExcelTableItem)
+          )
+          return next
+        })
+        setSelectedDiscoveryIds((prev) => prev.map((id) => (id === rowId ? normalized.id : id)))
+        setDiscoveryDraftFocusRowId((prev) => (prev === rowId ? null : prev))
       } else {
         await projectDiscoveryApi.update(rowId, toDiscoveryPayload(targetRow, timestamp))
+        await fetchDiscoveryRows(false)
       }
 
-      await fetchDiscoveryRows(false)
       setEditingDiscoveryIds((prev) => prev.filter((id) => id !== rowId))
       setDiscoveryEditSnapshots((prev) => removeObjectKey(prev, rowId))
       setToastMessage('저장되었습니다.')
     } catch (error) {
+      if (targetRow.isDraft) {
+        setDiscoveryRows((prev) => prev.filter((row) => row.id !== rowId))
+        setSelectedDiscoveryIds((prev) => prev.filter((id) => id !== rowId))
+        setDiscoveryDraftFocusRowId((prev) => (prev === rowId ? null : prev))
+      }
       logApiOperationError('건축정보 저장', error)
     } finally {
       setIsSavingDiscovery(false)
@@ -11020,9 +11182,15 @@ function App() {
 
   const openContractRegisterModal = () => {
     if (!requireAdmin()) return
-    setContractRegisterModalOpen(true)
-    setNewRow({ ...emptyContract })
+    const draft = createContractDraftRow()
+    setContracts((prev) => {
+      const withoutEmptyDrafts = prev.filter((row) => !(row.isDraft && isContractDraftRowEmpty(row)))
+      return [draft, ...withoutEmptyDrafts]
+    })
     setSelectedContractRowKeys(new Set())
+    setContractEdit(null)
+    setContractEditDraft('')
+    setContractDraftFocusRowId(draft.id)
   }
 
   const closeContractRegisterModal = () => {
@@ -11032,11 +11200,88 @@ function App() {
 
   const openContractDuplicateModal = (source) => {
     if (!requireAdmin()) return
+    const draft = createContractDraftRow(source)
+    setContracts((prev) => {
+      const withoutEmptyDrafts = prev.filter((row) => !(row.isDraft && isContractDraftRowEmpty(row)))
+      return [draft, ...withoutEmptyDrafts]
+    })
     setContractEdit(null)
     setContractEditDraft('')
-    setContractRegisterModalOpen(true)
-    setNewRow(buildContractCopyDraft(source))
-    setToastMessage('선택한 계약 내용을 신규 등록 폼에 복사했습니다.')
+    setContractDraftFocusRowId(draft.id)
+    setToastMessage('선택한 계약 내용을 신규 행에 복사했습니다.')
+  }
+
+  const handleContractDraftCellChange = (rowId, key, value) => {
+    setContracts((prev) =>
+      prev.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              [key]:
+                key === 'amount' || CONTRACT_COLUMNS.find((column) => column.key === key)?.type === 'amount'
+                  ? formatAmount(value)
+                  : value,
+            }
+          : row
+      )
+    )
+  }
+
+  const cancelContractDraftRow = (rowId) => {
+    setContracts((prev) => prev.filter((row) => row.id !== rowId))
+    setContractDraftFocusRowId((prev) => (prev === rowId ? null : prev))
+    setSelectedContractRowKeys((prev) => {
+      const next = new Set(prev)
+      next.delete(rowId)
+      return next
+    })
+  }
+
+  const saveContractDraftRow = async (rowId) => {
+    if (!requireAdmin()) return
+    const targetRow = contracts.find((row) => row.id === rowId)
+    if (!targetRow || !targetRow.isDraft) return
+
+    if (isContractDraftRowEmpty(targetRow)) {
+      showAppAlert('입력 내용을 확인해주세요.')
+      return
+    }
+
+    if (!safeString(targetRow.projectName).trim()) {
+      setToastMessage('사업명은 필수입니다.')
+      return
+    }
+
+    setIsSavingContractDraft(true)
+    try {
+      const savedRows = await saveContractToApi(targetRow)
+      if (!savedRows || savedRows.length === 0) {
+        setContracts((prev) => prev.filter((row) => row.id !== rowId))
+        setContractDraftFocusRowId((prev) => (prev === rowId ? null : prev))
+        return
+      }
+
+      const created = savedRows[0]
+      const serverId = firstUsableContractPathId(created.id, created._id, created.contract_id, created.ID)
+      const normalized = normalizeContractListRow(
+        {
+          ...created,
+          id: serverId,
+          key: serverId,
+          selectKey: serverId,
+        },
+        0
+      )
+      setContracts((prev) => prev.map((row) => (row.id === rowId ? normalized : row)))
+      setContractDraftFocusRowId((prev) => (prev === rowId ? null : prev))
+      setToastMessage('저장되었습니다.')
+    } catch (error) {
+      setContracts((prev) => prev.filter((row) => row.id !== rowId))
+      setContractDraftFocusRowId((prev) => (prev === rowId ? null : prev))
+      logApiOperationError('계약현황 저장', error)
+    } finally {
+      setIsSavingContractDraft(false)
+    }
   }
 
   const saveAddRow = async () => {
@@ -11282,6 +11527,104 @@ function App() {
     if (bodyAlignClass?.includes('right')) return 'right'
     if (bodyAlignClass?.includes('center')) return 'center'
     return column?.align === 'right' ? 'right' : column?.align === 'center' ? 'center' : 'left'
+  }
+
+  const renderContractDraftDataRow = (row, index) => {
+    const rowId = safeString(row.id).trim()
+    const draftCellStyle = {
+      ...EXCLUDED_TABLE_EDIT_CELL_STYLE,
+      ...EXCLUDED_DRAFT_CELL_BACKGROUND_STYLE,
+    }
+    const draftIconCellStyle = {
+      ...EXCLUDED_TABLE_ICON_CELL_STYLE,
+      ...EXCLUDED_DRAFT_CELL_BACKGROUND_STYLE,
+    }
+    return (
+      <tr
+        key={rowId || `contract-draft-${index}`}
+        className="contracts-draft-row inline-add-row row-even"
+        data-contract-draft-row={rowId}
+        onBlur={(e) =>
+          handleRegistryRowBlur(
+            e,
+            row,
+            isSavingContractDraft,
+            () => saveContractDraftRow(rowId),
+            () => cancelContractDraftRow(rowId),
+            isContractDraftRowEmpty
+          )
+        }
+      >
+        {canEditContracts && (
+          <td
+            className={`td-align-center registry-check-cell ${CONTRACT_TABLE_DATA_TD_CLASS}`}
+            style={draftIconCellStyle}
+          >
+            <div className="excluded-registry-icon-cell-inner">
+              <input
+                className="registry-row-checkbox"
+                type="checkbox"
+                checked={selectedContractRowKeys.has(rowId)}
+                onChange={(e) => {
+                  e.stopPropagation()
+                  const checked = e.target.checked
+                  setSelectedContractRowKeys((prev) => {
+                    const next = new Set(prev)
+                    if (checked) next.add(rowId)
+                    else next.delete(rowId)
+                    return next
+                  })
+                }}
+              />
+            </div>
+          </td>
+        )}
+        {canEditContracts && (
+          <td
+            className={`td-align-center table-col-tight contract-copy-col ${CONTRACT_TABLE_DATA_TD_CLASS}`}
+            style={draftIconCellStyle}
+          >
+            <div className="excluded-registry-icon-cell-inner" />
+          </td>
+        )}
+        <td
+          className={`col-dday td-align-center table-col-tight ${CONTRACT_TABLE_DATA_TD_CLASS}`}
+          style={{
+            ...EXCLUDED_TABLE_CELL_STYLE,
+            ...EXCLUDED_DRAFT_CELL_BACKGROUND_STYLE,
+          }}
+        >
+          <div className="cell-display dday-cell">{getDdayText(row.dueDate)}</div>
+        </td>
+        {CONTRACT_COLUMNS.map((column) => {
+          const isContractAmountColumn = column.key === 'amount'
+          const bodyAlignClass = isContractAmountColumn
+            ? 'td-align-right'
+            : getTableBodyAlignClass(column)
+          return (
+            <td
+              key={column.key}
+              className={`${column.className} ${bodyAlignClass} ${CONTRACT_TABLE_DATA_TD_CLASS} ${
+                isLongTextTableColumn(column) ? 'multiline-cell' : ''
+              } ${column.key === 'note' ? 'note-cell' : ''} ${getTableColumnLayoutClass(column)} editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`}
+              style={draftCellStyle}
+            >
+              {renderRegistryEditor(row, column, handleContractDraftCellChange, {
+                onSave: () => saveContractDraftRow(rowId),
+                onCancel: () => cancelContractDraftRow(rowId),
+                extraClassName: EXCLUDED_INLINE_EDITOR_CLASS,
+                extraStyle:
+                  column.type === 'select'
+                    ? EXCLUDED_SELECT_INLINE_EDITOR_STYLE
+                    : EXCLUDED_INLINE_EDITOR_STYLE,
+                autoFocus:
+                  contractDraftFocusRowId === rowId && column.key === 'year',
+              })}
+            </td>
+          )
+        })}
+      </tr>
+    )
   }
 
   const renderContractCellInlineEditor = (column, shellAlign = 'left') => {
@@ -12402,7 +12745,9 @@ function App() {
           row.isDraft && cellEditScope === 'excluded' ? ' excluded-draft-row' : ''
         }${row.isDraft && cellEditScope === 'documents' ? ' documents-draft-row' : ''}${
           row.isDraft && cellEditScope === 'contactsManage' ? ' contacts-draft-row' : ''
-        }`}
+        }${row.isDraft && cellEditScope === 'sales' ? ' sales-draft-row' : ''}${
+          row.isDraft && cellEditScope === 'discovery' ? ' discovery-draft-row' : ''
+        }${row.isDraft && cellEditScope === 'contracts' ? ' contracts-draft-row inline-add-row' : ''}`}
         data-excluded-draft-row={
           row.isDraft && cellEditScope === 'excluded' ? rowId : undefined
         }
@@ -12411,6 +12756,15 @@ function App() {
         }
         data-contacts-draft-row={
           row.isDraft && cellEditScope === 'contactsManage' ? rowId : undefined
+        }
+        data-sales-draft-row={
+          row.isDraft && cellEditScope === 'sales' ? rowId : undefined
+        }
+        data-discovery-draft-row={
+          row.isDraft && cellEditScope === 'discovery' ? rowId : undefined
+        }
+        data-contract-draft-row={
+          row.isDraft && cellEditScope === 'contracts' ? rowId : undefined
         }
         onBlur={
           row.isDraft && showDraftOrLegacyRow
@@ -12596,7 +12950,20 @@ function App() {
                   />
                 </div>
               ) : isHistoryDetailCell ? (
-                isThisCell ? (
+                row.isDraft || showDraftOrLegacyRow ? (
+                  renderRegistryEditor(displayRow, column, onChange, {
+                    onSave: onSaveRow,
+                    onCancel: onCancelRow,
+                    extraClassName: isFlatInlineScope ? EXCLUDED_INLINE_EDITOR_CLASS : '',
+                    extraStyle: isFlatInlineScope
+                      ? EXCLUDED_INLINE_EDITOR_STYLE
+                      : null,
+                    autoFocus:
+                      row.isDraft &&
+                      draftFocusRowId === rowId &&
+                      draftFocusColumnKey === column.key,
+                  })
+                ) : isThisCell ? (
                   renderRegistryCellInlineEditor(column, {
                     scope: cellEditScope,
                     rowId,
@@ -12799,6 +13166,8 @@ function App() {
     renderAfterSelectionCell = null,
     renderAfterImportanceCell = null,
     showSelection = true,
+    draftFocusRowId = null,
+    draftFocusColumnKey = null,
   }) => {
     const colSpan =
       columns.length +
@@ -12841,6 +13210,8 @@ function App() {
         renderAfterSelectionCell,
         renderAfterImportanceCell,
         showSelection,
+        draftFocusRowId,
+        draftFocusColumnKey,
       })
     })
   }
@@ -15046,20 +15417,24 @@ function App() {
                   </thead>
 
                   <tbody>
-                    {contractsRawData.length === 0 ? (
+                    {contractsRawData.filter((row) => !row.isDraft).length === 0 &&
+                    contractDraftRows.length === 0 ? (
                       <tr>
                         <td colSpan={contractTableColSpan} className="empty-cell">
                           등록된 데이터가 없습니다.
                         </td>
                       </tr>
-                    ) : isContractTableFilterResultEmpty ? (
+                    ) : isContractTableFilterResultEmpty && contractDraftRows.length === 0 ? (
                       <tr>
                         <td colSpan={contractTableColSpan} className="empty-cell">
                           필터 조건에 맞는 데이터가 없습니다.
                         </td>
                       </tr>
                     ) : (
-                      groupedContracts.flatMap((yearBlock) => {
+                      <>
+                        {contractDraftRows.map((row, index) => renderContractDraftDataRow(row, index))}
+                        {groupedContracts.length > 0 || contractDraftRows.length === 0
+                          ? groupedContracts.flatMap((yearBlock) => {
                         const collapsed = !isContractYearOpen(yearBlock.year)
 
                         const yearRow = (
@@ -15258,6 +15633,8 @@ function App() {
 
                         return rows
                       })
+                          : null}
+                      </>
                     )}
                   </tbody>
                 </table>
@@ -15411,7 +15788,8 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {salesRawData.length === 0 ? (
+                    {salesRawData.filter((row) => !row.isDraft).length === 0 &&
+                    salesDraftRows.length === 0 ? (
                       <tr>
                         <td
                           colSpan={SALES_COLUMNS.length + 3}
@@ -15420,7 +15798,8 @@ function App() {
                           등록된 데이터가 없습니다.
                         </td>
                       </tr>
-                    ) : visibleModeSalesRows.length === 0 ? (
+                    ) : visibleModeSalesRows.filter((row) => !row.isDraft).length === 0 &&
+                      salesDraftRows.length === 0 ? (
                       <tr>
                         <td
                           colSpan={SALES_COLUMNS.length + 3}
@@ -15429,7 +15808,7 @@ function App() {
                           {showHiddenSalesRows ? '숨긴 항목이 없습니다.' : '표시할 데이터가 없습니다.'}
                         </td>
                       </tr>
-                    ) : isSalesTableFilterResultEmpty ? (
+                    ) : isSalesTableFilterResultEmpty && salesDraftRows.length === 0 ? (
                       <tr>
                         <td
                           colSpan={SALES_COLUMNS.length + 3}
@@ -15439,29 +15818,58 @@ function App() {
                         </td>
                       </tr>
                     ) : (
-                      renderSalesGroupedRegistryRows({
-                      groups: groupedSalesRows,
-                      columns: SALES_COLUMNS,
-                      emptyMessage: '등록된 데이터가 없습니다.',
-                      selectedIds: selectedSalesIds,
-                      onToggleSelection: toggleSalesSelection,
-                      editingIds: [],
-                      isSaving: isSavingSales,
-                      onStartEdit: startSalesEdit,
-                      onSaveRow: saveSalesRow,
-                      onCancelRow: cancelSalesRow,
-                      onChange: handleSalesCellChange,
-                      isEmptyRow: isSalesRowEmpty,
-                      isYearOpen: isSalesYearOpen,
-                      onToggleYear: toggleSalesYear,
-                      cellEditScope: 'sales',
-                      isAdminForRegistry: canEditSales,
-                      registryCellEdit,
-                      onRegistryCellStart: (rowId, columnKey, value, row) =>
-                        startRegistryCellEdit('sales', rowId, columnKey, value, row),
-                      renderAfterSelectionCell: renderSalesArchiveCell,
-                      renderAfterImportanceCell: renderSalesSummaryCell,
-                    })
+                      <>
+                        {salesDraftRows.map((row, index) =>
+                          renderRegistryDataRow({
+                            row,
+                            index,
+                            columns: SALES_COLUMNS,
+                            editingIds: [],
+                            isSaving: isSavingSales,
+                            onStartEdit: () => startSalesEdit(row.id),
+                            onSaveRow: () => saveSalesRow(row.id),
+                            onCancelRow: () => cancelSalesRow(row.id),
+                            onChange: handleSalesCellChange,
+                            isEmptyRow: isSalesRowEmpty,
+                            selectedIds: selectedSalesIds,
+                            onToggleSelection: toggleSalesSelection,
+                            cellEditScope: 'sales',
+                            isAdminForRegistry: canEditSales,
+                            registryCellEdit,
+                            onRegistryCellStart: (rowId, columnKey, value, draftRow) =>
+                              startRegistryCellEdit('sales', rowId, columnKey, value, draftRow),
+                            renderAfterSelectionCell: renderSalesArchiveCell,
+                            renderAfterImportanceCell: renderSalesSummaryCell,
+                            draftFocusRowId: salesDraftFocusRowId,
+                            draftFocusColumnKey: 'registerDate',
+                          })
+                        )}
+                        {groupedSalesRows.length > 0 || salesDraftRows.length === 0
+                          ? renderSalesGroupedRegistryRows({
+                              groups: groupedSalesRows,
+                              columns: SALES_COLUMNS,
+                              emptyMessage: '등록된 데이터가 없습니다.',
+                              selectedIds: selectedSalesIds,
+                              onToggleSelection: toggleSalesSelection,
+                              editingIds: [],
+                              isSaving: isSavingSales,
+                              onStartEdit: startSalesEdit,
+                              onSaveRow: saveSalesRow,
+                              onCancelRow: cancelSalesRow,
+                              onChange: handleSalesCellChange,
+                              isEmptyRow: isSalesRowEmpty,
+                              isYearOpen: isSalesYearOpen,
+                              onToggleYear: toggleSalesYear,
+                              cellEditScope: 'sales',
+                              isAdminForRegistry: canEditSales,
+                              registryCellEdit,
+                              onRegistryCellStart: (rowId, columnKey, value, row) =>
+                                startRegistryCellEdit('sales', rowId, columnKey, value, row),
+                              renderAfterSelectionCell: renderSalesArchiveCell,
+                              renderAfterImportanceCell: renderSalesSummaryCell,
+                            })
+                          : null}
+                      </>
                     )}
                   </tbody>
                 </table>
@@ -15610,7 +16018,8 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {discoveryRawData.length === 0 ? (
+                    {discoveryRawData.filter((row) => !row.isDraft).length === 0 &&
+                    discoveryDraftRows.length === 0 ? (
                       <tr>
                         <td
                           colSpan={DISCOVERY_COLUMNS.length + 3}
@@ -15619,7 +16028,8 @@ function App() {
                           등록된 데이터가 없습니다.
                         </td>
                       </tr>
-                    ) : visibleModeDiscoveryRows.length === 0 ? (
+                    ) : visibleModeDiscoveryRows.filter((row) => !row.isDraft).length === 0 &&
+                      discoveryDraftRows.length === 0 ? (
                       <tr>
                         <td
                           colSpan={DISCOVERY_COLUMNS.length + 3}
@@ -15628,7 +16038,7 @@ function App() {
                           {showHiddenDiscoveryRows ? '숨긴 항목이 없습니다.' : '표시할 데이터가 없습니다.'}
                         </td>
                       </tr>
-                    ) : isDiscoveryTableFilterResultEmpty ? (
+                    ) : isDiscoveryTableFilterResultEmpty && discoveryDraftRows.length === 0 ? (
                       <tr>
                         <td
                           colSpan={DISCOVERY_COLUMNS.length + 3}
@@ -15638,27 +16048,58 @@ function App() {
                         </td>
                       </tr>
                     ) : (
-                    renderFlatRegistryRows({
-                      rows: sortedDiscoveryRows,
-                      columns: DISCOVERY_COLUMNS,
-                      emptyMessage: showHiddenDiscoveryRows ? '숨긴 항목이 없습니다.' : '등록된 데이터가 없습니다.',
-                      selectedIds: selectedDiscoveryIds,
-                      onToggleSelection: toggleDiscoverySelection,
-                      editingIds: editingDiscoveryIds,
-                      isSaving: isSavingDiscovery,
-                      onStartEdit: startDiscoveryEdit,
-                      onSaveRow: saveDiscoveryRow,
-                      onCancelRow: cancelDiscoveryRow,
-                      onChange: handleDiscoveryCellChange,
-                      isEmptyRow: isDiscoveryRowEmpty,
-                      cellEditScope: 'discovery',
-                      isAdminForRegistry: canEditDiscovery,
-                      registryCellEdit,
-                      onRegistryCellStart: (rowId, columnKey, value, row) =>
-                        startRegistryCellEdit('discovery', rowId, columnKey, value, row),
-                      renderAfterSelectionCell: renderDiscoveryArchiveCell,
-                      renderAfterImportanceCell: renderDiscoverySummaryCell,
-                    })
+                      <>
+                        {discoveryDraftRows.map((row, index) =>
+                          renderRegistryDataRow({
+                            row,
+                            index,
+                            columns: DISCOVERY_COLUMNS,
+                            editingIds: [],
+                            isSaving: isSavingDiscovery,
+                            onStartEdit: () => startDiscoveryEdit(row.id),
+                            onSaveRow: () => saveDiscoveryRow(row.id),
+                            onCancelRow: () => cancelDiscoveryRow(row.id),
+                            onChange: handleDiscoveryCellChange,
+                            isEmptyRow: isDiscoveryRowEmpty,
+                            selectedIds: selectedDiscoveryIds,
+                            onToggleSelection: toggleDiscoverySelection,
+                            cellEditScope: 'discovery',
+                            isAdminForRegistry: canEditDiscovery,
+                            registryCellEdit,
+                            onRegistryCellStart: (rowId, columnKey, value, draftRow) =>
+                              startRegistryCellEdit('discovery', rowId, columnKey, value, draftRow),
+                            renderAfterSelectionCell: renderDiscoveryArchiveCell,
+                            renderAfterImportanceCell: renderDiscoverySummaryCell,
+                            draftFocusRowId: discoveryDraftFocusRowId,
+                            draftFocusColumnKey: 'permitDate',
+                          })
+                        )}
+                        {sortedDiscoveryRows.length > 0 || discoveryDraftRows.length === 0
+                          ? renderFlatRegistryRows({
+                              rows: sortedDiscoveryRows,
+                              columns: DISCOVERY_COLUMNS,
+                              emptyMessage: showHiddenDiscoveryRows
+                                ? '숨긴 항목이 없습니다.'
+                                : '등록된 데이터가 없습니다.',
+                              selectedIds: selectedDiscoveryIds,
+                              onToggleSelection: toggleDiscoverySelection,
+                              editingIds: editingDiscoveryIds,
+                              isSaving: isSavingDiscovery,
+                              onStartEdit: startDiscoveryEdit,
+                              onSaveRow: saveDiscoveryRow,
+                              onCancelRow: cancelDiscoveryRow,
+                              onChange: handleDiscoveryCellChange,
+                              isEmptyRow: isDiscoveryRowEmpty,
+                              cellEditScope: 'discovery',
+                              isAdminForRegistry: canEditDiscovery,
+                              registryCellEdit,
+                              onRegistryCellStart: (rowId, columnKey, value, row) =>
+                                startRegistryCellEdit('discovery', rowId, columnKey, value, row),
+                              renderAfterSelectionCell: renderDiscoveryArchiveCell,
+                              renderAfterImportanceCell: renderDiscoverySummaryCell,
+                            })
+                          : null}
+                      </>
                     )}
                   </tbody>
                 </table>
@@ -16960,105 +17401,6 @@ function App() {
         </div>
       )}
 
-      {contractRegisterModalOpen && (
-        <div className="modal-backdrop" onClick={closeContractRegisterModal}>
-          <div
-            className="install-case-form-modal contract-register-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="contract-register-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="install-case-form-modal-header">
-              <h3 id="contract-register-title">{PAGE_TITLE_MAP.contracts}</h3>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={closeContractRegisterModal}
-                aria-label="닫기"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="install-case-form-modal-body">
-              <div className="global-register-form-grid">
-                <div className="global-register-field global-register-field--full">
-                  <span className="install-case-form-label">D-Day (준공일자 기준)</span>
-                  <div className="global-register-dday">{getDdayText(newRow.dueDate)}</div>
-                </div>
-                {CONTRACT_COLUMNS.map((column) => (
-                  <div
-                    key={column.key}
-                    className={`global-register-field${
-                      column.type === 'textarea' ? ' global-register-field--full' : ''
-                    }`}
-                  >
-                    <label className="install-case-form-label" htmlFor={`contract-reg-${column.key}`}>
-                      {column.label}
-                    </label>
-                    {column.type === 'textarea' ? (
-                      <textarea
-                        id={`contract-reg-${column.key}`}
-                        className="table-search-input install-case-form-input global-register-control"
-                        rows={column.key === 'note' ? 4 : 2}
-                        placeholder={CONTRACT_FIELD_PLACEHOLDERS[column.key] || ''}
-                        value={newRow[column.key] ?? ''}
-                        onChange={(e) =>
-                          setNewRow((prev) => ({
-                            ...prev,
-                            [column.key]:
-                              column.key === 'amount' || column.type === 'amount'
-                                ? formatAmount(e.target.value)
-                                : e.target.value,
-                          }))
-                        }
-                      />
-                    ) : column.type === 'date' ? (
-                      <input
-                        id={`contract-reg-${column.key}`}
-                        className="table-search-input install-case-form-input global-register-control"
-                        type="date"
-                        value={newRow[column.key] ?? ''}
-                        onChange={(e) =>
-                          setNewRow((prev) => ({ ...prev, [column.key]: e.target.value }))
-                        }
-                      />
-                    ) : (
-                      <input
-                        id={`contract-reg-${column.key}`}
-                        className={`table-search-input install-case-form-input global-register-control${
-                          column.align === 'right' ? ' align-right' : ''
-                        }`}
-                        type="text"
-                        placeholder={CONTRACT_FIELD_PLACEHOLDERS[column.key] || ''}
-                        value={newRow[column.key] ?? ''}
-                        onChange={(e) =>
-                          setNewRow((prev) => ({
-                            ...prev,
-                            [column.key]:
-                              column.key === 'amount' || column.type === 'amount'
-                                ? formatAmount(e.target.value)
-                                : e.target.value,
-                          }))
-                        }
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="install-case-form-actions">
-                <button type="button" className="secondary-btn" onClick={closeContractRegisterModal}>
-                  취소
-                </button>
-                <button type="button" className="primary-btn" onClick={() => void saveAddRow()}>
-                  등록
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {registryLongTextModal && (
         <div
           className="modal-backdrop"
@@ -17133,120 +17475,6 @@ function App() {
           </div>
         </div>
       )}
-
-      {registryCreateModal &&
-        (() => {
-          const { scope, draft } = registryCreateModal
-          const columns = getRegistryColumnsByScope(scope)
-          const titleMap = {
-            sales: PAGE_TITLE_MAP.sales,
-            discovery: PAGE_TITLE_MAP.discovery,
-            excluded: PAGE_TITLE_MAP.excluded,
-          }
-          const saving =
-            scope === 'sales'
-              ? isSavingSales
-              : scope === 'discovery'
-                ? isSavingDiscovery
-                : isSavingExcluded
-          return (
-            <div className="modal-backdrop" onClick={closeRegistryCreateModal}>
-              <div
-                className="install-case-form-modal registry-create-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="registry-create-title"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="install-case-form-modal-header">
-                  <h3 id="registry-create-title">{titleMap[scope] || '등록'}</h3>
-                  <button
-                    type="button"
-                    className="modal-close-btn"
-                    onClick={closeRegistryCreateModal}
-                    aria-label="닫기"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="install-case-form-modal-body">
-                  <div className="global-register-form-grid">
-                    {columns
-                      .filter((column) => column.type !== 'importance')
-                      .map((column) => (
-                      <div
-                        key={column.key}
-                        className={`global-register-field${
-                          column.type === 'textarea' ? ' global-register-field--full' : ''
-                        }`}
-                      >
-                        <label className="install-case-form-label" htmlFor={`registry-create-${scope}-${column.key}`}>
-                          {column.label}
-                        </label>
-                        {column.type === 'textarea' ? (
-                          <textarea
-                            id={`registry-create-${scope}-${column.key}`}
-                            className="table-search-input install-case-form-input global-register-control"
-                            rows={3}
-                            placeholder={getRegistryFieldPlaceholder(scope, column)}
-                            value={draft[column.key] ?? ''}
-                            onChange={(e) => patchRegistryCreateDraft(column.key, e.target.value)}
-                          />
-                        ) : column.type === 'date' ? (
-                          <input
-                            id={`registry-create-${scope}-${column.key}`}
-                            className="table-search-input install-case-form-input global-register-control"
-                            type="date"
-                            value={draft[column.key] ?? ''}
-                            onChange={(e) => patchRegistryCreateDraft(column.key, e.target.value)}
-                          />
-                        ) : column.type === 'select' ? (
-                          <select
-                            id={`registry-create-${scope}-${column.key}`}
-                            className="contract-filter-select install-case-form-input global-register-control-select"
-                            value={draft[column.key] ?? ''}
-                            onChange={(e) => patchRegistryCreateDraft(column.key, e.target.value)}
-                          >
-                            <option value="">선택</option>
-                            {(column.options || []).map((option) => (
-                              <option key={option} value={option}>
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            id={`registry-create-${scope}-${column.key}`}
-                            className={`table-search-input install-case-form-input global-register-control${
-                              column.align === 'right' ? ' align-right' : ''
-                            }`}
-                            type="text"
-                            placeholder={getRegistryFieldPlaceholder(scope, column)}
-                            value={draft[column.key] ?? ''}
-                            onChange={(e) => patchRegistryCreateDraft(column.key, e.target.value)}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="install-case-form-actions">
-                    <button type="button" className="secondary-btn" onClick={closeRegistryCreateModal}>
-                      취소
-                    </button>
-                    <button
-                      type="button"
-                      className="primary-btn"
-                      disabled={saving}
-                      onClick={() => void saveRegistryCreateModal()}
-                    >
-                      등록
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )
-        })()}
 
       {discoveryRecordModal && (
         <div className="modal-backdrop" onClick={closeDiscoveryRecordModal}>
