@@ -697,11 +697,13 @@ const WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX = 1
 const WORK_REPORT_EXTERNAL_ROW_COUNT = 5
 const WORK_REPORT_DI_ROW_COUNT = 4
 const WORK_REPORT_ROAD_ROW_COUNT = 2
-const WORK_REPORT_SUPPORT_ITEM_COUNT = 10
+const WORK_REPORT_SUPPORT_ITEM_COUNT = 15
 const WORK_REPORT_SUPPORT_NUMBER_GUIDE = Array.from(
   { length: WORK_REPORT_SUPPORT_ITEM_COUNT },
   (_, index) => String(index + 1)
 )
+/** 영업지원 To-Do 완료 플래그 — journal user 필드에 저장 (담당자 UI 없음) */
+const WORK_REPORT_SUPPORT_COMPLETED_USER = 'completed'
 const WORK_REPORT_EXTERNAL_USER_OPTIONS = WORK_REPORT_MANAGER_OPTIONS
 const WORK_REPORT_SECTION_KEYS = {
   checklist: '주요확인사항',
@@ -711,6 +713,10 @@ const WORK_REPORT_SECTION_KEYS = {
   supportProgress: '영업지원_진행업무',
   supportDone: '영업지원_완료업무',
   meetingMinutes: '회의록',
+}
+
+function isWorkReportSupportCompletedUser(user) {
+  return safeString(user).trim() === WORK_REPORT_SUPPORT_COMPLETED_USER
 }
 
 /** 주간업무보고서 PDF/인쇄 팝업 공통 스타일 */
@@ -863,6 +869,10 @@ const WORK_REPORT_PDF_PRINT_STYLES = `
     font-size: 9px;
     font-weight: 800;
     color: #1f5f74;
+  }
+  .pdf-support-done {
+    text-decoration: line-through;
+    color: #9ca3af;
   }
   .report-shell {
     width: 100%;
@@ -10347,6 +10357,15 @@ function App() {
       }
       const savedSnapshot = serializeWorkReportEntrySnapshot(targetRow)
       if (isWorkReportRowEmpty(targetRow)) {
+        // 영업지원: 내용 없이 완료 체크만 한 draft는 유지 (autosave가 지우면 체크가 튕김)
+        if (
+          (sectionNorm === WORK_REPORT_SECTION_KEYS.supportProgress ||
+            sectionNorm === WORK_REPORT_SECTION_KEYS.supportDone) &&
+          isWorkReportSupportCompletedUser(targetRow.user)
+        ) {
+          return
+        }
+
         if (sectionNorm === WORK_REPORT_SECTION_KEYS.checklist && oi === WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX) {
           const idsToRemove = new Set()
           for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
@@ -10578,6 +10597,138 @@ function App() {
     await flushWorkReportEntrySave(date, section, orderIndex)
   }
 
+  /** 영업지원 통합 To-Do: 진행/완료 section을 하나의 슬롯으로 합쳐 읽기 */
+  const getSupportTodoBoardEntry = (date, orderIndex = 1, draftsMap = workReportDrafts) => {
+    const oi = Number(orderIndex || 1)
+    const progress = getWorkReportBoardEntry(
+      date,
+      WORK_REPORT_SECTION_KEYS.supportProgress,
+      oi,
+      draftsMap
+    )
+    const done = getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.supportDone, oi, draftsMap)
+    const progressContent = safeString(progress.content).trim()
+    const doneContent = safeString(done.content).trim()
+    const progressMarkedDone = isWorkReportSupportCompletedUser(progress.user)
+
+    // 신규 모델: 진행 section에 내용 또는 완료 플래그가 있으면 그걸 사용
+    if (progressContent || progressMarkedDone) {
+      return {
+        ...progress,
+        supportSection: WORK_REPORT_SECTION_KEYS.supportProgress,
+        completed: progressMarkedDone,
+      }
+    }
+
+    // 레거시: 완료업무 section에만 내용이 있는 경우 → 완료 상태로 표시
+    if (doneContent) {
+      return {
+        ...done,
+        supportSection: WORK_REPORT_SECTION_KEYS.supportDone,
+        completed: true,
+      }
+    }
+
+    // 빈 슬롯 → 신규 입력은 진행 section에 저장
+    return {
+      ...progress,
+      supportSection: WORK_REPORT_SECTION_KEYS.supportProgress,
+      completed: false,
+    }
+  }
+
+  const toggleSupportTodoCompleted = (date, orderIndex = 1) => {
+    const oi = Number(orderIndex || 1)
+    const progressKey = getWorkReportCellKey(date, WORK_REPORT_SECTION_KEYS.supportProgress, oi)
+    const doneKey = getWorkReportCellKey(date, WORK_REPORT_SECTION_KEYS.supportDone, oi)
+    const draftsNow = workReportDraftsRef.current
+    const todoNow = getSupportTodoBoardEntry(date, oi, draftsNow)
+    const shouldClearDoneSection =
+      todoNow.supportSection === WORK_REPORT_SECTION_KEYS.supportDone ||
+      Boolean(draftsNow[doneKey]) ||
+      Boolean(getStoredWorkReportEntry(date, WORK_REPORT_SECTION_KEYS.supportDone, oi)?.id)
+
+    setWorkReportDrafts((prev) => {
+      const todo = getSupportTodoBoardEntry(date, oi, prev)
+      const nextCompleted = !todo.completed
+      const content = safeString(todo.content)
+      const deadline = safeString(todo.deadline)
+      const next = { ...prev }
+
+      // 레거시 완료 section 포함 → 항상 진행 section + user 플래그로 통합 저장
+      const progressBase = {
+        ...getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.supportProgress, oi, prev),
+        ...prev[progressKey],
+      }
+      const storedProgress = getStoredWorkReportEntry(
+        date,
+        WORK_REPORT_SECTION_KEYS.supportProgress,
+        oi
+      )
+      const progressEntry = {
+        ...progressBase,
+        content,
+        deadline,
+        user: nextCompleted ? WORK_REPORT_SUPPORT_COMPLETED_USER : '',
+        date: normalizeWorkReportDateKey(date),
+        section: WORK_REPORT_SECTION_KEYS.supportProgress,
+        orderIndex: oi,
+      }
+      if (storedProgress?.id) {
+        progressEntry.id = storedProgress.id
+        progressEntry.isDraft = false
+      } else if (!isWorkReportDraftRowId(progressEntry.id)) {
+        progressEntry.isDraft = false
+      } else if (todo.supportSection === WORK_REPORT_SECTION_KEYS.supportDone && todo.id) {
+        progressEntry.id = `work-report-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        progressEntry.isDraft = true
+      }
+
+      next[progressKey] = progressEntry
+
+      if (shouldClearDoneSection) {
+        const doneBase = {
+          ...getWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.supportDone, oi, prev),
+          ...prev[doneKey],
+        }
+        const storedDone = getStoredWorkReportEntry(date, WORK_REPORT_SECTION_KEYS.supportDone, oi)
+        next[doneKey] = {
+          ...doneBase,
+          content: '',
+          deadline: '',
+          user: '',
+          date: normalizeWorkReportDateKey(date),
+          section: WORK_REPORT_SECTION_KEYS.supportDone,
+          orderIndex: oi,
+          id: storedDone?.id || doneBase.id,
+          isDraft: !(storedDone?.id || (!isWorkReportDraftRowId(doneBase.id) && doneBase.id)),
+        }
+      }
+
+      workReportDraftsRef.current = next
+      return next
+    })
+
+    const timers = workReportSaveTimersRef.current
+    if (timers[progressKey]) window.clearTimeout(timers[progressKey])
+    timers[progressKey] = window.setTimeout(() => {
+      delete timers[progressKey]
+      void saveWorkReportBoardEntryRef.current(
+        date,
+        WORK_REPORT_SECTION_KEYS.supportProgress,
+        oi
+      )
+    }, 600)
+
+    if (shouldClearDoneSection) {
+      if (timers[doneKey]) window.clearTimeout(timers[doneKey])
+      timers[doneKey] = window.setTimeout(() => {
+        delete timers[doneKey]
+        void saveWorkReportBoardEntryRef.current(date, WORK_REPORT_SECTION_KEYS.supportDone, oi)
+      }, 600)
+    }
+  }
+
   const getWorkReportDayLabel = (dateYmd) => {
     const dateKey = normalizeWorkReportDateKey(dateYmd)
     const days = getWorkReportWeekDays(selectedWorkWeekMeta.weekStartDate)
@@ -10631,20 +10782,20 @@ function App() {
           .map((line) => `<li>${escapeHtml(line) || '&nbsp;'}</li>`)
           .join('')
 
-        const renderPdfSupportRows = (sectionKey) =>
+        const renderPdfSupportTodoRows = () =>
           Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
-            const entry = getWorkReportBoardEntry(day.date, sectionKey, index + 1)
+            const todo = getSupportTodoBoardEntry(day.date, index + 1)
+            const contentCell = todo.completed
+              ? `<span class="pdf-support-done">${renderPdfText(todo.content || '-')}</span>`
+              : renderPdfText(todo.content || '-')
             return `
               <tr>
                 <td class="pdf-index">${index + 1}</td>
-                <td>${renderPdfText(entry.content || '-')}</td>
-                <td class="pdf-deadline">${escapeHtml(entry.deadline || '-')}</td>
+                <td>${contentCell}</td>
+                <td class="pdf-deadline">${escapeHtml(todo.deadline || '-')}</td>
               </tr>
             `
           }).join('')
-
-        const supportProgressRows = renderPdfSupportRows(WORK_REPORT_SECTION_KEYS.supportProgress)
-        const supportDoneRows = renderPdfSupportRows(WORK_REPORT_SECTION_KEYS.supportDone)
 
         return `
           <section class="pdf-day-card">
@@ -10685,15 +10836,9 @@ function App() {
             </div>
             <div class="pdf-section">
               <div class="pdf-section-title">영업지원</div>
-              <div class="pdf-support-title">진행업무</div>
               <table class="pdf-table pdf-support-table">
                 <thead><tr><th class="pdf-index">#</th><th>내용</th><th class="pdf-deadline">기한</th></tr></thead>
-                <tbody>${supportProgressRows}</tbody>
-              </table>
-              <div class="pdf-support-title">완료업무</div>
-              <table class="pdf-table pdf-support-table">
-                <thead><tr><th class="pdf-index">#</th><th>내용</th><th class="pdf-deadline">기한</th></tr></thead>
-                <tbody>${supportDoneRows}</tbody>
+                <tbody>${renderPdfSupportTodoRows()}</tbody>
               </table>
             </div>
           </section>
@@ -13658,28 +13803,49 @@ function App() {
     </section>
   )
 
-  const renderWorkReportSupportAreaListV4 = (date, title, section) => (
+  const renderWorkReportSupportAreaListV4 = (date) => (
     <div className="work-report-board-support-block shrink-0 min-h-[150px]">
-      <div className="work-report-board-support-title">{title}</div>
+      <div className="work-report-board-support-title">업무</div>
       <div className="work-report-board-table">
         {Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
           const orderIndex = index + 1
-          const entry = getWorkReportBoardEntry(date, section, orderIndex)
+          const todo = getSupportTodoBoardEntry(date, orderIndex)
+          const activeSection = WORK_REPORT_SECTION_KEYS.supportProgress
 
           return (
             <div
-              key={`support-v4-${date}-${section}-${orderIndex}`}
-              className="work-report-board-row work-report-board-row-simple"
-              onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
+              key={`support-todo-${date}-${orderIndex}`}
+              data-support-todo-row={`${date}-${orderIndex}`}
+              className={`work-report-board-row work-report-board-row-simple work-report-board-row-todo${
+                todo.completed ? ' is-completed' : ''
+              }`}
             >
               <div className="work-report-board-index">{orderIndex}</div>
+              <div className="work-report-board-todo-check">
+                <input
+                  type="checkbox"
+                  className="work-report-board-todo-checkbox"
+                  checked={Boolean(todo.completed)}
+                  aria-label={`${orderIndex}번 업무 완료`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onChange={() => toggleSupportTodoCompleted(date, orderIndex)}
+                />
+              </div>
               <textarea
                 className="work-report-board-textarea work-report-board-textarea-support-line resize-none"
-                value={entry.content}
+                value={todo.content}
                 placeholder="내용 입력"
                 onChange={(e) =>
-                  updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
+                  updateWorkReportBoardEntry(date, activeSection, orderIndex, {
+                    content: e.target.value,
+                    user: todo.completed ? WORK_REPORT_SUPPORT_COMPLETED_USER : '',
+                  })
                 }
+                onBlur={async (e) => {
+                  const rowEl = e.currentTarget.closest('[data-support-todo-row]')
+                  if (rowEl && e.relatedTarget && rowEl.contains(e.relatedTarget)) return
+                  await flushWorkReportEntrySave(date, activeSection, orderIndex)
+                }}
                 onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
             </div>
@@ -13693,8 +13859,7 @@ function App() {
     <section className="work-report-board-section shrink-0 min-h-[150px]">
       <div className="work-report-board-section-title">영업지원</div>
       <div className="work-report-board-support-wrap shrink-0">
-        {renderWorkReportSupportAreaListV4(date, '진행업무', WORK_REPORT_SECTION_KEYS.supportProgress)}
-        {renderWorkReportSupportAreaListV4(date, '완료업무', WORK_REPORT_SECTION_KEYS.supportDone)}
+        {renderWorkReportSupportAreaListV4(date)}
       </div>
     </section>
   )
@@ -13872,8 +14037,7 @@ function App() {
   const renderWorkReportSupportCell = (date) => (
     <div className="work-report-board-section work-report-board-section-cell work-report-board-section-cell-support">
       <div className="work-report-board-support-wrap">
-        {renderWorkReportSupportAreaListV4(date, '진행업무', WORK_REPORT_SECTION_KEYS.supportProgress)}
-        {renderWorkReportSupportAreaListV4(date, '완료업무', WORK_REPORT_SECTION_KEYS.supportDone)}
+        {renderWorkReportSupportAreaListV4(date)}
       </div>
     </div>
   )
