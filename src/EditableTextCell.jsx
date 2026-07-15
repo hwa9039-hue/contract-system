@@ -64,9 +64,14 @@ export function EditableTextCell({
 
   const handleCommit = () => {
     setIsEditing(false)
-    const next = formatMode === 'amount' ? formatAmountInputValue(draft) : draft
-    if (next !== displayValue) {
-      onSave?.(next)
+    const nextRaw = formatMode === 'amount' ? formatAmountInputValue(draft) : draft
+    const next = formatMode === 'amount' ? nextRaw : String(nextRaw ?? '')
+    const current = formatMode === 'amount' ? displayValue : String(displayValue ?? '')
+    // 텍스트는 trim 후 비교·저장 — trailing space만 바뀐 경우도 의미 없는 빈 PATCH 방지
+    const nextCmp = formatMode === 'amount' ? next : next.trim()
+    const curCmp = formatMode === 'amount' ? current : current.trim()
+    if (nextCmp !== curCmp) {
+      onSave?.(formatMode === 'amount' ? next : nextCmp)
     }
   }
 

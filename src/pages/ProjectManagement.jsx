@@ -159,18 +159,19 @@ const columns = [
     width: 110,
     filterable: true,
     editable: true,
+    type: 'text',
     colClass: 'unit-price-col-guarantee-rate',
   },
-    {
-      field: 'performanceCertStatus',
-      headerName: '실적증명 여부',
-      width: 140,
-      filterable: true,
-      editable: true,
-      type: 'text',
-      colClass: 'unit-price-col-performance-cert',
-    },
-  ]
+  {
+    field: 'performanceCertStatus',
+    headerName: '실적증명 여부',
+    width: 140,
+    filterable: true,
+    editable: true,
+    type: 'text',
+    colClass: 'unit-price-col-performance-cert',
+  },
+]
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -229,28 +230,69 @@ function fieldToSavedSnapshotValue(field, rowValue, column) {
   return safeString(rowValue).trim()
 }
 
+function normalizePatchCompareValue(value) {
+  if (value === undefined || value === null) return null
+  return value
+}
+
+/**
+ * dirty/현재 스냅샷(new) 기준 PATCH 생성.
+ * 과거(saved/old)에 키가 없어도 새 필드(예: performanceCertStatus)가 빠지지 않는다.
+ */
+function buildProjectManagementPatchPayload(current, saved, dirtyFields = null) {
+  const patch = {}
+  const dirty =
+    dirtyFields instanceof Set
+      ? dirtyFields
+      : dirtyFields
+        ? new Set(dirtyFields)
+        : new Set()
+  const savedRow = saved && typeof saved === 'object' ? saved : {}
+
+  // 1) dirty 필드는 비교 없이 현재 값으로 무조건 포함
+  for (const key of dirty) {
+    if (!PROJECT_MANAGEMENT_EDITABLE_FIELDS.includes(key)) continue
+    const column = columns.find((c) => c.field === key)
+    const cur = fieldToSavedSnapshotValue(key, current?.[key], column)
+    patch[key] = cur === undefined ? null : cur
+  }
+
+  // 2) EDITABLE 필드 전체(new 키 기준) — old에 키가 없으면 빈값으로 간주해 비교
+  for (const key of PROJECT_MANAGEMENT_EDITABLE_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(patch, key)) continue
+    const column = columns.find((c) => c.field === key)
+    const cur = normalizePatchCompareValue(
+      fieldToSavedSnapshotValue(key, current?.[key], column)
+    )
+    const prevRaw = Object.prototype.hasOwnProperty.call(savedRow, key)
+      ? fieldToSavedSnapshotValue(key, savedRow[key], column)
+      : null
+    const prev = normalizePatchCompareValue(prevRaw)
+    if (cur !== prev) {
+      patch[key] = cur
+    }
+  }
+
+  // JSON.stringify가 제거하는 undefined 차단
+  for (const key of Object.keys(patch)) {
+    if (patch[key] === undefined) patch[key] = null
+  }
+  return patch
+}
+
+/** @deprecated — buildProjectManagementPatchPayload 사용 */
+function buildContractPatchDiff(current, saved, forceFields = null) {
+  return buildProjectManagementPatchPayload(current, saved, forceFields)
+}
+
 function rowToSavedSnapshot(row) {
   const snap = {}
   for (const key of PROJECT_MANAGEMENT_EDITABLE_FIELDS) {
     const column = columns.find((c) => c.field === key)
-    snap[key] = fieldToSavedSnapshotValue(key, row[key], column)
+    // API/구데이터에 키가 없어도 editable 키는 항상 스냅샷에 존재하게 한다
+    snap[key] = fieldToSavedSnapshotValue(key, row?.[key], column)
   }
   return snap
-}
-
-function buildContractPatchDiff(current, saved, forceFields = null) {
-  const patch = {}
-  const forced = forceFields instanceof Set ? forceFields : null
-  for (const key of PROJECT_MANAGEMENT_EDITABLE_FIELDS) {
-    const column = columns.find((c) => c.field === key)
-    const cur = fieldToSavedSnapshotValue(key, current[key], column)
-    const prev = saved?.[key]
-    if (forced?.has(key) || cur !== prev) {
-      // JSON.stringify drops undefined — never put undefined in PATCH payload
-      patch[key] = cur === undefined ? null : cur
-    }
-  }
-  return patch
 }
 
 function getEditableColumnCellState(row, column) {
@@ -407,11 +449,29 @@ export default function ProjectManagement({ canEdit = true }) {
         const nextSnapshot = { ...(pending?.snapshot || {}) }
         const dirtyFields =
           pending?.dirtyFields instanceof Set ? pending.dirtyFields : new Set()
+        // 셀 저장 시점에 고정해 둔 명시적 패치(키=백엔드 camelCase)를 최우선으로 사용
+        const explicitPatch =
+          pending?.explicitPatch && typeof pending.explicitPatch === 'object'
+            ? { ...pending.explicitPatch }
+            : {}
 
         const saved = savedByContractIdRef.current[contractId] || rowToSavedSnapshot({ id: contractId })
-        const patch = buildContractPatchDiff(nextSnapshot, saved, dirtyFields)
-        if (Object.keys(patch).length === 0) continue
+        const patch = {
+          ...buildProjectManagementPatchPayload(nextSnapshot, saved, dirtyFields),
+          ...explicitPatch,
+        }
 
+        // undefined 제거 — JSON.stringify({})로 빈 본문 나가는 것 차단
+        for (const key of Object.keys(patch)) {
+          if (patch[key] === undefined) delete patch[key]
+        }
+
+        if (Object.keys(patch).length === 0) {
+          console.warn('[사업관리] 빈 PATCH 생략', { contractId, dirtyFields: [...dirtyFields] })
+          continue
+        }
+
+        console.info('[사업관리] PATCH payload', contractId, patch)
         const updated = await projectManagementApi.update(contractId, patch)
         const normalized = normalizeContractFromApi(updated)
         if (normalized) {
@@ -476,6 +536,10 @@ export default function ProjectManagement({ canEdit = true }) {
     async (row, field, rawValue) => {
       const contractId = safeString(row.id).trim()
       if (!contractId) return
+      if (!PROJECT_MANAGEMENT_EDITABLE_FIELDS.includes(field)) {
+        console.warn('[사업관리] 편집 불가 필드 저장 무시', field)
+        return
+      }
 
       const column = columns.find((c) => c.field === field)
       const previousPending = pendingByContractIdRef.current.get(contractId)
@@ -485,26 +549,37 @@ export default function ProjectManagement({ canEdit = true }) {
         rowToSavedSnapshot(row)
       const nextSnapshot = { ...baseline }
       let displayValue = ''
+      let apiValue = null
 
       if (column?.type === 'commencementCert') {
-        nextSnapshot[field] = toCommencementCertApiValue(rawValue)
+        apiValue = toCommencementCertApiValue(rawValue)
+        nextSnapshot[field] = apiValue
         displayValue = isCommencementCertOmitValue(rawValue)
           ? COMMENCEMENT_CERT_OMIT_LABEL
           : formatDateDisplay(nextSnapshot[field])
       } else if (column?.type === 'date') {
-        nextSnapshot[field] =
+        apiValue =
           rawValue === null || rawValue === undefined ? null : toDbDate(rawValue)
+        nextSnapshot[field] = apiValue
         displayValue = formatDateDisplay(nextSnapshot[field])
       } else {
-        nextSnapshot[field] = safeString(rawValue).trim()
-        displayValue = nextSnapshot[field]
+        // guaranteeRate / performanceCertStatus 등 텍스트 — 백엔드 키와 동일 camelCase
+        apiValue = safeString(rawValue).trim()
+        nextSnapshot[field] = apiValue
+        displayValue = apiValue
       }
 
       const dirtyFields = new Set(previousPending?.dirtyFields || [])
       dirtyFields.add(field)
+      const explicitPatch = {
+        ...(previousPending?.explicitPatch || {}),
+        // 변경된 칸은 diff 결과와 무관하게 반드시 Payload에 포함
+        [field]: apiValue === undefined ? null : apiValue,
+      }
       pendingByContractIdRef.current.set(contractId, {
         snapshot: nextSnapshot,
         dirtyFields,
+        explicitPatch,
       })
 
       setContracts((prev) =>

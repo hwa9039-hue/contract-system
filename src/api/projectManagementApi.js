@@ -42,9 +42,16 @@ export const projectManagementApi = {
   },
 
   update(contractId, patch) {
+    const body = {}
+    for (const [key, value] of Object.entries(patch || {})) {
+      if (value !== undefined) body[key] = value
+    }
+    if (Object.keys(body).length === 0) {
+      throw new Error('저장할 변경 항목이 없습니다. (빈 PATCH)')
+    }
     return requestJson(`/api/project-management/contracts/${encodePathId(contractId)}`, {
       method: 'PATCH',
-      body: JSON.stringify(patch),
+      body: JSON.stringify(body),
     })
   },
 }
