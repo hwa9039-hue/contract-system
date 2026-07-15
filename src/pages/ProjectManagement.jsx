@@ -161,15 +161,16 @@ const columns = [
     editable: true,
     colClass: 'unit-price-col-guarantee-rate',
   },
-  {
-    field: 'performanceCertStatus',
-    headerName: '실적증명 여부',
-    width: 140,
-    filterable: true,
-    editable: true,
-    colClass: 'unit-price-col-performance-cert',
-  },
-]
+    {
+      field: 'performanceCertStatus',
+      headerName: '실적증명 여부',
+      width: 140,
+      filterable: true,
+      editable: true,
+      type: 'text',
+      colClass: 'unit-price-col-performance-cert',
+    },
+  ]
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -237,14 +238,16 @@ function rowToSavedSnapshot(row) {
   return snap
 }
 
-function buildContractPatchDiff(current, saved) {
+function buildContractPatchDiff(current, saved, forceFields = null) {
   const patch = {}
+  const forced = forceFields instanceof Set ? forceFields : null
   for (const key of PROJECT_MANAGEMENT_EDITABLE_FIELDS) {
     const column = columns.find((c) => c.field === key)
     const cur = fieldToSavedSnapshotValue(key, current[key], column)
-    const prev = saved[key]
-    if (cur !== prev) {
-      patch[key] = cur
+    const prev = saved?.[key]
+    if (forced?.has(key) || cur !== prev) {
+      // JSON.stringify drops undefined — never put undefined in PATCH payload
+      patch[key] = cur === undefined ? null : cur
     }
   }
   return patch
@@ -309,6 +312,7 @@ export default function ProjectManagement({ canEdit = true }) {
   const [refetching, setRefetching] = useState(false)
   const [error, setError] = useState(null)
   const [saveError, setSaveError] = useState(null)
+  const [saveSuccess, setSaveSuccess] = useState(null)
   const [tableBusy, setTableBusy] = useState(false)
 
   const [search, setSearch] = useState('')
@@ -317,7 +321,9 @@ export default function ProjectManagement({ canEdit = true }) {
 
   const savedByContractIdRef = useRef({})
   const savingContractIdsRef = useRef(new Set())
-  const pendingSnapshotByContractIdRef = useRef(new Map())
+  /** contractId → { snapshot, dirtyFields: Set<string> } */
+  const pendingByContractIdRef = useRef(new Map())
+  const saveSuccessTimerRef = useRef(null)
 
   const syncSavedSnapshots = useCallback((rows) => {
     const saved = {}
@@ -394,14 +400,16 @@ export default function ProjectManagement({ canEdit = true }) {
     let savedAny = false
 
     try {
-      while (pendingSnapshotByContractIdRef.current.has(contractId)) {
-        const nextSnapshot = {
-          ...pendingSnapshotByContractIdRef.current.get(contractId),
-        }
-        pendingSnapshotByContractIdRef.current.delete(contractId)
+      while (pendingByContractIdRef.current.has(contractId)) {
+        const pending = pendingByContractIdRef.current.get(contractId)
+        pendingByContractIdRef.current.delete(contractId)
+
+        const nextSnapshot = { ...(pending?.snapshot || {}) }
+        const dirtyFields =
+          pending?.dirtyFields instanceof Set ? pending.dirtyFields : new Set()
 
         const saved = savedByContractIdRef.current[contractId] || rowToSavedSnapshot({ id: contractId })
-        const patch = buildContractPatchDiff(nextSnapshot, saved)
+        const patch = buildContractPatchDiff(nextSnapshot, saved, dirtyFields)
         if (Object.keys(patch).length === 0) continue
 
         const updated = await projectManagementApi.update(contractId, patch)
@@ -425,27 +433,44 @@ export default function ProjectManagement({ canEdit = true }) {
         }
         savedAny = true
         setSaveError(null)
+        setSaveSuccess('저장되었습니다.')
+        if (saveSuccessTimerRef.current) {
+          clearTimeout(saveSuccessTimerRef.current)
+        }
+        saveSuccessTimerRef.current = setTimeout(() => {
+          setSaveSuccess(null)
+          saveSuccessTimerRef.current = null
+        }, 2200)
       }
       return savedAny
     } catch (saveErr) {
       if (isAuthSessionExpiredError(saveErr)) return false
       console.error('[사업관리] 계약 저장 실패', saveErr)
       const message = safeString(saveErr?.message).trim()
+      setSaveSuccess(null)
       setSaveError(
         message === 'Forbidden'
           ? '사업관리 저장은 관리자 권한이 필요합니다. 좌측 하단이 「관리자」인지 확인하고, 「일반 사용자」이면 로그아웃 후 관리자로 다시 로그인해 주세요.'
           : message || '사업관리 데이터 저장에 실패했습니다.'
       )
-      pendingSnapshotByContractIdRef.current.delete(contractId)
+      pendingByContractIdRef.current.delete(contractId)
       void fetchContracts({ silent: true, isRefetch: true })
       return false
     } finally {
       savingContractIdsRef.current.delete(contractId)
-      if (pendingSnapshotByContractIdRef.current.has(contractId)) {
+      if (pendingByContractIdRef.current.has(contractId)) {
         void flushContractFieldSaves(contractId)
       }
     }
   }, [fetchContracts])
+
+  useEffect(() => {
+    return () => {
+      if (saveSuccessTimerRef.current) {
+        clearTimeout(saveSuccessTimerRef.current)
+      }
+    }
+  }, [])
 
   const handleFieldSave = useCallback(
     async (row, field, rawValue) => {
@@ -453,8 +478,9 @@ export default function ProjectManagement({ canEdit = true }) {
       if (!contractId) return
 
       const column = columns.find((c) => c.field === field)
+      const previousPending = pendingByContractIdRef.current.get(contractId)
       const baseline =
-        pendingSnapshotByContractIdRef.current.get(contractId) ||
+        previousPending?.snapshot ||
         savedByContractIdRef.current[contractId] ||
         rowToSavedSnapshot(row)
       const nextSnapshot = { ...baseline }
@@ -474,7 +500,13 @@ export default function ProjectManagement({ canEdit = true }) {
         displayValue = nextSnapshot[field]
       }
 
-      pendingSnapshotByContractIdRef.current.set(contractId, nextSnapshot)
+      const dirtyFields = new Set(previousPending?.dirtyFields || [])
+      dirtyFields.add(field)
+      pendingByContractIdRef.current.set(contractId, {
+        snapshot: nextSnapshot,
+        dirtyFields,
+      })
+
       setContracts((prev) =>
         prev.map((item) =>
           item.id === contractId ? { ...item, [field]: displayValue } : item
@@ -604,6 +636,11 @@ export default function ProjectManagement({ canEdit = true }) {
 
   return (
     <div className={UNIT_PRICE_PAGE_ROOT}>
+      {saveSuccess ? (
+        <div className="unit-price-save-success" role="status" aria-live="polite">
+          {saveSuccess}
+        </div>
+      ) : null}
       {saveError ? (
         <div className="unit-price-save-error" role="alert">
           {saveError}

@@ -69,6 +69,16 @@ PROJECT_MANAGEMENT_TEXT_FIELDS = frozenset({"guaranteeRate", "performanceCertSta
 
 COMMENCEMENT_CERT_OMIT_LABEL = "생략"
 
+# JSON 본문 키 별칭 → 사업관리 PATCH 필드명 (snake_case 등)
+PROJECT_MANAGEMENT_PATCH_ALIASES = {
+    "performance_cert_status": "performanceCertStatus",
+    "guarantee_rate": "guaranteeRate",
+    "commencement_cert": "commencementCert",
+    "completion_cert": "completionCert",
+    "warranty_start": "warrantyStart",
+    "warranty_expiry": "warrantyExpiry",
+}
+
 
 class ProjectManagementPatch(BaseModel):
     commencementCert: date | str | None = None
@@ -76,6 +86,7 @@ class ProjectManagementPatch(BaseModel):
     warrantyStart: date | None = None
     warrantyExpiry: date | None = None
     guaranteeRate: str | None = None
+    # 실적증명 여부 — Update(PATCH) 스키마에 반드시 포함
     performanceCertStatus: str | None = None
 
     @field_validator("commencementCert", mode="before")
@@ -101,6 +112,29 @@ class ProjectManagementPatch(BaseModel):
             if text in ("", "-", "—", "–", "2000-01-01", "1970-01-01"):
                 return None
         return value
+
+
+def _normalize_project_management_raw_body(raw_body: dict) -> dict:
+    """camelCase / snake_case 키를 사업관리 PATCH 필드로 정규화."""
+    normalized: dict[str, Any] = {}
+    for key, value in raw_body.items():
+        if key in PROJECT_MANAGEMENT_FIELDS:
+            normalized[key] = value
+            continue
+        alias_target = PROJECT_MANAGEMENT_PATCH_ALIASES.get(key)
+        if alias_target:
+            normalized[alias_target] = value
+    return normalized
+
+
+def _merge_project_management_patch_data(raw_body: dict, patch: ProjectManagementPatch) -> dict:
+    """Pydantic exclude_unset으로 빠질 수 있는 필드를 raw JSON에서 보강 (단가관리와 동일 패턴)."""
+    patch_data = patch.model_dump(exclude_unset=True)
+    normalized = _normalize_project_management_raw_body(raw_body if isinstance(raw_body, dict) else {})
+    for key in PROJECT_MANAGEMENT_FIELDS:
+        if key in normalized:
+            patch_data[key] = normalized[key]
+    return patch_data
 
 
 def _contract_signature(row: dict) -> str:
@@ -289,8 +323,9 @@ async def update_project_management_row(contract_id: str, request: Request):
     if not isinstance(raw_body, dict):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="JSON object expected")
 
-    patch = ProjectManagementPatch.model_validate(raw_body)
-    patch_data = patch.model_dump(exclude_unset=True)
+    normalized_body = _normalize_project_management_raw_body(raw_body)
+    patch = ProjectManagementPatch.model_validate(normalized_body or raw_body)
+    patch_data = _merge_project_management_patch_data(raw_body, patch)
     if not patch_data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
 
