@@ -4,6 +4,7 @@ import {
   getImportanceStyle,
   resolveRegistryImportanceStatus,
 } from './registryImportance.jsx'
+import { compareYearMonthDesc, toYearMonthFilterValue } from './dateFieldUtils.js'
 
 export const SALES_FILTERABLE_COLUMN_KEYS = Object.freeze([
   'importance',
@@ -21,6 +22,8 @@ export const SALES_FILTERABLE_COLUMN_KEYS = Object.freeze([
 export const SALES_COLUMN_FILTER_BLANK = '(비어 있음)'
 
 const NUMERIC_SORT_COLUMN_KEYS = new Set(['projectAmount'])
+
+const YEAR_MONTH_FILTER_COLUMN_KEYS = new Set(['registerDate'])
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -79,6 +82,11 @@ export function getSalesColumnFilterCellValue(item, columnKey) {
     return stage || SALES_COLUMN_FILTER_BLANK
   }
 
+  if (YEAR_MONTH_FILTER_COLUMN_KEYS.has(columnKey)) {
+    const ym = toYearMonthFilterValue(row[columnKey])
+    return ym || SALES_COLUMN_FILTER_BLANK
+  }
+
   const raw = safeString(row[columnKey]).trim()
   return raw || SALES_COLUMN_FILTER_BLANK
 }
@@ -94,7 +102,9 @@ export function buildSalesColumnFilterOptions(items, columnKey) {
   })
 
   let sorted = [...values]
-  if (NUMERIC_SORT_COLUMN_KEYS.has(columnKey)) {
+  if (YEAR_MONTH_FILTER_COLUMN_KEYS.has(columnKey)) {
+    sorted.sort(compareYearMonthDesc)
+  } else if (NUMERIC_SORT_COLUMN_KEYS.has(columnKey)) {
     sorted.sort((a, b) => compareNumericColumnValues(a, b))
   } else {
     sorted.sort(compareKoreanText)

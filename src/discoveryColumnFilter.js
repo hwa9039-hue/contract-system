@@ -1,5 +1,7 @@
 /** 건축정보 테이블 헤더 다중 필터 — 공통 로직 */
 
+import { compareYearMonthDesc, toYearMonthFilterValue } from './dateFieldUtils.js'
+
 export const DISCOVERY_FILTERABLE_COLUMN_KEYS = Object.freeze([
   'permitDate',
   'checkStatus',
@@ -16,6 +18,8 @@ export const DISCOVERY_FILTERABLE_COLUMN_KEYS = Object.freeze([
 export const DISCOVERY_COLUMN_FILTER_BLANK = '(비어 있음)'
 
 const NUMERIC_SORT_COLUMN_KEYS = new Set(['projectAmount'])
+
+const YEAR_MONTH_FILTER_COLUMN_KEYS = new Set(['permitDate'])
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -53,6 +57,11 @@ export function getDiscoveryColumnFilterCellValue(item, columnKey) {
     return displayed || DISCOVERY_COLUMN_FILTER_BLANK
   }
 
+  if (YEAR_MONTH_FILTER_COLUMN_KEYS.has(columnKey)) {
+    const ym = toYearMonthFilterValue(row[columnKey])
+    return ym || DISCOVERY_COLUMN_FILTER_BLANK
+  }
+
   const raw = safeString(row[columnKey]).trim()
   return raw || DISCOVERY_COLUMN_FILTER_BLANK
 }
@@ -68,7 +77,9 @@ export function buildDiscoveryColumnFilterOptions(items, columnKey) {
   })
 
   let sorted = [...values]
-  if (NUMERIC_SORT_COLUMN_KEYS.has(columnKey)) {
+  if (YEAR_MONTH_FILTER_COLUMN_KEYS.has(columnKey)) {
+    sorted.sort(compareYearMonthDesc)
+  } else if (NUMERIC_SORT_COLUMN_KEYS.has(columnKey)) {
     sorted.sort((a, b) => compareNumericColumnValues(a, b))
   } else {
     sorted.sort(compareKoreanText)

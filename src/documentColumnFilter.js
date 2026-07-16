@@ -1,5 +1,7 @@
 /** 문서수발신대장 테이블 헤더 다중 필터 — 공통 로직 */
 
+import { compareYearMonthDesc, toYearMonthFilterValue } from './dateFieldUtils.js'
+
 export const DOCUMENT_FILTERABLE_COLUMN_KEYS = Object.freeze([
   'docDate',
   'docNo',
@@ -11,6 +13,8 @@ export const DOCUMENT_FILTERABLE_COLUMN_KEYS = Object.freeze([
 ])
 
 export const DOCUMENT_COLUMN_FILTER_BLANK = '(비어 있음)'
+
+const YEAR_MONTH_FILTER_COLUMN_KEYS = new Set(['docDate'])
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -27,6 +31,12 @@ function compareKoreanText(a, b) {
 /** 행·컬럼 → 필터 비교용 표시값 (테이블 셀 표시와 동일 기준) */
 export function getDocumentColumnFilterCellValue(item, columnKey) {
   const row = item && typeof item === 'object' ? item : {}
+
+  if (YEAR_MONTH_FILTER_COLUMN_KEYS.has(columnKey)) {
+    const ym = toYearMonthFilterValue(row[columnKey])
+    return ym || DOCUMENT_COLUMN_FILTER_BLANK
+  }
+
   const raw = safeString(row[columnKey]).trim()
   return raw || DOCUMENT_COLUMN_FILTER_BLANK
 }
@@ -42,7 +52,11 @@ export function buildDocumentColumnFilterOptions(items, columnKey) {
   })
 
   let sorted = [...values]
-  sorted.sort(compareKoreanText)
+  if (YEAR_MONTH_FILTER_COLUMN_KEYS.has(columnKey)) {
+    sorted.sort(compareYearMonthDesc)
+  } else {
+    sorted.sort(compareKoreanText)
+  }
 
   const hasBlank = list.some(
     (item) => getDocumentColumnFilterCellValue(item, columnKey) === DOCUMENT_COLUMN_FILTER_BLANK

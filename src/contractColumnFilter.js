@@ -1,5 +1,7 @@
 /** 계약현황 테이블 헤더 다중 필터 — 공통 로직 */
 
+import { compareYearMonthDesc, toYearMonthFilterValue } from './dateFieldUtils.js'
+
 export const CONTRACT_FILTERABLE_COLUMN_KEYS = Object.freeze([
   'year',
   'refNo',
@@ -22,6 +24,8 @@ export const CONTRACT_COLUMN_FILTER_BLANK = '(비어 있음)'
 const HIDDEN_CONTRACT_FILTER_VALUES = Object.freeze(['전유찬', '전유찬 대리'])
 
 const NUMERIC_SORT_COLUMN_KEYS = new Set(['year', 'amount', 'designUnitPrice'])
+
+const YEAR_MONTH_FILTER_COLUMN_KEYS = new Set(['contractDate', 'dueDate'])
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -85,6 +89,11 @@ export function getContractColumnFilterCellValue(item, columnKey) {
     return displayed || CONTRACT_COLUMN_FILTER_BLANK
   }
 
+  if (YEAR_MONTH_FILTER_COLUMN_KEYS.has(columnKey)) {
+    const ym = toYearMonthFilterValue(row[columnKey])
+    return ym || CONTRACT_COLUMN_FILTER_BLANK
+  }
+
   const raw = safeString(row[columnKey]).trim()
   return raw || CONTRACT_COLUMN_FILTER_BLANK
 }
@@ -101,7 +110,9 @@ export function buildContractColumnFilterOptions(items, columnKey) {
   })
 
   let sorted = [...values]
-  if (NUMERIC_SORT_COLUMN_KEYS.has(columnKey)) {
+  if (YEAR_MONTH_FILTER_COLUMN_KEYS.has(columnKey)) {
+    sorted.sort(compareYearMonthDesc)
+  } else if (NUMERIC_SORT_COLUMN_KEYS.has(columnKey)) {
     sorted.sort((a, b) => compareNumericColumnValues(a, b, columnKey))
   } else {
     sorted.sort(compareKoreanText)

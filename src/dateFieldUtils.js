@@ -108,3 +108,38 @@ export function formatDateDisplay(value) {
   const ymd = toDbDate(value)
   return ymd || ''
 }
+
+/**
+ * 컬럼 깔때기 필터용 년-월 값 (YYYY-MM).
+ * 일자·표시문자열이 달라도 같은 월이면 동일 옵션으로 묶인다.
+ */
+export function toYearMonthFilterValue(value) {
+  const ymd = toDbDate(value)
+  if (ymd && /^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    return ymd.slice(0, 7)
+  }
+
+  const raw = safeString(value).trim()
+  if (!raw) return ''
+
+  // 이미 YYYY-MM 이거나 앞부분만 있는 경우
+  const ymMatch = raw.match(/^(\d{4})[-./](\d{1,2})(?:\D|$)/)
+  if (ymMatch) {
+    const year = ymMatch[1]
+    const month = String(Number(ymMatch[2])).padStart(2, '0')
+    const monthNum = Number(month)
+    if (monthNum >= 1 && monthNum <= 12) return `${year}-${month}`
+  }
+
+  return ''
+}
+
+/** 깔때기 년-월 옵션 정렬 — 최신 월 우선 */
+export function compareYearMonthDesc(a, b) {
+  const sa = safeString(a).trim()
+  const sb = safeString(b).trim()
+  if (sa === sb) return 0
+  if (!sa) return 1
+  if (!sb) return -1
+  return sb.localeCompare(sa, 'en', { numeric: true })
+}
