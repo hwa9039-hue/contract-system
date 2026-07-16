@@ -5675,8 +5675,6 @@ function App() {
   const [selectedWorkWeek, setSelectedWorkWeek] = useState(() =>
     buildWorkReportWeekMeta(new Date()).weekStartDate
   )
-  const [isExcludedGuideCollapsed, setIsExcludedGuideCollapsed] = useState(true)
-  const [isDocumentGuideCollapsed, setIsDocumentGuideCollapsed] = useState(true)
   const [manualEvents, setManualEvents] = useState([])
   const [search, setSearch] = useState('')
   const [contractDateRange, setContractDateRange] = useState({ startDate: '', endDate: '' })
@@ -16139,36 +16137,6 @@ function App() {
 
         {menu === 'excluded' && (
           <section className="stat-card">
-            <div className="guide-panel excluded-guide-panel">
-              <div
-                className="guide-panel-header guide-panel-header--toggle"
-                aria-label={`사업공유 안내 ${isExcludedGuideCollapsed ? '펼치기' : '접기'}`}
-                {...bindExpandCollapseRow(
-                  () => setIsExcludedGuideCollapsed((prev) => !prev),
-                  !isExcludedGuideCollapsed
-                )}
-              >
-                <div className="guide-panel-title">안내 문구</div>
-                <span className="guide-panel-toggle guide-panel-toggle--decor" aria-hidden="true">
-                  {isExcludedGuideCollapsed ? '+' : '-'}
-                </span>
-              </div>
-
-              {!isExcludedGuideCollapsed && (
-                <div className="guide-panel-body excluded-guide-copy">
-                  <div>
-                    ※ 기본 제외사항 : 지역제한, 수의계약, 지명경쟁(전자조합추천) / 서울(1억~), 타지역(3억~)
-                  </div>
-                  <div>
-                    ※ 검색 키워드 : 전광판, 미디어, 파사드, 사이니지, 디스플레이, LED, 앞에 키워드+디지털, ITS, VMS
-                  </div>
-                  <div>
-                    ※ 검색 품명(분류번호) : 안내전광판(5512190301), 기상전광판(5512190302), 교통정보전광판(5512190303), 융복합안내전광판(9955121901), 영상정보디스플레이장치(4511189301)
-                  </div>
-                </div>
-              )}
-            </div>
-
             <div className="contracts-header-actions">
               <button className="primary-btn" type="button" onClick={handleAddExcludedRow}>
                 등록
@@ -16388,57 +16356,6 @@ function App() {
 
         {menu === 'documents' && (
           <section className="stat-card">
-            <div className="guide-panel">
-              <div
-                className="guide-panel-header guide-panel-header--toggle"
-                aria-label={`문서수발신대장 안내 ${isDocumentGuideCollapsed ? '펼치기' : '접기'}`}
-                {...bindExpandCollapseRow(
-                  () => setIsDocumentGuideCollapsed((prev) => !prev),
-                  !isDocumentGuideCollapsed
-                )}
-              >
-                <div className="guide-panel-title">안내 문구</div>
-                <span className="guide-panel-toggle guide-panel-toggle--decor" aria-hidden="true">
-                  {isDocumentGuideCollapsed ? '+' : '-'}
-                </span>
-              </div>
-
-              {!isDocumentGuideCollapsed && (
-                <div className="guide-panel-body">
-                  <div className="doc-guide-layout">
-                    <div className="doc-guide-pattern">
-                      <div style={{ fontWeight: 800, marginBottom: 4 }}>문서번호 체계 안내</div>
-                      <div className="doc-guide-code">SIGN-DI-S-260000-01</div>
-                      <div className="doc-guide-code">SIGN-DI-R-260000-01</div>
-                      <div className="doc-guide-code">SIGN-DI-A-260000-01</div>
-                    </div>
-
-                    <div className="doc-guide-owners-wrap">
-                      <div style={{ fontWeight: 800, marginBottom: 6 }}>담당자 약어</div>
-                      <div className="doc-guide-owners-grid">
-                        <div className="doc-guide-owner-col">
-                          <div>S1 : 전기웅</div>
-                          <div>S2 : 유영무</div>
-                          <div>S3 : 김성수</div>
-                          <div>S4 : 이재승</div>
-                        </div>
-                        <div className="doc-guide-owner-col">
-                          <div>R1 : 이용자</div>
-                          <div>R2 : 박재범</div>
-                        </div>
-                        <div className="doc-guide-owner-col">
-                          <div>A1 : 전재우</div>
-                          <div>A2 : 정화영</div>
-                          <div>A3 : 정주희</div>
-                          <div>A4 : 신상준</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
             <div className="contracts-header-actions">
               <button className="primary-btn" type="button" onClick={handleAddDocumentRow}>
                 등록
