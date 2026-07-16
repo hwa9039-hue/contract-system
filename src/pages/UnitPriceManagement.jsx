@@ -452,6 +452,7 @@ export default function UnitPriceManagement({ canEdit = true }) {
   const [refetching, setRefetching] = useState(false)
   const [error, setError] = useState(null)
   const [saveError, setSaveError] = useState(null)
+  const [saveSuccess, setSaveSuccess] = useState(null)
   const [tableBusy, setTableBusy] = useState(false)
 
   const [search, setSearch] = useState('')
@@ -460,6 +461,26 @@ export default function UnitPriceManagement({ canEdit = true }) {
 
   const savedByItemIdRef = useRef({})
   const savingItemIdsRef = useRef(new Set())
+  const saveSuccessTimerRef = useRef(null)
+
+  const showSaveSuccess = useCallback(() => {
+    setSaveSuccess('저장되었습니다.')
+    if (saveSuccessTimerRef.current) {
+      clearTimeout(saveSuccessTimerRef.current)
+    }
+    saveSuccessTimerRef.current = setTimeout(() => {
+      setSaveSuccess(null)
+      saveSuccessTimerRef.current = null
+    }, 2200)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (saveSuccessTimerRef.current) {
+        clearTimeout(saveSuccessTimerRef.current)
+      }
+    }
+  }, [])
 
   const syncSavedSnapshots = useCallback((rows) => {
     const saved = {}
@@ -569,11 +590,13 @@ export default function UnitPriceManagement({ canEdit = true }) {
           if (!contractId) throw new Error('계약 ID가 없습니다.')
           await unitPricesApi.createItem(contractId, payload)
           setSaveError(null)
+          showSaveSuccess()
           void fetchTree({ silent: true })
           return true
         } catch (saveErr) {
           if (isAuthSessionExpiredError(saveErr)) return false
           console.error('[단가관리] 품목 생성 실패', saveErr)
+          setSaveSuccess(null)
           setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
           return false
         } finally {
@@ -593,17 +616,19 @@ export default function UnitPriceManagement({ canEdit = true }) {
         savedByItemIdRef.current[rowId] = snapshot
         setContracts((prev) => patchContractsTreeItem(prev, row, snapshot))
         setSaveError(null)
+        showSaveSuccess()
         return true
       } catch (saveErr) {
         if (isAuthSessionExpiredError(saveErr)) return false
         console.error('[단가관리] 품목 저장 실패', saveErr)
+        setSaveSuccess(null)
         setSaveError(saveErr?.message || '단가 데이터 저장에 실패했습니다.')
         return false
       } finally {
         savingItemIdsRef.current.delete(rowId)
       }
     },
-    [canEdit, fetchTree]
+    [canEdit, fetchTree, showSaveSuccess]
   )
 
   const handleItemFieldSave = useCallback(
@@ -787,6 +812,11 @@ export default function UnitPriceManagement({ canEdit = true }) {
 
   return (
     <div className={UNIT_PRICE_PAGE_ROOT}>
+      {saveSuccess ? (
+        <div className="unit-price-save-success" role="status" aria-live="polite">
+          {saveSuccess}
+        </div>
+      ) : null}
       {saveError ? (
         <div className="unit-price-save-error" role="alert">
           {saveError}
