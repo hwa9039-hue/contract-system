@@ -15231,10 +15231,6 @@ function App() {
                     등록
                   </button>
 
-                  <button className="secondary-btn" type="button" onClick={handleExcelImportClick}>
-                    엑셀 업로드
-                  </button>
-
                   <button
                     className="secondary-btn"
                     type="button"
@@ -15664,9 +15660,6 @@ function App() {
               <button className="primary-btn" type="button" onClick={handleAddSalesRow}>
                 등록
               </button>
-              <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('sales')}>
-                엑셀 업로드
-              </button>
               <button
                 className="secondary-btn"
                 type="button"
@@ -15911,9 +15904,6 @@ function App() {
               <button className="primary-btn" type="button" onClick={handleAddDiscoveryRow}>
                 등록
               </button>
-              <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('discovery')}>
-                엑셀 업로드
-              </button>
               <button
                 className="secondary-btn"
                 type="button"
@@ -16141,9 +16131,6 @@ function App() {
               <button className="primary-btn" type="button" onClick={handleAddExcludedRow}>
                 등록
               </button>
-              <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('excluded')}>
-                엑셀 업로드
-              </button>
               <button
                 className="secondary-btn"
                 type="button"
@@ -16360,9 +16347,6 @@ function App() {
               <button className="primary-btn" type="button" onClick={handleAddDocumentRow}>
                 등록
               </button>
-              <button className="secondary-btn" type="button" onClick={() => openRegistryUpload('documents')}>
-                엑셀 업로드
-              </button>
               <button
                 className="secondary-btn"
                 type="button"
@@ -16539,9 +16523,6 @@ function App() {
                   <>
                     <button className="primary-btn" type="button" onClick={handleAddContactsRow}>
                       등록
-                    </button>
-                    <button className="secondary-btn" type="button" onClick={handleContactsExcelUpload}>
-                      엑셀 업로드
                     </button>
                     <button
                       className="secondary-btn"
