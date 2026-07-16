@@ -687,6 +687,10 @@ const WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX = 1
 const WORK_REPORT_EXTERNAL_ROW_COUNT = 5
 const WORK_REPORT_DI_ROW_COUNT = 4
 const WORK_REPORT_ROAD_ROW_COUNT = 2
+/** DI사업 담당자 — 행 번호별 고정 (수기 선택 UI 없음) */
+const WORK_REPORT_DI_FIXED_MANAGERS = Object.freeze(['전기웅', '유영무', '김성수', '이재승'])
+/** 도로사업 담당자 — 행 번호별 고정 */
+const WORK_REPORT_ROAD_FIXED_MANAGERS = Object.freeze(['이용자', '박재범'])
 const WORK_REPORT_SUPPORT_ITEM_COUNT = 15
 const WORK_REPORT_SUPPORT_NUMBER_GUIDE = Array.from(
   { length: WORK_REPORT_SUPPORT_ITEM_COUNT },
@@ -703,6 +707,21 @@ const WORK_REPORT_SECTION_KEYS = {
   supportProgress: '영업지원_진행업무',
   supportDone: '영업지원_완료업무',
   meetingMinutes: '회의록',
+}
+
+function getWorkReportFixedManagersForSection(section) {
+  const key = safeString(section).trim()
+  if (key === WORK_REPORT_SECTION_KEYS.di) return WORK_REPORT_DI_FIXED_MANAGERS
+  if (key === WORK_REPORT_SECTION_KEYS.road) return WORK_REPORT_ROAD_FIXED_MANAGERS
+  return null
+}
+
+function getWorkReportFixedManagerName(section, orderIndex) {
+  const managers = getWorkReportFixedManagersForSection(section)
+  if (!managers) return ''
+  const idx = Number(orderIndex || 1) - 1
+  if (idx < 0 || idx >= managers.length) return ''
+  return safeString(managers[idx]).trim()
 }
 
 function isWorkReportSupportCompletedUser(user) {
@@ -10558,12 +10577,14 @@ function App() {
       }
       const resolvedPatch = typeof patch === 'function' ? patch(baseEntry) : patch
       const storedEntry = getStoredWorkReportEntry(date, sectionNorm, oi)
+      const fixedManager = getWorkReportFixedManagerName(sectionNorm, oi)
       const nextEntry = {
         ...baseEntry,
         ...resolvedPatch,
         date: normalizeWorkReportDateKey(date),
         section: sectionNorm,
         orderIndex: oi,
+        ...(fixedManager ? { user: fixedManager } : {}),
       }
       if (storedEntry?.id) {
         nextEntry.id = storedEntry.id
@@ -10607,11 +10628,13 @@ function App() {
           ? WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX
           : Number(orderIndex || 1)
       const cellKey = getWorkReportCellKey(date, sectionNorm, oi)
+      const fixedManager = getWorkReportFixedManagerName(sectionNorm, oi)
       const targetRow = {
         ...getWorkReportBoardEntry(date, sectionNorm, oi, workReportDraftsRef.current),
         date: normalizeWorkReportDateKey(date),
         section: sectionNorm,
         orderIndex: oi,
+        ...(fixedManager ? { user: fixedManager } : {}),
       }
       const savedSnapshot = serializeWorkReportEntrySnapshot(targetRow)
       if (isWorkReportRowEmpty(targetRow)) {
@@ -11012,11 +11035,14 @@ function App() {
     const renderPdfText = (value) => escapeHtml(value || '-').replaceAll('\n', '<br />')
     const renderPdfRows = (date, section, rowCount, includeDestination = false, includeDeadline = false) =>
       Array.from({ length: rowCount }, (_, index) => {
-        const entry = getWorkReportBoardEntry(date, section, index + 1)
+        const orderIndex = index + 1
+        const entry = getWorkReportBoardEntry(date, section, orderIndex)
+        const managerLabel =
+          getWorkReportFixedManagerName(section, orderIndex) || entry.user || '-'
         return `
           <tr>
-            <td class="pdf-index">${index + 1}</td>
-            <td class="pdf-manager">${escapeHtml(entry.user || '-')}</td>
+            <td class="pdf-index">${orderIndex}</td>
+            <td class="pdf-manager">${escapeHtml(managerLabel)}</td>
             <td>${renderPdfText(entry.content || '-')}</td>
             ${includeDestination ? `<td class="pdf-destination">${renderPdfText(entry.destination || '-')}</td>` : ''}
             ${includeDeadline ? `<td class="pdf-deadline">${escapeHtml(entry.deadline || '-')}</td>` : ''}
@@ -13627,8 +13653,14 @@ function App() {
     section,
     rowCount,
     contentClassName,
-    fixedManagers = []
-  ) => (
+    fixedManagers = null
+  ) => {
+    const managers =
+      Array.isArray(fixedManagers) && fixedManagers.length > 0
+        ? fixedManagers
+        : getWorkReportFixedManagersForSection(section)
+
+    return (
     <section className="work-report-board-section shrink-0 min-h-[150px]">
       <div className="work-report-board-section-title">{title}</div>
       <div className="work-report-board-table">
@@ -13641,6 +13673,7 @@ function App() {
         {Array.from({ length: rowCount }, (_, index) => {
           const orderIndex = index + 1
           const entry = getWorkReportBoardEntry(date, section, orderIndex)
+          const fixedName = managers ? safeString(managers[index] || '').trim() : ''
 
           return (
             <div
@@ -13649,26 +13682,33 @@ function App() {
               onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
             >
               <div className="work-report-board-index">{orderIndex}</div>
-              <select
-                className="work-report-board-select"
-                value={entry.user}
-                onChange={(e) =>
-                  updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
-                }
-              >
-                <option value="">선택</option>
-                {WORK_REPORT_MANAGER_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+              {fixedName ? (
+                <div className="work-report-board-fixed-manager">{fixedName}</div>
+              ) : (
+                <select
+                  className="work-report-board-select"
+                  value={entry.user}
+                  onChange={(e) =>
+                    updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
+                  }
+                >
+                  <option value="">선택</option>
+                  {WORK_REPORT_MANAGER_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              )}
               <AutoGrowTextarea
                 className={`work-report-board-textarea ${contentClassName}`}
                 value={entry.content}
                 placeholder="내용 입력"
                 onChange={(e) =>
-                  updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
+                  updateWorkReportBoardEntry(date, section, orderIndex, {
+                    ...(fixedName ? { user: fixedName } : {}),
+                    content: e.target.value,
+                  })
                 }
                 onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
@@ -13678,6 +13718,7 @@ function App() {
                 value={normalizeWorkReportDeadlineForDateInput(entry.deadline)}
                 onChange={(e) =>
                   updateWorkReportBoardEntry(date, section, orderIndex, {
+                    ...(fixedName ? { user: fixedName } : {}),
                     deadline: normalizeWorkReportDeadlineForDateInput(e.target.value),
                   })
                 }
@@ -13693,7 +13734,8 @@ function App() {
         })}
       </div>
     </section>
-  )
+    )
+  }
 
   const renderWorkReportExternalSection = (date) => (
     <section className="work-report-board-section work-report-board-section-blue">
@@ -14475,7 +14517,10 @@ function App() {
     </div>
   )
 
-  const renderWorkReportManagedCell = (date, section, rowCount, contentClassName) => (
+  const renderWorkReportManagedCell = (date, section, rowCount, contentClassName) => {
+    const fixedManagers = getWorkReportFixedManagersForSection(section)
+
+    return (
     <div className="work-report-board-section work-report-board-section-cell">
       <div className="work-report-board-table">
         <div className="work-report-board-header-row work-report-board-header-row-journal">
@@ -14486,6 +14531,9 @@ function App() {
         {Array.from({ length: rowCount }, (_, index) => {
           const orderIndex = index + 1
           const entry = getWorkReportBoardEntry(date, section, orderIndex)
+          const fixedName = fixedManagers
+            ? safeString(fixedManagers[index] || '').trim()
+            : ''
 
           return (
             <div
@@ -14494,26 +14542,33 @@ function App() {
               onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
             >
               <div className="work-report-board-index">{orderIndex}</div>
-              <select
-                className="work-report-board-select"
-                value={entry.user}
-                onChange={(e) =>
-                  updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
-                }
-              >
-                <option value="">선택</option>
-                {WORK_REPORT_MANAGER_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+              {fixedName ? (
+                <div className="work-report-board-fixed-manager">{fixedName}</div>
+              ) : (
+                <select
+                  className="work-report-board-select"
+                  value={entry.user}
+                  onChange={(e) =>
+                    updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
+                  }
+                >
+                  <option value="">선택</option>
+                  {WORK_REPORT_MANAGER_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              )}
               <AutoGrowTextarea
                 className={`work-report-board-textarea ${contentClassName}`}
                 value={entry.content}
                 placeholder="내용 입력"
                 onChange={(e) =>
-                  updateWorkReportBoardEntry(date, section, orderIndex, { content: e.target.value })
+                  updateWorkReportBoardEntry(date, section, orderIndex, {
+                    ...(fixedName ? { user: fixedName } : {}),
+                    content: e.target.value,
+                  })
                 }
                 onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
@@ -14522,7 +14577,8 @@ function App() {
         })}
       </div>
     </div>
-  )
+    )
+  }
 
   const renderWorkReportSupportCell = (date) => (
     <div className="work-report-board-section work-report-board-section-cell work-report-board-section-cell-support">
