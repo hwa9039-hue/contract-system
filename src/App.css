@@ -1050,9 +1050,9 @@ table[data-contract-table-row-key] .col-type {
 }
 
 table[data-contract-table-row-key] .col-date {
-  width: 128px !important;
-  min-width: 128px !important;
-  max-width: 128px !important;
+  width: 175px !important;
+  min-width: 175px !important;
+  max-width: 175px !important;
 }
 
 table[data-contract-table-row-key] .col-project {
@@ -1390,8 +1390,8 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
 }
 
 .col-date {
-  width: 128px;
-  min-width: 128px;
+  width: 175px;
+  min-width: 175px;
 }
 
 .col-project {
@@ -6526,6 +6526,15 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
+/* 등록일 인라인 편집 — 달력 아이콘이 overflow에 잘리지 않도록 */
+.sales-registry-table.excel-table tbody td.sales-register-date-cell,
+.sales-registry-table.excel-table tbody td:has(> .registry-table-date-input),
+.excluded-registry-table.excel-table tbody td:has(> .registry-table-date-input),
+.documents-registry-table.excel-table tbody td:has(> .registry-table-date-input),
+.discovery-registry-table.excel-table tbody td:has(> .registry-table-date-input) {
+  overflow: visible !important;
+}
+
 .sales-registry-table.excel-table thead th.contract-th-filterable {
   overflow: visible;
   white-space: nowrap;
@@ -7261,9 +7270,14 @@ textarea:focus-visible {
 
 .excluded-registry-table input[type='date']::-webkit-calendar-picker-indicator,
 .documents-registry-table input[type='date']::-webkit-calendar-picker-indicator {
+  display: block;
   opacity: 1;
   cursor: pointer;
   background: transparent;
+  width: 1.1em;
+  height: 1.1em;
+  margin: 0;
+  padding: 0;
 }
 
 /* 사업공유·문서수발신 — 등록일 date 입력 래퍼 (공통) */
@@ -7280,6 +7294,7 @@ textarea:focus-visible {
   box-sizing: border-box;
   padding: 8px 6px !important;
   vertical-align: top;
+  overflow: visible;
 }
 
 .excluded-registry-table .registry-table-date-input .registry-table-date-input-field,
@@ -7287,14 +7302,15 @@ textarea:focus-visible {
 .documents-registry-table .registry-table-date-input .registry-table-date-input-field,
 .documents-registry-table .registry-table-date-input .excluded-inline-editor {
   display: block;
-  width: 110px !important;
-  max-width: 110px !important;
-  min-width: 110px !important;
-  flex: 0 0 110px;
+  width: 135px !important;
+  max-width: 135px !important;
+  min-width: 135px !important;
+  flex: 0 0 135px;
   padding: 0 !important;
   margin: 0;
   min-height: 0 !important;
   height: auto;
+  box-sizing: border-box;
 }
 
 .excluded-registry-table .registry-table-date-input-icon,
@@ -7696,6 +7712,15 @@ textarea:focus-visible {
   width: 7rem;
   min-width: 7rem;
   max-width: 7rem;
+}
+
+/* 문서수발신 — 등록일: 날짜 텍스트 + 달력 아이콘 공간 확보 */
+.documents-registry-table col.documents-w-date,
+.documents-registry-table th.documents-w-date,
+.documents-registry-table td.documents-w-date {
+  width: 175px;
+  min-width: 175px;
+  max-width: 175px;
 }
 
 .documents-registry-table col.documents-w-32,
@@ -8325,9 +8350,14 @@ textarea:focus-visible {
 .sales-registry-table input[type='date']::-webkit-calendar-picker-indicator,
 .discovery-registry-table input[type='date']::-webkit-calendar-picker-indicator,
 .contracts-fixed-table tr.contracts-draft-row input[type='date']::-webkit-calendar-picker-indicator {
+  display: block;
   opacity: 1;
   cursor: pointer;
   background: transparent;
+  width: 1.1em;
+  height: 1.1em;
+  margin: 0;
+  padding: 0;
 }
 
 .sales-registry-table td.editable-cell > .registry-table-date-input,
@@ -8344,6 +8374,7 @@ textarea:focus-visible {
   box-sizing: border-box;
   padding: 8px 6px !important;
   vertical-align: top;
+  overflow: visible;
 }
 
 .sales-registry-table .registry-table-date-input .registry-table-date-input-field,
@@ -8353,14 +8384,15 @@ textarea:focus-visible {
 .contracts-fixed-table tr.contracts-draft-row .registry-table-date-input .registry-table-date-input-field,
 .contracts-fixed-table tr.contracts-draft-row .registry-table-date-input .excluded-inline-editor {
   display: block;
-  width: 110px !important;
-  max-width: 110px !important;
-  min-width: 110px !important;
-  flex: 0 0 110px;
+  width: 135px !important;
+  max-width: 135px !important;
+  min-width: 135px !important;
+  flex: 0 0 135px;
   padding: 0 !important;
   margin: 0;
   min-height: 0 !important;
   height: auto;
+  box-sizing: border-box;
 }
 
 .sales-registry-table .registry-table-date-input-icon,
