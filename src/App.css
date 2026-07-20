@@ -2,13 +2,9 @@
 @import url('https://cdn.jsdelivr.net/gh/sunn-us/SUIT/fonts/static/woff2/SUIT.css');
 
 /**
- * 전역 색상 테마 (UI 시안 6색)
- * #2E3440 딥 그레이 — 사이드바·주요 버튼·Active
- * #3B4252 다크 그레이 — 상단 타이틀바
- * #434C5E 미디엄 그레이 — 사이드바 서브·메뉴 Hover
- * #F4F4F6 소프트 화이트 — 메인 배경
- * #6B7280 슬레이트 그레이 — 보조/비활성 텍스트
- * #FFFFFF 화이트 — 카드·테이블·입력창
+ * 전역 색상 테마 — 운영 화면과 동일한 Nord/슬레이트 네이비 톤
+ * 사이드바 #2E3440 · Active/호버 #434C5E · 헤더 #FFFFFF
+ * Primary 버튼·제목 #2E3440
  */
 :root {
   --color-deep: #2e3440;
@@ -17,30 +13,35 @@
   --color-soft: #f4f4f6;
   --color-slate: #6b7280;
   --color-white: #ffffff;
-  --color-on-dark: #f3f4f6;
+  --color-on-dark: #e5e9f0;
   --color-on-dark-strong: #ffffff;
 
-  --page-bg: var(--color-soft);
-  --panel: var(--color-white);
-  --panel-soft: var(--color-soft);
-  --line: #d1d5db;
-  --line-strong: #9ca3af;
-  --text: var(--color-deep);
-  --muted: var(--color-slate);
-  --ink: var(--color-deep);
-  --sidebar: var(--color-deep);
-  --sidebar-2: var(--color-medium);
-  --sidebar-hover: var(--color-medium);
-  --header: var(--color-dark);
-  --header-text: var(--color-on-dark-strong);
-  --accent: var(--color-deep);
-  --accent-strong: var(--color-dark);
-  --accent-soft: #e5e7eb;
-  --blue: var(--color-deep);
+  --page-bg: #f4f4f6;
+  --panel: #ffffff;
+  --panel-soft: #f4f4f6;
+  --line: #d8dee9;
+  --line-strong: #c7d0dc;
+  --text: #2e3440;
+  --muted: #6b7280;
+  --ink: #2e3440;
+  --sidebar: #2e3440;
+  --sidebar-2: #3b4252;
+  --sidebar-hover: #434c5e;
+  --header: #ffffff;
+  --header-text: #2e3440;
+
+  --primary: #2e3440;
+  --primary-strong: #3b4252;
+  --primary-soft: #e5e9f0;
+
+  --accent: #2e3440;
+  --accent-strong: #3b4252;
+  --accent-soft: #e5e9f0;
+  --blue: #2e3440;
   --red: #dc2626;
-  --shadow-sm: 0 2px 8px rgba(46, 52, 64, 0.08);
+  --shadow-sm: 0 1px 2px rgba(46, 52, 64, 0.06), 0 1px 3px rgba(46, 52, 64, 0.08);
   --shadow-md: 0 10px 28px rgba(46, 52, 64, 0.1);
-  --shadow-lg: 0 24px 60px rgba(46, 52, 64, 0.18);
+  --shadow-lg: 0 24px 60px rgba(46, 52, 64, 0.16);
 }
 
 * {
@@ -205,10 +206,10 @@ textarea {
 }
 
 .menu-btn.active {
-  background: var(--sidebar-hover);
-  border-color: rgba(255, 255, 255, 0.28);
-  color: var(--color-on-dark-strong);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  background: #434c5e;
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: none;
 }
 
 .logout-btn {
@@ -216,7 +217,7 @@ textarea {
   height: 36px;
   border: none;
   border-radius: 8px;
-  background: var(--accent);
+  background: var(--primary);
   color: var(--color-on-dark-strong);
   font-size: 12px;
   font-weight: 600;
@@ -275,14 +276,14 @@ textarea {
 }
 
 .top-system-title {
-  background: var(--color-soft);
+  background: var(--header);
   border: 1px solid var(--line);
-  color: var(--color-deep);
+  color: var(--header-text);
   box-shadow: var(--shadow-sm);
 }
 
 .top-system-title-text {
-  color: var(--color-deep);
+  color: var(--header-text);
 }
 
 .top-system-session-actions {
@@ -307,9 +308,9 @@ textarea {
 }
 
 .top-system-session-badge--auto {
-  background: var(--accent-soft);
+  background: var(--panel);
   border: 1px solid var(--line);
-  color: var(--color-deep);
+  color: var(--header-text);
 }
 
 .top-system-session-badge--timer {
@@ -494,7 +495,7 @@ textarea {
 
 .primary-btn {
   padding: 9px 14px;
-  background: var(--accent);
+  background: var(--primary);
   color: var(--color-on-dark-strong);
   border-radius: 8px;
   font-size: 13px;
@@ -519,11 +520,11 @@ textarea {
 .primary-btn:hover,
 .secondary-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 14px rgba(46, 52, 64, 0.14);
+  box-shadow: 0 6px 14px rgba(24, 24, 27, 0.14);
 }
 
 .primary-btn:hover {
-  background: var(--accent-strong);
+  background: var(--primary-strong);
 }
 
 .secondary-btn:hover {
@@ -900,14 +901,14 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
 }
 
 .contract-column-filter-menu-btn--primary {
-  border: 1px solid var(--accent);
-  background: var(--accent);
+  border: 1px solid var(--primary);
+  background: var(--primary);
   color: var(--color-on-dark-strong);
 }
 
 .contract-column-filter-menu-btn--primary:hover {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
+  background: var(--primary-strong);
+  border-color: var(--primary-strong);
 }
 
 .contract-table-panel {
@@ -3557,10 +3558,10 @@ textarea:focus-visible {
 }
 
 .menu-btn.active {
-  background: var(--sidebar-hover);
-  border-color: rgba(255, 255, 255, 0.22);
-  color: var(--color-on-dark-strong);
-  box-shadow: inset 3px 0 0 var(--color-white);
+  background: #434c5e;
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: none;
 }
 
 .menu-label-strong {
@@ -3582,14 +3583,14 @@ textarea:focus-visible {
 
 .logout-btn {
   height: 40px;
-  background: var(--accent-strong);
+  background: var(--primary);
   color: var(--color-on-dark-strong);
   font-weight: 800;
   transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .logout-btn:hover {
-  background: var(--color-medium);
+  background: var(--primary-strong);
   transform: translateY(-1px);
   box-shadow: 0 10px 20px rgba(46, 52, 64, 0.22);
 }
@@ -3627,20 +3628,20 @@ textarea:focus-visible {
 
 .top-system-title {
   border: 1px solid var(--line);
-  background: var(--color-soft);
-  color: var(--color-deep);
+  background: var(--header);
+  color: var(--header-text);
   box-shadow: var(--shadow-sm);
 }
 
 .top-system-title-text {
-  color: var(--color-deep);
+  color: var(--header-text);
 }
 
 .unified-title-bar h1 {
   min-height: 50px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--color-deep);
+  color: var(--header-text);
   font-size: 18px;
   box-shadow: none;
 }
@@ -4210,7 +4211,7 @@ textarea:focus-visible {
   margin: 0;
   font-size: 18px;
   font-weight: 800;
-  color: #1e40af;
+  color: #2e3440;
   font-family: 'SUIT', sans-serif;
   line-height: 1.35;
 }
@@ -4218,7 +4219,7 @@ textarea:focus-visible {
 .dashboard-work-report-briefing-title-sep {
   margin: 0 6px;
   font-weight: 800;
-  color: #1e40af;
+  color: #2e3440;
 }
 
 .dashboard-work-report-briefing-meta {
@@ -4281,7 +4282,7 @@ textarea:focus-visible {
   font-size: 15px;
   font-weight: 800;
   line-height: 1.35;
-  color: #1e40af;
+  color: #2e3440;
 }
 
 .dashboard-briefing-box-title {
@@ -4357,7 +4358,7 @@ textarea:focus-visible {
 }
 
 .dashboard-briefing-due-dday {
-  color: #1d4ed8;
+  color: #2e3440;
 }
 
 .dashboard-briefing-week-work-item {
@@ -4451,7 +4452,7 @@ textarea:focus-visible {
   margin: 0 0 8px;
   font-size: 14px;
   font-weight: 900;
-  color: #1e40af;
+  color: #2e3440;
 }
 
 .dashboard-work-report-briefing-checklist {
@@ -4550,7 +4551,7 @@ textarea:focus-visible {
 }
 
 .dashboard-work-report-briefing-meeting-meta strong {
-  color: #1e40af;
+  color: #2e3440;
   font-weight: 800;
 }
 
@@ -4867,7 +4868,7 @@ textarea:focus-visible {
   font-size: 15px;
   font-weight: 800;
   line-height: 1.35;
-  color: #1d4ed8;
+  color: #2e3440;
 }
 
 .dashboard-recent-list {
@@ -5050,13 +5051,13 @@ textarea:focus-visible {
 }
 
 .primary-btn {
-  background: var(--accent);
+  background: var(--primary);
   color: var(--color-on-dark-strong);
 }
 
 .primary-btn:hover {
-  background: var(--accent-strong);
-  box-shadow: 0 10px 20px rgba(46, 52, 64, 0.18);
+  background: var(--primary-strong);
+  box-shadow: 0 10px 20px rgba(46, 52, 64, 0.22);
 }
 
 .secondary-btn {
@@ -5771,10 +5772,10 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(47, 107, 255, 0.28);
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
-  color: var(--accent-strong);
+  color: var(--color-dark);
   font-size: 20px;
   font-weight: 900;
   line-height: 1;
@@ -5784,8 +5785,8 @@ textarea:focus-visible {
 }
 
 .panel-toggle-btn:hover {
-  background: var(--accent-soft);
-  border-color: rgba(47, 107, 255, 0.45);
+  background: var(--panel-soft);
+  border-color: var(--line-strong);
   transform: translateY(-1px);
   box-shadow: 0 8px 16px rgba(47, 107, 255, 0.12);
 }
@@ -5950,20 +5951,20 @@ textarea:focus-visible {
 .top-system-title {
   justify-content: space-between;
   gap: 16px;
-  background: var(--color-soft);
-  color: var(--color-deep);
+  background: var(--header);
+  color: var(--header-text);
   font-size: 18px;
   font-weight: 760;
 }
 
 .top-system-title-text {
-  color: var(--color-deep);
+  color: var(--header-text);
 }
 
 .unified-title-bar h1 {
   font-size: 17px;
   font-weight: 700;
-  color: var(--color-deep);
+  color: var(--header-text);
 }
 
 .calendar-month-title {
@@ -6254,9 +6255,10 @@ textarea:focus-visible {
 }
 
 .menu-group-btn--has-active {
-  border-color: rgba(255, 255, 255, 0.2);
-  background: var(--sidebar-hover);
-  color: var(--color-on-dark-strong);
+  border-color: transparent;
+  background: #434c5e;
+  color: #ffffff;
+  box-shadow: none;
 }
 
 .menu-group-label,
@@ -6314,8 +6316,10 @@ textarea:focus-visible {
 
 .menu-btn--child.active {
   font-weight: 800;
-  color: var(--color-on-dark-strong);
-  background: var(--sidebar-hover);
+  color: #ffffff;
+  background: #434c5e;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .month-list-title-row {
@@ -8610,14 +8614,14 @@ textarea:focus-visible {
   padding: 12px 16px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--color-soft);
+  background: var(--header);
   box-shadow: var(--shadow-sm);
 }
 
 .unified-title-bar h1 {
   font-size: 17px;
   font-weight: 700;
-  color: var(--color-deep);
+  color: var(--header-text);
 }
 
 .contracts-header-actions {
@@ -9538,7 +9542,7 @@ textarea:focus-visible {
 
 .work-report-board-section-title {
   padding: 8px 10px;
-  background: var(--header);
+  background: var(--sidebar);
   color: var(--color-on-dark-strong);
   font-size: 12px;
   font-weight: 800;
@@ -9546,7 +9550,7 @@ textarea:focus-visible {
 }
 
 .work-report-board-section-blue .work-report-board-section-title {
-  background: var(--header);
+  background: var(--sidebar);
 }
 
 .work-report-board-table {
@@ -9619,7 +9623,7 @@ textarea:focus-visible {
   height: 14px;
   margin: 0;
   cursor: pointer;
-  accent-color: var(--header);
+  accent-color: var(--accent);
 }
 
 .work-report-board-row-todo.is-completed .work-report-board-textarea-support-line {
@@ -9799,7 +9803,7 @@ textarea:focus-visible {
 
 .work-report-board-support-title {
   padding: 8px 10px;
-  background: var(--header);
+  background: var(--sidebar);
   border-bottom: 1px solid var(--line);
   font-size: 11px;
   font-weight: 800;
@@ -9869,7 +9873,7 @@ textarea:focus-visible {
 
 .work-report-board-section-title,
 .work-report-board-support-title {
-  background: var(--header);
+  background: var(--sidebar);
   color: var(--color-on-dark-strong);
 }
 
@@ -13882,9 +13886,9 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   gap: 8px;
 }
 
-/* '금주'는 테마 포인트 컬러로 강조, '전주'는 일반 텍스트로 덜 눈에 띄게 유지 */
+/* '금주'는 묵직한 무채색으로 강조, '전주'는 일반 텍스트로 덜 눈에 띄게 유지 */
 .cell-display.sales-register-date--this-week {
-  color: var(--accent, #2F6BFF);
+  color: var(--color-dark);
   font-weight: 700;
 }
 
@@ -13921,7 +13925,7 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   line-height: 1;
   letter-spacing: 0.02em;
   white-space: nowrap;
-  background: var(--accent, #2F6BFF);
+  background: #2e3440;
   color: #fff;
   cursor: default;
 }
@@ -13937,25 +13941,25 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   text-overflow: clip;
 }
 
-/* '금주' — 파란 배경 + 흰색 텍스트로 강조 */
+/* '금주' — 딥 슬레이트 네이비 배경 + 흰색 텍스트 */
 .sales-register-week-badge--current {
-  background: var(--accent, #2F6BFF);
+  background: #2e3440;
   border: 1px solid rgba(255, 255, 255, 0.9);
   color: #fff;
-  box-shadow: 0 1px 3px rgba(47, 107, 255, 0.4);
+  box-shadow: 0 1px 3px rgba(46, 52, 64, 0.3);
 }
 
 .sales-register-week-badge--current:hover {
   transform: scale(1.08);
-  background: #3b82f6;
-  box-shadow: 0 2px 6px rgba(47, 107, 255, 0.55);
+  background: #3b4252;
+  box-shadow: 0 2px 6px rgba(46, 52, 64, 0.4);
 }
 
-/* '전주' — 연한 파랑 배경 + 짙은 텍스트로 구분되되 덜 강조 */
+/* '전주' — 소프트 배경 + 딥 네이비 텍스트 */
 .sales-register-week-badge--last {
-  background: var(--accent-soft, #EAF1FF);
-  border: 1px solid #cdddfb;
-  color: var(--accent-strong, #1f4fd1);
+  background: #e5e9f0;
+  border: 1px solid #d8dee9;
+  color: #2e3440;
 }
 
 .sales-register-week-badge--last:hover {

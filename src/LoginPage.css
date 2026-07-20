@@ -111,14 +111,14 @@ html.login-page-active #root {
 }
 
 .login-role-tab:hover {
-  color: var(--text, #2e3440);
+  color: var(--text, #18181b);
 }
 
 .login-role-tab--active {
-  background: var(--accent, #2e3440);
-  border-color: var(--accent, #2e3440);
+  background: var(--primary, #2e3440);
+  border-color: var(--primary, #2e3440);
   color: var(--color-on-dark-strong, #ffffff);
-  box-shadow: var(--shadow-sm, 0 2px 8px rgba(46, 52, 64, 0.08));
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(46, 52, 64, 0.06));
 }
 
 .login-page-form {
@@ -144,26 +144,26 @@ html.login-page-active #root {
 .login-page-label {
   font-size: 13px;
   font-weight: 800;
-  color: var(--text, #2e3440);
+  color: var(--text, #18181b);
 }
 
 .login-page-input {
   width: 100%;
   min-height: 44px;
   padding: 10px 14px;
-  border: 1px solid var(--line, #d1d5db);
+  border: 1px solid var(--line, #e4e4e7);
   border-radius: 8px;
   font: inherit;
   font-size: 14px;
   box-sizing: border-box;
   background: var(--panel, #ffffff);
-  color: var(--text, #2e3440);
+  color: var(--text, #18181b);
 }
 
 .login-page-input:focus {
   outline: none;
   border-color: var(--color-medium, #434c5e);
-  box-shadow: 0 0 0 3px rgba(67, 76, 94, 0.16);
+  box-shadow: 0 0 0 3px rgba(67, 76, 94, 0.18);
 }
 
 .login-page-input--readonly {
@@ -229,8 +229,8 @@ html.login-page-active #root {
 }
 
 .login-page-remember-input:checked + .login-page-remember-box {
-  background: var(--accent, #2e3440);
-  border-color: var(--accent, #2e3440);
+  background: var(--primary, #2e3440);
+  border-color: var(--primary, #2e3440);
 }
 
 .login-page-remember-input:checked + .login-page-remember-box::after {
@@ -243,8 +243,8 @@ html.login-page-active #root {
 }
 
 .login-page-remember-input:checked:hover + .login-page-remember-box {
-  background: var(--accent-strong, #3b4252);
-  border-color: var(--accent-strong, #3b4252);
+  background: var(--primary-strong, #3b4252);
+  border-color: var(--primary-strong, #3b4252);
 }
 
 .login-page-remember-label {
@@ -296,7 +296,7 @@ html.login-page-active #root {
   font-weight: 700;
   font-size: 14px;
   margin-bottom: 12px;
-  color: var(--text, #2e3440);
+  color: var(--text, #18181b);
 }
 
 /* font-bold text-sm mb-1 text-gray-800 */
@@ -304,7 +304,7 @@ html.login-page-active #root {
   font-weight: 700;
   font-size: 14px;
   margin-bottom: 4px;
-  color: var(--text, #2e3440);
+  color: var(--text, #18181b);
 }
 
 /* pl-2 mb-3 text-[13px] text-gray-600 */

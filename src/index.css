@@ -3,8 +3,9 @@
 @tailwind utilities;
 
 /**
- * 전역 색상 테마 (UI 시안 6색) — App.css / LoginPage.css 공통
- * Login 전에도 변수가 로드되도록 index.css에 정의한다.
+ * 전역 색상 테마 — 운영 화면과 동일한 Nord/슬레이트 네이비 톤
+ * 사이드바 #2E3440 · Active/호버 #434C5E · 헤더 #FFFFFF
+ * Primary 버튼·제목 #2E3440 (딥 슬레이트 네이비)
  */
 :root {
   --color-deep: #2e3440;
@@ -13,28 +14,33 @@
   --color-soft: #f4f4f6;
   --color-slate: #6b7280;
   --color-white: #ffffff;
-  --color-on-dark: #f3f4f6;
+  --color-on-dark: #e5e9f0;
   --color-on-dark-strong: #ffffff;
 
-  --page-bg: var(--color-soft);
-  --panel: var(--color-white);
-  --panel-soft: var(--color-soft);
-  --line: #d1d5db;
-  --line-strong: #9ca3af;
-  --text: var(--color-deep);
-  --muted: var(--color-slate);
-  --ink: var(--color-deep);
-  --sidebar: var(--color-deep);
-  --sidebar-2: var(--color-medium);
-  --sidebar-hover: var(--color-medium);
-  --header: var(--color-dark);
-  --header-text: var(--color-on-dark-strong);
-  --accent: var(--color-deep);
-  --accent-strong: var(--color-dark);
-  --accent-soft: #e5e7eb;
-  --blue: var(--color-deep);
+  --page-bg: #f4f4f6;
+  --panel: #ffffff;
+  --panel-soft: #f4f4f6;
+  --line: #d8dee9;
+  --line-strong: #c7d0dc;
+  --text: #2e3440;
+  --muted: #6b7280;
+  --ink: #2e3440;
+  --sidebar: #2e3440;
+  --sidebar-2: #3b4252;
+  --sidebar-hover: #434c5e;
+  --header: #ffffff;
+  --header-text: #2e3440;
+
+  --primary: #2e3440;
+  --primary-strong: #3b4252;
+  --primary-soft: #e5e9f0;
+
+  --accent: #2e3440;
+  --accent-strong: #3b4252;
+  --accent-soft: #e5e9f0;
+  --blue: #2e3440;
   --red: #dc2626;
-  --shadow-sm: 0 2px 8px rgba(46, 52, 64, 0.08);
+  --shadow-sm: 0 1px 2px rgba(46, 52, 64, 0.06), 0 1px 3px rgba(46, 52, 64, 0.08);
   --shadow-md: 0 10px 28px rgba(46, 52, 64, 0.1);
-  --shadow-lg: 0 24px 60px rgba(46, 52, 64, 0.18);
+  --shadow-lg: 0 24px 60px rgba(46, 52, 64, 0.16);
 }

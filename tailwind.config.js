@@ -14,6 +14,8 @@ export default {
           soft: '#F4F4F6',
           slate: '#6B7280',
           white: '#FFFFFF',
+          primary: '#2E3440',
+          'primary-strong': '#3B4252',
         },
       },
     },
