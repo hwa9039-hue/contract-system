@@ -306,6 +306,29 @@ class SalesRegisterSummaryUpdate(BaseModel):
     summary: Optional[str] = ""
 
 
+class SalesTransferRequest(BaseModel):
+    """건축정보·사업공유 → 영업관리대장 이관 요청."""
+
+    source: str = Field(..., description="discovery | excluded")
+    ids: list[Any] = Field(default_factory=list)
+
+    @field_validator("source")
+    @classmethod
+    def validate_source(cls, value: str) -> str:
+        normalized = str(value or "").strip().lower()
+        if normalized in ("discovery", "건축정보"):
+            return "discovery"
+        if normalized in ("excluded", "사업공유", "shared"):
+            return "excluded"
+        raise ValueError("source must be 'discovery' or 'excluded'")
+
+
+class SalesTransferOut(BaseModel):
+    transferred: int = 0
+    deletedSource: int = 0
+    rows: list[SalesRegisterOut] = Field(default_factory=list)
+
+
 class BudgetProgressBase(BaseModel):
     registerDate: Optional[Any] = None
     localGov: Optional[Any] = ""

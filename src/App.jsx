@@ -5740,6 +5740,8 @@ function App() {
     return left > 0 && left <= CONTRACT_SHARED_WARNING_MS
   })
   const [toastMessage, setToastMessage] = useState('')
+  /** 'success' | 'error' | '' — mode-toast 색상 */
+  const [toastTone, setToastTone] = useState('')
   const [registryUploadTarget, setRegistryUploadTarget] = useState('')
 
   const fileInputRef = useRef(null)
@@ -6440,11 +6442,17 @@ function App() {
     }
   }, [menu, authHydrated, isAuthenticated])
 
+  const showToast = useCallback((message, tone = '') => {
+    setToastTone(tone)
+    setToastMessage(safeString(message))
+  }, [])
+
   useEffect(() => {
     if (!toastMessage) return undefined
 
     const timeoutId = window.setTimeout(() => {
       setToastMessage('')
+      setToastTone('')
     }, 2600)
 
     return () => window.clearTimeout(timeoutId)
@@ -9500,6 +9508,58 @@ function App() {
     })
   }
 
+  const transferSelectedDiscoveryToSales = () => {
+    if (!canEditDiscovery) {
+      showAppAlert('건축정보 이관 권한이 없습니다.')
+      return
+    }
+
+    const validSelectedIds = selectedDiscoveryIds.filter((id) => safeString(id).trim() !== '')
+    if (validSelectedIds.length === 0) {
+      showAppAlert('이동할 행을 선택해주세요.')
+      return
+    }
+
+    const persistedIds = discoveryRows
+      .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
+      .map((row) => row.id)
+      .filter((id) => safeString(id).trim() !== '')
+
+    if (persistedIds.length === 0) {
+      showAppAlert('저장된 데이터만 영업관리대장으로 이동할 수 있습니다. 먼저 저장해주세요.')
+      return
+    }
+
+    const count = persistedIds.length
+    const transferIds = [...persistedIds]
+    setContractConfirmDialog({
+      title: '영업관리대장으로 이동',
+      message: `선택한 ${count}건의 데이터를 영업관리대장으로 이동하시겠습니까?`,
+      confirmLabel: '확인',
+      onConfirm: async () => {
+        const payload = { source: 'discovery', ids: transferIds }
+        console.info('[이관] POST /api/sales/transfer', payload)
+        try {
+          await salesRegisterApi.transferFrom(payload.source, payload.ids)
+          // 즉시 리스트에서 제거 (시각적 피드백) 후 서버 목록 refetch
+          setDiscoveryRows((prev) => prev.filter((row) => !transferIds.includes(row.id)))
+          setSelectedDiscoveryIds([])
+          setEditingDiscoveryIds((prev) => prev.filter((id) => !transferIds.includes(id)))
+          await Promise.all([fetchDiscoveryRows(false), fetchSalesRows(false)])
+          showToast('성공적으로 이동되었습니다.', 'success')
+        } catch (error) {
+          logApiOperationError('건축정보 → 영업관리대장 이관', error)
+          const msg =
+            safeString(error?.message).trim() ||
+            '영업관리대장 이동에 실패했습니다. 백엔드 서버(포트 8000) 상태를 확인해주세요.'
+          showToast(msg, 'error')
+          // confirm 모달이 finally에서 닫힌 뒤 실패 알림을 띄움 (덮어쓰기 방지)
+          window.setTimeout(() => showAppAlert(msg, '이동 실패'), 0)
+        }
+      },
+    })
+  }
+
   const saveDiscoveryRows = async () => {
     const rowsToInsert = discoveryRows.filter((row) => row.isDraft && !isDiscoveryRowEmpty(row))
     const rowsToUpdate = discoveryRows.filter(
@@ -9755,6 +9815,57 @@ function App() {
         setExcludedRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
         setSelectedExcludedIds([])
         setEditingExcludedIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+      },
+    })
+  }
+
+  const transferSelectedExcludedToSales = () => {
+    if (!canEditExcluded) {
+      showAppAlert('사업공유 이관 권한이 없습니다.')
+      return
+    }
+
+    const validSelectedIds = selectedExcludedIds.filter((id) => safeString(id).trim() !== '')
+    if (validSelectedIds.length === 0) {
+      showAppAlert('이동할 행을 선택해주세요.')
+      return
+    }
+
+    const persistedIds = excludedRows
+      .filter((row) => validSelectedIds.includes(row.id) && !row.isDraft)
+      .map((row) => row.id)
+      .filter((id) => safeString(id).trim() !== '')
+
+    if (persistedIds.length === 0) {
+      showAppAlert('저장된 데이터만 영업관리대장으로 이동할 수 있습니다. 먼저 저장해주세요.')
+      return
+    }
+
+    const count = persistedIds.length
+    const transferIds = [...persistedIds]
+    setContractConfirmDialog({
+      title: '영업관리대장으로 이동',
+      message: `선택한 ${count}건의 데이터를 영업관리대장으로 이동하시겠습니까?`,
+      confirmLabel: '확인',
+      onConfirm: async () => {
+        // backend source 키는 menu 키와 동일하게 excluded (사업공유)
+        const payload = { source: 'excluded', ids: transferIds }
+        console.info('[이관] POST /api/sales/transfer', payload)
+        try {
+          await salesRegisterApi.transferFrom(payload.source, payload.ids)
+          setExcludedRows((prev) => prev.filter((row) => !transferIds.includes(row.id)))
+          setSelectedExcludedIds([])
+          setEditingExcludedIds((prev) => prev.filter((id) => !transferIds.includes(id)))
+          await Promise.all([fetchExcludedRows(false), fetchSalesRows(false)])
+          showToast('성공적으로 이동되었습니다.', 'success')
+        } catch (error) {
+          logApiOperationError('사업공유 → 영업관리대장 이관', error)
+          const msg =
+            safeString(error?.message).trim() ||
+            '영업관리대장 이동에 실패했습니다. 백엔드 서버(포트 8000) 상태를 확인해주세요.'
+          showToast(msg, 'error')
+          window.setTimeout(() => showAppAlert(msg, '이동 실패'), 0)
+        }
       },
     })
   }
@@ -11448,22 +11559,28 @@ function App() {
 
   const handleConfirmDialogPrimary = () => {
     const d = contractConfirmDialog
-    if (!d) return
+    if (!d || d.confirmBusy) return
     if (Array.isArray(d.payloadIds) && d.payloadIds.length > 0) {
       void runContractDeleteConfirmed()
       return
     }
-    if (d.prompt && typeof d.onConfirm === 'function') {
-      void Promise.resolve(d.onConfirm(d.prompt.value)).finally(() =>
+    if (typeof d.onConfirm !== 'function') {
+      setContractConfirmDialog(null)
+      return
+    }
+
+    // 확인 직후 중복 클릭 방지 + API 완료까지 모달 유지 후 닫기
+    setContractConfirmDialog((prev) => (prev ? { ...prev, confirmBusy: true } : prev))
+    const run = d.prompt ? () => d.onConfirm(d.prompt.value) : () => d.onConfirm()
+    void Promise.resolve()
+      .then(run)
+      .catch((error) => {
+        // onConfirm 내부에서 이미 알림을 띄운 경우에도, 예상치 못한 throw 대비
+        logApiOperationError('확인 다이얼로그', error)
+      })
+      .finally(() => {
         setContractConfirmDialog(null)
-      )
-      return
-    }
-    if (typeof d.onConfirm === 'function') {
-      void Promise.resolve(d.onConfirm()).finally(() => setContractConfirmDialog(null))
-      return
-    }
-    setContractConfirmDialog(null)
+      })
   }
 
   const startEdit = (rowKey, key, value, row) => {
@@ -14836,7 +14953,21 @@ function App() {
           style={{ display: 'none' }}
         />
 
-        {toastMessage && <div className="mode-toast">{toastMessage}</div>}
+        {toastMessage && (
+          <div
+            className={`mode-toast${
+              toastTone === 'success'
+                ? ' mode-toast-success'
+                : toastTone === 'error'
+                  ? ' mode-toast-error'
+                  : ''
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            {toastMessage}
+          </div>
+        )}
 
         {showSessionWarning && !isLongLivedSession && (
           <div
@@ -15968,6 +16099,14 @@ function App() {
               >
                 선택 삭제
               </button>
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={transferSelectedDiscoveryToSales}
+                disabled={!canEditDiscovery || selectedDiscoveryIds.length === 0}
+              >
+                영업관리대장으로 이동
+              </button>
               {selectedDiscoveryIds.length > 0 && (
                 <button
                   type="button"
@@ -16194,6 +16333,14 @@ function App() {
                 disabled={selectedExcludedIds.length === 0}
               >
                 선택 삭제
+              </button>
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={transferSelectedExcludedToSales}
+                disabled={!canEditExcluded || selectedExcludedIds.length === 0}
+              >
+                영업관리대장으로 이동
               </button>
               {selectedExcludedIds.length > 0 && (
                 <button
@@ -18041,8 +18188,9 @@ function App() {
                     type="button"
                     className={`primary-btn${primaryDanger ? ' danger-btn' : ''}`}
                     onClick={handleConfirmDialogPrimary}
+                    disabled={Boolean(d.confirmBusy)}
                   >
-                    {primaryLabel}
+                    {d.confirmBusy ? '처리 중...' : primaryLabel}
                   </button>
                 </div>
               </div>

@@ -8670,6 +8670,18 @@ textarea:focus-visible {
   box-shadow: 0 14px 32px rgba(15, 23, 42, 0.16);
 }
 
+.mode-toast.mode-toast-success {
+  border-color: #86efac;
+  background: rgba(240, 253, 244, 0.98);
+  color: #166534;
+}
+
+.mode-toast.mode-toast-error {
+  border-color: #fecaca;
+  background: rgba(254, 242, 242, 0.98);
+  color: #b91c1c;
+}
+
 .work-report-toolbar {
   gap: 10px;
   margin-bottom: 14px;

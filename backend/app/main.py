@@ -16,6 +16,7 @@ from app.routers import excluded_projects
 from app.routers import project_management
 from app.routers import project_discovery
 from app.routers import sales_register
+from app.routers import sales_transfer
 from app.routers import weekly_work_reports
 from app.routers.contacts_manage import router as contacts_manage_router
 from app.routers.install_cases import INSTALL_CASES_API_PATH, router as install_cases_router
@@ -194,6 +195,7 @@ app.include_router(contracts.router)
 app.include_router(unit_prices_router)
 app.include_router(project_management.router)
 app.include_router(sales_register.router)
+app.include_router(sales_transfer.router)
 app.include_router(project_discovery.router)
 app.include_router(excluded_projects.router)
 app.include_router(document_register.router)

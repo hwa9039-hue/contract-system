@@ -140,4 +140,15 @@ export const salesRegisterApi = {
         return normalizeRegistryImportResponse({ rows: createdRows, duplicateItems: [] })
       })
   },
+  /**
+   * 건축정보·사업공유 → 영업관리대장 이관
+   * @param {'discovery'|'excluded'} source
+   * @param {string[]} ids
+   */
+  transferFrom(source, ids) {
+    return requestJson('/api/sales/transfer', {
+      method: 'POST',
+      body: JSON.stringify({ source, ids }),
+    })
+  },
 }

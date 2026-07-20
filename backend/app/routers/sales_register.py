@@ -63,18 +63,19 @@ def _truncate_text_values(values: dict) -> None:
             values[key] = str(values[key])[:50]
 
 
-def prepare_insert_values(row: SalesRegisterCreate) -> dict:
+def prepare_insert_values(row: SalesRegisterCreate, *, truncate: bool = True) -> dict:
     values = sales_register_to_db_values(row)
     timestamp = now_text()
     values["id"] = str(uuid4())
     values.setdefault("createdAt", timestamp)
     values.setdefault("updatedAt", timestamp)
-    _truncate_text_values(values)
+    if truncate:
+        _truncate_text_values(values)
     return values
 
 
-def insert_sales_row(cursor, row: SalesRegisterCreate) -> dict:
-    values = prepare_insert_values(row)
+def insert_sales_row(cursor, row: SalesRegisterCreate, *, truncate: bool = True) -> dict:
+    values = prepare_insert_values(row, truncate=truncate)
     columns = list(values.keys())
     quoted_columns = [quote_identifier(column) for column in columns]
     placeholders = [f"%({column})s" for column in columns]
