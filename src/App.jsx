@@ -5353,6 +5353,12 @@ function logApiOperationError(label, error) {
   })
 }
 
+/** 이미 삭제된 행을 재삭제할 때 서버가 주는 404 — 기능상 성공으로 본다 */
+function isWorkReportNotFoundError(error) {
+  const message = safeString(error?.message ?? error)
+  return /not found|404/i.test(message)
+}
+
 function getDashboardDisplayDate(value) {
   const raw = safeString(value).trim()
   return raw ? raw.slice(0, 10) : '-'
@@ -10456,18 +10462,39 @@ function App() {
     setEditingWorkCellData(null)
   }
 
+  const removeWorkReportRowLocallyById = (rowId) => {
+    const id = safeString(rowId).trim()
+    if (!id) return
+    workReportRowsRef.current = (workReportRowsRef.current || []).filter(
+      (row) => safeString(row?.id).trim() !== id
+    )
+    setWorkReportRows(workReportRowsRef.current)
+  }
+
+  const deleteWorkReportRowById = async (rowId, errorLabel = '주간업무보고서 삭제') => {
+    const id = safeString(rowId).trim()
+    if (!id || isWorkReportDraftRowId(id)) return true
+    // 자동저장(600ms) + blur 가 연속 호출되면 첫 DELETE 성공 후 두 번째는 404.
+    // 로컬에서 먼저 빼 두면 두 번째 저장이 같은 id 로 재삭제하지 않는다.
+    removeWorkReportRowLocallyById(id)
+    try {
+      await weeklyWorkReportsApi.remove(id)
+      return true
+    } catch (error) {
+      if (isWorkReportNotFoundError(error)) return true
+      logApiOperationError(errorLabel, error)
+      return false
+    }
+  }
+
   const commitWorkReportEdit = async () => {
     const targetRow = editingWorkCellData
     if (!targetRow) return
 
     if (isWorkReportRowEmpty(targetRow)) {
       if (!targetRow.isDraft && targetRow.id) {
-        try {
-          await weeklyWorkReportsApi.remove(targetRow.id)
-        } catch (error) {
-          logApiOperationError('주간업무보고서 삭제', error)
-          return
-        }
+        const ok = await deleteWorkReportRowById(targetRow.id)
+        if (!ok) return
         await fetchWorkReportRows()
       }
       cancelWorkReportEdit()
@@ -10782,12 +10809,8 @@ function App() {
             if (ex?.id) idsToRemove.add(ex.id)
           }
           for (const id of idsToRemove) {
-            try {
-              await weeklyWorkReportsApi.remove(id)
-            } catch (error) {
-              logApiOperationError('주간업무보고서 삭제', error)
-              return
-            }
+            const ok = await deleteWorkReportRowById(id)
+            if (!ok) return
           }
           await fetchWorkReportRows()
           setWorkReportDrafts((prev) => {
@@ -10802,13 +10825,14 @@ function App() {
         }
 
         if (!targetRow.isDraft && targetRow.id) {
-          try {
-            await weeklyWorkReportsApi.remove(targetRow.id)
-          } catch (error) {
-            logApiOperationError('주간업무보고서 삭제', error)
-            return
-          }
+          // draft ref 를 동기적으로 먼저 비워 blur/autosave 재진입 시 같은 id 재삭제 방지
+          const nextDrafts = removeObjectKey(workReportDraftsRef.current, cellKey)
+          workReportDraftsRef.current = nextDrafts
+          setWorkReportDrafts(nextDrafts)
+          const ok = await deleteWorkReportRowById(targetRow.id)
+          if (!ok) return
           await fetchWorkReportRows()
+          return
         }
 
         setWorkReportDrafts((prev) => {
@@ -10866,19 +10890,11 @@ function App() {
         setWorkReportRows(workReportRowsRef.current)
 
         for (const duplicateId of duplicateIds) {
-          try {
-            await weeklyWorkReportsApi.remove(duplicateId)
-          } catch (error) {
-            logApiOperationError('주간업무보고서 중복 정리', error)
-          }
+          await deleteWorkReportRowById(duplicateId, '주간업무보고서 중복 정리')
         }
 
         for (const rid of checklistExtraIdsToDelete) {
-          try {
-            await weeklyWorkReportsApi.remove(rid)
-          } catch (error) {
-            logApiOperationError('주간업무보고서(주요확인사항 정리) 삭제', error)
-          }
+          await deleteWorkReportRowById(rid, '주간업무보고서(주요확인사항 정리) 삭제')
         }
 
         trackWorkWeek(targetRow.date, { selectWeek: false })
