@@ -7,7 +7,7 @@
 
 /**
  * 문서 전체 스크롤은 막고(html/body/#root overflow 고정), 각 페이지 표 영역만 내부 스크롤.
- * 앱 전체 UI는 내부 기준 배율로 맞추고, 각 페이지 표 영역만 내부 스크롤.
+ * 앱 전체 UI는 브라우저 배율(zoom: 1.1 = 110%)로 키워 현장 가독성을 확보한다.
  */
 html {
   margin: 0;
@@ -22,7 +22,7 @@ body {
   padding: 0;
   width: 100%;
   height: 100%;
-  zoom: 0.92;
+  zoom: 1.1;
   overflow: hidden;
   font-family: 'Pretendard', sans-serif;
   background: #f4f6fb;
@@ -3388,7 +3388,7 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
 }
 
 body {
-  zoom: 0.8;
+  /* 상단 전역 zoom: 1.1 유지 — 여기서 덮어쓰지 않음 */
   overflow: hidden;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(243, 246, 250, 0.92) 36%),
