@@ -14469,7 +14469,6 @@ function App() {
 
   const renderWorkReportSupportAreaListV4 = (date) => (
     <div className="work-report-board-support-block shrink-0 min-h-[150px]">
-      <div className="work-report-board-support-title">업무</div>
       <div className="work-report-board-table">
         {Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
           const orderIndex = index + 1

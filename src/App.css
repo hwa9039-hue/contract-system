@@ -9356,9 +9356,20 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
-/* 외부일정(담당자 다중선택) 셀은 상단 고정 유지 */
+/* 외부일정(담당자 다중선택) 셀은 상단 고정 유지 + 담당자 열 가운데 정렬 */
 .work-report-week-section-col .work-report-board-row-external-no-index .work-report-external-manager-multi {
   align-self: start;
+}
+
+.work-report-board-row-external-no-index .work-report-external-manager-multi-trigger,
+.work-report-board-row-no-index .work-report-external-manager-multi-trigger {
+  justify-content: center;
+  text-align: center;
+}
+
+.work-report-board-row-external-no-index .work-report-external-manager-multi-value,
+.work-report-board-row-no-index .work-report-external-manager-multi-value {
+  justify-content: center;
 }
 
 .work-report-day-board {
@@ -9670,7 +9681,8 @@ textarea:focus-visible {
 }
 
 .work-report-board-content-header {
-  justify-content: flex-start;
+  justify-content: center;
+  text-align: center;
 }
 
 .work-report-board-destination-header,
@@ -9700,11 +9712,14 @@ textarea:focus-visible {
   font-size: 11px;
   color: #1f2937;
   outline: none;
+  text-align: center;
+  text-align-last: center;
 }
 
 .work-report-board-fixed-manager {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   align-self: start;
   padding: 8px 8px;
   border-right: 1px solid #dbe4ee;
@@ -9712,6 +9727,7 @@ textarea:focus-visible {
   font-size: 11px;
   font-weight: 700;
   color: var(--color-medium);
+  text-align: center;
 }
 
 .work-report-board-textarea {
