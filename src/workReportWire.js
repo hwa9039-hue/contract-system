@@ -61,7 +61,9 @@ export function buildWorkReportWireVariants(payload) {
   if (!payload || typeof payload !== 'object') return [payload]
   const rest = stripWireContentFields(payload)
   const raw = String(payload.content ?? payload.body ?? '').trim()
-  if (!raw) return [rest]
+  // 빈 내용도 content:'' 를 반드시 포함해야 PATCH 시 DB 값이 비워짐.
+  // content 필드를 생략하면 exclude_unset 때문에 이전 본문이 그대로 남는다.
+  if (!raw) return [{ ...rest, content: '' }]
 
   const variants = []
   if (isMeetingMinutesWireContent(raw)) {

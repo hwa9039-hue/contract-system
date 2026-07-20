@@ -5058,8 +5058,8 @@ function isWorkReportRowEmpty(row) {
     const hasContent = safeString(row.content).trim() !== ''
     const hasDeadline = safeString(row.deadline).trim() !== ''
     if (isWorkReportManagedJournalSection(normalizedSection)) {
-      const hasUser = safeString(row.user).trim() !== ''
-      return !hasContent && !hasDeadline && !hasUser
+      // DI/도로 담당자는 UI 고정값 → 비어 있음 판정에서 제외 (내용·기한만 본다)
+      return !hasContent && !hasDeadline
     }
     return !hasContent && !hasDeadline
   }
