@@ -65,7 +65,7 @@ def list_document_register_rows():
                 f"""
                 select {RETURNING_COLUMNS}
                 from document_register_rows
-                order by "createdAt" asc nulls last, id asc nulls last
+                order by "docDate" desc nulls last, "createdAt" desc nulls last, id desc nulls last
                 """
             )
             return [row_to_document_register(row) for row in cursor.fetchall()]

@@ -5925,9 +5925,13 @@ function App() {
   const fetchDocuments = async (preserveDrafts = true, preserveOnError = false) => {
     try {
       const rows = await documentRegisterApi.list()
+      const normalized = sortRegistryRowsByDateDesc(
+        (Array.isArray(rows) ? rows : []).map(normalizeDocumentRow),
+        'docDate'
+      )
       setDocuments((prev) => {
         const draftRows = preserveDrafts ? prev.filter((row) => row.isDraft) : []
-        return [...rows.map(normalizeDocumentRow), ...draftRows]
+        return [...normalized, ...draftRows]
       })
       setSelectedDocumentIds([])
       return rows
@@ -6416,7 +6420,12 @@ function App() {
         const normalizedWorkRows = (Array.isArray(workApiRows) ? workApiRows : []).map(normalizeWorkReportRow)
 
         setContracts(normalizedContracts)
-        setDocuments((Array.isArray(documentRows) ? documentRows : []).map(normalizeDocumentRow))
+        setDocuments(
+          sortRegistryRowsByDateDesc(
+            (Array.isArray(documentRows) ? documentRows : []).map(normalizeDocumentRow),
+            'docDate'
+          )
+        )
         setSalesRows((Array.isArray(salesApiRows) ? salesApiRows : []).map(normalizeSalesRow))
         applyDiscoveryRowsToState(normalizedDiscoveryRows, false, {
           setDiscoveryRows,
@@ -7542,9 +7551,17 @@ function App() {
     [filteredDocuments]
   )
 
-  /** [2단계] filteredData만 그룹화 — 원본 documents 미사용 (신규 draft 행 제외) */
+  /** [2단계] filteredData만 그룹화 — 원본 documents 미사용 (신규 draft 행 제외)
+   * 연도 그룹 내 등록일(docDate) 최신순(내림차순) 고정 */
   const groupedDocumentRows = useMemo(
-    () => groupRegistryRowsByYear(filteredDocuments.filter((row) => !row.isDraft), 'docDate'),
+    () =>
+      groupRegistryRowsByYear(
+        filteredDocuments.filter((row) => !row.isDraft),
+        'docDate'
+      ).map((group) => ({
+        ...group,
+        items: sortRegistryRowsByDateDesc(group.items, 'docDate'),
+      })),
     [filteredDocuments]
   )
 
@@ -16626,9 +16643,21 @@ function App() {
                           key={column.key}
                           className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
                           style={column.widthClass ? { minWidth: 'max(3rem, 100%)' } : undefined}
+                          aria-sort={column.key === 'docDate' ? 'descending' : undefined}
                         >
                           <div className="contract-th-filter-wrap">
-                            <span className="contract-th-label">{column.label}</span>
+                            <span className="contract-th-label">
+                              {column.label}
+                              {column.key === 'docDate' ? (
+                                <span
+                                  className="registry-th-default-sort"
+                                  title="등록일 최신순"
+                                  aria-hidden="true"
+                                >
+                                  ↓
+                                </span>
+                              ) : null}
+                            </span>
                             <ContractColumnHeaderFilter
                               columnKey={column.key}
                               options={documentColumnFilterOptionsMap[column.key] ?? []}
