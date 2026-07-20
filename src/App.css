@@ -9310,7 +9310,7 @@ textarea:focus-visible {
 
 /* V5 높이 동기화: 부모 열이 stretch 로 늘어난 만큼 표 내부 데이터 행도 함께 늘어나
  * 짧은 요일의 흰 입력칸/회색 배경이 밑바닥까지 채워지도록 한다.
- * - 헤더(#·담당자·내용 라벨) 행은 고정 → flex: 0 0 auto
+ * - 헤더(담당자·내용 라벨) 행은 고정 → flex: 0 0 auto
  * - 데이터 행은 남은 세로 공간을 균등 분배 → flex: 1 1 auto
  * - 데이터 행 내부 단일 그리드 트랙을 stretch 시켜 textarea 가 행 높이를 꽉 채움 */
 .work-report-week-section-col .work-report-board-header-row,
@@ -9338,6 +9338,22 @@ textarea:focus-visible {
   height: 100%;
   min-height: 100%;
   align-self: stretch;
+}
+
+/* DI/도로: 순번 제거 후 담당자 고정폭 + 내용 칸이 남은 너비 전부 사용 */
+.work-report-board-header-row-managed,
+.work-report-board-row-managed {
+  grid-template-columns: 90px minmax(0, 1fr);
+}
+
+.work-report-board-header-row-managed--deadline,
+.work-report-board-row-managed--deadline {
+  grid-template-columns: 90px minmax(0, 1fr) 110px;
+}
+
+.work-report-board-row-managed .work-report-board-fixed-manager,
+.work-report-board-header-row-managed .work-report-board-manager-header {
+  white-space: nowrap;
 }
 
 /* 외부일정(담당자 다중선택) 셀은 상단 고정 유지 */
@@ -9822,7 +9838,7 @@ textarea:focus-visible {
 .work-report-board-header-row-no-index,
 .work-report-board-row-no-index {
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
+  grid-template-columns: 90px minmax(0, 1fr);
 }
 
 .work-report-board-header-row-external-no-index,

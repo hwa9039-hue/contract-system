@@ -13798,8 +13798,7 @@ function App() {
     <section className="work-report-board-section shrink-0 min-h-[150px]">
       <div className="work-report-board-section-title">{title}</div>
       <div className="work-report-board-table">
-        <div className="work-report-board-header-row work-report-board-header-row-journal">
-          <div className="work-report-board-index">#</div>
+        <div className="work-report-board-header-row-no-index work-report-board-header-row-managed work-report-board-header-row-managed--deadline">
           <div className="work-report-board-manager-header">담당자</div>
           <div className="work-report-board-content-header">내용</div>
           <div className="work-report-board-deadline-header">기한</div>
@@ -13812,10 +13811,9 @@ function App() {
           return (
             <div
               key={`${date}-${section}-${orderIndex}`}
-              className="work-report-board-row work-report-board-row-journal"
+              className="work-report-board-row-no-index work-report-board-row-managed work-report-board-row-managed--deadline"
               onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
             >
-              <div className="work-report-board-index">{orderIndex}</div>
               {fixedName ? (
                 <div className="work-report-board-fixed-manager">{fixedName}</div>
               ) : (
@@ -14657,8 +14655,7 @@ function App() {
     return (
     <div className="work-report-board-section work-report-board-section-cell">
       <div className="work-report-board-table">
-        <div className="work-report-board-header-row work-report-board-header-row-journal">
-          <div className="work-report-board-index">#</div>
+        <div className="work-report-board-header-row-no-index work-report-board-header-row-managed">
           <div className="work-report-board-manager-header">담당자</div>
           <div className="work-report-board-content-header">내용</div>
         </div>
@@ -14672,10 +14669,9 @@ function App() {
           return (
             <div
               key={`managed-cell-${date}-${section}-${orderIndex}`}
-              className="work-report-board-row work-report-board-row-journal"
+              className="work-report-board-row-no-index work-report-board-row-managed"
               onBlur={handleWorkReportBoardBlur(date, section, orderIndex)}
             >
-              <div className="work-report-board-index">{orderIndex}</div>
               {fixedName ? (
                 <div className="work-report-board-fixed-manager">{fixedName}</div>
               ) : (
