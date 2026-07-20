@@ -10397,18 +10397,19 @@ textarea:focus-visible {
 
 .meeting-minutes-doc__agenda-content {
   width: 100%;
-  min-height: 36px;
-  max-height: 120px;
+  min-height: 40px;
+  max-height: none;
+  height: auto;
   margin: 0;
   padding: 6px 8px;
   border: none;
-  border-radius: 4px;
+  border-radius: 0;
   background: transparent;
   resize: none;
-  overflow-y: auto;
+  overflow: hidden;
   font-size: 12px;
   font-weight: 400;
-  line-height: 1.25;
+  line-height: 1.45;
   color: #374151;
   outline: none;
   box-shadow: none;
@@ -13444,7 +13445,7 @@ table[data-contract-table-row-key] tbody td.p-0,
 .meeting-minutes-doc__agenda-content-cell.p-0,
 .meeting-minutes-doc__agenda-due-cell.p-0 {
   padding: 0 !important;
-  vertical-align: middle;
+  vertical-align: top;
 }
 
 .contract-table.excel-table.registry-table tbody td.p-0 > input,
@@ -13453,7 +13454,6 @@ table[data-contract-table-row-key] tbody td.p-0,
 table[data-contract-table-row-key] tbody td.p-0 > input,
 table[data-contract-table-row-key] tbody td.p-0 > textarea,
 .unit-price-table tbody td.p-0 > input,
-.meeting-minutes-doc__agenda-content-cell > textarea,
 .meeting-minutes-doc__agenda-due-cell > input {
   display: block;
   width: 100%;
@@ -13464,6 +13464,21 @@ table[data-contract-table-row-key] tbody td.p-0 > textarea,
   border: none;
   border-radius: 0;
   outline: none;
+}
+
+.meeting-minutes-doc__agenda-content-cell > textarea.meeting-minutes-doc__agenda-content {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 40px;
+  max-height: none;
+  margin: 0;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  overflow: hidden;
+  resize: none;
 }
 
 .contract-table.excel-table.registry-table tbody td.p-0 > input:focus,

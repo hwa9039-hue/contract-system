@@ -1,4 +1,5 @@
 ﻿import { useCallback, useEffect, useRef, useState } from 'react'
+import { AutoGrowTextarea } from './AutoGrowTextarea.jsx'
 import { decodeWorkReportWireText } from './workReportWire.js'
 import {
   WORK_REPORT_MANAGER_OPTIONS,
@@ -872,8 +873,8 @@ export function WorkReportMeetingMinutesSection({
                     {index + 1}
                   </td>
                   <td className={`meeting-minutes-doc__agenda-content-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`}>
-                    <textarea
-                      className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+                    <AutoGrowTextarea
+                      className={`meeting-minutes-doc__agenda-content ${TABLE_INLINE_INPUT_STANDARD_CLASS}`}
                       style={{ textAlign: 'left' }}
                       rows={1}
                       value={row.content}

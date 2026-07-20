@@ -912,11 +912,11 @@ export default function UnitPriceManagement({ canEdit = true }) {
                 </tbody>
               </table>
             </div>
-            <p className="unit-price-grid-hint">
-              {canEdit
-                ? '품목 셀을 클릭하면 수정할 수 있으며, 편집 후 다른 셀을 클릭하면 자동 저장됩니다.'
-                : '일반 사용자는 단가관리 내용을 조회만 할 수 있습니다.'}
-            </p>
+            {!canEdit ? (
+              <p className="unit-price-grid-hint">
+                일반 사용자는 단가관리 내용을 조회만 할 수 있습니다.
+              </p>
+            ) : null}
           </div>
         )}
       </div>

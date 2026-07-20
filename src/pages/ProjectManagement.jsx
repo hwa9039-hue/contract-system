@@ -814,10 +814,6 @@ export default function ProjectManagement({ canEdit = true }) {
                 </tbody>
               </table>
             </div>
-            <p className="unit-price-grid-hint">
-              편집 가능한 셀을 클릭하면 수정할 수 있으며, 날짜는 달력으로 선택할 수 있습니다. 변경 후
-              다른 셀을 클릭하면 자동 저장됩니다.
-            </p>
           </div>
         )}
       </div>
