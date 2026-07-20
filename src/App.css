@@ -1,6 +1,48 @@
 ﻿@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 @import url('https://cdn.jsdelivr.net/gh/sunn-us/SUIT/fonts/static/woff2/SUIT.css');
 
+/**
+ * 전역 색상 테마 (UI 시안 6색)
+ * #2E3440 딥 그레이 — 사이드바·주요 버튼·Active
+ * #3B4252 다크 그레이 — 상단 타이틀바
+ * #434C5E 미디엄 그레이 — 사이드바 서브·메뉴 Hover
+ * #F4F4F6 소프트 화이트 — 메인 배경
+ * #6B7280 슬레이트 그레이 — 보조/비활성 텍스트
+ * #FFFFFF 화이트 — 카드·테이블·입력창
+ */
+:root {
+  --color-deep: #2e3440;
+  --color-dark: #3b4252;
+  --color-medium: #434c5e;
+  --color-soft: #f4f4f6;
+  --color-slate: #6b7280;
+  --color-white: #ffffff;
+  --color-on-dark: #f3f4f6;
+  --color-on-dark-strong: #ffffff;
+
+  --page-bg: var(--color-soft);
+  --panel: var(--color-white);
+  --panel-soft: var(--color-soft);
+  --line: #d1d5db;
+  --line-strong: #9ca3af;
+  --text: var(--color-deep);
+  --muted: var(--color-slate);
+  --ink: var(--color-deep);
+  --sidebar: var(--color-deep);
+  --sidebar-2: var(--color-medium);
+  --sidebar-hover: var(--color-medium);
+  --header: var(--color-dark);
+  --header-text: var(--color-on-dark-strong);
+  --accent: var(--color-deep);
+  --accent-strong: var(--color-dark);
+  --accent-soft: #e5e7eb;
+  --blue: var(--color-deep);
+  --red: #dc2626;
+  --shadow-sm: 0 2px 8px rgba(46, 52, 64, 0.08);
+  --shadow-md: 0 10px 28px rgba(46, 52, 64, 0.1);
+  --shadow-lg: 0 24px 60px rgba(46, 52, 64, 0.18);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -25,8 +67,8 @@ body {
   zoom: 1.1;
   overflow: hidden;
   font-family: 'Pretendard', sans-serif;
-  background: #f4f6fb;
-  color: #111827;
+  background: var(--page-bg);
+  color: var(--text);
 }
 
 #root {
@@ -70,8 +112,8 @@ textarea {
   height: 100%;
   max-height: 100%;
   min-height: 0;
-  background: linear-gradient(180deg, #1f2f58 0%, #1c2745 100%);
-  color: #ffffff;
+  background: var(--sidebar);
+  color: var(--color-on-dark-strong);
   display: flex;
   flex-direction: column;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
@@ -94,8 +136,8 @@ textarea {
 .company-logo-box {
   width: 100%;
   height: 66px;
-  background: #ffffff;
-  border: 1px solid #d8e0ee;
+  background: var(--panel);
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 8px;
   margin-bottom: 10px;
@@ -108,9 +150,9 @@ textarea {
   font-family: 'SUIT', sans-serif;
   font-size: 19px;
   font-weight: 900;
-  color: #163867;
+  color: var(--color-deep);
   letter-spacing: 0;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+  text-shadow: none;
 }
 
 .company-logo-img {
@@ -133,7 +175,7 @@ textarea {
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: transparent;
-  color: #ffffff;
+  color: var(--color-on-dark-strong);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -141,8 +183,8 @@ textarea {
 }
 
 .menu-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.28);
+  background: var(--sidebar-hover);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .menu-btn--disabled,
@@ -163,9 +205,10 @@ textarea {
 }
 
 .menu-btn.active {
-  background: #4b8df8;
-  border-color: #dbe9ff;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15) inset;
+  background: var(--sidebar-hover);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: var(--color-on-dark-strong);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
 .logout-btn {
@@ -173,8 +216,8 @@ textarea {
   height: 36px;
   border: none;
   border-radius: 8px;
-  background: #4b8df8;
-  color: #ffffff;
+  background: var(--accent);
+  color: var(--color-on-dark-strong);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -186,8 +229,8 @@ textarea {
   padding: 7px 8px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #eaf2ff;
+  background: var(--sidebar-hover);
+  color: var(--color-on-dark);
   font-size: 12px;
   font-weight: 800;
   text-align: center;
@@ -232,25 +275,73 @@ textarea {
 }
 
 .top-system-title {
-  background: #f7fbff;
-  border: 1px solid #7ca5df;
-  color: #0f2e57;
-  box-shadow: inset 0 -2px 0 rgba(72, 129, 207, 0.12);
+  background: var(--color-soft);
+  border: 1px solid var(--line);
+  color: var(--color-deep);
+  box-shadow: var(--shadow-sm);
+}
+
+.top-system-title-text {
+  color: var(--color-deep);
+}
+
+.top-system-session-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.top-system-session-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.top-system-session-badge--auto {
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+  color: var(--color-deep);
+}
+
+.top-system-session-badge--timer {
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  color: var(--color-medium);
+}
+
+.top-system-session-badge--danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.top-system-session-extend-btn {
+  min-height: 34px;
+  padding: 7px 12px;
 }
 
 .unified-title-bar h1 {
-  background: #eef5ff;
-  border: 1px solid #9ab7e8;
-  color: #172f52;
+  background: var(--color-soft);
+  border: 1px solid transparent;
+  color: var(--color-deep);
 }
 
 .stat-card {
   width: 100%;
   min-height: 500px;
-  background: #ffffff;
+  background: var(--panel);
   border-radius: 14px;
   padding: 16px;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 /* dashboard */
@@ -403,8 +494,8 @@ textarea {
 
 .primary-btn {
   padding: 9px 14px;
-  background: #3b82f6;
-  color: #ffffff;
+  background: var(--accent);
+  color: var(--color-on-dark-strong);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
@@ -415,12 +506,12 @@ textarea {
 
 .secondary-btn {
   padding: 9px 14px;
-  background: #e5e7eb;
-  color: #111827;
+  background: var(--panel);
+  color: var(--ink);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
-  border: none;
+  border: 1px solid var(--line);
   cursor: pointer;
   transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
@@ -428,15 +519,15 @@ textarea {
 .primary-btn:hover,
 .secondary-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.14);
+  box-shadow: 0 6px 14px rgba(46, 52, 64, 0.14);
 }
 
 .primary-btn:hover {
-  background: #2563eb;
+  background: var(--accent-strong);
 }
 
 .secondary-btn:hover {
-  background: #dbe3ee;
+  background: var(--panel-soft);
 }
 
 .table-toolbar {
@@ -483,16 +574,16 @@ textarea {
   min-height: 42px;
   height: 42px;
   padding: 0 10px 0 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--line);
   border-radius: 9px;
-  background: #ffffff;
+  background: var(--panel);
   box-sizing: border-box;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .registry-date-range-picker:focus-within {
-  border-color: #93b4f5;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: var(--color-medium);
+  box-shadow: 0 0 0 3px rgba(67, 76, 94, 0.16);
 }
 
 .registry-date-range-picker-segment {
@@ -809,14 +900,14 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
 }
 
 .contract-column-filter-menu-btn--primary {
-  border: 1px solid #2563eb;
-  background: #2563eb;
-  color: #ffffff;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--color-on-dark-strong);
 }
 
 .contract-column-filter-menu-btn--primary:hover {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
 }
 
 .contract-table-panel {
@@ -827,9 +918,9 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
 .table-wrap {
   overflow-x: auto;
   overflow-y: auto;
-  border: 1px solid #d9dee8;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--panel);
 }
 
 .contracts-only-scroll {
@@ -842,7 +933,7 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  background: #fff;
+  background: var(--panel);
 }
 
 .contract-table.table-layout-auto,
@@ -2084,21 +2175,21 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
   padding: 4px;
   border: none;
   border-radius: 6px;
-  background: #eff6ff;
-  color: #3b82f6;
+  background: var(--accent-soft);
+  color: var(--color-slate);
   cursor: pointer;
   line-height: 0;
   transition: color 0.15s ease, background-color 0.15s ease;
 }
 
 .sales-record-btn:hover {
-  color: #1d4ed8;
-  background: #dbeafe;
+  color: var(--color-medium);
+  background: var(--panel-soft);
 }
 
 .sales-record-btn--has-content {
-  color: #1d4ed8;
-  background: #dbeafe;
+  color: var(--color-medium);
+  background: var(--accent-soft);
 }
 
 .sales-record-modal {
@@ -3355,26 +3446,8 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
   }
 }
 
-/* modern admin UI restoration */
+/* modern admin UI restoration — 색상은 파일 상단 :root 팔레트 사용 */
 :root {
-  --page-bg: #f3f6fa;
-  --panel: #ffffff;
-  --panel-soft: #f8fafc;
-  --line: #dce3ed;
-  --line-strong: #c7d2e0;
-  --text: #111827;
-  --muted: #64748b;
-  --ink: #202938;
-  --sidebar: #18202c;
-  --sidebar-2: #222c3b;
-  --accent: #2F6BFF;
-  --accent-strong: #1f4fd1;
-  --accent-soft: #EAF1FF;
-  --blue: #2563eb;
-  --red: #dc2626;
-  --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 10px 28px rgba(15, 23, 42, 0.1);
-  --shadow-lg: 0 24px 60px rgba(15, 23, 42, 0.2);
   /* 표·아코디언 전역 타이포 */
   --cms-table-header-font-size: 13px;
   --cms-table-header-font-weight: 700;
@@ -3390,9 +3463,7 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
 body {
   /* 상단 전역 zoom: 1.1 유지 — 여기서 덮어쓰지 않음 */
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(243, 246, 250, 0.92) 36%),
-    var(--page-bg);
+  background: var(--page-bg);
   color: var(--text);
   letter-spacing: 0;
 }
@@ -3408,15 +3479,12 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid rgba(47, 107, 255, 0.18);
+  outline: 3px solid rgba(67, 76, 94, 0.28);
   outline-offset: 2px;
 }
 
 .app-shell {
-  background:
-    radial-gradient(circle at 0 0, rgba(47, 107, 255, 0.09), transparent 34%),
-    radial-gradient(circle at 100% 10%, rgba(37, 99, 235, 0.08), transparent 30%),
-    var(--page-bg);
+  background: var(--page-bg);
 }
 
 .sidebar {
@@ -3426,9 +3494,10 @@ textarea:focus-visible {
   height: 100%;
   max-height: 100%;
   min-height: 0;
-  background: linear-gradient(180deg, var(--sidebar) 0%, var(--sidebar-2) 100%);
+  background: var(--sidebar);
+  color: var(--color-on-dark-strong);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 10px 0 26px rgba(15, 23, 42, 0.12);
+  box-shadow: 10px 0 26px rgba(46, 52, 64, 0.14);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -3447,14 +3516,12 @@ textarea:focus-visible {
   margin-bottom: 18px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(234, 241, 255, 0.95)),
-    #ffffff;
+  background: var(--panel);
   box-shadow: var(--shadow-sm);
 }
 
 .company-logo-text {
-  color: #1f4fd1;
+  color: var(--color-deep);
   font-size: 21px;
   font-weight: 900;
 }
@@ -3475,24 +3542,25 @@ textarea:focus-visible {
   padding: 0 14px;
   border: 1px solid transparent;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  color: #dbe5f0;
+  background: transparent;
+  color: var(--color-on-dark);
   font-size: 13px;
   font-weight: 800;
   text-align: left;
 }
 
 .menu-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--sidebar-hover);
   border-color: rgba(255, 255, 255, 0.14);
+  color: var(--color-on-dark-strong);
   transform: translateX(2px);
 }
 
 .menu-btn.active {
-  background: #ffffff;
-  border-color: #ffffff;
-  color: #10201f;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+  background: var(--sidebar-hover);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--color-on-dark-strong);
+  box-shadow: inset 3px 0 0 var(--color-white);
 }
 
 .menu-label-strong {
@@ -3507,23 +3575,23 @@ textarea:focus-visible {
 .viewer-badge {
   min-height: 34px;
   border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.07);
-  color: #dff7f3;
+  background: var(--sidebar-hover);
+  color: var(--color-on-dark);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .logout-btn {
   height: 40px;
-  background: var(--accent);
-  color: #ffffff;
+  background: var(--accent-strong);
+  color: var(--color-on-dark-strong);
   font-weight: 800;
   transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .logout-btn:hover {
-  background: var(--accent-strong);
+  background: var(--color-medium);
   transform: translateY(-1px);
-  box-shadow: 0 10px 20px rgba(47, 107, 255, 0.22);
+  box-shadow: 0 10px 20px rgba(46, 52, 64, 0.22);
 }
 
 .main-area {
@@ -3558,28 +3626,30 @@ textarea:focus-visible {
 }
 
 .top-system-title {
-  border: 1px solid rgba(199, 210, 224, 0.9);
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.94), rgba(230, 245, 242, 0.88)),
-    #ffffff;
-  color: var(--ink);
+  border: 1px solid var(--line);
+  background: var(--color-soft);
+  color: var(--color-deep);
   box-shadow: var(--shadow-sm);
+}
+
+.top-system-title-text {
+  color: var(--color-deep);
 }
 
 .unified-title-bar h1 {
   min-height: 50px;
-  border: 1px solid rgba(220, 227, 237, 0.95);
-  background: rgba(255, 255, 255, 0.76);
-  color: #334155;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-deep);
   font-size: 18px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .stat-card {
   min-height: calc(100vh - 174px);
-  border: 1px solid rgba(220, 227, 237, 0.92);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--panel);
   padding: 18px;
   box-shadow: var(--shadow-md);
 }
@@ -4981,22 +5051,23 @@ textarea:focus-visible {
 
 .primary-btn {
   background: var(--accent);
+  color: var(--color-on-dark-strong);
 }
 
 .primary-btn:hover {
   background: var(--accent-strong);
-  box-shadow: 0 10px 20px rgba(47, 107, 255, 0.18);
+  box-shadow: 0 10px 20px rgba(46, 52, 64, 0.18);
 }
 
 .secondary-btn {
   border: 1px solid var(--line);
-  background: #ffffff;
+  background: var(--panel);
   color: var(--ink);
 }
 
 .secondary-btn:hover {
   border-color: var(--line-strong);
-  background: #f8fafc;
+  background: var(--panel-soft);
 }
 
 .table-toolbar {
@@ -5015,7 +5086,7 @@ textarea:focus-visible {
 .calendar-filter-select {
   border-color: var(--line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
   color: var(--ink);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
@@ -5026,8 +5097,8 @@ textarea:focus-visible {
 .calendar-input:focus,
 .calendar-search-input:focus,
 .calendar-filter-select:focus {
-  border-color: rgba(47, 107, 255, 0.5);
-  box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.12);
+  border-color: var(--color-medium);
+  box-shadow: 0 0 0 3px rgba(67, 76, 94, 0.16);
   outline: none;
 }
 
@@ -5038,18 +5109,18 @@ textarea:focus-visible {
 
 .table-summary-box {
   height: 44px;
-  border-color: rgba(47, 107, 255, 0.22);
+  border-color: var(--line);
   border-radius: 8px;
   background: var(--accent-soft);
 }
 
 .table-summary-label {
-  color: #43605d;
+  color: var(--muted);
   font-weight: 800;
 }
 
 .table-summary-value {
-  color: var(--accent-strong);
+  color: var(--accent);
 }
 
 .contract-filter-row {
@@ -5070,7 +5141,7 @@ textarea:focus-visible {
 .table-wrap {
   border-color: var(--line-strong);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--panel);
   box-shadow: var(--shadow-sm);
 }
 
@@ -5879,14 +5950,20 @@ textarea:focus-visible {
 .top-system-title {
   justify-content: space-between;
   gap: 16px;
-  background: #F4F7FF;
+  background: var(--color-soft);
+  color: var(--color-deep);
   font-size: 18px;
   font-weight: 760;
+}
+
+.top-system-title-text {
+  color: var(--color-deep);
 }
 
 .unified-title-bar h1 {
   font-size: 17px;
   font-weight: 700;
+  color: var(--color-deep);
 }
 
 .calendar-month-title {
@@ -6155,8 +6232,8 @@ textarea:focus-visible {
   padding: 0 14px;
   border: 1px solid transparent;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  color: #dbe5f0;
+  background: transparent;
+  color: var(--color-on-dark);
   font-size: 13.5px;
   font-weight: 700;
   line-height: 1.25;
@@ -6170,14 +6247,16 @@ textarea:focus-visible {
 }
 
 .menu-group-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--sidebar-hover);
   border-color: rgba(255, 255, 255, 0.14);
+  color: var(--color-on-dark-strong);
   transform: translateX(2px);
 }
 
 .menu-group-btn--has-active {
   border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--sidebar-hover);
+  color: var(--color-on-dark-strong);
 }
 
 .menu-group-label,
@@ -6205,6 +6284,7 @@ textarea:focus-visible {
   margin: 2px 0 4px 14px;
   padding: 4px 0 4px 12px;
   border-left: 2px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
   list-style: none;
 }
 
@@ -6223,17 +6303,19 @@ textarea:focus-visible {
   padding: 0 12px 0 14px;
   font-size: 12px;
   font-weight: 600;
-  color: #9fb0c3;
+  color: var(--color-on-dark);
   line-height: 1.3;
 }
 
 .menu-btn--child:hover {
-  color: #dbe5f0;
+  color: var(--color-on-dark-strong);
+  background: var(--sidebar-hover);
 }
 
 .menu-btn--child.active {
   font-weight: 800;
-  color: #10201f;
+  color: var(--color-on-dark-strong);
+  background: var(--sidebar-hover);
 }
 
 .month-list-title-row {
@@ -7699,13 +7781,7 @@ textarea:focus-visible {
 }
 
 .documents-registry-table .registry-th-default-sort {
-  display: inline-block;
-  margin-left: 4px;
-  color: #2563eb;
-  font-size: 0.85em;
-  font-weight: 700;
-  line-height: 1;
-  vertical-align: middle;
+  display: none;
 }
 
 .documents-registry-table col.registry-check-col,
@@ -8532,16 +8608,16 @@ textarea:focus-visible {
 .page-title-bar {
   margin-bottom: 12px;
   padding: 12px 16px;
-  border: 1px solid #d7e3ff;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: #f8fbff;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  background: var(--color-soft);
+  box-shadow: var(--shadow-sm);
 }
 
 .unified-title-bar h1 {
   font-size: 17px;
   font-weight: 700;
-  color: #334155;
+  color: var(--color-deep);
 }
 
 .contracts-header-actions {
@@ -8805,7 +8881,7 @@ textarea:focus-visible {
 .work-report-calendar-weekday {
   font-size: 13px;
   font-weight: 800;
-  color: #2563eb;
+  color: var(--color-deep);
   margin-bottom: 6px;
 }
 
@@ -9133,8 +9209,13 @@ textarea:focus-visible {
 }
 
 .work-report-week-day-head.is-today {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.18);
+  border-color: var(--color-medium);
+  box-shadow: 0 0 0 1px rgba(67, 76, 94, 0.18);
+}
+
+.work-report-day-board.is-today {
+  border-color: var(--color-medium);
+  box-shadow: 0 0 0 1px rgba(67, 76, 94, 0.18);
 }
 
 .work-report-week-section-stack {
@@ -9268,8 +9349,8 @@ textarea:focus-visible {
 }
 
 .work-report-day-board.is-today {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.18);
+  border-color: var(--color-medium);
+  box-shadow: 0 0 0 1px rgba(67, 76, 94, 0.18);
 }
 
 .work-report-day-head {
@@ -9281,7 +9362,7 @@ textarea:focus-visible {
 .work-report-day-weekday {
   font-size: 13px;
   font-weight: 800;
-  color: #2563eb;
+  color: var(--color-deep);
   margin-bottom: 4px;
 }
 
@@ -9392,7 +9473,7 @@ textarea:focus-visible {
   margin-bottom: 6px;
   font-size: 11px;
   font-weight: 800;
-  color: #2563eb;
+  color: var(--color-medium);
 }
 
 .work-report-section-content {
@@ -9422,7 +9503,7 @@ textarea:focus-visible {
   margin-top: 10px;
   font-size: 12px;
   font-weight: 700;
-  color: #2563eb;
+  color: var(--color-medium);
 }
 
 .work-report-help-text {
@@ -9457,15 +9538,15 @@ textarea:focus-visible {
 
 .work-report-board-section-title {
   padding: 8px 10px;
-  background: #2c6cbf;
-  color: #ffffff;
+  background: var(--header);
+  color: var(--color-on-dark-strong);
   font-size: 12px;
   font-weight: 800;
   line-height: 1.2;
 }
 
 .work-report-board-section-blue .work-report-board-section-title {
-  background: #2c6cbf;
+  background: var(--header);
 }
 
 .work-report-board-table {
@@ -9538,7 +9619,7 @@ textarea:focus-visible {
   height: 14px;
   margin: 0;
   cursor: pointer;
-  accent-color: #2c6cbf;
+  accent-color: var(--header);
 }
 
 .work-report-board-row-todo.is-completed .work-report-board-textarea-support-line {
@@ -9607,10 +9688,10 @@ textarea:focus-visible {
   align-self: start;
   padding: 8px 8px;
   border-right: 1px solid #dbe4ee;
-  background: #f8fafc;
+  background: var(--panel-soft);
   font-size: 11px;
   font-weight: 700;
-  color: #334155;
+  color: var(--color-medium);
 }
 
 .work-report-board-textarea {
@@ -9718,11 +9799,11 @@ textarea:focus-visible {
 
 .work-report-board-support-title {
   padding: 8px 10px;
-  background: #2c6cbf;
-  border-bottom: 1px solid #dbe4ee;
+  background: var(--header);
+  border-bottom: 1px solid var(--line);
   font-size: 11px;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--color-on-dark-strong);
 }
 
 .work-report-board-textarea-support-line {
@@ -9788,8 +9869,8 @@ textarea:focus-visible {
 
 .work-report-board-section-title,
 .work-report-board-support-title {
-  background: #2c6cbf;
-  color: #ffffff;
+  background: var(--header);
+  color: var(--color-on-dark-strong);
 }
 
 .work-report-board-textarea-check {
@@ -10564,15 +10645,15 @@ textarea:focus-visible {
   min-height: 20px;
   padding: 0 7px;
   border-radius: 999px;
-  background: #eef4ff;
-  color: #315ca8;
+  background: var(--accent-soft);
+  color: var(--color-medium);
   font-size: 10px;
   font-weight: 700;
 }
 
 .work-report-report-manager-badge.fixed {
-  background: #edf2ff;
-  color: #1e40af;
+  background: var(--accent-soft);
+  color: var(--color-deep);
 }
 
 .work-report-report-empty-inline {
@@ -10859,11 +10940,11 @@ textarea:focus-visible {
   align-items: center;
   padding: 2px 7px;
   border-radius: 999px;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
   font-size: 11px;
   font-weight: 700;
-  color: #1d4ed8;
+  color: var(--color-medium);
   max-width: 100%;
   white-space: nowrap;
   word-break: keep-all;
@@ -10946,15 +11027,15 @@ body.work-report-manager-menu-open .work-report-board-section {
 }
 
 .work-report-external-manager-multi-item.is-selected {
-  background: #eff6ff;
-  color: #1e40af;
+  background: var(--accent-soft);
+  color: var(--color-deep);
   font-weight: 700;
 }
 
 .work-report-external-manager-multi-tick {
   width: 14px;
   font-size: 11px;
-  color: #2563eb;
+  color: var(--color-medium);
   flex-shrink: 0;
 }
 

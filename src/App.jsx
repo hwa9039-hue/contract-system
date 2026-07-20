@@ -14901,51 +14901,24 @@ function App() {
               ☰
             </button>
             <span className="top-system-title-text">스마트DI사업부 통합관리 시스템</span>
-            <div
-              style={{
-                marginLeft: 'auto',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                flexWrap: 'wrap',
-                justifyContent: 'flex-end',
-              }}
-            >
+            <div className="top-system-session-actions">
               <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  minHeight: 30,
-                  padding: '0 10px',
-                  borderRadius: 999,
-                  background: isLongLivedSession
-                    ? '#ecfdf5'
+                className={`top-system-session-badge${
+                  isLongLivedSession
+                    ? ' top-system-session-badge--auto'
                     : remainingSessionMinutes <= 1
-                      ? '#fef2f2'
-                      : '#eef5ff',
-                  border: isLongLivedSession
-                    ? '1px solid #bbf7d0'
-                    : remainingSessionMinutes <= 1
-                      ? '1px solid #fecaca'
-                      : '1px solid #cfe0ff',
-                  color: isLongLivedSession
-                    ? '#15803d'
-                    : remainingSessionMinutes <= 1
-                      ? '#b91c1c'
-                      : '#1f4fd1',
-                  fontSize: 12,
-                  fontWeight: 700,
-                }}
+                      ? ' top-system-session-badge--danger'
+                      : ' top-system-session-badge--timer'
+                }`}
               >
                 {isLongLivedSession
-                  ? '🟢 자동 로그인'
+                  ? '자동 로그인'
                   : `남은 시간 ${formatRemainingSessionLabel(remainingSessionMinutes)}`}
               </span>
               <button
-                className="secondary-btn"
+                className="secondary-btn top-system-session-extend-btn"
                 type="button"
                 onClick={handleExtendLogin}
-                style={{ minHeight: 34, padding: '7px 12px' }}
               >
                 로그인 연장
               </button>
@@ -16646,18 +16619,7 @@ function App() {
                           aria-sort={column.key === 'docDate' ? 'descending' : undefined}
                         >
                           <div className="contract-th-filter-wrap">
-                            <span className="contract-th-label">
-                              {column.label}
-                              {column.key === 'docDate' ? (
-                                <span
-                                  className="registry-th-default-sort"
-                                  title="등록일 최신순"
-                                  aria-hidden="true"
-                                >
-                                  ↓
-                                </span>
-                              ) : null}
-                            </span>
+                            <span className="contract-th-label">{column.label}</span>
                             <ContractColumnHeaderFilter
                               columnKey={column.key}
                               options={documentColumnFilterOptionsMap[column.key] ?? []}
