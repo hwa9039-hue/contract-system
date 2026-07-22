@@ -2004,18 +2004,23 @@ function getRegistryFieldPlaceholder() {
   return ''
 }
 
-const INSTALL_CASE_FALLBACK_HERO = 'https://picsum.photos/seed/newinstallh/960/720'
+/** 과거 더미(picsum) URL — 표시·저장에서 제외 */
+function isInstallCaseDummyHeroUrl(url) {
+  const text = safeString(url).trim()
+  if (!text) return false
+  return /picsum\.photos/i.test(text) || /seed\/newinstallh/i.test(text)
+}
 
 function normalizeInstallCaseRow(row) {
   const specs = row?.specs && typeof row.specs === 'object' ? row.specs : {}
   const id = safeString(row?.id).trim() || `local-${Date.now()}`
-  const heroImages = resolveInstallCaseHeroImages(row)
-  const heroImage = heroImages[0] || INSTALL_CASE_FALLBACK_HERO
+  const heroImages = resolveInstallCaseHeroImages(row).filter((url) => !isInstallCaseDummyHeroUrl(url))
+  const heroImage = heroImages[0] || ''
   return {
     id,
     projectName: safeString(row?.projectName).trim() || '-',
     heroImage,
-    heroImages: heroImages.length ? heroImages : [heroImage],
+    heroImages,
     environment: migrateInstallCaseMajorCategory(row?.environment),
     middleCategory: migrateInstallCaseMiddleCategory(row?.middleCategory, row?.environment),
     audience: migrateInstallCaseMinorCategory(row?.audience),
@@ -2308,15 +2313,22 @@ function readImageFileAsDataUrl(file) {
 
 function InstallCaseHeroMedia({
   src,
-  fallback = INSTALL_CASE_FALLBACK_HERO,
   className = '',
   loading,
   variant = 'card',
 }) {
-  const mediaSrc = safeString(src).trim() || fallback
-  const isVideo = isInstallCaseVideo(mediaSrc)
+  const mediaSrc = isInstallCaseDummyHeroUrl(src) ? '' : safeString(src).trim()
+  const isVideo = mediaSrc ? isInstallCaseVideo(mediaSrc) : false
 
   if (variant === 'card') {
+    if (!mediaSrc) {
+      return (
+        <div className="install-case-card-media install-case-card-media--empty">
+          <div className="install-case-card-media-empty">이미지 없음</div>
+          <div className="install-case-card-media-overlay" aria-hidden />
+        </div>
+      )
+    }
     return (
       <div className="install-case-card-media">
         {isVideo ? (
@@ -2343,6 +2355,14 @@ function InstallCaseHeroMedia({
           </div>
         ) : null}
         <div className="install-case-card-media-overlay" aria-hidden />
+      </div>
+    )
+  }
+
+  if (!mediaSrc) {
+    return (
+      <div className={`install-case-detail-media install-case-detail-media--empty${className ? ` ${className}` : ''}`}>
+        미디어 없음
       </div>
     )
   }
@@ -2639,7 +2659,7 @@ function clearInstallCaseFormDraftStorage() {
 
 function pickInstallCaseDraftImageForStorage(imagePreview) {
   const prev = safeString(imagePreview).trim()
-  if (!prev || prev.startsWith('blob:') || prev === INSTALL_CASE_FALLBACK_HERO) return ''
+  if (!prev || prev.startsWith('blob:') || isInstallCaseDummyHeroUrl(prev)) return ''
   if (prev.length > INSTALL_CASE_FORM_DRAFT_MAX_IMAGE_LEN) return ''
   return prev
 }
@@ -6790,7 +6810,14 @@ function App() {
     setInstallCaseSubmitting(true)
     try {
       if (isEdit) {
-        await installCasesApi.update(editingId, rowPayload, newFiles, keepImages)
+        const updated = await installCasesApi.update(editingId, rowPayload, newFiles, keepImages)
+        const savedCount = Array.isArray(updated?.heroImages) ? updated.heroImages.length : 0
+        if ((newFiles.length || keepImages.length) && savedCount === 0) {
+          showAppAlert(
+            '메타데이터는 저장됐지만 미디어 URL이 비어 있습니다. 백엔드 업로드/heroImages 저장을 확인해 주세요.',
+            '알림'
+          )
+        }
         clearInstallCaseFormDraftStorage()
         handleCloseInstallCaseRegister({ discardDraft: true })
         const refreshed = await fetchInstallCases()
@@ -6798,7 +6825,14 @@ function App() {
         if (found) setInstallCaseDetailModal(found)
         setToastMessage('저장되었습니다.')
       } else {
-        await installCasesApi.create(rowPayload, newFiles)
+        const created = await installCasesApi.create(rowPayload, newFiles)
+        const savedCount = Array.isArray(created?.heroImages) ? created.heroImages.length : 0
+        if (newFiles.length && savedCount === 0) {
+          showAppAlert(
+            '등록은 됐지만 사진이 서버에 저장되지 않았습니다. 로컬 백엔드(localhost:8000)가 최신인지 확인해 주세요.',
+            '알림'
+          )
+        }
         clearInstallCaseFormDraftStorage()
         handleCloseInstallCaseRegister({ discardDraft: true })
         setInstallCaseEnvFilter('')
@@ -16639,7 +16673,7 @@ function App() {
                   >
                     <div className="install-case-card-thumb">
                       <InstallCaseHeroMedia
-                        src={row.heroImage || INSTALL_CASE_FALLBACK_HERO}
+                        src={row.heroImages?.[0] || row.heroImage || ''}
                         loading="lazy"
                         variant="card"
                       />
@@ -17165,8 +17199,14 @@ function App() {
               <div className="install-case-detail-hero-zone">
                 <div className="install-case-detail-hero">
                   <InstallCaseMediaCarousel
-                    sources={installCaseDetailModal.heroImages}
-                    fallbackSrc={installCaseDetailModal.heroImage || INSTALL_CASE_FALLBACK_HERO}
+                    sources={
+                      Array.isArray(installCaseDetailModal.heroImages) &&
+                      installCaseDetailModal.heroImages.length
+                        ? installCaseDetailModal.heroImages
+                        : installCaseDetailModal.heroImage
+                          ? [installCaseDetailModal.heroImage]
+                          : []
+                    }
                   />
                 </div>
               </div>

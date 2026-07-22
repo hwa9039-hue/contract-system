@@ -1049,12 +1049,12 @@ def _normalize_install_case_hero_images(hero_images, hero_image) -> list[str]:
         for item in raw:
             text = to_response_value(item) or ""
             text = str(text).strip()
-            if text:
+            if text and "picsum.photos" not in text.lower() and "seed/newinstallh" not in text.lower():
                 items.append(text)
     if not items:
         single = to_response_value(hero_image) or ""
         single = str(single).strip()
-        if single:
+        if single and "picsum.photos" not in single.lower() and "seed/newinstallh" not in single.lower():
             items.append(single)
     # 중복 제거(순서 유지)
     deduped: list[str] = []

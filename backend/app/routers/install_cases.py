@@ -215,18 +215,24 @@ def resolve_existing_media_path(row_id: str, url: str) -> Path | None:
 
 
 def collect_upload_files(
-    images: list[UploadFile] | None,
-    image: UploadFile | None,
+    images: list[UploadFile] | UploadFile | None,
+    image: UploadFile | None = None,
 ) -> list[UploadFile]:
+    """FastAPI는 파일 1개일 때 list 대신 단일 UploadFile을 줄 수 있어 정규화한다."""
     uploads: list[UploadFile] = []
-    if images:
-        for item in images:
-            if item and getattr(item, "filename", None):
-                uploads.append(item)
+
+    if images is not None:
+        if isinstance(images, list):
+            for item in images:
+                if item and getattr(item, "filename", None):
+                    uploads.append(item)
+        elif getattr(images, "filename", None):
+            uploads.append(images)
+
     if image and getattr(image, "filename", None):
-        # 레거시 단일 필드 — 앞에 두지 않고 목록에 없을 때만 추가
         if not any(u is image for u in uploads):
             uploads.append(image)
+
     return uploads[:MAX_HERO_MEDIA_COUNT]
 
 
@@ -255,6 +261,13 @@ async def read_upload_staged(upload: UploadFile) -> tuple[str, bytes]:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"File too large (max {limit_mb}MB)",
         )
+    logger.info(
+        "install-case media staged: name=%s ext=%s bytes=%s content_type=%s",
+        upload.filename,
+        ext,
+        len(content),
+        content_type or "-",
+    )
     return ext, content
 
 
@@ -265,6 +278,12 @@ async def rebuild_hero_media(
 ) -> list[str]:
     keep = [str(u).strip() for u in (keep_urls or []) if str(u).strip()]
     uploads = [u for u in (new_uploads or []) if u and getattr(u, "filename", None)]
+    logger.info(
+        "install-case rebuild_hero_media start id=%s keep=%s new_uploads=%s",
+        row_id,
+        len(keep),
+        len(uploads),
+    )
     if len(keep) + len(uploads) > MAX_HERO_MEDIA_COUNT:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -277,6 +296,8 @@ async def rebuild_hero_media(
         if path and path.is_file():
             ext = path.suffix.lower().lstrip(".") or "jpg"
             staged.append((ext, path.read_bytes()))
+        else:
+            logger.warning("install-case keep url missing on disk id=%s url=%s", row_id, url)
 
     for upload in uploads:
         staged.append(await read_upload_staged(upload))
@@ -300,8 +321,16 @@ async def rebuild_hero_media(
         if urls:
             final_dir = hero_gallery_dir(row_id)
             temp_dir.rename(final_dir)
+            logger.info(
+                "install-case media saved id=%s dir=%s count=%s urls=%s",
+                row_id,
+                final_dir,
+                len(urls),
+                urls,
+            )
         else:
             shutil.rmtree(temp_dir, ignore_errors=True)
+            logger.info("install-case media cleared id=%s", row_id)
     except Exception:
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise
@@ -470,6 +499,12 @@ def update_install_case_row(row_id: str, patch: InstallCasePatch):
 
 def set_install_case_hero_media(row_id: str, urls: list[str]) -> dict:
     fields = sync_hero_fields(urls)
+    logger.info(
+        "install-case DB heroImages update id=%s count=%s urls=%s",
+        row_id,
+        len(fields["heroImages"]),
+        fields["heroImages"],
+    )
     return update_install_case_row(
         row_id,
         InstallCasePatch(heroImages=fields["heroImages"], heroImage=fields["heroImage"]),
@@ -527,7 +562,7 @@ def api_create_install_case(row: InstallCaseCreate):
 @router.post("/form", response_model=InstallCaseOut, status_code=status.HTTP_201_CREATED)
 async def api_create_install_case_with_image(
     payload: str = Form(...),
-    images: list[UploadFile] | None = File(None),
+    images: list[UploadFile] | UploadFile | None = File(None),
     image: UploadFile | None = File(None),
 ):
     row_id = None
@@ -537,6 +572,12 @@ async def api_create_install_case_with_image(
         created = create_install_case_row(row)
         row_id = str(created["id"])
         uploads = collect_upload_files(images, image)
+        logger.info(
+            "install-case create/form id=%s upload_count=%s filenames=%s",
+            row_id,
+            len(uploads),
+            [getattr(u, "filename", None) for u in uploads],
+        )
         urls = await rebuild_hero_media(row_id, [], uploads)
         return set_install_case_hero_media(row_id, urls)
     except HTTPException:
@@ -572,7 +613,7 @@ def api_update_install_case(row_id: str, patch: InstallCasePatch):
 async def api_update_install_case_with_image(
     row_id: str,
     payload: str = Form(...),
-    images: list[UploadFile] | None = File(None),
+    images: list[UploadFile] | UploadFile | None = File(None),
     image: UploadFile | None = File(None),
 ):
     try:
@@ -601,6 +642,13 @@ async def api_update_install_case_with_image(
             updated = row_to_install_case(row)
 
         uploads = collect_upload_files(images, image)
+        logger.info(
+            "install-case update/form id=%s keep=%s upload_count=%s filenames=%s",
+            row_id,
+            len(keep_images),
+            len(uploads),
+            [getattr(u, "filename", None) for u in uploads],
+        )
         # keep/upload 중 하나라도 있으면 갤러리 재구성 (전부 삭제 포함: keep=[], uploads=[])
         if "keepImages" in raw or uploads:
             if not keep_images and not uploads:

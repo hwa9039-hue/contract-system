@@ -230,16 +230,14 @@ export function InstallCaseMultiMediaField({
   )
 }
 
-/** 상세 모달: 커스텀 캐러셀 (라이브러리 없음) */
-export function InstallCaseMediaCarousel({ sources, fallbackSrc = '' }) {
+/** 상세 모달: 커스텀 캐러셀 (라이브러리 없음) — 실제 URL만 표시, 더미/폴백 없음 */
+export function InstallCaseMediaCarousel({ sources }) {
   const urls = useMemo(() => {
-    const list = (Array.isArray(sources) ? sources : [])
+    return (Array.isArray(sources) ? sources : [])
       .map((src) => resolveInstallCaseHeroImage(src))
-      .filter(Boolean)
-    if (list.length) return list
-    const fb = resolveInstallCaseHeroImage(fallbackSrc)
-    return fb ? [fb] : []
-  }, [sources, fallbackSrc])
+      .map((src) => String(src || '').trim())
+      .filter((src) => src && !/picsum\.photos/i.test(src) && !/seed\/newinstallh/i.test(src))
+  }, [sources])
 
   const [index, setIndex] = useState(0)
   const total = urls.length

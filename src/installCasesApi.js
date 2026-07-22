@@ -43,6 +43,8 @@ export function normalizeHeroImagesList(heroImages, heroImage = '') {
   const deduped = []
   const seen = new Set()
   for (const url of items) {
+    // 과거 FE 더미(picsum)는 실제 미디어가 아님
+    if (/picsum\.photos/i.test(url) || /seed\/newinstallh/i.test(url)) continue
     if (seen.has(url)) continue
     seen.add(url)
     deduped.push(url)
