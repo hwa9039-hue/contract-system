@@ -13030,8 +13030,10 @@ function App() {
                 ) : (
                   <div
                     className={`cell-display ${
-                      cellEditScope === 'discovery'
-                        ? 'break-words whitespace-pre-wrap'
+                      cellEditScope === 'discovery' ||
+                      cellEditScope === 'sales' ||
+                      cellEditScope === 'excluded'
+                        ? 'registry-cell-text-wrap'
                         : 'table-cell-clamp'
                     } editable-text-cell-display editable-text-cell-display--${cellAlign}`}
                     role="button"
@@ -13095,13 +13097,13 @@ function App() {
                       : null
                   }
                   className={`${
-                    isLongTextTableColumn(column)
-                      ? cellEditScope === 'discovery'
-                        ? 'break-words whitespace-pre-wrap'
-                        : cellEditScope === 'excluded'
-                          ? 'excluded-multiline-display'
-                          : 'table-cell-clamp'
-                      : ''
+                    cellEditScope === 'discovery' ||
+                    cellEditScope === 'sales' ||
+                    cellEditScope === 'excluded'
+                      ? 'registry-cell-text-wrap'
+                      : isLongTextTableColumn(column)
+                        ? 'table-cell-clamp'
+                        : ''
                   } ${registryWeekHighlightClass}${
                     discoveryReportNewBadge ? ' discovery-permit-date-with-badge' : ''
                   }`.trim()}
@@ -13137,13 +13139,13 @@ function App() {
               ) : (
                 <div
                   className={`cell-display${
-                    isLongTextTableColumn(column)
-                      ? cellEditScope === 'discovery'
-                        ? ' break-words whitespace-pre-wrap'
-                        : cellEditScope === 'excluded'
-                          ? ' excluded-multiline-display'
-                          : ' table-cell-clamp'
-                      : ''
+                    cellEditScope === 'discovery' ||
+                    cellEditScope === 'sales' ||
+                    cellEditScope === 'excluded'
+                      ? ' registry-cell-text-wrap'
+                      : isLongTextTableColumn(column)
+                        ? ' table-cell-clamp'
+                        : ''
                   }${plainDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''}${
                     registryWeekHighlightClass ? ` ${registryWeekHighlightClass}` : ''
                   }${discoveryReportNewBadge ? ' discovery-permit-date-with-badge' : ''}`}

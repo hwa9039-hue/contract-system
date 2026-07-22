@@ -6561,6 +6561,142 @@ body.is-column-resizing * {
   max-width: none;
 }
 
+/*
+ * 영업관리대장·건축정보·사업공유 — 컬럼 축소 시 텍스트 줄바꿈 + 행 높이 자동 확장
+ * (HTML table; DataGrid getRowHeight 아님)
+ */
+.sales-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row),
+.discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row),
+.excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) {
+  height: auto !important;
+}
+
+.sales-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td,
+.discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td,
+.excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  vertical-align: top !important;
+}
+
+.sales-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td:not(.registry-check-cell):not(.sales-archive-cell):not(.sales-record-cell):not(.registry-importance-cell),
+.discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td:not(.registry-check-cell):not(.sales-archive-cell):not(.sales-record-cell):not(.registry-importance-cell),
+.excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td:not(.registry-check-cell):not(.sales-archive-cell):not(.registry-importance-cell) {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+}
+
+.sales-registry-table.excel-table.registry-table th.table-col-tight,
+.sales-registry-table.excel-table.registry-table td.table-col-tight,
+.discovery-registry-table.excel-table.registry-table th.table-col-tight,
+.discovery-registry-table.excel-table.registry-table td.table-col-tight,
+.excluded-registry-table.excel-table.registry-table th.table-col-tight,
+.excluded-registry-table.excel-table.registry-table td.table-col-tight {
+  white-space: normal !important;
+  min-width: 0;
+}
+
+.sales-registry-table .table-col-tight .cell-display,
+.sales-registry-table .table-col-tight .editable-text-cell-display,
+.sales-registry-table .table-col-tight .editable-text-cell-input,
+.discovery-registry-table .table-col-tight .cell-display,
+.discovery-registry-table .table-col-tight .editable-text-cell-display,
+.discovery-registry-table .table-col-tight .editable-text-cell-input,
+.excluded-registry-table .table-col-tight .cell-display,
+.excluded-registry-table .table-col-tight .editable-text-cell-display,
+.excluded-registry-table .table-col-tight .editable-text-cell-input {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+}
+
+.sales-registry-table tbody td .cell-display,
+.sales-registry-table tbody td .editable-text-cell-display,
+.sales-registry-table tbody td .editable-text-cell-input,
+.sales-registry-table tbody td .sales-detail-preview,
+.sales-registry-table tbody td .registry-cell-text-wrap,
+.sales-registry-table tbody td .table-cell-clamp,
+.sales-registry-table tbody td .sales-modal-text-display,
+.discovery-registry-table tbody td .cell-display,
+.discovery-registry-table tbody td .editable-text-cell-display,
+.discovery-registry-table tbody td .editable-text-cell-input,
+.discovery-registry-table tbody td .sales-detail-preview,
+.discovery-registry-table tbody td .registry-cell-text-wrap,
+.discovery-registry-table tbody td .table-cell-clamp,
+.discovery-registry-table tbody td .discovery-modal-text-display,
+.discovery-registry-table tbody td .sales-modal-text-display,
+.excluded-registry-table tbody td .cell-display,
+.excluded-registry-table tbody td .editable-text-cell-display,
+.excluded-registry-table tbody td .editable-text-cell-input,
+.excluded-registry-table tbody td .sales-detail-preview,
+.excluded-registry-table tbody td .registry-cell-text-wrap,
+.excluded-registry-table tbody td .excluded-multiline-display,
+.excluded-registry-table tbody td .table-cell-clamp {
+  display: block !important;
+  width: 100%;
+  min-width: 0 !important;
+  max-width: 100%;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  -webkit-box-orient: unset !important;
+  align-items: flex-start !important;
+  box-sizing: border-box;
+}
+
+.sales-registry-table tbody td.registry-importance-cell .cell-display,
+.sales-registry-table tbody td.registry-importance-cell .cell-display--importance,
+.discovery-registry-table tbody td.registry-importance-cell .cell-display,
+.discovery-registry-table tbody td.registry-importance-cell .cell-display--importance,
+.excluded-registry-table tbody td.registry-importance-cell .cell-display,
+.excluded-registry-table tbody td.registry-importance-cell .cell-display--importance {
+  display: flex !important;
+  width: 100%;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+}
+
+.sales-registry-table tbody td.td-align-center .cell-display,
+.sales-registry-table tbody td.td-align-center .editable-text-cell-display,
+.discovery-registry-table tbody td.td-align-center .cell-display,
+.discovery-registry-table tbody td.td-align-center .editable-text-cell-display,
+.excluded-registry-table tbody td.td-align-center .cell-display,
+.excluded-registry-table tbody td.td-align-center .editable-text-cell-display {
+  text-align: center;
+}
+
+.sales-registry-table tbody td.td-align-right .cell-display,
+.sales-registry-table tbody td.td-align-right .editable-text-cell-display,
+.discovery-registry-table tbody td.td-align-right .cell-display,
+.discovery-registry-table tbody td.td-align-right .editable-text-cell-display,
+.excluded-registry-table tbody td.td-align-right .cell-display,
+.excluded-registry-table tbody td.td-align-right .editable-text-cell-display {
+  text-align: right;
+}
+
+.registry-cell-text-wrap {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  overflow: visible !important;
+  max-height: none !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+}
+
 .discovery-category-badge {
   display: inline-flex;
   align-items: center;
@@ -6601,7 +6737,7 @@ body.is-column-resizing * {
 .sales-registry-table.excel-table thead th,
 .sales-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* 등록일 인라인 편집 — 달력 아이콘이 overflow에 잘리지 않도록 */
@@ -6811,15 +6947,16 @@ body.is-column-resizing * {
 }
 
 .sales-registry-table .sales-modal-text-cell .sales-modal-text-display {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: normal !important;
+  display: block;
+  -webkit-box-orient: unset;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: pre-wrap !important;
   word-break: break-word;
   overflow-wrap: anywhere;
+  max-height: none;
   cursor: pointer;
 }
 
@@ -6918,7 +7055,7 @@ body.is-column-resizing * {
 .discovery-registry-table.excel-table thead th,
 .discovery-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .discovery-registry-table col.registry-check-col,
@@ -7071,14 +7208,18 @@ body.is-column-resizing * {
 
 .discovery-registry-table .discovery-col-tight,
 .discovery-registry-table .discovery-col-amount {
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .discovery-registry-table .discovery-col-tight .cell-display,
 .discovery-registry-table .discovery-col-amount .cell-display {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  overflow-wrap: break-word;
   justify-content: center;
 }
 
@@ -7194,15 +7335,16 @@ body.is-column-resizing * {
 
 .discovery-registry-table .discovery-modal-text-cell .discovery-modal-text-display,
 .discovery-registry-table .discovery-modal-text-cell .sales-modal-text-display {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: normal !important;
+  display: block;
+  -webkit-box-orient: unset;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: pre-wrap !important;
   word-break: break-word;
   overflow-wrap: anywhere;
+  max-height: none;
   cursor: pointer;
 }
 
@@ -7537,7 +7679,7 @@ body.is-column-resizing * {
 .excluded-registry-table.excel-table thead th,
 .excluded-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td {
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .excluded-registry-table col.registry-check-col,
@@ -7634,14 +7776,18 @@ body.is-column-resizing * {
 
 .excluded-registry-table .excluded-col-tight,
 .excluded-registry-table .excluded-col-amount {
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .excluded-registry-table .excluded-col-tight .cell-display,
 .excluded-registry-table .excluded-col-amount .cell-display {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  overflow-wrap: break-word;
   justify-content: center;
 }
 
@@ -7730,15 +7876,16 @@ body.is-column-resizing * {
 
 .excluded-registry-table .excluded-modal-text-cell .excluded-modal-text-display,
 .excluded-registry-table .excluded-modal-text-cell .sales-modal-text-display {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: normal !important;
+  display: block;
+  -webkit-box-orient: unset;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: pre-wrap !important;
   word-break: keep-all;
   overflow-wrap: break-word;
+  max-height: none;
   cursor: pointer;
 }
 
