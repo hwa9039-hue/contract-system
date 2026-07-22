@@ -12371,7 +12371,9 @@ function App() {
   const renderRegistryCellInlineEditor = (column, editContext) => {
     const { scope, rowId } = editContext || {}
     const isMultilineColumn =
-      column.type === 'textarea' || isExcludedMultilineEditColumn(column, scope)
+      column.type === 'textarea' ||
+      column.type === 'text' ||
+      isExcludedMultilineEditColumn(column, scope)
     const useFlatInlineStyle = isRegistryFlatInlineTableScope(scope)
     const inlineEditorClass = useFlatInlineStyle
       ? `${TABLE_INLINE_INPUT_STANDARD_CLASS} ${EXCLUDED_INLINE_EDITOR_CLASS}`
