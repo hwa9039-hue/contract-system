@@ -5412,6 +5412,23 @@ function App() {
   const [icMediaItems, setIcMediaItems] = useState([])
   const icMediaItemsRef = useRef(icMediaItems)
   const installCaseFormDraftRef = useRef(installCaseFormDraft)
+
+  useEffect(() => {
+    if (!installCaseDetailModal) return
+    const images =
+      installCaseDetailModal.heroImages?.length > 0
+        ? normalizeHeroImagesList(installCaseDetailModal.heroImages, '')
+        : normalizeHeroImagesList([], installCaseDetailModal.heroImage)
+    console.log('모달 데이터:', installCaseDetailModal)
+    console.log('모달 미디어 진단:', {
+      heroImagesType: typeof installCaseDetailModal.heroImages,
+      heroImagesIsArray: Array.isArray(installCaseDetailModal.heroImages),
+      heroImagesRaw: installCaseDetailModal.heroImages,
+      heroImageRaw: installCaseDetailModal.heroImage,
+      normalizedImages: images,
+      normalizedCount: images.length,
+    })
+  }, [installCaseDetailModal])
   const [materialsBoardPosts, setMaterialsBoardPosts] = useState([])
   const [materialsBoardRegisterOpen, setMaterialsBoardRegisterOpen] = useState(false)
   const [materialsBoardFormDraft, setMaterialsBoardFormDraft] = useState(() =>
@@ -17219,10 +17236,12 @@ function App() {
               <div className="install-case-detail-hero-zone">
                 <div className="install-case-detail-hero">
                   <InstallCaseMediaCarousel
-                    sources={normalizeHeroImagesList(
-                      installCaseDetailModal.heroImages,
-                      installCaseDetailModal.heroImage
-                    )}
+                    sources={
+                      installCaseDetailModal.heroImages?.length > 0
+                        ? installCaseDetailModal.heroImages
+                        : [installCaseDetailModal.heroImage].filter(Boolean)
+                    }
+                    fallbackHeroImage={installCaseDetailModal.heroImage || ''}
                   />
                 </div>
               </div>

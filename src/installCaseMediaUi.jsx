@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   INSTALL_CASE_MAX_MEDIA_COUNT,
+  normalizeHeroImagesList,
   resolveInstallCaseHeroImage,
 } from './installCasesApi.js'
 import {
@@ -231,9 +232,9 @@ export function InstallCaseMultiMediaField({
 }
 
 /** 상세 모달: 다중 미디어 캐러셀 (currentIndex로 슬라이드) */
-export function InstallCaseMediaCarousel({ sources }) {
+export function InstallCaseMediaCarousel({ sources, fallbackHeroImage = '' }) {
   const urls = useMemo(() => {
-    const list = Array.isArray(sources) ? sources : []
+    const list = normalizeHeroImagesList(sources, fallbackHeroImage)
     const out = []
     const seen = new Set()
     for (const src of list) {
@@ -245,7 +246,17 @@ export function InstallCaseMediaCarousel({ sources }) {
       out.push(resolved)
     }
     return out
-  }, [sources])
+  }, [sources, fallbackHeroImage])
+
+  useEffect(() => {
+    console.log('캐러셀 sources 진단:', {
+      sources,
+      fallbackHeroImage,
+      resolvedUrls: urls,
+      count: urls.length,
+      showNav: urls.length > 1,
+    })
+  }, [sources, fallbackHeroImage, urls])
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const total = urls.length

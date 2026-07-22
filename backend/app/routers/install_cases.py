@@ -215,6 +215,83 @@ def resolve_existing_media_path(row_id: str, url: str) -> Path | None:
     return None
 
 
+def list_gallery_media_urls(row_id: str) -> list[str]:
+    """디스크 갤러리 폴더의 실제 파일 기준으로 URL 목록 생성."""
+    gallery = hero_gallery_dir(row_id)
+    if gallery.is_dir():
+        found: dict[int, str] = {}
+        for path in gallery.iterdir():
+            if not path.is_file():
+                continue
+            match = re.fullmatch(r"(\d+)\.([a-zA-Z0-9]+)", path.name)
+            if not match:
+                continue
+            idx = int(match.group(1))
+            ext = match.group(2).lower()
+            if ext not in set(HERO_MEDIA_EXTENSIONS):
+                continue
+            found[idx] = hero_media_api_path(row_id, idx, ext)
+        if found:
+            return [found[idx] for idx in sorted(found.keys())]
+
+    legacy = find_hero_media_path(row_id)
+    if legacy and legacy.is_file():
+        ext = legacy.suffix.lower().lstrip(".") or "jpg"
+        return [hero_image_api_path(row_id, ext)]
+    return []
+
+
+def enrich_install_case_out(out: dict) -> dict:
+    """DB heroImages가 짧아도 디스크에 파일이 더 있으면 디스크 기준으로 보강."""
+    row_id = str(out.get("id") or "")
+    db_images = sanitize_hero_images_value(out.get("heroImages"))
+    if not db_images:
+        single = sanitize_hero_image_value(out.get("heroImage"))
+        if single:
+            db_images = [single]
+    disk_images = list_gallery_media_urls(row_id) if row_id else []
+    if len(disk_images) > len(db_images):
+        images = disk_images
+    elif db_images:
+        images = db_images
+    else:
+        images = disk_images
+    fields = sync_hero_fields(images)
+    logger.info(
+        "install-case GET media id=%s db_count=%s disk_count=%s final_count=%s final=%s",
+        row_id,
+        len(db_images),
+        len(disk_images),
+        len(images),
+        images,
+    )
+    return {**out, **fields}
+
+
+def collect_multipart_media_uploads(form) -> list[UploadFile]:
+    """
+    multipart 에서 images 필드를 모두 수집한다.
+    파일명 중복으로 두 번째 장을 버리지 않는다.
+    images 가 없을 때만 레거시 image 단일 필드를 사용한다.
+    """
+    uploads: list[UploadFile] = []
+    for key, value in form.multi_items():
+        if key != "images":
+            continue
+        if isinstance(value, (UploadFile, StarletteUploadFile)) and getattr(value, "filename", None):
+            uploads.append(value)
+
+    if not uploads:
+        for key, value in form.multi_items():
+            if key != "image":
+                continue
+            if isinstance(value, (UploadFile, StarletteUploadFile)) and getattr(value, "filename", None):
+                uploads.append(value)
+                break
+
+    return uploads[:MAX_HERO_MEDIA_COUNT]
+
+
 async def read_upload_staged(upload: UploadFile) -> tuple[str, bytes]:
     if not upload.filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Media file is required")
@@ -413,7 +490,7 @@ def list_install_case_rows():
                 order by "createdAt" desc nulls last, id desc nulls last
                 """
             )
-            return [row_to_install_case(row) for row in cursor.fetchall()]
+            return [enrich_install_case_out(row_to_install_case(row)) for row in cursor.fetchall()]
 
 
 def get_install_case_row(row_id: str) -> dict | None:
@@ -575,18 +652,7 @@ async def api_create_install_case_with_image(request: Request):
         created = create_install_case_row(row)
         row_id = str(created["id"])
 
-        uploads: list[UploadFile] = []
-        seen_names: set[str] = set()
-        for key, value in form.multi_items():
-            if key not in {"images", "image"}:
-                continue
-            if isinstance(value, (UploadFile, StarletteUploadFile)) and getattr(value, "filename", None):
-                name = str(value.filename)
-                if name in seen_names:
-                    continue
-                seen_names.add(name)
-                uploads.append(value)
-        uploads = uploads[:MAX_HERO_MEDIA_COUNT]
+        uploads = collect_multipart_media_uploads(form)
 
         logger.info(
             "install-case create/form id=%s upload_count=%s filenames=%s",
@@ -600,7 +666,7 @@ async def api_create_install_case_with_image(request: Request):
                 detail="업로드된 미디어 파일이 없습니다. 사진을 다시 선택해 주세요.",
             )
         urls = await rebuild_hero_media(row_id, [], uploads)
-        return set_install_case_hero_media(row_id, urls)
+        return enrich_install_case_out(set_install_case_hero_media(row_id, urls))
     except HTTPException:
         raise
     except Exception as exc:
@@ -663,18 +729,7 @@ async def api_update_install_case_with_image(row_id: str, request: Request):
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Install case not found")
             updated = row_to_install_case(row)
 
-        uploads: list[UploadFile] = []
-        seen_names: set[str] = set()
-        for key, value in form.multi_items():
-            if key not in {"images", "image"}:
-                continue
-            if isinstance(value, (UploadFile, StarletteUploadFile)) and getattr(value, "filename", None):
-                name = str(value.filename)
-                if name in seen_names:
-                    continue
-                seen_names.add(name)
-                uploads.append(value)
-        uploads = uploads[:MAX_HERO_MEDIA_COUNT]
+        uploads = collect_multipart_media_uploads(form)
 
         logger.info(
             "install-case update/form id=%s keep=%s upload_count=%s clear=%s filenames=%s",
@@ -695,11 +750,11 @@ async def api_update_install_case_with_image(row_id: str, request: Request):
                     "install-case update/form skipped media wipe id=%s (empty keep+uploads)",
                     row_id,
                 )
-                return updated
+                return enrich_install_case_out(updated)
             else:
                 urls = await rebuild_hero_media(row_id, keep_images, uploads)
             updated = set_install_case_hero_media(row_id, urls)
-        return updated
+        return enrich_install_case_out(updated)
     except HTTPException:
         raise
     except Exception as exc:

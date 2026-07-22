@@ -30,16 +30,50 @@ function mockInstallCaseRow(payload, existingId = null) {
 
 export function normalizeHeroImagesList(heroImages, heroImage = '') {
   const items = []
-  if (Array.isArray(heroImages)) {
-    for (const item of heroImages) {
+  let raw = heroImages
+
+  // API/DB에서 JSON 문자열로 올 수 있음
+  if (typeof raw === 'string' && raw.trim()) {
+    const text = raw.trim()
+    if (text.startsWith('[')) {
+      try {
+        raw = JSON.parse(text)
+      } catch {
+        raw = [text]
+      }
+    } else {
+      raw = [text]
+    }
+  }
+
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
       const text = String(item || '').trim()
       if (text) items.push(text)
     }
   }
+
   if (!items.length) {
     const single = String(heroImage || '').trim()
-    if (single) items.push(single)
+    if (single) {
+      if (single.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(single)
+          if (Array.isArray(parsed)) {
+            for (const item of parsed) {
+              const text = String(item || '').trim()
+              if (text) items.push(text)
+            }
+          }
+        } catch {
+          items.push(single)
+        }
+      } else {
+        items.push(single)
+      }
+    }
   }
+
   const deduped = []
   const seen = new Set()
   for (const url of items) {
@@ -190,13 +224,12 @@ function buildMediaFormData(payload, imageFiles, { keepImages, clearMedia } = {}
   }
   form.append('payload', JSON.stringify(body))
   const files = Array.isArray(imageFiles) ? imageFiles.filter(Boolean) : []
-  for (const file of files) {
-    form.append('images', file, file.name || 'upload.jpg')
-  }
-  // 레거시 단일 필드 호환
-  if (files[0]) {
-    form.append('image', files[0], files[0].name || 'upload.jpg')
-  }
+  files.forEach((file, index) => {
+    const original = String(file.name || 'upload.jpg')
+    const safeName = original.replace(/[^\w.\-()+]/g, '_') || 'upload.jpg'
+    // 같은 원본명/압축명으로 두 번째 장이 덮이지 않도록 고유 파일명 사용
+    form.append('images', file, `media-${index}-${safeName}`)
+  })
   return form
 }
 
