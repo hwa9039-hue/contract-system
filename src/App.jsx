@@ -12501,9 +12501,9 @@ function App() {
       const isDiscoveryNoteEditor = scope === 'discovery' && column.key === 'note'
       const isExcludedLongTextEditor = isExcludedMultilineEditColumn(column, scope)
       return (
-        <textarea
+        <AutoGrowTextarea
           {...commonProps}
-          className={`${inlineEditorClass} resize-none${
+          className={`${inlineEditorClass} registry-cell-autogrow-textarea resize-none${
             isSalesDetailEditor ? ' sales-detail-inline-editor' : ''
           }${isDiscoveryNoteEditor ? ' discovery-note-inline-editor' : ''}${
             isExcludedLongTextEditor ? ' excluded-multiline-inline-editor' : ''
@@ -12515,6 +12515,9 @@ function App() {
                 ? 4
                 : 2
           }
+          onFocus={(e) => {
+            e.target.scrollTop = 0
+          }}
         />
       )
     }
@@ -12587,7 +12590,30 @@ function App() {
         </select>
       )
     }
-    return <input {...commonProps} type="text" />
+    if (column.type === 'amount') {
+      return (
+        <input
+          {...commonProps}
+          type="text"
+          inputMode="numeric"
+          className={`${inlineEditorClass} registry-amount-inline-input`}
+          style={{
+            ...inlineEditorStyle,
+            textAlign: 'right',
+          }}
+        />
+      )
+    }
+    return (
+      <AutoGrowTextarea
+        {...commonProps}
+        className={`${inlineEditorClass} registry-cell-autogrow-textarea resize-none`}
+        rows={1}
+        onFocus={(e) => {
+          e.target.scrollTop = 0
+        }}
+      />
+    )
   }
 
   const handleRegistryEditorKeyDown = async (e, column, onSave, onCancel) => {
@@ -12629,13 +12655,16 @@ function App() {
     const inputClassName = `${TABLE_INLINE_INPUT_STANDARD_CLASS}${extraClassName ? ` ${extraClassName}` : ''}`.trim()
     if (column.type === 'textarea') {
       return (
-        <textarea
-          className={inputClassName}
+        <AutoGrowTextarea
+          className={`${inputClassName} registry-cell-autogrow-textarea resize-none`}
           style={{ ...(extraStyle || {}), textAlign: column.align || 'left' }}
           rows={1}
           value={row[column.key] ?? ''}
           autoFocus={autoFocus}
           onChange={(e) => onChange(row.id, column.key, e.target.value)}
+          onFocus={(e) => {
+            e.target.scrollTop = 0
+          }}
           onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
         />
       )
@@ -12688,15 +12717,33 @@ function App() {
       )
     }
 
+    if (column.type === 'amount') {
+      return (
+        <input
+          className={`${inputClassName} registry-amount-inline-input`}
+          style={{ ...(extraStyle || {}), textAlign: 'right' }}
+          type="text"
+          inputMode="numeric"
+          value={row[column.key] ?? ''}
+          autoFocus={autoFocus}
+          onChange={(e) => onChange(row.id, column.key, normalizeAmountValue(e.target.value))}
+          onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
+        />
+      )
+    }
+
     return (
-      <input
-        className={inputClassName}
+      <AutoGrowTextarea
+        className={`${inputClassName} registry-cell-autogrow-textarea resize-none`}
         style={{ ...(extraStyle || {}), textAlign: column.align || 'left' }}
-        type="text"
+        rows={1}
         value={row[column.key] ?? ''}
         autoFocus={autoFocus}
         onChange={(e) => onChange(row.id, column.key, e.target.value)}
-        onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
+        onFocus={(e) => {
+          e.target.scrollTop = 0
+        }}
+        onKeyDown={(e) => handleRegistryEditorKeyDown(e, { ...column, type: 'textarea' }, onSave, onCancel)}
       />
     )
   }

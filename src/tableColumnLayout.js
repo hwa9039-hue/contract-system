@@ -59,14 +59,15 @@ export function getTableAlignClass(align, column) {
   return 'th-align-center'
 }
 
-/** 본문 셀 정렬 — 고정 포맷은 가운데, 긴 텍스트는 좌측 */
+/** 본문 셀 정렬 — 금액은 우측, 긴 텍스트는 좌측, 그 외 가운데 */
 export function getTableBodyAlignClass(column) {
   if (!column) return 'td-align-center'
+  if (column.type === 'amount' || column.align === 'right') return 'td-align-right'
   if (isLongTextTableColumn(column)) {
-    if (column.align === 'right') return 'td-align-right'
     if (column.align === 'center') return 'td-align-center'
     return 'td-align-left'
   }
+  if (column.align === 'left') return 'td-align-left'
   return 'td-align-center'
 }
 

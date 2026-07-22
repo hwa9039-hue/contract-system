@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AutoGrowTextarea } from './AutoGrowTextarea.jsx'
 import { TABLE_INLINE_INPUT_STANDARD_CLASS } from './tableInlineInputClass.js'
 import {
   TABLE_CELL_EMPTY_LABEL,
@@ -104,19 +105,51 @@ export function EditableTextCell({
   }
 
   if (isEditing) {
+    // 금액은 한 줄 숫자 입력 유지. 일반 텍스트는 textarea로 줄바꿈·전체 표시.
+    if (formatMode === 'amount') {
+      return (
+        <input
+          type="text"
+          inputMode="numeric"
+          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS}${inputClassName ? ` ${inputClassName}` : ''}`.trim()}
+          style={{ ...(inputStyle || {}), textAlign: align || 'right' }}
+          value={draft}
+          autoFocus
+          onChange={handleChange}
+          onBlur={handleCommit}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              handleCommit()
+              return
+            }
+            if (e.key === 'Escape') {
+              e.preventDefault()
+              handleCancel()
+            }
+          }}
+        />
+      )
+    }
+
     return (
-      <input
-        type="text"
-        inputMode={formatMode === 'amount' ? 'numeric' : undefined}
-        className={`${TABLE_INLINE_INPUT_STANDARD_CLASS}${inputClassName ? ` ${inputClassName}` : ''}`.trim()}
+      <AutoGrowTextarea
+        className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} registry-cell-autogrow-textarea${
+          inputClassName ? ` ${inputClassName}` : ''
+        }`.trim()}
         style={{ ...(inputStyle || {}), textAlign: align }}
         value={draft}
+        rows={1}
         autoFocus
         onChange={handleChange}
         onBlur={handleCommit}
         onClick={(e) => e.stopPropagation()}
+        onFocus={(e) => {
+          e.target.scrollTop = 0
+        }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') {
+          if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
             handleCommit()
             return
