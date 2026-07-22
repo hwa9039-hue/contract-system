@@ -1873,7 +1873,6 @@ const INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS = [
   { value: '미디어 폴', label: '미디어 폴' },
   { value: '재난·재해·환경안내', label: '재난·재해·환경안내' },
   { value: '전자게시대', label: '전자게시대' },
-  { value: '응용디스플레이', label: '응용디스플레이' },
   { value: '교통정보전광판', label: '교통정보전광판' },
   { value: '해외비즈니스', label: '해외비즈니스' },
 ]
