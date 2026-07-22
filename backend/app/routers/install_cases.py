@@ -7,9 +7,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
+from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from app.database import get_connection
 from app.schemas import (
@@ -214,28 +215,6 @@ def resolve_existing_media_path(row_id: str, url: str) -> Path | None:
     return None
 
 
-def collect_upload_files(
-    images: list[UploadFile] | UploadFile | None,
-    image: UploadFile | None = None,
-) -> list[UploadFile]:
-    """FastAPI는 파일 1개일 때 list 대신 단일 UploadFile을 줄 수 있어 정규화한다."""
-    uploads: list[UploadFile] = []
-
-    if images is not None:
-        if isinstance(images, list):
-            for item in images:
-                if item and getattr(item, "filename", None):
-                    uploads.append(item)
-        elif getattr(images, "filename", None):
-            uploads.append(images)
-
-    if image and getattr(image, "filename", None):
-        if not any(u is image for u in uploads):
-            uploads.append(image)
-
-    return uploads[:MAX_HERO_MEDIA_COUNT]
-
-
 async def read_upload_staged(upload: UploadFile) -> tuple[str, bytes]:
     if not upload.filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Media file is required")
@@ -291,16 +270,40 @@ async def rebuild_hero_media(
         )
 
     staged: list[tuple[str, bytes]] = []
+    missing_keep: list[str] = []
     for url in keep:
         path = resolve_existing_media_path(row_id, url)
         if path and path.is_file():
             ext = path.suffix.lower().lstrip(".") or "jpg"
             staged.append((ext, path.read_bytes()))
         else:
+            missing_keep.append(url)
             logger.warning("install-case keep url missing on disk id=%s url=%s", row_id, url)
+
+    if missing_keep and not uploads:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "기존 미디어 파일을 서버에서 찾지 못했습니다. "
+                "uploads 볼륨/경로를 확인하거나 사진을 다시 첨부해 주세요."
+            ),
+        )
+    if missing_keep and uploads:
+        # 신규 파일이 있으면 keep 누락분은 버리고 신규만으로 재구성
+        logger.warning(
+            "install-case keep missing but new uploads present id=%s missing=%s",
+            row_id,
+            missing_keep,
+        )
 
     for upload in uploads:
         staged.append(await read_upload_staged(upload))
+
+    if keep and not staged and not uploads:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="유지할 미디어가 없어 저장을 중단했습니다.",
+        )
 
     ensure_install_case_upload_dirs()
     # 기존 파일 교체: 스테이징 후 갤러리 재작성
@@ -560,24 +563,42 @@ def api_create_install_case(row: InstallCaseCreate):
 
 
 @router.post("/form", response_model=InstallCaseOut, status_code=status.HTTP_201_CREATED)
-async def api_create_install_case_with_image(
-    payload: str = Form(...),
-    images: list[UploadFile] | UploadFile | None = File(None),
-    image: UploadFile | None = File(None),
-):
+async def api_create_install_case_with_image(request: Request):
     row_id = None
     try:
-        row = parse_install_case_payload(payload, InstallCaseCreate)
+        form = await request.form()
+        raw_payload = form.get("payload")
+        if raw_payload is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="payload is required")
+        row = parse_install_case_payload(str(raw_payload), InstallCaseCreate)
         row = row.model_copy(update={"heroImage": "", "heroImages": []})
         created = create_install_case_row(row)
         row_id = str(created["id"])
-        uploads = collect_upload_files(images, image)
+
+        uploads: list[UploadFile] = []
+        seen_names: set[str] = set()
+        for key, value in form.multi_items():
+            if key not in {"images", "image"}:
+                continue
+            if isinstance(value, (UploadFile, StarletteUploadFile)) and getattr(value, "filename", None):
+                name = str(value.filename)
+                if name in seen_names:
+                    continue
+                seen_names.add(name)
+                uploads.append(value)
+        uploads = uploads[:MAX_HERO_MEDIA_COUNT]
+
         logger.info(
             "install-case create/form id=%s upload_count=%s filenames=%s",
             row_id,
             len(uploads),
             [getattr(u, "filename", None) for u in uploads],
         )
+        if not uploads:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="업로드된 미디어 파일이 없습니다. 사진을 다시 선택해 주세요.",
+            )
         urls = await rebuild_hero_media(row_id, [], uploads)
         return set_install_case_hero_media(row_id, urls)
     except HTTPException:
@@ -610,29 +631,30 @@ def api_update_install_case(row_id: str, patch: InstallCasePatch):
 
 
 @router.patch("/{row_id}/form", response_model=InstallCaseOut)
-async def api_update_install_case_with_image(
-    row_id: str,
-    payload: str = Form(...),
-    images: list[UploadFile] | UploadFile | None = File(None),
-    image: UploadFile | None = File(None),
-):
+async def api_update_install_case_with_image(row_id: str, request: Request):
     try:
-        raw = json.loads(payload or "{}")
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payload JSON") from exc
+        form = await request.form()
+        raw_payload = form.get("payload")
+        if raw_payload is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="payload is required")
+        try:
+            raw = json.loads(str(raw_payload) or "{}")
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payload JSON") from exc
 
-    keep_images = []
-    if isinstance(raw.get("keepImages"), list):
-        keep_images = [str(x).strip() for x in raw["keepImages"] if str(x).strip()]
+        keep_images = []
+        if isinstance(raw.get("keepImages"), list):
+            keep_images = [str(x).strip() for x in raw["keepImages"] if str(x).strip()]
+        clear_media = bool(raw.get("clearMedia"))
 
-    try:
-        patch = InstallCasePatch.model_validate({k: v for k, v in raw.items() if k != "keepImages"})
+        patch = InstallCasePatch.model_validate({k: v for k, v in raw.items() if k not in {"keepImages", "clearMedia"}})
         # 미디어는 파일/ keepImages 로만 갱신
         patch = patch.model_copy(update={"heroImage": None, "heroImages": None})
         data = patch.model_dump(exclude_unset=True)
         data.pop("heroImage", None)
         data.pop("heroImages", None)
         data.pop("keepImages", None)
+        data.pop("clearMedia", None)
         if data:
             updated = update_install_case_row(row_id, InstallCasePatch.model_validate(data))
         else:
@@ -641,19 +663,39 @@ async def api_update_install_case_with_image(
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Install case not found")
             updated = row_to_install_case(row)
 
-        uploads = collect_upload_files(images, image)
+        uploads: list[UploadFile] = []
+        seen_names: set[str] = set()
+        for key, value in form.multi_items():
+            if key not in {"images", "image"}:
+                continue
+            if isinstance(value, (UploadFile, StarletteUploadFile)) and getattr(value, "filename", None):
+                name = str(value.filename)
+                if name in seen_names:
+                    continue
+                seen_names.add(name)
+                uploads.append(value)
+        uploads = uploads[:MAX_HERO_MEDIA_COUNT]
+
         logger.info(
-            "install-case update/form id=%s keep=%s upload_count=%s filenames=%s",
+            "install-case update/form id=%s keep=%s upload_count=%s clear=%s filenames=%s",
             row_id,
             len(keep_images),
             len(uploads),
+            clear_media,
             [getattr(u, "filename", None) for u in uploads],
         )
-        # keep/upload 중 하나라도 있으면 갤러리 재구성 (전부 삭제 포함: keep=[], uploads=[])
-        if "keepImages" in raw or uploads:
-            if not keep_images and not uploads:
-                # 명시적 전체 삭제
+
+        should_rebuild = clear_media or bool(keep_images) or bool(uploads) or ("keepImages" in raw)
+        if should_rebuild:
+            if clear_media and not keep_images and not uploads:
                 urls = await rebuild_hero_media(row_id, [], [])
+            elif not keep_images and not uploads:
+                # keepImages=[] 인데 파일도 없으면 실수로 비우지 않고 기존 유지
+                logger.warning(
+                    "install-case update/form skipped media wipe id=%s (empty keep+uploads)",
+                    row_id,
+                )
+                return updated
             else:
                 urls = await rebuild_hero_media(row_id, keep_images, uploads)
             updated = set_install_case_hero_media(row_id, urls)

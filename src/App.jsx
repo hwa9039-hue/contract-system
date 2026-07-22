@@ -116,7 +116,7 @@ import {
   TABLE_INLINE_INPUT_STANDARD_CLASS,
   EXCLUDED_INLINE_EDITOR_CLASS,
 } from './tableInlineInputClass.js'
-import { installCasesApi, resolveInstallCaseHeroImage, resolveInstallCaseHeroImages } from './installCasesApi'
+import { installCasesApi, normalizeHeroImagesList, resolveInstallCaseHeroImage } from './installCasesApi'
 import {
   formatInstallCaseMediaMaxSize,
   isInstallCaseVideo,
@@ -2014,7 +2014,22 @@ function isInstallCaseDummyHeroUrl(url) {
 function normalizeInstallCaseRow(row) {
   const specs = row?.specs && typeof row.specs === 'object' ? row.specs : {}
   const id = safeString(row?.id).trim() || `local-${Date.now()}`
-  const heroImages = resolveInstallCaseHeroImages(row).filter((url) => !isInstallCaseDummyHeroUrl(url))
+  // API 상대경로 유지 (표시 시에만 resolve). 절대 URL이면 /api/... 로 정규화
+  const rawImages = normalizeHeroImagesList(row?.heroImages, row?.heroImage).filter(
+    (url) => !isInstallCaseDummyHeroUrl(url)
+  )
+  const heroImages = rawImages.map((url) => {
+    const text = safeString(url).trim()
+    try {
+      if (text.startsWith('http://') || text.startsWith('https://')) {
+        const parsed = new URL(text)
+        if (parsed.pathname.startsWith('/api/')) return parsed.pathname
+      }
+    } catch {
+      /* ignore */
+    }
+    return text
+  })
   const heroImage = heroImages[0] || ''
   return {
     id,
@@ -2317,7 +2332,9 @@ function InstallCaseHeroMedia({
   loading,
   variant = 'card',
 }) {
-  const mediaSrc = isInstallCaseDummyHeroUrl(src) ? '' : safeString(src).trim()
+  const mediaSrc = isInstallCaseDummyHeroUrl(src)
+    ? ''
+    : resolveInstallCaseHeroImage(safeString(src).trim())
   const isVideo = mediaSrc ? isInstallCaseVideo(mediaSrc) : false
 
   if (variant === 'card') {
@@ -6779,6 +6796,7 @@ function App() {
 
     const keepImages = getInstallCaseMediaKeepUrls(icMediaItems)
     const newFiles = getInstallCaseMediaNewFiles(icMediaItems)
+    const clearMedia = keepImages.length === 0 && newFiles.length === 0
     const heroImages = keepImages.length ? keepImages : []
     const heroImage = heroImages[0] || ''
 
@@ -6810,9 +6828,11 @@ function App() {
     setInstallCaseSubmitting(true)
     try {
       if (isEdit) {
-        const updated = await installCasesApi.update(editingId, rowPayload, newFiles, keepImages)
-        const savedCount = Array.isArray(updated?.heroImages) ? updated.heroImages.length : 0
-        if ((newFiles.length || keepImages.length) && savedCount === 0) {
+        const updated = await installCasesApi.update(editingId, rowPayload, newFiles, keepImages, {
+          clearMedia,
+        })
+        const savedCount = normalizeHeroImagesList(updated?.heroImages, updated?.heroImage).length
+        if ((newFiles.length > 0 || keepImages.length > 0) && savedCount === 0) {
           showAppAlert(
             '메타데이터는 저장됐지만 미디어 URL이 비어 있습니다. 백엔드 업로드/heroImages 저장을 확인해 주세요.',
             '알림'
@@ -6826,10 +6846,10 @@ function App() {
         setToastMessage('저장되었습니다.')
       } else {
         const created = await installCasesApi.create(rowPayload, newFiles)
-        const savedCount = Array.isArray(created?.heroImages) ? created.heroImages.length : 0
+        const savedCount = normalizeHeroImagesList(created?.heroImages, created?.heroImage).length
         if (newFiles.length && savedCount === 0) {
           showAppAlert(
-            '등록은 됐지만 사진이 서버에 저장되지 않았습니다. 로컬 백엔드(localhost:8000)가 최신인지 확인해 주세요.',
+            '등록은 됐지만 사진이 서버에 저장되지 않았습니다. 백엔드가 최신인지 확인해 주세요.',
             '알림'
           )
         }

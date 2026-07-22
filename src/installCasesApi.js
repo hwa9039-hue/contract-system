@@ -162,16 +162,40 @@ async function prepareInstallCaseMediaFiles(files) {
   return prepared
 }
 
-function buildMediaFormData(payload, imageFiles, { keepImages } = {}) {
+function toKeepMediaUrl(url) {
+  const text = String(url || '').trim()
+  if (!text) return ''
+  if (/picsum\.photos/i.test(text) || /seed\/newinstallh/i.test(text)) return ''
+  // 절대 URL이면 /api/... 상대 경로로 되돌려 keep/DB 안정화
+  try {
+    if (text.startsWith('http://') || text.startsWith('https://')) {
+      const parsed = new URL(text)
+      if (parsed.pathname.startsWith('/api/')) return parsed.pathname
+    }
+  } catch {
+    /* ignore */
+  }
+  return text
+}
+
+function buildMediaFormData(payload, imageFiles, { keepImages, clearMedia } = {}) {
   const form = new FormData()
-  const { heroImage: _h, heroImages: _hs, keepImages: _k, ...rest } = payload || {}
+  const { heroImage: _h, heroImages: _hs, keepImages: _k, clearMedia: _c, ...rest } = payload || {}
   const body = { ...rest }
   if (Array.isArray(keepImages)) {
-    body.keepImages = keepImages
+    body.keepImages = keepImages.map(toKeepMediaUrl).filter(Boolean)
+  }
+  if (clearMedia) {
+    body.clearMedia = true
   }
   form.append('payload', JSON.stringify(body))
-  for (const file of imageFiles) {
-    form.append('images', file, file.name)
+  const files = Array.isArray(imageFiles) ? imageFiles.filter(Boolean) : []
+  for (const file of files) {
+    form.append('images', file, file.name || 'upload.jpg')
+  }
+  // 레거시 단일 필드 호환
+  if (files[0]) {
+    form.append('image', files[0], files[0].name || 'upload.jpg')
   }
   return form
 }
@@ -220,7 +244,7 @@ export const installCasesApi = {
     })
   },
 
-  async update(id, patch, imageFiles = null, keepImages = null) {
+  async update(id, patch, imageFiles = null, keepImages = null, options = {}) {
     if (INSTALL_CASES_USE_MOCK) {
       await mockDelay()
       return mockInstallCaseRow({ ...patch, id }, id)
@@ -231,13 +255,17 @@ export const installCasesApi = {
       : imageFiles
         ? [imageFiles]
         : []
-    const hasKeep = Array.isArray(keepImages)
-    const shouldUseForm = files.length > 0 || hasKeep
+    const keep = Array.isArray(keepImages)
+      ? keepImages.map(toKeepMediaUrl).filter(Boolean)
+      : null
+    const clearMedia = Boolean(options?.clearMedia)
+    const shouldUseForm = files.length > 0 || (keep && keep.length > 0) || clearMedia
 
     if (shouldUseForm) {
       const prepared = files.length ? await prepareInstallCaseMediaFiles(files) : []
       const form = buildMediaFormData(patch, prepared, {
-        keepImages: hasKeep ? keepImages : undefined,
+        keepImages: keep || [],
+        clearMedia,
       })
       return requestForm(`${INSTALL_CASES_API_PATH}/${encodeURIComponent(id)}/form`, {
         method: 'PATCH',
@@ -245,9 +273,16 @@ export const installCasesApi = {
       })
     }
 
+    // 메타데이터만 수정 — heroImage/heroImages 는 건드리지 않음
+    const {
+      heroImage: _heroImage,
+      heroImages: _heroImages,
+      keepImages: _keepImages,
+      ...metaPatch
+    } = patch || {}
     return requestJson(`${INSTALL_CASES_API_PATH}/${encodeURIComponent(id)}`, {
       method: 'PATCH',
-      body: JSON.stringify(stripOversizedDataUrl(patch)),
+      body: JSON.stringify(stripOversizedDataUrl(metaPatch)),
     })
   },
 
