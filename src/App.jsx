@@ -17219,14 +17219,10 @@ function App() {
               <div className="install-case-detail-hero-zone">
                 <div className="install-case-detail-hero">
                   <InstallCaseMediaCarousel
-                    sources={
-                      Array.isArray(installCaseDetailModal.heroImages) &&
-                      installCaseDetailModal.heroImages.length
-                        ? installCaseDetailModal.heroImages
-                        : installCaseDetailModal.heroImage
-                          ? [installCaseDetailModal.heroImage]
-                          : []
-                    }
+                    sources={normalizeHeroImagesList(
+                      installCaseDetailModal.heroImages,
+                      installCaseDetailModal.heroImage
+                    )}
                   />
                 </div>
               </div>

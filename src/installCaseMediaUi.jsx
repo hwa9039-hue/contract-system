@@ -230,41 +230,60 @@ export function InstallCaseMultiMediaField({
   )
 }
 
-/** 상세 모달: 커스텀 캐러셀 (라이브러리 없음) — 실제 URL만 표시, 더미/폴백 없음 */
+/** 상세 모달: 다중 미디어 캐러셀 (currentIndex로 슬라이드) */
 export function InstallCaseMediaCarousel({ sources }) {
   const urls = useMemo(() => {
-    return (Array.isArray(sources) ? sources : [])
-      .map((src) => resolveInstallCaseHeroImage(src))
-      .map((src) => String(src || '').trim())
-      .filter((src) => src && !/picsum\.photos/i.test(src) && !/seed\/newinstallh/i.test(src))
+    const list = Array.isArray(sources) ? sources : []
+    const out = []
+    const seen = new Set()
+    for (const src of list) {
+      const resolved = String(resolveInstallCaseHeroImage(src) || '').trim()
+      if (!resolved) continue
+      if (/picsum\.photos/i.test(resolved) || /seed\/newinstallh/i.test(resolved)) continue
+      if (seen.has(resolved)) continue
+      seen.add(resolved)
+      out.push(resolved)
+    }
+    return out
   }, [sources])
 
-  const [index, setIndex] = useState(0)
+  const [currentIndex, setCurrentIndex] = useState(0)
   const total = urls.length
-  const safeIndex = total ? ((index % total) + total) % total : 0
-  const current = urls[safeIndex] || ''
+  const safeIndex = total > 0 ? ((currentIndex % total) + total) % total : 0
+  const currentSrc = total > 0 ? urls[safeIndex] : ''
   const showNav = total > 1
 
   useEffect(() => {
-    setIndex(0)
+    setCurrentIndex(0)
   }, [urls.join('|')])
+
+  const goPrev = () => {
+    if (total <= 1) return
+    setCurrentIndex((prev) => (prev - 1 + total) % total)
+  }
+
+  const goNext = () => {
+    if (total <= 1) return
+    setCurrentIndex((prev) => (prev + 1) % total)
+  }
 
   useEffect(() => {
     if (!showNav) return undefined
     const onKey = (e) => {
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
-        setIndex((prev) => (prev - 1 + total) % total)
+        goPrev()
       } else if (e.key === 'ArrowRight') {
         e.preventDefault()
-        setIndex((prev) => (prev + 1) % total)
+        goNext()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- total/showNav only
   }, [showNav, total])
 
-  if (!current) {
+  if (!currentSrc) {
     return (
       <div className="install-case-carousel install-case-carousel--empty">
         <div className="install-case-carousel-empty">미디어 없음</div>
@@ -272,22 +291,31 @@ export function InstallCaseMediaCarousel({ sources }) {
     )
   }
 
-  const isVideo = isInstallCaseVideo(current)
+  const isVideo = isInstallCaseVideo(currentSrc)
 
   return (
-    <div className="install-case-carousel" aria-roledescription="carousel">
+    <div
+      className="install-case-carousel"
+      aria-roledescription="carousel"
+      aria-label={`설치사례 미디어 ${safeIndex + 1} / ${total}`}
+    >
       <div className="install-case-carousel-stage">
         {isVideo ? (
           <video
-            key={current}
+            key={currentSrc}
             className="install-case-carousel-media"
-            src={current}
+            src={currentSrc}
             controls
             playsInline
             preload="metadata"
           />
         ) : (
-          <img key={current} className="install-case-carousel-media" src={current} alt="" />
+          <img
+            key={currentSrc}
+            className="install-case-carousel-media"
+            src={currentSrc}
+            alt={`설치사례 사진 ${safeIndex + 1}`}
+          />
         )}
 
         {showNav ? (
@@ -295,16 +323,24 @@ export function InstallCaseMediaCarousel({ sources }) {
             <button
               type="button"
               className="install-case-carousel-nav install-case-carousel-nav--prev"
-              onClick={() => setIndex((prev) => (prev - 1 + total) % total)}
-              aria-label="이전 미디어"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                goPrev()
+              }}
+              aria-label="이전 사진"
             >
               ‹
             </button>
             <button
               type="button"
               className="install-case-carousel-nav install-case-carousel-nav--next"
-              onClick={() => setIndex((prev) => (prev + 1) % total)}
-              aria-label="다음 미디어"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                goNext()
+              }}
+              aria-label="다음 사진"
             >
               ›
             </button>
@@ -314,7 +350,7 @@ export function InstallCaseMediaCarousel({ sources }) {
 
       {showNav ? (
         <div className="install-case-carousel-footer">
-          <div className="install-case-carousel-dots" role="tablist" aria-label="미디어 인디케이터">
+          <div className="install-case-carousel-dots" role="tablist" aria-label="사진 인디케이터">
             {urls.map((_, i) => (
               <button
                 key={`dot-${i}`}
@@ -322,12 +358,16 @@ export function InstallCaseMediaCarousel({ sources }) {
                 role="tab"
                 aria-selected={i === safeIndex}
                 className={`install-case-carousel-dot${i === safeIndex ? ' is-active' : ''}`}
-                onClick={() => setIndex(i)}
-                aria-label={`${i + 1}번째 미디어`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setCurrentIndex(i)
+                }}
+                aria-label={`${i + 1}번째 사진`}
               />
             ))}
           </div>
-          <div className="install-case-carousel-count">
+          <div className="install-case-carousel-count" aria-live="polite">
             {safeIndex + 1} / {total}
           </div>
         </div>
