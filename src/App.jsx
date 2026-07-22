@@ -3427,131 +3427,6 @@ function collectDashboardWeekDueRows(calendarItems, weekAnchorDate = new Date())
     .map(mapDashboardWeekDueRow)
 }
 
-function getDashboardWeekWorkSectionLabel(section) {
-  const sectionNorm = safeString(section).trim()
-  if (sectionNorm === WORK_REPORT_SECTION_KEYS.di) return 'DI사업'
-  if (sectionNorm === WORK_REPORT_SECTION_KEYS.road) return '도로사업'
-  if (
-    sectionNorm === WORK_REPORT_SECTION_KEYS.supportProgress ||
-    sectionNorm === WORK_REPORT_SECTION_KEYS.supportDone
-  ) {
-    return '영업지원'
-  }
-  return ''
-}
-
-const DASHBOARD_WEEK_WORK_ASSIGNEE_ORDER = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범']
-
-/** 대시보드 금주 업무 말머리: [카테고리 - 담당자] (담당자 미입력 시 미지정, 영업지원은 카테고리만) */
-function formatDashboardWeekWorkPrefixLabel(sectionLabel, assigneeRaw) {
-  const category = safeString(sectionLabel).trim()
-  if (!category) return ''
-  if (category === '영업지원') return '[영업지원]'
-  const assignee = safeString(assigneeRaw).trim()
-  if (assignee) return `[${category} - ${assignee}]`
-  return `[${category} - 미지정]`
-}
-
-function getDashboardWeekWorkAssigneeSortRank(assigneeRaw) {
-  const assignee = safeString(assigneeRaw).trim()
-  const index = DASHBOARD_WEEK_WORK_ASSIGNEE_ORDER.indexOf(assignee)
-  return index === -1 ? DASHBOARD_WEEK_WORK_ASSIGNEE_ORDER.length : index
-}
-
-function sortDashboardWeekWorkRowsByAssignee(rows) {
-  return [...rows].sort(
-    (a, b) => getDashboardWeekWorkAssigneeSortRank(a.assignee) - getDashboardWeekWorkAssigneeSortRank(b.assignee)
-  )
-}
-
-function formatDashboardBriefDeadlineLabel(deadlineYmd) {
-  const normalized = safeString(deadlineYmd).trim().slice(0, 10)
-  if (normalized.length < 10) return ''
-  return normalized.slice(5, 10)
-}
-
-/** 대시보드 브리핑: 금주(월~일) 기한 — 주간업무보고서 DI/도로/영업지원 */
-function collectDashboardWeekWorkRows(workReportRows, workReportDrafts, weekAnchorDate = new Date()) {
-  const weekStart = getWeekStartMonday(weekAnchorDate)
-  const startYmd = formatDateInput(weekStart)
-  const endYmd = formatDateInput(addDays(weekStart, 6))
-  const cellMap = new Map()
-
-  for (const row of Array.isArray(workReportRows) ? workReportRows : []) {
-    if (!isWorkReportJournalSection(row?.section) || isWorkReportRowEmpty(row)) continue
-    const cellKey = `${normalizeWorkReportDateKey(row.date)}__${safeString(row.section).trim()}__${Number(row.orderIndex || 1)}`
-    const existing = cellMap.get(cellKey)
-    cellMap.set(cellKey, pickLatestWorkReportRow(existing ? [existing, row] : [row]))
-  }
-
-  for (const [cellKey, draftEntry] of Object.entries(workReportDrafts || {})) {
-    const parsed = parseWorkReportCellKey(cellKey)
-    if (!parsed || !isWorkReportJournalSection(parsed.section)) continue
-    const stored = cellMap.get(cellKey)
-    const merged = {
-      ...(stored || {}),
-      ...draftEntry,
-      date: parsed.date,
-      section: parsed.section,
-      orderIndex: parsed.orderIndex,
-    }
-    if (!isWorkReportRowEmpty(merged)) {
-      cellMap.set(cellKey, merged)
-    }
-  }
-
-  const pushWeekWorkRow = (bucket, cellKey, entry) => {
-    const sectionLabel = getDashboardWeekWorkSectionLabel(entry.section)
-    if (!sectionLabel) return
-
-    const content = safeString(entry.content).trim()
-    if (!content) return
-
-    const deadlineYmd = normalizeWorkReportDeadlineForDateInput(entry.deadline)
-    if (!deadlineYmd || deadlineYmd < startYmd || deadlineYmd > endYmd) return
-
-    const assignee = safeString(entry.user).trim()
-    bucket.push({
-      id: cellKey,
-      sectionLabel,
-      assignee,
-      prefixLabel: formatDashboardWeekWorkPrefixLabel(sectionLabel, assignee),
-      content,
-      deadlineYmd,
-      deadlineLabel: formatDashboardBriefDeadlineLabel(deadlineYmd),
-    })
-  }
-
-  const collectCategoryRows = (sectionKeys, rowCounts) => {
-    const bucket = []
-    const weekDays = getWorkReportWeekDays(startYmd)
-    for (const day of weekDays) {
-      sectionKeys.forEach((sectionKey, sectionIdx) => {
-        const rowCount = rowCounts[sectionIdx] ?? rowCounts[0]
-        for (let oi = 1; oi <= rowCount; oi += 1) {
-          const cellKey = `${normalizeWorkReportDateKey(day.date)}__${safeString(sectionKey).trim()}__${oi}`
-          const entry = cellMap.get(cellKey)
-          if (entry) pushWeekWorkRow(bucket, cellKey, entry)
-        }
-      })
-    }
-    return bucket
-  }
-
-  const diRows = collectCategoryRows([WORK_REPORT_SECTION_KEYS.di], [WORK_REPORT_DI_ROW_COUNT])
-  const roadRows = collectCategoryRows([WORK_REPORT_SECTION_KEYS.road], [WORK_REPORT_ROAD_ROW_COUNT])
-  const supportRows = collectCategoryRows(
-    [WORK_REPORT_SECTION_KEYS.supportProgress, WORK_REPORT_SECTION_KEYS.supportDone],
-    [WORK_REPORT_SUPPORT_ITEM_COUNT, WORK_REPORT_SUPPORT_ITEM_COUNT]
-  )
-
-  return [
-    ...sortDashboardWeekWorkRowsByAssignee(diRows),
-    ...sortDashboardWeekWorkRowsByAssignee(roadRows),
-    ...supportRows,
-  ]
-}
-
 /** 대시보드 브리핑: 주요 확인사항 텍스트 → 표시용 줄 목록 */
 function splitDashboardBriefingChecklistLines(text) {
   return safeString(text)
@@ -7871,11 +7746,6 @@ function App() {
   const dashboardWeekDueRows = useMemo(
     () => collectDashboardWeekDueRows(calendarItems, new Date()),
     [calendarItems]
-  )
-
-  const dashboardWeekWorkRows = useMemo(
-    () => collectDashboardWeekWorkRows(workReportRows, workReportDrafts, new Date()),
-    [workReportRows, workReportDrafts]
   )
 
   const monthDays = useMemo(() => {
@@ -15077,31 +14947,6 @@ function App() {
                           </ul>
                         ) : (
                           <p className="dashboard-briefing-box-empty">등록된 주요 확인사항이 없습니다.</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="dashboard-briefing-box">
-                      <h3 className="dashboard-briefing-box-title">금주 업무</h3>
-                      <div className="dashboard-briefing-box-body">
-                        {dashboardWeekWorkRows.length > 0 ? (
-                          <ul className="dashboard-briefing-due-list">
-                            {dashboardWeekWorkRows.map((item) => (
-                              <li key={item.id} className="dashboard-briefing-due-item dashboard-briefing-week-work-item">
-                                <div className="dashboard-briefing-week-work-main">
-                                  <span className="dashboard-briefing-week-work-label">
-                                    {item.prefixLabel}
-                                  </span>
-                                  <span className="dashboard-briefing-week-work-content">{item.content}</span>
-                                </div>
-                                <div className="dashboard-briefing-due-meta dashboard-briefing-week-work-meta">
-                                  <span>{item.deadlineLabel}</span>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="dashboard-briefing-box-empty">이번 주 기한인 업무가 없습니다.</p>
                         )}
                       </div>
                     </div>

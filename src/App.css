@@ -4257,7 +4257,7 @@ textarea:focus-visible {
 
 .dashboard-briefing-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   align-items: stretch;
 }
@@ -4359,43 +4359,6 @@ textarea:focus-visible {
 
 .dashboard-briefing-due-dday {
   color: #2e3440;
-}
-
-.dashboard-briefing-week-work-item {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.dashboard-briefing-week-work-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #1e293b;
-  line-height: 1.4;
-  word-break: break-word;
-}
-
-.dashboard-briefing-week-work-label {
-  flex-shrink: 0;
-  color: #475569;
-  font-weight: 800;
-}
-
-.dashboard-briefing-week-work-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.dashboard-briefing-week-work-meta {
-  margin-top: 0;
-  flex-shrink: 0;
-  white-space: nowrap;
 }
 
 .dashboard-briefing-checklist-item .dashboard-briefing-due-title {
