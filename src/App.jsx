@@ -5547,14 +5547,17 @@ function App() {
   const {
     onResizeStart: onSalesColResizeStart,
     getColStyle: getSalesColStyle,
+    tableStyle: salesTableStyle,
   } = useResizableTableColumns(SALES_TABLE_COL_WIDTH_DEFAULTS)
   const {
     onResizeStart: onDiscoveryColResizeStart,
     getColStyle: getDiscoveryColStyle,
+    tableStyle: discoveryTableStyle,
   } = useResizableTableColumns(DISCOVERY_TABLE_COL_WIDTH_DEFAULTS)
   const {
     onResizeStart: onExcludedColResizeStart,
     getColStyle: getExcludedColStyle,
+    tableStyle: excludedTableStyle,
   } = useResizableTableColumns(EXCLUDED_TABLE_COL_WIDTH_DEFAULTS)
   const [editingWorkCellKey, setEditingWorkCellKey] = useState('')
   const [editingWorkCellData, setEditingWorkCellData] = useState(null)
@@ -15781,8 +15784,11 @@ function App() {
 
             <div className="contract-table-panel">
               <ImportanceLegend />
-              <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table sales-registry-table ledger-table-ui table-w-full-min">
+              <div className="table-wrap contracts-only-scroll overflow-x-auto registry-resizable-table-wrap">
+                <table
+                  className="contract-table excel-table registry-table sales-registry-table ledger-table-ui registry-resizable-table"
+                  style={salesTableStyle}
+                >
                   <colgroup>
                     <col className="sales-registry-check-col" style={getSalesColStyle('__check')} />
                     <col className="sales-archive-col" style={getSalesColStyle('__archive')} />
@@ -16038,10 +16044,10 @@ function App() {
 
             <div className="contract-table-panel">
               <ImportanceLegend />
-              <div className="table-wrap contracts-only-scroll overflow-x-auto">
+              <div className="table-wrap contracts-only-scroll overflow-x-auto registry-resizable-table-wrap">
                 <table
-                  className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui table-w-full-min table-fixed"
-                  style={{ minWidth: '1500px' }}
+                  className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui registry-resizable-table"
+                  style={discoveryTableStyle}
                 >
                   <colgroup>
                     <col className="registry-check-col" style={getDiscoveryColStyle('__check')} />
@@ -16304,8 +16310,11 @@ function App() {
 
             <div className="contract-table-panel">
               <ImportanceLegend />
-              <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table excluded-registry-table ledger-table-ui table-w-full-min">
+              <div className="table-wrap contracts-only-scroll overflow-x-auto registry-resizable-table-wrap">
+                <table
+                  className="contract-table excel-table registry-table excluded-registry-table ledger-table-ui registry-resizable-table"
+                  style={excludedTableStyle}
+                >
                   <colgroup>
                     <col className="registry-check-col" style={getExcludedColStyle('__check')} />
                     <col
