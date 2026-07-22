@@ -5,8 +5,8 @@ export const INSTALL_CASE_MEDIA_ACCEPT = 'image/*,video/*'
 export const INSTALL_CASE_MAX_IMAGE_BYTES = 10 * 1024 * 1024
 export const INSTALL_CASE_MAX_VIDEO_BYTES = 100 * 1024 * 1024
 
-const VIDEO_EXT_RE = /\.(mp4|webm|ogg|mov)(\?|#|$)/i
-const VIDEO_HERO_RE = /\/hero\.(mp4|webm|ogg)(\?|#|$)/i
+const VIDEO_EXT_RE = /\.(mp4|webm|ogg|mov|avi)(\?|#|$)/i
+const VIDEO_HERO_RE = /\/(hero|media\/\d+)\.(mp4|webm|ogg|mov|avi)(\?|#|$)/i
 
 export function isInstallCaseVideo(src) {
   const value = String(src || '').trim()

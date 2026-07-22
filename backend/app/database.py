@@ -964,6 +964,7 @@ def init_db():
                   id uuid primary key default gen_random_uuid(),
                   "projectName" text not null default '',
                   "heroImage" text not null default '',
+                  "heroImages" jsonb not null default '[]'::jsonb,
                   environment text not null default 'indoor',
                   "middleCategory" text not null default '',
                   audience text not null default 'public',
@@ -980,6 +981,24 @@ def init_db():
                 """
                 alter table install_cases_rows
                 add column if not exists "middleCategory" text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table install_cases_rows
+                add column if not exists "heroImages" jsonb not null default '[]'::jsonb
+                """
+            )
+            cursor.execute(
+                """
+                update install_cases_rows
+                set "heroImages" = jsonb_build_array("heroImage")
+                where coalesce(trim("heroImage"), '') <> ''
+                  and (
+                    "heroImages" is null
+                    or "heroImages" = '[]'::jsonb
+                    or "heroImages" = 'null'::jsonb
+                  )
                 """
             )
             cursor.execute(

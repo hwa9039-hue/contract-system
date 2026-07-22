@@ -703,6 +703,7 @@ class InstallCaseSpecs(BaseModel):
 class InstallCaseBase(BaseModel):
     projectName: Optional[Any] = ""
     heroImage: Optional[Any] = ""
+    heroImages: Optional[Any] = None
     environment: Optional[Any] = "indoor"
     middleCategory: Optional[Any] = ""
     audience: Optional[Any] = "public"
@@ -721,6 +722,8 @@ class InstallCaseCreate(InstallCaseBase):
 class InstallCasePatch(BaseModel):
     projectName: Optional[Any] = None
     heroImage: Optional[Any] = None
+    heroImages: Optional[Any] = None
+    keepImages: Optional[Any] = None  # 수정 시 유지할 기존 미디어 URL 목록
     environment: Optional[Any] = None
     middleCategory: Optional[Any] = None
     audience: Optional[Any] = None
@@ -1031,11 +1034,46 @@ def _normalize_install_case_specs(raw) -> dict:
     return {}
 
 
+def _normalize_install_case_hero_images(hero_images, hero_image) -> list[str]:
+    items: list[str] = []
+    raw = hero_images
+    if isinstance(raw, str) and raw.strip():
+        try:
+            import json
+
+            parsed = json.loads(raw)
+            raw = parsed
+        except Exception:
+            raw = [raw]
+    if isinstance(raw, list):
+        for item in raw:
+            text = to_response_value(item) or ""
+            text = str(text).strip()
+            if text:
+                items.append(text)
+    if not items:
+        single = to_response_value(hero_image) or ""
+        single = str(single).strip()
+        if single:
+            items.append(single)
+    # 중복 제거(순서 유지)
+    deduped: list[str] = []
+    seen = set()
+    for url in items:
+        if url in seen:
+            continue
+        seen.add(url)
+        deduped.append(url)
+    return deduped[:10]
+
+
 def row_to_install_case(row) -> dict:
+    hero_images = _normalize_install_case_hero_images(row.get("heroImages"), row.get("heroImage"))
     return {
         "id": to_response_value(row["id"]),
         "projectName": to_response_value(row["projectName"]),
-        "heroImage": to_response_value(row["heroImage"]),
+        "heroImage": hero_images[0] if hero_images else (to_response_value(row.get("heroImage")) or ""),
+        "heroImages": hero_images,
         "environment": to_response_value(row["environment"]),
         "middleCategory": to_response_value(row.get("middleCategory", "")),
         "audience": to_response_value(row["audience"]),
@@ -1276,6 +1314,7 @@ TABLE_COLUMN_MAPPINGS = {
     "install_cases_rows": {
         "projectName": "projectName",
         "heroImage": "heroImage",
+        "heroImages": "heroImages",
         "environment": "environment",
         "middleCategory": "middleCategory",
         "audience": "audience",

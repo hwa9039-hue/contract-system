@@ -116,15 +116,18 @@ import {
   TABLE_INLINE_INPUT_STANDARD_CLASS,
   EXCLUDED_INLINE_EDITOR_CLASS,
 } from './tableInlineInputClass.js'
-import { installCasesApi, resolveInstallCaseHeroImage } from './installCasesApi'
+import { installCasesApi, resolveInstallCaseHeroImage, resolveInstallCaseHeroImages } from './installCasesApi'
 import {
-  INSTALL_CASE_MEDIA_ACCEPT,
   formatInstallCaseMediaMaxSize,
-  getInstallCaseMediaMaxBytes,
-  isInstallCaseMediaFile,
   isInstallCaseVideo,
-  isInstallCaseVideoFile,
 } from './installCaseMedia'
+import {
+  InstallCaseMediaCarousel,
+  InstallCaseMultiMediaField,
+  buildInstallCaseMediaItemsFromRow,
+  getInstallCaseMediaKeepUrls,
+  getInstallCaseMediaNewFiles,
+} from './installCaseMediaUi'
 import { materialsBoardApi, downloadMaterialsBoardBlobUrl } from './materialsBoardApi'
 import {
   calendarEventsApi,
@@ -2006,10 +2009,13 @@ const INSTALL_CASE_FALLBACK_HERO = 'https://picsum.photos/seed/newinstallh/960/7
 function normalizeInstallCaseRow(row) {
   const specs = row?.specs && typeof row.specs === 'object' ? row.specs : {}
   const id = safeString(row?.id).trim() || `local-${Date.now()}`
+  const heroImages = resolveInstallCaseHeroImages(row)
+  const heroImage = heroImages[0] || INSTALL_CASE_FALLBACK_HERO
   return {
     id,
     projectName: safeString(row?.projectName).trim() || '-',
-    heroImage: resolveInstallCaseHeroImage(safeString(row?.heroImage).trim()) || INSTALL_CASE_FALLBACK_HERO,
+    heroImage,
+    heroImages: heroImages.length ? heroImages : [heroImage],
     environment: migrateInstallCaseMajorCategory(row?.environment),
     middleCategory: migrateInstallCaseMiddleCategory(row?.middleCategory, row?.environment),
     audience: migrateInstallCaseMinorCategory(row?.audience),
@@ -2365,124 +2371,6 @@ function InstallCaseHeroMedia({
   )
 }
 
-function InstallCaseImageDropzone({
-  inputId,
-  label,
-  previewUrl,
-  fileName,
-  previewIsVideo = false,
-  onFile,
-  onClear,
-  onInvalidFileType,
-  onFileTooLarge,
-}) {
-  const [dragOver, setDragOver] = useState(false)
-  const inputRef = useRef(null)
-
-  const assignFile = (fileList) => {
-    const file = fileList?.[0]
-    if (!file) return
-    if (!isInstallCaseMediaFile(file)) {
-      if (typeof onInvalidFileType === 'function') {
-        onInvalidFileType()
-      }
-      return
-    }
-    const maxBytes = getInstallCaseMediaMaxBytes(file)
-    if (file.size > maxBytes) {
-      if (typeof onFileTooLarge === 'function') {
-        onFileTooLarge(file, maxBytes)
-      }
-      return
-    }
-    onFile(file)
-  }
-
-  return (
-    <div className="install-case-dropzone-wrap">
-      <div className="install-case-dropzone-label">
-        {safeString(label).trim() || '이미지/동영상'}
-      </div>
-      <div
-        className={`install-case-dropzone${dragOver ? ' install-case-dropzone--active' : ''}`}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            inputRef.current?.click()
-          }
-        }}
-        onClick={() => inputRef.current?.click()}
-        onDragEnter={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          setDragOver(true)
-        }}
-        onDragOver={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          setDragOver(true)
-        }}
-        onDragLeave={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          setDragOver(false)
-        }}
-        onDrop={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          setDragOver(false)
-          assignFile(e.dataTransfer?.files)
-        }}
-      >
-        <input
-          ref={inputRef}
-          id={inputId}
-          type="file"
-          className="install-case-dropzone-input"
-          accept={INSTALL_CASE_MEDIA_ACCEPT}
-          aria-label={safeString(label).trim() || '이미지 또는 동영상 업로드'}
-          onChange={(e) => {
-            assignFile(e.target.files)
-            e.target.value = ''
-          }}
-        />
-        {previewUrl ? (
-          <div className="install-case-dropzone-preview">
-            {previewIsVideo ? (
-              <video src={previewUrl} controls muted preload="metadata" playsInline aria-label="미리보기" />
-            ) : (
-              <img src={previewUrl} alt="" />
-            )}
-            <button
-              type="button"
-              className="install-case-dropzone-clear"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                onClear()
-              }}
-            >
-              제거
-            </button>
-          </div>
-        ) : (
-          <div className="install-case-dropzone-placeholder">
-            <span className="install-case-dropzone-icon" aria-hidden>
-              ⬆
-            </span>
-            <span className="install-case-dropzone-hint">
-              클릭하거나 파일을 드래그하여 업로드하세요 (이미지·MP4/WebM/OGG, 최대 100MB)
-            </span>
-            {fileName ? <span className="install-case-dropzone-filename">{fileName}</span> : null}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 /** 설치사례 등록·수정 동일 2단 폼 (좌: 기본정보+이미지 / 우: 제품 규격·W·H 분리) */
 function InstallCaseFormSection({ title, ariaLabel, children }) {
   return (
@@ -2533,15 +2421,13 @@ function getInstallCaseSpecPreview(type, specs, pairId) {
 function InstallCaseFormTwoColumn({
   formDraft,
   setFormDraft,
-  icImageFile,
-  setIcImageFile,
-  icImagePreview,
-  icImagePreviewIsVideo = false,
-  onClearInstallCaseImage,
+  icMediaItems,
+  setIcMediaItems,
   pairDigitChange,
   onLedPitchChange,
   onInvalidImageFile,
   onFileTooLarge,
+  onMediaLimitExceeded,
 }) {
   const specs = formDraft.specs || {}
 
@@ -2668,16 +2554,12 @@ function InstallCaseFormTwoColumn({
           return null
         })}
         <div className="install-case-form-stack-field install-case-form-stack-field--dropzone">
-          <InstallCaseImageDropzone
-            inputId="install-case-image-file"
-            label="이미지/동영상"
-            previewUrl={icImagePreview}
-            previewIsVideo={icImagePreviewIsVideo}
-            fileName={icImageFile?.name}
-            onFile={setIcImageFile}
-            onClear={onClearInstallCaseImage}
+          <InstallCaseMultiMediaField
+            items={icMediaItems}
+            onChange={setIcMediaItems}
             onInvalidFileType={onInvalidImageFile}
             onFileTooLarge={onFileTooLarge}
+            onLimitExceeded={onMediaLimitExceeded}
           />
         </div>
       </InstallCaseFormSection>
@@ -2714,7 +2596,7 @@ function cloneInstallCaseFormDraft(form) {
   }
 }
 
-function hasMeaningfulInstallCaseFormContent(form, imagePreview = '') {
+function hasMeaningfulInstallCaseFormContent(form, mediaItems = []) {
   if (!form) return false
   if (safeString(form.projectName).trim()) return true
   if (safeString(form.purpose).trim()) return true
@@ -2723,8 +2605,7 @@ function hasMeaningfulInstallCaseFormContent(form, imagePreview = '') {
   for (const key of Object.keys(specs)) {
     if (safeString(specs[key]).trim()) return true
   }
-  const img = safeString(imagePreview).trim()
-  if (img && img !== INSTALL_CASE_FALLBACK_HERO && !img.startsWith('blob:')) return true
+  if (Array.isArray(mediaItems) && mediaItems.length > 0) return true
   return false
 }
 
@@ -5491,11 +5372,9 @@ function App() {
   const [installCaseFormDraft, setInstallCaseFormDraft] = useState(() => getDefaultInstallCaseForm())
   const [installCaseEditingId, setInstallCaseEditingId] = useState(null)
   const [installCaseSubmitting, setInstallCaseSubmitting] = useState(false)
-  const [icImageFile, setIcImageFile] = useState(null)
-  const [icImagePreview, setIcImagePreview] = useState('')
-  const icImageRestoreRef = useRef('')
+  const [icMediaItems, setIcMediaItems] = useState([])
+  const icMediaItemsRef = useRef(icMediaItems)
   const installCaseFormDraftRef = useRef(installCaseFormDraft)
-  const icImagePreviewRef = useRef(icImagePreview)
   const [materialsBoardPosts, setMaterialsBoardPosts] = useState([])
   const [materialsBoardRegisterOpen, setMaterialsBoardRegisterOpen] = useState(false)
   const [materialsBoardFormDraft, setMaterialsBoardFormDraft] = useState(() =>
@@ -5655,8 +5534,8 @@ function App() {
   }, [installCaseFormDraft])
 
   useEffect(() => {
-    icImagePreviewRef.current = icImagePreview
-  }, [icImagePreview])
+    icMediaItemsRef.current = icMediaItems
+  }, [icMediaItems])
 
   useEffect(() => {
     if (menu !== 'contactsManage') return
@@ -5700,27 +5579,34 @@ function App() {
     const editingId = snap.mode === 'edit' ? snap.editingId || null : null
     setInstallCaseEditingId(editingId)
     setInstallCaseFormDraft(cloneInstallCaseFormDraft(snap.form))
-    setIcImageFile(null)
-    const img = safeString(snap.imagePreview).trim()
-    if (editingId) {
-      icImageRestoreRef.current = img || INSTALL_CASE_FALLBACK_HERO
-    } else {
-      icImageRestoreRef.current = ''
-    }
-    setIcImagePreview(img)
+    const keepUrls = Array.isArray(snap.mediaKeepUrls)
+      ? snap.mediaKeepUrls
+      : safeString(snap.imagePreview).trim()
+        ? [safeString(snap.imagePreview).trim()]
+        : []
+    setIcMediaItems(
+      buildInstallCaseMediaItemsFromRow({
+        heroImages: keepUrls,
+        heroImage: keepUrls[0] || '',
+      })
+    )
   }, [])
 
   const flushInstallCaseFormDraftToStorage = useCallback(() => {
     const form = installCaseFormDraftRef.current
-    const imagePreview = icImagePreviewRef.current
-    if (!hasMeaningfulInstallCaseFormContent(form, imagePreview)) return
+    const mediaItems = icMediaItemsRef.current
+    if (!hasMeaningfulInstallCaseFormContent(form, mediaItems)) return
+    const keepUrls = getInstallCaseMediaKeepUrls(mediaItems)
+      .map((url) => pickInstallCaseDraftImageForStorage(url))
+      .filter(Boolean)
     persistInstallCaseFormDraftToStorage({
-      version: 1,
+      version: 2,
       savedAt: Date.now(),
       mode: installCaseEditingId ? 'edit' : 'create',
       editingId: installCaseEditingId || null,
       form: cloneInstallCaseFormDraft(form),
-      imagePreview: pickInstallCaseDraftImageForStorage(imagePreview),
+      mediaKeepUrls: keepUrls,
+      imagePreview: keepUrls[0] || '',
     })
   }, [installCaseEditingId])
 
@@ -5733,38 +5619,10 @@ function App() {
   }, [
     installCaseRegisterOpen,
     installCaseFormDraft,
-    icImagePreview,
+    icMediaItems,
     installCaseEditingId,
-    icImageFile,
     flushInstallCaseFormDraftToStorage,
   ])
-
-  useEffect(() => {
-    if (!installCaseRegisterOpen || !icImageFile) return undefined
-    if (isInstallCaseVideoFile(icImageFile)) return undefined
-    let cancelled = false
-    void (async () => {
-      try {
-        const dataUrl = await readImageFileAsDataUrl(icImageFile)
-        if (cancelled || !dataUrl || dataUrl.length > INSTALL_CASE_FORM_DRAFT_MAX_IMAGE_LEN) return
-        const form = installCaseFormDraftRef.current
-        if (!hasMeaningfulInstallCaseFormContent(form, dataUrl)) return
-        persistInstallCaseFormDraftToStorage({
-          version: 1,
-          savedAt: Date.now(),
-          mode: installCaseEditingId ? 'edit' : 'create',
-          editingId: installCaseEditingId || null,
-          form: cloneInstallCaseFormDraft(form),
-          imagePreview: dataUrl,
-        })
-      } catch {
-        /* ignore */
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [icImageFile, installCaseRegisterOpen, installCaseEditingId])
 
   const fetchContracts = async (preserveOnError = false, preserveDrafts = true) => {
     try {
@@ -6109,9 +5967,7 @@ function App() {
     setInstallCaseDetailModal(null)
     setInstallCaseRegisterOpen(false)
     setInstallCaseEditingId(null)
-    setIcImageFile(null)
-    setIcImagePreview('')
-    icImageRestoreRef.current = ''
+    setIcMediaItems([])
     setMaterialsBoardRegisterOpen(false)
     setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
@@ -6545,13 +6401,6 @@ function App() {
     })
   }, [installCaseAudienceFilter, installCaseEnvFilter, installCaseMiddleFilter, installCases])
 
-  useEffect(() => {
-    if (!icImageFile) return undefined
-    const u = URL.createObjectURL(icImageFile)
-    setIcImagePreview(u)
-    return () => URL.revokeObjectURL(u)
-  }, [icImageFile])
-
   const deleteInstallCaseById = useCallback((id) => {
     setContractConfirmDialog({
       title: '설치사례 삭제',
@@ -6573,9 +6422,7 @@ function App() {
 
   const openInstallCaseRegisterEmpty = useCallback(() => {
     setInstallCaseEditingId(null)
-    setIcImageFile(null)
-    setIcImagePreview('')
-    icImageRestoreRef.current = ''
+    setIcMediaItems([])
     setInstallCaseFormDraft(getDefaultInstallCaseForm())
     setInstallCaseRegisterOpen(true)
   }, [])
@@ -6584,7 +6431,14 @@ function App() {
     const stored = loadInstallCaseFormDraftFromStorage()
     if (
       stored?.mode === 'create' &&
-      hasMeaningfulInstallCaseFormContent(stored.form, stored.imagePreview)
+      hasMeaningfulInstallCaseFormContent(
+        stored.form,
+        Array.isArray(stored.mediaKeepUrls) && stored.mediaKeepUrls.length
+          ? stored.mediaKeepUrls.map((url) => ({ kind: 'existing', url }))
+          : stored.imagePreview
+            ? [{ kind: 'existing', url: stored.imagePreview }]
+            : []
+      )
     ) {
       setContractConfirmDialog({
         title: '임시 저장',
@@ -6628,11 +6482,7 @@ function App() {
           installType: safeString(row.specs?.installType).trim(),
         },
       })
-      icImageRestoreRef.current =
-        safeString(row.heroImage).trim() ||
-        INSTALL_CASE_FALLBACK_HERO
-      setIcImageFile(null)
-      setIcImagePreview(icImageRestoreRef.current)
+      setIcMediaItems(buildInstallCaseMediaItemsFromRow(row))
       setInstallCaseRegisterOpen(true)
     }
 
@@ -6640,7 +6490,14 @@ function App() {
     if (
       stored?.mode === 'edit' &&
       stored.editingId === row.id &&
-      hasMeaningfulInstallCaseFormContent(stored.form, stored.imagePreview)
+      hasMeaningfulInstallCaseFormContent(
+        stored.form,
+        Array.isArray(stored.mediaKeepUrls) && stored.mediaKeepUrls.length
+          ? stored.mediaKeepUrls.map((url) => ({ kind: 'existing', url }))
+          : stored.imagePreview
+            ? [{ kind: 'existing', url: stored.imagePreview }]
+            : []
+      )
     ) {
       setContractConfirmDialog({
         title: '임시 저장',
@@ -6666,24 +6523,13 @@ function App() {
       if (!discardDraft) {
         flushInstallCaseFormDraftToStorage()
       }
-      setIcImageFile(null)
-      setIcImagePreview('')
-      icImageRestoreRef.current = ''
+      setIcMediaItems([])
       setInstallCaseEditingId(null)
       setInstallCaseRegisterOpen(false)
       setInstallCaseFormDraft(getDefaultInstallCaseForm())
     },
     [flushInstallCaseFormDraftToStorage]
   )
-
-  const clearInstallCaseImage = useCallback(() => {
-    setIcImageFile(null)
-    if (installCaseEditingId && safeString(icImageRestoreRef.current).trim()) {
-      setIcImagePreview(icImageRestoreRef.current)
-    } else {
-      setIcImagePreview('')
-    }
-  }, [installCaseEditingId])
 
   const filteredMaterialsBoardPosts = useMemo(() => {
     const query = safeString(materialsBoardSearch).trim().toLowerCase()
@@ -6911,16 +6757,10 @@ function App() {
       return
     }
 
-    let imageUrl = INSTALL_CASE_FALLBACK_HERO
-    const imageFile = icImageFile || null
-    if (!imageFile) {
-      const prev = safeString(icImagePreview).trim()
-      if (prev && !prev.startsWith('blob:')) {
-        imageUrl = prev
-      }
-    } else {
-      imageUrl = ''
-    }
+    const keepImages = getInstallCaseMediaKeepUrls(icMediaItems)
+    const newFiles = getInstallCaseMediaNewFiles(icMediaItems)
+    const heroImages = keepImages.length ? keepImages : []
+    const heroImage = heroImages[0] || ''
 
     const projectName = safeString(d.projectName).trim()
     const displayArea = formatInstallCaseWhMmFromWH(d.specs.displayAreaW, d.specs.displayAreaH) || '-'
@@ -6929,7 +6769,8 @@ function App() {
       formatInstallCaseResolutionFromWH(d.specs.resolutionW, d.specs.resolutionH) || '-'
     const rowPayload = {
       projectName,
-      heroImage: imageUrl,
+      heroImage,
+      heroImages,
       environment: safeString(d.environment).trim(),
       middleCategory: safeString(d.middleCategory).trim(),
       audience: safeString(d.audience).trim(),
@@ -6949,7 +6790,7 @@ function App() {
     setInstallCaseSubmitting(true)
     try {
       if (isEdit) {
-        await installCasesApi.update(editingId, rowPayload, imageFile)
+        await installCasesApi.update(editingId, rowPayload, newFiles, keepImages)
         clearInstallCaseFormDraftStorage()
         handleCloseInstallCaseRegister({ discardDraft: true })
         const refreshed = await fetchInstallCases()
@@ -6957,7 +6798,7 @@ function App() {
         if (found) setInstallCaseDetailModal(found)
         setToastMessage('저장되었습니다.')
       } else {
-        await installCasesApi.create(rowPayload, imageFile)
+        await installCasesApi.create(rowPayload, newFiles)
         clearInstallCaseFormDraftStorage()
         handleCloseInstallCaseRegister({ discardDraft: true })
         setInstallCaseEnvFilter('')
@@ -17323,9 +17164,9 @@ function App() {
               <div className="install-case-detail-inner">
               <div className="install-case-detail-hero-zone">
                 <div className="install-case-detail-hero">
-                  <InstallCaseHeroMedia
-                    src={installCaseDetailModal.heroImage || INSTALL_CASE_FALLBACK_HERO}
-                    variant="detail"
+                  <InstallCaseMediaCarousel
+                    sources={installCaseDetailModal.heroImages}
+                    fallbackSrc={installCaseDetailModal.heroImage || INSTALL_CASE_FALLBACK_HERO}
                   />
                 </div>
               </div>
@@ -17914,15 +17755,8 @@ function App() {
                 key={installCaseEditingId ? `edit-${installCaseEditingId}` : 'create'}
                 formDraft={installCaseFormDraft}
                 setFormDraft={setInstallCaseFormDraft}
-                icImageFile={icImageFile}
-                setIcImageFile={setIcImageFile}
-                icImagePreview={icImagePreview}
-                icImagePreviewIsVideo={
-                  icImageFile
-                    ? isInstallCaseVideoFile(icImageFile)
-                    : isInstallCaseVideo(icImagePreview)
-                }
-                onClearInstallCaseImage={clearInstallCaseImage}
+                icMediaItems={icMediaItems}
+                setIcMediaItems={setIcMediaItems}
                 pairDigitChange={handleInstallCasePairDigitChange}
                 onLedPitchChange={handleInstallCaseLedPitchChange}
                 onInvalidImageFile={() =>
@@ -17933,6 +17767,9 @@ function App() {
                     `파일 용량이 너무 큽니다. 최대 ${formatInstallCaseMediaMaxSize(file)}까지 업로드할 수 있습니다.`,
                     '알림'
                   )
+                }
+                onMediaLimitExceeded={(max) =>
+                  showAppAlert(`미디어는 최대 ${max}개까지 등록할 수 있습니다.`, '알림')
                 }
               />
             </div>
