@@ -948,31 +948,6 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
   min-width: max-content;
 }
 
-/* 영업·건축·사업공유 — 독립 컬럼 리사이즈: 총폭=컬럼합, 가로 스크롤 */
-.registry-resizable-table-wrap {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: auto !important;
-  overflow-y: auto;
-}
-
-.registry-resizable-table.contract-table,
-.sales-registry-table.registry-resizable-table,
-.discovery-registry-table.registry-resizable-table,
-.excluded-registry-table.registry-resizable-table {
-  width: max-content !important;
-  min-width: max-content !important;
-  max-width: none !important;
-  table-layout: fixed !important;
-}
-
-/* CSS width 클래스의 max-width 잠금이 리사이즈를 방해하지 않도록 */
-.registry-resizable-table col,
-.registry-resizable-table thead th,
-.registry-resizable-table tbody td {
-  max-width: none !important;
-}
-
 .overflow-x-auto {
   overflow-x: auto;
 }
@@ -6526,52 +6501,7 @@ textarea:focus-visible {
   box-sizing: border-box;
 }
 
-/* 엑셀형 컬럼 너비 드래그 조절 */
-.resizable-th {
-  position: relative;
-}
-
-.column-resize-handle {
-  position: absolute;
-  top: 0;
-  right: -3px;
-  width: 8px;
-  height: 100%;
-  cursor: col-resize;
-  z-index: 3;
-  user-select: none;
-  touch-action: none;
-}
-
-.column-resize-handle::after {
-  content: '';
-  position: absolute;
-  top: 18%;
-  bottom: 18%;
-  left: 3px;
-  width: 2px;
-  border-radius: 1px;
-  background: transparent;
-  transition: background 0.12s ease;
-}
-
-.resizable-th:hover > .column-resize-handle::after,
-.column-resize-handle:hover::after,
-body.is-column-resizing .column-resize-handle:hover::after {
-  background: #94a3b8;
-}
-
-body.is-column-resizing {
-  cursor: col-resize !important;
-  user-select: none !important;
-}
-
-body.is-column-resizing * {
-  cursor: col-resize !important;
-  user-select: none !important;
-}
-
-/* 중요도 컬럼 — 색상 점만 들어갈 좁은 고정폭(리사이즈로 변경 가능) */
+/* 중요도 컬럼 — 색상 점만 들어갈 타이트한 너비 */
 .sales-registry-table col.sales-col-importance,
 .sales-registry-table th.registry-importance-cell,
 .sales-registry-table td.registry-importance-cell,
@@ -6581,15 +6511,23 @@ body.is-column-resizing * {
 .excluded-registry-table col.registry-importance-col,
 .excluded-registry-table th.registry-importance-col,
 .excluded-registry-table td.registry-importance-col {
-  width: 72px;
-  min-width: 72px;
-  max-width: none;
+  width: 1%;
+  white-space: nowrap;
 }
 
 /*
- * 영업관리대장·건축정보·사업공유 — 컬럼 축소 시 텍스트 줄바꿈 + 행 높이 자동 확장
- * (HTML table; DataGrid getRowHeight 아님)
+ * 영업관리대장·건축정보·사업공유 —
+ * table-layout:auto + 한글 keep-all 줄바꿈 + 짧은/긴 컬럼 비율
  */
+.sales-registry-table.excel-table.registry-table,
+.discovery-registry-table.excel-table.registry-table,
+.excluded-registry-table.excel-table.registry-table {
+  table-layout: auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
 .sales-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row),
 .discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row),
 .excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) {
@@ -6605,15 +6543,37 @@ body.is-column-resizing * {
   vertical-align: top !important;
 }
 
+/* 긴 텍스트 셀 — 띄어쓰기 기준 한글 줄바꿈 */
 .sales-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
-  > td:not(.registry-check-cell):not(.sales-archive-cell):not(.sales-record-cell):not(.registry-importance-cell),
+  > td.table-col-long,
 .discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
-  > td:not(.registry-check-cell):not(.sales-archive-cell):not(.sales-record-cell):not(.registry-importance-cell),
+  > td.table-col-long,
 .excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
-  > td:not(.registry-check-cell):not(.sales-archive-cell):not(.registry-importance-cell) {
+  > td.table-col-long,
+.sales-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.sales-detail-cell,
+.sales-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.sales-department-cell,
+.discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.discovery-col-client,
+.discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.discovery-col-project,
+.discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.discovery-col-detail,
+.discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.discovery-col-manager,
+.excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.excluded-col-project,
+.excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.excluded-col-reason,
+.excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.excluded-col-text {
   white-space: normal !important;
-  word-break: break-word !important;
-  overflow-wrap: anywhere !important;
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
+  width: auto;
+  min-width: 0;
+  max-width: none !important;
 }
 
 .sales-registry-table.excel-table.registry-table th.table-col-tight,
@@ -6621,63 +6581,36 @@ body.is-column-resizing * {
 .discovery-registry-table.excel-table.registry-table th.table-col-tight,
 .discovery-registry-table.excel-table.registry-table td.table-col-tight,
 .excluded-registry-table.excel-table.registry-table th.table-col-tight,
-.excluded-registry-table.excel-table.registry-table td.table-col-tight {
-  white-space: normal !important;
+.excluded-registry-table.excel-table.registry-table td.table-col-tight,
+.sales-registry-table.excel-table.registry-table th.discovery-col-tight,
+.sales-registry-table.excel-table.registry-table td.discovery-col-tight,
+.discovery-registry-table.excel-table.registry-table .discovery-col-tight,
+.excluded-registry-table.excel-table.registry-table .excluded-col-tight {
+  width: 1%;
+  white-space: nowrap;
   min-width: 0;
+  max-width: none;
 }
 
-.sales-registry-table .table-col-tight .cell-display,
-.sales-registry-table .table-col-tight .editable-text-cell-display,
-.sales-registry-table .table-col-tight .editable-text-cell-input,
-.discovery-registry-table .table-col-tight .cell-display,
-.discovery-registry-table .table-col-tight .editable-text-cell-display,
-.discovery-registry-table .table-col-tight .editable-text-cell-input,
-.excluded-registry-table .table-col-tight .cell-display,
-.excluded-registry-table .table-col-tight .editable-text-cell-display,
-.excluded-registry-table .table-col-tight .editable-text-cell-input {
-  white-space: normal !important;
-  word-break: break-word !important;
-  overflow-wrap: anywhere !important;
-}
-
-.sales-registry-table tbody td .cell-display,
-.sales-registry-table tbody td .editable-text-cell-display,
-.sales-registry-table tbody td .editable-text-cell-input,
-.sales-registry-table tbody td .sales-detail-preview,
-.sales-registry-table tbody td .registry-cell-text-wrap,
-.sales-registry-table tbody td .table-cell-clamp,
-.sales-registry-table tbody td .sales-modal-text-display,
-.discovery-registry-table tbody td .cell-display,
-.discovery-registry-table tbody td .editable-text-cell-display,
-.discovery-registry-table tbody td .editable-text-cell-input,
-.discovery-registry-table tbody td .sales-detail-preview,
-.discovery-registry-table tbody td .registry-cell-text-wrap,
-.discovery-registry-table tbody td .table-cell-clamp,
-.discovery-registry-table tbody td .discovery-modal-text-display,
-.discovery-registry-table tbody td .sales-modal-text-display,
-.excluded-registry-table tbody td .cell-display,
-.excluded-registry-table tbody td .editable-text-cell-display,
-.excluded-registry-table tbody td .editable-text-cell-input,
-.excluded-registry-table tbody td .sales-detail-preview,
-.excluded-registry-table tbody td .registry-cell-text-wrap,
-.excluded-registry-table tbody td .excluded-multiline-display,
-.excluded-registry-table tbody td .table-cell-clamp {
-  display: block !important;
-  width: 100%;
-  min-width: 0 !important;
-  max-width: 100%;
-  height: auto !important;
-  max-height: none !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
+.sales-registry-table .table-col-long .cell-display,
+.sales-registry-table .table-col-long .editable-text-cell-display,
+.sales-registry-table .table-col-long .editable-text-cell-input,
+.sales-registry-table .table-col-long .sales-detail-preview,
+.sales-registry-table .table-col-long .registry-cell-text-wrap,
+.discovery-registry-table .table-col-long .cell-display,
+.discovery-registry-table .table-col-long .editable-text-cell-display,
+.discovery-registry-table .table-col-long .editable-text-cell-input,
+.discovery-registry-table .table-col-long .sales-detail-preview,
+.discovery-registry-table .table-col-long .registry-cell-text-wrap,
+.excluded-registry-table .table-col-long .cell-display,
+.excluded-registry-table .table-col-long .editable-text-cell-display,
+.excluded-registry-table .table-col-long .editable-text-cell-input,
+.excluded-registry-table .table-col-long .sales-detail-preview,
+.excluded-registry-table .table-col-long .registry-cell-text-wrap,
+.excluded-registry-table .table-col-long .excluded-multiline-display {
   white-space: pre-wrap !important;
-  word-break: break-word !important;
-  overflow-wrap: anywhere !important;
-  -webkit-line-clamp: unset !important;
-  line-clamp: unset !important;
-  -webkit-box-orient: unset !important;
-  align-items: flex-start !important;
-  box-sizing: border-box;
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
 }
 
 .sales-registry-table tbody td.registry-importance-cell .cell-display,
@@ -6714,15 +6647,15 @@ body.is-column-resizing * {
 
 .registry-cell-text-wrap {
   white-space: pre-wrap !important;
-  word-break: break-word !important;
-  overflow-wrap: anywhere !important;
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
   overflow: visible !important;
   max-height: none !important;
   -webkit-line-clamp: unset !important;
   line-clamp: unset !important;
 }
 
-/* 인라인 편집 textarea — 좁은 칸에서도 앞부분부터 줄바꿈·높이 자동 확장 */
+/* 인라인 편집 textarea — 한글 띄어쓰기 기준 줄바꿈·높이 자동 확장 */
 .sales-registry-table textarea.registry-cell-autogrow-textarea,
 .discovery-registry-table textarea.registry-cell-autogrow-textarea,
 .excluded-registry-table textarea.registry-cell-autogrow-textarea,
@@ -6737,8 +6670,8 @@ body.is-column-resizing * {
   min-height: 40px !important;
   max-height: none !important;
   white-space: pre-wrap !important;
-  word-break: break-word !important;
-  overflow-wrap: anywhere !important;
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
   overflow-x: hidden !important;
   overflow-y: hidden !important;
   text-overflow: clip !important;
@@ -6785,9 +6718,9 @@ body.is-column-resizing * {
 }
 
 .sales-registry-table {
-  table-layout: fixed !important;
-  width: max-content !important;
-  min-width: max-content !important;
+  table-layout: auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
   max-width: none !important;
 }
 
@@ -6850,12 +6783,18 @@ body.is-column-resizing * {
   max-width: 56px;
 }
 
-/* 담당부서 — 기본 너비(리사이즈 시 인라인 style이 우선) */
+/* 담당부서·세부내용·사업명·발주처 — 남는 너비를 유연하게 사용 */
 .sales-registry-table col.sales-col-department,
 .sales-registry-table th.sales-department-cell,
-.sales-registry-table td.sales-department-cell {
-  width: 220px;
-  min-width: 220px;
+.sales-registry-table td.sales-department-cell,
+.sales-registry-table col.sales-col-detail,
+.sales-registry-table th.sales-detail-cell,
+.sales-registry-table td.sales-detail-cell,
+.sales-registry-table col.sales-col-projectName,
+.sales-registry-table col.sales-col-client,
+.sales-registry-table col.sales-col-source {
+  width: auto;
+  min-width: 0;
   max-width: none;
 }
 
@@ -6868,15 +6807,6 @@ body.is-column-resizing * {
   overflow: visible !important;
   text-overflow: clip;
   align-items: flex-start !important;
-}
-
-/* 세부내용 — 기본 너비(리사이즈 시 인라인 style이 우선) */
-.sales-registry-table col.sales-col-detail,
-.sales-registry-table th.sales-detail-cell,
-.sales-registry-table td.sales-detail-cell {
-  width: 420px;
-  min-width: 280px;
-  max-width: none;
 }
 
 /* 등록일 — 상단 패딩·기준선 (editable-cell padding:0 보정) */
@@ -7037,10 +6967,6 @@ body.is-column-resizing * {
   white-space: normal;
   word-break: keep-all;
   overflow-wrap: break-word;
-}
-
-.sales-registry-table.registry-resizable-table td.sales-detail-cell,
-.sales-registry-table.registry-resizable-table col.sales-col-detail {
   width: auto;
   min-width: 0;
   max-width: none !important;
@@ -7112,9 +7038,9 @@ body.is-column-resizing * {
 
 /* 건축정보 표: table-fixed + colgroup 고정 너비 (아코디언 토글 시 열 흔들림 방지) */
 .discovery-registry-table {
-  table-layout: fixed !important;
-  width: max-content !important;
-  min-width: max-content !important;
+  table-layout: auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
   max-width: none !important;
 }
 
@@ -7142,68 +7068,41 @@ body.is-column-resizing * {
   max-width: 44px;
 }
 
+/* 짧은 컬럼 — 내용 길이에 타이트하게 (table-layout:auto) */
 .discovery-registry-table col.discovery-w-12,
 .discovery-registry-table th.discovery-w-12,
-.discovery-registry-table td.discovery-w-12 {
-  width: 3rem;
-  min-width: 3rem;
-  max-width: 3rem;
-}
-
+.discovery-registry-table td.discovery-w-12,
 .discovery-registry-table col.discovery-w-24,
 .discovery-registry-table th.discovery-w-24,
-.discovery-registry-table td.discovery-w-24 {
-  width: 6rem;
-  min-width: 6rem;
-  max-width: 6rem;
-}
-
+.discovery-registry-table td.discovery-w-24,
 .discovery-registry-table col.discovery-w-32,
 .discovery-registry-table th.discovery-w-32,
-.discovery-registry-table td.discovery-w-32 {
-  width: 8rem;
-  min-width: 8rem;
-  max-width: 8rem;
-}
-
+.discovery-registry-table td.discovery-w-32,
 .discovery-registry-table col.discovery-w-38,
 .discovery-registry-table th.discovery-w-38,
-.discovery-registry-table td.discovery-w-38 {
-  width: 9.5rem;
-  min-width: 9.5rem;
-  max-width: 9.5rem;
-}
-
+.discovery-registry-table td.discovery-w-38,
 .discovery-registry-table col.discovery-w-40,
 .discovery-registry-table th.discovery-w-40,
 .discovery-registry-table td.discovery-w-40 {
-  width: 10rem;
-  min-width: 10rem;
-  max-width: 10rem;
+  width: 1%;
+  min-width: 0;
+  max-width: none;
+  white-space: nowrap;
 }
 
+/* 발주처·담당자 등 — 유연 너비 + 한글 keep-all */
 .discovery-registry-table col.discovery-w-46,
 .discovery-registry-table th.discovery-w-46,
-.discovery-registry-table td.discovery-w-46 {
-  width: 11.5rem;
-  min-width: 11.5rem;
-  max-width: 11.5rem;
-}
-
+.discovery-registry-table td.discovery-w-46,
 .discovery-registry-table col.discovery-w-58,
 .discovery-registry-table th.discovery-w-58,
-.discovery-registry-table td.discovery-w-58 {
-  width: 14.5rem;
-  min-width: 14.5rem;
-  max-width: 14.5rem;
-}
-
+.discovery-registry-table td.discovery-w-58,
 .discovery-registry-table col.discovery-w-48,
 .discovery-registry-table th.discovery-w-48,
 .discovery-registry-table td.discovery-w-48 {
-  width: 12rem;
-  min-width: 12rem;
-  max-width: 12rem;
+  width: auto;
+  min-width: 0;
+  max-width: none;
 }
 
 .discovery-registry-table col.discovery-w-p10,
@@ -7260,7 +7159,7 @@ body.is-column-resizing * {
 .discovery-registry-table th.discovery-w-flex,
 .discovery-registry-table td.discovery-w-flex {
   width: auto;
-  min-width: 345px;
+  min-width: 0;
 }
 
 .discovery-registry-table col.sales-record-col,
@@ -7284,17 +7183,18 @@ body.is-column-resizing * {
 
 .discovery-registry-table .discovery-col-tight,
 .discovery-registry-table .discovery-col-amount {
-  white-space: normal;
-  word-break: break-word;
+  width: 1%;
+  white-space: nowrap;
+  word-break: keep-all;
   overflow-wrap: break-word;
 }
 
 .discovery-registry-table .discovery-col-tight .cell-display,
 .discovery-registry-table .discovery-col-amount .cell-display {
-  white-space: normal;
+  white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
-  word-break: break-word;
+  word-break: keep-all;
   overflow-wrap: break-word;
   justify-content: center;
 }
@@ -7305,13 +7205,13 @@ body.is-column-resizing * {
 
 .discovery-registry-table .discovery-col-manager {
   white-space: normal;
-  word-break: break-word;
+  word-break: keep-all;
   overflow-wrap: break-word;
 }
 
 .discovery-registry-table .discovery-col-manager .cell-display {
-  white-space: normal;
-  word-break: break-word;
+  white-space: pre-wrap;
+  word-break: keep-all;
   overflow-wrap: break-word;
   justify-content: center;
   text-align: center;
@@ -7338,42 +7238,44 @@ body.is-column-resizing * {
 
 .discovery-registry-table .discovery-col-project {
   white-space: normal;
-  word-break: break-word;
+  word-break: keep-all;
   overflow-wrap: break-word;
-  min-width: 235px;
+  min-width: 0;
+  width: auto;
 }
 
 .discovery-registry-table .discovery-col-detail {
   white-space: normal;
-  word-break: break-word;
+  word-break: keep-all;
   overflow-wrap: break-word;
-  min-width: 345px;
+  min-width: 0;
+  width: auto;
 }
 
 .discovery-registry-table .discovery-col-detail .cell-display,
 .discovery-registry-table .discovery-col-detail .sales-detail-preview,
 .discovery-registry-table .discovery-col-detail .editable-text-cell-display {
   overflow-wrap: break-word !important;
-  word-break: break-word !important;
+  word-break: keep-all !important;
 }
 
 .discovery-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
-  > td:not(.registry-check-cell):not(.discovery-amount-cell) {
+  > td:not(.registry-check-cell):not(.discovery-amount-cell):not(.discovery-col-tight):not(.registry-importance-col) {
   overflow: visible;
   white-space: pre-wrap !important;
-  word-break: break-word !important;
-  overflow-wrap: anywhere !important;
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
 }
 
 .discovery-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
-  > td:not(.registry-check-cell):not(.discovery-amount-cell) .cell-display,
+  > td:not(.registry-check-cell):not(.discovery-amount-cell):not(.discovery-col-tight):not(.registry-importance-col) .cell-display,
 .discovery-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
-  > td:not(.registry-check-cell):not(.discovery-amount-cell) .editable-text-cell-display,
+  > td:not(.registry-check-cell):not(.discovery-amount-cell):not(.discovery-col-tight):not(.registry-importance-col) .editable-text-cell-display,
 .discovery-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
-  > td:not(.registry-check-cell):not(.discovery-amount-cell) .editable-text-cell-input {
+  > td:not(.registry-check-cell):not(.discovery-amount-cell):not(.discovery-col-tight):not(.registry-importance-col) .editable-text-cell-input {
   white-space: pre-wrap !important;
-  word-break: break-word !important;
-  overflow-wrap: anywhere !important;
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
 }
 
 .discovery-registry-table .discovery-col-project .cell-display {
@@ -7450,9 +7352,9 @@ body.is-column-resizing * {
 }
 
 .excluded-registry-table {
-  table-layout: fixed !important;
-  width: max-content !important;
-  min-width: max-content !important;
+  table-layout: auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
   max-width: none !important;
 }
 
@@ -7805,79 +7707,53 @@ body.is-column-resizing * {
 
 .excluded-registry-table col.excluded-w-20,
 .excluded-registry-table th.excluded-w-20,
-.excluded-registry-table td.excluded-w-20 {
-  width: 5rem;
-  min-width: 5rem;
-  max-width: 5rem;
-}
-
+.excluded-registry-table td.excluded-w-20,
 .excluded-registry-table col.excluded-w-24,
 .excluded-registry-table th.excluded-w-24,
-.excluded-registry-table td.excluded-w-24 {
-  width: 6rem;
-  min-width: 6rem;
-  max-width: 6rem;
-}
-
+.excluded-registry-table td.excluded-w-24,
 .excluded-registry-table col.excluded-w-28,
 .excluded-registry-table th.excluded-w-28,
-.excluded-registry-table td.excluded-w-28 {
-  width: 7rem;
-  min-width: 7rem;
-  max-width: 7rem;
-}
-
-.excluded-registry-table col.excluded-w-34,
-.excluded-registry-table th.excluded-w-34,
-.excluded-registry-table td.excluded-w-34 {
-  width: 8.5rem;
-  min-width: 8.5rem;
-  max-width: 8.5rem;
-}
-
+.excluded-registry-table td.excluded-w-28,
 .excluded-registry-table col.excluded-w-32,
 .excluded-registry-table th.excluded-w-32,
-.excluded-registry-table td.excluded-w-32 {
-  width: 8rem;
-  min-width: 8rem;
-  max-width: 8rem;
-}
-
+.excluded-registry-table td.excluded-w-32,
+.excluded-registry-table col.excluded-w-34,
+.excluded-registry-table th.excluded-w-34,
+.excluded-registry-table td.excluded-w-34,
 .excluded-registry-table col.excluded-w-36,
 .excluded-registry-table th.excluded-w-36,
 .excluded-registry-table td.excluded-w-36 {
-  width: 9rem;
-  min-width: 9rem;
-  max-width: 9rem;
+  width: 1%;
+  min-width: 0;
+  max-width: none;
+  white-space: nowrap;
 }
 
 .excluded-registry-table col.excluded-w-p18,
 .excluded-registry-table th.excluded-w-p18,
-.excluded-registry-table td.excluded-w-p18 {
-  width: 22%;
-  min-width: 0;
-}
-
+.excluded-registry-table td.excluded-w-p18,
 .excluded-registry-table col.excluded-w-p38,
 .excluded-registry-table th.excluded-w-p38,
 .excluded-registry-table td.excluded-w-p38 {
-  width: 42%;
+  width: auto;
   min-width: 0;
+  max-width: none;
 }
 
 .excluded-registry-table .excluded-col-tight,
 .excluded-registry-table .excluded-col-amount {
-  white-space: normal;
-  word-break: break-word;
+  width: 1%;
+  white-space: nowrap;
+  word-break: keep-all;
   overflow-wrap: break-word;
 }
 
 .excluded-registry-table .excluded-col-tight .cell-display,
 .excluded-registry-table .excluded-col-amount .cell-display {
-  white-space: normal;
+  white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
-  word-break: break-word;
+  word-break: keep-all;
   overflow-wrap: break-word;
   justify-content: center;
 }
