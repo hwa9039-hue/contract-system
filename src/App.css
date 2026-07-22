@@ -6441,62 +6441,31 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 0;
   min-height: 22px;
+  min-width: 22px;
+  padding: 0;
+  margin: 0 auto;
+  border: none;
+  background: transparent;
+  width: auto;
+  max-width: none;
 }
 
-.registry-importance-badge {
-  justify-content: flex-start;
-  width: max-content;
-  max-width: 100%;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  background: #f9fafb;
-}
-
-.registry-importance-badge--red {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #b91c1c;
-}
-
-.registry-importance-badge--yellow {
-  background: #fffbeb;
-  border-color: #fde68a;
-  color: #a16207;
-}
-
-.registry-importance-badge--blue {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
-}
-
-.registry-importance-badge--green {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
-  color: #15803d;
-}
-
-.registry-importance-badge--gray {
-  background: #f9fafb;
-  border-color: #e5e7eb;
-  color: #374151;
-}
-
+/* 레거시 배지 톤 클래스 호환 — 도트 전용에서는 배경/테두리 미사용 */
+.registry-importance-badge--red,
+.registry-importance-badge--yellow,
+.registry-importance-badge--blue,
+.registry-importance-badge--green,
+.registry-importance-badge--gray,
 .registry-importance-badge--empty {
-  background: #f9fafb;
-  border-color: #e5e7eb;
-  color: #6b7280;
+  background: transparent;
+  border-color: transparent;
+  color: inherit;
 }
 
 .registry-importance-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: currentColor;
-  line-height: 1.2;
-  white-space: nowrap;
+  display: none;
 }
 
 .registry-importance-dot {
@@ -6530,6 +6499,66 @@ textarea:focus-visible {
   background: #e5e7eb;
   border: 1px solid #d1d5db;
   box-sizing: border-box;
+}
+
+/* 엑셀형 컬럼 너비 드래그 조절 */
+.resizable-th {
+  position: relative;
+}
+
+.column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 3;
+  user-select: none;
+  touch-action: none;
+}
+
+.column-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  left: 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+
+.resizable-th:hover > .column-resize-handle::after,
+.column-resize-handle:hover::after,
+body.is-column-resizing .column-resize-handle:hover::after {
+  background: #94a3b8;
+}
+
+body.is-column-resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.is-column-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+/* 중요도 컬럼 — 색상 점만 들어갈 좁은 고정폭(리사이즈로 변경 가능) */
+.sales-registry-table col.sales-col-importance,
+.sales-registry-table th.registry-importance-cell,
+.sales-registry-table td.registry-importance-cell,
+.discovery-registry-table col.registry-importance-col,
+.discovery-registry-table th.registry-importance-col,
+.discovery-registry-table td.registry-importance-col,
+.excluded-registry-table col.registry-importance-col,
+.excluded-registry-table th.registry-importance-col,
+.excluded-registry-table td.registry-importance-col {
+  width: 72px;
+  min-width: 72px;
+  max-width: none;
 }
 
 .discovery-category-badge {
@@ -6628,13 +6657,13 @@ textarea:focus-visible {
   max-width: 56px;
 }
 
-/* 담당부서 — 여유 너비 + 줄바꿈 (잘림 금지) */
+/* 담당부서 — 기본 너비(리사이즈 시 인라인 style이 우선) */
 .sales-registry-table col.sales-col-department,
 .sales-registry-table th.sales-department-cell,
 .sales-registry-table td.sales-department-cell {
-  width: 220px !important;
-  min-width: 220px !important;
-  max-width: 220px !important;
+  width: 220px;
+  min-width: 220px;
+  max-width: none;
 }
 
 .sales-registry-table td.sales-department-cell,
@@ -6648,13 +6677,13 @@ textarea:focus-visible {
   align-items: flex-start !important;
 }
 
-/* 세부내용 — 전체 대비 약 38%로 폭주 제어 */
+/* 세부내용 — 기본 너비(리사이즈 시 인라인 style이 우선) */
 .sales-registry-table col.sales-col-detail,
 .sales-registry-table th.sales-detail-cell,
 .sales-registry-table td.sales-detail-cell {
-  width: 38% !important;
-  min-width: 380px !important;
-  max-width: 42% !important;
+  width: 420px;
+  min-width: 280px;
+  max-width: none;
 }
 
 /* 등록일 — 상단 패딩·기준선 (editable-cell padding:0 보정) */
@@ -7391,13 +7420,13 @@ textarea:focus-visible {
   box-shadow: inset 0 0 0 1px #3b82f6;
 }
 
-/* 사업공유 — 등록일 열: date 입력 + 아이콘이 셀 안에 들어가도록 너비 확보 */
+/* 사업공유 — 등록일 열: date 입력 + 아이콘이 셀 안에 들어가도록 너비 확보(리사이즈 가능) */
 .excluded-registry-table col.excluded-w-date,
 .excluded-registry-table th.excluded-w-date,
 .excluded-registry-table td.excluded-w-date {
-  width: 190px !important;
-  min-width: 190px !important;
-  max-width: 190px !important;
+  width: 190px;
+  min-width: 190px;
+  max-width: none;
 }
 
 .excluded-registry-table .excluded-col-register-date:has(> .registry-table-date-input) {

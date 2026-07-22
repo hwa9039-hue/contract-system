@@ -95,28 +95,25 @@ export function RegistryImportanceDot({ status, size = 'md' }) {
   )
 }
 
+/** 테이블 중요도 셀 — 색상 점만 표시(범례로 상태 구분, 텍스트 미표시) */
 export function RegistryImportanceBadge({ status }) {
-  let style
   let title = ''
+  let tone = 'empty'
 
   try {
     title = normalizeStatusForImportance(status)
-    style = getImportanceStyle(status)
+    tone = getImportanceStyle(status).tone || 'empty'
   } catch {
     return (
-      <span className="registry-importance-badge" aria-label="중요도 없음">
+      <span className="registry-importance-dot-only" aria-label="중요도 없음">
         <span className="registry-importance-dot registry-importance-dot--empty" aria-hidden="true" />
-        <span className="registry-importance-label">-</span>
       </span>
     )
   }
 
-  const tone = style?.tone || 'empty'
-  const label = style?.label || ''
-
   return (
     <span
-      className={`registry-importance-badge registry-importance-badge--${tone}`}
+      className={`registry-importance-dot-only registry-importance-dot-only--${tone}`}
       title={title || undefined}
       aria-label={title ? `중요도: ${title}` : '중요도 없음'}
     >
@@ -124,7 +121,6 @@ export function RegistryImportanceBadge({ status }) {
         className={`registry-importance-dot registry-importance-dot--${tone}`}
         aria-hidden="true"
       />
-      <span className="registry-importance-label">{label || '-'}</span>
     </span>
   )
 }

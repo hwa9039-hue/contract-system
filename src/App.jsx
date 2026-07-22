@@ -82,6 +82,8 @@ import {
   resolveRegistryImportanceStatus,
 } from './registryImportance.jsx'
 import { ImportanceLegend } from './ImportanceLegend.jsx'
+import { ColumnResizeHandle } from './ColumnResizeHandle.jsx'
+import { useResizableTableColumns } from './useResizableTableColumns.js'
 import {
   CONTRACT_TABLE_DATA_TD_CLASS,
   CONTRACT_TABLE_HEADER_TH_CLASS,
@@ -407,7 +409,7 @@ const SALES_COLUMNS = [
     align: 'center',
     type: 'importance',
     statusKey: 'projectStage',
-    width: 120,
+    width: 72,
   },
   { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 175, cellClass: 'sales-register-date-cell' },
   { key: 'client', label: '발주처', align: 'center', type: 'text', width: 170 },
@@ -442,6 +444,23 @@ const SALES_COLUMNS = [
   { key: 'source', label: '출처', align: 'center', type: 'text', width: 140 },
 ]
 
+/** 영업관리대장 — 컬럼 리사이즈 초기 너비(px) */
+const SALES_TABLE_COL_WIDTH_DEFAULTS = {
+  __check: 44,
+  __archive: 56,
+  importance: 72,
+  __record: 56,
+  registerDate: 175,
+  client: 170,
+  projectName: 340,
+  projectAmount: 150,
+  manager: 112,
+  projectStage: 102,
+  department: 220,
+  detail: 420,
+  source: 140,
+}
+
 const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
 // 건축정보 상태 옵션 — 영업관리대장 규칙(빨강 검토 / 노랑 대응중 / 파랑 보고)만 이식.
 // 초록색(사업공고: 발주계획·사전규격·입찰공고·정보공개) 계열은 의도적으로 제외한다.
@@ -456,8 +475,9 @@ const DISCOVERY_COLUMNS = [
     // 상태 변경 시 색상(빨강/노랑/파랑)이 자동으로 재계산된다.
     statusKey: 'projectStage',
     editable: false,
-    widthClass: 'discovery-w-24',
-    cellClass: 'discovery-col-tight discovery-w-24',
+    width: 72,
+    widthClass: 'registry-importance-col',
+    cellClass: 'discovery-col-tight registry-importance-col',
   },
   {
     key: 'permitDate',
@@ -544,6 +564,24 @@ const DISCOVERY_COLUMNS = [
   },
 ]
 
+/** 건축정보 — 컬럼 리사이즈 초기 너비(px) */
+const DISCOVERY_TABLE_COL_WIDTH_DEFAULTS = {
+  __check: 44,
+  __archive: 56,
+  importance: 72,
+  __record: 56,
+  permitDate: 152,
+  checkStatus: 96,
+  projectStage: 96,
+  projectCategory: 96,
+  client: 192,
+  projectName: 220,
+  projectAmount: 160,
+  completionPeriod: 128,
+  manager: 232,
+  note: 360,
+}
+
 // 엑셀 업로드 매핑용 컬럼 — 중요도(계산 컬럼)와 상태(앱 내 수동 관리)는 제외해
 // 기존 엑셀 포맷/중복 판정 시그니처를 그대로 유지한다.
 const DISCOVERY_IMPORTABLE_COLUMNS = DISCOVERY_COLUMNS.filter(
@@ -612,8 +650,9 @@ const EXCLUDED_COLUMNS = [
     align: 'center',
     type: 'importance',
     statusKey: 'category',
-    widthClass: 'excluded-w-28',
-    cellClass: 'excluded-col-tight excluded-w-28',
+    width: 72,
+    widthClass: 'registry-importance-col',
+    cellClass: 'excluded-col-tight registry-importance-col',
   },
   {
     key: 'writeDate',
@@ -683,6 +722,21 @@ const EXCLUDED_COLUMNS = [
     cellClass: 'excluded-col-reason excluded-w-p38',
   },
 ]
+
+/** 사업공유 — 컬럼 리사이즈 초기 너비(px) */
+const EXCLUDED_TABLE_COL_WIDTH_DEFAULTS = {
+  __check: 44,
+  __archive: 60,
+  importance: 72,
+  writeDate: 190,
+  category: 96,
+  shareStatus: 80,
+  writer: 96,
+  projectName: 240,
+  client: 128,
+  projectAmount: 144,
+  exclusionReason: 360,
+}
 
 const WORK_REPORT_WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
 const WORK_REPORT_MAIN_CHECK_COUNT = 5
@@ -5490,6 +5544,18 @@ function App() {
   const [excludedHiddenRowIds, setExcludedHiddenRowIds] = useState(() =>
     loadStoredExcludedHiddenRowIds()
   )
+  const {
+    onResizeStart: onSalesColResizeStart,
+    getColStyle: getSalesColStyle,
+  } = useResizableTableColumns(SALES_TABLE_COL_WIDTH_DEFAULTS)
+  const {
+    onResizeStart: onDiscoveryColResizeStart,
+    getColStyle: getDiscoveryColStyle,
+  } = useResizableTableColumns(DISCOVERY_TABLE_COL_WIDTH_DEFAULTS)
+  const {
+    onResizeStart: onExcludedColResizeStart,
+    getColStyle: getExcludedColStyle,
+  } = useResizableTableColumns(EXCLUDED_TABLE_COL_WIDTH_DEFAULTS)
   const [editingWorkCellKey, setEditingWorkCellKey] = useState('')
   const [editingWorkCellData, setEditingWorkCellData] = useState(null)
   const [workReportDrafts, setWorkReportDrafts] = useState({})
@@ -15669,31 +15735,31 @@ function App() {
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
                 <table className="contract-table excel-table registry-table sales-registry-table ledger-table-ui table-w-full-min">
                   <colgroup>
-                    <col className="sales-registry-check-col" />
-                    <col className="sales-archive-col" />
+                    <col className="sales-registry-check-col" style={getSalesColStyle('__check')} />
+                    <col className="sales-archive-col" style={getSalesColStyle('__archive')} />
                     {SALES_COLUMNS.flatMap((column) => {
                       const cols = [
                         <col
                           key={column.key}
                           className={`sales-col-${column.key}`}
-                          style={
-                            column.key === 'detail'
-                              ? { width: '38%', minWidth: column.width }
-                              : column.key === 'department'
-                                ? { width: column.width, minWidth: column.width, maxWidth: column.width }
-                                : { width: column.width, minWidth: column.width }
-                          }
+                          style={getSalesColStyle(column.key)}
                         />,
                       ]
                       if (column.key === 'importance') {
-                        cols.push(<col key="sales-record" className="sales-record-col" />)
+                        cols.push(
+                          <col
+                            key="sales-record"
+                            className="sales-record-col"
+                            style={getSalesColStyle('__record')}
+                          />
+                        )
                       }
                       return cols
                     })}
                   </colgroup>
                   <thead>
                     <tr>
-                      <th className="th-align-center registry-check-header table-col-tight">
+                      <th className="th-align-center registry-check-header table-col-tight resizable-th">
                         <input
                           className="registry-row-checkbox"
                           type="checkbox"
@@ -15706,22 +15772,18 @@ function App() {
                             )
                           }
                         />
+                        <ColumnResizeHandle columnKey="__check" onResizeStart={onSalesColResizeStart} />
                       </th>
-                      <th className="th-align-center sales-archive-header table-col-tight">
+                      <th className="th-align-center sales-archive-header table-col-tight resizable-th">
                         숨김
+                        <ColumnResizeHandle columnKey="__archive" onResizeStart={onSalesColResizeStart} />
                       </th>
                       {SALES_COLUMNS.flatMap((column) => {
                         const headerCells = [
                           <th
                             key={column.key}
-                            className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.cellClass || ''} contract-th-filterable`}
-                            style={
-                              column.key === 'detail'
-                                ? { width: '38%', minWidth: column.width }
-                                : column.key === 'department'
-                                  ? { width: column.width, minWidth: column.width, maxWidth: column.width }
-                                  : { minWidth: column.width }
-                            }
+                            className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.cellClass || ''} contract-th-filterable resizable-th`}
+                            style={getSalesColStyle(column.key)}
                           >
                             <div className="contract-th-filter-wrap">
                               <span className="contract-th-label">{column.label}</span>
@@ -15735,15 +15797,24 @@ function App() {
                                 normalizeSelection={normalizeSalesColumnFilterSelection}
                               />
                             </div>
+                            <ColumnResizeHandle
+                              columnKey={column.key}
+                              onResizeStart={onSalesColResizeStart}
+                            />
                           </th>,
                         ]
                         if (column.key === 'importance') {
                           headerCells.push(
                             <th
                               key="sales-record"
-                              className="th-align-center sales-record-header table-col-tight"
+                              className="th-align-center sales-record-header table-col-tight resizable-th"
+                              style={getSalesColStyle('__record')}
                             >
                               요약
+                              <ColumnResizeHandle
+                                columnKey="__record"
+                                onResizeStart={onSalesColResizeStart}
+                              />
                             </th>
                           )
                         }
@@ -15917,25 +15988,38 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
+              <ImportanceLegend />
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
                 <table
                   className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui table-w-full-min table-fixed"
                   style={{ minWidth: '1500px' }}
                 >
                   <colgroup>
-                    <col className="registry-check-col" />
-                    <col className="sales-archive-col" />
+                    <col className="registry-check-col" style={getDiscoveryColStyle('__check')} />
+                    <col className="sales-archive-col" style={getDiscoveryColStyle('__archive')} />
                     {DISCOVERY_COLUMNS.flatMap((column) => {
-                      const cols = [<col key={column.key} className={column.widthClass || ''} />]
+                      const cols = [
+                        <col
+                          key={column.key}
+                          className={column.widthClass || ''}
+                          style={getDiscoveryColStyle(column.key)}
+                        />,
+                      ]
                       if (column.key === 'importance') {
-                        cols.push(<col key="discovery-record" className="sales-record-col" />)
+                        cols.push(
+                          <col
+                            key="discovery-record"
+                            className="sales-record-col"
+                            style={getDiscoveryColStyle('__record')}
+                          />
+                        )
                       }
                       return cols
                     })}
                   </colgroup>
                   <thead>
                     <tr>
-                      <th className="th-align-center registry-check-header discovery-check-col">
+                      <th className="th-align-center registry-check-header discovery-check-col resizable-th">
                         <input
                           className="registry-row-checkbox"
                           type="checkbox"
@@ -15948,15 +16032,24 @@ function App() {
                             )
                           }
                         />
+                        <ColumnResizeHandle
+                          columnKey="__check"
+                          onResizeStart={onDiscoveryColResizeStart}
+                        />
                       </th>
-                      <th className="th-align-center sales-archive-header table-col-tight">
+                      <th className="th-align-center sales-archive-header table-col-tight resizable-th">
                         숨김
+                        <ColumnResizeHandle
+                          columnKey="__archive"
+                          onResizeStart={onDiscoveryColResizeStart}
+                        />
                       </th>
                       {DISCOVERY_COLUMNS.map((column) => {
                         const headerCells = [
                           <th
                             key={column.key}
-                            className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
+                            className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable resizable-th`}
+                            style={getDiscoveryColStyle(column.key)}
                           >
                             <div className="contract-th-filter-wrap">
                               <span className="contract-th-label">{column.label}</span>
@@ -15970,15 +16063,24 @@ function App() {
                                 normalizeSelection={normalizeDiscoveryColumnFilterSelection}
                               />
                             </div>
+                            <ColumnResizeHandle
+                              columnKey={column.key}
+                              onResizeStart={onDiscoveryColResizeStart}
+                            />
                           </th>,
                         ]
                         if (column.key === 'importance') {
                           headerCells.push(
                             <th
                               key="discovery-record"
-                              className="th-align-center sales-record-header table-col-tight"
+                              className="th-align-center sales-record-header table-col-tight resizable-th"
+                              style={getDiscoveryColStyle('__record')}
                             >
                               요약
+                              <ColumnResizeHandle
+                                columnKey="__record"
+                                onResizeStart={onDiscoveryColResizeStart}
+                              />
                             </th>
                           )
                         }
@@ -16156,19 +16258,22 @@ function App() {
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
                 <table className="contract-table excel-table registry-table excluded-registry-table ledger-table-ui table-w-full-min">
                   <colgroup>
-                    <col className="registry-check-col" />
-                    <col className="sales-archive-col" style={{ width: 60 }} />
+                    <col className="registry-check-col" style={getExcludedColStyle('__check')} />
+                    <col
+                      className="sales-archive-col"
+                      style={getExcludedColStyle('__archive')}
+                    />
                     {EXCLUDED_COLUMNS.map((column) => (
                       <col
                         key={column.key}
                         className={column.widthClass || ''}
-                        style={column.key === 'writeDate' ? { width: 190, minWidth: 190 } : undefined}
+                        style={getExcludedColStyle(column.key)}
                       />
                     ))}
                   </colgroup>
                   <thead>
                     <tr>
-                      <th className="th-align-center registry-check-header table-col-tight">
+                      <th className="th-align-center registry-check-header table-col-tight resizable-th">
                         <input
                           className="registry-row-checkbox"
                           type="checkbox"
@@ -16181,21 +16286,23 @@ function App() {
                             )
                           }
                         />
+                        <ColumnResizeHandle
+                          columnKey="__check"
+                          onResizeStart={onExcludedColResizeStart}
+                        />
                       </th>
-                      <th className="th-align-center sales-archive-header table-col-tight">
+                      <th className="th-align-center sales-archive-header table-col-tight resizable-th">
                         숨김
+                        <ColumnResizeHandle
+                          columnKey="__archive"
+                          onResizeStart={onExcludedColResizeStart}
+                        />
                       </th>
                       {EXCLUDED_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
-                          style={
-                            column.key === 'writeDate'
-                              ? { minWidth: 190, width: 190 }
-                              : column.widthClass
-                                ? { minWidth: 'max(3rem, 100%)' }
-                                : undefined
-                          }
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable resizable-th`}
+                          style={getExcludedColStyle(column.key)}
                         >
                           <div className="contract-th-filter-wrap">
                             <span className="contract-th-label">{column.label}</span>
@@ -16209,6 +16316,10 @@ function App() {
                               normalizeSelection={normalizeExcludedColumnFilterSelection}
                             />
                           </div>
+                          <ColumnResizeHandle
+                            columnKey={column.key}
+                            onResizeStart={onExcludedColResizeStart}
+                          />
                         </th>
                       ))}
                     </tr>
