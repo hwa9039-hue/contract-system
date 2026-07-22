@@ -11605,7 +11605,11 @@ function App() {
           cancelEdit()
           return
         }
-        if (column.type === 'textarea' && e.shiftKey && e.key === 'Enter') {
+        const allowMultiline =
+          column.type === 'textarea' ||
+          column.type === 'text' ||
+          isLongTextTableColumn(column)
+        if (allowMultiline && e.shiftKey && e.key === 'Enter') {
           return
         }
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -11618,11 +11622,14 @@ function App() {
     let control
     if (column.type === 'date') {
       control = <input {...commonProps} type="date" />
-    } else if (column.type === 'textarea') {
+    } else if (
+      column.type === 'textarea' ||
+      (column.type === 'text' && isLongTextTableColumn(column))
+    ) {
       control = (
-        <textarea
+        <AutoGrowTextarea
           {...commonProps}
-          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} resize-none min-h-[2.5rem] py-2`}
+          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} registry-cell-autogrow-textarea resize-none min-h-[2.5rem] py-2`}
           rows={2}
         />
       )
@@ -13017,7 +13024,9 @@ function App() {
                     className={`cell-display ${
                       cellEditScope === 'discovery' ||
                       cellEditScope === 'sales' ||
-                      cellEditScope === 'excluded'
+                      cellEditScope === 'excluded' ||
+                      cellEditScope === 'documents' ||
+                      cellEditScope === 'contactsManage'
                         ? 'registry-cell-text-wrap'
                         : 'table-cell-clamp'
                     } editable-text-cell-display editable-text-cell-display--${cellAlign}`}
@@ -13044,9 +13053,7 @@ function App() {
                 )
               ) : canUseRegistryModalEditor ? (
                 <div
-                  className={`cell-display table-cell-clamp${
-                    cellEditScope === 'contactsManage' ? ' table-cell-clamp-2' : ''
-                  } sales-modal-text-display${
+                  className={`cell-display registry-cell-text-wrap sales-modal-text-display${
                     cellEditScope === 'discovery' ? ' discovery-modal-text-display' : ''
                   }${cellEditScope === 'contactsManage' ? ' contacts-modal-text-display' : ''}${
                     plainDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''
@@ -13084,7 +13091,9 @@ function App() {
                   className={`${
                     cellEditScope === 'discovery' ||
                     cellEditScope === 'sales' ||
-                    cellEditScope === 'excluded'
+                    cellEditScope === 'excluded' ||
+                    cellEditScope === 'documents' ||
+                    cellEditScope === 'contactsManage'
                       ? 'registry-cell-text-wrap'
                       : isLongTextTableColumn(column)
                         ? 'table-cell-clamp'
@@ -13126,7 +13135,9 @@ function App() {
                   className={`cell-display${
                     cellEditScope === 'discovery' ||
                     cellEditScope === 'sales' ||
-                    cellEditScope === 'excluded'
+                    cellEditScope === 'excluded' ||
+                    cellEditScope === 'documents' ||
+                    cellEditScope === 'contactsManage'
                       ? ' registry-cell-text-wrap'
                       : isLongTextTableColumn(column)
                         ? ' table-cell-clamp'
@@ -15335,28 +15346,19 @@ function App() {
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
                 <table
-                  className={`contract-table excel-table registry-table ledger-table-ui contracts-fixed-table table-w-full-min${
+                  className={`contract-table excel-table registry-table ledger-table-ui contracts-fixed-table table-w-full-min table-layout-auto${
                     canEditContracts ? ' contract-table-admin' : ' contract-table-readonly'
                   }`}
                   data-contract-table-row-key="key"
                 >
                   <colgroup>
-                    {canEditContracts && (
-                      <col className="contract-check-col" style={{ width: 44, minWidth: 44 }} />
-                    )}
-                    {canEditContracts && (
-                      <col className="contract-copy-col" style={{ width: 76, minWidth: 76 }} />
-                    )}
-                    <col className="contract-dday-col" style={{ width: 74, minWidth: 74 }} />
+                    {canEditContracts && <col className="contract-check-col" />}
+                    {canEditContracts && <col className="contract-copy-col" />}
+                    <col className="contract-dday-col" />
                     {CONTRACT_COLUMNS.map((column) => (
                       <col
                         key={column.key}
-                        className={`contract-col-${column.key}`}
-                        style={
-                          column.widthGrow
-                            ? { minWidth: column.width }
-                            : { width: column.width, minWidth: column.width }
-                        }
+                        className={`contract-col-${column.key} ${getTableColumnLayoutClass(column)}`}
                       />
                     ))}
                   </colgroup>
@@ -15607,7 +15609,7 @@ function App() {
                                         <ContractTableCellShell align={shellAlign} multiline={isLongCell}>
                                           <div
                                             className={`cell-display editable-text-cell-display editable-text-cell-display--${cellAlign}${
-                                              isLongCell ? ' table-cell-clamp' : ''
+                                              isLongCell ? ' registry-cell-text-wrap' : ''
                                             }${contractDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''}${
                                               contractWeekHighlightClass ? ` ${contractWeekHighlightClass}` : ''
                                             }`}
@@ -16378,11 +16380,14 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table documents-registry-table ledger-table-ui table-w-full-min">
+                <table className="contract-table excel-table registry-table documents-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
                     <col className="registry-check-col" />
                     {DOCUMENT_COLUMNS.map((column) => (
-                      <col key={column.key} className={column.widthClass || ''} />
+                      <col
+                        key={column.key}
+                        className={`${column.widthClass || ''} ${getTableColumnLayoutClass(column)}`}
+                      />
                     ))}
                   </colgroup>
                   <thead>
@@ -16405,7 +16410,6 @@ function App() {
                         <th
                           key={column.key}
                           className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
-                          style={column.widthClass ? { minWidth: 'max(3rem, 100%)' } : undefined}
                           aria-sort={column.key === 'docDate' ? 'descending' : undefined}
                         >
                           <div className="contract-th-filter-wrap">
@@ -16546,11 +16550,14 @@ function App() {
 
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
-                <table className="contract-table excel-table registry-table contacts-registry-table ledger-table-ui table-w-full-min">
+                <table className="contract-table excel-table registry-table contacts-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
                     {canEditContactsManage ? <col className="registry-check-col" /> : null}
                     {CONTACTS_MANAGE_COLUMNS.map((column) => (
-                      <col key={column.key} className={column.widthClass || ''} />
+                      <col
+                        key={column.key}
+                        className={`${column.widthClass || ''} ${getTableColumnLayoutClass(column)}`}
+                      />
                     ))}
                   </colgroup>
                   <thead>

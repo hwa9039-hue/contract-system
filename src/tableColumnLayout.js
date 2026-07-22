@@ -1,4 +1,4 @@
-/** 테이블 컬럼 — 짧은 고정 vs 긴 텍스트(3줄 clamp) 분류 */
+/** 테이블 컬럼 — 짧은 고정 vs 긴 텍스트 분류 */
 
 const LONG_TEXT_COLUMN_KEYS = new Set([
   'client',
@@ -10,9 +10,13 @@ const LONG_TEXT_COLUMN_KEYS = new Set([
   'salesNote',
   'actionRequest',
   'note',
+  'notes',
   'exclusionReason',
   'senderReceiver',
   'title',
+  'business_content',
+  'summary',
+  'address',
 ])
 
 /** 줄바꿈 없이 한 줄로 유지할 고정 포맷 컬럼 */
@@ -34,6 +38,10 @@ const STRICT_NOWRAP_COLUMN_KEYS = new Set([
   'salesOwner',
   'pm',
   'manager',
+  'manager_name',
+  'position',
+  'phone',
+  'email',
   'projectCategory',
   'projectStage',
   'category',
