@@ -6,3 +6,4 @@ tmp-*.json
 backend/uploads/
 **/__pycache__/
 **/*.pyc
+.env.local

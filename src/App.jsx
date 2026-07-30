@@ -1925,6 +1925,33 @@ function migrateInstallCaseMajorCategory(raw) {
   return v
 }
 
+/** 설치사례 카드 목록 — 설치년도(숫자) 추출. 없으면 -1 */
+function getInstallCaseSortYear(row) {
+  const digits = safeString(row?.year).replace(/[^\d]/g, '').slice(0, 4)
+  const n = Number(digits)
+  return Number.isFinite(n) && n > 0 ? n : -1
+}
+
+/** 옥외=0, 옥내=1, 기타=2 — 같은 연도에서 옥외가 먼저 */
+function getInstallCaseEnvironmentSortRank(environment) {
+  const raw = safeString(environment).trim()
+  const lower = raw.toLowerCase()
+  const label = migrateInstallCaseMajorCategory(raw)
+  if (lower === 'outdoor' || label.includes('옥외') || raw.includes('옥외')) return 0
+  if (lower === 'indoor' || label.includes('옥내') || raw.includes('옥내')) return 1
+  return 2
+}
+
+function compareInstallCasesForDisplay(a, b) {
+  const yearDiff = getInstallCaseSortYear(b) - getInstallCaseSortYear(a)
+  if (yearDiff !== 0) return yearDiff
+  return getInstallCaseEnvironmentSortRank(a.environment) - getInstallCaseEnvironmentSortRank(b.environment)
+}
+
+function sortInstallCasesForDisplay(rows) {
+  return [...(Array.isArray(rows) ? rows : [])].sort(compareInstallCasesForDisplay)
+}
+
 function migrateInstallCaseMiddleCategory(middleRaw, environmentRaw) {
   const mid = safeString(middleRaw).trim()
   if (mid && INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS.some((o) => o.value === mid)) return mid
@@ -2328,16 +2355,65 @@ function readImageFileAsDataUrl(file) {
   })
 }
 
+function getInstallCaseThumbnailSources(row) {
+  const urls = normalizeHeroImagesList(row?.heroImages, row?.heroImage).filter(
+    (url) => safeString(url).trim() && !isInstallCaseDummyHeroUrl(url)
+  )
+  const id = safeString(row?.id).trim()
+  // 레거시 단일 파일 엔드포인트 — media/0.jpg 가 없어도 hero-image 로 폴백
+  if (id && !id.startsWith('local-')) {
+    const legacyHero = `/api/install-cases/${id}/hero-image`
+    if (!urls.some((url) => String(url).includes(`/install-cases/${id}/hero-image`))) {
+      urls.push(legacyHero)
+    }
+  }
+  return urls
+}
+
 function InstallCaseHeroMedia({
   src,
+  sources,
   className = '',
   loading,
   variant = 'card',
 }) {
-  const mediaSrc = isInstallCaseDummyHeroUrl(src)
-    ? ''
-    : resolveInstallCaseHeroImage(safeString(src).trim())
+  const candidateList = useMemo(() => {
+    const rawList =
+      Array.isArray(sources) && sources.length > 0
+        ? sources
+        : [src]
+    const out = []
+    const seen = new Set()
+    for (const item of rawList) {
+      const text = safeString(item).trim()
+      if (!text || isInstallCaseDummyHeroUrl(text)) continue
+      const resolved = resolveInstallCaseHeroImage(text)
+      if (!resolved || seen.has(resolved)) continue
+      seen.add(resolved)
+      out.push(resolved)
+    }
+    return out
+  }, [src, sources])
+
+  const candidateKey = candidateList.join('\0')
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [exhausted, setExhausted] = useState(false)
+
+  useEffect(() => {
+    setActiveIndex(0)
+    setExhausted(false)
+  }, [candidateKey])
+
+  const mediaSrc = exhausted ? '' : candidateList[activeIndex] || ''
   const isVideo = mediaSrc ? isInstallCaseVideo(mediaSrc) : false
+
+  const handleMediaError = () => {
+    if (activeIndex + 1 < candidateList.length) {
+      setActiveIndex((prev) => prev + 1)
+      return
+    }
+    setExhausted(true)
+  }
 
   if (variant === 'card') {
     if (!mediaSrc) {
@@ -2359,6 +2435,7 @@ function InstallCaseHeroMedia({
             preload="metadata"
             aria-hidden
             tabIndex={-1}
+            onError={handleMediaError}
           />
         ) : (
           <img
@@ -2366,6 +2443,7 @@ function InstallCaseHeroMedia({
             src={mediaSrc}
             alt=""
             loading={loading}
+            onError={handleMediaError}
           />
         )}
         {isVideo ? (
@@ -2395,6 +2473,7 @@ function InstallCaseHeroMedia({
         playsInline
         preload="metadata"
         aria-label="설치사례 동영상"
+        onError={handleMediaError}
       />
     )
   }
@@ -2406,6 +2485,7 @@ function InstallCaseHeroMedia({
       alt=""
       loading={loading}
       data-install-case-media-variant={variant}
+      onError={handleMediaError}
     />
   )
 }
@@ -5823,7 +5903,9 @@ function App() {
   const fetchInstallCases = async () => {
     try {
       const rows = await installCasesApi.list()
-      const normalized = Array.isArray(rows) ? rows.map(normalizeInstallCaseRow) : []
+      const normalized = sortInstallCasesForDisplay(
+        Array.isArray(rows) ? rows.map(normalizeInstallCaseRow) : []
+      )
       setInstallCases(normalized)
       return normalized
     } catch (error) {
@@ -6448,13 +6530,15 @@ function App() {
   }, [contractPageSummaryFocusYear, contractPageSummaryRows])
 
   const filteredInstallCases = useMemo(() => {
-    return installCases.filter((row) => {
-      const envOk = !installCaseEnvFilter || row.environment === installCaseEnvFilter
-      const midOk =
-        !installCaseMiddleFilter || row.middleCategory === installCaseMiddleFilter
-      const audOk = !installCaseAudienceFilter || row.audience === installCaseAudienceFilter
-      return envOk && midOk && audOk
-    })
+    return sortInstallCasesForDisplay(
+      installCases.filter((row) => {
+        const envOk = !installCaseEnvFilter || row.environment === installCaseEnvFilter
+        const midOk =
+          !installCaseMiddleFilter || row.middleCategory === installCaseMiddleFilter
+        const audOk = !installCaseAudienceFilter || row.audience === installCaseAudienceFilter
+        return envOk && midOk && audOk
+      })
+    )
   }, [installCaseAudienceFilter, installCaseEnvFilter, installCaseMiddleFilter, installCases])
 
   const deleteInstallCaseById = useCallback((id) => {
@@ -16740,6 +16824,7 @@ function App() {
                   >
                     <div className="install-case-card-thumb">
                       <InstallCaseHeroMedia
+                        sources={getInstallCaseThumbnailSources(row)}
                         src={row.heroImages?.[0] || row.heroImage || ''}
                         loading="lazy"
                         variant="card"

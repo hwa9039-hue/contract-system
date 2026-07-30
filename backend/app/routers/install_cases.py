@@ -242,7 +242,7 @@ def list_gallery_media_urls(row_id: str) -> list[str]:
 
 
 def enrich_install_case_out(out: dict) -> dict:
-    """DB heroImages가 짧아도 디스크에 파일이 더 있으면 디스크 기준으로 보강."""
+    """디스크에 파일이 있으면 디스크 URL을 우선하고, DB URL은 실제 존재할 때만 사용."""
     row_id = str(out.get("id") or "")
     db_images = sanitize_hero_images_value(out.get("heroImages"))
     if not db_images:
@@ -250,18 +250,28 @@ def enrich_install_case_out(out: dict) -> dict:
         if single:
             db_images = [single]
     disk_images = list_gallery_media_urls(row_id) if row_id else []
-    if len(disk_images) > len(db_images):
+
+    existing_db: list[str] = []
+    if row_id and db_images:
+        for url in db_images:
+            if resolve_existing_media_path(row_id, url):
+                existing_db.append(url)
+
+    # 디스크가 있으면 디스크가 진실 (레거시 단일 파일 ↔ media/N 마이그레이션 불일치 방지)
+    if disk_images:
         images = disk_images
-    elif db_images:
-        images = db_images
+    elif existing_db:
+        images = existing_db
     else:
-        images = disk_images
+        images = db_images
+
     fields = sync_hero_fields(images)
     logger.info(
-        "install-case GET media id=%s db_count=%s disk_count=%s final_count=%s final=%s",
+        "install-case GET media id=%s db_count=%s disk_count=%s existing_db=%s final_count=%s final=%s",
         row_id,
         len(db_images),
         len(disk_images),
+        len(existing_db),
         len(images),
         images,
     )
@@ -487,7 +497,22 @@ def list_install_case_rows():
                 f"""
                 select {RETURNING_COLUMNS}
                 from install_cases_rows
-                order by "createdAt" desc nulls last, id desc nulls last
+                order by
+                  nullif(
+                    substring(regexp_replace(coalesce(year, ''), '[^0-9]', '', 'g') from 1 for 4),
+                    ''
+                  )::int desc nulls last,
+                  case
+                    when lower(coalesce(environment, '')) in ('outdoor', '옥외전광판', '옥외')
+                      or coalesce(environment, '') ilike '%옥외%'
+                      then 0
+                    when lower(coalesce(environment, '')) in ('indoor', '옥내전광판', '옥내')
+                      or coalesce(environment, '') ilike '%옥내%'
+                      then 1
+                    else 2
+                  end asc,
+                  "createdAt" desc nulls last,
+                  id desc nulls last
                 """
             )
             return [enrich_install_case_out(row_to_install_case(row)) for row in cursor.fetchall()]
@@ -817,6 +842,9 @@ def api_get_install_case_gallery_media(row_id: str, filename: str):
     path = hero_gallery_media_path(row_id, index, ext)
     if not path.is_file():
         path = find_gallery_media_path(row_id, index)
+    # 갤러리 0번이 없으면 레거시 단일 파일로 폴백 (구 heroImage URL 호환)
+    if (not path or not path.is_file()) and index == 0:
+        path = find_hero_media_path(row_id)
     if not path or not path.is_file():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media not found")
     return FileResponse(

@@ -55,18 +55,26 @@ function resolveProductionApiBaseUrl() {
 }
 
 /**
- * npm run dev -> 무조건 http://localhost:8000
+ * npm run dev:
+ * - VITE_API_BASE_URL 이 있으면 그 값 사용 (예: NAS http://192.168.0.100:8000)
+ * - 없으면 http://localhost:8000
  * npm run build -> api-config.js / 운영 설정
  */
 export const API_BASE_URL = import.meta.env.DEV
-  ? FORCED_DEV_API_BASE_URL
+  ? (() => {
+      const fromEnv = import.meta.env.VITE_API_BASE_URL
+      if (fromEnv != null && String(fromEnv).trim() !== '') {
+        return trimTrailingSlash(String(fromEnv))
+      }
+      return FORCED_DEV_API_BASE_URL
+    })()
   : resolveProductionApiBaseUrl()
 
 if (import.meta.env.DEV) {
-  console.info('[API] 개발 모드 강제 — 모든 요청:', API_BASE_URL)
+  console.info('[API] 개발 모드 — 요청 대상:', API_BASE_URL)
   if (typeof window !== 'undefined' && window.__CMS_API_BASE_URL__) {
     console.warn(
-      '[API] api-config.js 운영 URL은 dev 에서 무시됩니다:',
+      '[API] api-config.js 운영 URL은 build 전용입니다. dev 에서는 VITE_API_BASE_URL 또는 localhost:8000 을 사용합니다:',
       window.__CMS_API_BASE_URL__
     )
   }
