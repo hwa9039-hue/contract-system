@@ -1853,9 +1853,23 @@ const INSTALL_CASE_SPEC_ROWS = [
 
 /** 설치사례 등록/수정: 우측 제품 규격 필드 */
 const INSTALL_CASE_REGISTER_SPEC_FIELDS = [
-  { type: 'wh', pairId: 'displayArea', label: '표출부 사이즈', preview: 'whMm' },
+  {
+    type: 'wh',
+    pairId: 'displayArea',
+    label: '표출부 사이즈 (1)',
+    preview: 'whMm',
+    allowDecimal: true,
+  },
+  {
+    type: 'wh',
+    pairId: 'displayArea2',
+    label: '표출부 사이즈 (2·선택)',
+    preview: 'whMm',
+    allowDecimal: true,
+  },
   { type: 'wh', pairId: 'resolution', label: '해상도', preview: 'resolution' },
-  { type: 'ledPitch', label: 'LED Pitch' },
+  { type: 'ledPitch', key: 'ledPitch', label: 'LED Pitch (1)' },
+  { type: 'ledPitch', key: 'ledPitch2', label: 'LED Pitch (2·선택)' },
   {
     type: 'text',
     key: 'installType',
@@ -2073,7 +2087,9 @@ function normalizeInstallCaseRow(row) {
     client: safeString(row?.client).trim() || '-',
     specs: {
       displayArea: safeString(specs.displayArea).trim() || '-',
+      displayArea2: safeString(specs.displayArea2).trim() || '',
       ledPitch: safeString(specs.ledPitch).trim() || '-',
+      ledPitch2: safeString(specs.ledPitch2).trim() || '',
       resolution: safeString(specs.resolution).trim() || '-',
       installType: safeString(specs.installType).trim() || '-',
     },
@@ -2114,7 +2130,7 @@ function getInstallCaseAudienceLabel(audience) {
 
 function formatInstallCaseLedPitchDisplay(pitch) {
   const s = safeString(pitch).trim()
-  if (!s) return '-'
+  if (!s || s === '-') return '-'
   const mm = s.match(/^P\.?\s*([\d.]+)\s*mm$/i)
   if (mm) return `P${mm[1]}mm`
   const m = s.match(/^P\.?\s*(\d+(?:\.\d+)?)$/i)
@@ -2122,42 +2138,63 @@ function formatInstallCaseLedPitchDisplay(pitch) {
   return s
 }
 
+/** 정수·소수 공통 천단위 콤마 (소수 최대 2자리 유지) */
 function commaNumberEn(n) {
   const v = Number(n)
   if (!Number.isFinite(v)) return '0'
-  return Math.round(v).toLocaleString('en-US')
+  const rounded = Math.round(v * 100) / 100
+  return rounded.toLocaleString('en-US', {
+    minimumFractionDigits: Number.isInteger(rounded) ? 0 : undefined,
+    maximumFractionDigits: 2,
+  })
+}
+
+function sanitizeInstallCaseDecimalInput(raw, maxFrac = 2) {
+  let val = safeString(raw).replace(/[^0-9.]/g, '')
+  const dot = val.indexOf('.')
+  if (dot !== -1) {
+    val =
+      val.slice(0, dot + 1) +
+      val
+        .slice(dot + 1)
+        .replace(/\./g, '')
+        .slice(0, maxFrac)
+  }
+  return val.replace(/^\.+/, '')
+}
+
+function parseInstallCaseDecimalOrZero(raw) {
+  const t = safeString(raw).replace(/,/g, '').trim()
+  if (!t) return 0
+  const n = Number(t)
+  return Number.isFinite(n) ? n : 0
 }
 
 function parseWhMmNumbers(formatted) {
   const s = safeString(formatted).trim()
-  if (!s) return null
-  let m = s.match(/\(?W\)?\s*([\d,]+)\s*[x×]\s*\(?H\)?\s*([\d,]+)\s*mm/i)
-  if (m) {
-    return {
-      w: parseInt(m[1].replace(/,/g, ''), 10) || 0,
-      h: parseInt(m[2].replace(/,/g, ''), 10) || 0,
-    }
+  if (!s || s === '-') return null
+  const toNum = (x) => {
+    const n = parseFloat(String(x).replace(/,/g, ''))
+    return Number.isFinite(n) ? n : 0
   }
-  m = s.match(/([\d,]+)\s*\(\s*W\s*\)\s*[×x]\s*([\d,]+)\s*\(\s*H\s*\)/i)
+  let m = s.match(/\(?W\)?\s*([\d,]+\.?\d*)\s*[x×]\s*\(?H\)?\s*([\d,]+\.?\d*)\s*mm/i)
   if (m) {
-    return {
-      w: parseInt(m[1].replace(/,/g, ''), 10) || 0,
-      h: parseInt(m[2].replace(/,/g, ''), 10) || 0,
-    }
+    return { w: toNum(m[1]), h: toNum(m[2]) }
+  }
+  m = s.match(/([\d,]+\.?\d*)\s*\(\s*W\s*\)\s*[×x]\s*([\d,]+\.?\d*)\s*\(\s*H\s*\)/i)
+  if (m) {
+    return { w: toNum(m[1]), h: toNum(m[2]) }
   }
   m = s.match(/([0-9.]+)\s*m\s*[×x]\s*([0-9.]+)\s*m/i)
   if (m) {
     return {
-      w: Math.round(parseFloat(m[1]) * 1000) || 0,
-      h: Math.round(parseFloat(m[2]) * 1000) || 0,
+      w: Math.round(parseFloat(m[1]) * 1000 * 100) / 100 || 0,
+      h: Math.round(parseFloat(m[2]) * 1000 * 100) / 100 || 0,
     }
   }
-  m = s.match(/([\d,]+)\s*mm\s*[×x]\s*([\d,]+)\s*mm/i)
+  m = s.match(/([\d,]+\.?\d*)\s*mm\s*[×x]\s*([\d,]+\.?\d*)\s*mm/i)
   if (m) {
-    return {
-      w: parseInt(m[1].replace(/,/g, ''), 10) || 0,
-      h: parseInt(m[2].replace(/,/g, ''), 10) || 0,
-    }
+    return { w: toNum(m[1]), h: toNum(m[2]) }
   }
   return null
 }
@@ -2172,10 +2209,10 @@ function formatInstallCaseModuleQtyLine(wRaw, hRaw) {
   return `(W)${commaNumberEn(w)} x (H)${commaNumberEn(h)} = ${commaNumberEn(ea)}EA`
 }
 
-/** 표출부 / MODULE 크기: 가로·세로 숫자 → 저장용 mm 문자열 */
+/** 표출부 / MODULE 크기: 가로·세로 숫자 → 저장용 mm 문자열 (소수 2자리 허용) */
 function formatInstallCaseWhMmFromWH(wRaw, hRaw) {
-  const w = parseInt(safeString(wRaw).replace(/\D/g, ''), 10) || 0
-  const h = parseInt(safeString(hRaw).replace(/\D/g, ''), 10) || 0
+  const w = parseInstallCaseDecimalOrZero(wRaw)
+  const h = parseInstallCaseDecimalOrZero(hRaw)
   if (!w && !h) return ''
   return `(W)${commaNumberEn(w)} x (H)${commaNumberEn(h)}mm`
 }
@@ -2198,6 +2235,13 @@ function formatInstallCaseWhMmDetailDisplay(raw) {
   return t
 }
 
+function formatInstallCaseJoinedDualSpec(primary, secondary, formatter) {
+  const parts = [formatter(primary), formatter(secondary)].filter(
+    (text) => text && text !== '-'
+  )
+  return parts.length ? parts.join(' / ') : '-'
+}
+
 function formatInstallCaseModuleQtyDetailDisplay(raw) {
   const t = safeString(raw).trim()
   if (!t || t === '-') return '-'
@@ -2208,8 +2252,31 @@ function formatInstallCaseModuleQtyDetailDisplay(raw) {
   return t
 }
 
-function formatInstallCaseSpecDetailDisplay(key, raw) {
-  const v = safeString(raw).trim()
+function formatInstallCaseSpecDetailDisplay(key, specsOrRaw) {
+  // 상세 모달: specs 객체 전체 또는 단일 raw 모두 허용
+  if (specsOrRaw && typeof specsOrRaw === 'object' && !Array.isArray(specsOrRaw)) {
+    const specs = specsOrRaw
+    if (key === 'displayArea') {
+      return formatInstallCaseJoinedDualSpec(
+        specs.displayArea,
+        specs.displayArea2,
+        formatInstallCaseWhMmDetailDisplay
+      )
+    }
+    if (key === 'ledPitch') {
+      return formatInstallCaseJoinedDualSpec(
+        specs.ledPitch,
+        specs.ledPitch2,
+        formatInstallCaseLedPitchDisplay
+      )
+    }
+    const v = safeString(specs[key]).trim()
+    if (!v || v === '-') return '-'
+    if (key === 'resolution') return formatInstallCaseResolutionDetailDisplay(v)
+    return v
+  }
+
+  const v = safeString(specsOrRaw).trim()
   if (!v || v === '-') return '-'
   switch (key) {
     case 'displayArea':
@@ -2340,8 +2407,16 @@ function formatInstallCaseYearDetailDisplay(raw) {
 function formatInstallCaseCardSubline(row) {
   const yRaw = safeString(row?.year).trim()
   const yearPart = yRaw ? `${(yRaw.match(/^\d{4}/) ? yRaw.slice(0, 4) : yRaw)}년` : '-'
-  const area = safeString(row?.specs?.displayArea).trim() || '-'
-  const pitch = formatInstallCaseLedPitchDisplay(row?.specs?.ledPitch ?? '')
+  const area = formatInstallCaseJoinedDualSpec(
+    row?.specs?.displayArea,
+    row?.specs?.displayArea2,
+    formatInstallCaseWhMmDetailDisplay
+  )
+  const pitch = formatInstallCaseJoinedDualSpec(
+    row?.specs?.ledPitch,
+    row?.specs?.ledPitch2,
+    formatInstallCaseLedPitchDisplay
+  )
   return `${yearPart} | ${area} | ${pitch}`
 }
 
@@ -2500,15 +2575,25 @@ function InstallCaseFormSection({ title, ariaLabel, children }) {
   )
 }
 
-function InstallCaseFormWhPairField({ label, wValue, hValue, onWChange, onHChange, preview = '' }) {
+function InstallCaseFormWhPairField({
+  label,
+  wValue,
+  hValue,
+  onWChange,
+  onHChange,
+  preview = '',
+  allowDecimal = false,
+}) {
   return (
     <div className="install-case-form-stack-field">
       <label className="install-case-form-label">{label}</label>
       <div className="install-case-form-wh-pair">
         <input
           className="table-search-input install-case-form-input"
-          type="text"
-          inputMode="numeric"
+          type={allowDecimal ? 'number' : 'text'}
+          inputMode={allowDecimal ? 'decimal' : 'numeric'}
+          step={allowDecimal ? '0.01' : undefined}
+          min={allowDecimal ? '0' : undefined}
           autoComplete="off"
           placeholder="가로 (W)"
           value={wValue}
@@ -2516,8 +2601,10 @@ function InstallCaseFormWhPairField({ label, wValue, hValue, onWChange, onHChang
         />
         <input
           className="table-search-input install-case-form-input"
-          type="text"
-          inputMode="numeric"
+          type={allowDecimal ? 'number' : 'text'}
+          inputMode={allowDecimal ? 'decimal' : 'numeric'}
+          step={allowDecimal ? '0.01' : undefined}
+          min={allowDecimal ? '0' : undefined}
           autoComplete="off"
           placeholder="세로 (H)"
           value={hValue}
@@ -2623,30 +2710,40 @@ function InstallCaseFormTwoColumn({
         {INSTALL_CASE_REGISTER_SPEC_FIELDS.map((def) => {
           if (def.type === 'wh') {
             const pairId = def.pairId
+            const allowDecimal = Boolean(def.allowDecimal)
             return (
               <InstallCaseFormWhPairField
                 key={pairId}
                 label={def.label}
                 wValue={specs[`${pairId}W`] ?? ''}
                 hValue={specs[`${pairId}H`] ?? ''}
-                onWChange={pairDigitChange(pairId, 'w')}
-                onHChange={pairDigitChange(pairId, 'h')}
+                onWChange={pairDigitChange(pairId, 'w', { allowDecimal })}
+                onHChange={pairDigitChange(pairId, 'h', { allowDecimal })}
                 preview={getInstallCaseSpecPreview(def.preview, specs, pairId)}
+                allowDecimal={allowDecimal}
               />
             )
           }
           if (def.type === 'ledPitch') {
+            const fieldKey = def.key || 'ledPitch'
             return (
-              <div key="ledPitch" className="install-case-form-stack-field">
+              <div key={fieldKey} className="install-case-form-stack-field">
                 <label className="install-case-form-label">{def.label}</label>
                 <input
                   className="table-search-input install-case-form-input"
-                  type="text"
+                  type="number"
                   inputMode="decimal"
+                  step="0.01"
+                  min="0"
                   autoComplete="off"
                   placeholder="숫자·소수점 입력 (표시: P값mm)"
-                  value={specs.ledPitch}
-                  onChange={onLedPitchChange}
+                  value={
+                    safeString(specs[fieldKey])
+                      .replace(/^P\.?/i, '')
+                      .replace(/mm$/i, '')
+                      .trim() || ''
+                  }
+                  onChange={onLedPitchChange(fieldKey)}
                 />
               </div>
             )
@@ -2698,7 +2795,10 @@ function getDefaultInstallCaseForm() {
     specs: {
       displayAreaW: '',
       displayAreaH: '',
+      displayArea2W: '',
+      displayArea2H: '',
       ledPitch: '',
+      ledPitch2: '',
       resolutionW: '',
       resolutionH: '',
       installType: '',
@@ -6604,6 +6704,7 @@ function App() {
     const openEditFromRow = () => {
       setInstallCaseEditingId(row.id)
       const da = parseWhMmNumbers(safeString(row.specs?.displayArea))
+      const da2 = parseWhMmNumbers(safeString(row.specs?.displayArea2))
       const res = parseResolutionStoredToWH(safeString(row.specs?.resolution))
       setInstallCaseFormDraft({
         projectName: safeString(row.projectName).trim(),
@@ -6616,7 +6717,10 @@ function App() {
         specs: {
           displayAreaW: da ? String(da.w) : '',
           displayAreaH: da ? String(da.h) : '',
+          displayArea2W: da2 ? String(da2.w) : '',
+          displayArea2H: da2 ? String(da2.h) : '',
           ledPitch: installCaseLedPitchToFormValue(row.specs?.ledPitch),
+          ledPitch2: installCaseLedPitchToFormValue(row.specs?.ledPitch2),
           resolutionW: res.w,
           resolutionH: res.h,
           installType: safeString(row.specs?.installType).trim(),
@@ -6850,31 +6954,33 @@ function App() {
     showAppAlert,
   ])
 
-  const handleInstallCasePairDigitChange = useCallback((pairId, axis) => (e) => {
-    const v = e.target.value.replace(/[^0-9]/g, '')
-    const wKey = `${pairId}W`
-    const hKey = `${pairId}H`
-    const key = axis === 'w' ? wKey : hKey
-    setInstallCaseFormDraft((prev) => ({
-      ...prev,
-      specs: { ...prev.specs, [key]: v },
-    }))
-  }, [])
+  const handleInstallCasePairDigitChange = useCallback(
+    (pairId, axis, { allowDecimal = false } = {}) => (e) => {
+      const v = allowDecimal
+        ? sanitizeInstallCaseDecimalInput(e.target.value, 2)
+        : e.target.value.replace(/[^0-9]/g, '')
+      const wKey = `${pairId}W`
+      const hKey = `${pairId}H`
+      const key = axis === 'w' ? wKey : hKey
+      setInstallCaseFormDraft((prev) => ({
+        ...prev,
+        specs: { ...prev.specs, [key]: v },
+      }))
+    },
+    []
+  )
 
-  const handleInstallCaseLedPitchChange = useCallback((e) => {
-    const raw = e.target.value
-    let val = raw.replace(/[^0-9.]/g, '')
-    const dot = val.indexOf('.')
-    if (dot !== -1) {
-      val = val.slice(0, dot + 1) + val.slice(dot + 1).replace(/\./g, '')
-    }
-    val = val.replace(/^\.+/, '')
-    const next = val === '' ? '' : `P${val}mm`
-    setInstallCaseFormDraft((prev) => ({
-      ...prev,
-      specs: { ...prev.specs, ledPitch: next },
-    }))
-  }, [])
+  const handleInstallCaseLedPitchChange = useCallback(
+    (fieldKey = 'ledPitch') => (e) => {
+      const val = sanitizeInstallCaseDecimalInput(e.target.value, 2)
+      const next = val === '' ? '' : `P${val}mm`
+      setInstallCaseFormDraft((prev) => ({
+        ...prev,
+        specs: { ...prev.specs, [fieldKey]: next },
+      }))
+    },
+    []
+  )
 
   const handleSaveInstallCaseRegister = async () => {
     if (installCaseSubmitting) return
@@ -6905,7 +7011,10 @@ function App() {
 
     const projectName = safeString(d.projectName).trim()
     const displayArea = formatInstallCaseWhMmFromWH(d.specs.displayAreaW, d.specs.displayAreaH) || '-'
+    const displayArea2 =
+      formatInstallCaseWhMmFromWH(d.specs.displayArea2W, d.specs.displayArea2H) || ''
     const ledPitch = safeString(d.specs.ledPitch).trim() || '-'
+    const ledPitch2 = safeString(d.specs.ledPitch2).trim() || ''
     const resolution =
       formatInstallCaseResolutionFromWH(d.specs.resolutionW, d.specs.resolutionH) || '-'
     const rowPayload = {
@@ -6920,7 +7029,9 @@ function App() {
       client: safeString(d.client).trim() || '-',
       specs: {
         displayArea,
+        displayArea2,
         ledPitch,
+        ledPitch2,
         resolution,
         installType: safeString(d.specs.installType).trim() || '-',
       },
@@ -17395,7 +17506,12 @@ function App() {
                       {INSTALL_CASE_SPEC_ROWS.map(({ key, label }) => (
                         <div className="install-case-meta-row" key={key}>
                           <dt>{label}</dt>
-                          <dd>{formatInstallCaseSpecDetailDisplay(key, installCaseDetailModal.specs[key])}</dd>
+                          <dd>
+                            {formatInstallCaseSpecDetailDisplay(
+                              key,
+                              installCaseDetailModal.specs || {}
+                            )}
+                          </dd>
                         </div>
                       ))}
                     </dl>

@@ -150,6 +150,15 @@ def _project_calendar(row: dict) -> dict[str, Any]:
     }
 
 
+def _join_install_case_dual_spec(primary, secondary) -> str:
+    parts = []
+    for value in (primary, secondary):
+        text = _normalize_cell(value)
+        if text and text != "-":
+            parts.append(text)
+    return " / ".join(parts) if parts else ""
+
+
 def _project_install_case(row: dict) -> dict[str, Any]:
     item = row_to_install_case(row)
     specs = item.get("specs") if isinstance(item.get("specs"), dict) else {}
@@ -161,8 +170,12 @@ def _project_install_case(row: dict) -> dict[str, Any]:
         "소분류": _normalize_cell(item.get("audience")),
         "용도": _normalize_cell(item.get("purpose")),
         "발주처": _normalize_cell(item.get("client")),
-        "표출부 사이즈": _normalize_cell(specs.get("displayArea")),
-        "LED Pitch": _normalize_cell(specs.get("ledPitch")),
+        "표출부 사이즈": _join_install_case_dual_spec(
+            specs.get("displayArea"), specs.get("displayArea2")
+        ),
+        "LED Pitch": _join_install_case_dual_spec(
+            specs.get("ledPitch"), specs.get("ledPitch2")
+        ),
         "MODULE 크기": _normalize_cell(specs.get("moduleSize")),
         "MODULE 수량": _normalize_cell(specs.get("moduleQty")),
         "해상도": _normalize_cell(specs.get("resolution")),

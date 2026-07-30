@@ -693,9 +693,13 @@ class CalendarManualEventOut(CalendarManualEventBase):
 
 class InstallCaseSpecs(BaseModel):
     displayArea: str = ""
+    displayArea2: str = ""
     ledPitch: str = ""
+    ledPitch2: str = ""
     moduleSize: str = ""
+    moduleSize2: str = ""
     moduleQty: str = ""
+    moduleQty2: str = ""
     resolution: str = ""
     installType: str = ""
 
@@ -1023,7 +1027,9 @@ def _normalize_install_case_specs(raw) -> dict:
     if isinstance(raw, dict):
         return {
             "displayArea": to_response_value(raw.get("displayArea")) or "",
+            "displayArea2": to_response_value(raw.get("displayArea2")) or "",
             "ledPitch": to_response_value(raw.get("ledPitch")) or "",
+            "ledPitch2": to_response_value(raw.get("ledPitch2")) or "",
             "moduleSize": to_response_value(raw.get("moduleSize")) or "",
             "moduleSize2": to_response_value(raw.get("moduleSize2")) or "",
             "moduleQty": to_response_value(raw.get("moduleQty")) or "",
