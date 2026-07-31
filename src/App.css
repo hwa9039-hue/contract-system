@@ -11405,6 +11405,30 @@ body.work-report-manager-menu-open .work-report-board-section {
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 대분류·중분류·소분류·검색창 — 동일 높이·테두리·box-sizing */
+.install-cases-filters > .table-search-input,
+.install-cases-filters > .install-cases-select {
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line, #d1d5db);
+  border-radius: 8px;
+  box-sizing: border-box;
+  font-size: 13px;
+  line-height: 1.25;
+  background: #ffffff;
+}
+
+.install-cases-filters > .table-search-input {
+  flex: 1 1 220px;
+  min-width: 180px;
+  max-width: 360px;
+  width: auto;
 }
 
 .install-cases-select {

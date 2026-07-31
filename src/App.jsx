@@ -2121,6 +2121,20 @@ function getInstallCaseProjectTitle(row) {
   return safeString(row?.projectName).trim() || '-'
 }
 
+/** 설치사례 검색 — 사업명·LED Pitch(1·2)만 (대소문자 무시, 부분 일치) */
+function installCaseMatchesSearch(row, keyword) {
+  const normalizedKeyword = safeString(keyword).trim().toLowerCase()
+  if (!normalizedKeyword) return true
+  const projectName = safeString(row?.projectName).trim().toLowerCase()
+  const ledPitch = safeString(row?.specs?.ledPitch).trim().toLowerCase()
+  const ledPitch2 = safeString(row?.specs?.ledPitch2).trim().toLowerCase()
+  return (
+    projectName.includes(normalizedKeyword) ||
+    ledPitch.includes(normalizedKeyword) ||
+    ledPitch2.includes(normalizedKeyword)
+  )
+}
+
 function getInstallCaseEnvironmentLabel(env) {
   return getInstallCaseCategoryLabel(
     INSTALL_CASE_MAJOR_CATEGORY_OPTIONS,
@@ -5598,6 +5612,7 @@ function App() {
   const [installCaseEnvFilter, setInstallCaseEnvFilter] = useState('')
   const [installCaseMiddleFilter, setInstallCaseMiddleFilter] = useState('')
   const [installCaseAudienceFilter, setInstallCaseAudienceFilter] = useState('')
+  const [installCaseSearch, setInstallCaseSearch] = useState('')
   const [installCaseDetailModal, setInstallCaseDetailModal] = useState(null)
   const [installCases, setInstallCases] = useState([])
   const [installCaseRegisterOpen, setInstallCaseRegisterOpen] = useState(false)
@@ -6647,10 +6662,17 @@ function App() {
         const midOk =
           !installCaseMiddleFilter || row.middleCategory === installCaseMiddleFilter
         const audOk = !installCaseAudienceFilter || row.audience === installCaseAudienceFilter
-        return envOk && midOk && audOk
+        const searchOk = installCaseMatchesSearch(row, installCaseSearch)
+        return envOk && midOk && audOk && searchOk
       })
     )
-  }, [installCaseAudienceFilter, installCaseEnvFilter, installCaseMiddleFilter, installCases])
+  }, [
+    installCaseAudienceFilter,
+    installCaseEnvFilter,
+    installCaseMiddleFilter,
+    installCaseSearch,
+    installCases,
+  ])
 
   const deleteInstallCaseById = useCallback((id) => {
     setContractConfirmDialog({
@@ -16920,6 +16942,13 @@ function App() {
                     )
                   )}
                 </select>
+                <input
+                  className="table-search-input"
+                  placeholder="사업명 또는 LED Pitch 입력"
+                  value={installCaseSearch}
+                  onChange={(e) => setInstallCaseSearch(e.target.value)}
+                  aria-label="설치사례 검색"
+                />
               </div>
               {canEditInstallCases && (
                 <button className="primary-btn" type="button" onClick={handleOpenInstallCaseRegister}>
@@ -16972,7 +17001,8 @@ function App() {
                 {installCases.length === 0 &&
                 !installCaseEnvFilter &&
                 !installCaseMiddleFilter &&
-                !installCaseAudienceFilter
+                !installCaseAudienceFilter &&
+                !safeString(installCaseSearch).trim()
                   ? '조회된 설치사례가 없습니다.'
                   : '조건에 맞는 설치사례가 없습니다.'}
               </div>
