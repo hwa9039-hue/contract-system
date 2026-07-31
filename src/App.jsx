@@ -62,8 +62,10 @@ import {
 } from './projectDiscoveryApi'
 import { salesRegisterApi } from './salesRegisterApi'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
-import UnitPriceManagement from './pages/UnitPriceManagement.jsx'
-import ProjectManagement from './pages/ProjectManagement.jsx'
+// 사업관리 / 단가관리 — 사이드바·라우트 비활성화 (페이지 파일은 보관)
+// import UnitPriceManagement from './pages/UnitPriceManagement.jsx'
+// import ProjectManagement from './pages/ProjectManagement.jsx'
+import OrderManagementPlaceholder from './pages/OrderManagementPlaceholder.jsx'
 import NaraMarket from './pages/NaraMarket.jsx'
 import NewsMonitor from './pages/NewsMonitor.jsx'
 import { decodeWorkReportWireText } from './workReportWire.js'
@@ -1347,6 +1349,8 @@ const PAGE_TITLE_MAP = {
   documents: '문서수발신대장',
   contactsManage: '연락처',
   installCases: '설치사례',
+  orderManagement: '발주관리',
+  // projectManagement / unitPrice — 사이드바에서 제거됨 (레거시 키 보관)
   projectManagement: '사업관리',
   unitPrice: '단가관리',
   naraMarket: '나라장터',
@@ -1354,8 +1358,11 @@ const PAGE_TITLE_MAP = {
   materialsBoard: '게시판',
 }
 
+/** @deprecated 사이드바에서 제거 — 북마크 진입 시 홈으로 되돌림 */
 const UNIT_PRICE_MENU_PATH = '/unit-price'
+/** @deprecated 사이드바에서 제거 — 북마크 진입 시 홈으로 되돌림 */
 const PROJECT_MANAGEMENT_MENU_PATH = '/project-management'
+const ORDER_MANAGEMENT_MENU_PATH = '/order-management'
 function isWorkReportRelatedMenu(menuKey) {
   return menuKey === 'workReports' || menuKey === 'meetingMinutes'
 }
@@ -1506,15 +1513,21 @@ const ALL_MENU_KEYS = [
   ...SIDEBAR_MENU_GROUPS.flatMap((group) => group.items.map((item) => item.key)),
   'materialsBoard',
   'installCases',
-  'projectManagement',
-  'unitPrice',
+  'orderManagement',
 ]
 
 function resolveInitialMenu() {
   try {
     if (typeof window !== 'undefined') {
-      if (window.location.pathname === UNIT_PRICE_MENU_PATH) return 'unitPrice'
-      if (window.location.pathname === PROJECT_MANAGEMENT_MENU_PATH) return 'projectManagement'
+      // 제거된 메뉴 경로 → 대시보드
+      if (
+        window.location.pathname === UNIT_PRICE_MENU_PATH ||
+        window.location.pathname === PROJECT_MANAGEMENT_MENU_PATH
+      ) {
+        window.history.replaceState(null, '', '/')
+        return 'dashboard'
+      }
+      if (window.location.pathname === ORDER_MANAGEMENT_MENU_PATH) return 'orderManagement'
     }
   } catch {
     /* ignore */
@@ -5537,11 +5550,11 @@ function App() {
   const { isAdmin, roleLabel, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
     useAuth()
   const canEditContracts = canEditMenu('contracts', isAdmin)
-  const canEditProjectManagement = canEditMenu('projectManagement', isAdmin)
+  // const canEditProjectManagement = canEditMenu('projectManagement', isAdmin) // 메뉴 제거
   const canEditMaterialsBoard = canEditMenu('materialsBoard', isAdmin)
   const canEditInstallCases = canEditMenu('installCases', isAdmin)
   const canEditContactsManage = canEditMenu('contactsManage', isAdmin)
-  const canEditUnitPrice = canEditMenu('unitPrice', isAdmin)
+  // const canEditUnitPrice = canEditMenu('unitPrice', isAdmin) // 메뉴 제거
   const canEditSales = canEditMenu('sales', isAdmin)
   const canEditDiscovery = canEditMenu('discovery', isAdmin)
   const canEditExcluded = canEditMenu('excluded', isAdmin)
@@ -6158,18 +6171,16 @@ function App() {
 
   useEffect(() => {
     try {
-      if (menu === 'unitPrice') {
-        if (window.location.pathname !== UNIT_PRICE_MENU_PATH) {
-          window.history.replaceState(null, '', UNIT_PRICE_MENU_PATH)
-        }
-      } else if (menu === 'projectManagement') {
-        if (window.location.pathname !== PROJECT_MANAGEMENT_MENU_PATH) {
-          window.history.replaceState(null, '', PROJECT_MANAGEMENT_MENU_PATH)
+      if (menu === 'orderManagement') {
+        if (window.location.pathname !== ORDER_MANAGEMENT_MENU_PATH) {
+          window.history.replaceState(null, '', ORDER_MANAGEMENT_MENU_PATH)
         }
       } else if (
         window.location.pathname === UNIT_PRICE_MENU_PATH ||
-        window.location.pathname === PROJECT_MANAGEMENT_MENU_PATH
+        window.location.pathname === PROJECT_MANAGEMENT_MENU_PATH ||
+        window.location.pathname === ORDER_MANAGEMENT_MENU_PATH
       ) {
+        // 제거된 메뉴·발주관리 외 메뉴로 이동 시 URL 정리
         window.history.replaceState(null, '', '/')
       }
     } catch {
@@ -14908,21 +14919,13 @@ function App() {
 
             <button
               type="button"
-              className={menu === 'projectManagement' ? 'menu-btn active' : 'menu-btn'}
-              onClick={() => setMenu('projectManagement')}
+              className={menu === 'orderManagement' ? 'menu-btn active' : 'menu-btn'}
+              onClick={() => setMenu('orderManagement')}
             >
-              사업관리
+              발주관리
             </button>
 
-            {canAccessMenu('unitPrice', isAdmin) ? (
-              <button
-                type="button"
-                className={menu === 'unitPrice' ? 'menu-btn active' : 'menu-btn'}
-                onClick={() => setMenu('unitPrice')}
-              >
-                단가관리
-              </button>
-            ) : null}
+            {/* 사업관리 / 단가관리 — 사이드바에서 제거됨 (레거시 페이지 컴포넌트는 보관) */}
           </div>
         </div>
 
@@ -16977,17 +16980,20 @@ function App() {
           </section>
         )}
 
+        {menu === 'orderManagement' && <OrderManagementPlaceholder />}
+
+        {/* 사업관리 / 단가관리 라우트 비활성화
         {menu === 'projectManagement' && (
           <section className="stat-card stat-card--unit-price stat-card--project-management">
             <ProjectManagement canEdit={canEditProjectManagement} />
           </section>
         )}
-
         {menu === 'unitPrice' && canAccessMenu('unitPrice', isAdmin) && (
           <section className="stat-card stat-card--unit-price">
             <UnitPriceManagement canEdit={canEditUnitPrice} />
           </section>
         )}
+        */}
 
         {menu === 'naraMarket' && <NaraMarket />}
 
