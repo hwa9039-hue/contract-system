@@ -11285,6 +11285,18 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
 }
 
+/* body 포털 — 테이블 overflow에 잘리지 않도록 fixed + 최상단 레이어 */
+.work-report-external-manager-multi-menu--portal {
+  position: fixed;
+  top: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  min-width: 0;
+  z-index: 10000;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+}
+
 .work-report-external-manager-multi.is-open {
   z-index: 3001;
 }

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 export const WORK_REPORT_MANAGER_OPTIONS = [
   '전기웅',
@@ -14,6 +15,8 @@ export const WORK_REPORT_MANAGER_OPTIONS = [
 ]
 
 const BODY_MENU_OPEN_CLASS = 'work-report-manager-menu-open'
+const MENU_MAX_HEIGHT_PX = 240
+const MENU_GAP_PX = 4
 let openMenuCount = 0
 
 function setBodyMenuOpen(isOpen) {
@@ -61,9 +64,45 @@ export function toggleManagerMultiSelectCsv(currentValue, managerName, optionLis
   return optionList.filter((option) => set.has(option)).join(', ')
 }
 
+function computeMenuPosition(triggerEl) {
+  if (!triggerEl) return null
+  const rect = triggerEl.getBoundingClientRect()
+  const spaceBelow = window.innerHeight - rect.bottom - MENU_GAP_PX
+  const spaceAbove = rect.top - MENU_GAP_PX
+  const openUpward = spaceBelow < 160 && spaceAbove > spaceBelow
+  const maxHeight = Math.max(
+    120,
+    Math.min(MENU_MAX_HEIGHT_PX, openUpward ? spaceAbove : spaceBelow)
+  )
+  const minWidth = Math.max(rect.width, 140)
+  let left = rect.left
+  left = Math.min(left, window.innerWidth - minWidth - 8)
+  left = Math.max(8, left)
+
+  if (openUpward) {
+    return {
+      bottom: window.innerHeight - rect.top + MENU_GAP_PX,
+      left,
+      minWidth,
+      maxHeight,
+      openUpward: true,
+    }
+  }
+  return {
+    top: rect.bottom + MENU_GAP_PX,
+    left,
+    minWidth,
+    maxHeight,
+    openUpward: false,
+  }
+}
+
 export function WorkReportExternalManagerMultiSelect({ value, onChange, options = WORK_REPORT_MANAGER_OPTIONS }) {
   const [open, setOpen] = useState(false)
+  const [menuPosition, setMenuPosition] = useState(null)
   const rootRef = useRef(null)
+  const triggerRef = useRef(null)
+  const menuRef = useRef(null)
   const selected = useMemo(() => parseManagerMultiSelectValue(value), [value])
 
   const handleToggleOption = (option) => {
@@ -74,22 +113,92 @@ export function WorkReportExternalManagerMultiSelect({ value, onChange, options 
     setOpen(false)
   }, [])
 
+  const updateMenuPosition = useCallback(() => {
+    setMenuPosition(computeMenuPosition(triggerRef.current))
+  }, [])
+
   useEffect(() => {
     if (!open) return undefined
     setBodyMenuOpen(true)
     return () => setBodyMenuOpen(false)
   }, [open])
 
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuPosition(null)
+      return undefined
+    }
+    updateMenuPosition()
+    const onReposition = () => updateMenuPosition()
+    window.addEventListener('resize', onReposition)
+    window.addEventListener('scroll', onReposition, true)
+    return () => {
+      window.removeEventListener('resize', onReposition)
+      window.removeEventListener('scroll', onReposition, true)
+    }
+  }, [open, options.length, updateMenuPosition])
+
   useEffect(() => {
-    if (!open) return
+    if (!open) return undefined
     const onDocDown = (e) => {
       const target = e.target
       if (rootRef.current?.contains(target)) return
+      if (menuRef.current?.contains(target)) return
       closeMenu()
     }
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') closeMenu()
+    }
     document.addEventListener('mousedown', onDocDown)
-    return () => document.removeEventListener('mousedown', onDocDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
   }, [open, closeMenu])
+
+  const menuPortal =
+    open && menuPosition
+      ? createPortal(
+          <div
+            ref={menuRef}
+            className="work-report-external-manager-multi-menu work-report-external-manager-multi-menu--portal"
+            role="listbox"
+            aria-multiselectable="true"
+            style={{
+              position: 'fixed',
+              top: menuPosition.openUpward ? 'auto' : menuPosition.top,
+              bottom: menuPosition.openUpward ? menuPosition.bottom : 'auto',
+              left: menuPosition.left,
+              minWidth: menuPosition.minWidth,
+              maxHeight: menuPosition.maxHeight,
+              zIndex: 10000,
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {options.map((option) => {
+              const isOn = selected.includes(option)
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  role="option"
+                  aria-selected={isOn}
+                  className={`work-report-external-manager-multi-item${isOn ? ' is-selected' : ''}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleToggleOption(option)}
+                >
+                  <span className="work-report-external-manager-multi-tick" aria-hidden>
+                    {isOn ? '✓' : ''}
+                  </span>
+                  {option}
+                </button>
+              )
+            })}
+          </div>,
+          document.body
+        )
+      : null
 
   return (
     <div
@@ -97,9 +206,11 @@ export function WorkReportExternalManagerMultiSelect({ value, onChange, options 
       ref={rootRef}
     >
       <button
+        ref={triggerRef}
         type="button"
         className="work-report-external-manager-multi-trigger"
         aria-expanded={open}
+        aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
       >
         <span className="work-report-external-manager-multi-value">
@@ -117,34 +228,7 @@ export function WorkReportExternalManagerMultiSelect({ value, onChange, options 
           ▼
         </span>
       </button>
-      {open ? (
-        <div
-          className="work-report-external-manager-multi-menu"
-          role="listbox"
-          aria-multiselectable="true"
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          {options.map((option) => {
-            const isOn = selected.includes(option)
-            return (
-              <button
-                key={option}
-                type="button"
-                role="option"
-                aria-selected={isOn}
-                className={`work-report-external-manager-multi-item${isOn ? ' is-selected' : ''}`}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleToggleOption(option)}
-              >
-                <span className="work-report-external-manager-multi-tick" aria-hidden>
-                  {isOn ? '✓' : ''}
-                </span>
-                {option}
-              </button>
-            )
-          })}
-        </div>
-      ) : null}
+      {menuPortal}
     </div>
   )
 }
