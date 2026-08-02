@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom'
 import { Filter } from 'lucide-react'
 import { normalizeContractColumnFilterSelection } from './contractColumnFilter.js'
+import { computeFixedPortalPosition, fixedPortalStyle } from './portalMenuPosition.js'
 
 export function ContractColumnHeaderFilter({
   columnKey,
@@ -34,25 +35,28 @@ export function ContractColumnHeaderFilter({
   }, [isOpen, selected])
 
   const updateMenuPosition = useCallback(() => {
-    const trigger = rootRef.current
-    if (!trigger) return null
-    const rect = trigger.getBoundingClientRect()
-    return {
-      top: rect.bottom + 8,
-      left: rect.left,
-    }
+    const next = computeFixedPortalPosition(rootRef.current, {
+      gap: 8,
+      minWidth: 220,
+      maxHeight: 320,
+      preferBelowMinSpace: 120,
+    })
+    setMenuPosition(next)
+    return next
   }, [])
 
   useLayoutEffect(() => {
     if (!isOpen) {
       setMenuPosition(null)
-      return
+      return undefined
     }
-    setMenuPosition(updateMenuPosition())
-    const onReposition = () => setMenuPosition(updateMenuPosition())
+    updateMenuPosition()
+    const rafId = window.requestAnimationFrame(() => updateMenuPosition())
+    const onReposition = () => updateMenuPosition()
     window.addEventListener('resize', onReposition)
     window.addEventListener('scroll', onReposition, true)
     return () => {
+      window.cancelAnimationFrame(rafId)
       window.removeEventListener('resize', onReposition)
       window.removeEventListener('scroll', onReposition, true)
     }
@@ -84,8 +88,15 @@ export function ContractColumnHeaderFilter({
       if (menuRef.current?.contains(target)) return
       applyAndClose(draftRef.current)
     }
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') applyAndClose(draftRef.current)
+    }
     document.addEventListener('mousedown', onDocDown)
-    return () => document.removeEventListener('mousedown', onDocDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
   }, [applyAndClose, isOpen])
 
   const toggleOption = (option) => {
@@ -108,12 +119,11 @@ export function ContractColumnHeaderFilter({
             className="contract-column-filter-menu contract-column-filter-menu--portal"
             role="dialog"
             aria-label="열 필터"
-            style={{
-              position: 'fixed',
-              top: menuPosition.top,
-              left: menuPosition.left,
-              zIndex: 3000,
-            }}
+            style={fixedPortalStyle(menuPosition, {
+              zIndex: 10000,
+              matchWidth: false,
+              minWidth: 220,
+            })}
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="contract-column-filter-menu-actions">

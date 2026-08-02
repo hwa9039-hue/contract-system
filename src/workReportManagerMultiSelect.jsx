@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { computeFixedPortalPosition, fixedPortalStyle } from './portalMenuPosition.js'
 
 export const WORK_REPORT_MANAGER_OPTIONS = [
   '전기웅',
@@ -15,8 +16,6 @@ export const WORK_REPORT_MANAGER_OPTIONS = [
 ]
 
 const BODY_MENU_OPEN_CLASS = 'work-report-manager-menu-open'
-const MENU_MAX_HEIGHT_PX = 240
-const MENU_GAP_PX = 4
 let openMenuCount = 0
 
 function setBodyMenuOpen(isOpen) {
@@ -34,18 +33,6 @@ function setBodyMenuOpen(isOpen) {
 function safeString(value) {
   if (value === null || value === undefined) return ''
   return String(value)
-}
-
-/** body CSS zoom — fixed 포털 좌표와 getBoundingClientRect 보정용 */
-function getBodyCssZoom() {
-  try {
-    const raw = getComputedStyle(document.body).zoom
-    if (!raw || raw === 'normal') return 1
-    const parsed = parseFloat(raw)
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
-  } catch {
-    return 1
-  }
 }
 
 /** 문자열(CSV) 또는 배열 → 담당자 배열 */
@@ -76,55 +63,6 @@ export function toggleManagerMultiSelectCsv(currentValue, managerName, optionLis
   return optionList.filter((option) => set.has(option)).join(', ')
 }
 
-/**
- * 트리거 바로 아래(공간 부족 시 위)에 붙는 fixed 좌표.
- * body { zoom } 환경에서는 rect를 zoom으로 나눠 CSS fixed 좌표계에 맞춘다.
- */
-function computeMenuPosition(triggerEl) {
-  if (!triggerEl) return null
-  const rect = triggerEl.getBoundingClientRect()
-  const zoom = getBodyCssZoom()
-  const top = rect.top / zoom
-  const bottom = rect.bottom / zoom
-  const leftRaw = rect.left / zoom
-  const width = rect.width / zoom
-  const viewportH = window.innerHeight / zoom
-  const viewportW = window.innerWidth / zoom
-
-  const spaceBelow = viewportH - bottom - MENU_GAP_PX
-  const spaceAbove = top - MENU_GAP_PX
-  // 기본은 트리거 바로 아래. 아래가 거의 없을 때만 위로.
-  const openUpward = spaceBelow < 96 && spaceAbove > spaceBelow
-
-  const maxHeight = Math.max(
-    96,
-    Math.min(MENU_MAX_HEIGHT_PX, openUpward ? spaceAbove : Math.max(spaceBelow, 96))
-  )
-  const menuWidth = Math.max(width, 140)
-  let left = leftRaw
-  left = Math.min(left, viewportW - menuWidth - 8)
-  left = Math.max(8, left)
-
-  if (openUpward) {
-    return {
-      top: null,
-      bottom: viewportH - top + MENU_GAP_PX,
-      left,
-      width: menuWidth,
-      maxHeight,
-      openUpward: true,
-    }
-  }
-  return {
-    top: bottom + MENU_GAP_PX,
-    bottom: null,
-    left,
-    width: menuWidth,
-    maxHeight,
-    openUpward: false,
-  }
-}
-
 export function WorkReportExternalManagerMultiSelect({ value, onChange, options = WORK_REPORT_MANAGER_OPTIONS }) {
   const [open, setOpen] = useState(false)
   const [menuPosition, setMenuPosition] = useState(null)
@@ -142,8 +80,14 @@ export function WorkReportExternalManagerMultiSelect({ value, onChange, options 
   }, [])
 
   const updateMenuPosition = useCallback(() => {
-    const next = computeMenuPosition(triggerRef.current)
-    setMenuPosition(next)
+    setMenuPosition(
+      computeFixedPortalPosition(triggerRef.current, {
+        gap: 4,
+        minWidth: 140,
+        maxHeight: 240,
+        preferBelowMinSpace: 96,
+      })
+    )
   }, [])
 
   useEffect(() => {
@@ -158,7 +102,6 @@ export function WorkReportExternalManagerMultiSelect({ value, onChange, options 
       return undefined
     }
     updateMenuPosition()
-    // 레이아웃·zoom 반영 직후 한 번 더 보정
     const rafId = window.requestAnimationFrame(() => updateMenuPosition())
     const onReposition = () => updateMenuPosition()
     window.addEventListener('resize', onReposition)
@@ -197,16 +140,7 @@ export function WorkReportExternalManagerMultiSelect({ value, onChange, options 
             className="work-report-external-manager-multi-menu work-report-external-manager-multi-menu--portal"
             role="listbox"
             aria-multiselectable="true"
-            style={{
-              position: 'fixed',
-              top: menuPosition.openUpward ? 'auto' : `${menuPosition.top}px`,
-              bottom: menuPosition.openUpward ? `${menuPosition.bottom}px` : 'auto',
-              left: `${menuPosition.left}px`,
-              width: `${menuPosition.width}px`,
-              minWidth: `${menuPosition.width}px`,
-              maxHeight: `${menuPosition.maxHeight}px`,
-              zIndex: 10000,
-            }}
+            style={fixedPortalStyle(menuPosition, { zIndex: 10000 })}
             onMouseDown={(e) => e.stopPropagation()}
           >
             {options.map((option) => {

@@ -13616,6 +13616,9 @@ div[class*='MuiDataGrid-licenseWatermark'] {
 
 .contract-column-filter-menu--portal {
   margin-top: 0;
+  position: fixed !important;
+  right: auto !important;
+  z-index: 10000;
 }
 
 .unit-price-table .text-center {
