@@ -6574,6 +6574,8 @@ textarea:focus-visible {
   > td.discovery-col-project,
 .discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
   > td.discovery-col-detail,
+.discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.discovery-col-manager,
 .excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
   > td.excluded-col-project,
 .excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
@@ -7212,14 +7214,43 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
 .discovery-registry-table td.discovery-w-38,
 .discovery-registry-table col.discovery-w-40,
 .discovery-registry-table th.discovery-w-40,
-.discovery-registry-table td.discovery-w-40,
-.discovery-registry-table col.discovery-w-58,
-.discovery-registry-table th.discovery-w-58,
-.discovery-registry-table td.discovery-w-58 {
+.discovery-registry-table td.discovery-w-40 {
   width: 1% !important;
   min-width: 0 !important;
   max-width: none !important;
   white-space: nowrap !important;
+}
+
+/* 담당자 — 고정 폭 + 긴 텍스트 줄바꿈 (세부내용 공간 확보) */
+.discovery-registry-table col.discovery-w-58,
+.discovery-registry-table th.discovery-w-58,
+.discovery-registry-table td.discovery-w-58,
+.discovery-registry-table.excel-table.registry-table td.discovery-col-manager,
+.discovery-registry-table.excel-table.registry-table th.discovery-col-manager,
+.discovery-registry-table .discovery-col-manager {
+  width: 140px !important;
+  min-width: 120px !important;
+  max-width: 160px !important;
+  white-space: pre-wrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
+}
+
+.discovery-registry-table.excel-table.registry-table td.discovery-col-manager .cell-display,
+.discovery-registry-table .discovery-col-manager .cell-display,
+.discovery-registry-table .discovery-col-manager .editable-text-cell-display,
+.discovery-registry-table .discovery-col-manager .editable-text-cell-input {
+  white-space: pre-wrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.35;
+  font-size: 13px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* 발주처 — 중간 확장 */
@@ -7332,26 +7363,6 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
 
 .discovery-registry-table .discovery-col-amount .cell-display {
   justify-content: flex-end;
-}
-
-.discovery-registry-table.excel-table.registry-table td.discovery-col-manager,
-.discovery-registry-table.excel-table.registry-table th.discovery-col-manager,
-.discovery-registry-table .discovery-col-manager {
-  width: 1% !important;
-  white-space: nowrap !important;
-  word-break: keep-all;
-  overflow-wrap: normal;
-}
-
-.discovery-registry-table.excel-table.registry-table td.discovery-col-manager .cell-display,
-.discovery-registry-table .discovery-col-manager .cell-display {
-  white-space: nowrap !important;
-  word-break: keep-all;
-  overflow-wrap: normal;
-  justify-content: center;
-  text-align: center;
-  line-height: 1.25;
-  font-size: 13px;
 }
 
 .discovery-registry-table .discovery-col-client {

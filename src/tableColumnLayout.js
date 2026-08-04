@@ -17,6 +17,7 @@ const LONG_TEXT_COLUMN_KEYS = new Set([
   'business_content',
   'summary',
   'address',
+  'manager',
 ])
 
 /** 줄바꿈 없이 한 줄로 유지할 고정 포맷 컬럼 */
@@ -37,7 +38,6 @@ const STRICT_NOWRAP_COLUMN_KEYS = new Set([
   'contractType',
   'salesOwner',
   'pm',
-  'manager',
   'manager_name',
   'position',
   'phone',
