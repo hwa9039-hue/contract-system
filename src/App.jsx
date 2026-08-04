@@ -15100,34 +15100,10 @@ function App() {
               <div className="dashboard-surface-card">
                 <div className="dashboard-work-report-briefing">
                   <div className="dashboard-work-report-briefing-top">
-                    <div>
-                      <h2 className="dashboard-work-report-briefing-title">
-                        오늘 업무 브리핑 <span className="dashboard-work-report-briefing-title-sep">/</span>{' '}
-                        {formatYmdWithWeekdayKo(new Date())}
-                      </h2>
-                    </div>
-                    <div className="dashboard-work-report-briefing-actions">
-                      <button
-                        className="primary-btn dashboard-work-report-briefing-cta"
-                        type="button"
-                        onClick={() => {
-                          trackWorkWeek(dashboardWorkReportWeekMeta.weekStartDate)
-                          setMenu('workReports')
-                        }}
-                      >
-                        주간업무보고서 바로가기
-                      </button>
-                      <button
-                        className="primary-btn dashboard-work-report-briefing-cta"
-                        type="button"
-                        onClick={() => {
-                          trackWorkWeek(dashboardWorkReportWeekMeta.weekStartDate)
-                          setMenu('meetingMinutes')
-                        }}
-                      >
-                        회의록 바로가기
-                      </button>
-                    </div>
+                    <h2 className="dashboard-work-report-briefing-title">
+                      오늘 업무 브리핑 <span className="dashboard-work-report-briefing-title-sep">/</span>{' '}
+                      {formatYmdWithWeekdayKo(new Date())}
+                    </h2>
                   </div>
 
                   <div className="dashboard-briefing-grid">

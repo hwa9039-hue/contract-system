@@ -34,6 +34,10 @@
   --primary-strong: #3b4252;
   --primary-soft: #e5e9f0;
 
+  /* 사이드바 로고 박스 ↔ 메인 헤더 박스 높이·상단 inset 통일 */
+  --app-top-chrome-height: 64px;
+  --app-top-chrome-inset: 16px;
+
   --accent: #2e3440;
   --accent-strong: #3b4252;
   --accent-soft: #e5e9f0;
@@ -127,6 +131,7 @@ textarea {
   overflow-x: hidden;
   overflow-y: auto;
   padding: 8px;
+  padding-top: var(--app-top-chrome-inset);
 }
 
 .sidebar-bottom {
@@ -136,11 +141,14 @@ textarea {
 
 .company-logo-box {
   width: 100%;
-  height: 66px;
+  height: var(--app-top-chrome-height);
+  min-height: var(--app-top-chrome-height);
+  max-height: var(--app-top-chrome-height);
+  box-sizing: border-box;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 8px;
+  padding: 0 10px;
   margin-bottom: 10px;
   display: flex;
   align-items: center;
@@ -160,7 +168,7 @@ textarea {
   display: block;
   width: 100%;
   max-width: 142px;
-  max-height: 54px;
+  max-height: calc(var(--app-top-chrome-height) - 16px);
   object-fit: contain;
 }
 
@@ -244,6 +252,7 @@ textarea {
   display: flex;
   flex-direction: column;
   padding: 6px 10px 12px;
+  padding-top: var(--app-top-chrome-inset);
   overflow: hidden;
 }
 
@@ -261,10 +270,12 @@ textarea {
 /* 통합 글로벌 헤더: 시스템명 + 페이지명 | 세션 액션 */
 .top-system-title {
   width: 100%;
-  min-height: 52px;
+  height: var(--app-top-chrome-height);
+  min-height: var(--app-top-chrome-height);
+  max-height: var(--app-top-chrome-height);
   margin: 0;
-  padding: 12px 22px;
-  border-radius: 12px;
+  padding: 0 22px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3561,15 +3572,23 @@ textarea:focus-visible {
   overflow-x: hidden;
   overflow-y: auto;
   padding: 16px 14px;
+  padding-top: var(--app-top-chrome-inset);
 }
 
 .company-logo-box {
-  height: 76px;
+  height: var(--app-top-chrome-height);
+  min-height: var(--app-top-chrome-height);
+  max-height: var(--app-top-chrome-height);
   margin-bottom: 18px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
   background: var(--panel);
   box-shadow: var(--shadow-sm);
+  box-sizing: border-box;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .company-logo-text {
@@ -3580,7 +3599,7 @@ textarea:focus-visible {
 
 .company-logo-img {
   max-width: 152px;
-  max-height: 58px;
+  max-height: calc(var(--app-top-chrome-height) - 16px);
   filter: none;
 }
 
@@ -3653,6 +3672,7 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   padding: 18px 20px 22px;
+  padding-top: var(--app-top-chrome-inset);
   overflow: hidden;
 }
 
@@ -3667,9 +3687,14 @@ textarea:focus-visible {
 }
 
 .top-system-title {
-  min-height: 52px;
+  height: var(--app-top-chrome-height);
+  min-height: var(--app-top-chrome-height);
+  max-height: var(--app-top-chrome-height);
   border-radius: 8px;
-  padding: 12px 22px;
+  padding: 0 22px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
 }
 
 .stat-card {
@@ -4225,11 +4250,9 @@ textarea:focus-visible {
 .dashboard-work-report-briefing-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 14px;
-  flex-wrap: wrap;
   margin: 0 0 12px;
-  padding: 0 0 12px;
+  padding: 18px 0; /* py ≈ 4.5 — 버튼 제거 후 타이틀 행 높이 확보 */
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -4253,23 +4276,6 @@ textarea:focus-visible {
   font-size: 14px;
   font-weight: 700;
   color: var(--muted);
-}
-
-.dashboard-work-report-briefing-actions {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.dashboard-work-report-briefing-cta {
-  flex-shrink: 0;
-  min-height: 32px;
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.25;
 }
 
 .dashboard-work-report-briefing-empty {
@@ -14277,8 +14283,10 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   .top-system-title {
     align-items: center;
     gap: 10px;
-    min-height: 48px;
-    padding: 10px 12px;
+    height: var(--app-top-chrome-height);
+    min-height: var(--app-top-chrome-height);
+    max-height: var(--app-top-chrome-height);
+    padding: 0 12px;
   }
 
   .top-system-title-left {
