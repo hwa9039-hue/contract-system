@@ -9634,6 +9634,12 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
   grid-template-columns: 90px minmax(0, 1fr) 110px;
 }
 
+/* 내용 칸이 늘어나도 담당자 열이 행 전체 높이를 stretch */
+.work-report-board-row-managed,
+.work-report-board-row-managed--deadline {
+  align-items: stretch;
+}
+
 .work-report-board-row-managed .work-report-board-fixed-manager,
 .work-report-board-header-row-managed .work-report-board-manager-header {
   white-space: nowrap;
@@ -10003,14 +10009,34 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
   display: flex;
   align-items: center;
   justify-content: center;
-  align-self: start;
-  padding: 8px 8px;
+  align-self: stretch;
+  height: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 8px;
   border-right: 1px solid #dbe4ee;
-  background: var(--panel-soft);
+  background: #f1f5f9; /* slate-100 — 헤더 톤과 맞는 은은한 채움 */
   font-size: 11px;
   font-weight: 700;
   color: var(--color-medium);
   text-align: center;
+  line-height: 1.3;
+}
+
+.work-report-week-section-col .work-report-board-row-managed .work-report-board-fixed-manager,
+.work-report-week-section-col .work-report-board-row-managed--deadline .work-report-board-fixed-manager {
+  align-self: stretch;
+  height: 100%;
+  min-height: 100%;
+}
+
+.work-report-board-row-managed .work-report-board-select,
+.work-report-board-row-managed--deadline .work-report-board-select {
+  align-self: stretch;
+  height: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  background: #f1f5f9;
 }
 
 .work-report-board-textarea {
@@ -10158,6 +10184,12 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
   align-items: start;
   background: #ffffff;
   border-bottom: 1px solid #d7e0eb;
+}
+
+/* DI/도로/영업지원 담당자 행 — 내용 높이만큼 담당자 칸 stretch */
+.work-report-board-row-no-index.work-report-board-row-managed,
+.work-report-board-row-no-index.work-report-board-row-managed--deadline {
+  align-items: stretch;
 }
 
 .work-report-board-row-no-index .work-report-external-manager-multi,
