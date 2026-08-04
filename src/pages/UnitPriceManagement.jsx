@@ -842,7 +842,7 @@ export default function UnitPriceManagement({ canEdit = true }) {
           <div className={UNIT_PRICE_PAGE_STACK}>
             <div className="contracts-header-actions">
               <button className="secondary-btn" type="button" onClick={handleExcelDownload}>
-                엑셀로 내려받기
+                엑셀 다운로드
               </button>
             </div>
 

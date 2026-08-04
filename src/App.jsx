@@ -15465,7 +15465,7 @@ function App() {
               )}
 
               <button className="secondary-btn" type="button" onClick={handleExcelDownload}>
-                엑셀로 내려받기
+                엑셀 다운로드
               </button>
 
               <input
