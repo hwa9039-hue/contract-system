@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
+  ChevronRight,
   Copy,
   Download,
   Eye,
@@ -14965,18 +14966,27 @@ function App() {
       </aside>
 
       <main className="main-area">
-        <div className="top-system-bar">
+        <div className="top-system-bar app-global-header">
           <div className="top-system-title">
-            <button
-              type="button"
-              className="mobile-nav-toggle"
-              aria-label={isMobileNavOpen ? '메뉴 닫기' : '메뉴 열기'}
-              aria-expanded={isMobileNavOpen}
-              onClick={() => setIsMobileNavOpen((open) => !open)}
-            >
-              ☰
-            </button>
-            <span className="top-system-title-text">스마트DI사업부 통합관리 시스템</span>
+            <div className="top-system-title-left">
+              <button
+                type="button"
+                className="mobile-nav-toggle"
+                aria-label={isMobileNavOpen ? '메뉴 닫기' : '메뉴 열기'}
+                aria-expanded={isMobileNavOpen}
+                onClick={() => setIsMobileNavOpen((open) => !open)}
+              >
+                ☰
+              </button>
+              <span className="top-system-title-text">스마트DI사업부 통합관리 시스템</span>
+              <ChevronRight
+                className="top-system-title-sep"
+                size={15}
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+              <h1 className="top-system-page-title">{PAGE_TITLE_MAP[menu] || ''}</h1>
+            </div>
             <div className="top-system-session-actions">
               <span
                 className={`top-system-session-badge${
@@ -15000,10 +15010,6 @@ function App() {
               </button>
             </div>
           </div>
-        </div>
-
-        <div className="page-title-bar unified-title-bar">
-          <h1>{PAGE_TITLE_MAP[menu]}</h1>
         </div>
 
         <input
