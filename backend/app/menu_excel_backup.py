@@ -42,20 +42,41 @@ def _amount_display(value: Any) -> str:
     return _format_amount_cell(value)
 
 
+def _importance_label(status: Any) -> str:
+    """프론트 registryImportance.getImportanceStyle 라벨과 동일."""
+    text = str(status or "").strip()
+    if text == "완료":
+        text = "마감"
+    elif text == "대기중":
+        text = "대응중"
+    if not text:
+        return ""
+    if text in ("확인필요", "보류"):
+        return "검토"
+    if text == "보고":
+        return "보고"
+    if text == "대응중":
+        return "대응중"
+    if text in ("발주계획", "사전규격", "입찰공고", "정보공개"):
+        return "사업공고"
+    if text in ("계약", "마감"):
+        return "종료"
+    return "기타"
+
+
 def _project_contract(row: dict) -> dict[str, Any]:
+    """화면 CONTRACT_COLUMNS 와 동일 헤더·순서."""
     item = row_to_contract(row)
     return {
         "사업년도": _normalize_cell(item.get("year")),
-        "구분": _normalize_cell(item.get("segment")),
         "참고번호": _normalize_cell(item.get("refNo")),
-        "계약번호": _normalize_cell(item.get("contractNo")),
         "발주처": _normalize_cell(item.get("client")),
         "담당부서": _normalize_cell(item.get("department")),
         "계약방식": _normalize_cell(item.get("contractMethod")),
         "계약분류": _normalize_cell(item.get("contractType")),
         "식별번호": _normalize_cell(item.get("identNo")),
-        "계약일자": _normalize_cell(item.get("contractDate")),
-        "준공일자": _normalize_cell(item.get("dueDate")),
+        "계약일자": _normalize_cell(item.get("contractDate")) or "-",
+        "준공일자": _normalize_cell(item.get("dueDate")) or "-",
         "사업명": _normalize_cell(item.get("projectName")),
         "계약금액": _amount_display(item.get("amount")),
         "영업담당자": _normalize_cell(item.get("salesOwner")),
@@ -65,20 +86,20 @@ def _project_contract(row: dict) -> dict[str, Any]:
 
 
 def _project_sales(row: dict) -> dict[str, Any]:
+    """화면 SALES_COLUMNS 와 동일 헤더·순서."""
     item = row_to_sales_register(row)
+    stage = item.get("projectStage")
     return {
+        "중요도": _importance_label(stage),
         "등록일": _normalize_cell(item.get("registerDate")),
         "발주처": _normalize_cell(item.get("client")),
-        "프로젝트": _normalize_cell(item.get("projectName")),
+        "사업명": _normalize_cell(item.get("projectName")),
         "사업금액": _amount_display(item.get("projectAmount")),
-        "사업구분": _normalize_cell(item.get("projectCategory")),
         "담당자": _normalize_cell(item.get("manager")),
-        "상태": _normalize_cell(item.get("projectStage")),
+        "상태": _normalize_cell(stage),
         "담당부서": _normalize_cell(item.get("department")),
         "세부내용": _normalize_cell(item.get("detail")),
         "출처": _normalize_cell(item.get("source")),
-        "영업매칭": _normalize_cell(item.get("salesNote")),
-        "영업 요청사항": _normalize_cell(item.get("actionRequest")),
     }
 
 
@@ -96,33 +117,38 @@ def _project_document(row: dict) -> dict[str, Any]:
 
 
 def _project_discovery(row: dict) -> dict[str, Any]:
+    """화면 DISCOVERY_COLUMNS 와 동일 헤더·순서."""
     item = row_to_project_discovery(row)
+    stage = item.get("projectStage")
     return {
+        "중요도": _importance_label(stage),
         "건축정보일자": _normalize_cell(item.get("permitDate")),
         "확인": _normalize_cell(item.get("checkStatus")),
-        "영업자": _normalize_cell(item.get("salesTarget")),
+        "상태": _normalize_cell(stage),
         "사업구분": _normalize_cell(item.get("projectCategory")),
         "발주처": _normalize_cell(item.get("client")),
         "사업명": _normalize_cell(item.get("projectName")),
         "사업금액": _amount_display(item.get("projectAmount")),
         "준공시기": _normalize_cell(item.get("completionPeriod")),
         "담당자": _normalize_cell(item.get("manager")),
-        "비고": _normalize_cell(item.get("note")),
+        "세부내용": _normalize_cell(item.get("note")),
     }
 
 
 def _project_excluded(row: dict) -> dict[str, Any]:
+    """화면 EXCLUDED_COLUMNS(사업공유) 와 동일 헤더·순서."""
     item = row_to_excluded_project(row)
+    category = item.get("category")
     return {
+        "중요도": _importance_label(category),
         "등록일": _normalize_cell(item.get("writeDate")),
-        "공개일": _normalize_cell(item.get("openDate")),
-        "상태": _normalize_cell(item.get("category")),
-        "검색어": _normalize_cell(item.get("keyword")),
+        "상태": _normalize_cell(category),
+        "공유": _normalize_cell(item.get("shareStatus")),
         "작성자": _normalize_cell(item.get("writer")),
         "사업명": _normalize_cell(item.get("projectName")),
         "발주처": _normalize_cell(item.get("client")),
         "사업금액": _amount_display(item.get("projectAmount")),
-        "제외 사유": _normalize_cell(item.get("exclusionReason")),
+        "세부내용": _normalize_cell(item.get("exclusionReason")),
     }
 
 

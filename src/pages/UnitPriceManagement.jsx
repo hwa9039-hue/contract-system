@@ -549,10 +549,14 @@ export default function UnitPriceManagement({ canEdit = true }) {
   )
 
   const handleExcelDownload = useCallback(() => {
+    const exportColumns = columns.filter((column) => column.field !== 'actions')
     const rows = filteredFlatRows
       .filter((row) => !row.isPlaceholder && !isPlaceholderRowId(row.id))
       .map(unitPriceRowToExcelRow)
-    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const worksheet =
+      rows.length > 0
+        ? XLSX.utils.json_to_sheet(rows)
+        : XLSX.utils.aoa_to_sheet([exportColumns.map((column) => column.headerName)])
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, '단가관리')
     XLSX.writeFile(workbook, buildMenuExcelFilename('단가관리'))

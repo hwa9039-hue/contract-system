@@ -595,7 +595,10 @@ export default function ProjectManagement({ canEdit = true }) {
 
   const handleExcelDownload = useCallback(() => {
     const rows = filteredRows.map(projectManagementRowToExcelRow)
-    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const worksheet =
+      rows.length > 0
+        ? XLSX.utils.json_to_sheet(rows)
+        : XLSX.utils.aoa_to_sheet([columns.map((column) => column.headerName)])
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, '사업관리')
     XLSX.writeFile(workbook, buildMenuExcelFilename('사업관리'))

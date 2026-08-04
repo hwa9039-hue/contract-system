@@ -4741,6 +4741,57 @@ function getRegistryPlainDisplayValue(row, column) {
   return getRegistryPlainDisplayState(row, column).text
 }
 
+/**
+ * 화면 표 컬럼(label·순서)과 동일한 엑셀 셀 값.
+ * 중요도 등 계산 컬럼도 화면 표기와 맞춘다. 빈 칸은 '' (화면 empty 라벨 미사용).
+ */
+function getRegistryExcelExportCellValue(row, column) {
+  if (column.type === 'importance') {
+    return getImportanceStyle(resolveRegistryImportanceStatus(row, column)).label || ''
+  }
+  if (column.type === 'amount') {
+    return formatAmountDisplay(row[column.key])
+  }
+  if (column.key === 'projectStage') {
+    return normalizeSalesProjectStage(row.projectStage)
+  }
+  if (column.type === 'date') {
+    const state = formatEditableTableCellText(row[column.key], { isDate: true })
+    return state.isEmpty ? '' : state.text
+  }
+  return safeString(row[column.key]).trim()
+}
+
+function getContractExcelExportCellValue(item, column) {
+  if (column.type === 'amount' || column.key === 'amount') {
+    return formatAmountDisplay(item[column.key])
+  }
+  if (column.type === 'date') {
+    return item[column.key] || '-'
+  }
+  return safeString(item[column.key]).trim()
+}
+
+/** 화면 컬럼 정의와 동일한 헤더·순서로 엑셀 행 배열을 만든다. */
+function buildExcelRowsFromTableColumns(rows, columns, getCellValue, { excludeDrafts = true } = {}) {
+  const source = excludeDrafts ? rows.filter((row) => !row.isDraft) : rows
+  return source.map((row) => {
+    const excelRow = {}
+    for (const column of columns) {
+      excelRow[column.label] = getCellValue(row, column)
+    }
+    return excelRow
+  })
+}
+
+/** 필터 결과 0건이어도 화면과 동일한 헤더 행을 유지한다. */
+function createExcelWorksheetFromColumnRows(rows, columns) {
+  if (!rows.length) {
+    return XLSX.utils.aoa_to_sheet([columns.map((column) => column.label)])
+  }
+  return XLSX.utils.json_to_sheet(rows)
+}
+
 function getContractCellDisplayState(item, column) {
   const raw = item[column.key]
   if (column.key === 'amount') {
@@ -8126,17 +8177,13 @@ function App() {
   }
 
   const handleContactsExcelDownload = () => {
-    const rows = filteredContactsRows.filter((row) => !row.isDraft).map((row) => ({
-      구분: row.category,
-      사업내용: row.business_content,
-      담당자: row.manager_name,
-      직위: row.position,
-      전화번호: row.phone,
-      이메일: row.email,
-      비고: row.notes,
-    }))
+    const rows = buildExcelRowsFromTableColumns(
+      filteredContactsRows,
+      CONTACTS_MANAGE_COLUMNS,
+      getRegistryExcelExportCellValue
+    )
 
-    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const worksheet = createExcelWorksheetFromColumnRows(rows, CONTACTS_MANAGE_COLUMNS)
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, '연락처')
 
@@ -8389,26 +8436,15 @@ function App() {
   }
 
   const handleExcelDownload = () => {
-    const rows = sortContracts(contracts).map((item) => ({
-      사업년도: item.year,
-      구분: item.segment,
-      참고번호: item.refNo,
-      계약번호: item.contractNo,
-      발주처: item.client,
-      담당부서: item.department,
-      계약방식: item.contractMethod,
-      계약분류: item.contractType,
-      식별번호: item.identNo,
-      계약일자: item.contractDate || '-',
-      준공일자: item.dueDate || '-',
-      사업명: item.projectName,
-      계약금액: formatAmountDisplay(item.amount),
-      영업담당자: item.salesOwner,
-      '현장 PM': item.pm,
-      비고: item.note,
-    }))
+    // 화면 filteredData(검색·기간·열 필터·정렬)와 CONTRACT_COLUMNS 헤더/순서 동기화
+    const rows = buildExcelRowsFromTableColumns(
+      filteredData,
+      CONTRACT_COLUMNS,
+      getContractExcelExportCellValue,
+      { excludeDrafts: false }
+    )
 
-    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const worksheet = createExcelWorksheetFromColumnRows(rows, CONTRACT_COLUMNS)
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, '계약현황')
 
@@ -8741,17 +8777,13 @@ function App() {
   }
 
   const handleDocumentExcelDownload = () => {
-    const rows = filteredDocuments.filter((row) => !row.isDraft).map((row) => ({
-      등록일: row.docDate,
-      문서번호: row.docNo,
-      '수신처 또는 발신처': row.senderReceiver,
-      '문서명 또는 제목': row.title,
-      '접수 또는 발송형태': row.method,
-      '수신자 또는 작성자': row.writer,
-      비고: row.note,
-    }))
+    const rows = buildExcelRowsFromTableColumns(
+      filteredDocuments,
+      DOCUMENT_COLUMNS,
+      getRegistryExcelExportCellValue
+    )
 
-    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const worksheet = createExcelWorksheetFromColumnRows(rows, DOCUMENT_COLUMNS)
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, '문서수발신대장')
 
@@ -9336,19 +9368,13 @@ function App() {
   }
 
   const handleSalesExcelDownload = () => {
-    const rows = filteredSalesRows.filter((row) => !row.isDraft).map((row) => ({
-      등록일: row.registerDate,
-      발주처: row.client,
-      사업명: row.projectName,
-      사업금액: formatAmountDisplay(row.projectAmount),
-      담당자: row.manager,
-      상태: normalizeSalesProjectStage(row.projectStage),
-      담당부서: row.department,
-      세부내용: row.detail,
-      출처: row.source,
-    }))
+    const rows = buildExcelRowsFromTableColumns(
+      filteredSalesRows,
+      SALES_COLUMNS,
+      getRegistryExcelExportCellValue
+    )
 
-    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const worksheet = createExcelWorksheetFromColumnRows(rows, SALES_COLUMNS)
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, '영업관리대장')
 
@@ -9649,21 +9675,13 @@ function App() {
   }
 
   const handleDiscoveryExcelDownload = () => {
-    const rows = filteredDiscoveryRows.filter((row) => !row.isDraft).map((row) => ({
-      건축정보일자: row.permitDate,
-      확인: row.checkStatus,
-      상태: row.projectStage,
-      영업자: row.salesTarget,
-      사업구분: row.projectCategory,
-      발주처: row.client,
-      사업명: row.projectName,
-      사업금액: formatAmountDisplay(row.projectAmount),
-      준공시기: row.completionPeriod,
-      담당자: row.manager,
-      세부내용: row.note,
-    }))
+    const rows = buildExcelRowsFromTableColumns(
+      filteredDiscoveryRows,
+      DISCOVERY_COLUMNS,
+      getRegistryExcelExportCellValue
+    )
 
-    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const worksheet = createExcelWorksheetFromColumnRows(rows, DISCOVERY_COLUMNS)
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, '건축정보')
 
@@ -9959,19 +9977,13 @@ function App() {
   }
 
   const handleExcludedExcelDownload = () => {
-    const rows = filteredExcludedRows.filter((row) => !row.isDraft).map((row) => ({
-      등록일: row.writeDate,
-      공개일: row.openDate,
-      상태: row.category,
-      검색어: row.keyword,
-      작성자: row.writer,
-      사업명: row.projectName,
-      발주처: row.client,
-      사업금액: formatAmountDisplay(row.projectAmount),
-      '제외 사유': row.exclusionReason,
-    }))
+    const rows = buildExcelRowsFromTableColumns(
+      filteredExcludedRows,
+      EXCLUDED_COLUMNS,
+      getRegistryExcelExportCellValue
+    )
 
-    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const worksheet = createExcelWorksheetFromColumnRows(rows, EXCLUDED_COLUMNS)
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, '사업공유')
 
