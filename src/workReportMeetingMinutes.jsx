@@ -849,30 +849,41 @@ export function WorkReportMeetingMinutesSection({
         <div className="table-wrap meeting-minutes-table-wrap overflow-x-auto">
           <table className="meeting-minutes-doc__table contract-table excel-table registry-table">
             <colgroup>
-              <col style={{ width: 64, minWidth: 64 }} />
-              <col />
-              <col style={{ width: 256, minWidth: 256 }} />
-              <col style={{ width: 160, minWidth: 160 }} />
+              <col className="meeting-minutes-doc__col-num" />
+              <col className="meeting-minutes-doc__col-content" />
+              <col className="meeting-minutes-doc__col-assignee" />
+              <col className="meeting-minutes-doc__col-due" />
             </colgroup>
             <thead>
               <tr>
-                <th className="th-align-center">구분</th>
-                <th className="th-align-center">회의 내용</th>
-                <th className="th-align-center">담당자</th>
+                <th className="th-align-center meeting-minutes-doc__col-num">구분</th>
+                <th className="th-align-center meeting-minutes-doc__col-content">회의 내용</th>
+                <th className="th-align-center meeting-minutes-doc__col-assignee">담당자</th>
                 <th className="th-align-center meeting-minutes-doc__col-due">기한</th>
               </tr>
             </thead>
             <tbody>
-              {agendaRows.map((row, index) => (
+              {agendaRows.map((row, index) => {
+                const assignees = Array.isArray(row.assignees)
+                  ? row.assignees
+                  : parseManagerMultiSelectValue(row.assignee)
+                const hasContent = Boolean(safeString(row.content).trim())
+                const hasAssignees = assignees.length > 0
+                const hasDue = Boolean(safeString(row.dueDate).trim())
+                const isRowEmpty = !hasContent && !hasAssignees && !hasDue
+
+                return (
                 <tr
                   key={`meeting-agenda-${index + 1}`}
-                  className="meeting-minutes-doc__agenda-row"
+                  className={`meeting-minutes-doc__agenda-row${isRowEmpty ? ' is-empty' : ' has-data'}`}
                   onBlur={handleRowBlur}
                 >
                   <td className="th-align-center meeting-minutes-doc__agenda-num">
                     {index + 1}
                   </td>
-                  <td className={`meeting-minutes-doc__agenda-content-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`}>
+                  <td
+                    className={`meeting-minutes-doc__agenda-content-cell${hasContent ? ' has-value' : ' is-empty-cell'} ${TABLE_INLINE_EDITABLE_CELL_CLASS}`}
+                  >
                     <AutoGrowTextarea
                       className={`meeting-minutes-doc__agenda-content ${TABLE_INLINE_INPUT_STANDARD_CLASS}`}
                       style={{ textAlign: 'left' }}
@@ -882,18 +893,22 @@ export function WorkReportMeetingMinutesSection({
                       onChange={(e) => patchAgendaRow(index, { content: e.target.value })}
                     />
                   </td>
-                  <td className="meeting-minutes-doc__agenda-assignee">
+                  <td
+                    className={`meeting-minutes-doc__agenda-assignee${hasAssignees ? ' has-value' : ' is-empty-cell'}`}
+                  >
                     <WorkReportExternalManagerMultiSelect
-                      value={row.assignees ?? row.assignee}
+                      value={assignees}
                       options={MEETING_MINUTES_ASSIGNEE_OPTIONS}
                       onChange={(nextCsv) =>
                         patchAgendaRow(index, { assignees: parseManagerMultiSelectValue(nextCsv) })
                       }
                     />
                   </td>
-                  <td className={`meeting-minutes-doc__agenda-due-cell meeting-minutes-doc__col-due ${TABLE_INLINE_EDITABLE_CELL_CLASS}`}>
+                  <td
+                    className={`meeting-minutes-doc__agenda-due-cell meeting-minutes-doc__col-due${hasDue ? ' has-value' : ' is-empty-cell'} ${TABLE_INLINE_EDITABLE_CELL_CLASS}`}
+                  >
                     <input
-                      className={TABLE_INLINE_INPUT_STANDARD_CLASS}
+                      className={`meeting-minutes-doc__agenda-due ${TABLE_INLINE_INPUT_STANDARD_CLASS}`}
                       style={{ textAlign: 'center' }}
                       type="date"
                       value={row.dueDate}
@@ -901,7 +916,8 @@ export function WorkReportMeetingMinutesSection({
                     />
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
