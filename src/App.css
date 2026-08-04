@@ -9912,26 +9912,38 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
 
 .work-report-board-row-simple {
   grid-template-columns: 30px minmax(0, 1fr);
-  align-items: start;
+  align-items: stretch;
 }
 
 .work-report-board-row-todo {
   grid-template-columns: 30px 28px minmax(0, 1fr);
+  align-items: stretch;
 }
 
-.work-report-board-row-simple .work-report-board-index {
-  align-self: start;
-  align-items: flex-start;
+/* 영업지원 순번 — 담당자 칸과 동일: 행 높이 채움 + 중앙 정렬 */
+.work-report-board-row-simple .work-report-board-index,
+.work-report-board-row-todo .work-report-board-index {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  height: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  background: #f1f5f9;
 }
 
 .work-report-board-todo-check {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  min-height: 34px;
+  align-self: stretch;
+  height: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
   padding: 8px 4px;
   border-right: 1px solid #dbe4ee;
-  background: #f8fafc;
+  background: #f1f5f9;
 }
 
 .work-report-board-todo-checkbox {
@@ -9981,13 +9993,24 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
 }
 
 .work-report-board-index {
-  background: #f8fafc;
+  background: #f1f5f9;
   color: #64748b;
 }
 
 .work-report-board-row .work-report-board-index {
-  align-self: start;
-  align-items: flex-start;
+  align-self: stretch;
+  align-items: center;
+  height: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+.work-report-week-section-col .work-report-board-row-todo .work-report-board-index,
+.work-report-week-section-col .work-report-board-row-simple .work-report-board-index,
+.work-report-week-section-col .work-report-board-row-todo .work-report-board-todo-check {
+  align-self: stretch;
+  height: 100%;
+  min-height: 100%;
 }
 
 .work-report-board-select {
