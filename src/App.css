@@ -14860,3 +14860,409 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
 table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-year-row):not(.contract-category-group-row) > td.registry-week-badge-cell {
   overflow: visible;
 }
+
+/* 주간업무보고서 스타일 튜닝 — DOM/열·행 렌더링 구조는 변경하지 않음 */
+.work-report-week-board-inner .work-report-board-section-title,
+.work-report-week-board-inner .work-report-board-support-title {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f1f5f9;
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.work-report-week-board-inner .work-report-board-section-blue .work-report-board-section-title {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+/* 요일 뱃지와 날짜를 가로 한 줄로 정렬 */
+.work-report-week-board-inner .work-report-day-head {
+  padding: 10px 16px;
+  border-color: #e5e7eb;
+}
+
+.work-report-week-board-inner .work-report-day-head-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.work-report-week-board-inner .work-report-day-weekday {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.work-report-week-board-inner .work-report-day-date {
+  margin: 0;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+/* 표 내부 폰트 14px 및 넉넉한 셀 여백 */
+.work-report-week-board-inner .work-report-board-index,
+.work-report-week-board-inner .work-report-board-manager-header,
+.work-report-week-board-inner .work-report-board-content-header,
+.work-report-week-board-inner .work-report-board-destination-header,
+.work-report-week-board-inner .work-report-board-deadline-header,
+.work-report-week-board-inner .work-report-board-select,
+.work-report-week-board-inner .work-report-board-fixed-manager,
+.work-report-week-board-inner .work-report-board-textarea,
+.work-report-week-board-inner .work-report-board-date-input,
+.work-report-week-board-inner .work-report-external-manager-multi-trigger,
+.work-report-week-board-inner .work-report-external-manager-multi-placeholder,
+.work-report-week-board-inner .work-report-external-manager-multi-chip,
+.work-report-week-board-inner .work-report-external-manager-multi-item {
+  font-size: 14px;
+}
+
+.work-report-week-board-inner .work-report-board-index,
+.work-report-week-board-inner .work-report-board-manager-header,
+.work-report-week-board-inner .work-report-board-content-header,
+.work-report-week-board-inner .work-report-board-destination-header,
+.work-report-week-board-inner .work-report-board-deadline-header,
+.work-report-week-board-inner .work-report-board-select,
+.work-report-week-board-inner .work-report-board-fixed-manager,
+.work-report-week-board-inner .work-report-board-date-input {
+  padding: 12px 16px;
+}
+
+.work-report-week-board-inner .work-report-board-textarea,
+.work-report-week-board-inner .work-report-board-textarea-external,
+.work-report-week-board-inner .work-report-board-textarea-destination,
+.work-report-week-board-inner .work-report-board-textarea-support-line,
+.work-report-week-board-inner .work-report-board-textarea-checklist-combined {
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+.work-report-week-board-inner .work-report-board-row-checklist-single {
+  padding: 12px;
+}
+
+.work-report-week-board-inner .work-report-board-section-cell-support .work-report-board-support-wrap {
+  padding: 12px;
+}
+
+/* 표 내부 구분선은 border-gray-200으로 통일 */
+.work-report-week-board-inner .work-report-board-section,
+.work-report-week-board-inner .work-report-board-support-block,
+.work-report-week-board-inner .work-report-board-textarea,
+.work-report-week-board-inner .work-report-board-textarea-external,
+.work-report-week-board-inner .work-report-board-textarea-destination,
+.work-report-week-board-inner .work-report-board-textarea-checklist-combined {
+  border-color: #e5e7eb;
+}
+
+.work-report-week-board-inner .work-report-board-header-row,
+.work-report-week-board-inner .work-report-board-row,
+.work-report-week-board-inner .work-report-board-header-row-no-index,
+.work-report-week-board-inner .work-report-board-header-row-external-no-index,
+.work-report-week-board-inner .work-report-board-row-no-index,
+.work-report-week-board-inner .work-report-board-row-external-no-index {
+  border-bottom-color: #e5e7eb;
+}
+
+.work-report-week-board-inner .work-report-board-index,
+.work-report-week-board-inner .work-report-board-manager-header,
+.work-report-week-board-inner .work-report-board-content-header,
+.work-report-week-board-inner .work-report-board-destination-header,
+.work-report-week-board-inner .work-report-board-deadline-header,
+.work-report-week-board-inner .work-report-board-select,
+.work-report-week-board-inner .work-report-board-fixed-manager,
+.work-report-week-board-inner .work-report-board-todo-check,
+.work-report-week-board-inner .work-report-board-row-no-index > *,
+.work-report-week-board-inner .work-report-board-row-external-no-index > *,
+.work-report-week-board-inner .work-report-board-header-row-no-index > *,
+.work-report-week-board-inner .work-report-board-header-row-external-no-index > * {
+  border-right-color: #e5e7eb;
+}
+
+/* 외부일정 담당자: 네모 입력 껍데기를 없애고 이름 칩 + 화살표만 표시 */
+.work-report-week-board-inner .work-report-external-manager-multi-trigger {
+  gap: 4px;
+  padding: 12px 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.work-report-week-board-inner .work-report-external-manager-multi-trigger:hover,
+.work-report-week-board-inner .work-report-external-manager-multi-trigger:focus {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.work-report-week-board-inner .work-report-external-manager-multi-value {
+  justify-content: center;
+}
+
+.work-report-week-board-inner .work-report-external-manager-multi-chip {
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+/* V6 행 중심 주간보드: 같은 orderIndex의 월~일 셀을 동일 grid row에 배치 */
+.work-report-week-section-rows {
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  min-width: 100%;
+}
+
+.work-report-week-data-row {
+  display: grid;
+  grid-template-columns: repeat(7, var(--work-report-day-col-width));
+  gap: 1rem;
+  align-items: stretch;
+  width: max-content;
+  min-width: 100%;
+}
+
+.work-report-week-data-cell {
+  display: grid;
+  align-self: stretch;
+  width: var(--work-report-day-col-width);
+  min-width: var(--work-report-day-col-width);
+  max-width: var(--work-report-day-col-width);
+  box-sizing: border-box;
+  background: #ffffff;
+}
+
+.work-report-week-data-cell:not(:last-child) {
+  border-right: 2px solid #e5e7eb;
+}
+
+/* 바깥 grid row가 정한 높이를 각 요일의 내부 행이 그대로 채운다. */
+.work-report-week-data-cell > .work-report-board-header-row-no-index,
+.work-report-week-data-cell > .work-report-board-header-row-external-no-index,
+.work-report-week-data-cell > .work-report-board-row,
+.work-report-week-data-cell > .work-report-board-row-no-index,
+.work-report-week-data-cell > .work-report-board-row-external-no-index {
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  align-self: stretch;
+  align-items: stretch;
+  box-sizing: border-box;
+}
+
+.work-report-week-data-cell .work-report-board-textarea,
+.work-report-week-data-cell .work-report-board-textarea-external,
+.work-report-week-data-cell .work-report-board-textarea-destination,
+.work-report-week-data-cell .work-report-board-textarea-support-line,
+.work-report-week-data-cell .work-report-board-textarea-checklist-combined,
+.work-report-week-data-cell .work-report-board-select,
+.work-report-week-data-cell .work-report-board-fixed-manager,
+.work-report-week-data-cell .work-report-board-index,
+.work-report-week-data-cell .work-report-board-todo-check {
+  align-self: stretch;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.work-report-week-data-cell .work-report-external-manager-multi {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  justify-content: flex-start;
+  height: 100%;
+  min-height: 0;
+}
+
+/* 빈 입력은 정해진 기본 높이만 유지하고 실제 콘텐츠가 넘을 때만 AutoGrow 된다. */
+.work-report-week-data-cell .work-report-board-textarea {
+  height: 100%;
+  min-height: 44px;
+}
+
+.work-report-week-data-cell .work-report-board-textarea-checklist-combined {
+  height: 100%;
+  min-height: 120px;
+}
+
+.work-report-week-data-cell .work-report-board-textarea-external,
+.work-report-week-data-cell .work-report-board-textarea-destination {
+  height: 100%;
+  min-height: 72px;
+}
+
+.work-report-week-data-cell .work-report-board-textarea-di,
+.work-report-week-data-cell .work-report-board-textarea-road {
+  height: 100%;
+  min-height: 90px;
+}
+
+.work-report-week-data-cell .work-report-board-textarea-support-line {
+  height: 100%;
+  min-height: 44px;
+}
+
+/* 입력 컨트롤은 콘텐츠 최소 높이는 유지하면서 Grid 셀의 바닥까지 채운다. */
+.work-report-week-data-cell .work-report-board-select,
+.work-report-week-data-cell .work-report-board-fixed-manager,
+.work-report-week-data-cell .work-report-board-index,
+.work-report-week-data-cell .work-report-board-todo-check {
+  height: 100%;
+  align-self: stretch;
+}
+
+.work-report-week-data-cell .work-report-external-manager-multi-trigger {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  align-content: flex-start;
+}
+
+.work-report-week-data-cell .work-report-external-manager-multi-value {
+  align-items: flex-start;
+  align-content: flex-start;
+}
+
+/* 요일 원형 뱃지 + 날짜: 강제 가로 한 줄 */
+.work-report-week-board-inner .work-report-day-head-line {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  flex-wrap: nowrap;
+}
+
+.work-report-week-board-inner .work-report-day-head-line > * {
+  white-space: nowrap;
+}
+
+/* 입력 컨트롤은 회색 바탕 위에서 선명한 흰색 카드 톤으로 표시 */
+.work-report-week-board-inner textarea,
+.work-report-week-board-inner input:not([type='checkbox']),
+.work-report-week-board-inner select,
+.work-report-week-board-inner .work-report-external-manager-multi-trigger {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.work-report-week-board-inner textarea:focus,
+.work-report-week-board-inner input:not([type='checkbox']):focus,
+.work-report-week-board-inner select:focus,
+.work-report-week-board-inner .work-report-external-manager-multi-trigger:focus {
+  border-color: #94a3b8;
+  background: #ffffff;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.18);
+}
+
+.work-report-week-board-inner .work-report-external-manager-multi-trigger,
+.work-report-week-board-inner .work-report-external-manager-multi-trigger:hover {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+/* 카테고리 바는 전체 폭을 유지하고, 텍스트 라벨만 가로 스크롤을 따라간다. */
+.work-report-week-board-inner .work-report-week-section-title {
+  min-height: 44px;
+  padding: 0;
+  overflow: visible;
+  background: #f1f5f9;
+}
+
+.work-report-week-section-title-label {
+  position: sticky;
+  left: 1rem;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f1f5f9;
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  box-shadow: 8px 0 10px -10px rgba(15, 23, 42, 0.45);
+}
+
+/* 주간업무보고서 테두리 복구 — 레이아웃/높이/Sticky 규칙은 변경하지 않음 */
+.work-report-week-board-inner .work-report-week-section,
+.work-report-week-board-inner .work-report-week-section-title,
+.work-report-week-board-inner .work-report-week-data-cell,
+.work-report-week-board-inner .work-report-board-header-row-no-index,
+.work-report-week-board-inner .work-report-board-header-row-external-no-index,
+.work-report-week-board-inner .work-report-board-row,
+.work-report-week-board-inner .work-report-board-row-no-index,
+.work-report-week-board-inner .work-report-board-row-external-no-index {
+  border-color: #e2e8f0;
+}
+
+.work-report-week-board-inner .work-report-week-data-cell {
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  border-left: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+}
+
+/* 담당자/내용/목적지 등 셀 내부 열 구분선 */
+.work-report-week-board-inner .work-report-board-header-row-no-index > *,
+.work-report-week-board-inner .work-report-board-header-row-external-no-index > *,
+.work-report-week-board-inner .work-report-board-row-no-index > *,
+.work-report-week-board-inner .work-report-board-row-external-no-index > *,
+.work-report-week-board-inner .work-report-board-row > * {
+  border-right: 1px solid #e2e8f0;
+}
+
+.work-report-week-board-inner .work-report-board-header-row-no-index > *:last-child,
+.work-report-week-board-inner .work-report-board-header-row-external-no-index > *:last-child,
+.work-report-week-board-inner .work-report-board-row-no-index > *:last-child,
+.work-report-week-board-inner .work-report-board-row-external-no-index > *:last-child,
+.work-report-week-board-inner .work-report-board-row > *:last-child {
+  border-right: 0;
+}
+
+/* 입력칸 자체 경계 */
+.work-report-week-board-inner textarea,
+.work-report-week-board-inner input:not([type='checkbox']),
+.work-report-week-board-inner select,
+.work-report-week-board-inner .work-report-external-manager-multi-trigger {
+  border: 1px solid #e2e8f0;
+}
+
+/* 요일 영역 경계는 일반 셀보다 한 단계 진하고 두껍게 */
+.work-report-week-board-inner .work-report-week-data-cell:not(:last-child),
+.work-report-week-board-inner .work-report-week-day-head:not(:last-child) {
+  border-right: 2px solid #d1d5db;
+}
+
+.work-report-week-board-inner .work-report-week-day-head {
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  border-left: 1px solid #e2e8f0;
+}
+
+.work-report-week-board-inner .work-report-week-day-head:last-child {
+  border-right: 1px solid #e2e8f0;
+}
