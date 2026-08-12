@@ -2325,16 +2325,18 @@ function commaNumberEn(n) {
   })
 }
 
+/**
+ * 숫자·소수점만 남긴다. `maxFrac` 이 유한한 수일 때만 소수 자릿수를 자르고,
+ * null·Infinity 를 넘기면 사용자가 친 그대로(자릿수 무제한) 유지한다.
+ */
 function sanitizeInstallCaseDecimalInput(raw, maxFrac = 2) {
   let val = safeString(raw).replace(/[^0-9.]/g, '')
   const dot = val.indexOf('.')
   if (dot !== -1) {
-    val =
-      val.slice(0, dot + 1) +
-      val
-        .slice(dot + 1)
-        .replace(/\./g, '')
-        .slice(0, maxFrac)
+    // 소수점 이하에 또 찍힌 점은 제거하고, 자릿수 제한이 있을 때만 잘라낸다.
+    let frac = val.slice(dot + 1).replace(/\./g, '')
+    if (Number.isFinite(maxFrac) && maxFrac >= 0) frac = frac.slice(0, maxFrac)
+    val = `${val.slice(0, dot + 1)}${frac}`
   }
   return val.replace(/^\.+/, '')
 }
@@ -2817,10 +2819,8 @@ function InstallCaseSpecSetGroup({
               <label className="install-case-form-label">{def.label}</label>
               <input
                 className="table-search-input install-case-form-input"
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
-                min="0"
                 autoComplete="off"
                 placeholder="숫자·소수점 입력 (표시: P값mm)"
                 value={
@@ -7210,7 +7210,8 @@ function App() {
 
   const handleInstallCaseSpecSetLedPitchChange = useCallback(
     (setIndex) => (e) => {
-      const value = sanitizeInstallCaseDecimalInput(e.target.value, 2)
+      // LED Pitch 는 P1.875mm 처럼 소수 자릿수 제한 없이 문자열 그대로 보관한다.
+      const value = sanitizeInstallCaseDecimalInput(e.target.value, null)
       updateInstallCaseSpecSet(setIndex, { ledPitch: value === '' ? '' : `P${value}mm` })
     },
     [updateInstallCaseSpecSet]
