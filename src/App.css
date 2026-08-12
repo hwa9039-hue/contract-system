@@ -8071,9 +8071,6 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
 }
 
 /* 짧은 열 — 고정 rem/% 해제, 내용 맞춤 */
-.documents-registry-table col.documents-w-date,
-.documents-registry-table th.documents-w-date,
-.documents-registry-table td.documents-w-date,
 .documents-registry-table col.documents-w-32,
 .documents-registry-table th.documents-w-32,
 .documents-registry-table td.documents-w-32,
@@ -8083,6 +8080,19 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
 .documents-registry-table .documents-col-tight {
   width: 1% !important;
   min-width: 0 !important;
+  max-width: none !important;
+  white-space: nowrap !important;
+}
+
+/*
+ * 등록일 — `2026-08-12` 가 좌우 여백 없이 딱 붙어 답답해 보이므로 최소 너비를 준다.
+ * `.documents-col-tight` 를 이기려면 4개 클래스 특이도가 필요하다.
+ */
+.documents-registry-table.excel-table.registry-table col.documents-w-date,
+.documents-registry-table.excel-table.registry-table th.documents-w-date,
+.documents-registry-table.excel-table.registry-table td.documents-w-date {
+  width: 9% !important;
+  min-width: 132px !important;
   max-width: none !important;
   white-space: nowrap !important;
 }
