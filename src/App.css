@@ -5187,6 +5187,67 @@ textarea:focus-visible {
   font-weight: 600;
 }
 
+/*
+ * 준공 임박(D-14 ~ D-Day) — 빨간 알약 뱃지 + 링 펄스.
+ * 셀 컨테이너가 contractTableCell.css 에서 display:block 으로 덮이므로,
+ * 뱃지 모양을 내려면 그보다 높은 특이도(4 클래스)로 inline-block 을 되돌려야 한다.
+ */
+.dday-cell.dday-cell--due-soon,
+table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-cell--due-soon {
+  display: inline-block;
+  width: auto;
+  padding: 8px 16px;
+  border-radius: 999px;
+  /*
+   * 파일 뒤쪽 `.cell-display:not(.table-cell-empty-placeholder)` 규칙이
+   * `color: #111827 !important` 로 셀 글자색을 검게 고정하므로 여기서도 !important 로 덮는다.
+   */
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  /* 표 셀 기본 폰트보다 한 단계 키워 흰 글씨가 묻히지 않게 한다 */
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  /* 확대(scale) 애니메이션은 글자를 뭉개므로 링만 퍼지게 한다 */
+  animation: dday-due-soon-pulse 1.1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 뱃지 바깥으로 퍼지는 링이 셀 경계에 잘리지 않게 개방한다 */
+table[data-contract-table-row-key] tbody td.col-dday {
+  overflow: visible;
+}
+
+@keyframes dday-due-soon-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 9px rgba(220, 38, 38, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+}
+
+/* 깜빡임에 민감한 사용자를 위해 시스템 설정을 따른다 */
+@media (prefers-reduced-motion: reduce) {
+  .dday-cell.dday-cell--due-soon {
+    animation: none;
+  }
+}
+
+/* 준공 지남 — 진행 중인 건과 분리되도록 무채색 처리 */
+.dday-cell.dday-cell--overdue {
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+/* 준공 지난 행 — 옅은 회색 음영 (hover·focus 강조는 td 규칙이 그대로 덮는다) */
+.excel-table tbody tr.contract-row--overdue {
+  background: #f3f4f6;
+}
+
 .contract-year-row td {
   position: sticky;
   top: 32px;

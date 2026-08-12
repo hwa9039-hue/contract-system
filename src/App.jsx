@@ -5356,6 +5356,25 @@ function getDdayText(dateString) {
   return `D-${diff}`
 }
 
+/** 준공 임박으로 볼 남은 일수 — 오늘(D-Day)부터 이 값까지 강조한다. */
+const CONTRACT_DUE_SOON_DAYS = 14
+
+/**
+ * 준공일자 기준 행 상태.
+ * - `overdue`  준공일자가 이미 지난 건
+ * - `due-soon` 오늘부터 CONTRACT_DUE_SOON_DAYS 일 이내로 남은 건
+ * - `''`       여유가 있거나 준공일자가 없는 건
+ *
+ * 남은 일수는 `getDateDiffFromToday`(양쪽 다 로컬 자정 기준)로 계산해
+ * D-Day 텍스트와 판정 기준이 어긋나지 않게 한다.
+ */
+function getContractDueStatus(dueDate) {
+  const diff = getDateDiffFromToday(dueDate)
+  if (diff === null) return ''
+  if (diff < 0) return 'overdue'
+  return diff <= CONTRACT_DUE_SOON_DAYS ? 'due-soon' : ''
+}
+
 /** 캘린더 우측 리스트·일정 객체: 준공일만 D-n / 그 외(당일·과거)=「준공」. 계약·기타는 기존 D+/D-Day/D-n */
 function getCalendarListRelativeDayLabel(eventType, dateString) {
   const diff = getDateDiffFromToday(dateString)
@@ -16013,10 +16032,16 @@ function App() {
                             const rowSelectKey = getContractTableRowKey(item)
                             const domRowKey = `${rowSelectKey}::${yearBlock.year}::${sub.groupId}::${index}`
                             const rowStripe = stripeIndex % 2 === 0 ? 'row-even' : 'row-odd'
+                            const dueStatus = getContractDueStatus(item.dueDate)
                             stripeIndex += 1
 
                             rows.push(
-                              <tr key={domRowKey} className={rowStripe}>
+                              <tr
+                                key={domRowKey}
+                                className={`${rowStripe}${
+                                  dueStatus === 'overdue' ? ' contract-row--overdue' : ''
+                                }`}
+                              >
                                 {canEditContracts && (
                                   <td className={`td-align-center registry-check-cell ${CONTRACT_TABLE_DATA_TD_CLASS}`}>
                                     <ContractTableCellShell align="center">
@@ -16061,7 +16086,20 @@ function App() {
 
                                 <td className={`col-dday td-align-center table-col-tight ${CONTRACT_TABLE_DATA_TD_CLASS}`}>
                                   <ContractTableCellShell align="center">
-                                    <div className="cell-display dday-cell">{getDdayText(item.dueDate)}</div>
+                                    <div
+                                      className={`cell-display dday-cell${
+                                        dueStatus ? ` dday-cell--${dueStatus}` : ''
+                                      }`}
+                                      title={
+                                        dueStatus === 'due-soon'
+                                          ? `준공 임박 (${CONTRACT_DUE_SOON_DAYS}일 이내)`
+                                          : dueStatus === 'overdue'
+                                            ? '준공일자 경과'
+                                            : undefined
+                                      }
+                                    >
+                                      {getDdayText(item.dueDate)}
+                                    </div>
                                   </ContractTableCellShell>
                                 </td>
 
