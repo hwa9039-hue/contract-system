@@ -351,6 +351,55 @@ const CONTACTS_MANAGE_COLUMNS = [
   },
 ]
 
+/**
+ * 연락처 복사 문자열 — `[사업내용] 담당자 직위 / 전화번호 / 이메일`
+ * 비어 있는 항목은 구분자까지 함께 빠진다.
+ */
+function buildContactsManageCopyText(row) {
+  // 사업내용은 여러 줄로 입력될 수 있어 한 줄로 눌러준다.
+  const business = safeString(row?.business_content).trim().replace(/\s+/g, ' ')
+  const person = [safeString(row?.manager_name).trim(), safeString(row?.position).trim()]
+    .filter(Boolean)
+    .join(' ')
+  const body = [person, safeString(row?.phone).trim(), safeString(row?.email).trim()]
+    .filter(Boolean)
+    .join(' / ')
+  if (business && body) return `[${business}] ${body}`
+  if (business) return `[${business}]`
+  return body
+}
+
+/** navigator.clipboard 우선, 비보안 컨텍스트(사내 http 접속)에서는 textarea 폴백 */
+async function copyTextToClipboard(text) {
+  const value = safeString(text)
+  if (!value) return false
+
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value)
+      return true
+    }
+  } catch {
+    /* 권한 거부·비보안 컨텍스트 → 폴백 */
+  }
+
+  try {
+    const textarea = document.createElement('textarea')
+    textarea.value = value
+    textarea.setAttribute('readonly', '')
+    textarea.style.position = 'fixed'
+    textarea.style.top = '-1000px'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    const copied = document.execCommand('copy')
+    document.body.removeChild(textarea)
+    return copied
+  } catch {
+    return false
+  }
+}
+
 const SALES_STAGE_OPTIONS = [
   '보고',
   '대응중',
@@ -8318,6 +8367,49 @@ function App() {
     )
   }
 
+  const handleCopyContactRow = async (row) => {
+    const text = buildContactsManageCopyText(row)
+    if (!text) {
+      showToast('복사할 연락처 정보가 없습니다.', 'error')
+      return
+    }
+    const copied = await copyTextToClipboard(text)
+    showToast(
+      copied ? '연락처가 복사되었습니다.' : '연락처 복사에 실패했습니다.',
+      copied ? 'success' : 'error'
+    )
+  }
+
+  const renderContactsCopyCell = (row) => (
+    <button
+      type="button"
+      className="contacts-copy-btn"
+      title="연락처 복사"
+      aria-label="연락처 복사"
+      disabled={!buildContactsManageCopyText(row)}
+      onClick={(event) => {
+        event.stopPropagation()
+        void handleCopyContactRow(row)
+      }}
+    >
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="9" y="9" width="11" height="11" rx="2" />
+        <path d="M5 15V5a2 2 0 0 1 2-2h8" />
+      </svg>
+      <span>복사</span>
+    </button>
+  )
+
   const handleAppLogout = () => {
     clearSharedAuthState()
   }
@@ -13074,6 +13166,7 @@ function App() {
     onRegistryCellStart = null,
     renderAfterSelectionCell = null,
     renderAfterImportanceCell = null,
+    renderTrailingCell = null,
     showSelection = true,
     draftFocusRowId = null,
     draftFocusColumnKey = null,
@@ -13539,6 +13632,22 @@ function App() {
           }
           return cells
         })}
+
+        {renderTrailingCell ? (
+          <td
+            className="td-align-center registry-trailing-action-cell"
+            style={
+              isFlatInlineScope
+                ? {
+                    ...EXCLUDED_TABLE_ICON_CELL_STYLE,
+                    ...(flatInlineCellBackgroundStyle || {}),
+                  }
+                : undefined
+            }
+          >
+            {renderTrailingCell(displayRow)}
+          </td>
+        ) : null}
       </tr>
     )
   }
@@ -13562,6 +13671,7 @@ function App() {
     onRegistryCellStart = null,
     renderAfterSelectionCell = null,
     renderAfterImportanceCell = null,
+    renderTrailingCell = null,
     showSelection = true,
     draftFocusRowId = null,
     draftFocusColumnKey = null,
@@ -13570,7 +13680,8 @@ function App() {
       columns.length +
       (showSelection ? 1 : 0) +
       (renderAfterSelectionCell ? 1 : 0) +
-      (renderAfterImportanceCell ? 1 : 0)
+      (renderAfterImportanceCell ? 1 : 0) +
+      (renderTrailingCell ? 1 : 0)
     if (rows.length === 0) {
       return (
         <tr>
@@ -13606,6 +13717,7 @@ function App() {
         onRegistryCellStart,
         renderAfterSelectionCell,
         renderAfterImportanceCell,
+        renderTrailingCell,
         showSelection,
         draftFocusRowId,
         draftFocusColumnKey,
@@ -16958,6 +17070,7 @@ function App() {
                         className={`${column.widthClass || ''} ${getTableColumnLayoutClass(column)}`}
                       />
                     ))}
+                    <col className="contacts-w-copy" />
                   </colgroup>
                   <thead>
                     <tr>
@@ -16996,25 +17109,26 @@ function App() {
                           </div>
                         </th>
                       ))}
+                      <th className="th-align-center contacts-w-copy">복사</th>
                     </tr>
                   </thead>
                   <tbody>
                     {isLoadingContactsManage ? (
                       <tr>
-                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + (canEditContactsManage ? 1 : 0)} className="empty-cell">
+                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + 1 + (canEditContactsManage ? 1 : 0)} className="empty-cell">
                           불러오는 중...
                         </td>
                       </tr>
                     ) : contactsRawData.filter((row) => !row.isDraft).length === 0 &&
                       contactsDraftRows.length === 0 ? (
                       <tr>
-                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + (canEditContactsManage ? 1 : 0)} className="empty-cell">
+                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + 1 + (canEditContactsManage ? 1 : 0)} className="empty-cell">
                           등록된 데이터가 없습니다.
                         </td>
                       </tr>
                     ) : isContactsTableFilterResultEmpty ? (
                       <tr>
-                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + (canEditContactsManage ? 1 : 0)} className="empty-cell">
+                        <td colSpan={CONTACTS_MANAGE_COLUMNS.length + 1 + (canEditContactsManage ? 1 : 0)} className="empty-cell">
                           필터 조건에 맞는 데이터가 없습니다.
                         </td>
                       </tr>
@@ -17040,6 +17154,7 @@ function App() {
                             onRegistryCellStart: (rowId, columnKey, value, draftRow) =>
                               startRegistryCellEdit('contactsManage', rowId, columnKey, value, draftRow),
                             showSelection: canEditContactsManage,
+                            renderTrailingCell: renderContactsCopyCell,
                             draftFocusRowId: contactsDraftFocusRowId,
                             draftFocusColumnKey: 'category',
                           })
@@ -17064,6 +17179,7 @@ function App() {
                               onRegistryCellStart: (rowId, columnKey, value, row) =>
                                 startRegistryCellEdit('contactsManage', rowId, columnKey, value, row),
                               showSelection: canEditContactsManage,
+                              renderTrailingCell: renderContactsCopyCell,
                             })
                           : null}
                       </>
