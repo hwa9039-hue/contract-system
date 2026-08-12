@@ -14955,6 +14955,15 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   text-overflow: clip;
 }
 
+/*
+ * 계약현황 계약일자 — 날짜와 뱃지 사이 간격을 영업관리대장(gap: 8px)과 동일하게.
+ * 이 표의 셀 컨테이너는 contractTableCell.css 에서 display:block 으로 덮이므로
+ * flex gap 이 통하지 않는다. 뱃지 자체에 margin 을 줘야 벌어진다.
+ */
+table[data-contract-table-row-key] tbody td.registry-week-badge-cell .sales-register-week-badge {
+  margin-left: 8px;
+}
+
 /* '금주' — 딥 슬레이트 네이비 배경 + 흰색 텍스트 */
 .sales-register-week-badge--current {
   background: #2e3440;
