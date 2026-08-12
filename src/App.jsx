@@ -1860,8 +1860,10 @@ function MaterialBoardMultiFileDropzone({
 /** 설치사례 상세 모달 규격표 행 순서 */
 const INSTALL_CASE_SPEC_ROWS = [
   { key: 'displayArea', label: '표출부 사이즈' },
+  { key: 'displayArea2', label: '표출부 사이즈 (2)', optional: true },
   { key: 'resolution', label: '해상도' },
   { key: 'ledPitch', label: 'LED Pitch' },
+  { key: 'ledPitch2', label: 'LED Pitch (2)', optional: true },
   { key: 'installType', label: '설치유형' },
 ]
 
@@ -2068,8 +2070,99 @@ function isInstallCaseDummyHeroUrl(url) {
   return /picsum\.photos/i.test(text) || /seed\/newinstallh/i.test(text)
 }
 
+/** API specs 응답을 정규화하고 과거/분리 필드명도 canonical key로 수렴한다. */
+function normalizeInstallCaseSpecs(rawSpecs, fallbackSource = {}) {
+  let specs = rawSpecs
+  if (typeof specs === 'string' && specs.trim().startsWith('{')) {
+    try {
+      specs = JSON.parse(specs)
+    } catch {
+      specs = {}
+    }
+  }
+  if (!specs || typeof specs !== 'object' || Array.isArray(specs)) specs = {}
+  const fallback =
+    fallbackSource && typeof fallbackSource === 'object' && !Array.isArray(fallbackSource)
+      ? fallbackSource
+      : {}
+
+  const displayArea2 =
+    safeString(
+      specs.displayArea2 ??
+        specs.displaySize2 ??
+        specs.display_size_2 ??
+        fallback.displayArea2 ??
+        fallback.displaySize2 ??
+        fallback.display_size_2
+    ).trim() ||
+    formatInstallCaseWhMmFromWH(
+      specs.displayArea2W ??
+        specs.displaySize2_W ??
+        specs.display_size_2_w ??
+        fallback.displayArea2W ??
+        fallback.displaySize2_W ??
+        fallback.display_size_2_w,
+      specs.displayArea2H ??
+        specs.displaySize2_H ??
+        specs.display_size_2_h ??
+        fallback.displayArea2H ??
+        fallback.displaySize2_H ??
+        fallback.display_size_2_h
+    )
+
+  return {
+    displayArea: safeString(specs.displayArea ?? fallback.displayArea).trim() || '-',
+    displayArea2,
+    ledPitch: safeString(specs.ledPitch ?? fallback.ledPitch).trim() || '-',
+    ledPitch2: safeString(
+      specs.ledPitch2 ??
+        specs.led_pitch_2 ??
+        specs.led_pitch2 ??
+        fallback.ledPitch2 ??
+        fallback.led_pitch_2 ??
+        fallback.led_pitch2
+    ).trim(),
+    resolution: safeString(specs.resolution ?? fallback.resolution).trim() || '-',
+    installType: safeString(specs.installType ?? fallback.installType).trim() || '-',
+  }
+}
+
+/** API specs → 등록/수정 모달 상태. 두 번째 규격 필드를 명시적으로 바인딩한다. */
+function installCaseSpecsToFormDraft(rawSpecs) {
+  const specs = normalizeInstallCaseSpecs(rawSpecs)
+  const displayArea = parseWhMmNumbers(specs.displayArea)
+  const displayArea2 = parseWhMmNumbers(specs.displayArea2)
+  const resolution = parseResolutionStoredToWH(specs.resolution)
+  return {
+    displayAreaW: displayArea ? String(displayArea.w) : '',
+    displayAreaH: displayArea ? String(displayArea.h) : '',
+    displayArea2W: displayArea2 ? String(displayArea2.w) : '',
+    displayArea2H: displayArea2 ? String(displayArea2.h) : '',
+    ledPitch: installCaseLedPitchToFormValue(specs.ledPitch),
+    ledPitch2: installCaseLedPitchToFormValue(specs.ledPitch2),
+    resolutionW: resolution.w,
+    resolutionH: resolution.h,
+    installType: safeString(specs.installType).trim(),
+  }
+}
+
+/** 등록/수정 모달 상태 → API specs payload. 두 번째 규격을 canonical API key로 전송한다. */
+function buildInstallCaseSpecsPayload(formSpecs = {}) {
+  return {
+    displayArea:
+      formatInstallCaseWhMmFromWH(formSpecs.displayAreaW, formSpecs.displayAreaH) || '-',
+    displayArea2:
+      formatInstallCaseWhMmFromWH(formSpecs.displayArea2W, formSpecs.displayArea2H) || '',
+    ledPitch: safeString(formSpecs.ledPitch).trim() || '-',
+    ledPitch2: safeString(formSpecs.ledPitch2).trim() || '',
+    resolution:
+      formatInstallCaseResolutionFromWH(formSpecs.resolutionW, formSpecs.resolutionH) || '-',
+    installType: safeString(formSpecs.installType).trim() || '-',
+  }
+}
+
 function normalizeInstallCaseRow(row) {
-  const specs = row?.specs && typeof row.specs === 'object' ? row.specs : {}
+  const specs = normalizeInstallCaseSpecs(row?.specs, row)
   const id = safeString(row?.id).trim() || `local-${Date.now()}`
   // API 상대경로 유지 (표시 시에만 resolve). 절대 URL이면 /api/... 로 정규화
   const rawImages = normalizeHeroImagesList(row?.heroImages, row?.heroImage).filter(
@@ -2099,14 +2192,7 @@ function normalizeInstallCaseRow(row) {
     year: safeString(row?.year).trim() || '-',
     purpose: safeString(row?.purpose).trim() || '-',
     client: safeString(row?.client).trim() || '-',
-    specs: {
-      displayArea: safeString(specs.displayArea).trim() || '-',
-      displayArea2: safeString(specs.displayArea2).trim() || '',
-      ledPitch: safeString(specs.ledPitch).trim() || '-',
-      ledPitch2: safeString(specs.ledPitch2).trim() || '',
-      resolution: safeString(specs.resolution).trim() || '-',
-      installType: safeString(specs.installType).trim() || '-',
-    },
+    specs,
   }
 }
 
@@ -2284,22 +2370,14 @@ function formatInstallCaseSpecDetailDisplay(key, specsOrRaw) {
   // 상세 모달: specs 객체 전체 또는 단일 raw 모두 허용
   if (specsOrRaw && typeof specsOrRaw === 'object' && !Array.isArray(specsOrRaw)) {
     const specs = specsOrRaw
-    if (key === 'displayArea') {
-      return formatInstallCaseJoinedDualSpec(
-        specs.displayArea,
-        specs.displayArea2,
-        formatInstallCaseWhMmDetailDisplay
-      )
-    }
-    if (key === 'ledPitch') {
-      return formatInstallCaseJoinedDualSpec(
-        specs.ledPitch,
-        specs.ledPitch2,
-        formatInstallCaseLedPitchDisplay
-      )
-    }
     const v = safeString(specs[key]).trim()
     if (!v || v === '-') return '-'
+    if (key === 'displayArea' || key === 'displayArea2') {
+      return formatInstallCaseWhMmDetailDisplay(v)
+    }
+    if (key === 'ledPitch' || key === 'ledPitch2') {
+      return formatInstallCaseLedPitchDisplay(v)
+    }
     if (key === 'resolution') return formatInstallCaseResolutionDetailDisplay(v)
     return v
   }
@@ -2308,14 +2386,21 @@ function formatInstallCaseSpecDetailDisplay(key, specsOrRaw) {
   if (!v || v === '-') return '-'
   switch (key) {
     case 'displayArea':
+    case 'displayArea2':
       return formatInstallCaseWhMmDetailDisplay(v)
     case 'resolution':
       return formatInstallCaseResolutionDetailDisplay(v)
     case 'ledPitch':
+    case 'ledPitch2':
       return formatInstallCaseLedPitchDisplay(v)
     default:
       return v
   }
+}
+
+function hasInstallCaseOptionalSpecValue(specs, key) {
+  const value = safeString(specs?.[key]).trim()
+  return Boolean(value && value !== '-')
 }
 
 function parseResolutionStoredToWH(s) {
@@ -6788,9 +6873,6 @@ function App() {
 
     const openEditFromRow = () => {
       setInstallCaseEditingId(row.id)
-      const da = parseWhMmNumbers(safeString(row.specs?.displayArea))
-      const da2 = parseWhMmNumbers(safeString(row.specs?.displayArea2))
-      const res = parseResolutionStoredToWH(safeString(row.specs?.resolution))
       setInstallCaseFormDraft({
         projectName: safeString(row.projectName).trim(),
         environment: migrateInstallCaseMajorCategory(row.environment),
@@ -6799,17 +6881,7 @@ function App() {
         businessYearDigits: parseYearToFormDigits(row.year),
         purpose: safeString(row.purpose).trim(),
         client: safeString(row.client).trim(),
-        specs: {
-          displayAreaW: da ? String(da.w) : '',
-          displayAreaH: da ? String(da.h) : '',
-          displayArea2W: da2 ? String(da2.w) : '',
-          displayArea2H: da2 ? String(da2.h) : '',
-          ledPitch: installCaseLedPitchToFormValue(row.specs?.ledPitch),
-          ledPitch2: installCaseLedPitchToFormValue(row.specs?.ledPitch2),
-          resolutionW: res.w,
-          resolutionH: res.h,
-          installType: safeString(row.specs?.installType).trim(),
-        },
+        specs: installCaseSpecsToFormDraft(row.specs),
       })
       setIcMediaItems(buildInstallCaseMediaItemsFromRow(row))
       setInstallCaseRegisterOpen(true)
@@ -7095,13 +7167,6 @@ function App() {
     const heroImage = heroImages[0] || ''
 
     const projectName = safeString(d.projectName).trim()
-    const displayArea = formatInstallCaseWhMmFromWH(d.specs.displayAreaW, d.specs.displayAreaH) || '-'
-    const displayArea2 =
-      formatInstallCaseWhMmFromWH(d.specs.displayArea2W, d.specs.displayArea2H) || ''
-    const ledPitch = safeString(d.specs.ledPitch).trim() || '-'
-    const ledPitch2 = safeString(d.specs.ledPitch2).trim() || ''
-    const resolution =
-      formatInstallCaseResolutionFromWH(d.specs.resolutionW, d.specs.resolutionH) || '-'
     const rowPayload = {
       projectName,
       heroImage,
@@ -7112,14 +7177,7 @@ function App() {
       year: businessYearDigitsToStored(d.businessYearDigits),
       purpose: safeString(d.purpose).trim() || '-',
       client: safeString(d.client).trim() || '-',
-      specs: {
-        displayArea,
-        displayArea2,
-        ledPitch,
-        ledPitch2,
-        resolution,
-        installType: safeString(d.specs.installType).trim() || '-',
-      },
+      specs: buildInstallCaseSpecsPayload(d.specs),
     }
 
     const isEdit = Boolean(installCaseEditingId)
@@ -17598,17 +17656,16 @@ function App() {
                   </div>
                   <div className="install-case-detail-specs-col">
                     <dl className="install-case-detail-meta">
-                      {INSTALL_CASE_SPEC_ROWS.map(({ key, label }) => (
-                        <div className="install-case-meta-row" key={key}>
-                          <dt>{label}</dt>
-                          <dd>
-                            {formatInstallCaseSpecDetailDisplay(
-                              key,
-                              installCaseDetailModal.specs || {}
-                            )}
-                          </dd>
-                        </div>
-                      ))}
+                      {INSTALL_CASE_SPEC_ROWS.map(({ key, label, optional }) => {
+                        const specs = installCaseDetailModal.specs || {}
+                        if (optional && !hasInstallCaseOptionalSpecValue(specs, key)) return null
+                        return (
+                          <div className="install-case-meta-row" key={key}>
+                            <dt>{label}</dt>
+                            <dd>{formatInstallCaseSpecDetailDisplay(key, specs)}</dd>
+                          </div>
+                        )
+                      })}
                     </dl>
                   </div>
                 </div>
