@@ -9,7 +9,6 @@ export const CONTRACT_FILTERABLE_COLUMN_KEYS = Object.freeze([
   'department',
   'contractMethod',
   'contractType',
-  'identNo',
   'contractDate',
   'dueDate',
   'projectName',

@@ -3,7 +3,6 @@
 const LONG_TEXT_COLUMN_KEYS = new Set([
   'client',
   'department',
-  'identNo',
   'projectName',
   'detail',
   'source',

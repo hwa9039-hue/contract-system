@@ -55,47 +55,93 @@ export function getContractCategorySubgroupId(contractType) {
   return type === '유지보수' ? 'maintenance' : 'signboard'
 }
 
-function compareContractsByContractDateDesc(a, b) {
-  const ts = (item) => {
-    const raw = safeString(item.contractDate ?? '').trim()
-    if (!raw) return null
-    const t = new Date(raw).getTime()
-    return Number.isNaN(t) ? null : t
-  }
-  const ta = ts(a)
-  const tb = ts(b)
-  if (ta === null && tb === null) {
-    /* fall through */
-  } else if (ta === null) return 1
-  else if (tb === null) return -1
-  else if (ta !== tb) return tb - ta
+/** 엑셀 업로드·수기 입력으로 들어오는 '값 없음' 표기 */
+const SORT_PLACEHOLDER_VALUES = new Set(['-', '--', '–', '—', '.', 'null', 'undefined', 'nan'])
 
-  const seg = safeString(a.segment).localeCompare(safeString(b.segment), 'ko-KR', {
+/** 공백·자리표시자('-' 등)를 모두 빈 값으로 취급 */
+function normalizeSortValue(value) {
+  const text = safeString(value).trim()
+  if (!text) return ''
+  return SORT_PLACEHOLDER_VALUES.has(text.toLowerCase()) ? '' : text
+}
+
+/**
+ * 날짜 문자열 → 비교용 정수(yyyymmdd).
+ * `2026-08-12` `2026.8.1` `2026/08/12` `20260812` `2026년 8월 12일` 을 모두 흡수하고,
+ * 자리표시자·형식 불명은 null 을 돌려 "날짜 없음"으로 분류한다.
+ */
+function toComparableDateNumber(value) {
+  const raw = normalizeSortValue(value)
+  if (!raw) return null
+
+  const digitGroups = raw.match(/\d+/g)
+  if (!digitGroups || digitGroups.length === 0) return null
+
+  if (digitGroups.length === 1) {
+    const only = digitGroups[0]
+    if (only.length === 8) return Number(only)
+    if (only.length === 4) return Number(only) * 10000
+    return null
+  }
+
+  const year = Number(digitGroups[0])
+  if (!Number.isFinite(year) || year < 1900 || year > 2999) return null
+  const month = Math.min(Math.max(Number(digitGroups[1]) || 0, 0), 12)
+  const day = Math.min(Math.max(Number(digitGroups[2]) || 0, 0), 31)
+  return year * 10000 + month * 100 + day
+}
+
+/** 계약일자 기준 정렬값. 계약일자가 비면 준공일자로 대체한다. */
+function getContractSortDateNumber(item) {
+  return toComparableDateNumber(item?.contractDate) ?? toComparableDateNumber(item?.dueDate)
+}
+
+/** 참고번호 내림차순. numeric 비교라 "100" 이 "99" 보다 위로 온다. */
+function compareRefNoDesc(a, b) {
+  const ra = normalizeSortValue(a?.refNo)
+  const rb = normalizeSortValue(b?.refNo)
+
+  if (ra && !rb) return -1
+  if (!ra && rb) return 1
+  if (!ra && !rb) return 0
+  return rb.localeCompare(ra, 'ko-KR', { numeric: true, sensitivity: 'base' })
+}
+
+/** 날짜·번호가 모두 같을 때 리렌더마다 행이 뒤바뀌지 않도록 순서를 고정한다. */
+function compareContractsByNameFallback(a, b) {
+  const seg = safeString(a?.segment).localeCompare(safeString(b?.segment), 'ko-KR', {
     numeric: true,
     sensitivity: 'base',
   })
   if (seg !== 0) return seg
-  return safeString(a.projectName).localeCompare(safeString(b.projectName), 'ko-KR', {
+  return safeString(a?.projectName).localeCompare(safeString(b?.projectName), 'ko-KR', {
     numeric: true,
     sensitivity: 'base',
   })
 }
 
 /**
- * 계약현황 기본 정렬 — '참고번호'(refNo) 내림차순(예: 100, 99, 98...).
- * refNo가 비어 있으면 맨 뒤로 보내고, 동일/무효 값은 계약일자 최신순으로 보조 정렬한다.
- * numeric 옵션으로 "100" > "99"가 문자열이 아닌 숫자 크기로 비교되도록 한다.
+ * 계약현황 기본 정렬 — 1순위 계약일자 내림차순, 2순위 참고번호 내림차순.
+ *
+ * 참고번호를 1순위로 두면 번호가 없는 민간계약이 전부 목록 끝으로 밀려서
+ * 관급계약과 나란히 날짜를 비교할 수 없다. 그래서 날짜를 먼저 보고,
+ * 같은 날짜 안에서만 참고번호가 큰 건을 위로 올린다.
+ *
+ * - `-` 같은 자리표시자는 값이 있는 것처럼 취급하지 않는다.
+ * - 계약일자·준공일자가 모두 없는 건만 맨 뒤로 보낸다.
  */
-function compareContractsByRefNoDesc(a, b) {
-  const ra = safeString(a.refNo).trim()
-  const rb = safeString(b.refNo).trim()
-  if (ra && !rb) return -1
-  if (!ra && rb) return 1
-  if (ra && rb) {
-    const byRef = rb.localeCompare(ra, 'ko-KR', { numeric: true, sensitivity: 'base' })
-    if (byRef !== 0) return byRef
-  }
-  return compareContractsByContractDateDesc(a, b)
+export function compareContractsForDisplay(a, b) {
+  const da = getContractSortDateNumber(a)
+  const db = getContractSortDateNumber(b)
+
+  if (da === null && db !== null) return 1
+  if (da !== null && db === null) return -1
+  if (da !== null && db !== null && da !== db) return db - da
+
+  const byRef = compareRefNoDesc(a, b)
+  if (byRef !== 0) return byRef
+
+  return compareContractsByNameFallback(a, b)
 }
 
 function createEmptyBuckets() {
@@ -132,7 +178,7 @@ export function groupContractsForAccordion(filteredData) {
       })
 
       const subGroups = CONTRACT_CATEGORY_SUBGROUPS.map(({ groupId, label }) => {
-        const items = [...buckets[groupId]].sort(compareContractsByRefNoDesc)
+        const items = [...buckets[groupId]].sort(compareContractsForDisplay)
         return {
           groupId,
           label,

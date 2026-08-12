@@ -93,6 +93,7 @@ import {
 } from './ContractTableCellShell.jsx'
 import './contractTableCell.css'
 import {
+  compareContractsForDisplay,
   getContractYearKey,
   groupContractsForAccordion,
   normalizeContractListRow,
@@ -222,7 +223,6 @@ const CONTRACT_COLUMNS = [
   { key: 'department', label: '담당부서', className: 'col-dept', align: 'center', type: 'textarea', width: 130 },
   { key: 'contractMethod', label: '계약방식', className: 'col-method', align: 'center', type: 'text', width: 132 },
   { key: 'contractType', label: '계약분류', className: 'col-type', align: 'center', type: 'text', width: 122 },
-  { key: 'identNo', label: '식별번호', className: 'col-ident-no', align: 'center', type: 'text', width: 250 },
   { key: 'contractDate', label: '계약일자', className: 'col-date', align: 'center', type: 'date', width: 175 },
   { key: 'dueDate', label: '준공일자', className: 'col-date', align: 'center', type: 'date', width: 175 },
   { key: 'projectName', label: '사업명', className: 'col-project', align: 'left', type: 'textarea', width: 360, widthGrow: true },
@@ -4268,12 +4268,9 @@ function buildDashboardSummaryForFocusYear(rows, focusYearKey) {
   return buildDashboardSummary(normalized)
 }
 
+/** 화면 표시 순서(계약일자 → 참고번호)와 엑셀 다운로드 순서를 같은 기준으로 맞춘다. */
 function sortContracts(items) {
-  return [...items].sort((a, b) => {
-    const aDate = a.contractDate || a.dueDate || '1900-01-01'
-    const bDate = b.contractDate || b.dueDate || '1900-01-01'
-    return new Date(bDate).getTime() - new Date(aDate).getTime()
-  })
+  return [...items].sort(compareContractsForDisplay)
 }
 
 function getDateDiffFromToday(dateString) {
