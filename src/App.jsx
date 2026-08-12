@@ -1857,42 +1857,34 @@ function MaterialBoardMultiFileDropzone({
   )
 }
 
-/** 설치사례 상세 모달 규격표 행 순서 */
-const INSTALL_CASE_SPEC_ROWS = [
-  { key: 'displayArea', label: '표출부 사이즈' },
-  { key: 'displayArea2', label: '표출부 사이즈 (2)', optional: true },
-  { key: 'resolution', label: '해상도' },
-  { key: 'ledPitch', label: 'LED Pitch' },
-  { key: 'ledPitch2', label: 'LED Pitch (2)', optional: true },
-  { key: 'installType', label: '설치유형' },
+/** 규격 세트(표출부 사이즈·해상도·LED Pitch) 최대 개수 */
+const INSTALL_CASE_MAX_SPEC_SETS = 3
+
+/**
+ * 세트 인덱스(0-base) → API specs key.
+ * 세트 1은 기존 키를 그대로 쓰고(하위 호환), 세트 2·3만 접미사를 붙인다.
+ */
+function installCaseSpecKey(base, setIndex) {
+  return setIndex === 0 ? base : `${base}${setIndex + 1}`
+}
+
+/** 규격 세트 한 벌을 구성하는 필드 */
+const INSTALL_CASE_SPEC_SET_FIELDS = [
+  {
+    type: 'wh',
+    base: 'displayArea',
+    label: '표출부 사이즈',
+    preview: 'whMm',
+    allowDecimal: true,
+  },
+  { type: 'wh', base: 'resolution', label: '해상도', preview: 'resolution' },
+  { type: 'ledPitch', base: 'ledPitch', label: 'LED Pitch' },
 ]
 
-/** 설치사례 등록/수정: 우측 제품 규격 필드 */
-const INSTALL_CASE_REGISTER_SPEC_FIELDS = [
-  {
-    type: 'wh',
-    pairId: 'displayArea',
-    label: '표출부 사이즈 (1)',
-    preview: 'whMm',
-    allowDecimal: true,
-  },
-  {
-    type: 'wh',
-    pairId: 'displayArea2',
-    label: '표출부 사이즈 (2·선택)',
-    preview: 'whMm',
-    allowDecimal: true,
-  },
-  { type: 'wh', pairId: 'resolution', label: '해상도', preview: 'resolution' },
-  { type: 'ledPitch', key: 'ledPitch', label: 'LED Pitch (1)' },
-  { type: 'ledPitch', key: 'ledPitch2', label: 'LED Pitch (2·선택)' },
-  {
-    type: 'text',
-    key: 'installType',
-    label: '설치유형',
-    placeholder: '예: 벽면 부착형',
-  },
-]
+/** 세트 번호를 붙인 표시용 라벨 (세트 1은 번호 생략) */
+function installCaseSpecSetLabel(label, setIndex) {
+  return setIndex === 0 ? label : `${label} (${setIndex + 1})`
+}
 
 /** 설치사례 대분류 */
 const INSTALL_CASE_MAJOR_CATEGORY_OPTIONS = [
@@ -2070,8 +2062,28 @@ function isInstallCaseDummyHeroUrl(url) {
   return /picsum\.photos/i.test(text) || /seed\/newinstallh/i.test(text)
 }
 
-/** API specs 응답을 정규화하고 과거/분리 필드명도 canonical key로 수렴한다. */
-function normalizeInstallCaseSpecs(rawSpecs, fallbackSource = {}) {
+/** 빈 규격 세트 폼 상태 */
+function getEmptyInstallCaseSpecSet() {
+  return {
+    displayAreaW: '',
+    displayAreaH: '',
+    resolutionW: '',
+    resolutionH: '',
+    ledPitch: '',
+  }
+}
+
+function hasInstallCaseSpecSetValue(set) {
+  if (!set) return false
+  return INSTALL_CASE_SPEC_SET_FIELDS.some(({ base, type }) =>
+    type === 'wh'
+      ? Boolean(safeString(set[`${base}W`]).trim() || safeString(set[`${base}H`]).trim())
+      : Boolean(safeString(set[base]).trim())
+  )
+}
+
+/** API specs 응답을 규격 세트 1~3 canonical key로 정규화한다. */
+function normalizeInstallCaseSpecs(rawSpecs) {
   let specs = rawSpecs
   if (typeof specs === 'string' && specs.trim().startsWith('{')) {
     try {
@@ -2081,88 +2093,88 @@ function normalizeInstallCaseSpecs(rawSpecs, fallbackSource = {}) {
     }
   }
   if (!specs || typeof specs !== 'object' || Array.isArray(specs)) specs = {}
-  const fallback =
-    fallbackSource && typeof fallbackSource === 'object' && !Array.isArray(fallbackSource)
-      ? fallbackSource
-      : {}
 
-  const displayArea2 =
-    safeString(
-      specs.displayArea2 ??
-        specs.displaySize2 ??
-        specs.display_size_2 ??
-        fallback.displayArea2 ??
-        fallback.displaySize2 ??
-        fallback.display_size_2
-    ).trim() ||
-    formatInstallCaseWhMmFromWH(
-      specs.displayArea2W ??
-        specs.displaySize2_W ??
-        specs.display_size_2_w ??
-        fallback.displayArea2W ??
-        fallback.displaySize2_W ??
-        fallback.display_size_2_w,
-      specs.displayArea2H ??
-        specs.displaySize2_H ??
-        specs.display_size_2_h ??
-        fallback.displayArea2H ??
-        fallback.displaySize2_H ??
-        fallback.display_size_2_h
-    )
-
-  return {
-    displayArea: safeString(specs.displayArea ?? fallback.displayArea).trim() || '-',
-    displayArea2,
-    ledPitch: safeString(specs.ledPitch ?? fallback.ledPitch).trim() || '-',
-    ledPitch2: safeString(
-      specs.ledPitch2 ??
-        specs.led_pitch_2 ??
-        specs.led_pitch2 ??
-        fallback.ledPitch2 ??
-        fallback.led_pitch_2 ??
-        fallback.led_pitch2
-    ).trim(),
-    resolution: safeString(specs.resolution ?? fallback.resolution).trim() || '-',
-    installType: safeString(specs.installType ?? fallback.installType).trim() || '-',
+  const normalized = {
+    installType: safeString(specs.installType).trim() || '-',
   }
+  for (let setIndex = 0; setIndex < INSTALL_CASE_MAX_SPEC_SETS; setIndex += 1) {
+    for (const { base } of INSTALL_CASE_SPEC_SET_FIELDS) {
+      const key = installCaseSpecKey(base, setIndex)
+      const value = safeString(specs[key]).trim()
+      // 세트 1은 빈 값을 '-' 로 채워 기존 상세 표시 형식을 유지한다.
+      normalized[key] = value || (setIndex === 0 ? '-' : '')
+    }
+  }
+  return normalized
 }
 
-/** API specs → 등록/수정 모달 상태. 두 번째 규격 필드를 명시적으로 바인딩한다. */
+/** 값이 들어있는 규격 세트 인덱스 목록 (세트 1은 항상 포함) */
+function getInstallCaseFilledSpecSetIndexes(specs) {
+  const indexes = []
+  for (let setIndex = 0; setIndex < INSTALL_CASE_MAX_SPEC_SETS; setIndex += 1) {
+    const hasValue = INSTALL_CASE_SPEC_SET_FIELDS.some(({ base }) => {
+      const value = safeString(specs?.[installCaseSpecKey(base, setIndex)]).trim()
+      return value && value !== '-'
+    })
+    if (setIndex === 0 || hasValue) indexes.push(setIndex)
+  }
+  return indexes
+}
+
+/** API specs → 등록/수정 모달 상태. 저장된 세트 수만큼 펼쳐서 돌려준다. */
 function installCaseSpecsToFormDraft(rawSpecs) {
   const specs = normalizeInstallCaseSpecs(rawSpecs)
-  const displayArea = parseWhMmNumbers(specs.displayArea)
-  const displayArea2 = parseWhMmNumbers(specs.displayArea2)
-  const resolution = parseResolutionStoredToWH(specs.resolution)
+  const sets = []
+  for (let setIndex = 0; setIndex < INSTALL_CASE_MAX_SPEC_SETS; setIndex += 1) {
+    const area = parseWhMmNumbers(specs[installCaseSpecKey('displayArea', setIndex)])
+    const resolution = parseResolutionStoredToWH(specs[installCaseSpecKey('resolution', setIndex)])
+    sets.push({
+      displayAreaW: area ? String(area.w) : '',
+      displayAreaH: area ? String(area.h) : '',
+      resolutionW: resolution.w,
+      resolutionH: resolution.h,
+      ledPitch: installCaseLedPitchToFormValue(specs[installCaseSpecKey('ledPitch', setIndex)]),
+    })
+  }
+
+  // 뒤쪽 빈 세트는 접어두고 최소 1개는 항상 노출한다.
+  let visibleCount = sets.length
+  while (visibleCount > 1 && !hasInstallCaseSpecSetValue(sets[visibleCount - 1])) {
+    visibleCount -= 1
+  }
+
+  const installType = safeString(specs.installType).trim()
   return {
-    displayAreaW: displayArea ? String(displayArea.w) : '',
-    displayAreaH: displayArea ? String(displayArea.h) : '',
-    displayArea2W: displayArea2 ? String(displayArea2.w) : '',
-    displayArea2H: displayArea2 ? String(displayArea2.h) : '',
-    ledPitch: installCaseLedPitchToFormValue(specs.ledPitch),
-    ledPitch2: installCaseLedPitchToFormValue(specs.ledPitch2),
-    resolutionW: resolution.w,
-    resolutionH: resolution.h,
-    installType: safeString(specs.installType).trim(),
+    sets: sets.slice(0, visibleCount),
+    installType: installType === '-' ? '' : installType,
   }
 }
 
-/** 등록/수정 모달 상태 → API specs payload. 두 번째 규격을 canonical API key로 전송한다. */
+/**
+ * 등록/수정 모달 상태 → API specs payload.
+ * 세트 1~3 키를 항상 모두 담아 보내므로, 세트를 삭제하면 서버 값도 빈 문자열로 지워진다.
+ */
 function buildInstallCaseSpecsPayload(formSpecs = {}) {
-  return {
-    displayArea:
-      formatInstallCaseWhMmFromWH(formSpecs.displayAreaW, formSpecs.displayAreaH) || '-',
-    displayArea2:
-      formatInstallCaseWhMmFromWH(formSpecs.displayArea2W, formSpecs.displayArea2H) || '',
-    ledPitch: safeString(formSpecs.ledPitch).trim() || '-',
-    ledPitch2: safeString(formSpecs.ledPitch2).trim() || '',
-    resolution:
-      formatInstallCaseResolutionFromWH(formSpecs.resolutionW, formSpecs.resolutionH) || '-',
+  const sets = Array.isArray(formSpecs.sets) ? formSpecs.sets : []
+  const payload = {
     installType: safeString(formSpecs.installType).trim() || '-',
   }
+  for (let setIndex = 0; setIndex < INSTALL_CASE_MAX_SPEC_SETS; setIndex += 1) {
+    const set = sets[setIndex] || {}
+    const values = {
+      displayArea: formatInstallCaseWhMmFromWH(set.displayAreaW, set.displayAreaH),
+      resolution: formatInstallCaseResolutionFromWH(set.resolutionW, set.resolutionH),
+      ledPitch: safeString(set.ledPitch).trim(),
+    }
+    for (const { base } of INSTALL_CASE_SPEC_SET_FIELDS) {
+      payload[installCaseSpecKey(base, setIndex)] = values[base] || (setIndex === 0 ? '-' : '')
+    }
+  }
+  return payload
 }
 
 function normalizeInstallCaseRow(row) {
-  const specs = normalizeInstallCaseSpecs(row?.specs, row)
+  const specs = normalizeInstallCaseSpecs(row?.specs)
   const id = safeString(row?.id).trim() || `local-${Date.now()}`
   // API 상대경로 유지 (표시 시에만 resolve). 절대 URL이면 /api/... 로 정규화
   const rawImages = normalizeHeroImagesList(row?.heroImages, row?.heroImage).filter(
@@ -2208,18 +2220,19 @@ function getInstallCaseProjectTitle(row) {
   return safeString(row?.projectName).trim() || '-'
 }
 
-/** 설치사례 검색 — 사업명·LED Pitch(1·2)만 (대소문자 무시, 부분 일치) */
+/** 설치사례 검색 — 사업명·규격 세트 1~3의 LED Pitch (대소문자 무시, 부분 일치) */
 function installCaseMatchesSearch(row, keyword) {
   const normalizedKeyword = safeString(keyword).trim().toLowerCase()
   if (!normalizedKeyword) return true
   const projectName = safeString(row?.projectName).trim().toLowerCase()
-  const ledPitch = safeString(row?.specs?.ledPitch).trim().toLowerCase()
-  const ledPitch2 = safeString(row?.specs?.ledPitch2).trim().toLowerCase()
-  return (
-    projectName.includes(normalizedKeyword) ||
-    ledPitch.includes(normalizedKeyword) ||
-    ledPitch2.includes(normalizedKeyword)
-  )
+  if (projectName.includes(normalizedKeyword)) return true
+  for (let setIndex = 0; setIndex < INSTALL_CASE_MAX_SPEC_SETS; setIndex += 1) {
+    const pitch = safeString(row?.specs?.[installCaseSpecKey('ledPitch', setIndex)])
+      .trim()
+      .toLowerCase()
+    if (pitch && pitch.includes(normalizedKeyword)) return true
+  }
+  return false
 }
 
 function getInstallCaseEnvironmentLabel(env) {
@@ -2349,10 +2362,16 @@ function formatInstallCaseWhMmDetailDisplay(raw) {
   return t
 }
 
-function formatInstallCaseJoinedDualSpec(primary, secondary, formatter) {
-  const parts = [formatter(primary), formatter(secondary)].filter(
-    (text) => text && text !== '-'
-  )
+/** 카드 요약: 규격 세트 1~3 의 같은 항목을 ' / ' 로 잇는다. */
+function formatInstallCaseJoinedSpecSets(specs, base) {
+  const parts = []
+  for (let setIndex = 0; setIndex < INSTALL_CASE_MAX_SPEC_SETS; setIndex += 1) {
+    const text = formatInstallCaseSpecValueDisplay(
+      base,
+      specs?.[installCaseSpecKey(base, setIndex)]
+    )
+    if (text && text !== '-') parts.push(text)
+  }
   return parts.length ? parts.join(' / ') : '-'
 }
 
@@ -2366,41 +2385,14 @@ function formatInstallCaseModuleQtyDetailDisplay(raw) {
   return t
 }
 
-function formatInstallCaseSpecDetailDisplay(key, specsOrRaw) {
-  // 상세 모달: specs 객체 전체 또는 단일 raw 모두 허용
-  if (specsOrRaw && typeof specsOrRaw === 'object' && !Array.isArray(specsOrRaw)) {
-    const specs = specsOrRaw
-    const v = safeString(specs[key]).trim()
-    if (!v || v === '-') return '-'
-    if (key === 'displayArea' || key === 'displayArea2') {
-      return formatInstallCaseWhMmDetailDisplay(v)
-    }
-    if (key === 'ledPitch' || key === 'ledPitch2') {
-      return formatInstallCaseLedPitchDisplay(v)
-    }
-    if (key === 'resolution') return formatInstallCaseResolutionDetailDisplay(v)
-    return v
-  }
-
-  const v = safeString(specsOrRaw).trim()
-  if (!v || v === '-') return '-'
-  switch (key) {
-    case 'displayArea':
-    case 'displayArea2':
-      return formatInstallCaseWhMmDetailDisplay(v)
-    case 'resolution':
-      return formatInstallCaseResolutionDetailDisplay(v)
-    case 'ledPitch':
-    case 'ledPitch2':
-      return formatInstallCaseLedPitchDisplay(v)
-    default:
-      return v
-  }
-}
-
-function hasInstallCaseOptionalSpecValue(specs, key) {
-  const value = safeString(specs?.[key]).trim()
-  return Boolean(value && value !== '-')
+/** 상세 모달 규격 값 표시 (base: displayArea·resolution·ledPitch) */
+function formatInstallCaseSpecValueDisplay(base, rawValue) {
+  const value = safeString(rawValue).trim()
+  if (!value || value === '-') return '-'
+  if (base === 'displayArea') return formatInstallCaseWhMmDetailDisplay(value)
+  if (base === 'resolution') return formatInstallCaseResolutionDetailDisplay(value)
+  if (base === 'ledPitch') return formatInstallCaseLedPitchDisplay(value)
+  return value
 }
 
 function parseResolutionStoredToWH(s) {
@@ -2520,16 +2512,8 @@ function formatInstallCaseYearDetailDisplay(raw) {
 function formatInstallCaseCardSubline(row) {
   const yRaw = safeString(row?.year).trim()
   const yearPart = yRaw ? `${(yRaw.match(/^\d{4}/) ? yRaw.slice(0, 4) : yRaw)}년` : '-'
-  const area = formatInstallCaseJoinedDualSpec(
-    row?.specs?.displayArea,
-    row?.specs?.displayArea2,
-    formatInstallCaseWhMmDetailDisplay
-  )
-  const pitch = formatInstallCaseJoinedDualSpec(
-    row?.specs?.ledPitch,
-    row?.specs?.ledPitch2,
-    formatInstallCaseLedPitchDisplay
-  )
+  const area = formatInstallCaseJoinedSpecSets(row?.specs, 'displayArea')
+  const pitch = formatInstallCaseJoinedSpecSets(row?.specs, 'ledPitch')
   return `${yearPart} | ${area} | ${pitch}`
 }
 
@@ -2729,12 +2713,82 @@ function InstallCaseFormWhPairField({
   )
 }
 
-function getInstallCaseSpecPreview(type, specs, pairId) {
-  const w = specs[`${pairId}W`]
-  const h = specs[`${pairId}H`]
+function getInstallCaseSpecPreview(type, set, base) {
+  const w = set?.[`${base}W`]
+  const h = set?.[`${base}H`]
   if (type === 'whMm') return formatInstallCaseWhMmFromWH(w, h)
   if (type === 'resolution') return formatInstallCaseResolutionFromWH(w, h)
   return ''
+}
+
+/** 규격 세트 1벌(표출부 사이즈·해상도·LED Pitch) 입력 그룹 */
+function InstallCaseSpecSetGroup({
+  setIndex,
+  set,
+  canRemove,
+  onWhChange,
+  onLedPitchChange,
+  onRemove,
+}) {
+  return (
+    <div className="install-case-spec-set">
+      <div className="install-case-spec-set-head">
+        <span className="install-case-spec-set-title">규격 세트 {setIndex + 1}</span>
+        {canRemove ? (
+          <button
+            type="button"
+            className="install-case-spec-set-remove"
+            onClick={() => onRemove(setIndex)}
+            aria-label={`규격 세트 ${setIndex + 1} 삭제`}
+            title="이 규격 세트 삭제"
+          >
+            ✕
+          </button>
+        ) : null}
+      </div>
+      {INSTALL_CASE_SPEC_SET_FIELDS.map((def) => {
+        if (def.type === 'wh') {
+          const allowDecimal = Boolean(def.allowDecimal)
+          return (
+            <InstallCaseFormWhPairField
+              key={def.base}
+              label={def.label}
+              wValue={set[`${def.base}W`] ?? ''}
+              hValue={set[`${def.base}H`] ?? ''}
+              onWChange={onWhChange(setIndex, def.base, 'w', { allowDecimal })}
+              onHChange={onWhChange(setIndex, def.base, 'h', { allowDecimal })}
+              preview={getInstallCaseSpecPreview(def.preview, set, def.base)}
+              allowDecimal={allowDecimal}
+            />
+          )
+        }
+        if (def.type === 'ledPitch') {
+          return (
+            <div key={def.base} className="install-case-form-stack-field">
+              <label className="install-case-form-label">{def.label}</label>
+              <input
+                className="table-search-input install-case-form-input"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                autoComplete="off"
+                placeholder="숫자·소수점 입력 (표시: P값mm)"
+                value={
+                  safeString(set[def.base])
+                    .replace(/^P\.?/i, '')
+                    .replace(/mm$/i, '')
+                    .trim() || ''
+                }
+                onChange={onLedPitchChange(setIndex)}
+              />
+            </div>
+          )
+        }
+        return null
+      })}
+    </div>
+  )
 }
 
 function InstallCaseFormTwoColumn({
@@ -2742,13 +2796,17 @@ function InstallCaseFormTwoColumn({
   setFormDraft,
   icMediaItems,
   setIcMediaItems,
-  pairDigitChange,
-  onLedPitchChange,
+  onSpecSetWhChange,
+  onSpecSetLedPitchChange,
+  onAddSpecSet,
+  onRemoveSpecSet,
+  onInstallTypeChange,
   onInvalidImageFile,
   onFileTooLarge,
   onMediaLimitExceeded,
 }) {
   const specs = formDraft.specs || {}
+  const specSets = Array.isArray(specs.sets) && specs.sets.length ? specs.sets : []
 
   return (
     <div className="install-case-form-two-col install-case-form-two-col--unified">
@@ -2820,68 +2878,36 @@ function InstallCaseFormTwoColumn({
       </InstallCaseFormSection>
 
       <InstallCaseFormSection title="제품 규격" ariaLabel="제품 규격">
-        {INSTALL_CASE_REGISTER_SPEC_FIELDS.map((def) => {
-          if (def.type === 'wh') {
-            const pairId = def.pairId
-            const allowDecimal = Boolean(def.allowDecimal)
-            return (
-              <InstallCaseFormWhPairField
-                key={pairId}
-                label={def.label}
-                wValue={specs[`${pairId}W`] ?? ''}
-                hValue={specs[`${pairId}H`] ?? ''}
-                onWChange={pairDigitChange(pairId, 'w', { allowDecimal })}
-                onHChange={pairDigitChange(pairId, 'h', { allowDecimal })}
-                preview={getInstallCaseSpecPreview(def.preview, specs, pairId)}
-                allowDecimal={allowDecimal}
-              />
-            )
-          }
-          if (def.type === 'ledPitch') {
-            const fieldKey = def.key || 'ledPitch'
-            return (
-              <div key={fieldKey} className="install-case-form-stack-field">
-                <label className="install-case-form-label">{def.label}</label>
-                <input
-                  className="table-search-input install-case-form-input"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  autoComplete="off"
-                  placeholder="숫자·소수점 입력 (표시: P값mm)"
-                  value={
-                    safeString(specs[fieldKey])
-                      .replace(/^P\.?/i, '')
-                      .replace(/mm$/i, '')
-                      .trim() || ''
-                  }
-                  onChange={onLedPitchChange(fieldKey)}
-                />
-              </div>
-            )
-          }
-          if (def.type === 'text') {
-            return (
-              <div key={def.key} className="install-case-form-stack-field">
-                <label className="install-case-form-label">{def.label}</label>
-                <input
-                  className="table-search-input install-case-form-input"
-                  type="text"
-                  value={specs[def.key] ?? ''}
-                  placeholder={def.placeholder}
-                  onChange={(e) =>
-                    setFormDraft((prev) => ({
-                      ...prev,
-                      specs: { ...prev.specs, [def.key]: e.target.value },
-                    }))
-                  }
-                />
-              </div>
-            )
-          }
-          return null
-        })}
+        {specSets.map((set, setIndex) => (
+          <InstallCaseSpecSetGroup
+            key={`spec-set-${setIndex}`}
+            setIndex={setIndex}
+            set={set}
+            canRemove={setIndex > 0}
+            onWhChange={onSpecSetWhChange}
+            onLedPitchChange={onSpecSetLedPitchChange}
+            onRemove={onRemoveSpecSet}
+          />
+        ))}
+        {specSets.length < INSTALL_CASE_MAX_SPEC_SETS ? (
+          <button
+            type="button"
+            className="install-case-spec-set-add"
+            onClick={onAddSpecSet}
+          >
+            + 규격 추가 (최대 {INSTALL_CASE_MAX_SPEC_SETS}개)
+          </button>
+        ) : null}
+        <div className="install-case-form-stack-field">
+          <label className="install-case-form-label">설치유형</label>
+          <input
+            className="table-search-input install-case-form-input"
+            type="text"
+            value={specs.installType ?? ''}
+            placeholder="예: 벽면 부착형"
+            onChange={onInstallTypeChange}
+          />
+        </div>
         <div className="install-case-form-stack-field install-case-form-stack-field--dropzone">
           <InstallCaseMultiMediaField
             items={icMediaItems}
@@ -2906,14 +2932,7 @@ function getDefaultInstallCaseForm() {
     purpose: '',
     client: '',
     specs: {
-      displayAreaW: '',
-      displayAreaH: '',
-      displayArea2W: '',
-      displayArea2H: '',
-      ledPitch: '',
-      ledPitch2: '',
-      resolutionW: '',
-      resolutionH: '',
+      sets: [getEmptyInstallCaseSpecSet()],
       installType: '',
     },
   }
@@ -2921,10 +2940,18 @@ function getDefaultInstallCaseForm() {
 
 function cloneInstallCaseFormDraft(form) {
   const defaults = getDefaultInstallCaseForm()
+  const rawSets = Array.isArray(form?.specs?.sets) ? form.specs.sets : []
+  const sets = rawSets
+    .slice(0, INSTALL_CASE_MAX_SPEC_SETS)
+    .map((set) => ({ ...getEmptyInstallCaseSpecSet(), ...(set || {}) }))
   return {
     ...defaults,
     ...form,
-    specs: { ...defaults.specs, ...(form?.specs || {}) },
+    specs: {
+      ...defaults.specs,
+      ...(form?.specs || {}),
+      sets: sets.length ? sets : defaults.specs.sets,
+    },
   }
 }
 
@@ -2934,9 +2961,8 @@ function hasMeaningfulInstallCaseFormContent(form, mediaItems = []) {
   if (safeString(form.purpose).trim()) return true
   if (safeString(form.client).trim()) return true
   const specs = form.specs || {}
-  for (const key of Object.keys(specs)) {
-    if (safeString(specs[key]).trim()) return true
-  }
+  if (safeString(specs.installType).trim()) return true
+  if (Array.isArray(specs.sets) && specs.sets.some(hasInstallCaseSpecSetValue)) return true
   if (Array.isArray(mediaItems) && mediaItems.length > 0) return true
   return false
 }
@@ -2946,7 +2972,8 @@ function loadInstallCaseFormDraftFromStorage() {
     const raw = localStorage.getItem(INSTALL_CASE_FORM_DRAFT_STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (!parsed?.form?.specs) return null
+    // 규격 세트 도입 이전 형태(specs 가 평평한 키)로 저장된 임시 데이터는 버린다.
+    if (!Array.isArray(parsed?.form?.specs?.sets)) return null
     return parsed
   } catch {
     return null
@@ -7111,33 +7138,68 @@ function App() {
     showAppAlert,
   ])
 
-  const handleInstallCasePairDigitChange = useCallback(
-    (pairId, axis, { allowDecimal = false } = {}) => (e) => {
-      const v = allowDecimal
+  /** 규격 세트 배열에서 한 세트만 갈아끼운다. */
+  const updateInstallCaseSpecSet = useCallback((setIndex, patch) => {
+    setInstallCaseFormDraft((prev) => {
+      const sets = Array.isArray(prev.specs?.sets) ? prev.specs.sets : []
+      if (!sets[setIndex]) return prev
+      const nextSets = sets.map((set, index) =>
+        index === setIndex ? { ...set, ...patch } : set
+      )
+      return { ...prev, specs: { ...prev.specs, sets: nextSets } }
+    })
+  }, [])
+
+  const handleInstallCaseSpecSetWhChange = useCallback(
+    (setIndex, base, axis, { allowDecimal = false } = {}) => (e) => {
+      const value = allowDecimal
         ? sanitizeInstallCaseDecimalInput(e.target.value, 2)
         : e.target.value.replace(/[^0-9]/g, '')
-      const wKey = `${pairId}W`
-      const hKey = `${pairId}H`
-      const key = axis === 'w' ? wKey : hKey
-      setInstallCaseFormDraft((prev) => ({
-        ...prev,
-        specs: { ...prev.specs, [key]: v },
-      }))
+      updateInstallCaseSpecSet(setIndex, {
+        [`${base}${axis === 'w' ? 'W' : 'H'}`]: value,
+      })
     },
-    []
+    [updateInstallCaseSpecSet]
   )
 
-  const handleInstallCaseLedPitchChange = useCallback(
-    (fieldKey = 'ledPitch') => (e) => {
-      const val = sanitizeInstallCaseDecimalInput(e.target.value, 2)
-      const next = val === '' ? '' : `P${val}mm`
-      setInstallCaseFormDraft((prev) => ({
-        ...prev,
-        specs: { ...prev.specs, [fieldKey]: next },
-      }))
+  const handleInstallCaseSpecSetLedPitchChange = useCallback(
+    (setIndex) => (e) => {
+      const value = sanitizeInstallCaseDecimalInput(e.target.value, 2)
+      updateInstallCaseSpecSet(setIndex, { ledPitch: value === '' ? '' : `P${value}mm` })
     },
-    []
+    [updateInstallCaseSpecSet]
   )
+
+  const handleAddInstallCaseSpecSet = useCallback(() => {
+    setInstallCaseFormDraft((prev) => {
+      const sets = Array.isArray(prev.specs?.sets) ? prev.specs.sets : []
+      if (sets.length >= INSTALL_CASE_MAX_SPEC_SETS) return prev
+      return {
+        ...prev,
+        specs: { ...prev.specs, sets: [...sets, getEmptyInstallCaseSpecSet()] },
+      }
+    })
+  }, [])
+
+  const handleRemoveInstallCaseSpecSet = useCallback((setIndex) => {
+    setInstallCaseFormDraft((prev) => {
+      const sets = Array.isArray(prev.specs?.sets) ? prev.specs.sets : []
+      // 세트 1은 항상 남긴다.
+      if (setIndex <= 0 || sets.length <= 1) return prev
+      return {
+        ...prev,
+        specs: { ...prev.specs, sets: sets.filter((_, index) => index !== setIndex) },
+      }
+    })
+  }, [])
+
+  const handleInstallCaseInstallTypeChange = useCallback((e) => {
+    const value = e.target.value
+    setInstallCaseFormDraft((prev) => ({
+      ...prev,
+      specs: { ...prev.specs, installType: value },
+    }))
+  }, [])
 
   const handleSaveInstallCaseRegister = async () => {
     if (installCaseSubmitting) return
@@ -17656,16 +17718,41 @@ function App() {
                   </div>
                   <div className="install-case-detail-specs-col">
                     <dl className="install-case-detail-meta">
-                      {INSTALL_CASE_SPEC_ROWS.map(({ key, label, optional }) => {
-                        const specs = installCaseDetailModal.specs || {}
-                        if (optional && !hasInstallCaseOptionalSpecValue(specs, key)) return null
-                        return (
-                          <div className="install-case-meta-row" key={key}>
-                            <dt>{label}</dt>
-                            <dd>{formatInstallCaseSpecDetailDisplay(key, specs)}</dd>
-                          </div>
-                        )
-                      })}
+                      {getInstallCaseFilledSpecSetIndexes(installCaseDetailModal.specs).flatMap(
+                        (setIndex) => {
+                          const specs = installCaseDetailModal.specs || {}
+                          const rows = INSTALL_CASE_SPEC_SET_FIELDS.map(({ base, label }) => ({
+                            base,
+                            label: installCaseSpecSetLabel(label, setIndex),
+                            text: formatInstallCaseSpecValueDisplay(
+                              base,
+                              specs[installCaseSpecKey(base, setIndex)]
+                            ),
+                          })).filter(({ text }) => setIndex === 0 || text !== '-')
+                          return rows.map(({ base, label, text }, rowIndex) => (
+                            <div
+                              className={`install-case-meta-row${
+                                setIndex > 0 && rowIndex === 0
+                                  ? ' install-case-meta-row--set-start'
+                                  : ''
+                              }`}
+                              key={`${base}-${setIndex}`}
+                            >
+                              <dt>{label}</dt>
+                              <dd>{text}</dd>
+                            </div>
+                          ))
+                        }
+                      )}
+                      <div className="install-case-meta-row">
+                        <dt>설치유형</dt>
+                        <dd>
+                          {formatInstallCaseSpecValueDisplay(
+                            'installType',
+                            installCaseDetailModal.specs?.installType
+                          )}
+                        </dd>
+                      </div>
                     </dl>
                   </div>
                 </div>
@@ -18215,8 +18302,11 @@ function App() {
                 setFormDraft={setInstallCaseFormDraft}
                 icMediaItems={icMediaItems}
                 setIcMediaItems={setIcMediaItems}
-                pairDigitChange={handleInstallCasePairDigitChange}
-                onLedPitchChange={handleInstallCaseLedPitchChange}
+                onSpecSetWhChange={handleInstallCaseSpecSetWhChange}
+                onSpecSetLedPitchChange={handleInstallCaseSpecSetLedPitchChange}
+                onAddSpecSet={handleAddInstallCaseSpecSet}
+                onRemoveSpecSet={handleRemoveInstallCaseSpecSet}
+                onInstallTypeChange={handleInstallCaseInstallTypeChange}
                 onInvalidImageFile={() =>
                   showAppAlert('이미지 또는 동영상 파일만 업로드할 수 있습니다.', '알림')
                 }

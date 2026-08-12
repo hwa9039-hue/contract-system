@@ -692,15 +692,21 @@ class CalendarManualEventOut(CalendarManualEventBase):
 
 
 class InstallCaseSpecs(BaseModel):
+    """규격 세트 1~3. 세트 1은 접미사 없음, 세트 2·3은 2·3 접미사를 씁니다."""
+
     displayArea: str = ""
     displayArea2: str = ""
+    displayArea3: str = ""
     ledPitch: str = ""
     ledPitch2: str = ""
+    ledPitch3: str = ""
     moduleSize: str = ""
     moduleSize2: str = ""
     moduleQty: str = ""
     moduleQty2: str = ""
     resolution: str = ""
+    resolution2: str = ""
+    resolution3: str = ""
     installType: str = ""
 
 
@@ -1028,13 +1034,17 @@ def _normalize_install_case_specs(raw) -> dict:
         return {
             "displayArea": to_response_value(raw.get("displayArea")) or "",
             "displayArea2": to_response_value(raw.get("displayArea2")) or "",
+            "displayArea3": to_response_value(raw.get("displayArea3")) or "",
             "ledPitch": to_response_value(raw.get("ledPitch")) or "",
             "ledPitch2": to_response_value(raw.get("ledPitch2")) or "",
+            "ledPitch3": to_response_value(raw.get("ledPitch3")) or "",
             "moduleSize": to_response_value(raw.get("moduleSize")) or "",
             "moduleSize2": to_response_value(raw.get("moduleSize2")) or "",
             "moduleQty": to_response_value(raw.get("moduleQty")) or "",
             "moduleQty2": to_response_value(raw.get("moduleQty2")) or "",
             "resolution": to_response_value(raw.get("resolution")) or "",
+            "resolution2": to_response_value(raw.get("resolution2")) or "",
+            "resolution3": to_response_value(raw.get("resolution3")) or "",
             "installType": to_response_value(raw.get("installType")) or "",
         }
     return {}
