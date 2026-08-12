@@ -8080,12 +8080,23 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
 .documents-registry-table col.documents-w-36,
 .documents-registry-table th.documents-w-36,
 .documents-registry-table td.documents-w-36,
-.documents-registry-table col.documents-w-p12,
-.documents-registry-table th.documents-w-p12,
-.documents-registry-table td.documents-w-p12,
 .documents-registry-table .documents-col-tight {
   width: 1% !important;
   min-width: 0 !important;
+  max-width: none !important;
+  white-space: nowrap !important;
+}
+
+/*
+ * 문서번호 — `SIGN-DI-A1-260818-01` 같은 긴 식별자가 들어가므로
+ * 내용 맞춤(documents-col-tight) 대신 넉넉한 최소 너비를 준다.
+ * `.documents-col-tight` 를 이기려면 4개 클래스 특이도가 필요하다.
+ */
+.documents-registry-table.excel-table.registry-table col.documents-w-p12,
+.documents-registry-table.excel-table.registry-table th.documents-w-p12,
+.documents-registry-table.excel-table.registry-table td.documents-w-p12 {
+  width: 14% !important;
+  min-width: 200px !important;
   max-width: none !important;
   white-space: nowrap !important;
 }
@@ -8102,7 +8113,7 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
 .documents-registry-table th.documents-w-p16,
 .documents-registry-table td.documents-w-p16,
 .documents-registry-table .documents-col-party {
-  width: 18% !important;
+  width: 20% !important;
   min-width: 0 !important;
   max-width: none !important;
   white-space: pre-wrap !important;
@@ -8114,7 +8125,7 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
 .documents-registry-table th.documents-w-p30,
 .documents-registry-table td.documents-w-p30,
 .documents-registry-table .documents-col-title {
-  width: 36% !important;
+  width: 42% !important;
   min-width: 0 !important;
   max-width: none !important;
   white-space: pre-wrap !important;
@@ -8122,15 +8133,16 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
   overflow-wrap: break-word !important;
 }
 
+/* 비고 — '발송/수신' 같은 짧은 값만 들어가므로 최소 폭만 남기고 축소 */
 .documents-registry-table .documents-note-header,
 .documents-registry-table .documents-col-note,
 .documents-registry-table col.documents-w-28,
 .documents-registry-table th.documents-w-28,
 .documents-registry-table td.documents-w-28 {
   text-align: center !important;
-  width: 20% !important;
-  min-width: 0 !important;
-  max-width: none !important;
+  width: 5% !important;
+  min-width: 84px !important;
+  max-width: 120px !important;
   white-space: pre-wrap !important;
   word-break: keep-all !important;
   overflow-wrap: break-word !important;
