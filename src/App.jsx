@@ -67,6 +67,7 @@ import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 // import UnitPriceManagement from './pages/UnitPriceManagement.jsx'
 // import ProjectManagement from './pages/ProjectManagement.jsx'
 import OrderManagementPlaceholder from './pages/OrderManagementPlaceholder.jsx'
+import PreparingPlaceholder from './pages/PreparingPlaceholder.jsx'
 import NaraMarket from './pages/NaraMarket.jsx'
 import NewsMonitor from './pages/NewsMonitor.jsx'
 import { decodeWorkReportWireText } from './workReportWire.js'
@@ -1509,6 +1510,8 @@ const PAGE_TITLE_MAP = {
   // contactsManage — 사이드바에서 제거됨 (레거시 키 보관)
   contactsManage: '연락처',
   installCases: '설치사례',
+  paymentReport: '결제보고',
+  salesContacts: '연락처',
   orderManagement: '발주관리',
   // projectManagement / unitPrice — 사이드바에서 제거됨 (레거시 키 보관)
   projectManagement: '사업관리',
@@ -1658,6 +1661,15 @@ const SIDEBAR_MENU_GROUPS = [
     ],
   },
   {
+    id: 'salesInfo',
+    label: '영업정보',
+    items: [
+      { key: 'paymentReport', label: '결제보고' },
+      { key: 'salesContacts', label: '연락처' },
+      { key: 'orderManagement', label: '발주관리' },
+    ],
+  },
+  {
     id: 'monitoring',
     label: '모니터링',
     items: [
@@ -1672,7 +1684,6 @@ const ALL_MENU_KEYS = [
   ...SIDEBAR_MENU_GROUPS.flatMap((group) => group.items.map((item) => item.key)),
   'materialsBoard',
   'installCases',
-  'orderManagement',
 ]
 
 function resolveInitialMenu() {
@@ -1712,7 +1723,7 @@ function loadStoredMenu() {
 }
 
 function loadExpandedMenuGroups(menuKey) {
-  const expanded = { work: true, sales: true, monitoring: true }
+  const expanded = { work: true, sales: true, salesInfo: true, monitoring: true }
   try {
     const raw = localStorage.getItem(SIDEBAR_GROUPS_EXPANDED_KEY)
     if (raw) {
@@ -15444,14 +15455,7 @@ function App() {
               설치사례
             </button>
 
-            <button
-              type="button"
-              className={menu === 'orderManagement' ? 'menu-btn active' : 'menu-btn'}
-              onClick={() => setMenu('orderManagement')}
-            >
-              발주관리
-            </button>
-
+            {/* 발주관리 — 단독 메뉴에서 '영업정보' 그룹 하위로 이동 */}
             {/* 사업관리 / 단가관리 — 사이드바에서 제거됨 (레거시 페이지 컴포넌트는 보관) */}
           </div>
         </div>
@@ -17566,6 +17570,10 @@ function App() {
             )}
           </section>
         )}
+
+        {menu === 'paymentReport' && <PreparingPlaceholder label="결제보고" />}
+
+        {menu === 'salesContacts' && <PreparingPlaceholder label="연락처" />}
 
         {menu === 'orderManagement' && <OrderManagementPlaceholder />}
 

@@ -80,6 +80,8 @@ export const FULL_ACCESS_MENUS = new Set([
   'documents',
   'naraMarket',
   'newsMonitor',
+  'paymentReport',
+  'salesContacts',
   'orderManagement',
 ])
 
