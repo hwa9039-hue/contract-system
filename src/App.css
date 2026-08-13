@@ -7211,11 +7211,13 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
   max-width: none !important;
 }
 
-/* 긴 텍스트 컬럼이 남는 공간을 흡수 */
+/* 긴 텍스트 컬럼이 남는 공간을 흡수.
+   좌측 고정 영역이 넓어 비율만으로는 좁아지므로 최소 폭을 함께 준다. */
 .sales-registry-table col.sales-col-detail,
 .sales-registry-table th.sales-detail-cell,
 .sales-registry-table td.sales-detail-cell {
-  width: 35% !important;
+  width: 42% !important;
+  min-width: 460px !important;
 }
 
 .sales-registry-table col.sales-col-projectName {
@@ -7225,6 +7227,195 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
 .sales-registry-table col.sales-col-client,
 .sales-registry-table col.sales-col-department {
   width: 12% !important;
+}
+
+/* ── 영업관리대장 좌측 틀 고정 ────────────────────────────────────────────
+   고정 대상: 체크박스 · 숨김 · 중요도 · 요약 · 발주처 · 사업명 · 상태 · 등록일 (좌→우)
+   left 좌표는 앞선 열 폭을 누적한 calc 로 잡으므로, 폭을 바꿀 때는 아래
+   --sales-sticky-w-* 값만 고치면 좌표가 전부 따라온다. */
+table.sales-registry-table.excel-table.registry-table {
+  --sales-sticky-w-check: 44px;
+  --sales-sticky-w-archive: 56px;
+  --sales-sticky-w-importance: 64px;
+  --sales-sticky-w-record: 56px;
+  --sales-sticky-w-client: 150px;
+  --sales-sticky-w-project: 260px;
+  --sales-sticky-w-stage: 96px;
+  --sales-sticky-w-date: 158px;
+
+  --sales-sticky-left-check: 0px;
+  --sales-sticky-left-archive: var(--sales-sticky-w-check);
+  --sales-sticky-left-importance: calc(
+    var(--sales-sticky-w-check) + var(--sales-sticky-w-archive)
+  );
+  --sales-sticky-left-record: calc(
+    var(--sales-sticky-left-importance) + var(--sales-sticky-w-importance)
+  );
+  --sales-sticky-left-client: calc(
+    var(--sales-sticky-left-record) + var(--sales-sticky-w-record)
+  );
+  --sales-sticky-left-project: calc(
+    var(--sales-sticky-left-client) + var(--sales-sticky-w-client)
+  );
+  --sales-sticky-left-stage: calc(
+    var(--sales-sticky-left-project) + var(--sales-sticky-w-project)
+  );
+  --sales-sticky-left-date: calc(
+    var(--sales-sticky-left-stage) + var(--sales-sticky-w-stage)
+  );
+}
+
+/* 고정 열은 폭이 흔들리면 left 좌표가 어긋나므로 col·th·td 를 같은 값으로 못 박는다 */
+table.sales-registry-table.excel-table.registry-table col.sales-col-importance,
+table.sales-registry-table.excel-table.registry-table th.sales-sticky-col--importance,
+table.sales-registry-table.excel-table.registry-table td.sales-sticky-col--importance {
+  width: var(--sales-sticky-w-importance) !important;
+  min-width: var(--sales-sticky-w-importance) !important;
+  max-width: var(--sales-sticky-w-importance) !important;
+  box-sizing: border-box;
+}
+
+table.sales-registry-table.excel-table.registry-table col.sales-col-client,
+table.sales-registry-table.excel-table.registry-table th.sales-sticky-col--client,
+table.sales-registry-table.excel-table.registry-table td.sales-sticky-col--client {
+  width: var(--sales-sticky-w-client) !important;
+  min-width: var(--sales-sticky-w-client) !important;
+  max-width: var(--sales-sticky-w-client) !important;
+  box-sizing: border-box;
+}
+
+table.sales-registry-table.excel-table.registry-table col.sales-col-projectName,
+table.sales-registry-table.excel-table.registry-table th.sales-sticky-col--project,
+table.sales-registry-table.excel-table.registry-table td.sales-sticky-col--project {
+  width: var(--sales-sticky-w-project) !important;
+  min-width: var(--sales-sticky-w-project) !important;
+  max-width: var(--sales-sticky-w-project) !important;
+  box-sizing: border-box;
+}
+
+table.sales-registry-table.excel-table.registry-table col.sales-col-projectStage,
+table.sales-registry-table.excel-table.registry-table th.sales-sticky-col--stage,
+table.sales-registry-table.excel-table.registry-table td.sales-sticky-col--stage {
+  width: var(--sales-sticky-w-stage) !important;
+  min-width: var(--sales-sticky-w-stage) !important;
+  max-width: var(--sales-sticky-w-stage) !important;
+  box-sizing: border-box;
+}
+
+table.sales-registry-table.excel-table.registry-table col.sales-col-registerDate,
+table.sales-registry-table.excel-table.registry-table th.sales-sticky-col--date,
+table.sales-registry-table.excel-table.registry-table td.sales-sticky-col--date {
+  width: var(--sales-sticky-w-date) !important;
+  min-width: var(--sales-sticky-w-date) !important;
+  max-width: var(--sales-sticky-w-date) !important;
+  box-sizing: border-box;
+}
+
+/* 한글 keep-all 규칙 때문에 긴 발주처·사업명이 고정 폭을 밀어내지 않도록 예외를 준다 */
+table.sales-registry-table.excel-table.registry-table tbody td.sales-sticky-col--client,
+table.sales-registry-table.excel-table.registry-table tbody td.sales-sticky-col--project {
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+}
+
+table.sales-registry-table.excel-table.registry-table thead
+  th:is(.registry-check-header, .sales-archive-header, .sales-record-header, .sales-sticky-col),
+table.sales-registry-table.excel-table.registry-table tbody
+  td:is(.registry-check-cell, .sales-archive-cell, .sales-record-cell, .sales-sticky-col) {
+  position: sticky;
+  background-clip: padding-box;
+}
+
+/* 본문 고정 셀 — 스크롤되는 셀보다 위(z-index 3), 연도 그룹 행(8)·헤더(20)보다는 아래 */
+table.sales-registry-table.excel-table.registry-table tbody
+  td:is(.registry-check-cell, .sales-archive-cell, .sales-record-cell, .sales-sticky-col) {
+  z-index: 3;
+  background-color: #ffffff;
+}
+
+/* 헤더 고정 셀 — 세로 고정(top:0)과 겸용이라 가장 위 */
+table.sales-registry-table.excel-table.registry-table thead
+  th:is(.registry-check-header, .sales-archive-header, .sales-record-header, .sales-sticky-col) {
+  z-index: 30;
+  background-color: #f8fafc;
+}
+
+table.sales-registry-table.excel-table.registry-table thead th.registry-check-header,
+table.sales-registry-table.excel-table.registry-table tbody td.registry-check-cell {
+  left: var(--sales-sticky-left-check);
+}
+
+table.sales-registry-table.excel-table.registry-table thead th.sales-archive-header,
+table.sales-registry-table.excel-table.registry-table tbody td.sales-archive-cell {
+  left: var(--sales-sticky-left-archive);
+}
+
+table.sales-registry-table.excel-table.registry-table thead th.sales-sticky-col--importance,
+table.sales-registry-table.excel-table.registry-table tbody td.sales-sticky-col--importance {
+  left: var(--sales-sticky-left-importance);
+}
+
+table.sales-registry-table.excel-table.registry-table thead th.sales-record-header,
+table.sales-registry-table.excel-table.registry-table tbody td.sales-record-cell {
+  left: var(--sales-sticky-left-record);
+}
+
+table.sales-registry-table.excel-table.registry-table thead th.sales-sticky-col--client,
+table.sales-registry-table.excel-table.registry-table tbody td.sales-sticky-col--client {
+  left: var(--sales-sticky-left-client);
+}
+
+table.sales-registry-table.excel-table.registry-table thead th.sales-sticky-col--project,
+table.sales-registry-table.excel-table.registry-table tbody td.sales-sticky-col--project {
+  left: var(--sales-sticky-left-project);
+}
+
+table.sales-registry-table.excel-table.registry-table thead th.sales-sticky-col--stage,
+table.sales-registry-table.excel-table.registry-table tbody td.sales-sticky-col--stage {
+  left: var(--sales-sticky-left-stage);
+}
+
+table.sales-registry-table.excel-table.registry-table thead th.sales-sticky-col--date,
+table.sales-registry-table.excel-table.registry-table tbody td.sales-sticky-col--date {
+  left: var(--sales-sticky-left-date);
+}
+
+/* 줄무늬·신규 입력 행 배경을 고정 셀에도 직접 칠한다.
+   tr 배경만으로는 sticky 셀 뒤로 스크롤되는 데이터가 비쳐 보인다. */
+table.sales-registry-table.excel-table.registry-table tbody tr.row-even
+  > td:is(.registry-check-cell, .sales-archive-cell, .sales-record-cell, .sales-sticky-col) {
+  background-color: #ffffff;
+}
+
+table.sales-registry-table.excel-table.registry-table tbody tr.row-odd
+  > td:is(.registry-check-cell, .sales-archive-cell, .sales-record-cell, .sales-sticky-col) {
+  background-color: #fcfcfd;
+}
+
+table.sales-registry-table.excel-table.registry-table tbody tr.sales-draft-row
+  > td:is(.registry-check-cell, .sales-archive-cell, .sales-record-cell, .sales-sticky-col) {
+  background-color: #eff6ff;
+}
+
+/* 고정 영역 끝(상태) — 경계선 + 오른쪽으로 떨어지는 그림자.
+   그림자를 box-shadow 로 주면 신규 입력 행의 파란 테두리·포커스 링을 덮어쓰므로
+   가상 요소로 그려 서로 간섭하지 않게 한다. */
+table.sales-registry-table.excel-table.registry-table th.sales-sticky-col--last,
+table.sales-registry-table.excel-table.registry-table td.sales-sticky-col--last {
+  border-right: 2px solid #cbd5e1;
+}
+
+table.sales-registry-table.excel-table.registry-table th.sales-sticky-col--last::after,
+table.sales-registry-table.excel-table.registry-table td.sales-sticky-col--last::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -10px;
+  width: 10px;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(15, 23, 42, 0.14), rgba(15, 23, 42, 0));
 }
 
 .sales-registry-table td.sales-department-cell,

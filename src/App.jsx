@@ -472,6 +472,12 @@ const DISCOVERY_CATEGORY_TONE_MAP = {
   '단기 사업': 'discovery-category-badge discovery-short',
 }
 
+/**
+ * 영업관리대장 표 컬럼 — 배열 순서가 헤더·데이터 행·colgroup 순서를 함께 결정한다.
+ * stickyClass 가 붙은 컬럼(중요도·발주처·사업명·상태)은 체크박스·숨김·요약과 함께
+ * 가로 스크롤 시 좌측에 고정된다. 요약은 컬럼이 아니라 중요도 뒤에 끼워 넣는 셀이라
+ * CSS 에서 기존 클래스(.sales-record-*)로 함께 고정한다.
+ */
 const SALES_COLUMNS = [
   {
     key: 'importance',
@@ -480,10 +486,42 @@ const SALES_COLUMNS = [
     type: 'importance',
     statusKey: 'projectStage',
     width: 72,
+    stickyClass: 'sales-sticky-col sales-sticky-col--importance',
   },
-  { key: 'registerDate', label: '등록일', align: 'center', type: 'date', width: 175, cellClass: 'sales-register-date-cell' },
-  { key: 'client', label: '발주처', align: 'center', type: 'text', width: 170 },
-  { key: 'projectName', label: '사업명', align: 'left', type: 'textarea', width: 340 },
+  {
+    key: 'client',
+    label: '발주처',
+    align: 'center',
+    type: 'text',
+    width: 170,
+    stickyClass: 'sales-sticky-col sales-sticky-col--client',
+  },
+  {
+    key: 'projectName',
+    label: '사업명',
+    align: 'left',
+    type: 'textarea',
+    width: 340,
+    stickyClass: 'sales-sticky-col sales-sticky-col--project',
+  },
+  {
+    key: 'projectStage',
+    label: '상태',
+    align: 'center',
+    type: 'select',
+    options: SALES_STAGE_OPTIONS,
+    width: 102,
+    stickyClass: 'sales-sticky-col sales-sticky-col--stage',
+  },
+  {
+    key: 'registerDate',
+    label: '등록일',
+    align: 'center',
+    type: 'date',
+    width: 175,
+    cellClass: 'sales-register-date-cell',
+    stickyClass: 'sales-sticky-col sales-sticky-col--date sales-sticky-col--last',
+  },
   {
     key: 'projectAmount',
     label: '사업금액',
@@ -494,15 +532,6 @@ const SALES_COLUMNS = [
     cellClass: 'sales-amount-cell',
   },
   { key: 'manager', label: '담당자', align: 'center', type: 'select', options: SALES_REGISTER_MANAGER_OPTIONS, width: 112 },
-  { key: 'projectStage', label: '상태', align: 'center', type: 'select', options: SALES_STAGE_OPTIONS, width: 102 },
-  {
-    key: 'department',
-    label: '담당부서',
-    align: 'center',
-    type: 'text',
-    width: 220,
-    cellClass: 'sales-department-cell',
-  },
   {
     key: 'detail',
     label: '세부내용',
@@ -510,6 +539,14 @@ const SALES_COLUMNS = [
     type: 'textarea',
     width: 420,
     cellClass: 'sales-detail-cell',
+  },
+  {
+    key: 'department',
+    label: '담당부서',
+    align: 'center',
+    type: 'text',
+    width: 220,
+    cellClass: 'sales-department-cell',
   },
   { key: 'source', label: '출처', align: 'center', type: 'text', width: 140 },
 ]
@@ -13514,7 +13551,7 @@ function App() {
                 isLongTextTableColumn(column) && !isHistoryDetailCell ? 'multiline-cell' : ''
               } ${
                 isImportanceCell ? 'registry-importance-cell' : ''
-              } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${discoveryTextWrapClass} ${
+              } ${getTableColumnLayoutClass(column)} ${column.cellClass || ''} ${column.stickyClass || ''} ${discoveryTextWrapClass} ${
                 registryDateSuffixBadge ? 'registry-week-badge-cell' : ''
               } ${
                 usesTableInlineInput
@@ -16451,7 +16488,7 @@ function App() {
                         const headerCells = [
                           <th
                             key={column.key}
-                            className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.cellClass || ''} contract-th-filterable`}
+                            className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.cellClass || ''} ${column.stickyClass || ''} contract-th-filterable`}
                           >
                             <div className="contract-th-filter-wrap">
                               <span className="contract-th-label">{column.label}</span>
