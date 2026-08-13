@@ -2269,19 +2269,59 @@ function getInstallCaseProjectTitle(row) {
   return safeString(row?.projectName).trim() || '-'
 }
 
-/** 설치사례 검색 — 사업명·규격 세트 1~3의 LED Pitch (대소문자 무시, 부분 일치) */
-function installCaseMatchesSearch(row, keyword) {
-  const normalizedKeyword = safeString(keyword).trim().toLowerCase()
-  if (!normalizedKeyword) return true
-  const projectName = safeString(row?.projectName).trim().toLowerCase()
-  if (projectName.includes(normalizedKeyword)) return true
+/**
+ * 검색 비교용 정규화 — 소문자 + 공백 제거.
+ * 공백을 없애야 `미디어 폴`을 `미디어폴`로 쳐도, `(W)1920 x (H)1080`을
+ * `1920x1080`으로 쳐도 걸린다.
+ */
+function toInstallCaseSearchToken(value) {
+  return safeString(value).toLowerCase().replace(/\s+/g, '')
+}
+
+/**
+ * 설치사례 검색 대상 값 묶음 —
+ * 사업명·사업년도·대분류·중분류·소분류·용도·발주처·설치유형과
+ * 규격 세트 1~3의 표출부 사이즈·해상도·LED Pitch.
+ *
+ * 분류는 저장값과 화면 라벨이 다를 수 있어 둘 다 넣고,
+ * 규격도 원본(`P3.9mm`)과 표시형(`P3.9mm`·`(W)1920 x (H)1080`)을 함께 넣는다.
+ * 값이 없는 항목은 '-' 로 저장되므로 검색 대상에서 걸러낸다.
+ */
+function getInstallCaseSearchTokens(row) {
+  const specs = row?.specs ?? {}
+  const values = [
+    row?.projectName,
+    row?.year,
+    row?.environment,
+    getInstallCaseEnvironmentLabel(row?.environment),
+    row?.middleCategory,
+    getInstallCaseMiddleCategoryLabel(row?.middleCategory),
+    row?.audience,
+    getInstallCaseAudienceLabel(row?.audience),
+    row?.purpose,
+    row?.client,
+    specs?.installType,
+  ]
+
   for (let setIndex = 0; setIndex < INSTALL_CASE_MAX_SPEC_SETS; setIndex += 1) {
-    const pitch = safeString(row?.specs?.[installCaseSpecKey('ledPitch', setIndex)])
-      .trim()
-      .toLowerCase()
-    if (pitch && pitch.includes(normalizedKeyword)) return true
+    for (const { base } of INSTALL_CASE_SPEC_SET_FIELDS) {
+      const raw = specs?.[installCaseSpecKey(base, setIndex)]
+      values.push(raw)
+      values.push(formatInstallCaseSpecValueDisplay(base, raw))
+    }
   }
-  return false
+
+  return values
+    .filter((value) => safeString(value).trim() !== '-')
+    .map(toInstallCaseSearchToken)
+    .filter(Boolean)
+}
+
+/** 설치사례 통합 검색 — 위 항목 중 하나라도 포함하면 노출 (대소문자·공백 무시) */
+function installCaseMatchesSearch(row, keyword) {
+  const normalizedKeyword = toInstallCaseSearchToken(keyword)
+  if (!normalizedKeyword) return true
+  return getInstallCaseSearchTokens(row).some((token) => token.includes(normalizedKeyword))
 }
 
 function getInstallCaseEnvironmentLabel(env) {
@@ -17274,11 +17314,12 @@ function App() {
                   )}
                 </select>
                 <input
-                  className="table-search-input"
-                  placeholder="사업명 또는 LED Pitch 입력"
+                  className="table-search-input install-cases-search-input"
+                  placeholder="사업년도/대분류/중분류/소분류/용도/발주처/표출부 사이즈/해상도/LED Pitch/설치유형 입력"
                   value={installCaseSearch}
                   onChange={(e) => setInstallCaseSearch(e.target.value)}
                   aria-label="설치사례 검색"
+                  title="사업명·사업년도·대분류·중분류·소분류·용도·발주처·표출부 사이즈·해상도·LED Pitch·설치유형 통합 검색"
                 />
               </div>
               {canEditInstallCases && (

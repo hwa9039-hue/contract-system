@@ -11731,7 +11731,8 @@ body.work-report-manager-menu-open .work-report-board-section {
 
 .install-cases-filters {
   display: flex;
-  flex-wrap: nowrap;
+  /* 검색창 안내 문구가 길어 폭이 모자라면 검색창만 다음 줄로 내려간다 */
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   flex: 1 1 auto;
@@ -11761,9 +11762,10 @@ body.work-report-manager-menu-open .work-report-board-section {
   width: auto;
 }
 
+/* 긴 안내 문구가 잘리지 않도록 넉넉한 기본 폭을 잡아둔다 */
 .install-cases-filters > .table-search-input {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 1 480px;
+  min-width: 320px;
   max-width: none;
   width: auto;
 }
