@@ -9276,9 +9276,7 @@ table.documents-registry-table.excel-table.registry-table {
   --documents-sticky-w-date: 118px;
   /* `SIGN-DI-A1-260818-01` 같은 긴 식별자가 줄바꿈되지 않는 폭 */
   --documents-sticky-w-no: 168px;
-  --documents-sticky-w-party: 126px;
-  /* 마지막 고정 열이라 뒤 좌표에 영향이 없다 — 최소 폭만 잡고 남는 공간을 흡수시킨다 */
-  --documents-sticky-w-title: 200px;
+  --documents-sticky-w-party: 150px;
 
   --documents-sticky-left-check: 0px;
   --documents-sticky-left-date: var(--documents-sticky-w-check);
@@ -9330,13 +9328,50 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
   box-sizing: border-box;
 }
 
+/*
+ * 자동 배치(table-layout:auto)에서는 셀의 max-width 가 무시돼 내용이 긴 열이 지정 폭을 밀어낸다.
+ * 고정 열은 폭이 곧 left 좌표라 어긋나면 안 되므로 이 표만 고정 배치로 바꾸고,
+ * 폭을 지정하지 않은 '문서명 또는 제목' 이 남는 가로 공간을 전부 흡수하게 한다.
+ */
+table.documents-registry-table.excel-table.registry-table.table-layout-auto {
+  table-layout: fixed !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
 table.documents-registry-table.excel-table.registry-table col.documents-sticky-col--title,
 table.documents-registry-table.excel-table.registry-table th.documents-sticky-col--title,
 table.documents-registry-table.excel-table.registry-table td.documents-sticky-col--title {
-  width: 30% !important;
-  min-width: var(--documents-sticky-w-title) !important;
+  width: auto !important;
+  min-width: 0 !important;
   max-width: none !important;
   box-sizing: border-box;
+}
+
+/*
+ * 고정 배치에서는 `width:1%`(내용 맞춤) 지정이 그대로 1% 로 계산돼 글자가 짓눌린다.
+ * 스크롤 영역 열들도 실제 폭을 명시해 준다.
+ */
+table.documents-registry-table.excel-table.registry-table col.documents-w-36,
+table.documents-registry-table.excel-table.registry-table th.documents-w-36,
+table.documents-registry-table.excel-table.registry-table td.documents-w-36 {
+  width: 165px !important;
+  min-width: 165px !important;
+}
+
+table.documents-registry-table.excel-table.registry-table col.documents-w-32,
+table.documents-registry-table.excel-table.registry-table th.documents-w-32,
+table.documents-registry-table.excel-table.registry-table td.documents-w-32 {
+  width: 158px !important;
+  min-width: 158px !important;
+}
+
+table.documents-registry-table.excel-table.registry-table col.documents-w-28,
+table.documents-registry-table.excel-table.registry-table th.documents-w-28,
+table.documents-registry-table.excel-table.registry-table td.documents-w-28 {
+  width: 92px !important;
+  min-width: 92px !important;
+  max-width: 92px !important;
 }
 
 /* 한글 keep-all 규칙 때문에 긴 수신처·제목이 고정 폭을 밀어내지 않도록 예외를 준다 */
