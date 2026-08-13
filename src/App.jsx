@@ -482,7 +482,7 @@ const DISCOVERY_CATEGORY_TONE_MAP = {
 
 /**
  * 영업관리대장 표 컬럼 — 배열 순서가 헤더·데이터 행·colgroup 순서를 함께 결정한다.
- * stickyClass 가 붙은 컬럼(중요도·발주처·사업명·상태)은 체크박스·숨김·요약과 함께
+ * stickyClass 가 붙은 컬럼(중요도·등록일·발주처·사업명·상태)은 체크박스·숨김·요약과 함께
  * 가로 스크롤 시 좌측에 고정된다. 요약은 컬럼이 아니라 중요도 뒤에 끼워 넣는 셀이라
  * CSS 에서 기존 클래스(.sales-record-*)로 함께 고정한다.
  */
@@ -495,6 +495,15 @@ const SALES_COLUMNS = [
     statusKey: 'projectStage',
     width: 72,
     stickyClass: 'sales-sticky-col sales-sticky-col--importance',
+  },
+  {
+    key: 'registerDate',
+    label: '등록일',
+    align: 'center',
+    type: 'date',
+    width: 175,
+    cellClass: 'sales-register-date-cell',
+    stickyClass: 'sales-sticky-col sales-sticky-col--date',
   },
   {
     key: 'client',
@@ -519,16 +528,7 @@ const SALES_COLUMNS = [
     type: 'select',
     options: SALES_STAGE_OPTIONS,
     width: 102,
-    stickyClass: 'sales-sticky-col sales-sticky-col--stage',
-  },
-  {
-    key: 'registerDate',
-    label: '등록일',
-    align: 'center',
-    type: 'date',
-    width: 175,
-    cellClass: 'sales-register-date-cell',
-    stickyClass: 'sales-sticky-col sales-sticky-col--date sales-sticky-col--last',
+    stickyClass: 'sales-sticky-col sales-sticky-col--stage sales-sticky-col--last',
   },
   {
     key: 'projectAmount',
@@ -565,7 +565,7 @@ const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
 const DISCOVERY_STAGE_OPTIONS = ['확인필요', '대응중', '보고']
 /**
  * 건축정보 표 컬럼 — 배열 순서가 헤더·데이터 행·colgroup 순서를 함께 결정한다.
- * stickyClass 가 붙은 컬럼(중요도·발주처·사업명·상태·등록일)은 체크박스·숨김·요약과
+ * stickyClass 가 붙은 컬럼(중요도·등록일·발주처·사업명·상태)은 체크박스·숨김·요약과
  * 함께 가로 스크롤 시 좌측에 고정된다. 요약은 컬럼이 아니라 중요도 뒤에 끼워 넣는 셀이라
  * CSS 에서 기존 클래스(.sales-record-*)로 함께 고정한다.
  */
@@ -583,6 +583,17 @@ const DISCOVERY_COLUMNS = [
     widthClass: 'registry-importance-col',
     cellClass: 'discovery-col-tight registry-importance-col',
     stickyClass: 'discovery-sticky-col discovery-sticky-col--importance',
+  },
+  {
+    // 화면 표기만 '등록일'로 바꾼다. 엑셀 양식 헤더는 '건축정보일자'를 그대로 써야 하므로
+    // 업로드 매핑용 라벨은 DISCOVERY_PERMIT_DATE_IMPORT_COLUMN 에 따로 둔다.
+    key: 'permitDate',
+    label: '등록일',
+    align: 'center',
+    type: 'text',
+    widthClass: 'discovery-w-38',
+    cellClass: 'discovery-col-tight discovery-w-38',
+    stickyClass: 'discovery-sticky-col discovery-sticky-col--date',
   },
   {
     key: 'client',
@@ -610,18 +621,7 @@ const DISCOVERY_COLUMNS = [
     options: DISCOVERY_STAGE_OPTIONS,
     widthClass: 'discovery-w-24',
     cellClass: 'discovery-col-tight discovery-w-24',
-    stickyClass: 'discovery-sticky-col discovery-sticky-col--stage',
-  },
-  {
-    // 화면 표기만 '등록일'로 바꾼다. 엑셀 양식 헤더는 '건축정보일자'를 그대로 써야 하므로
-    // 업로드 매핑용 라벨은 DISCOVERY_PERMIT_DATE_IMPORT_COLUMN 에 따로 둔다.
-    key: 'permitDate',
-    label: '등록일',
-    align: 'center',
-    type: 'text',
-    widthClass: 'discovery-w-38',
-    cellClass: 'discovery-col-tight discovery-w-38',
-    stickyClass: 'discovery-sticky-col discovery-sticky-col--date discovery-sticky-col--last',
+    stickyClass: 'discovery-sticky-col discovery-sticky-col--stage discovery-sticky-col--last',
   },
   {
     key: 'projectAmount',
@@ -758,7 +758,7 @@ const EXCLUDED_WRITER_TONE_MAP = {
 }
 /**
  * 사업공유 표 컬럼 — 배열 순서가 헤더·데이터 행·colgroup·엑셀 다운로드 순서를 모두 결정한다.
- * stickyClass 가 붙은 컬럼(중요도·발주처·사업명·상태·등록일)은 체크박스·숨김과 함께
+ * stickyClass 가 붙은 컬럼(중요도·등록일·발주처·사업명·상태)은 체크박스·숨김과 함께
  * 가로 스크롤 시 좌측에 고정된다.
  */
 const EXCLUDED_COLUMNS = [
@@ -772,6 +772,15 @@ const EXCLUDED_COLUMNS = [
     widthClass: 'registry-importance-col',
     cellClass: 'excluded-col-tight registry-importance-col',
     stickyClass: 'excluded-sticky-col excluded-sticky-col--importance',
+  },
+  {
+    key: 'writeDate',
+    label: '등록일',
+    align: 'center',
+    type: 'date',
+    widthClass: 'excluded-w-date',
+    cellClass: 'excluded-col-tight excluded-col-register-date excluded-w-date',
+    stickyClass: 'excluded-sticky-col excluded-sticky-col--date',
   },
   {
     key: 'client',
@@ -799,16 +808,7 @@ const EXCLUDED_COLUMNS = [
     options: EXCLUDED_CATEGORY_OPTIONS,
     widthClass: 'excluded-w-24',
     cellClass: 'excluded-col-tight excluded-w-24',
-    stickyClass: 'excluded-sticky-col excluded-sticky-col--category',
-  },
-  {
-    key: 'writeDate',
-    label: '등록일',
-    align: 'center',
-    type: 'date',
-    widthClass: 'excluded-w-date',
-    cellClass: 'excluded-col-tight excluded-col-register-date excluded-w-date',
-    stickyClass: 'excluded-sticky-col excluded-sticky-col--date excluded-sticky-col--last',
+    stickyClass: 'excluded-sticky-col excluded-sticky-col--category excluded-sticky-col--last',
   },
   {
     key: 'projectAmount',
