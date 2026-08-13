@@ -216,21 +216,41 @@ const EXCLUDED_DRAFT_CELL_BACKGROUND_STYLE = {
   backgroundColor: '#eff6ff',
 }
 
+/**
+ * 계약현황 표 컬럼 — 이 배열 순서가 헤더·데이터 행·colgroup·엑셀 다운로드 순서를 모두 결정한다.
+ * 앞 4개(사업년도·참고번호·발주처·사업명)는 체크박스·복사·D-Day와 함께 가로 스크롤 시 좌측에 고정된다.
+ */
 const CONTRACT_COLUMNS = [
   { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text', width: 112 },
   { key: 'refNo', label: '참고번호', className: 'col-ref', align: 'center', type: 'text', width: 110 },
   { key: 'client', label: '발주처', className: 'col-client', align: 'center', type: 'textarea', width: 150 },
-  { key: 'department', label: '담당부서', className: 'col-dept', align: 'center', type: 'textarea', width: 130 },
-  { key: 'contractMethod', label: '계약방식', className: 'col-method', align: 'center', type: 'text', width: 132 },
-  { key: 'contractType', label: '계약분류', className: 'col-type', align: 'center', type: 'text', width: 122 },
+  { key: 'projectName', label: '사업명', className: 'col-project', align: 'left', type: 'textarea', width: 360, widthGrow: true },
   { key: 'contractDate', label: '계약일자', className: 'col-date', align: 'center', type: 'date', width: 175 },
   { key: 'dueDate', label: '준공일자', className: 'col-date', align: 'center', type: 'date', width: 175 },
-  { key: 'projectName', label: '사업명', className: 'col-project', align: 'left', type: 'textarea', width: 360, widthGrow: true },
   { key: 'amount', label: '계약금액', className: 'col-amount', align: 'right', type: 'amount', width: 146 },
   { key: 'salesOwner', label: '영업담당자', className: 'col-owner', align: 'center', type: 'text', width: 136 },
   { key: 'pm', label: '현장 PM', className: 'col-pm', align: 'center', type: 'text', width: 124 },
+  { key: 'department', label: '담당부서', className: 'col-dept', align: 'center', type: 'textarea', width: 130 },
+  { key: 'contractMethod', label: '계약방식', className: 'col-method', align: 'center', type: 'text', width: 132 },
+  { key: 'contractType', label: '계약분류', className: 'col-type', align: 'center', type: 'text', width: 122 },
   { key: 'note', label: '비고', className: 'col-note', align: 'left', type: 'textarea', width: 190, widthGrow: true },
 ]
+
+/**
+ * 좌측 틀 고정 대상 컬럼별 클래스.
+ * left 좌표는 CSS 변수(--contract-sticky-*)의 누적 calc 로 계산하므로
+ * 여기서는 어떤 열이 고정 대상인지만 표시한다.
+ */
+const CONTRACT_STICKY_COLUMN_CLASS = {
+  year: 'contract-sticky-col contract-sticky-col--year',
+  refNo: 'contract-sticky-col contract-sticky-col--ref',
+  client: 'contract-sticky-col contract-sticky-col--client',
+  projectName: 'contract-sticky-col contract-sticky-col--project contract-sticky-col--last',
+}
+
+function getContractStickyColumnClass(columnKey) {
+  return CONTRACT_STICKY_COLUMN_CLASS[columnKey] ?? ''
+}
 
 const DOCUMENT_COLUMNS = [
   {
@@ -12084,7 +12104,7 @@ function App() {
       >
         {canEditContracts && (
           <td
-            className={`td-align-center registry-check-cell ${CONTRACT_TABLE_DATA_TD_CLASS}`}
+            className={`td-align-center registry-check-cell contract-sticky-col contract-sticky-col--check ${CONTRACT_TABLE_DATA_TD_CLASS}`}
             style={draftIconCellStyle}
           >
             <div className="excluded-registry-icon-cell-inner">
@@ -12108,14 +12128,14 @@ function App() {
         )}
         {canEditContracts && (
           <td
-            className={`td-align-center table-col-tight contract-copy-col ${CONTRACT_TABLE_DATA_TD_CLASS}`}
+            className={`td-align-center table-col-tight contract-copy-col contract-sticky-col contract-sticky-col--copy ${CONTRACT_TABLE_DATA_TD_CLASS}`}
             style={draftIconCellStyle}
           >
             <div className="excluded-registry-icon-cell-inner" />
           </td>
         )}
         <td
-          className={`col-dday td-align-center table-col-tight ${CONTRACT_TABLE_DATA_TD_CLASS}`}
+          className={`col-dday td-align-center table-col-tight contract-sticky-col contract-sticky-col--dday ${CONTRACT_TABLE_DATA_TD_CLASS}`}
           style={{
             ...EXCLUDED_TABLE_CELL_STYLE,
             ...EXCLUDED_DRAFT_CELL_BACKGROUND_STYLE,
@@ -12133,7 +12153,7 @@ function App() {
               key={column.key}
               className={`${column.className} ${bodyAlignClass} ${CONTRACT_TABLE_DATA_TD_CLASS} ${
                 isLongTextTableColumn(column) ? 'multiline-cell' : ''
-              } ${column.key === 'note' ? 'note-cell' : ''} ${getTableColumnLayoutClass(column)} editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`}
+              } ${column.key === 'note' ? 'note-cell' : ''} ${getTableColumnLayoutClass(column)} editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS} ${getContractStickyColumnClass(column.key)}`}
               style={draftCellStyle}
             >
               {renderRegistryEditor(row, column, handleContractDraftCellChange, {
@@ -16018,7 +16038,7 @@ function App() {
                   <thead>
                     <tr>
                       {canEditContracts && (
-                        <th className={`th-align-center registry-check-header ${CONTRACT_TABLE_HEADER_TH_CLASS}`}>
+                        <th className={`th-align-center registry-check-header contract-sticky-col contract-sticky-col--check ${CONTRACT_TABLE_HEADER_TH_CLASS}`}>
                           <ContractTableHeaderShell align="center">
                             <input
                               className="registry-row-checkbox"
@@ -16042,11 +16062,11 @@ function App() {
                         </th>
                       )}
                       {canEditContracts && (
-                        <th className={`th-align-center table-col-tight contract-copy-col ${CONTRACT_TABLE_HEADER_TH_CLASS}`}>
+                        <th className={`th-align-center table-col-tight contract-copy-col contract-sticky-col contract-sticky-col--copy ${CONTRACT_TABLE_HEADER_TH_CLASS}`}>
                           <ContractTableHeaderShell align="center">복사</ContractTableHeaderShell>
                         </th>
                       )}
-                      <th className={`col-dday th-align-center table-col-tight ${CONTRACT_TABLE_HEADER_TH_CLASS}`}>
+                      <th className={`col-dday th-align-center table-col-tight contract-sticky-col contract-sticky-col--dday ${CONTRACT_TABLE_HEADER_TH_CLASS}`}>
                         <ContractTableHeaderShell align="center">D-Day</ContractTableHeaderShell>
                       </th>
                       {CONTRACT_COLUMNS.map((column) => (
@@ -16056,7 +16076,7 @@ function App() {
                               column.key === 'amount'
                                 ? 'th-align-center'
                                 : getTableAlignClass(column.align, column)
-                            } contract-th-filterable`}
+                            } contract-th-filterable ${getContractStickyColumnClass(column.key)}`}
                           >
                             <ContractTableHeaderShell
                               align={column.key === 'amount' ? 'center' : column.align || 'center'}
@@ -16168,7 +16188,7 @@ function App() {
                                 }`}
                               >
                                 {canEditContracts && (
-                                  <td className={`td-align-center registry-check-cell ${CONTRACT_TABLE_DATA_TD_CLASS}`}>
+                                  <td className={`td-align-center registry-check-cell contract-sticky-col contract-sticky-col--check ${CONTRACT_TABLE_DATA_TD_CLASS}`}>
                                     <ContractTableCellShell align="center">
                                       <input
                                         className="registry-row-checkbox"
@@ -16191,7 +16211,7 @@ function App() {
                                 )}
 
                                 {canEditContracts && (
-                                  <td className={`td-align-center table-col-tight contract-copy-col ${CONTRACT_TABLE_DATA_TD_CLASS}`}>
+                                  <td className={`td-align-center table-col-tight contract-copy-col contract-sticky-col contract-sticky-col--copy ${CONTRACT_TABLE_DATA_TD_CLASS}`}>
                                     <ContractTableCellShell align="center">
                                       <button
                                         type="button"
@@ -16209,7 +16229,7 @@ function App() {
                                   </td>
                                 )}
 
-                                <td className={`col-dday td-align-center table-col-tight ${CONTRACT_TABLE_DATA_TD_CLASS}`}>
+                                <td className={`col-dday td-align-center table-col-tight contract-sticky-col contract-sticky-col--dday ${CONTRACT_TABLE_DATA_TD_CLASS}`}>
                                   <ContractTableCellShell align="center">
                                     <div
                                       className={`cell-display dday-cell${
@@ -16267,7 +16287,7 @@ function App() {
                                         isLongCell ? 'multiline-cell' : ''
                                       } ${column.key === 'note' ? 'note-cell' : ''} ${getTableColumnLayoutClass(column)} ${
                                         canEditContracts ? 'editable-cell' : ''
-                                      } ${contractWeekTag ? 'registry-week-badge-cell' : ''} ${tableCellStateClass(contractDisplay.isEmpty)}`}
+                                      } ${contractWeekTag ? 'registry-week-badge-cell' : ''} ${tableCellStateClass(contractDisplay.isEmpty)} ${getContractStickyColumnClass(column.key)}`}
                                       onClick={
                                         canEditContracts && !isThisContractCell
                                           ? () =>

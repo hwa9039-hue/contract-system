@@ -5248,6 +5248,171 @@ table[data-contract-table-row-key] tbody td.col-dday {
   background: #f3f4f6;
 }
 
+/* ── 계약현황 좌측 틀 고정 ──────────────────────────────────────────────
+   고정 대상: 체크박스 · 복사 · D-Day · 사업년도 · 참고번호 · 발주처 · 사업명 (좌→우 순서)
+   left 좌표는 앞선 열 폭을 누적한 calc 로 잡으므로, 폭을 바꿀 때는 아래
+   --contract-sticky-w-* 값만 고치면 좌표가 전부 따라온다. */
+table[data-contract-table-row-key].contract-table {
+  --contract-sticky-w-check: 44px;
+  --contract-sticky-w-copy: 76px;
+  --contract-sticky-w-dday: 74px;
+  --contract-sticky-w-year: 84px;
+  --contract-sticky-w-ref: 88px;
+  --contract-sticky-w-client: 144px;
+  --contract-sticky-w-project: 280px;
+
+  --contract-sticky-left-check: 0px;
+  --contract-sticky-left-copy: var(--contract-sticky-w-check);
+  --contract-sticky-left-dday: calc(
+    var(--contract-sticky-w-check) + var(--contract-sticky-w-copy)
+  );
+  --contract-sticky-left-year: calc(
+    var(--contract-sticky-left-dday) + var(--contract-sticky-w-dday)
+  );
+  --contract-sticky-left-ref: calc(
+    var(--contract-sticky-left-year) + var(--contract-sticky-w-year)
+  );
+  --contract-sticky-left-client: calc(
+    var(--contract-sticky-left-ref) + var(--contract-sticky-w-ref)
+  );
+  --contract-sticky-left-project: calc(
+    var(--contract-sticky-left-client) + var(--contract-sticky-w-client)
+  );
+}
+
+/* 열람 전용 화면은 체크박스·복사 열이 렌더링되지 않으므로 두 폭을 0 으로 만들어
+   나머지 열의 left 좌표가 자동으로 앞당겨지게 한다. */
+table[data-contract-table-row-key].contract-table.contract-table-readonly {
+  --contract-sticky-w-check: 0px;
+  --contract-sticky-w-copy: 0px;
+}
+
+/* 고정 열은 폭이 흔들리면 left 좌표가 어긋나므로 col·th·td 모두 같은 값으로 못 박는다 */
+table[data-contract-table-row-key].contract-table col.contract-dday-col,
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--dday,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--dday {
+  width: var(--contract-sticky-w-dday) !important;
+  min-width: var(--contract-sticky-w-dday) !important;
+  max-width: var(--contract-sticky-w-dday) !important;
+}
+
+table[data-contract-table-row-key].contract-table col.contract-col-year,
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--year,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--year {
+  width: var(--contract-sticky-w-year) !important;
+  min-width: var(--contract-sticky-w-year) !important;
+  max-width: var(--contract-sticky-w-year) !important;
+}
+
+table[data-contract-table-row-key].contract-table col.contract-col-refNo,
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--ref,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--ref {
+  width: var(--contract-sticky-w-ref) !important;
+  min-width: var(--contract-sticky-w-ref) !important;
+  max-width: var(--contract-sticky-w-ref) !important;
+}
+
+table[data-contract-table-row-key].contract-table col.contract-col-client,
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--client,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--client {
+  width: var(--contract-sticky-w-client) !important;
+  min-width: var(--contract-sticky-w-client) !important;
+  max-width: var(--contract-sticky-w-client) !important;
+}
+
+table[data-contract-table-row-key].contract-table col.contract-col-projectName,
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--project,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--project {
+  width: var(--contract-sticky-w-project) !important;
+  min-width: var(--contract-sticky-w-project) !important;
+  max-width: var(--contract-sticky-w-project) !important;
+}
+
+/* 긴 텍스트가 고정 폭을 밀어내지 못하도록 줄바꿈을 허용한다 */
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--client,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--project {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+table[data-contract-table-row-key].contract-table th.contract-sticky-col,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col {
+  position: sticky;
+  background-clip: padding-box;
+}
+
+/* 본문 고정 셀 — 스크롤되는 셀보다 위(z-index 3), 연도 그룹 행(8)·헤더(20)보다는 아래 */
+table[data-contract-table-row-key].contract-table tbody td.contract-sticky-col {
+  z-index: 3;
+  background-color: #ffffff;
+}
+
+/* 헤더 고정 셀 — 세로 고정(top:0)과 겸용이라 가장 위 */
+table[data-contract-table-row-key].contract-table thead th.contract-sticky-col {
+  z-index: 30;
+  background-color: #f8fafc;
+}
+
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--check,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--check {
+  left: var(--contract-sticky-left-check);
+}
+
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--copy,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--copy {
+  left: var(--contract-sticky-left-copy);
+}
+
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--dday,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--dday {
+  left: var(--contract-sticky-left-dday);
+}
+
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--year,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--year {
+  left: var(--contract-sticky-left-year);
+}
+
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--ref,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--ref {
+  left: var(--contract-sticky-left-ref);
+}
+
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--client,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--client {
+  left: var(--contract-sticky-left-client);
+}
+
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--project,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--project {
+  left: var(--contract-sticky-left-project);
+}
+
+/* 줄무늬·준공 경과 행 배경을 고정 셀에도 직접 칠한다.
+   tr 배경만으로는 sticky 셀 뒤로 스크롤되는 데이터가 비쳐 보인다. */
+table[data-contract-table-row-key].contract-table tbody tr.row-even > td.contract-sticky-col {
+  background-color: #ffffff;
+}
+
+table[data-contract-table-row-key].contract-table tbody tr.row-odd > td.contract-sticky-col {
+  background-color: #fcfcfd;
+}
+
+table[data-contract-table-row-key].contract-table tbody tr.contract-row--overdue > td.contract-sticky-col {
+  background-color: #f3f4f6;
+}
+
+/* 고정 영역 끝(사업명) — 경계선 + 오른쪽으로 떨어지는 그림자 */
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--last {
+  border-right: 2px solid #cbd5e1;
+  box-shadow: 8px 0 10px -8px rgba(15, 23, 42, 0.35);
+}
+
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--last {
+  border-right: 2px solid #cbd5e1;
+  box-shadow: inset 0 -1px 0 #e2e8f0, 8px 0 10px -8px rgba(15, 23, 42, 0.35);
+}
+
 /* 준공 임박 퀵 필터가 켜진 동안 — 전체 목록에서 잰 열 너비를 그대로 고정해
    표시 행이 줄어도 표 모양이 달라지지 않게 한다. 너비는 colgroup 의
    `--contract-locked-col-width` 인라인 변수로 들어온다. */
