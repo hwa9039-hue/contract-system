@@ -5990,6 +5990,16 @@ function App() {
   const [search, setSearch] = useState('')
   const [contractDateRange, setContractDateRange] = useState({ startDate: '', endDate: '' })
   const [activeFilters, setActiveFilters] = useState({})
+  /** 준공 임박 건만 모아보는 퀵 필터 — 검색·기간·열 필터 위에 겹쳐서 적용된다. */
+  const [isContractDueSoonOnly, setIsContractDueSoonOnly] = useState(false)
+  /**
+   * 퀵 필터가 켜져 있는 동안 쓸 계약 테이블 열 너비(px).
+   * 계약 테이블은 table-layout: auto 라 표시 중인 행의 내용으로 열 너비가 정해진다.
+   * 임박 건만 남기면 최장 텍스트가 짧아져 표가 통째로 좁아지므로,
+   * 전체 목록에서 잰 너비를 그대로 물려 필터 전후 열 폭을 똑같이 유지한다.
+   */
+  const [lockedContractColumnWidths, setLockedContractColumnWidths] = useState(null)
+  const contractTableRef = useRef(null)
   const [openContractColumnFilterKey, setOpenContractColumnFilterKey] = useState(null)
   const [contractRegisterModalOpen, setContractRegisterModalOpen] = useState(false)
   const [newRow, setNewRow] = useState({ ...emptyContract })
@@ -6838,8 +6848,8 @@ function App() {
     })
   }, [])
 
-  /** [1단계] rawData → 검색·기간·헤더 열 필터(AND) → filteredData */
-  const filteredData = useMemo(() => {
+  /** [1단계] rawData → 검색·기간·헤더 열 필터(AND) → 정렬 */
+  const contractRowsBeforeDueSoonFilter = useMemo(() => {
     const toolbarFiltered = contractsRawData.filter(
       (item) =>
         !item.isDraft &&
@@ -6861,6 +6871,54 @@ function App() {
     search,
   ])
 
+  /** 현재 필터 조건에서 준공 임박(D-Day 기준 CONTRACT_DUE_SOON_DAYS 일 이내)인 건 */
+  const contractDueSoonRows = useMemo(
+    () =>
+      contractRowsBeforeDueSoonFilter.filter(
+        (item) => getContractDueStatus(item.dueDate) === 'due-soon'
+      ),
+    [contractRowsBeforeDueSoonFilter]
+  )
+
+  /**
+   * [2단계] 준공 임박 퀵 필터.
+   * 이미 정렬된 배열에서 걸러내기만 하므로 다중 정렬 순서는 그대로 유지된다.
+   */
+  const filteredData = isContractDueSoonOnly ? contractDueSoonRows : contractRowsBeforeDueSoonFilter
+
+  const handleToggleContractDueSoonOnly = useCallback(() => {
+    const nextActive = !isContractDueSoonOnly
+    if (nextActive) {
+      // 전체 목록이 아직 화면에 있는 지금 열 너비를 재서 필터 중에도 그대로 쓴다.
+      const headerCells =
+        contractTableRef.current?.querySelectorAll('thead tr:first-child > th') ?? []
+      const widths = Array.from(headerCells, (cell) =>
+        Math.round(cell.getBoundingClientRect().width)
+      )
+      setLockedContractColumnWidths(widths.length > 0 ? widths : null)
+
+      // 임박 건이 접힌 연도 그룹에 숨어 빈 화면처럼 보이지 않도록 해당 연도를 모두 펼친다.
+      const yearsToOpen = {}
+      contractDueSoonRows.forEach((item) => {
+        const year = getContractYearKey(item)
+        if (year) yearsToOpen[year] = true
+      })
+      setOpenContractYears((prev) => ({ ...prev, ...yearsToOpen }))
+    } else {
+      setLockedContractColumnWidths(null)
+    }
+    setIsContractDueSoonOnly(nextActive)
+  }, [contractDueSoonRows, isContractDueSoonOnly])
+
+  const getLockedContractColStyle = useCallback(
+    (index) => {
+      const width = lockedContractColumnWidths?.[index]
+      // CSS 쪽 `width: N% !important` 규칙을 이기려면 인라인 값이 아니라 변수로 넘겨야 한다.
+      return width ? { '--contract-locked-col-width': `${width}px` } : undefined
+    },
+    [lockedContractColumnWidths]
+  )
+
   const isContractTableFilterResultEmpty = useMemo(
     () =>
       contractsRawData.some((row) => !row.isDraft) &&
@@ -6879,11 +6937,13 @@ function App() {
       !safeString(search).trim() &&
       !hasActiveContractColumnFilters(activeFilters) &&
       !safeString(contractDateRange.startDate).trim() &&
-      !safeString(contractDateRange.endDate).trim(),
+      !safeString(contractDateRange.endDate).trim() &&
+      !isContractDueSoonOnly,
     [
       activeFilters,
       contractDateRange.endDate,
       contractDateRange.startDate,
+      isContractDueSoonOnly,
       search,
     ]
   )
@@ -15834,6 +15894,20 @@ function App() {
                 엑셀 다운로드
               </button>
 
+              <button
+                className={`contract-due-soon-filter-btn${
+                  isContractDueSoonOnly ? ' is-active' : ''
+                }`}
+                type="button"
+                onClick={handleToggleContractDueSoonOnly}
+                aria-pressed={isContractDueSoonOnly}
+                title={`준공일자가 ${CONTRACT_DUE_SOON_DAYS}일 이내로 남은 계약만 모아봅니다.`}
+              >
+                {isContractDueSoonOnly
+                  ? `전체 목록 보기 (준공 임박 ${contractDueSoonRows.length}건)`
+                  : `🚨 준공 임박 모아보기 (${contractDueSoonRows.length}건)`}
+              </button>
+
               <input
                 ref={fileInputRef}
                 type="file"
@@ -15914,19 +15988,30 @@ function App() {
             <div className="contract-table-panel">
               <div className="table-wrap contracts-only-scroll overflow-x-auto">
                 <table
+                  ref={contractTableRef}
                   className={`contract-table excel-table registry-table ledger-table-ui contracts-fixed-table table-w-full-min table-layout-auto${
                     canEditContracts ? ' contract-table-admin' : ' contract-table-readonly'
-                  }`}
+                  }${lockedContractColumnWidths ? ' contract-cols-locked' : ''}`}
                   data-contract-table-row-key="key"
                 >
                   <colgroup>
-                    {canEditContracts && <col className="contract-check-col" />}
-                    {canEditContracts && <col className="contract-copy-col" />}
-                    <col className="contract-dday-col" />
-                    {CONTRACT_COLUMNS.map((column) => (
+                    {canEditContracts && (
+                      <col className="contract-check-col" style={getLockedContractColStyle(0)} />
+                    )}
+                    {canEditContracts && (
+                      <col className="contract-copy-col" style={getLockedContractColStyle(1)} />
+                    )}
+                    <col
+                      className="contract-dday-col"
+                      style={getLockedContractColStyle(canEditContracts ? 2 : 0)}
+                    />
+                    {CONTRACT_COLUMNS.map((column, columnIndex) => (
                       <col
                         key={column.key}
                         className={`contract-col-${column.key} ${getTableColumnLayoutClass(column)}`}
+                        style={getLockedContractColStyle(
+                          (canEditContracts ? 3 : 1) + columnIndex
+                        )}
                       />
                     ))}
                   </colgroup>
