@@ -252,6 +252,10 @@ function getContractStickyColumnClass(columnKey) {
   return CONTRACT_STICKY_COLUMN_CLASS[columnKey] ?? ''
 }
 
+/**
+ * 문서수발신대장 표 컬럼 — 앞 4개(등록일·문서번호·수신처/발신처·문서명/제목)는
+ * 체크박스와 함께 가로 스크롤 시 좌측에 고정된다.
+ */
 const DOCUMENT_COLUMNS = [
   {
     key: 'docDate',
@@ -260,6 +264,7 @@ const DOCUMENT_COLUMNS = [
     type: 'date',
     widthClass: 'documents-w-date',
     cellClass: 'documents-col-tight documents-w-date',
+    stickyClass: 'documents-sticky-col documents-sticky-col--date',
   },
   {
     key: 'docNo',
@@ -268,6 +273,7 @@ const DOCUMENT_COLUMNS = [
     type: 'text',
     widthClass: 'documents-w-p12',
     cellClass: 'documents-col-tight documents-w-p12',
+    stickyClass: 'documents-sticky-col documents-sticky-col--no',
   },
   {
     key: 'senderReceiver',
@@ -276,6 +282,7 @@ const DOCUMENT_COLUMNS = [
     type: 'textarea',
     widthClass: 'documents-w-p16',
     cellClass: 'documents-col-party documents-w-p16',
+    stickyClass: 'documents-sticky-col documents-sticky-col--party',
   },
   {
     key: 'title',
@@ -284,6 +291,7 @@ const DOCUMENT_COLUMNS = [
     type: 'textarea',
     widthClass: 'documents-w-p30',
     cellClass: 'documents-col-title documents-w-p30',
+    stickyClass: 'documents-sticky-col documents-sticky-col--title documents-sticky-col--last',
   },
   {
     key: 'method',
@@ -555,6 +563,12 @@ const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
 // 건축정보 상태 옵션 — 영업관리대장 규칙(빨강 검토 / 노랑 대응중 / 파랑 보고)만 이식.
 // 초록색(사업공고: 발주계획·사전규격·입찰공고·정보공개) 계열은 의도적으로 제외한다.
 const DISCOVERY_STAGE_OPTIONS = ['확인필요', '대응중', '보고']
+/**
+ * 건축정보 표 컬럼 — 배열 순서가 헤더·데이터 행·colgroup 순서를 함께 결정한다.
+ * stickyClass 가 붙은 컬럼(중요도·발주처·사업명·상태·등록일)은 체크박스·숨김·요약과
+ * 함께 가로 스크롤 시 좌측에 고정된다. 요약은 컬럼이 아니라 중요도 뒤에 끼워 넣는 셀이라
+ * CSS 에서 기존 클래스(.sales-record-*)로 함께 고정한다.
+ */
 const DISCOVERY_COLUMNS = [
   {
     key: 'importance',
@@ -568,22 +582,25 @@ const DISCOVERY_COLUMNS = [
     width: 72,
     widthClass: 'registry-importance-col',
     cellClass: 'discovery-col-tight registry-importance-col',
+    stickyClass: 'discovery-sticky-col discovery-sticky-col--importance',
   },
   {
-    key: 'permitDate',
-    label: '건축정보일자',
+    key: 'client',
+    label: '발주처',
     align: 'center',
     type: 'text',
-    widthClass: 'discovery-w-38',
-    cellClass: 'discovery-col-tight discovery-w-38',
+    widthClass: 'discovery-w-48',
+    cellClass: 'discovery-col-client discovery-w-48',
+    stickyClass: 'discovery-sticky-col discovery-sticky-col--client',
   },
   {
-    key: 'checkStatus',
-    label: '확인',
-    align: 'center',
+    key: 'projectName',
+    label: '사업명',
+    align: 'left',
     type: 'text',
-    widthClass: 'discovery-w-24',
-    cellClass: 'discovery-col-tight discovery-w-24',
+    widthClass: 'discovery-w-p14',
+    cellClass: 'discovery-col-project discovery-w-p14',
+    stickyClass: 'discovery-sticky-col discovery-sticky-col--project',
   },
   {
     key: 'projectStage',
@@ -593,31 +610,18 @@ const DISCOVERY_COLUMNS = [
     options: DISCOVERY_STAGE_OPTIONS,
     widthClass: 'discovery-w-24',
     cellClass: 'discovery-col-tight discovery-w-24',
+    stickyClass: 'discovery-sticky-col discovery-sticky-col--stage',
   },
   {
-    key: 'projectCategory',
-    label: '사업구분',
-    align: 'center',
-    type: 'select',
-    options: DISCOVERY_CATEGORY_OPTIONS,
-    widthClass: 'discovery-w-24',
-    cellClass: 'discovery-col-tight discovery-w-24',
-  },
-  {
-    key: 'client',
-    label: '발주처',
+    // 화면 표기만 '등록일'로 바꾼다. 엑셀 양식 헤더는 '건축정보일자'를 그대로 써야 하므로
+    // 업로드 매핑용 라벨은 DISCOVERY_PERMIT_DATE_IMPORT_COLUMN 에 따로 둔다.
+    key: 'permitDate',
+    label: '등록일',
     align: 'center',
     type: 'text',
-    widthClass: 'discovery-w-48',
-    cellClass: 'discovery-col-client discovery-w-48',
-  },
-  {
-    key: 'projectName',
-    label: '사업명',
-    align: 'left',
-    type: 'text',
-    widthClass: 'discovery-w-p14',
-    cellClass: 'discovery-col-project discovery-w-p14',
+    widthClass: 'discovery-w-38',
+    cellClass: 'discovery-col-tight discovery-w-38',
+    stickyClass: 'discovery-sticky-col discovery-sticky-col--date discovery-sticky-col--last',
   },
   {
     key: 'projectAmount',
@@ -627,6 +631,23 @@ const DISCOVERY_COLUMNS = [
     widthClass: 'discovery-w-40',
     headerClass: 'discovery-amount-header th-align-center',
     cellClass: 'discovery-col-amount discovery-w-40 discovery-amount-cell td-align-right',
+  },
+  {
+    key: 'note',
+    label: '세부내용',
+    align: 'left',
+    type: 'textarea',
+    widthClass: 'discovery-w-flex',
+    cellClass: 'discovery-col-detail discovery-w-flex',
+  },
+  {
+    key: 'projectCategory',
+    label: '사업구분',
+    align: 'center',
+    type: 'select',
+    options: DISCOVERY_CATEGORY_OPTIONS,
+    widthClass: 'discovery-w-24',
+    cellClass: 'discovery-col-tight discovery-w-24',
   },
   {
     key: 'completionPeriod',
@@ -644,31 +665,51 @@ const DISCOVERY_COLUMNS = [
     widthClass: 'discovery-w-58',
     cellClass: 'discovery-col-manager discovery-w-58',
   },
-  {
-    key: 'note',
-    label: '세부내용',
-    align: 'left',
-    type: 'textarea',
-    widthClass: 'discovery-w-flex',
-    cellClass: 'discovery-col-detail discovery-w-flex',
-  },
 ]
+
+/** 표에서는 감췄지만 엑셀 양식에는 남아 있는 '확인' — 업로드 매핑용으로만 유지한다. */
+const DISCOVERY_CHECK_STATUS_COLUMN = {
+  key: 'checkStatus',
+  label: '확인',
+  align: 'center',
+  type: 'text',
+}
+
+/** 건축정보 업로드는 헤더를 정확히 일치시켜 찾으므로, 엑셀 양식의 '건축정보일자'를 유지한다. */
+const DISCOVERY_PERMIT_DATE_IMPORT_COLUMN = {
+  key: 'permitDate',
+  label: '건축정보일자',
+  align: 'center',
+  type: 'text',
+}
+
+const DISCOVERY_SALES_TARGET_COLUMN = {
+  key: 'salesTarget',
+  label: '영업자',
+  align: 'center',
+  type: 'text',
+}
 
 // 엑셀 업로드 매핑용 컬럼 — 중요도(계산 컬럼)와 상태(앱 내 수동 관리)는 제외해
 // 기존 엑셀 포맷/중복 판정 시그니처를 그대로 유지한다.
-const DISCOVERY_IMPORTABLE_COLUMNS = DISCOVERY_COLUMNS.filter(
-  (column) => column.type !== 'importance' && column.key !== 'projectStage'
-)
+// 화면 열 순서를 바꿔도 양식이 흔들리지 않도록 순서를 여기에 직접 고정해 둔다.
 const DISCOVERY_IMPORT_COLUMNS = [
-  ...DISCOVERY_IMPORTABLE_COLUMNS.slice(0, 2),
-  {
-    key: 'salesTarget',
-    label: '영업자',
-    align: 'center',
-    type: 'text',
-  },
-  ...DISCOVERY_IMPORTABLE_COLUMNS.slice(2),
-]
+  'permitDate',
+  'checkStatus',
+  'salesTarget',
+  'projectCategory',
+  'client',
+  'projectName',
+  'projectAmount',
+  'completionPeriod',
+  'manager',
+  'note',
+].map((key) => {
+  if (key === 'permitDate') return DISCOVERY_PERMIT_DATE_IMPORT_COLUMN
+  if (key === 'checkStatus') return DISCOVERY_CHECK_STATUS_COLUMN
+  if (key === 'salesTarget') return DISCOVERY_SALES_TARGET_COLUMN
+  return DISCOVERY_COLUMNS.find((column) => column.key === key)
+})
 
 const EXCLUDED_CATEGORY_OPTIONS = ['발주계획', '사전규격', '입찰공고', '정보공개']
 const EXCLUDED_KEYWORD_OPTIONS = [
@@ -715,6 +756,11 @@ const EXCLUDED_WRITER_TONE_MAP = {
   정주희: { background: '#f3e8ff', color: '#7e22ce', borderColor: '#d8b4fe' },
   신상준: { background: '#dcfce7', color: '#166534', borderColor: '#86efac' },
 }
+/**
+ * 사업공유 표 컬럼 — 배열 순서가 헤더·데이터 행·colgroup·엑셀 다운로드 순서를 모두 결정한다.
+ * stickyClass 가 붙은 컬럼(중요도·발주처·사업명·상태·등록일)은 체크박스·숨김과 함께
+ * 가로 스크롤 시 좌측에 고정된다.
+ */
 const EXCLUDED_COLUMNS = [
   {
     key: 'importance',
@@ -725,14 +771,25 @@ const EXCLUDED_COLUMNS = [
     width: 72,
     widthClass: 'registry-importance-col',
     cellClass: 'excluded-col-tight registry-importance-col',
+    stickyClass: 'excluded-sticky-col excluded-sticky-col--importance',
   },
   {
-    key: 'writeDate',
-    label: '등록일',
+    key: 'client',
+    label: '발주처',
     align: 'center',
-    type: 'date',
-    widthClass: 'excluded-w-date',
-    cellClass: 'excluded-col-tight excluded-col-register-date excluded-w-date',
+    type: 'text',
+    widthClass: 'excluded-w-32',
+    cellClass: 'excluded-col-text excluded-w-32',
+    stickyClass: 'excluded-sticky-col excluded-sticky-col--client',
+  },
+  {
+    key: 'projectName',
+    label: '사업명',
+    align: 'left',
+    type: 'text',
+    widthClass: 'excluded-w-p18',
+    cellClass: 'excluded-col-project excluded-w-p18',
+    stickyClass: 'excluded-sticky-col excluded-sticky-col--project',
   },
   {
     key: 'category',
@@ -742,39 +799,16 @@ const EXCLUDED_COLUMNS = [
     options: EXCLUDED_CATEGORY_OPTIONS,
     widthClass: 'excluded-w-24',
     cellClass: 'excluded-col-tight excluded-w-24',
+    stickyClass: 'excluded-sticky-col excluded-sticky-col--category',
   },
   {
-    key: 'shareStatus',
-    label: '공유',
+    key: 'writeDate',
+    label: '등록일',
     align: 'center',
-    type: 'select',
-    options: ['O', 'X'],
-    widthClass: 'excluded-w-20',
-    cellClass: 'excluded-col-tight excluded-w-20',
-  },
-  {
-    key: 'writer',
-    label: '작성자',
-    align: 'center',
-    type: 'text',
-    widthClass: 'excluded-w-24',
-    cellClass: 'excluded-col-tight excluded-w-24',
-  },
-  {
-    key: 'projectName',
-    label: '사업명',
-    align: 'left',
-    type: 'text',
-    widthClass: 'excluded-w-p18',
-    cellClass: 'excluded-col-project excluded-w-p18',
-  },
-  {
-    key: 'client',
-    label: '발주처',
-    align: 'center',
-    type: 'text',
-    widthClass: 'excluded-w-32',
-    cellClass: 'excluded-col-text excluded-w-32',
+    type: 'date',
+    widthClass: 'excluded-w-date',
+    cellClass: 'excluded-col-tight excluded-col-register-date excluded-w-date',
+    stickyClass: 'excluded-sticky-col excluded-sticky-col--date excluded-sticky-col--last',
   },
   {
     key: 'projectAmount',
@@ -792,6 +826,23 @@ const EXCLUDED_COLUMNS = [
     type: 'textarea',
     widthClass: 'excluded-w-p38',
     cellClass: 'excluded-col-reason excluded-w-p38',
+  },
+  {
+    key: 'writer',
+    label: '작성자',
+    align: 'center',
+    type: 'text',
+    widthClass: 'excluded-w-24',
+    cellClass: 'excluded-col-tight excluded-w-24',
+  },
+  {
+    key: 'shareStatus',
+    label: '공유',
+    align: 'center',
+    type: 'select',
+    options: ['O', 'X'],
+    widthClass: 'excluded-w-20',
+    cellClass: 'excluded-col-tight excluded-w-20',
   },
 ]
 
@@ -1257,16 +1308,23 @@ function isKoreanPublicHoliday(isoYmd) {
   return Boolean(isoYmd && KOREA_PUBLIC_HOLIDAY_SET.has(isoYmd))
 }
 
-function getCalendarEventTypeClassName(type) {
-  if (type === 'contract') return 'selected-event-type--contract'
-  if (type === 'due') return 'selected-event-type--due'
-  return 'selected-event-type--manual'
-}
-
 function getCalendarEventPillTypeClass(type) {
   if (type === 'contract') return 'contract-event'
   if (type === 'due') return 'due-event'
   return 'manual-event'
+}
+
+/**
+ * 준공 일정에 붙일 상태 클래스 — 판정 기준은 계약현황 D-Day 뱃지와 같은 getContractDueStatus.
+ * - 임박(D-14 ~ D-Day): 붉게 깜빡이는 강조
+ * - 지남: 무채색으로 가라앉혀 진행 중인 건과 구분
+ */
+function getCalendarDueStatusClass(item) {
+  if (item?.type !== 'due') return ''
+  const status = getContractDueStatus(item?.date)
+  if (status === 'due-soon') return 'calendar-due-soon'
+  if (status === 'overdue') return 'calendar-due-past'
+  return ''
 }
 
 function chunkArray(arr, size) {
@@ -1437,12 +1495,6 @@ const CALENDAR_MONTH_LIST_CATEGORY = Object.freeze({
   MANUAL: '기타',
 })
 
-function calendarMonthListEventPassesCategoryFilter(item, selectedCategory) {
-  if (!item) return false
-  if (selectedCategory === CALENDAR_MONTH_LIST_CATEGORY.ALL) return true
-  return item.category === selectedCategory
-}
-
 const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
 const PAGE_TITLE_MAP = {
   dashboard: '대시보드',
@@ -1454,6 +1506,7 @@ const PAGE_TITLE_MAP = {
   discovery: '건축정보',
   excluded: '사업공유',
   documents: '문서수발신대장',
+  // contactsManage — 사이드바에서 제거됨 (레거시 키 보관)
   contactsManage: '연락처',
   installCases: '설치사례',
   orderManagement: '발주관리',
@@ -1602,7 +1655,6 @@ const SIDEBAR_MENU_GROUPS = [
       { key: 'discovery', label: '건축정보' },
       { key: 'excluded', label: '사업공유' },
       { key: 'documents', label: '문서수발신대장' },
-      { key: 'contactsManage', label: '연락처' },
     ],
   },
   {
@@ -5494,28 +5546,6 @@ function stripRedundantCalendarTitlePrefix(title) {
   return t
 }
 
-/** 우측 리스트 한 줄 제목 — 카테고리별 포맷 분리 (중복 파이프 제거) */
-function formatCalendarMonthListTitleLine(item) {
-  if (!item) return ''
-  const date = safeString(item.date).trim()
-  const clean = stripRedundantCalendarTitlePrefix(item.title ?? item.text)
-  if (item.type === 'contract') {
-    return `${CALENDAR_MONTH_LIST_CATEGORY.CONTRACT} [${date}] ${clean}`
-  }
-  if (item.type === 'manual') {
-    const r = normalizeManualEventRangeInPlace(item)
-    const rangeDate = formatCalendarManualRangeLabel(r.dateStart, r.dateEnd)
-    return `${CALENDAR_MONTH_LIST_CATEGORY.MANUAL} [${rangeDate}] ${clean}`
-  }
-  if (item.type === 'due') {
-    const diff = getDateDiffFromToday(date)
-    if (diff === null) return `${CALENDAR_MONTH_LIST_CATEGORY.DUE} [${date}] ${clean}`
-    if (diff > 0) return `D-${diff} | ${CALENDAR_MONTH_LIST_CATEGORY.DUE} [${date}] ${clean}`
-    return `${CALENDAR_MONTH_LIST_CATEGORY.DUE} [${date}] ${clean}`
-  }
-  return `${safeString(item.category).trim() || '기타'} [${date}] ${clean}`
-}
-
 function formatPercent(value) {
   if (!Number.isFinite(value) || value <= 0) return '0%'
   if (value >= 99.95) return '100%'
@@ -6087,8 +6117,6 @@ function App() {
   const [eventForm, setEventForm] = useState({ ...emptyEvent })
   const [calendarManualDetailEditMode, setCalendarManualDetailEditMode] = useState(false)
   const [calendarManualDetailDraft, setCalendarManualDetailDraft] = useState(null)
-  const [monthSearch, setMonthSearch] = useState('')
-  const [monthTypeFilter, setMonthTypeFilter] = useState(CALENDAR_MONTH_LIST_CATEGORY.ALL)
   const [detailModal, setDetailModal] = useState(null)
   const [remainingTime, setRemainingTime] = useState(() =>
     sharedSessionExpiresAt ? Math.max(0, sharedSessionExpiresAt - Date.now()) : 0
@@ -8299,29 +8327,6 @@ function App() {
     }
     return cells
   }, [calendarCursor])
-
-  const monthEventList = useMemo(() => {
-    const year = calendarCursor.getFullYear()
-    const month = calendarCursor.getMonth() + 1
-
-    return [...calendarItems]
-      .filter((item) => {
-        if (!calendarItemOverlapsCalendarMonth(item, year, month)) return false
-        if (!calendarMonthListEventPassesCategoryFilter(item, monthTypeFilter)) return false
-        const searchMatch = `${item.text} ${item.owner || ''} ${item.pm || ''} ${item.note || ''}`
-          .toLowerCase()
-          .includes(monthSearch.toLowerCase())
-
-        return searchMatch
-      })
-      .sort((a, b) => {
-        const aKey = a.type === 'manual' ? normalizeManualEventRangeInPlace(a).dateStart : a.date
-        const bKey = b.type === 'manual' ? normalizeManualEventRangeInPlace(b).dateStart : b.date
-        const aDate = parseDateOnly(aKey)
-        const bDate = parseDateOnly(bKey)
-        return (aDate?.getTime() ?? 0) - (bDate?.getTime() ?? 0)
-      })
-  }, [calendarCursor, calendarItems, monthSearch, monthTypeFilter])
 
   const calendarTodayYmd = formatDateInput(new Date())
 
@@ -16691,7 +16696,12 @@ function App() {
                     <col className="registry-check-col" />
                     <col className="sales-archive-col" />
                     {DISCOVERY_COLUMNS.flatMap((column) => {
-                      const cols = [<col key={column.key} className={column.widthClass || ''} />]
+                      const cols = [
+                        <col
+                          key={column.key}
+                          className={`${column.widthClass || ''} ${column.stickyClass || ''}`}
+                        />,
+                      ]
                       if (column.key === 'importance') {
                         cols.push(<col key="discovery-record" className="sales-record-col" />)
                       }
@@ -16721,7 +16731,7 @@ function App() {
                         const headerCells = [
                           <th
                             key={column.key}
-                            className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
+                            className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} ${column.stickyClass || ''} contract-th-filterable`}
                           >
                             <div className="contract-th-filter-wrap">
                               <span className="contract-th-label">{column.label}</span>
@@ -16924,7 +16934,10 @@ function App() {
                     <col className="registry-check-col" />
                     <col className="sales-archive-col" />
                     {EXCLUDED_COLUMNS.map((column) => (
-                      <col key={column.key} className={column.widthClass || ''} />
+                      <col
+                        key={column.key}
+                        className={`${column.widthClass || ''} ${column.stickyClass || ''}`}
+                      />
                     ))}
                   </colgroup>
                   <thead>
@@ -16949,7 +16962,7 @@ function App() {
                       {EXCLUDED_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} ${column.stickyClass || ''} contract-th-filterable`}
                         >
                           <div className="contract-th-filter-wrap">
                             <span className="contract-th-label">{column.label}</span>
@@ -17115,7 +17128,7 @@ function App() {
                     {DOCUMENT_COLUMNS.map((column) => (
                       <col
                         key={column.key}
-                        className={`${column.widthClass || ''} ${getTableColumnLayoutClass(column)}`}
+                        className={`${column.widthClass || ''} ${getTableColumnLayoutClass(column)} ${column.stickyClass || ''}`}
                       />
                     ))}
                   </colgroup>
@@ -17138,7 +17151,7 @@ function App() {
                       {DOCUMENT_COLUMNS.map((column) => (
                         <th
                           key={column.key}
-                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} contract-th-filterable`}
+                          className={`${getTableColumnLayoutClass(column)} ${getTableAlignClass(column.align, column)} ${column.headerClass || ''} ${column.widthClass || ''} ${column.stickyClass || ''} contract-th-filterable`}
                           aria-sort={column.key === 'docDate' ? 'descending' : undefined}
                         >
                           <div className="contract-th-filter-wrap">
@@ -17807,7 +17820,7 @@ function App() {
                                                 <button
                                                   key={item.id}
                                                   type="button"
-                                                  className={`event-pill event-pill-button ${getCalendarEventPillTypeClass(item.type)}`}
+                                                  className={`event-pill event-pill-button ${getCalendarEventPillTypeClass(item.type)} ${getCalendarDueStatusClass(item)}`}
                                                   onClick={() => openCalendarDetail(item)}
                                                 >
                                                   {item.text}
@@ -17851,110 +17864,6 @@ function App() {
                   </div>
                 </div>
 
-                <aside className="calendar-page-sidebar">
-                  <div className="selected-events-wrap calendar-month-list-panel">
-                    <div className="month-list-header">
-                      <div className="month-list-tools">
-                        <div className="calendar-month-list-controls">
-                          <select
-                            className="calendar-filter-select"
-                            value={monthTypeFilter}
-                            onChange={(e) => {
-                              const v = e.target.value
-                              if (
-                                v === CALENDAR_MONTH_LIST_CATEGORY.ALL ||
-                                v === CALENDAR_MONTH_LIST_CATEGORY.CONTRACT ||
-                                v === CALENDAR_MONTH_LIST_CATEGORY.DUE ||
-                                v === CALENDAR_MONTH_LIST_CATEGORY.MANUAL
-                              ) {
-                                setMonthTypeFilter(v)
-                              }
-                            }}
-                          >
-                            <option value={CALENDAR_MONTH_LIST_CATEGORY.ALL}>전체</option>
-                            <option value={CALENDAR_MONTH_LIST_CATEGORY.CONTRACT}>계약</option>
-                            <option value={CALENDAR_MONTH_LIST_CATEGORY.DUE}>준공</option>
-                            <option value={CALENDAR_MONTH_LIST_CATEGORY.MANUAL}>기타</option>
-                          </select>
-
-                          <input
-                            className="calendar-search-input"
-                            type="text"
-                            placeholder="계약 / 준공 / 기타 일정 검색"
-                            value={monthSearch}
-                            onChange={(e) => setMonthSearch(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="month-event-list">
-                        {monthEventList.length === 0 ? (
-                          <div className="empty-text">이 달에 등록된 일정이 없습니다.</div>
-                        ) : (
-                          monthEventList.map((item) => {
-                            return (
-                              <div
-                                key={item.id}
-                                className={`selected-event-card clickable ${getCalendarEventTypeClassName(
-                                  item.type
-                                )}`}
-                                onClick={() => openCalendarDetail(item)}
-                              >
-                                <div className="selected-event-click">
-                                  <div className="selected-event-title">
-                                    {formatCalendarMonthListTitleLine(item)}
-                                  </div>
-                                  <div className="selected-event-meta">
-                                    <div className="selected-event-memo-line">
-                                      영업담당자: {item.owner ? item.owner : '\u00a0'}
-                                    </div>
-                                    <div className="selected-event-memo-line">
-                                      현장 PM: {item.pm ? item.pm : '\u00a0'}
-                                    </div>
-                                  </div>
-                                  {item.note ? (
-                                    <div className="selected-event-note-snippet" title={item.note}>
-                                      {item.note}
-                                    </div>
-                                  ) : null}
-                                </div>
-
-                                {item.type === 'manual' && (
-                                  <div
-                                    className="calendar-manual-event-actions"
-                                    role="group"
-                                    aria-label="기타 일정 작업"
-                                  >
-                                    <button
-                                      className="delete-btn"
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        deleteManualEvent(item.originalId)
-                                      }}
-                                    >
-                                      삭제
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="calendar-manual-action-btn calendar-manual-action-btn--edit"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        openCalendarDetail(item, { startManualInlineEdit: true })
-                                      }}
-                                    >
-                                      수정
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })
-                        )}
-                    </div>
-                  </div>
-                </aside>
               </div>
             </div>
           </section>
@@ -18213,7 +18122,7 @@ function App() {
                   <span className="sales-record-modal-info-value">{discoveryRecordModal.manager || '-'}</span>
                 </div>
                 <div className="sales-record-modal-info-item">
-                  <span className="sales-record-modal-info-label">건축정보일자</span>
+                  <span className="sales-record-modal-info-label">등록일</span>
                   <span className="sales-record-modal-info-value">{discoveryRecordModal.permitDate || '-'}</span>
                 </div>
               </div>

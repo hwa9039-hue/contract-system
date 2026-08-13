@@ -4,7 +4,6 @@ import { compareYearMonthDesc, toYearMonthFilterValue } from './dateFieldUtils.j
 
 export const DISCOVERY_FILTERABLE_COLUMN_KEYS = Object.freeze([
   'permitDate',
-  'checkStatus',
   'salesTarget',
   'projectCategory',
   'client',
