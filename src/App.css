@@ -451,7 +451,7 @@ textarea {
 
 .dashboard-year-cards {
   display: grid;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
   gap: 10px;
   padding: 12px;
 }
@@ -5031,7 +5031,7 @@ textarea:focus-visible {
 }
 
 .dashboard-year-cards {
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
   gap: 14px;
   padding: 16px;
   background: #fbfcfe;

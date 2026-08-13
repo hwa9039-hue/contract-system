@@ -1496,7 +1496,7 @@ const CALENDAR_MONTH_LIST_CATEGORY = Object.freeze({
   MANUAL: '기타',
 })
 
-const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수']
+const DASHBOARD_CATEGORY_ORDER = ['전광판', 'BIT', '도로사업', '유지보수', '기타']
 const PAGE_TITLE_MAP = {
   dashboard: '대시보드',
   workReports: '주간업무보고서',
@@ -4422,7 +4422,7 @@ function getContractColumnLabel(key) {
   return CONTRACT_COLUMNS.find((col) => col.key === key)?.label ?? key
 }
 
-/** 집계 대상 계약이 없을 때도 요약 위젯이 비지 않도록 대시보드와 동일 4분류 0건 블록을 만든다. */
+/** 집계 대상 계약이 없을 때도 요약 위젯이 비지 않도록 대시보드와 동일 5분류 0건 블록을 만든다. */
 function buildEmptyContractYearSummaryBlock(focusYearKey) {
   const y = safeString(focusYearKey).trim() || '미분류'
   return {
@@ -5642,13 +5642,14 @@ function getCategory(contract) {
   if (['43211514', '43211507', '43211902'].includes(type)) return 'BIT'
   if (type === '도로사업') return '도로사업'
   if (type === '유지보수') return '유지보수'
-  return null
+  // 계약분류가 위 네 가지에 안 걸리거나 비어 있으면 기타로 집계
+  return '기타'
 }
 
 /**
  * 연도별 계약금액 집계.
- * - totalAmount: 해당 연도 전체 항목 합산 (category 미인식 포함) → 리스트 합계와 항상 일치
- * - items: 인식된 카테고리별 금액·비율 (도넛 차트·카드 표시용)
+ * - totalAmount: 해당 연도 전체 항목 합산 → 리스트 합계와 항상 일치
+ * - items: 전광판·BIT·도로사업·유지보수·기타 금액·비율 (도넛 차트·카드 표시용)
  */
 function buildDashboardSummary(contracts) {
   const byYear = {}
@@ -5682,7 +5683,7 @@ function buildDashboardSummary(contracts) {
   const years = [...allYears]
     .sort((a, b) => Number(b) - Number(a))
     .map((year) => {
-      // 카테고리 합산(차트용) — 미인식 항목은 포함되지 않으므로 비율 기준으로만 사용
+      // 카테고리 합산(차트용) — 기타 포함 5분류 기준
       const categoryTotal = byYear[year]
         ? DASHBOARD_CATEGORY_ORDER.reduce((sum, name) => sum + byYear[year][name].amount, 0)
         : 0
