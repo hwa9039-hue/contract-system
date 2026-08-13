@@ -5402,15 +5402,53 @@ table[data-contract-table-row-key].contract-table tbody tr.contract-row--overdue
   background-color: #f3f4f6;
 }
 
-/* 고정 영역 끝(사업명) — 경계선 + 오른쪽으로 떨어지는 그림자 */
-table[data-contract-table-row-key].contract-table td.contract-sticky-col--last {
-  border-right: 2px solid #cbd5e1;
-  box-shadow: 8px 0 10px -8px rgba(15, 23, 42, 0.35);
+/* 신규 입력 행 — 셀 배경을 데이터 행과 같은 방식으로 직접 칠해 뒤 데이터가 비치지 않게 한다 */
+table[data-contract-table-row-key].contract-table tbody tr.contracts-draft-row > td.contract-sticky-col {
+  background-color: #eff6ff;
 }
 
-table[data-contract-table-row-key].contract-table th.contract-sticky-col--last {
+/* 칸마다 둘러쳐지던 파란 테두리 제거 — 새 행이라는 표시는 연한 배경으로 충분하다 */
+table[data-contract-table-row-key].contract-table tbody tr.contracts-draft-row > td {
+  box-shadow: none;
+}
+
+/* 지금 입력 중인 칸만 파란 링으로 표시 */
+table[data-contract-table-row-key].contract-table tbody tr.contracts-draft-row > td:focus-within {
+  box-shadow: inset 0 0 0 1px #3b82f6;
+}
+
+/* 신규 입력 행의 입력기 — 데이터 행 셸(px-3 py-2, 최소 높이 3rem)과 여백·높이를 맞춰
+   글자 시작 위치와 행 높이가 위아래 행과 어긋나지 않게 한다.
+   날짜 입력은 자체 래퍼(.registry-table-date-input)가 여백을 잡으므로 직계 자식만 대상으로 한다. */
+table[data-contract-table-row-key].contract-table tbody tr.contracts-draft-row > td.editable-cell > .excluded-inline-editor,
+table[data-contract-table-row-key].contract-table tbody tr.contracts-draft-row > td.editable-cell > input:not([type='checkbox']),
+table[data-contract-table-row-key].contract-table tbody tr.contracts-draft-row > td.editable-cell > select,
+table[data-contract-table-row-key].contract-table tbody tr.contracts-draft-row > td.editable-cell > textarea {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 8px 12px !important;
+  min-height: 3rem !important;
+}
+
+/* 고정 영역 끝(사업명) — 경계선 + 오른쪽으로 떨어지는 그림자.
+   그림자를 box-shadow 로 주면 신규 입력 행의 파란 테두리(inset box-shadow)와
+   포커스 링을 덮어써 선이 끊겨 보이므로, 가상 요소로 그려 서로 간섭하지 않게 한다. */
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--last,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--last {
   border-right: 2px solid #cbd5e1;
-  box-shadow: inset 0 -1px 0 #e2e8f0, 8px 0 10px -8px rgba(15, 23, 42, 0.35);
+}
+
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--last::after,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--last::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -10px;
+  width: 10px;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(15, 23, 42, 0.14), rgba(15, 23, 42, 0));
 }
 
 /* 준공 임박 퀵 필터가 켜진 동안 — 전체 목록에서 잰 열 너비를 그대로 고정해
