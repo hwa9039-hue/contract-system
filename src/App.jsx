@@ -3850,6 +3850,22 @@ function mapDashboardWeekDueRow(calendarDueItem) {
   }
 }
 
+/** 대시보드 준공임박 카드에서 '지금 당장' 급한 건으로 볼 남은 일수 */
+const DASHBOARD_DUE_URGENT_DAYS = 3
+
+/**
+ * 대시보드 준공임박 카드 강조 단계.
+ * - `overdue` 준공일이 지난 건 — 무채색으로 가라앉힌다
+ * - `urgent`  D-Day ~ D-3 — 붉은 카드 + 깜빡이는 D-Day 뱃지
+ * - `soon`    그 밖의 금주 준공 예정 건 — 붉은 D-Day 텍스트만
+ */
+function getDashboardDueUrgency(dueDate) {
+  const diff = getDateDiffFromToday(dueDate)
+  if (diff === null) return ''
+  if (diff < 0) return 'overdue'
+  return diff <= DASHBOARD_DUE_URGENT_DAYS ? 'urgent' : 'soon'
+}
+
 /** 대시보드 브리핑: 금주(월~일) 준공 일정 — 캘린더 due 항목 */
 function collectDashboardWeekDueRows(calendarItems, weekAnchorDate = new Date()) {
   const weekStart = getWeekStartMonday(weekAnchorDate)
@@ -15669,21 +15685,35 @@ function App() {
                       <div className="dashboard-briefing-box-body">
                         {dashboardWeekDueRows.length > 0 ? (
                           <ul className="dashboard-briefing-due-list">
-                            {dashboardWeekDueRows.map((item) => (
-                              <li key={item.id} className="dashboard-briefing-due-item">
-                                <div className="dashboard-briefing-due-title">{item.projectName || '—'}</div>
-                                <p className="dashboard-briefing-due-sub">
-                                  {item.client || '—'} | 영업: {item.salesManager || '—'} | PM:{' '}
-                                  {item.fieldPM || '—'}
-                                </p>
-                                <div className="dashboard-briefing-due-meta">
-                                  <span>{item.dueDate}</span>
-                                  {item.dday ? (
-                                    <span className="dashboard-briefing-due-dday">{item.dday}</span>
-                                  ) : null}
-                                </div>
-                              </li>
-                            ))}
+                            {dashboardWeekDueRows.map((item) => {
+                              const urgency = getDashboardDueUrgency(item.dueDate)
+                              return (
+                                <li
+                                  key={item.id}
+                                  className={`dashboard-briefing-due-item${
+                                    urgency ? ` dashboard-briefing-due-item--${urgency}` : ''
+                                  }`}
+                                >
+                                  <div className="dashboard-briefing-due-title">{item.projectName || '—'}</div>
+                                  <p className="dashboard-briefing-due-sub">
+                                    {item.client || '—'} | 영업: {item.salesManager || '—'} | PM:{' '}
+                                    {item.fieldPM || '—'}
+                                  </p>
+                                  <div className="dashboard-briefing-due-meta">
+                                    <span>{item.dueDate}</span>
+                                    {item.dday ? (
+                                      <span
+                                        className={`dashboard-briefing-due-dday${
+                                          urgency ? ` dashboard-briefing-due-dday--${urgency}` : ''
+                                        }`}
+                                      >
+                                        {item.dday}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </li>
+                              )
+                            })}
                           </ul>
                         ) : (
                           <p className="dashboard-briefing-box-empty">

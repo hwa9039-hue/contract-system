@@ -4369,6 +4369,76 @@ textarea:focus-visible {
   color: #2e3440;
 }
 
+/* ── 대시보드 준공임박 카드 강조 ─────────────────────────────────────────
+   단계는 getDashboardDueUrgency 가 남은 일수로 판정한다.
+   urgent(D-3~D-Day) 는 붉은 카드 + 깜빡이는 뱃지, soon 은 붉은 글씨만,
+   overdue 는 무채색으로 가라앉혀 진행 중인 건과 분리한다. */
+.dashboard-briefing-due-item--soon {
+  border-color: #fecdd3;
+  border-left: 4px solid #fca5a5;
+  background: #fffafa;
+}
+
+.dashboard-briefing-due-item--urgent {
+  border-color: #fca5a5;
+  border-left: 4px solid #ef4444;
+  background: #fef2f2;
+}
+
+.dashboard-briefing-due-item--overdue {
+  border-color: #e5e7eb;
+  border-left: 4px solid #d1d5db;
+  background: #f3f4f6;
+}
+
+.dashboard-briefing-due-item--overdue .dashboard-briefing-due-title,
+.dashboard-briefing-due-item--overdue .dashboard-briefing-due-sub,
+.dashboard-briefing-due-item--overdue .dashboard-briefing-due-meta {
+  color: #9ca3af;
+}
+
+.dashboard-briefing-due-dday--soon {
+  color: #dc2626;
+  font-weight: 800;
+}
+
+/* D-Day 임박 — 옅은 붉은 알약 뱃지가 은은하게 깜빡인다 */
+.dashboard-briefing-due-dday--urgent {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #dc2626;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  animation: dashboard-due-urgent-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes dashboard-due-urgent-pulse {
+  0%,
+  100% {
+    background-color: #fee2e2;
+    box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.6);
+  }
+  50% {
+    background-color: #fca5a5;
+    box-shadow: 0 0 0 6px rgba(248, 113, 113, 0);
+  }
+}
+
+.dashboard-briefing-due-dday--overdue {
+  color: #9ca3af;
+  font-weight: 700;
+}
+
+/* 깜빡임에 민감한 사용자를 위해 시스템 설정을 따른다 */
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-briefing-due-dday--urgent {
+    animation: none;
+  }
+}
+
 .dashboard-briefing-checklist-item .dashboard-briefing-due-title {
   font-weight: 700;
 }
@@ -9200,12 +9270,13 @@ table.excluded-registry-table.excel-table.registry-table td.excluded-sticky-col-
    고정 셀 배경은 !important 로 덮어야 뒤 글자가 비치지 않는다. */
 table.documents-registry-table.excel-table.registry-table {
   --documents-sticky-w-check: 44px;
-  /* 편집 모드의 날짜 입력 + 달력 아이콘이 잘리지 않는 폭 */
-  --documents-sticky-w-date: 160px;
+  /* 편집 모드의 날짜 입력 + 달력 아이콘이 잘리지 않는 최소 폭 */
+  --documents-sticky-w-date: 136px;
   /* `SIGN-DI-A1-260818-01` 같은 긴 식별자가 줄바꿈되지 않는 폭 */
-  --documents-sticky-w-no: 210px;
-  --documents-sticky-w-party: 200px;
-  --documents-sticky-w-title: 320px;
+  --documents-sticky-w-no: 186px;
+  --documents-sticky-w-party: 150px;
+  /* 마지막 고정 열이라 뒤 좌표에 영향이 없다 — 최소 폭만 잡고 남는 공간을 흡수시킨다 */
+  --documents-sticky-w-title: 240px;
 
   --documents-sticky-left-check: 0px;
   --documents-sticky-left-date: var(--documents-sticky-w-check);
@@ -9260,9 +9331,9 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
 table.documents-registry-table.excel-table.registry-table col.documents-sticky-col--title,
 table.documents-registry-table.excel-table.registry-table th.documents-sticky-col--title,
 table.documents-registry-table.excel-table.registry-table td.documents-sticky-col--title {
-  width: var(--documents-sticky-w-title) !important;
+  width: 30% !important;
   min-width: var(--documents-sticky-w-title) !important;
-  max-width: var(--documents-sticky-w-title) !important;
+  max-width: none !important;
   box-sizing: border-box;
 }
 
