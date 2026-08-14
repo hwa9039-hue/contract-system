@@ -140,6 +140,39 @@ def normalize_files_json(raw) -> list[dict]:
     return []
 
 
+def parse_keep_file_ids(form) -> list[str] | None:
+    """
+    수정 시 유지할 첨부 id 목록.
+
+    None 은 "클라이언트가 목록을 보내지 않음"을 뜻하며, 이 경우 구버전 호환을 위해
+    기존 첨부를 건드리지 않는다. 빈 리스트([])는 "전부 삭제"라는 명시적 지시다.
+    """
+    raw = form.get("keepFileIds")
+    if not isinstance(raw, str):
+        raw = None
+
+    if raw is None:
+        payload_raw = form.get("payload")
+        if isinstance(payload_raw, str):
+            try:
+                data = json.loads(payload_raw)
+                if isinstance(data, dict) and "keepFileIds" in data:
+                    parsed = data.get("keepFileIds")
+                    if isinstance(parsed, list):
+                        return [str(item).strip() for item in parsed if str(item).strip()]
+            except (json.JSONDecodeError, TypeError, ValueError):
+                pass
+        return None
+
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, list):
+        return None
+    return [str(item).strip() for item in parsed if str(item).strip()]
+
+
 def post_upload_dir(post_id: str) -> Path:
     return MATERIALS_BOARD_DIR / post_id
 
@@ -167,6 +200,25 @@ def delete_post_files(post_id: str) -> None:
     target_dir = post_upload_dir(post_id)
     if target_dir.exists():
         shutil.rmtree(target_dir, ignore_errors=True)
+
+
+def delete_detached_files(post_id: str, detached: list[dict]) -> None:
+    """DB 목록에서 빠진 첨부의 실제 파일도 디스크에서 지운다 (고아 파일 방지)."""
+    target_dir = post_upload_dir(post_id)
+    for item in detached:
+        stored_name = str(item.get("storedName") or "").strip()
+        if not stored_name:
+            continue
+        path = target_dir / stored_name
+        try:
+            if path.is_file():
+                path.unlink()
+        except OSError:
+            logger.warning(
+                "materials board detached file delete failed post_id=%s file=%s",
+                post_id,
+                stored_name,
+            )
 
 
 def find_file_meta(post_row: dict, file_id: str) -> dict | None:
@@ -315,6 +367,17 @@ async def api_update_materials_board_post(post_id: str, request: Request):
     )
 
     current_files = normalize_files_json(existing.get("files"))
+    keep_ids = parse_keep_file_ids(form)
+
+    if keep_ids is None:
+        # 구버전 클라이언트 — 유지 목록이 없으면 기존 첨부를 그대로 둔다
+        kept_files = current_files
+        detached_files: list[dict] = []
+    else:
+        keep_set = set(keep_ids)
+        kept_files = [f for f in current_files if str(f.get("id") or "") in keep_set]
+        detached_files = [f for f in current_files if str(f.get("id") or "") not in keep_set]
+
     new_files: list[dict] = []
 
     for upload in uploads:
@@ -329,7 +392,16 @@ async def api_update_materials_board_post(post_id: str, request: Request):
                 detail=f"Failed to save attachment: {exc}",
             ) from exc
 
-    merged_files = current_files + new_files if new_files else current_files
+    # 유지 목록 + 신규 업로드로 재구성한다. 예전처럼 기존 목록에 덧붙이지 않는다.
+    merged_files = kept_files + new_files
+    logger.info(
+        "materials board update files post_id=%s current=%s keep=%s new=%s detached=%s",
+        post_id,
+        len(current_files),
+        len(kept_files),
+        len(new_files),
+        len(detached_files),
+    )
     timestamp = now_text()
 
     with get_connection() as connection:
@@ -356,6 +428,10 @@ async def api_update_materials_board_post(post_id: str, request: Request):
             )
             updated = cursor.fetchone()
         connection.commit()
+
+    # DB 반영이 끝난 뒤에 디스크를 정리해야 저장 실패 시 파일이 사라지지 않는다
+    if detached_files:
+        delete_detached_files(post_id, detached_files)
 
     return materials_board_out(updated, folder_hint=folder_value)
 

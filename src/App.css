@@ -15917,11 +15917,32 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   text-overflow: ellipsis;
 }
 
+.materials-board-file-list-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
 .materials-board-file-list-size {
   flex-shrink: 0;
   font-size: 11px;
   color: #94a3b8;
   font-variant-numeric: tabular-nums;
+}
+
+.materials-board-content-input {
+  width: 100%;
+  min-height: 120px;
+  height: auto;
+  padding: 10px 12px;
+  line-height: 1.5;
+  resize: vertical;
 }
 
 .materials-board-file-list-remove {

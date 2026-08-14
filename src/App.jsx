@@ -1807,7 +1807,7 @@ const MATERIALS_BOARD_SEED = [
 ]
 
 function getDefaultMaterialsBoardForm() {
-  return { title: '' }
+  return { title: '', content: '' }
 }
 
 function formatMaterialsBoardFileSize(bytes) {
@@ -1854,27 +1854,56 @@ function normalizeMaterialsBoardPost(row) {
 function createMaterialsBoardPendingFileEntry(file) {
   return {
     id: `mbf-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    kind: 'new',
+    fileId: '',
+    name: safeString(file?.name).trim(),
+    size: Number(file?.size) || 0,
     file,
   }
 }
 
-function filesMetaFromPendingEntries(entries) {
-  return (entries || [])
-    .map((entry) => ({
-      name: safeString(entry?.file?.name).trim(),
-      size: Number(entry?.file?.size) || 0,
-    }))
-    .filter((f) => f.name)
-}
-
-function buildMaterialsBoardDownloadUrls(entries) {
-  return (entries || [])
-    .map((entry) => {
-      const name = safeString(entry?.file?.name).trim()
-      if (!name || !entry?.file) return null
-      return { name, url: URL.createObjectURL(entry.file) }
+/**
+ * 서버에 이미 저장된 첨부를 수정 폼 목록에 올린다.
+ * 이 목록을 보여줘야 사용자가 지운 파일이 저장 시 서버에서도 빠진다.
+ */
+function buildMaterialsBoardFileEntriesFromRow(row) {
+  const files = Array.isArray(row?.files) ? row.files : []
+  return files
+    .map((f) => {
+      const fileId = safeString(f?.id).trim()
+      const name = safeString(f?.name).trim()
+      if (!fileId || !name) return null
+      return {
+        id: `mbf-existing-${fileId}`,
+        kind: 'existing',
+        fileId,
+        name,
+        size: Number(f?.size) || 0,
+        file: null,
+      }
     })
     .filter(Boolean)
+}
+
+/** 화면에 남아 있는 기존 첨부 id — 서버는 이 목록에 없는 첨부를 삭제한다 */
+function getMaterialsBoardKeepFileIds(entries) {
+  return (Array.isArray(entries) ? entries : [])
+    .filter((entry) => entry?.kind === 'existing' && safeString(entry.fileId).trim())
+    .map((entry) => safeString(entry.fileId).trim())
+}
+
+function getMaterialsBoardNewFileEntries(entries) {
+  return (Array.isArray(entries) ? entries : []).filter(
+    (entry) => entry?.kind !== 'existing' && entry?.file instanceof File
+  )
+}
+
+function getMaterialsBoardEntryName(entry) {
+  return safeString(entry?.name).trim() || safeString(entry?.file?.name).trim()
+}
+
+function getMaterialsBoardEntrySize(entry) {
+  return Number(entry?.size) || Number(entry?.file?.size) || 0
 }
 
 function revokeMaterialsBoardPostUrls(row) {
@@ -2004,20 +2033,24 @@ function MaterialBoardMultiFileDropzone({
       {fileEntries.length > 0 && (
         <ul className="materials-board-file-list" aria-label="선택된 첨부 파일">
           {fileEntries.map((entry) => {
-            const file = entry?.file
-            if (!file?.name) return null
+            const name = getMaterialsBoardEntryName(entry)
+            if (!name) return null
+            const isExisting = entry?.kind === 'existing'
             return (
-              <li key={entry.id || file.name} className="materials-board-file-list-item">
-                <span className="materials-board-file-list-name" title={file.name}>
-                  📎 {file.name}
+              <li key={entry.id || name} className="materials-board-file-list-item">
+                <span className="materials-board-file-list-name" title={name}>
+                  📎 {name}
+                  {isExisting && (
+                    <span className="materials-board-file-list-badge">기존</span>
+                  )}
                 </span>
                 <span className="materials-board-file-list-size">
-                  {formatMaterialsBoardFileSize(file.size)}
+                  {formatMaterialsBoardFileSize(getMaterialsBoardEntrySize(entry))}
                 </span>
                 <button
                   type="button"
                   className="materials-board-file-list-remove"
-                  aria-label={`${file.name} 제거`}
+                  aria-label={`${name} 제거`}
                   onClick={() => {
                     if (typeof onRemoveFile === 'function' && entry?.id) onRemoveFile(entry.id)
                   }}
@@ -7351,8 +7384,9 @@ function App() {
     setMaterialsBoardEditingId(row.id)
     setMaterialsBoardFormDraft({
       title: safeString(row.title).trim(),
+      content: safeString(row.content),
     })
-    setMaterialsBoardFile([])
+    setMaterialsBoardFile(buildMaterialsBoardFileEntriesFromRow(row))
     setMaterialsBoardRegisterOpen(true)
   }, [canEditMaterialsBoard])
 
@@ -7393,7 +7427,7 @@ function App() {
       showAppAlert('제목을 입력해 주세요.', '알림')
       return
     }
-    const content = ''
+    const content = safeString(materialsBoardFormDraft.content)
     const editingId = materialsBoardEditingId
 
     setMaterialsBoardSubmitting(true)
@@ -7403,7 +7437,9 @@ function App() {
         content,
         folder: '기타',
         folderId: '기타',
-        files: materialsBoardFile,
+        // 신규 업로드만 전송하고, 남겨둔 기존 첨부는 id 목록으로 알린다
+        files: getMaterialsBoardNewFileEntries(materialsBoardFile),
+        keepFileIds: getMaterialsBoardKeepFileIds(materialsBoardFile),
       }
 
       if (editingId) {
@@ -18530,6 +18566,21 @@ function App() {
                     setMaterialsBoardFormDraft((prev) => ({ ...prev, title: e.target.value }))
                   }
                   placeholder="예: LED 견적 가이드"
+                />
+              </div>
+              <div className="materials-board-register-field">
+                <label className="install-case-form-label" htmlFor="materials-board-content">
+                  내용
+                </label>
+                <textarea
+                  id="materials-board-content"
+                  className="table-search-input install-case-form-input materials-board-content-input"
+                  rows={6}
+                  value={materialsBoardFormDraft.content ?? ''}
+                  onChange={(e) =>
+                    setMaterialsBoardFormDraft((prev) => ({ ...prev, content: e.target.value }))
+                  }
+                  placeholder="내용을 입력하세요."
                 />
               </div>
               <div className="materials-board-register-field">
