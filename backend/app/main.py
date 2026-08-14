@@ -20,6 +20,7 @@ from app.routers import sales_transfer
 from app.routers import weekly_work_reports
 from app.routers.contacts_manage import router as contacts_manage_router
 from app.routers.sales_contacts import router as sales_contacts_router
+from app.routers.payment_reports import router as payment_reports_router
 from app.routers.install_cases import INSTALL_CASES_API_PATH, router as install_cases_router
 from app.routers.materials_board import MATERIALS_BOARD_API_PATH, router as materials_board_router
 from app.routers.calendar_events import CALENDAR_EVENTS_API_PATH, router as calendar_events_router
@@ -101,6 +102,7 @@ def on_startup():
     logger.info("Install cases API: POST/GET /api/install-cases (registered on app in main.py)")
     logger.info("Contacts manage API: GET/POST /api/contacts-manage (app.include_router contacts_manage_router)")
     logger.info("Sales contacts API: GET/POST /api/sales-contacts (app.include_router sales_contacts_router)")
+    logger.info("Payment reports API: GET/POST /api/payment-reports (app.include_router payment_reports_router)")
     unit_price_paths = sorted(
         getattr(route, "path", "")
         for route in app.routes
@@ -204,6 +206,7 @@ app.include_router(document_register.router)
 app.include_router(weekly_work_reports.router)
 app.include_router(contacts_manage_router)
 app.include_router(sales_contacts_router)
+app.include_router(payment_reports_router)
 app.include_router(install_cases_router)
 app.include_router(materials_board_router)
 app.include_router(calendar_events_router)

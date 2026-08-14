@@ -1,6 +1,7 @@
-import { Fragment, useCallback, useId, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
+import { normalizePaymentReportRow, paymentReportsApi } from '../paymentReportsApi.js'
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -501,7 +502,6 @@ function buildAutofillFromContract(contract) {
       contractAmount: '',
       projectPeriod: '',
       client: '',
-      matchStatus: 'idle',
     }
   }
   return {
@@ -509,14 +509,21 @@ function buildAutofillFromContract(contract) {
     contractAmount: formatAmountComma(contract.amount),
     projectPeriod: formatContractPeriod(contract),
     client: safeString(contract.client).trim(),
-    matchStatus: 'matched',
   }
+}
+
+/** 분류 입력값과 계약현황 매칭 결과로 표에 표시할 뱃지 상태를 만든다. */
+function resolveMatchStatus(contracts, classification) {
+  const text = safeString(classification).trim()
+  if (!text) return 'idle'
+  return findContractByClassification(contracts, text) ? 'matched' : 'missed'
 }
 
 function createPaymentReportRow(seq, id, paymentCycle = '15', paymentMonth = formatPaymentMonth()) {
   return {
     id,
     seq,
+    sortOrder: seq,
     paymentMonth: normalizePaymentMonth(paymentMonth),
     paymentCycle: normalizePaymentCycle(paymentCycle),
     classification: '',
@@ -527,7 +534,6 @@ function createPaymentReportRow(seq, id, paymentCycle = '15', paymentMonth = for
     vendorInfo: '',
     plannedAmount: '',
     progress: '',
-    matchStatus: 'idle',
     projectVolume: '',
     expenseContent: '',
     vendorDetail: '',
@@ -538,7 +544,14 @@ function createPaymentReportRow(seq, id, paymentCycle = '15', paymentMonth = for
   }
 }
 
-function PaymentReportExpandedPanel({ row, onChange, onDownloadPdf, isDownloading }) {
+function isPersistedPaymentReportId(id) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    safeString(id).trim()
+  )
+}
+
+function PaymentReportExpandedPanel({ row, onChange, onCommit, onDownloadPdf, isDownloading }) {
+  const commit = () => onCommit?.(row.id)
   return (
     <div
       id={`payment-report-pdf-${row.id}`}
@@ -589,6 +602,7 @@ function PaymentReportExpandedPanel({ row, onChange, onDownloadPdf, isDownloadin
             rows={5}
             value={row.projectVolume}
             onChange={(e) => onChange(row.id, 'projectVolume', e.target.value)}
+            onBlur={commit}
             placeholder="사업물량을 입력하세요"
           />
         </label>
@@ -607,6 +621,7 @@ function PaymentReportExpandedPanel({ row, onChange, onDownloadPdf, isDownloadin
             rows={3}
             value={row.expenseContent}
             onChange={(e) => onChange(row.id, 'expenseContent', e.target.value)}
+            onBlur={commit}
             placeholder="지출내용을 입력하세요"
           />
         </label>
@@ -617,6 +632,7 @@ function PaymentReportExpandedPanel({ row, onChange, onDownloadPdf, isDownloadin
             rows={3}
             value={row.vendorDetail}
             onChange={(e) => onChange(row.id, 'vendorDetail', e.target.value)}
+            onBlur={commit}
             placeholder="업체정보를 입력하세요"
           />
         </label>
@@ -630,6 +646,7 @@ function PaymentReportExpandedPanel({ row, onChange, onDownloadPdf, isDownloadin
               autoComplete="off"
               value={row.completionAmount}
               onChange={(e) => onChange(row.id, 'completionAmount', e.target.value)}
+              onBlur={commit}
               placeholder="-원 / -%"
             />
           </label>
@@ -641,6 +658,7 @@ function PaymentReportExpandedPanel({ row, onChange, onDownloadPdf, isDownloadin
               autoComplete="off"
               value={row.materialCost}
               onChange={(e) => onChange(row.id, 'materialCost', e.target.value)}
+              onBlur={commit}
               placeholder="-원 / -%"
             />
           </label>
@@ -652,6 +670,7 @@ function PaymentReportExpandedPanel({ row, onChange, onDownloadPdf, isDownloadin
               autoComplete="off"
               value={row.currentExpense}
               onChange={(e) => onChange(row.id, 'currentExpense', e.target.value)}
+              onBlur={commit}
               placeholder="-원 / -%"
             />
           </label>
@@ -663,6 +682,7 @@ function PaymentReportExpandedPanel({ row, onChange, onDownloadPdf, isDownloadin
               autoComplete="off"
               value={row.profitRate}
               onChange={(e) => onChange(row.id, 'profitRate', e.target.value)}
+              onBlur={commit}
               placeholder="-원 / -%"
             />
           </label>
@@ -698,15 +718,21 @@ function renumberRowsByMonthCycle(rows) {
  * - 분류 입력 시 사업명·계약금액·사업기간·발주처를 계약현황에서 채워 잠금
  */
 export default function PaymentReportPage({ contracts = [] }) {
-  const idPrefix = useId()
   const [activeMonth, setActiveMonth] = useState(() => formatPaymentMonth())
   const [activeTab, setActiveTab] = useState('15')
-  const [rows, setRows] = useState(() => [
-    createPaymentReportRow(1, `${idPrefix}-1`, '15', formatPaymentMonth()),
-  ])
-  const [nextId, setNextId] = useState(2)
+  const [rows, setRows] = useState([])
   const [expandedIds, setExpandedIds] = useState(() => new Set())
   const [pdfDownloadingId, setPdfDownloadingId] = useState('')
+  const [saveError, setSaveError] = useState('')
+
+  const rowsRef = useRef(rows)
+  const saveTimersRef = useRef({})
+  const dirtyIdsRef = useRef(new Set())
+  const savingIdsRef = useRef(new Set())
+
+  useEffect(() => {
+    rowsRef.current = rows
+  }, [rows])
 
   const visibleRows = useMemo(() => {
     const month = normalizePaymentMonth(activeMonth)
@@ -716,31 +742,100 @@ export default function PaymentReportPage({ contracts = [] }) {
     return inMonth.filter((row) => normalizePaymentCycle(row.paymentCycle) === cycle)
   }, [rows, activeMonth, activeTab])
 
-  const ensureBucketRow = useCallback(
-    (month, cycle) => {
-      const targetMonth = normalizePaymentMonth(month)
-      const targetCycle = normalizePaymentCycle(cycle)
-      setRows((prev) => {
-        const exists = prev.some(
-          (row) =>
-            normalizePaymentMonth(row.paymentMonth) === targetMonth &&
-            normalizePaymentCycle(row.paymentCycle) === targetCycle
-        )
-        if (exists) return prev
-        const id = `${idPrefix}-seed-${targetMonth}-${targetCycle}-${Date.now()}`
-        return renumberRowsByMonthCycle([
-          ...prev,
-          createPaymentReportRow(1, id, targetCycle, targetMonth),
-        ])
-      })
+  /** 서버 반영 — 저장 중 들어온 추가 입력은 dirty 로 남겨 뒤이어 한 번 더 저장한다. */
+  const persistRow = useCallback(async (rowId) => {
+    const row = rowsRef.current.find((item) => item.id === rowId)
+    if (!row || savingIdsRef.current.has(rowId)) return
+
+    savingIdsRef.current.add(rowId)
+    dirtyIdsRef.current.delete(rowId)
+    try {
+      const saved = isPersistedPaymentReportId(row.id)
+        ? await paymentReportsApi.update(row.id, row)
+        : await paymentReportsApi.create(row)
+      const normalized = normalizePaymentReportRow(saved, row.seq)
+
+      setRows((prev) =>
+        prev.map((item) => {
+          if (item.id !== rowId) return item
+          if (dirtyIdsRef.current.has(rowId)) {
+            return { ...item, id: normalized.id, sortOrder: normalized.sortOrder }
+          }
+          return { ...normalized, seq: item.seq }
+        })
+      )
+      setSaveError('')
+
+      if (dirtyIdsRef.current.has(rowId)) {
+        dirtyIdsRef.current.delete(rowId)
+        dirtyIdsRef.current.add(normalized.id)
+        savingIdsRef.current.delete(rowId)
+        window.setTimeout(() => persistRow(normalized.id), 0)
+        return
+      }
+    } catch (error) {
+      dirtyIdsRef.current.add(rowId)
+      setSaveError(safeString(error?.message) || '결제보고 저장에 실패했습니다.')
+    } finally {
+      savingIdsRef.current.delete(rowId)
+    }
+  }, [])
+
+  const scheduleSave = useCallback(
+    (rowId) => {
+      dirtyIdsRef.current.add(rowId)
+      const timers = saveTimersRef.current
+      if (timers[rowId]) window.clearTimeout(timers[rowId])
+      timers[rowId] = window.setTimeout(() => {
+        delete timers[rowId]
+        persistRow(rowId)
+      }, 500)
     },
-    [idPrefix]
+    [persistRow]
   )
 
+  const flushSave = useCallback(
+    (rowId) => {
+      const timers = saveTimersRef.current
+      if (timers[rowId]) {
+        window.clearTimeout(timers[rowId])
+        delete timers[rowId]
+      }
+      if (dirtyIdsRef.current.has(rowId)) persistRow(rowId)
+    },
+    [persistRow]
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    const timers = saveTimersRef.current
+
+    async function loadRows() {
+      try {
+        const list = await paymentReportsApi.list()
+        if (cancelled) return
+        const normalized = (Array.isArray(list) ? list : []).map((row, index) =>
+          normalizePaymentReportRow(row, index + 1)
+        )
+        setRows(renumberRowsByMonthCycle(normalized))
+        setSaveError('')
+      } catch (error) {
+        if (cancelled) return
+        setSaveError(safeString(error?.message) || '결제보고를 불러오지 못했습니다.')
+      }
+    }
+
+    loadRows()
+    return () => {
+      cancelled = true
+      Object.values(timers).forEach((timer) => window.clearTimeout(timer))
+    }
+  }, [])
+
+  /** 분류 → 계약현황 자동완성. 채워진 값도 그대로 저장 대상에 포함된다. */
   const applyClassificationLookup = useCallback(
     (rowId, classificationValue) => {
-      const classification = safeString(classificationValue).trim()
-      const found = findContractByClassification(contracts, classification)
+      const found = findContractByClassification(contracts, classificationValue)
       const autofill = buildAutofillFromContract(found)
 
       setRows((prev) =>
@@ -753,12 +848,12 @@ export default function PaymentReportPage({ contracts = [] }) {
             contractAmount: autofill.contractAmount,
             projectPeriod: autofill.projectPeriod,
             client: autofill.client,
-            matchStatus: !classification ? 'idle' : found ? 'matched' : 'missed',
           }
         })
       )
+      scheduleSave(rowId)
     },
-    [contracts]
+    [contracts, scheduleSave]
   )
 
   const handleClassificationChange = (rowId, value) => {
@@ -777,6 +872,7 @@ export default function PaymentReportPage({ contracts = [] }) {
         }
       })
     )
+    scheduleSave(rowId)
   }
 
   const toggleRowExpand = (rowId) => {
@@ -808,64 +904,64 @@ export default function PaymentReportPage({ contracts = [] }) {
   }
 
   const handleMonthShift = (delta) => {
-    const nextMonth = shiftPaymentMonth(activeMonth, delta)
-    setActiveMonth(nextMonth)
-    if (activeTab !== 'all') ensureBucketRow(nextMonth, activeTab)
+    setActiveMonth(shiftPaymentMonth(activeMonth, delta))
   }
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId)
-    if (tabId === 'all') return
-    ensureBucketRow(activeMonth, tabId)
   }
 
-  const handleAddRow = () => {
+  const handleAddRow = async () => {
     const month = normalizePaymentMonth(activeMonth)
     const cycle = activeTab === 'all' ? '15' : normalizePaymentCycle(activeTab)
-    const id = `${idPrefix}-${nextId}`
-    setNextId((n) => n + 1)
-    setRows((prev) => {
-      const bucketCount = prev.filter(
-        (row) =>
-          normalizePaymentMonth(row.paymentMonth) === month &&
-          normalizePaymentCycle(row.paymentCycle) === cycle
-      ).length
-      return renumberRowsByMonthCycle([
-        ...prev,
-        createPaymentReportRow(bucketCount + 1, id, cycle, month),
-      ])
-    })
+    const bucketCount = rowsRef.current.filter(
+      (row) =>
+        normalizePaymentMonth(row.paymentMonth) === month &&
+        normalizePaymentCycle(row.paymentCycle) === cycle
+    ).length
+    const draft = createPaymentReportRow(
+      bucketCount + 1,
+      `draft-${Date.now()}`,
+      cycle,
+      month
+    )
+
+    try {
+      const created = await paymentReportsApi.create(draft)
+      const normalized = normalizePaymentReportRow(created, draft.seq)
+      setRows((prev) => renumberRowsByMonthCycle([...prev, normalized]))
+      setSaveError('')
+    } catch (error) {
+      setRows((prev) => renumberRowsByMonthCycle([...prev, draft]))
+      scheduleSave(draft.id)
+      setSaveError(safeString(error?.message) || '등록에 실패했습니다.')
+    }
   }
 
-  const handleRemoveRow = (rowId) => {
+  const handleRemoveRow = async (rowId) => {
+    const timers = saveTimersRef.current
+    if (timers[rowId]) {
+      window.clearTimeout(timers[rowId])
+      delete timers[rowId]
+    }
+    dirtyIdsRef.current.delete(rowId)
+
+    if (isPersistedPaymentReportId(rowId)) {
+      try {
+        await paymentReportsApi.bulkDelete([rowId])
+        setSaveError('')
+      } catch (error) {
+        setSaveError(safeString(error?.message) || '삭제에 실패했습니다.')
+        return
+      }
+    }
+
     setExpandedIds((prev) => {
       const next = new Set(prev)
       next.delete(rowId)
       return next
     })
-    setRows((prev) => {
-      const target = prev.find((row) => row.id === rowId)
-      const month = normalizePaymentMonth(target?.paymentMonth || activeMonth)
-      const cycle = normalizePaymentCycle(target?.paymentCycle || activeTab)
-      const remaining = prev.filter((row) => row.id !== rowId)
-      const bucketLeft = remaining.filter(
-        (row) =>
-          normalizePaymentMonth(row.paymentMonth) === month &&
-          normalizePaymentCycle(row.paymentCycle) === cycle
-      )
-
-      if (bucketLeft.length === 0) {
-        const id = `${idPrefix}-reset-${month}-${cycle}-${Date.now()}`
-        return renumberRowsByMonthCycle([
-          ...remaining,
-          createPaymentReportRow(1, id, cycle, month),
-        ])
-      }
-      if (remaining.length === 0) {
-        return [createPaymentReportRow(1, `${idPrefix}-reset`, '15', month)]
-      }
-      return renumberRowsByMonthCycle(remaining)
-    })
+    setRows((prev) => renumberRowsByMonthCycle(prev.filter((row) => row.id !== rowId)))
   }
 
   return (
@@ -911,17 +1007,23 @@ export default function PaymentReportPage({ contracts = [] }) {
         </div>
 
         <button type="button" className="primary-btn payment-report-add-btn" onClick={handleAddRow}>
-          행 추가
+          등록
         </button>
       </div>
 
       <p className="payment-report-page-desc">
         {formatPaymentMonthLabel(activeMonth)} 기준으로{' '}
         {activeTab === 'all'
-          ? '15일·31일 결제 건을 함께 표시합니다. 행 추가 시 기본값은 15일 결제입니다.'
-          : `${activeTab}일 결제 건만 표시합니다. 행 추가 시 현재 월·주기가 자동 적용됩니다.`}{' '}
+          ? '15일·31일 결제 건을 함께 표시합니다. 등록 시 기본값은 15일 결제입니다.'
+          : `${activeTab}일 결제 건만 표시합니다. 등록 시 현재 월·주기가 자동 적용됩니다.`}{' '}
         분류(참고번호)를 입력하면 계약현황 정보가 표에 자동 입력되며 수정할 수 없습니다.
       </p>
+
+      {saveError ? (
+        <p className="payment-report-save-error" role="alert">
+          {saveError}
+        </p>
+      ) : null}
 
       <div className="payment-report-table-wrap">
         <table className="payment-report-table excel-table registry-table">
@@ -947,6 +1049,7 @@ export default function PaymentReportPage({ contracts = [] }) {
           <tbody>
             {visibleRows.map((row) => {
               const isExpanded = expandedIds.has(row.id)
+              const matchStatus = resolveMatchStatus(contracts, row.classification)
               return (
                 <Fragment key={row.id}>
                   <tr
@@ -976,13 +1079,13 @@ export default function PaymentReportPage({ contracts = [] }) {
                         autoComplete="off"
                         value={row.classification}
                         onChange={(e) => handleClassificationChange(row.id, e.target.value)}
-                        onBlur={(e) => handleClassificationChange(row.id, e.target.value)}
+                        onBlur={() => flushSave(row.id)}
                         aria-label={`${row.seq}번 분류`}
                       />
-                      {row.matchStatus === 'matched' ? (
+                      {matchStatus === 'matched' ? (
                         <span className="payment-report-row-hint payment-report-row-hint--ok">일치</span>
                       ) : null}
-                      {row.matchStatus === 'missed' ? (
+                      {matchStatus === 'missed' ? (
                         <span className="payment-report-row-hint payment-report-row-hint--warn">없음</span>
                       ) : null}
                     </td>
@@ -1023,6 +1126,7 @@ export default function PaymentReportPage({ contracts = [] }) {
                         placeholder="업체명"
                         value={row.vendorInfo}
                         onChange={(e) => handleEditableChange(row.id, 'vendorInfo', e.target.value)}
+                        onBlur={() => flushSave(row.id)}
                         aria-label={`${row.seq}번 결제 업체정보`}
                       />
                     </td>
@@ -1035,6 +1139,7 @@ export default function PaymentReportPage({ contracts = [] }) {
                         placeholder="0"
                         value={row.plannedAmount}
                         onChange={(e) => handleEditableChange(row.id, 'plannedAmount', e.target.value)}
+                        onBlur={() => flushSave(row.id)}
                         aria-label={`${row.seq}번 결제 예정 금액`}
                       />
                     </td>
@@ -1046,6 +1151,7 @@ export default function PaymentReportPage({ contracts = [] }) {
                         placeholder="진행사항"
                         value={row.progress}
                         onChange={(e) => handleEditableChange(row.id, 'progress', e.target.value)}
+                        onBlur={() => flushSave(row.id)}
                         aria-label={`${row.seq}번 진행사항`}
                       />
                     </td>
@@ -1060,6 +1166,7 @@ export default function PaymentReportPage({ contracts = [] }) {
                           <PaymentReportExpandedPanel
                             row={row}
                             onChange={handleEditableChange}
+                            onCommit={flushSave}
                             onDownloadPdf={handleDownloadPdf}
                             isDownloading={pdfDownloadingId === row.id}
                           />

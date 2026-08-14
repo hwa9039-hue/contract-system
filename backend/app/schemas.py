@@ -623,6 +623,75 @@ class SalesContactBulkDelete(BaseModel):
     ids: list[Any]
 
 
+class PaymentReportBase(BaseModel):
+    sortOrder: int = 0
+    paymentMonth: str = ""
+    paymentCycle: str = "15"
+    classification: str = ""
+    projectName: str = ""
+    contractAmount: str = ""
+    projectPeriod: str = ""
+    client: str = ""
+    vendorInfo: str = ""
+    plannedAmount: str = ""
+    progress: str = ""
+    projectVolume: str = ""
+    expenseContent: str = ""
+    vendorDetail: str = ""
+    completionAmount: str = ""
+    materialCost: str = ""
+    currentExpense: str = ""
+    profitRate: str = ""
+
+    @field_validator("paymentCycle", mode="before")
+    @classmethod
+    def normalize_payment_cycle(cls, value):
+        return "31" if str(value or "").strip() == "31" else "15"
+
+    @field_validator("sortOrder", mode="before")
+    @classmethod
+    def coerce_payment_sort_order(cls, value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+
+class PaymentReportCreate(PaymentReportBase):
+    pass
+
+
+class PaymentReportPatch(BaseModel):
+    sortOrder: Optional[Any] = None
+    paymentMonth: Optional[Any] = None
+    paymentCycle: Optional[Any] = None
+    classification: Optional[Any] = None
+    projectName: Optional[Any] = None
+    contractAmount: Optional[Any] = None
+    projectPeriod: Optional[Any] = None
+    client: Optional[Any] = None
+    vendorInfo: Optional[Any] = None
+    plannedAmount: Optional[Any] = None
+    progress: Optional[Any] = None
+    projectVolume: Optional[Any] = None
+    expenseContent: Optional[Any] = None
+    vendorDetail: Optional[Any] = None
+    completionAmount: Optional[Any] = None
+    materialCost: Optional[Any] = None
+    currentExpense: Optional[Any] = None
+    profitRate: Optional[Any] = None
+
+
+class PaymentReportOut(PaymentReportBase):
+    id: Optional[Any] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaymentReportBulkDelete(BaseModel):
+    ids: list[Any]
+
+
 def _join_report_payload_parts(parts: Any) -> str:
     if not isinstance(parts, list):
         return ""
@@ -1435,6 +1504,26 @@ TABLE_COLUMN_MAPPINGS = {
         "address": "address",
         "notes": "notes",
     },
+    "payment_report_rows": {
+        "sortOrder": "sort_order",
+        "paymentMonth": "payment_month",
+        "paymentCycle": "payment_cycle",
+        "classification": "classification",
+        "projectName": "project_name",
+        "contractAmount": "contract_amount",
+        "projectPeriod": "project_period",
+        "client": "client",
+        "vendorInfo": "vendor_info",
+        "plannedAmount": "planned_amount",
+        "progress": "progress",
+        "projectVolume": "project_volume",
+        "expenseContent": "expense_content",
+        "vendorDetail": "vendor_detail",
+        "completionAmount": "completion_amount",
+        "materialCost": "material_cost",
+        "currentExpense": "current_expense",
+        "profitRate": "profit_rate",
+    },
 }
 
 SALES_REGISTER_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["sales_register_rows"]
@@ -1447,6 +1536,7 @@ INSTALL_CASE_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["install_cases_rows"]
 CALENDAR_MANUAL_EVENT_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["calendar_manual_events"]
 CONTACTS_MANAGE_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["contacts_rows"]
 SALES_CONTACTS_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["sales_contacts_rows"]
+PAYMENT_REPORT_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["payment_report_rows"]
 
 
 def sales_register_to_db_values(row: SalesRegisterBase) -> dict:
@@ -1601,6 +1691,62 @@ def sales_contact_patch_to_db_values(row: SalesContactPatch) -> dict:
             continue
         values[db_key] = "" if value is None else str(value)
     return values
+
+
+def _normalize_payment_cycle(value) -> str:
+    return "31" if str(value or "").strip() == "31" else "15"
+
+
+def payment_report_to_db_values(row: PaymentReportBase) -> dict:
+    data = row.model_dump()
+    values = {
+        db_key: data.get(api_key, "")
+        for api_key, db_key in PAYMENT_REPORT_DB_COLUMNS.items()
+    }
+    values["payment_cycle"] = _normalize_payment_cycle(values.get("payment_cycle"))
+    try:
+        values["sort_order"] = int(values.get("sort_order") or 0)
+    except (TypeError, ValueError):
+        values["sort_order"] = 0
+    return values
+
+
+def payment_report_patch_to_db_values(row: PaymentReportPatch) -> dict:
+    data = row.model_dump(exclude_unset=True)
+    values = {}
+    for api_key, db_key in PAYMENT_REPORT_DB_COLUMNS.items():
+        if api_key not in data:
+            continue
+        value = data[api_key]
+        if api_key == "paymentCycle":
+            values[db_key] = _normalize_payment_cycle(value)
+            continue
+        if api_key == "sortOrder":
+            try:
+                values[db_key] = int(value or 0)
+            except (TypeError, ValueError):
+                values[db_key] = 0
+            continue
+        values[db_key] = "" if value is None else str(value)
+    return values
+
+
+def row_to_payment_report(row) -> dict:
+    sort_order = row.get("sort_order")
+    try:
+        sort_order = int(sort_order)
+    except (TypeError, ValueError):
+        sort_order = 0
+
+    out = {"id": to_response_value(row["id"]), "sortOrder": sort_order}
+    for api_key, db_key in PAYMENT_REPORT_DB_COLUMNS.items():
+        if api_key == "sortOrder":
+            continue
+        if api_key == "paymentCycle":
+            out[api_key] = _normalize_payment_cycle(row.get(db_key))
+            continue
+        out[api_key] = to_response_value(row.get(db_key)) or ""
+    return out
 
 
 def row_to_sales_contact(row) -> dict:

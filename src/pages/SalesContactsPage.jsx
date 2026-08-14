@@ -124,7 +124,6 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
 
   const [rows, setRows] = useState([])
   const [toast, setToast] = useState({ message: '', tone: '' })
-  const [saveState, setSaveState] = useState('idle')
   const [loadError, setLoadError] = useState('')
 
   const rowsRef = useRef(rows)
@@ -154,7 +153,6 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
 
     persistInFlightRef.current.add(rowId)
     dirtyIdsRef.current.delete(rowId)
-    setSaveState('saving')
     try {
       let saved
       if (isPersistedContactId(row.id)) {
@@ -172,7 +170,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
           return { ...normalized, seq: item.seq }
         })
       )
-      setSaveState('saved')
+      setLoadError('')
 
       if (dirtyIdsRef.current.has(rowId) || dirtyIdsRef.current.has(normalized.id)) {
         dirtyIdsRef.current.delete(rowId)
@@ -182,12 +180,12 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
         }, 0)
       }
     } catch (error) {
-      setSaveState('error')
-      showLocalToast(`저장에 실패했습니다. ${safeString(error?.message)}`, 'error')
+      dirtyIdsRef.current.add(rowId)
+      setLoadError(`저장에 실패했습니다. ${safeString(error?.message)}`)
     } finally {
       persistInFlightRef.current.delete(rowId)
     }
-  }, [showLocalToast])
+  }, [])
 
   const scheduleSave = useCallback(
     (rowId) => {
@@ -228,12 +226,10 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
           normalizeSalesContactRow(row, index + 1)
         )
         setRows(normalized.length ? normalized : [createContactRow(1, 'draft-1', 1)])
-        setSaveState('idle')
       } catch (error) {
         if (cancelled) return
         setLoadError(safeString(error?.message) || '연락처를 불러오지 못했습니다.')
         setRows([createContactRow(1, 'draft-1', 1)])
-        setSaveState('error')
       }
     }
 
@@ -260,17 +256,15 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
   const handleAddRow = async () => {
     const sortOrder = nextSortOrder(rowsRef.current)
     const draft = createContactRow(rowsRef.current.length + 1, `draft-${Date.now()}`, sortOrder)
-    setSaveState('saving')
     try {
       const created = await salesContactsApi.create(draft)
       const normalized = normalizeSalesContactRow(created, rowsRef.current.length + 1)
       setRows((prev) => renumberContactRows([...prev, normalized]))
-      setSaveState('saved')
+      setLoadError('')
     } catch (error) {
       setRows((prev) => renumberContactRows([...prev, draft]))
       scheduleSave(draft.id)
-      setSaveState('error')
-      showLocalToast(`행 추가 저장에 실패했습니다. ${safeString(error?.message)}`, 'error')
+      setLoadError(`등록에 실패했습니다. ${safeString(error?.message)}`)
     }
   }
 
@@ -279,13 +273,11 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
     const remaining = rowsRef.current.filter((row) => row.id !== rowId)
 
     if (target && isPersistedContactId(target.id)) {
-      setSaveState('saving')
       try {
         await salesContactsApi.bulkDelete([target.id])
-        setSaveState('saved')
+        setLoadError('')
       } catch (error) {
-        setSaveState('error')
-        showLocalToast(`삭제에 실패했습니다. ${safeString(error?.message)}`, 'error')
+        setLoadError(`삭제에 실패했습니다. ${safeString(error?.message)}`)
         return
       }
     }
@@ -311,20 +303,13 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
     <section className="stat-card sales-contacts-page" aria-label="연락처">
       <div className="sales-contacts-toolbar">
         <button type="button" className="primary-btn" onClick={handleAddRow}>
-          행 추가
+          등록
         </button>
-        <p
-          className={`sales-contacts-save-status is-${saveState}`}
-          aria-live="polite"
-        >
-          {saveState === 'saving'
-            ? '저장 중...'
-            : saveState === 'saved'
-              ? '저장됨'
-              : saveState === 'error'
-                ? loadError || '저장 실패'
-                : '입력하면 자동 저장됩니다.'}
-        </p>
+        {loadError ? (
+          <p className="sales-contacts-save-status is-error" role="alert">
+            {loadError}
+          </p>
+        ) : null}
         <p className="sales-contacts-page-desc">
           {showInactive
             ? '관리자·부서장은 활성/비활성 연락처를 모두 볼 수 있습니다. 비활성 행은 회색으로 표시됩니다.'

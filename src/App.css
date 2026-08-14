@@ -13279,18 +13279,6 @@ body.work-report-manager-menu-open .work-report-board-section {
   margin: 0;
   font-size: 13px;
   font-weight: 700;
-  color: #64748b;
-}
-
-.sales-contacts-save-status.is-saving {
-  color: #1d4ed8;
-}
-
-.sales-contacts-save-status.is-saved {
-  color: #166534;
-}
-
-.sales-contacts-save-status.is-error {
   color: #b91c1c;
 }
 
@@ -13698,6 +13686,14 @@ table.sales-contacts-table tbody tr.sales-contacts-data-row.is-inactive > td.sal
   font-size: 13px;
   font-weight: 500;
   color: #64748b;
+  line-height: 1.35;
+}
+
+.payment-report-save-error {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #b91c1c;
   line-height: 1.35;
 }
 

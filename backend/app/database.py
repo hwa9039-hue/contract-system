@@ -658,6 +658,33 @@ def init_db():
             )
             cursor.execute(
                 """
+                create table if not exists payment_report_rows (
+                  id uuid primary key default gen_random_uuid(),
+                  sort_order integer not null default 0,
+                  payment_month text not null default '',
+                  payment_cycle text not null default '15',
+                  classification text not null default '',
+                  project_name text not null default '',
+                  contract_amount text not null default '',
+                  project_period text not null default '',
+                  client text not null default '',
+                  vendor_info text not null default '',
+                  planned_amount text not null default '',
+                  progress text not null default '',
+                  project_volume text not null default '',
+                  expense_content text not null default '',
+                  vendor_detail text not null default '',
+                  completion_amount text not null default '',
+                  material_cost text not null default '',
+                  current_expense text not null default '',
+                  profit_rate text not null default '',
+                  created_at timestamptz not null default now(),
+                  updated_at timestamptz not null default now()
+                )
+                """
+            )
+            cursor.execute(
+                """
                 create table if not exists sales_contacts_rows (
                   id uuid primary key default gen_random_uuid(),
                   sort_order integer not null default 0,
