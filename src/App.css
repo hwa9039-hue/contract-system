@@ -13304,6 +13304,19 @@ table.sales-contacts-table {
   --sc-w-division: 90px;
   --sc-w-company: 150px;
   --sc-w-department: 120px;
+  --sc-w-review: 110px;
+  --sc-w-status: 90px;
+  --sc-w-linked: 160px;
+  --sc-w-notes: 160px;
+  /* 주소는 폭을 지정하지 않고 남는 가로 공간을 흡수한다 */
+  --sc-w-address-min: 220px;
+
+  --sc-min-total: calc(
+    var(--sc-w-action) + var(--sc-w-copy) + var(--sc-w-seq) + var(--sc-w-manager) +
+      var(--sc-w-position) + var(--sc-w-phone) + var(--sc-w-email) + var(--sc-w-division) +
+      var(--sc-w-company) + var(--sc-w-department) + var(--sc-w-review) + var(--sc-w-status) +
+      var(--sc-w-linked) + var(--sc-w-address-min) + var(--sc-w-notes)
+  );
 
   --sc-left-action: 0px;
   --sc-left-copy: var(--sc-w-action);
@@ -13316,11 +13329,27 @@ table.sales-contacts-table {
   --sc-left-company: calc(var(--sc-left-division) + var(--sc-w-division));
   --sc-left-department: calc(var(--sc-left-company) + var(--sc-w-company));
 
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
+  min-width: var(--sc-min-total);
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
+}
+
+table.sales-contacts-table .sales-contacts-col--review {
+  width: var(--sc-w-review);
+}
+
+table.sales-contacts-table .sales-contacts-col--status {
+  width: var(--sc-w-status);
+}
+
+table.sales-contacts-table .sales-contacts-col--linked {
+  width: var(--sc-w-linked);
+}
+
+table.sales-contacts-table .sales-contacts-col--notes {
+  width: var(--sc-w-notes);
 }
 
 table.sales-contacts-table thead th {

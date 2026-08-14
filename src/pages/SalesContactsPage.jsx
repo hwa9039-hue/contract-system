@@ -333,11 +333,11 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
               <th className="sales-contacts-sticky sales-contacts-sticky--department sales-contacts-sticky--last">
                 부서명
               </th>
-              <th>심사</th>
-              <th>분류</th>
-              <th>연계 사업</th>
+              <th className="sales-contacts-col--review">심사</th>
+              <th className="sales-contacts-col--status">분류</th>
+              <th className="sales-contacts-col--linked">연계 사업</th>
               <th>주소</th>
-              <th>비고</th>
+              <th className="sales-contacts-col--notes">비고</th>
             </tr>
           </thead>
           <tbody>
