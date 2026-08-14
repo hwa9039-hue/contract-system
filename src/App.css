@@ -13249,6 +13249,515 @@ body.work-report-manager-menu-open .work-report-board-section {
   letter-spacing: -0.01em;
 }
 
+/* ── 결제보고 등록/수정 표 ─────────────────────────────────────────────── */
+.payment-report-page {
+  display: flex !important;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.payment-report-page-desc {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.payment-report-table-wrap {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+table.payment-report-table {
+  --pr-sticky-w-action: 56px;
+  --pr-sticky-w-seq: 64px;
+  --pr-sticky-w-class: 100px;
+  --pr-sticky-w-project: 220px;
+  --pr-sticky-w-amount: 156px;
+  --pr-sticky-w-period: 180px;
+  --pr-sticky-w-client: 140px;
+  --pr-sticky-w-detail: 96px;
+
+  --pr-sticky-left-action: 0px;
+  --pr-sticky-left-seq: var(--pr-sticky-w-action);
+  --pr-sticky-left-class: calc(var(--pr-sticky-left-seq) + var(--pr-sticky-w-seq));
+  --pr-sticky-left-project: calc(var(--pr-sticky-left-class) + var(--pr-sticky-w-class));
+  --pr-sticky-left-amount: calc(var(--pr-sticky-left-project) + var(--pr-sticky-w-project));
+  --pr-sticky-left-period: calc(var(--pr-sticky-left-amount) + var(--pr-sticky-w-amount));
+  --pr-sticky-left-client: calc(var(--pr-sticky-left-period) + var(--pr-sticky-w-period));
+  --pr-sticky-left-detail: calc(var(--pr-sticky-left-client) + var(--pr-sticky-w-client));
+
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+table.payment-report-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #e5e7eb;
+  padding: 10px 8px;
+  font-size: var(--cms-table-header-font-size);
+  font-weight: var(--cms-table-header-font-weight);
+  line-height: var(--cms-table-cell-line-height);
+  color: #475569;
+  white-space: nowrap;
+  text-align: center;
+}
+
+table.payment-report-table tbody td {
+  border-bottom: 1px solid #eef2f7;
+  border-right: 1px solid #eef2f7;
+  padding: 8px 10px;
+  vertical-align: middle;
+  background: #ffffff;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+table.payment-report-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* 자동등록 영역(삭제·구분·분류·사업명·계약금액·사업기간·발주처·세부사항) 좌측 틀 고정 */
+table.payment-report-table th.payment-report-sticky,
+table.payment-report-table td.payment-report-sticky {
+  position: sticky;
+  background-clip: padding-box;
+  box-sizing: border-box;
+}
+
+table.payment-report-table thead th.payment-report-sticky {
+  z-index: 30;
+  background: #f8fafc;
+}
+
+table.payment-report-table tbody td.payment-report-sticky {
+  z-index: 5;
+  background: #ffffff;
+}
+
+table.payment-report-table .payment-report-sticky--action {
+  left: var(--pr-sticky-left-action);
+  width: var(--pr-sticky-w-action);
+  min-width: var(--pr-sticky-w-action);
+  max-width: var(--pr-sticky-w-action);
+  text-align: center;
+}
+
+table.payment-report-table .payment-report-sticky--seq {
+  left: var(--pr-sticky-left-seq);
+  width: var(--pr-sticky-w-seq);
+  min-width: var(--pr-sticky-w-seq);
+  max-width: var(--pr-sticky-w-seq);
+  text-align: center;
+  font-weight: 800;
+}
+
+table.payment-report-table .payment-report-sticky--class {
+  left: var(--pr-sticky-left-class);
+  width: var(--pr-sticky-w-class);
+  min-width: var(--pr-sticky-w-class);
+  max-width: var(--pr-sticky-w-class);
+}
+
+table.payment-report-table .payment-report-sticky--project {
+  left: var(--pr-sticky-left-project);
+  width: var(--pr-sticky-w-project);
+  min-width: var(--pr-sticky-w-project);
+  max-width: var(--pr-sticky-w-project);
+}
+
+table.payment-report-table .payment-report-sticky--amount {
+  left: var(--pr-sticky-left-amount);
+  width: var(--pr-sticky-w-amount);
+  min-width: var(--pr-sticky-w-amount);
+  max-width: var(--pr-sticky-w-amount);
+}
+
+table.payment-report-table .payment-report-sticky--period {
+  left: var(--pr-sticky-left-period);
+  width: var(--pr-sticky-w-period);
+  min-width: var(--pr-sticky-w-period);
+  max-width: var(--pr-sticky-w-period);
+}
+
+table.payment-report-table .payment-report-sticky--client {
+  left: var(--pr-sticky-left-client);
+  width: var(--pr-sticky-w-client);
+  min-width: var(--pr-sticky-w-client);
+  max-width: var(--pr-sticky-w-client);
+}
+
+table.payment-report-table .payment-report-sticky--detail {
+  left: var(--pr-sticky-left-detail);
+  width: var(--pr-sticky-w-detail);
+  min-width: var(--pr-sticky-w-detail);
+  max-width: var(--pr-sticky-w-detail);
+  text-align: center;
+}
+
+table.payment-report-table th.payment-report-sticky--last,
+table.payment-report-table td.payment-report-sticky--last {
+  border-right: 2px solid #cbd5e1;
+}
+
+table.payment-report-table th.payment-report-sticky--last::after,
+table.payment-report-table td.payment-report-sticky--last::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -10px;
+  width: 10px;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(15, 23, 42, 0.12), rgba(15, 23, 42, 0));
+}
+
+/* 자동입력 잠금 칸 */
+table.payment-report-table td.payment-report-cell--locked {
+  background: #f3f4f6 !important;
+  color: #334155;
+  cursor: default;
+}
+
+table.payment-report-table td.payment-report-cell--amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.payment-report-locked-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.payment-report-locked-text--wrap {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.payment-report-cell-input {
+  width: 100%;
+  min-height: 34px;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.payment-report-cell-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.payment-report-cell-input--amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.payment-report-row-hint {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.payment-report-row-hint--ok {
+  color: #15803d;
+}
+
+.payment-report-row-hint--warn {
+  color: #b45309;
+}
+
+.payment-report-col-action,
+table.payment-report-table .payment-report-sticky--action {
+  width: var(--pr-sticky-w-action, 56px);
+  min-width: var(--pr-sticky-w-action, 56px);
+  text-align: center;
+}
+
+.payment-report-remove-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #64748b;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.payment-report-remove-btn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.payment-report-col-detail {
+  width: 96px;
+  min-width: 96px;
+  text-align: center;
+}
+
+.payment-report-detail-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.payment-report-detail-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.payment-report-detail-btn.is-open {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+table.payment-report-table tbody tr.payment-report-data-row.is-expanded > td {
+  border-bottom-color: transparent;
+}
+
+table.payment-report-table tbody tr.payment-report-expand-row > td {
+  padding: 0;
+  border-right: none;
+  background: #f8fafc;
+  vertical-align: top;
+}
+
+table.payment-report-table tbody tr.payment-report-expand-row:not(.is-open) > td {
+  border-bottom: none;
+}
+
+.payment-report-expand-inner {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.22s ease;
+}
+
+table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-report-expand-inner {
+  grid-template-rows: 1fr;
+}
+
+.payment-report-expand-inner > .payment-report-expand-body {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.payment-report-expand-body {
+  padding: 0 16px;
+}
+
+table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-report-expand-body {
+  padding: 16px 18px 18px;
+}
+
+.payment-report-expand-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.payment-report-expand-section-title {
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #3b82f6;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.payment-report-expand-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px 24px;
+}
+
+.payment-report-expand-pane {
+  min-width: 0;
+  padding: 14px 16px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.payment-report-expand-pane-title {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.payment-report-expand-readonly {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.payment-report-expand-readonly > div {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: start;
+}
+
+.payment-report-expand-readonly dt {
+  margin: 0;
+  padding-top: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.payment-report-expand-readonly dd {
+  margin: 0;
+  padding: 6px 10px;
+  min-height: 32px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.payment-report-expand-readonly-wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.payment-report-expand-vendor {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #f3f4f6;
+}
+
+.payment-report-expand-vendor-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.payment-report-expand-vendor-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  overflow-wrap: anywhere;
+}
+
+.payment-report-expand-field {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: start;
+  margin-bottom: 10px;
+}
+
+.payment-report-expand-field > span {
+  padding-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.payment-report-expand-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 96px;
+  resize: vertical;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.payment-report-expand-textarea:focus,
+.payment-report-expand-field .payment-report-cell-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.payment-report-expand-amounts {
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.payment-report-expand-amounts-title {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.payment-report-expand-amounts .payment-report-expand-field {
+  margin-bottom: 8px;
+}
+
+@media (max-width: 1100px) {
+  .payment-report-expand-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  table.payment-report-table {
+    --pr-sticky-w-project: 160px;
+    --pr-sticky-w-amount: 110px;
+    --pr-sticky-w-period: 140px;
+    --pr-sticky-w-client: 110px;
+  }
+}
+
 .install-case-detail-modal {
   --ic-modal-w: min(1000px, 68vw, calc(100vw - 32px));
   width: var(--ic-modal-w);

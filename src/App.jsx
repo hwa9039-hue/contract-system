@@ -68,6 +68,7 @@ import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 // import ProjectManagement from './pages/ProjectManagement.jsx'
 import OrderManagementPlaceholder from './pages/OrderManagementPlaceholder.jsx'
 import PreparingPlaceholder from './pages/PreparingPlaceholder.jsx'
+import PaymentReportPage from './pages/PaymentReportPage.jsx'
 import NaraMarket from './pages/NaraMarket.jsx'
 import NewsMonitor from './pages/NewsMonitor.jsx'
 import { decodeWorkReportWireText } from './workReportWire.js'
@@ -6555,6 +6556,11 @@ function App() {
   useEffect(() => {
     if (menu !== 'excluded') return
     void fetchExcludedRows(true)
+  }, [menu])
+
+  useEffect(() => {
+    if (menu !== 'paymentReport') return
+    void fetchContracts(true, true)
   }, [menu])
 
   useEffect(() => {
@@ -17573,7 +17579,7 @@ function App() {
           </section>
         )}
 
-        {menu === 'paymentReport' && <PreparingPlaceholder label="결제보고" />}
+        {menu === 'paymentReport' && <PaymentReportPage contracts={contracts} />}
 
         {menu === 'salesContacts' && <PreparingPlaceholder label="연락처" />}
 
