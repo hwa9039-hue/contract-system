@@ -3580,11 +3580,11 @@ textarea:focus-visible {
 }
 
 .menu {
-  gap: 4px;
+  gap: 6px;
 }
 
 .menu-btn {
-  height: 36px;
+  height: 42px;
   justify-content: flex-start;
   padding: 0 14px;
   border: 1px solid transparent;
@@ -6558,7 +6558,7 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
 .menu-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .menu-group-btn {
@@ -6567,7 +6567,7 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
   justify-content: space-between;
   width: 100%;
   min-width: 0;
-  height: 36px;
+  height: 42px;
   padding: 0 14px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -6620,9 +6620,9 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
 .menu-group-items {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  margin: 0 0 2px 14px;
-  padding: 2px 0 2px 12px;
+  gap: 3px;
+  margin: 0 0 4px 14px;
+  padding: 4px 0 4px 12px;
   border-left: 2px solid rgba(255, 255, 255, 0.14);
   background: transparent;
   list-style: none;
@@ -6639,7 +6639,7 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
   align-items: center;
   width: 100%;
   min-width: 0;
-  height: 31px;
+  height: 37px;
   padding: 0 12px 0 14px;
   font-size: 12px;
   font-weight: 600;
