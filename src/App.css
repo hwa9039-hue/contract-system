@@ -13281,10 +13281,10 @@ table.payment-report-table {
   --pr-sticky-w-action: 56px;
   --pr-sticky-w-seq: 64px;
   --pr-sticky-w-class: 100px;
-  --pr-sticky-w-project: 280px;
+  --pr-sticky-w-project: 220px;
   --pr-sticky-w-amount: 156px;
-  --pr-sticky-w-period: 190px;
-  --pr-sticky-w-client: 160px;
+  --pr-sticky-w-period: 180px;
+  --pr-sticky-w-client: 140px;
   --pr-sticky-w-detail: 96px;
 
   --pr-sticky-left-action: 0px;
@@ -13297,7 +13297,7 @@ table.payment-report-table {
   --pr-sticky-left-detail: calc(var(--pr-sticky-left-client) + var(--pr-sticky-w-client));
 
   width: 100%;
-  min-width: 1480px;
+  min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -13426,25 +13426,6 @@ table.payment-report-table td.payment-report-sticky--last::after {
   width: 10px;
   pointer-events: none;
   background: linear-gradient(to right, rgba(15, 23, 42, 0.12), rgba(15, 23, 42, 0));
-}
-
-/* 스크롤 영역 열 — 남은 가로 공간을 나눠 먹어 우측 여백을 채운다 */
-table.payment-report-table thead th:nth-child(9),
-table.payment-report-table tbody tr.payment-report-data-row > td:nth-child(9) {
-  width: 22%;
-  min-width: 180px;
-}
-
-table.payment-report-table thead th:nth-child(10),
-table.payment-report-table tbody tr.payment-report-data-row > td:nth-child(10) {
-  width: 20%;
-  min-width: 170px;
-}
-
-table.payment-report-table thead th:nth-child(11),
-table.payment-report-table tbody tr.payment-report-data-row > td:nth-child(11) {
-  width: 28%;
-  min-width: 200px;
 }
 
 /* 자동입력 잠금 칸 */
@@ -13775,10 +13756,10 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
 
 @media (max-width: 768px) {
   table.payment-report-table {
-    --pr-sticky-w-project: 200px;
-    --pr-sticky-w-amount: 130px;
-    --pr-sticky-w-period: 150px;
-    --pr-sticky-w-client: 120px;
+    --pr-sticky-w-project: 160px;
+    --pr-sticky-w-amount: 110px;
+    --pr-sticky-w-period: 140px;
+    --pr-sticky-w-client: 110px;
   }
 }
 
