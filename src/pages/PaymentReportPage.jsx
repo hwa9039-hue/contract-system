@@ -967,6 +967,10 @@ export default function PaymentReportPage({ contracts = [] }) {
   return (
     <section className="stat-card payment-report-page" aria-label="결제보고">
       <div className="payment-report-toolbar">
+        <button type="button" className="primary-btn payment-report-add-btn" onClick={handleAddRow}>
+          등록
+        </button>
+
         <div className="payment-report-month-nav" aria-label="결제 월 선택">
           <button
             type="button"
@@ -1005,10 +1009,6 @@ export default function PaymentReportPage({ contracts = [] }) {
             )
           })}
         </div>
-
-        <button type="button" className="primary-btn payment-report-add-btn" onClick={handleAddRow}>
-          등록
-        </button>
       </div>
 
       <p className="payment-report-page-desc">

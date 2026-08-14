@@ -13673,7 +13673,6 @@ table.sales-contacts-table tbody tr.sales-contacts-data-row.is-inactive > td.sal
 
 .payment-report-add-btn {
   flex: 0 0 auto;
-  margin-left: auto;
   white-space: nowrap;
 }
 
