@@ -13258,8 +13258,113 @@ body.work-report-manager-menu-open .work-report-board-section {
   width: 100%;
 }
 
-.payment-report-page-desc {
+.payment-report-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.payment-report-month-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.payment-report-month-btn {
+  appearance: none;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #334155;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.payment-report-month-btn:hover {
+  background: #eef2ff;
+  color: #1e3a8a;
+}
+
+.payment-report-month-label {
+  min-width: 108px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.payment-report-tabs {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
   margin: 0;
+  padding: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  width: auto;
+  max-width: none;
+  flex: 0 0 auto;
+}
+
+.payment-report-add-btn {
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.payment-report-tab {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.payment-report-tab:hover {
+  background: #eef2ff;
+  color: #1e3a8a;
+}
+
+.payment-report-tab.is-active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.25);
+}
+
+.payment-report-tab:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.payment-report-page-desc {
+  margin: 0 0 12px;
   font-size: 13px;
   font-weight: 500;
   color: #64748b;

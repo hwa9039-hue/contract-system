@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useId, useState } from 'react'
+import { Fragment, useCallback, useId, useMemo, useState } from 'react'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 
@@ -20,6 +20,40 @@ function formatAmountComma(value) {
 const PAYMENT_REPORT_AMOUNT_KEYS = new Set(['plannedAmount'])
 
 const PAYMENT_REPORT_TABLE_COL_COUNT = 11
+
+const PAYMENT_CYCLE_TABS = [
+  { id: '15', label: '15일 결제' },
+  { id: '31', label: '31일 결제' },
+  { id: 'all', label: '월 전체' },
+]
+
+function normalizePaymentCycle(value) {
+  return value === '31' ? '31' : '15'
+}
+
+function formatPaymentMonth(date = new Date()) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  return `${y}-${m}`
+}
+
+function normalizePaymentMonth(value, fallback = formatPaymentMonth()) {
+  const raw = safeString(value).trim()
+  if (/^\d{4}-\d{2}$/.test(raw)) return raw
+  return fallback
+}
+
+function shiftPaymentMonth(monthKey, deltaMonths) {
+  const base = normalizePaymentMonth(monthKey)
+  const [y, m] = base.split('-').map(Number)
+  const date = new Date(y, m - 1 + deltaMonths, 1)
+  return formatPaymentMonth(date)
+}
+
+function formatPaymentMonthLabel(monthKey) {
+  const [y, m] = normalizePaymentMonth(monthKey).split('-')
+  return `${y}년 ${Number(m)}월`
+}
 
 function displayLocked(value) {
   const text = safeString(value).trim()
@@ -479,10 +513,12 @@ function buildAutofillFromContract(contract) {
   }
 }
 
-function createPaymentReportRow(seq, id) {
+function createPaymentReportRow(seq, id, paymentCycle = '15', paymentMonth = formatPaymentMonth()) {
   return {
     id,
     seq,
+    paymentMonth: normalizePaymentMonth(paymentMonth),
+    paymentCycle: normalizePaymentCycle(paymentCycle),
     classification: '',
     projectName: '',
     contractAmount: '',
@@ -637,21 +673,69 @@ function PaymentReportExpandedPanel({ row, onChange, onDownloadPdf, isDownloadin
   )
 }
 
-function renumberRows(rows) {
-  return rows.map((row, index) => ({ ...row, seq: index + 1 }))
+/** 같은 결제월·주기 안에서 구분(seq)을 1부터 다시 부여 */
+function renumberRowsByMonthCycle(rows) {
+  const counters = new Map()
+  return rows.map((row) => {
+    const month = normalizePaymentMonth(row.paymentMonth)
+    const cycle = normalizePaymentCycle(row.paymentCycle)
+    const key = `${month}:${cycle}`
+    const nextSeq = (counters.get(key) || 0) + 1
+    counters.set(key, nextSeq)
+    return {
+      ...row,
+      paymentMonth: month,
+      paymentCycle: cycle,
+      seq: nextSeq,
+    }
+  })
 }
 
 /**
  * 결제보고 등록/수정 표.
- * - 구분: 등록 순번(1부터) 자동 기입 (계약현황과 무관)
+ * - 월(YYYY-MM) x 결제주기(15/31)로 건을 구분
+ * - 구분: 같은 월·주기 내 등록 순번(1부터)
  * - 분류 입력 시 사업명·계약금액·사업기간·발주처를 계약현황에서 채워 잠금
  */
 export default function PaymentReportPage({ contracts = [] }) {
   const idPrefix = useId()
-  const [rows, setRows] = useState(() => [createPaymentReportRow(1, `${idPrefix}-1`)])
+  const [activeMonth, setActiveMonth] = useState(() => formatPaymentMonth())
+  const [activeTab, setActiveTab] = useState('15')
+  const [rows, setRows] = useState(() => [
+    createPaymentReportRow(1, `${idPrefix}-1`, '15', formatPaymentMonth()),
+  ])
   const [nextId, setNextId] = useState(2)
   const [expandedIds, setExpandedIds] = useState(() => new Set())
   const [pdfDownloadingId, setPdfDownloadingId] = useState('')
+
+  const visibleRows = useMemo(() => {
+    const month = normalizePaymentMonth(activeMonth)
+    const inMonth = rows.filter((row) => normalizePaymentMonth(row.paymentMonth) === month)
+    if (activeTab === 'all') return inMonth
+    const cycle = normalizePaymentCycle(activeTab)
+    return inMonth.filter((row) => normalizePaymentCycle(row.paymentCycle) === cycle)
+  }, [rows, activeMonth, activeTab])
+
+  const ensureBucketRow = useCallback(
+    (month, cycle) => {
+      const targetMonth = normalizePaymentMonth(month)
+      const targetCycle = normalizePaymentCycle(cycle)
+      setRows((prev) => {
+        const exists = prev.some(
+          (row) =>
+            normalizePaymentMonth(row.paymentMonth) === targetMonth &&
+            normalizePaymentCycle(row.paymentCycle) === targetCycle
+        )
+        if (exists) return prev
+        const id = `${idPrefix}-seed-${targetMonth}-${targetCycle}-${Date.now()}`
+        return renumberRowsByMonthCycle([
+          ...prev,
+          createPaymentReportRow(1, id, targetCycle, targetMonth),
+        ])
+      })
+    },
+    [idPrefix]
+  )
 
   const applyClassificationLookup = useCallback(
     (rowId, classificationValue) => {
@@ -723,10 +807,34 @@ export default function PaymentReportPage({ contracts = [] }) {
     }
   }
 
+  const handleMonthShift = (delta) => {
+    const nextMonth = shiftPaymentMonth(activeMonth, delta)
+    setActiveMonth(nextMonth)
+    if (activeTab !== 'all') ensureBucketRow(nextMonth, activeTab)
+  }
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId)
+    if (tabId === 'all') return
+    ensureBucketRow(activeMonth, tabId)
+  }
+
   const handleAddRow = () => {
+    const month = normalizePaymentMonth(activeMonth)
+    const cycle = activeTab === 'all' ? '15' : normalizePaymentCycle(activeTab)
     const id = `${idPrefix}-${nextId}`
     setNextId((n) => n + 1)
-    setRows((prev) => [...prev, createPaymentReportRow(prev.length + 1, id)])
+    setRows((prev) => {
+      const bucketCount = prev.filter(
+        (row) =>
+          normalizePaymentMonth(row.paymentMonth) === month &&
+          normalizePaymentCycle(row.paymentCycle) === cycle
+      ).length
+      return renumberRowsByMonthCycle([
+        ...prev,
+        createPaymentReportRow(bucketCount + 1, id, cycle, month),
+      ])
+    })
   }
 
   const handleRemoveRow = (rowId) => {
@@ -736,25 +844,84 @@ export default function PaymentReportPage({ contracts = [] }) {
       return next
     })
     setRows((prev) => {
-      if (prev.length <= 1) {
-        return [createPaymentReportRow(1, `${idPrefix}-reset`)]
+      const target = prev.find((row) => row.id === rowId)
+      const month = normalizePaymentMonth(target?.paymentMonth || activeMonth)
+      const cycle = normalizePaymentCycle(target?.paymentCycle || activeTab)
+      const remaining = prev.filter((row) => row.id !== rowId)
+      const bucketLeft = remaining.filter(
+        (row) =>
+          normalizePaymentMonth(row.paymentMonth) === month &&
+          normalizePaymentCycle(row.paymentCycle) === cycle
+      )
+
+      if (bucketLeft.length === 0) {
+        const id = `${idPrefix}-reset-${month}-${cycle}-${Date.now()}`
+        return renumberRowsByMonthCycle([
+          ...remaining,
+          createPaymentReportRow(1, id, cycle, month),
+        ])
       }
-      return renumberRows(prev.filter((row) => row.id !== rowId))
+      if (remaining.length === 0) {
+        return [createPaymentReportRow(1, `${idPrefix}-reset`, '15', month)]
+      }
+      return renumberRowsByMonthCycle(remaining)
     })
   }
 
   return (
     <section className="stat-card payment-report-page" aria-label="결제보고">
-      <div className="contracts-header-actions">
-        <button type="button" className="primary-btn" onClick={handleAddRow}>
+      <div className="payment-report-toolbar">
+        <div className="payment-report-month-nav" aria-label="결제 월 선택">
+          <button
+            type="button"
+            className="payment-report-month-btn"
+            onClick={() => handleMonthShift(-1)}
+            aria-label="이전 달"
+          >
+            ‹
+          </button>
+          <span className="payment-report-month-label">{formatPaymentMonthLabel(activeMonth)}</span>
+          <button
+            type="button"
+            className="payment-report-month-btn"
+            onClick={() => handleMonthShift(1)}
+            aria-label="다음 달"
+          >
+            ›
+          </button>
+        </div>
+
+        <div className="payment-report-tabs" role="tablist" aria-label="결제 주기">
+          {PAYMENT_CYCLE_TABS.map((tab) => {
+            const selected = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                id={`payment-report-tab-${tab.id}`}
+                aria-selected={selected}
+                className={`payment-report-tab${selected ? ' is-active' : ''}`}
+                onClick={() => handleTabChange(tab.id)}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+
+        <button type="button" className="primary-btn payment-report-add-btn" onClick={handleAddRow}>
           행 추가
         </button>
-        <p className="payment-report-page-desc">
-          구분은 등록 순번으로 자동 부여됩니다.
-          <br />
-          분류(참고번호)를 입력하면 계약현황 정보가 표에 자동 입력되며 수정할 수 없습니다.
-        </p>
       </div>
+
+      <p className="payment-report-page-desc">
+        {formatPaymentMonthLabel(activeMonth)} 기준으로{' '}
+        {activeTab === 'all'
+          ? '15일·31일 결제 건을 함께 표시합니다. 행 추가 시 기본값은 15일 결제입니다.'
+          : `${activeTab}일 결제 건만 표시합니다. 행 추가 시 현재 월·주기가 자동 적용됩니다.`}{' '}
+        분류(참고번호)를 입력하면 계약현황 정보가 표에 자동 입력되며 수정할 수 없습니다.
+      </p>
 
       <div className="payment-report-table-wrap">
         <table className="payment-report-table excel-table registry-table">
@@ -778,126 +945,128 @@ export default function PaymentReportPage({ contracts = [] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
+            {visibleRows.map((row) => {
               const isExpanded = expandedIds.has(row.id)
               return (
                 <Fragment key={row.id}>
-              <tr
-                className={isExpanded ? 'payment-report-data-row is-expanded' : 'payment-report-data-row'}
-                data-payment-report-data-id={row.id}
-              >
-                <td className="payment-report-sticky payment-report-sticky--action">
-                  <button
-                    type="button"
-                    className="payment-report-remove-btn"
-                    onClick={() => handleRemoveRow(row.id)}
-                    aria-label={`${row.seq}번 행 삭제`}
+                  <tr
+                    className={
+                      isExpanded ? 'payment-report-data-row is-expanded' : 'payment-report-data-row'
+                    }
+                    data-payment-report-data-id={row.id}
                   >
-                    ×
-                  </button>
-                </td>
-                <td className="payment-report-sticky payment-report-sticky--seq payment-report-cell--locked">
-                  {row.seq}
-                </td>
-                <td className="payment-report-sticky payment-report-sticky--class">
-                  <input
-                    className="payment-report-cell-input"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    value={row.classification}
-                    onChange={(e) => handleClassificationChange(row.id, e.target.value)}
-                    onBlur={(e) => handleClassificationChange(row.id, e.target.value)}
-                    aria-label={`${row.seq}번 분류`}
-                  />
-                  {row.matchStatus === 'matched' ? (
-                    <span className="payment-report-row-hint payment-report-row-hint--ok">일치</span>
-                  ) : null}
-                  {row.matchStatus === 'missed' ? (
-                    <span className="payment-report-row-hint payment-report-row-hint--warn">없음</span>
-                  ) : null}
-                </td>
-                <td className="payment-report-sticky payment-report-sticky--project payment-report-cell--locked">
-                  <span className="payment-report-locked-text payment-report-locked-text--wrap">
-                    {row.projectName || '—'}
-                  </span>
-                </td>
-                <td className="payment-report-sticky payment-report-sticky--amount payment-report-cell--locked payment-report-cell--amount">
-                  {row.contractAmount || '—'}
-                </td>
-                <td className="payment-report-sticky payment-report-sticky--period payment-report-cell--locked">
-                  <span className="payment-report-locked-text" title={row.projectPeriod || undefined}>
-                    {row.projectPeriod || '—'}
-                  </span>
-                </td>
-                <td className="payment-report-sticky payment-report-sticky--client payment-report-cell--locked">
-                  <span className="payment-report-locked-text" title={row.client || undefined}>
-                    {row.client || '—'}
-                  </span>
-                </td>
-                <td className="payment-report-sticky payment-report-sticky--detail payment-report-sticky--last payment-report-col-detail">
-                  <button
-                    type="button"
-                    className={`payment-report-detail-btn${isExpanded ? ' is-open' : ''}`}
-                    aria-expanded={isExpanded}
-                    aria-controls={`payment-report-detail-${row.id}`}
-                    onClick={() => toggleRowExpand(row.id)}
-                  >
-                    세부사항
-                  </button>
-                </td>
-                <td>
-                  <input
-                    className="payment-report-cell-input"
-                    type="text"
-                    autoComplete="off"
-                    placeholder="업체명"
-                    value={row.vendorInfo}
-                    onChange={(e) => handleEditableChange(row.id, 'vendorInfo', e.target.value)}
-                    aria-label={`${row.seq}번 결제 업체정보`}
-                  />
-                </td>
-                <td>
-                  <input
-                    className="payment-report-cell-input payment-report-cell-input--amount"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="0"
-                    value={row.plannedAmount}
-                    onChange={(e) => handleEditableChange(row.id, 'plannedAmount', e.target.value)}
-                    aria-label={`${row.seq}번 결제 예정 금액`}
-                  />
-                </td>
-                <td>
-                  <input
-                    className="payment-report-cell-input"
-                    type="text"
-                    autoComplete="off"
-                    placeholder="진행사항"
-                    value={row.progress}
-                    onChange={(e) => handleEditableChange(row.id, 'progress', e.target.value)}
-                    aria-label={`${row.seq}번 진행사항`}
-                  />
-                </td>
-              </tr>
-              <tr className={`payment-report-expand-row${isExpanded ? ' is-open' : ''}`}>
-                <td colSpan={PAYMENT_REPORT_TABLE_COL_COUNT}>
-                  <div className="payment-report-expand-inner">
-                    <div
-                      id={`payment-report-detail-${row.id}`}
-                      className="payment-report-expand-body"
-                    >
-                      <PaymentReportExpandedPanel
-                        row={row}
-                        onChange={handleEditableChange}
-                        onDownloadPdf={handleDownloadPdf}
-                        isDownloading={pdfDownloadingId === row.id}
+                    <td className="payment-report-sticky payment-report-sticky--action">
+                      <button
+                        type="button"
+                        className="payment-report-remove-btn"
+                        onClick={() => handleRemoveRow(row.id)}
+                        aria-label={`${row.seq}번 행 삭제`}
+                      >
+                        ×
+                      </button>
+                    </td>
+                    <td className="payment-report-sticky payment-report-sticky--seq payment-report-cell--locked">
+                      {row.seq}
+                    </td>
+                    <td className="payment-report-sticky payment-report-sticky--class">
+                      <input
+                        className="payment-report-cell-input"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        value={row.classification}
+                        onChange={(e) => handleClassificationChange(row.id, e.target.value)}
+                        onBlur={(e) => handleClassificationChange(row.id, e.target.value)}
+                        aria-label={`${row.seq}번 분류`}
                       />
-                    </div>
-                  </div>
-                </td>
-              </tr>
+                      {row.matchStatus === 'matched' ? (
+                        <span className="payment-report-row-hint payment-report-row-hint--ok">일치</span>
+                      ) : null}
+                      {row.matchStatus === 'missed' ? (
+                        <span className="payment-report-row-hint payment-report-row-hint--warn">없음</span>
+                      ) : null}
+                    </td>
+                    <td className="payment-report-sticky payment-report-sticky--project payment-report-cell--locked">
+                      <span className="payment-report-locked-text payment-report-locked-text--wrap">
+                        {row.projectName || '—'}
+                      </span>
+                    </td>
+                    <td className="payment-report-sticky payment-report-sticky--amount payment-report-cell--locked payment-report-cell--amount">
+                      {row.contractAmount || '—'}
+                    </td>
+                    <td className="payment-report-sticky payment-report-sticky--period payment-report-cell--locked">
+                      <span className="payment-report-locked-text" title={row.projectPeriod || undefined}>
+                        {row.projectPeriod || '—'}
+                      </span>
+                    </td>
+                    <td className="payment-report-sticky payment-report-sticky--client payment-report-cell--locked">
+                      <span className="payment-report-locked-text" title={row.client || undefined}>
+                        {row.client || '—'}
+                      </span>
+                    </td>
+                    <td className="payment-report-sticky payment-report-sticky--detail payment-report-sticky--last payment-report-col-detail">
+                      <button
+                        type="button"
+                        className={`payment-report-detail-btn${isExpanded ? ' is-open' : ''}`}
+                        aria-expanded={isExpanded}
+                        aria-controls={`payment-report-detail-${row.id}`}
+                        onClick={() => toggleRowExpand(row.id)}
+                      >
+                        세부사항
+                      </button>
+                    </td>
+                    <td>
+                      <input
+                        className="payment-report-cell-input"
+                        type="text"
+                        autoComplete="off"
+                        placeholder="업체명"
+                        value={row.vendorInfo}
+                        onChange={(e) => handleEditableChange(row.id, 'vendorInfo', e.target.value)}
+                        aria-label={`${row.seq}번 결제 업체정보`}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="payment-report-cell-input payment-report-cell-input--amount"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        placeholder="0"
+                        value={row.plannedAmount}
+                        onChange={(e) => handleEditableChange(row.id, 'plannedAmount', e.target.value)}
+                        aria-label={`${row.seq}번 결제 예정 금액`}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="payment-report-cell-input"
+                        type="text"
+                        autoComplete="off"
+                        placeholder="진행사항"
+                        value={row.progress}
+                        onChange={(e) => handleEditableChange(row.id, 'progress', e.target.value)}
+                        aria-label={`${row.seq}번 진행사항`}
+                      />
+                    </td>
+                  </tr>
+                  <tr className={`payment-report-expand-row${isExpanded ? ' is-open' : ''}`}>
+                    <td colSpan={PAYMENT_REPORT_TABLE_COL_COUNT}>
+                      <div className="payment-report-expand-inner">
+                        <div
+                          id={`payment-report-detail-${row.id}`}
+                          className="payment-report-expand-body"
+                        >
+                          <PaymentReportExpandedPanel
+                            row={row}
+                            onChange={handleEditableChange}
+                            onDownloadPdf={handleDownloadPdf}
+                            isDownloading={pdfDownloadingId === row.id}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
                 </Fragment>
               )
             })}
@@ -907,3 +1076,4 @@ export default function PaymentReportPage({ contracts = [] }) {
     </section>
   )
 }
+
