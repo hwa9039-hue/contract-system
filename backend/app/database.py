@@ -658,6 +658,28 @@ def init_db():
             )
             cursor.execute(
                 """
+                create table if not exists sales_contacts_rows (
+                  id uuid primary key default gen_random_uuid(),
+                  sort_order integer not null default 0,
+                  manager_name text not null default '',
+                  position text not null default '',
+                  phone text not null default '',
+                  email text not null default '',
+                  division text not null default '',
+                  company_name text not null default '',
+                  department text not null default '',
+                  review text not null default '',
+                  status text not null default 'active',
+                  linked_project text not null default '',
+                  address text not null default '',
+                  notes text not null default '',
+                  created_at timestamptz not null default now(),
+                  updated_at timestamptz not null default now()
+                )
+                """
+            )
+            cursor.execute(
+                """
                 create table if not exists project_discovery_rows (
                   id uuid primary key default gen_random_uuid(),
                   "permitDate" text,

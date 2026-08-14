@@ -563,6 +563,66 @@ class ContactsManageBulkDelete(BaseModel):
     ids: list[Any]
 
 
+class SalesContactBase(BaseModel):
+    sortOrder: int = 0
+    managerName: str = ""
+    position: str = ""
+    phone: str = ""
+    email: str = ""
+    division: str = ""
+    companyName: str = ""
+    department: str = ""
+    review: str = ""
+    status: str = "active"
+    linkedProject: str = ""
+    address: str = ""
+    notes: str = ""
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def normalize_sales_contact_status(cls, value):
+        raw = str(value or "").strip().lower()
+        return "inactive" if raw == "inactive" else "active"
+
+    @field_validator("sortOrder", mode="before")
+    @classmethod
+    def coerce_sort_order(cls, value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+
+class SalesContactCreate(SalesContactBase):
+    pass
+
+
+class SalesContactPatch(BaseModel):
+    sortOrder: Optional[Any] = None
+    managerName: Optional[Any] = None
+    position: Optional[Any] = None
+    phone: Optional[Any] = None
+    email: Optional[Any] = None
+    division: Optional[Any] = None
+    companyName: Optional[Any] = None
+    department: Optional[Any] = None
+    review: Optional[Any] = None
+    status: Optional[Any] = None
+    linkedProject: Optional[Any] = None
+    address: Optional[Any] = None
+    notes: Optional[Any] = None
+
+
+class SalesContactOut(SalesContactBase):
+    id: Optional[Any] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SalesContactBulkDelete(BaseModel):
+    ids: list[Any]
+
+
 def _join_report_payload_parts(parts: Any) -> str:
     if not isinstance(parts, list):
         return ""
@@ -1360,6 +1420,21 @@ TABLE_COLUMN_MAPPINGS = {
         "email": "email",
         "notes": "notes",
     },
+    "sales_contacts_rows": {
+        "sortOrder": "sort_order",
+        "managerName": "manager_name",
+        "position": "position",
+        "phone": "phone",
+        "email": "email",
+        "division": "division",
+        "companyName": "company_name",
+        "department": "department",
+        "review": "review",
+        "status": "status",
+        "linkedProject": "linked_project",
+        "address": "address",
+        "notes": "notes",
+    },
 }
 
 SALES_REGISTER_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["sales_register_rows"]
@@ -1371,6 +1446,7 @@ WEEKLY_WORK_REPORT_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["weekly_work_reports_rows"
 INSTALL_CASE_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["install_cases_rows"]
 CALENDAR_MANUAL_EVENT_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["calendar_manual_events"]
 CONTACTS_MANAGE_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["contacts_rows"]
+SALES_CONTACTS_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["sales_contacts_rows"]
 
 
 def sales_register_to_db_values(row: SalesRegisterBase) -> dict:
@@ -1485,6 +1561,69 @@ def contacts_manage_patch_to_db_values(row: ContactsManagePatch) -> dict:
         db_key: data[api_key]
         for api_key, db_key in CONTACTS_MANAGE_DB_COLUMNS.items()
         if api_key in data
+    }
+
+
+def _normalize_sales_contact_status(value) -> str:
+    raw = str(value or "").strip().lower()
+    return "inactive" if raw == "inactive" else "active"
+
+
+def sales_contact_to_db_values(row: SalesContactBase) -> dict:
+    data = row.model_dump()
+    values = {
+        db_key: data.get(api_key, "")
+        for api_key, db_key in SALES_CONTACTS_DB_COLUMNS.items()
+    }
+    values["status"] = _normalize_sales_contact_status(values.get("status"))
+    try:
+        values["sort_order"] = int(values.get("sort_order") or 0)
+    except (TypeError, ValueError):
+        values["sort_order"] = 0
+    return values
+
+
+def sales_contact_patch_to_db_values(row: SalesContactPatch) -> dict:
+    data = row.model_dump(exclude_unset=True)
+    values = {}
+    for api_key, db_key in SALES_CONTACTS_DB_COLUMNS.items():
+        if api_key not in data:
+            continue
+        value = data[api_key]
+        if api_key == "status":
+            values[db_key] = _normalize_sales_contact_status(value)
+            continue
+        if api_key == "sortOrder":
+            try:
+                values[db_key] = int(value or 0)
+            except (TypeError, ValueError):
+                values[db_key] = 0
+            continue
+        values[db_key] = "" if value is None else str(value)
+    return values
+
+
+def row_to_sales_contact(row) -> dict:
+    sort_order = row.get("sort_order")
+    try:
+        sort_order = int(sort_order)
+    except (TypeError, ValueError):
+        sort_order = 0
+    return {
+        "id": to_response_value(row["id"]),
+        "sortOrder": sort_order,
+        "managerName": to_response_value(row["manager_name"]) or "",
+        "position": to_response_value(row["position"]) or "",
+        "phone": to_response_value(row["phone"]) or "",
+        "email": to_response_value(row["email"]) or "",
+        "division": to_response_value(row["division"]) or "",
+        "companyName": to_response_value(row["company_name"]) or "",
+        "department": to_response_value(row["department"]) or "",
+        "review": to_response_value(row["review"]) or "",
+        "status": _normalize_sales_contact_status(row.get("status")),
+        "linkedProject": to_response_value(row["linked_project"]) or "",
+        "address": to_response_value(row["address"]) or "",
+        "notes": to_response_value(row["notes"]) or "",
     }
 
 

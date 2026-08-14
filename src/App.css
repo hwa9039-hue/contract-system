@@ -13249,6 +13249,336 @@ body.work-report-manager-menu-open .work-report-board-section {
   letter-spacing: -0.01em;
 }
 
+/* ── 영업정보 > 연락처 ───────────────────────────────────────────────── */
+.sales-contacts-page {
+  display: flex !important;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  position: relative;
+}
+
+.sales-contacts-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.sales-contacts-page-desc {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.sales-contacts-save-status {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.sales-contacts-save-status.is-saving {
+  color: #1d4ed8;
+}
+
+.sales-contacts-save-status.is-saved {
+  color: #166534;
+}
+
+.sales-contacts-save-status.is-error {
+  color: #b91c1c;
+}
+
+.sales-contacts-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+table.sales-contacts-table {
+  --sc-w-action: 56px;
+  --sc-w-copy: 56px;
+  --sc-w-seq: 56px;
+  --sc-w-manager: 100px;
+  --sc-w-position: 88px;
+  --sc-w-phone: 130px;
+  --sc-w-email: 180px;
+  --sc-w-division: 90px;
+  --sc-w-company: 150px;
+  --sc-w-department: 120px;
+
+  --sc-left-action: 0px;
+  --sc-left-copy: var(--sc-w-action);
+  --sc-left-seq: calc(var(--sc-left-copy) + var(--sc-w-copy));
+  --sc-left-manager: calc(var(--sc-left-seq) + var(--sc-w-seq));
+  --sc-left-position: calc(var(--sc-left-manager) + var(--sc-w-manager));
+  --sc-left-phone: calc(var(--sc-left-position) + var(--sc-w-position));
+  --sc-left-email: calc(var(--sc-left-phone) + var(--sc-w-phone));
+  --sc-left-division: calc(var(--sc-left-email) + var(--sc-w-email));
+  --sc-left-company: calc(var(--sc-left-division) + var(--sc-w-division));
+  --sc-left-department: calc(var(--sc-left-company) + var(--sc-w-company));
+
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+table.sales-contacts-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #e5e7eb;
+  padding: 10px 8px;
+  font-size: var(--cms-table-header-font-size);
+  font-weight: var(--cms-table-header-font-weight);
+  line-height: var(--cms-table-cell-line-height);
+  color: #475569;
+  white-space: nowrap;
+  text-align: center;
+}
+
+table.sales-contacts-table tbody td {
+  border-bottom: 1px solid #eef2f7;
+  border-right: 1px solid #eef2f7;
+  padding: 6px 8px;
+  vertical-align: middle;
+  background: #ffffff;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+table.sales-contacts-table th.sales-contacts-sticky,
+table.sales-contacts-table td.sales-contacts-sticky {
+  position: sticky;
+  background-clip: padding-box;
+  box-sizing: border-box;
+}
+
+table.sales-contacts-table thead th.sales-contacts-sticky {
+  z-index: 30;
+  background: #f8fafc;
+}
+
+table.sales-contacts-table tbody td.sales-contacts-sticky {
+  z-index: 5;
+  background: #ffffff;
+}
+
+table.sales-contacts-table .sales-contacts-sticky--action {
+  left: var(--sc-left-action);
+  width: var(--sc-w-action);
+  min-width: var(--sc-w-action);
+  max-width: var(--sc-w-action);
+  text-align: center;
+}
+
+table.sales-contacts-table .sales-contacts-sticky--copy {
+  left: var(--sc-left-copy);
+  width: var(--sc-w-copy);
+  min-width: var(--sc-w-copy);
+  max-width: var(--sc-w-copy);
+  text-align: center;
+}
+
+table.sales-contacts-table .sales-contacts-sticky--seq {
+  left: var(--sc-left-seq);
+  width: var(--sc-w-seq);
+  min-width: var(--sc-w-seq);
+  max-width: var(--sc-w-seq);
+  text-align: center;
+  font-weight: 800;
+}
+
+table.sales-contacts-table .sales-contacts-sticky--manager {
+  left: var(--sc-left-manager);
+  width: var(--sc-w-manager);
+  min-width: var(--sc-w-manager);
+  max-width: var(--sc-w-manager);
+}
+
+table.sales-contacts-table .sales-contacts-sticky--position {
+  left: var(--sc-left-position);
+  width: var(--sc-w-position);
+  min-width: var(--sc-w-position);
+  max-width: var(--sc-w-position);
+}
+
+table.sales-contacts-table .sales-contacts-sticky--phone {
+  left: var(--sc-left-phone);
+  width: var(--sc-w-phone);
+  min-width: var(--sc-w-phone);
+  max-width: var(--sc-w-phone);
+}
+
+table.sales-contacts-table .sales-contacts-sticky--email {
+  left: var(--sc-left-email);
+  width: var(--sc-w-email);
+  min-width: var(--sc-w-email);
+  max-width: var(--sc-w-email);
+}
+
+table.sales-contacts-table .sales-contacts-sticky--division {
+  left: var(--sc-left-division);
+  width: var(--sc-w-division);
+  min-width: var(--sc-w-division);
+  max-width: var(--sc-w-division);
+}
+
+table.sales-contacts-table .sales-contacts-sticky--company {
+  left: var(--sc-left-company);
+  width: var(--sc-w-company);
+  min-width: var(--sc-w-company);
+  max-width: var(--sc-w-company);
+}
+
+table.sales-contacts-table .sales-contacts-sticky--department {
+  left: var(--sc-left-department);
+  width: var(--sc-w-department);
+  min-width: var(--sc-w-department);
+  max-width: var(--sc-w-department);
+}
+
+table.sales-contacts-table th.sales-contacts-sticky--last,
+table.sales-contacts-table td.sales-contacts-sticky--last {
+  border-right: 2px solid #cbd5e1;
+}
+
+table.sales-contacts-table th.sales-contacts-sticky--last::after,
+table.sales-contacts-table td.sales-contacts-sticky--last::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -6px;
+  width: 6px;
+  height: 100%;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(15, 23, 42, 0.12), rgba(15, 23, 42, 0));
+}
+
+table.sales-contacts-table tbody tr.sales-contacts-data-row.is-inactive > td {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+table.sales-contacts-table tbody tr.sales-contacts-data-row.is-inactive > td.sales-contacts-sticky {
+  background: #f1f5f9;
+}
+
+.sales-contacts-cell--locked {
+  text-align: center;
+  font-weight: 800;
+  color: #334155;
+}
+
+.sales-contacts-cell-input {
+  width: 100%;
+  min-height: 34px;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0 8px;
+  font-size: 13px;
+  line-height: 32px;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.sales-contacts-cell-select {
+  cursor: pointer;
+}
+
+.sales-contacts-cell-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.sales-contacts-cell-input:disabled {
+  background: #f8fafc;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.sales-contacts-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 30px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.sales-contacts-copy-btn:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.sales-contacts-col-action {
+  width: 56px;
+  min-width: 56px;
+  text-align: center;
+}
+
+.sales-contacts-remove-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #64748b;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sales-contacts-remove-btn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.sales-contacts-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 80;
+  min-width: 180px;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.28);
+}
+
+.sales-contacts-toast.is-success {
+  background: #166534;
+}
+
+.sales-contacts-toast.is-error {
+  background: #991b1b;
+}
+
 /* ── 결제보고 등록/수정 표 ─────────────────────────────────────────────── */
 .payment-report-page {
   display: flex !important;

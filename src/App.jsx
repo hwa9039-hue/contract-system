@@ -69,6 +69,7 @@ import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import OrderManagementPlaceholder from './pages/OrderManagementPlaceholder.jsx'
 import PreparingPlaceholder from './pages/PreparingPlaceholder.jsx'
 import PaymentReportPage from './pages/PaymentReportPage.jsx'
+import SalesContactsPage from './pages/SalesContactsPage.jsx'
 import NaraMarket from './pages/NaraMarket.jsx'
 import NewsMonitor from './pages/NewsMonitor.jsx'
 import { decodeWorkReportWireText } from './workReportWire.js'
@@ -17581,7 +17582,7 @@ function App() {
 
         {menu === 'paymentReport' && <PaymentReportPage contracts={contracts} />}
 
-        {menu === 'salesContacts' && <PreparingPlaceholder label="연락처" />}
+        {menu === 'salesContacts' && <SalesContactsPage role={role} />}
 
         {menu === 'orderManagement' && <OrderManagementPlaceholder />}
 
