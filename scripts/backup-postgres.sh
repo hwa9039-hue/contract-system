@@ -84,7 +84,9 @@ load_env_from_files() {
       BACKUP_UPLOAD_CONTAINER_PATHS \
       BACKUP_HOST_PATHS \
       BACKUP_SKIP_FILE_COPY \
-      BACKUP_SKIP_EXCEL_EXPORT; do
+      BACKUP_SKIP_EXCEL_EXPORT \
+      BACKUP_RETENTION_COUNT \
+      BACKUP_MIN_FREE_MB; do
       local var_name="$key"
       if [[ -z "${!var_name:-}" ]]; then
         if val="$(read_dotenv_value "$f" "$key")"; then
@@ -758,6 +760,96 @@ run_excel_export() {
 }
 
 # ---------------------------------------------------------------------------
+# 보관 주기 / 디스크 여유 점검
+#
+# 세션 폴더는 pg_dump + postgres_data·uploads 전체 복사본이라 한 번에 수 GB가 된다.
+# 하루 3회를 무기한 쌓으면 볼륨이 반드시 차고, 그때부터 백업이 통째로 실패한다.
+# ---------------------------------------------------------------------------
+list_backup_sessions() {
+  # 폴더명이 YYYYMMDD_HHMMSS 라 사전순 정렬 = 오래된 것부터
+  local path name
+  for path in "${BACKUP_DIR}"/*; do
+    [[ -d "$path" ]] || continue
+    name="${path##*/}"
+    [[ "$name" =~ ^[0-9]{8}_[0-9]{6}$ ]] && printf '%s\n' "$name"
+  done | sort
+}
+
+prune_old_backup_sessions() {
+  local keep="${BACKUP_RETENTION_COUNT:-30}"
+  keep="$(trim_path "$keep")"
+
+  if ! [[ "$keep" =~ ^[0-9]+$ ]] || (( keep <= 0 )); then
+    echo "Retention disabled (BACKUP_RETENTION_COUNT=${keep})" >&2
+    return 0
+  fi
+
+  [[ -d "$BACKUP_DIR" ]] || return 0
+
+  local -a sessions=()
+  local name
+  while IFS= read -r name; do
+    [[ -n "$name" ]] && sessions+=("$name")
+  done < <(list_backup_sessions)
+
+  local total="${#sessions[@]}"
+  (( total > keep )) || return 0
+
+  local remove_count=$(( total - keep ))
+  local removed=0 i target
+  for (( i = 0; i < remove_count; i++ )); do
+    # 지금 만들고 있는 세션은 절대 건드리지 않는다
+    [[ "${sessions[$i]}" == "$STAMP" ]] && continue
+    target="${BACKUP_DIR}/${sessions[$i]}"
+    if rm -rf "$target"; then
+      removed=$(( removed + 1 ))
+      echo "Pruned old backup session: ${target}" >&2
+    else
+      echo "WARN: failed to prune ${target}" >&2
+    fi
+  done
+
+  if (( removed > 0 )); then
+    write_scheduler_log "pruned ${removed} old session(s); keeping newest ${keep}"
+  fi
+}
+
+backup_dir_free_mb() {
+  df -Pm "$BACKUP_DIR" 2>/dev/null | awk 'NR==2 {print $4}'
+}
+
+check_backup_disk_space() {
+  local min_mb="${BACKUP_MIN_FREE_MB:-2048}"
+  min_mb="$(trim_path "$min_mb")"
+  [[ "$min_mb" =~ ^[0-9]+$ ]] || min_mb=2048
+  (( min_mb > 0 )) || return 0
+
+  local avail_mb
+  avail_mb="$(backup_dir_free_mb)"
+  if ! [[ "${avail_mb:-}" =~ ^[0-9]+$ ]]; then
+    echo "WARN: could not determine free space on ${BACKUP_DIR}" >&2
+    return 0
+  fi
+
+  echo "Free space:      ${avail_mb} MB (minimum ${min_mb} MB)" >&2
+  (( avail_mb >= min_mb )) && return 0
+
+  # 여유가 없으면 먼저 보관 주기를 강하게 적용해 자리를 만든다
+  echo "WARN: low disk space — pruning before aborting" >&2
+  prune_old_backup_sessions
+  avail_mb="$(backup_dir_free_mb)"
+
+  if [[ "${avail_mb:-}" =~ ^[0-9]+$ ]] && (( avail_mb >= min_mb )); then
+    echo "Free space after prune: ${avail_mb} MB" >&2
+    return 0
+  fi
+
+  echo "ERROR: not enough free space on ${BACKUP_DIR} (${avail_mb:-unknown} MB < ${min_mb} MB)" >&2
+  write_scheduler_log "ABORTED: disk full — ${avail_mb:-unknown} MB free on ${BACKUP_DIR}, need ${min_mb} MB"
+  exit 1
+}
+
+# ---------------------------------------------------------------------------
 # 실행
 # ---------------------------------------------------------------------------
 echo "Project root:    ${PROJECT_ROOT}" >&2
@@ -768,6 +860,9 @@ if [[ -n "${POSTGRES_DOCKER_CONTAINER:-}" ]]; then
 elif docker_available && pg_c="$(resolve_postgres_container 2>/dev/null || true)" && [[ -n "$pg_c" ]]; then
   echo "DB container:    ${pg_c} (auto-detected)" >&2
 fi
+
+prune_old_backup_sessions
+check_backup_disk_space
 
 run_pg_dump
 
@@ -782,4 +877,8 @@ echo "Dump OK: ${OUT} (${DUMP_BYTES} bytes)" >&2
 run_excel_export
 run_file_backup
 
+prune_old_backup_sessions
+
+FREE_MB_AFTER="$(backup_dir_free_mb)"
+write_scheduler_log "OK: ${BACKUP_SESSION_DIR} (dump ${DUMP_BYTES} bytes, ${FREE_MB_AFTER:-unknown} MB free)"
 echo "Backup session complete: ${BACKUP_SESSION_DIR}"
