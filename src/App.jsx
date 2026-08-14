@@ -123,7 +123,12 @@ import {
   TABLE_INLINE_INPUT_STANDARD_CLASS,
   EXCLUDED_INLINE_EDITOR_CLASS,
 } from './tableInlineInputClass.js'
-import { installCasesApi, normalizeHeroImagesList, resolveInstallCaseHeroImage } from './installCasesApi'
+import {
+  installCasesApi,
+  normalizeHeroImagesList,
+  resolveInstallCaseHeroImage,
+  withInstallCaseMediaVersion,
+} from './installCasesApi'
 import {
   formatInstallCaseMediaMaxSize,
   isInstallCaseVideo,
@@ -2356,7 +2361,8 @@ function normalizeInstallCaseRow(row) {
     try {
       if (text.startsWith('http://') || text.startsWith('https://')) {
         const parsed = new URL(text)
-        if (parsed.pathname.startsWith('/api/')) return parsed.pathname
+        // search 를 버리면 서버가 붙인 캐시 버전(?v=)이 사라져 옛 사진이 남는다
+        if (parsed.pathname.startsWith('/api/')) return `${parsed.pathname}${parsed.search}`
       }
     } catch {
       /* ignore */
@@ -2376,6 +2382,8 @@ function normalizeInstallCaseRow(row) {
     purpose: safeString(row?.purpose).trim() || '-',
     client: safeString(row?.client).trim() || '-',
     specs,
+    // 레거시 폴백 URL 캐시 버스팅에 쓰인다
+    updatedAt: safeString(row?.updatedAt).trim(),
   }
 }
 
@@ -2747,7 +2755,10 @@ function getInstallCaseThumbnailSources(row) {
   const id = safeString(row?.id).trim()
   // 레거시 단일 파일 엔드포인트 — media/0.jpg 가 없어도 hero-image 로 폴백
   if (id && !id.startsWith('local-')) {
-    const legacyHero = `/api/install-cases/${id}/hero-image`
+    const legacyHero = withInstallCaseMediaVersion(
+      `/api/install-cases/${id}/hero-image`,
+      row?.updatedAt
+    )
     if (!urls.some((url) => String(url).includes(`/install-cases/${id}/hero-image`))) {
       urls.push(legacyHero)
     }

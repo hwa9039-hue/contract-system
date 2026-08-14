@@ -75,6 +75,38 @@ def hero_media_api_path(row_id: str, index: int, ext: str) -> str:
     return f"{INSTALL_CASES_API_PATH}/{row_id}/media/{int(index)}.{normalized}"
 
 
+def canonical_media_url(url: str) -> str:
+    """DB 에는 캐시 버전 쿼리를 뺀 정규 경로만 저장한다."""
+    text = str(url or "").strip()
+    if text.startswith(INSTALL_CASES_API_PATH):
+        return text.split("?", 1)[0]
+    return text
+
+
+def media_version_token(path: Path | None) -> str:
+    """파일이 교체되면 반드시 값이 바뀌는 캐시 버전 (수정시각 + 크기)."""
+    if not path:
+        return ""
+    try:
+        stat = path.stat()
+    except OSError:
+        return ""
+    return f"{stat.st_mtime_ns:x}-{stat.st_size:x}"
+
+
+def versioned_media_url(row_id: str, url: str) -> str:
+    """
+    응답 URL 에 디스크 파일 기준 버전을 붙인다.
+    사진을 같은 자리에 교체하면 경로는 그대로라 브라우저·CDN 이 옛 파일을
+    계속 보여주므로, 파일이 바뀌면 URL 도 바뀌게 만든다.
+    """
+    base = canonical_media_url(url)
+    if not base.startswith(INSTALL_CASES_API_PATH):
+        return base
+    token = media_version_token(resolve_existing_media_path(row_id, base))
+    return f"{base}?v={token}" if token else base
+
+
 def hero_media_disk_path(row_id: str, ext: str) -> Path:
     return INSTALL_CASES_IMAGE_DIR / f"{row_id}.{ext.lower().lstrip('.')}"
 
@@ -194,7 +226,7 @@ def find_gallery_media_path(row_id: str, index: int) -> Path | None:
 
 
 def resolve_existing_media_path(row_id: str, url: str) -> Path | None:
-    text = str(url or "").strip()
+    text = canonical_media_url(url)
     if not text:
         return None
 
@@ -264,6 +296,9 @@ def enrich_install_case_out(out: dict) -> dict:
         images = existing_db
     else:
         images = db_images
+
+    if row_id:
+        images = [versioned_media_url(row_id, url) for url in images]
 
     fields = sync_hero_fields(images)
     logger.info(
@@ -454,8 +489,11 @@ def adapt_install_case_values_for_db(values: dict) -> dict:
     specs = adapted.get("specs")
     if isinstance(specs, dict):
         adapted["specs"] = json.dumps(specs, ensure_ascii=False)
+    # 버전 쿼리(?v=)는 응답에서만 붙인다 — DB 에는 정규 경로만 남긴다.
+    if "heroImage" in adapted:
+        adapted["heroImage"] = canonical_media_url(adapted.get("heroImage"))
     if "heroImages" in adapted:
-        images = sanitize_hero_images_value(adapted.get("heroImages"))
+        images = [canonical_media_url(url) for url in sanitize_hero_images_value(adapted.get("heroImages"))]
         adapted["heroImages"] = json.dumps(images, ensure_ascii=False)
         if "heroImage" not in adapted:
             adapted["heroImage"] = images[0] if images else ""
@@ -790,7 +828,18 @@ async def api_update_install_case_with_image(row_id: str, request: Request):
         ) from exc
 
 
-def serve_install_case_hero_media(row_id: str):
+def media_cache_headers(request: Request) -> dict[str, str]:
+    """
+    ?v= 로 파일 버전이 명시된 요청만 오래 캐시한다. 버전 토큰은 파일이 바뀌면
+    같이 바뀌므로 교체 즉시 새 URL 로 내려간다.
+    버전 없는 레거시 URL 은 매번 재검증시켜야 옛 사진이 남지 않는다.
+    """
+    if str(request.query_params.get("v") or "").strip():
+        return {"Cache-Control": "public, max-age=31536000, immutable"}
+    return {"Cache-Control": "no-cache, must-revalidate"}
+
+
+def serve_install_case_hero_media(row_id: str, request: Request):
     # 갤러리 0번 우선, 없으면 레거시 단일 파일
     path = find_gallery_media_path(row_id, 0) or find_hero_media_path(row_id)
     if not path or not path.is_file():
@@ -800,16 +849,17 @@ def serve_install_case_hero_media(row_id: str):
         path=path,
         media_type=media_type_for_ext(ext),
         filename=f"{row_id}.{ext or 'jpg'}",
+        headers=media_cache_headers(request),
     )
 
 
 @router.get("/{row_id}/hero-image")
-def api_get_install_case_hero_image(row_id: str):
-    return serve_install_case_hero_media(row_id)
+def api_get_install_case_hero_image(row_id: str, request: Request):
+    return serve_install_case_hero_media(row_id, request)
 
 
 @router.get("/{row_id}/hero.{ext}")
-def api_get_install_case_hero_media(row_id: str, ext: str):
+def api_get_install_case_hero_media(row_id: str, ext: str, request: Request):
     normalized = str(ext or "").lower().lstrip(".")
     if normalized not in set(HERO_MEDIA_EXTENSIONS):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media not found")
@@ -819,6 +869,7 @@ def api_get_install_case_hero_media(row_id: str, ext: str):
             path=path,
             media_type=media_type_for_ext(normalized),
             filename=f"{row_id}.{normalized}",
+            headers=media_cache_headers(request),
         )
     legacy = hero_media_disk_path(row_id, normalized)
     if not legacy.is_file():
@@ -827,11 +878,12 @@ def api_get_install_case_hero_media(row_id: str, ext: str):
         path=legacy,
         media_type=media_type_for_ext(normalized),
         filename=f"{row_id}.{normalized}",
+        headers=media_cache_headers(request),
     )
 
 
 @router.get("/{row_id}/media/{filename}")
-def api_get_install_case_gallery_media(row_id: str, filename: str):
+def api_get_install_case_gallery_media(row_id: str, filename: str, request: Request):
     match = re.fullmatch(r"(\d+)\.([a-zA-Z0-9]+)", str(filename or ""))
     if not match:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media not found")
@@ -851,6 +903,7 @@ def api_get_install_case_gallery_media(row_id: str, filename: str):
         path=path,
         media_type=media_type_for_ext(path.suffix.lower().lstrip(".") or ext),
         filename=f"{row_id}-{index}.{ext}",
+        headers=media_cache_headers(request),
     )
 
 

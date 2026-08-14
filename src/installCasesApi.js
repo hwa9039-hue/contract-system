@@ -180,6 +180,19 @@ export function resolveInstallCaseHeroImages(row) {
   )
 }
 
+/**
+ * 버전 쿼리가 없는 미디어 URL에 행의 수정 시각을 붙인다.
+ * 서버가 내려주는 /media/N.ext 에는 파일 기준 ?v= 가 이미 붙어 있으므로,
+ * 클라이언트에서 만드는 레거시 폴백 경로만 대상으로 한다.
+ */
+export function withInstallCaseMediaVersion(url, updatedAt) {
+  const text = String(url || '').trim()
+  if (!text || !text.startsWith('/api/') || text.includes('?')) return text
+  const stamp = Date.parse(updatedAt || '')
+  if (!Number.isFinite(stamp)) return text
+  return `${text}?v=${stamp}`
+}
+
 async function prepareInstallCaseMediaFile(file) {
   if (isInstallCaseVideoFile(file)) {
     return file
@@ -209,6 +222,8 @@ function toKeepMediaUrl(url) {
   } catch {
     /* ignore */
   }
+  // 캐시 버전(?v=)은 서버가 응답에서만 붙이는 값 — keep/DB 에는 정규 경로를 보낸다
+  if (text.startsWith('/api/')) return text.split('?')[0]
   return text
 }
 
