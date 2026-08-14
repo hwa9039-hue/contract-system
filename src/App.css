@@ -13463,8 +13463,9 @@ table.payment-report-table td.payment-report-cell--amount {
   box-sizing: border-box;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
-  padding: 6px 8px;
+  padding: 0 8px;
   font-size: 13px;
+  line-height: 32px;
   color: #0f172a;
   background: #ffffff;
 }
@@ -13599,14 +13600,175 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   gap: 12px;
 }
 
-.payment-report-expand-section-title {
-  margin: 0;
+.payment-report-expand-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding-bottom: 8px;
   border-bottom: 2px solid #3b82f6;
+}
+
+.payment-report-expand-section-title {
+  margin: 0;
+  padding-bottom: 0;
+  border-bottom: none;
   font-size: 15px;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.02em;
+}
+
+.payment-report-pdf-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.payment-report-pdf-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.payment-report-pdf-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+/* PDF 캡처용 호스트 — JS 인라인 스타일로 위치 제어 */
+.payment-report-pdf-capture-host {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: max-content;
+  max-width: none;
+  pointer-events: none;
+}
+
+.payment-report-pdf-capture-root {
+  padding: 16px 18px;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: inherit;
+}
+
+.payment-report-pdf-table-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: visible;
+  background: #ffffff;
+  padding-right: 2px;
+}
+
+/* 복제 표: sticky/스크롤 제거해 전 컬럼 노출 */
+.payment-report-pdf-capture-root table.payment-report-pdf-table {
+  width: max-content;
+  min-width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.payment-report-pdf-capture-root table.payment-report-pdf-table thead th,
+.payment-report-pdf-capture-root table.payment-report-pdf-table th.payment-report-sticky,
+.payment-report-pdf-capture-root table.payment-report-pdf-table td.payment-report-sticky {
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  z-index: auto !important;
+}
+
+.payment-report-pdf-capture-root table.payment-report-pdf-table th.payment-report-sticky--last::after,
+.payment-report-pdf-capture-root table.payment-report-pdf-table td.payment-report-sticky--last::after {
+  display: none !important;
+}
+
+.payment-report-pdf-capture-root table.payment-report-pdf-table thead th {
+  background: #f8fafc;
+  white-space: nowrap;
+  vertical-align: middle;
+  overflow: visible !important;
+  line-height: 1.5 !important;
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+  min-height: 48px;
+  height: auto !important;
+}
+
+.payment-report-pdf-capture-root table.payment-report-pdf-table tbody td {
+  vertical-align: middle !important;
+  overflow: visible !important;
+  line-height: 1.5 !important;
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+  min-height: 48px;
+  height: auto !important;
+}
+
+.payment-report-pdf-table-cell-text {
+  display: block;
+  line-height: 1.5 !important;
+  overflow: visible !important;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  min-height: 24px;
+  white-space: normal;
+  word-break: keep-all;
+}
+
+.payment-report-pdf-table-cell-text--center {
+  text-align: center;
+  font-weight: 800;
+}
+
+.payment-report-pdf-detail-wrap {
+  margin-top: 12px;
+  padding: 16px 18px 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  overflow: visible;
+}
+
+.payment-report-pdf-capture-root .payment-report-expand-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 16px 24px;
+}
+
+.payment-report-pdf-capture-root .payment-report-expand-section-header {
+  justify-content: flex-start;
+  border-bottom: 2px solid #3b82f6;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+/* input/textarea·정적 박스 미러 — 패딩/줄간격/잘림 방지 */
+.payment-report-pdf-input-mirror,
+.payment-report-pdf-static-mirror {
+  box-sizing: border-box;
+  display: block;
+  margin: 0;
+  resize: none;
+  outline: none;
+  box-shadow: none !important;
+  overflow: visible !important;
+  line-height: 1.5 !important;
+  height: auto !important;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .payment-report-expand-grid {
@@ -13641,41 +13803,51 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr);
   gap: 8px 14px;
-  align-items: start;
+  align-items: center;
 }
 
 .payment-report-expand-readonly dt {
   margin: 0;
-  padding-top: 2px;
+  padding-top: 0;
   font-size: 12px;
   font-weight: 700;
   color: #64748b;
+  line-height: 1.25;
 }
 
 .payment-report-expand-readonly dd {
+  display: flex;
+  align-items: center;
   margin: 0;
-  padding: 6px 10px;
+  padding: 0 10px;
   min-height: 32px;
   border-radius: 6px;
   background: #f3f4f6;
   color: #334155;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.25;
+  box-sizing: border-box;
 }
 
 .payment-report-expand-readonly-wrap {
+  display: block;
+  width: 100%;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
+  line-height: 1.35;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
 .payment-report-expand-vendor {
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr);
   gap: 8px 14px;
-  align-items: baseline;
+  align-items: center;
   margin-bottom: 14px;
-  padding: 8px 10px;
+  padding: 0 10px;
+  min-height: 36px;
   border-radius: 6px;
   background: #f3f4f6;
 }
@@ -13685,12 +13857,14 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   font-size: 12px;
   font-weight: 700;
   color: #64748b;
+  line-height: 1.25;
 }
 
 .payment-report-expand-vendor-name {
   font-size: 14px;
   font-weight: 800;
   color: #0f172a;
+  line-height: 1.25;
   overflow-wrap: anywhere;
 }
 
@@ -13698,16 +13872,25 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr);
   gap: 8px 14px;
-  align-items: start;
+  align-items: center;
   margin-bottom: 10px;
 }
 
 .payment-report-expand-field > span {
-  padding-top: 8px;
+  padding-top: 0;
   font-size: 12px;
   font-weight: 700;
   color: #475569;
   white-space: nowrap;
+  line-height: 1.25;
+}
+
+.payment-report-expand-field:has(textarea) {
+  align-items: start;
+}
+
+.payment-report-expand-field:has(textarea) > span {
+  padding-top: 10px;
 }
 
 .payment-report-expand-textarea {
