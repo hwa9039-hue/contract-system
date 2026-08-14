@@ -1,7 +1,12 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
+import { EditableTextCell } from '../EditableTextCell.jsx'
 import { normalizePaymentReportRow, paymentReportsApi } from '../paymentReportsApi.js'
+import {
+  EXCLUDED_INLINE_EDITOR_CLASS,
+  TABLE_INLINE_EDITABLE_CELL_CLASS,
+} from '../tableInlineInputClass.js'
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -21,6 +26,8 @@ function formatAmountComma(value) {
 const PAYMENT_REPORT_AMOUNT_KEYS = new Set(['plannedAmount'])
 
 const PAYMENT_REPORT_TABLE_COL_COUNT = 11
+
+const PAYMENT_REPORT_EDITABLE_CELL_CLASS = `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
 
 const PAYMENT_CYCLE_TABS = [
   { id: '15', label: '15일 결제' },
@@ -273,7 +280,7 @@ function hardenCloneStylesForPdfCapture(rootEl) {
 
   rootEl
     .querySelectorAll(
-      '.payment-report-pdf-table-cell-text, .payment-report-pdf-input-mirror, .payment-report-pdf-static-mirror, .payment-report-locked-text'
+      '.payment-report-pdf-table-cell-text, .payment-report-pdf-input-mirror, .payment-report-pdf-static-mirror, .payment-report-locked-text, .editable-text-cell-display'
     )
     .forEach((el) => {
       el.style.setProperty('overflow', 'visible', 'important')
@@ -832,48 +839,76 @@ export default function PaymentReportPage({ contracts = [] }) {
     }
   }, [])
 
+  /**
+   * 행 수정 반영.
+   * rowsRef 를 즉시 갱신해야 뒤이은 저장이 방금 입력한 값을 읽는다.
+   * immediate=true 는 셀 편집 확정처럼 더 미룰 이유가 없는 경우에 쓴다.
+   */
+  const applyRowUpdate = useCallback(
+    (rowId, updater, { immediate = false } = {}) => {
+      let changed = false
+      const next = rowsRef.current.map((row) => {
+        if (row.id !== rowId) return row
+        changed = true
+        return updater(row)
+      })
+      if (!changed) return
+
+      rowsRef.current = next
+      setRows(next)
+
+      if (immediate) {
+        dirtyIdsRef.current.add(rowId)
+        flushSave(rowId)
+        return
+      }
+      scheduleSave(rowId)
+    },
+    [flushSave, scheduleSave]
+  )
+
   /** 분류 → 계약현황 자동완성. 채워진 값도 그대로 저장 대상에 포함된다. */
   const applyClassificationLookup = useCallback(
     (rowId, classificationValue) => {
       const found = findContractByClassification(contracts, classificationValue)
       const autofill = buildAutofillFromContract(found)
 
-      setRows((prev) =>
-        prev.map((row) => {
-          if (row.id !== rowId) return row
-          return {
-            ...row,
-            classification: safeString(classificationValue),
-            projectName: autofill.projectName,
-            contractAmount: autofill.contractAmount,
-            projectPeriod: autofill.projectPeriod,
-            client: autofill.client,
-          }
-        })
+      applyRowUpdate(
+        rowId,
+        (row) => ({
+          ...row,
+          classification: safeString(classificationValue),
+          projectName: autofill.projectName,
+          contractAmount: autofill.contractAmount,
+          projectPeriod: autofill.projectPeriod,
+          client: autofill.client,
+        }),
+        { immediate: true }
       )
-      scheduleSave(rowId)
     },
-    [contracts, scheduleSave]
+    [contracts, applyRowUpdate]
   )
 
-  const handleClassificationChange = (rowId, value) => {
-    applyClassificationLookup(rowId, value)
-  }
-
-  const handleEditableChange = (rowId, key, value) => {
-    setRows((prev) =>
-      prev.map((row) => {
-        if (row.id !== rowId) return row
-        let nextValue = value
-        if (PAYMENT_REPORT_AMOUNT_KEYS.has(key)) nextValue = formatAmountComma(value)
-        return {
+  const handleEditableChange = useCallback(
+    (rowId, key, value, options) => {
+      applyRowUpdate(
+        rowId,
+        (row) => ({
           ...row,
-          [key]: nextValue,
-        }
-      })
-    )
-    scheduleSave(rowId)
-  }
+          [key]: PAYMENT_REPORT_AMOUNT_KEYS.has(key) ? formatAmountComma(value) : value,
+        }),
+        options
+      )
+    },
+    [applyRowUpdate]
+  )
+
+  const handleCellCommit = useCallback(
+    (rowId, key, value) => {
+      handleEditableChange(rowId, key, value, { immediate: true })
+    },
+    [handleEditableChange]
+  )
 
   const toggleRowExpand = (rowId) => {
     setExpandedIds((prev) => {
@@ -1071,16 +1106,13 @@ export default function PaymentReportPage({ contracts = [] }) {
                     <td className="payment-report-sticky payment-report-sticky--seq payment-report-cell--locked">
                       {row.seq}
                     </td>
-                    <td className="payment-report-sticky payment-report-sticky--class">
-                      <input
-                        className="payment-report-cell-input"
-                        type="text"
-                        inputMode="numeric"
-                        autoComplete="off"
+                    <td
+                      className={`payment-report-sticky payment-report-sticky--class ${PAYMENT_REPORT_EDITABLE_CELL_CLASS}`}
+                    >
+                      <EditableTextCell
                         value={row.classification}
-                        onChange={(e) => handleClassificationChange(row.id, e.target.value)}
-                        onBlur={() => flushSave(row.id)}
-                        aria-label={`${row.seq}번 분류`}
+                        inputClassName={EXCLUDED_INLINE_EDITOR_CLASS}
+                        onSave={(nextValue) => applyClassificationLookup(row.id, nextValue)}
                       />
                       {matchStatus === 'matched' ? (
                         <span className="payment-report-row-hint payment-report-row-hint--ok">일치</span>
@@ -1118,41 +1150,29 @@ export default function PaymentReportPage({ contracts = [] }) {
                         세부사항
                       </button>
                     </td>
-                    <td>
-                      <input
-                        className="payment-report-cell-input"
-                        type="text"
-                        autoComplete="off"
-                        placeholder="업체명"
+                    <td className={PAYMENT_REPORT_EDITABLE_CELL_CLASS}>
+                      <EditableTextCell
                         value={row.vendorInfo}
-                        onChange={(e) => handleEditableChange(row.id, 'vendorInfo', e.target.value)}
-                        onBlur={() => flushSave(row.id)}
-                        aria-label={`${row.seq}번 결제 업체정보`}
+                        className="registry-cell-text-wrap"
+                        inputClassName={EXCLUDED_INLINE_EDITOR_CLASS}
+                        onSave={(nextValue) => handleCellCommit(row.id, 'vendorInfo', nextValue)}
                       />
                     </td>
-                    <td>
-                      <input
-                        className="payment-report-cell-input payment-report-cell-input--amount"
-                        type="text"
-                        inputMode="numeric"
-                        autoComplete="off"
-                        placeholder="0"
+                    <td className={`${PAYMENT_REPORT_EDITABLE_CELL_CLASS} payment-report-cell--planned`}>
+                      <EditableTextCell
                         value={row.plannedAmount}
-                        onChange={(e) => handleEditableChange(row.id, 'plannedAmount', e.target.value)}
-                        onBlur={() => flushSave(row.id)}
-                        aria-label={`${row.seq}번 결제 예정 금액`}
+                        align="right"
+                        formatMode="amount"
+                        inputClassName={EXCLUDED_INLINE_EDITOR_CLASS}
+                        onSave={(nextValue) => handleCellCommit(row.id, 'plannedAmount', nextValue)}
                       />
                     </td>
-                    <td>
-                      <input
-                        className="payment-report-cell-input"
-                        type="text"
-                        autoComplete="off"
-                        placeholder="진행사항"
+                    <td className={PAYMENT_REPORT_EDITABLE_CELL_CLASS}>
+                      <EditableTextCell
                         value={row.progress}
-                        onChange={(e) => handleEditableChange(row.id, 'progress', e.target.value)}
-                        onBlur={() => flushSave(row.id)}
-                        aria-label={`${row.seq}번 진행사항`}
+                        className="registry-cell-text-wrap"
+                        inputClassName={EXCLUDED_INLINE_EDITOR_CLASS}
+                        onSave={(nextValue) => handleCellCommit(row.id, 'progress', nextValue)}
                       />
                     </td>
                   </tr>

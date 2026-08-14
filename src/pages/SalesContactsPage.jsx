@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { EditableTextCell } from '../EditableTextCell.jsx'
 import { ROLES, normalizeRole } from '../permissions.js'
 import { normalizeSalesContactRow, salesContactsApi } from '../salesContactsApi.js'
+import {
+  EXCLUDED_INLINE_EDITOR_CLASS,
+  TABLE_INLINE_EDITABLE_CELL_CLASS,
+} from '../tableInlineInputClass.js'
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -112,6 +117,23 @@ async function copyTextToClipboard(text) {
   }
 }
 
+const CONTACT_EDITABLE_CELL_CLASS = `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
+
+/** 영업관리 대장과 동일한 엑셀형 셀 — 클릭 시 투명 편집기, 확정 시 저장 */
+function ContactTextCell({ row, field, align = 'left', tdClassName = '', onCommit }) {
+  return (
+    <td className={`${CONTACT_EDITABLE_CELL_CLASS} ${tdClassName}`.trim()}>
+      <EditableTextCell
+        value={row[field]}
+        align={align}
+        className="registry-cell-text-wrap"
+        inputClassName={EXCLUDED_INLINE_EDITOR_CLASS}
+        onSave={(nextValue) => onCommit(row.id, field, nextValue)}
+      />
+    </td>
+  )
+}
+
 /**
  * 영업정보 > 연락처
  * - 수기 입력 표 (입력 후 자동 저장)
@@ -214,6 +236,29 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
     [persistRow]
   )
 
+  /**
+   * 셀 편집 확정 반영.
+   * rowsRef 를 즉시 갱신해야 뒤이은 저장이 방금 입력한 값을 읽는다.
+   */
+  const commitField = useCallback(
+    (rowId, key, value) => {
+      let changed = false
+      const next = rowsRef.current.map((row) => {
+        if (row.id !== rowId) return row
+        changed = true
+        if (key === 'status') return { ...row, status: normalizeContactStatus(value) }
+        return { ...row, [key]: value }
+      })
+      if (!changed) return
+
+      rowsRef.current = next
+      setRows(next)
+      dirtyIdsRef.current.add(rowId)
+      flushSave(rowId)
+    },
+    [flushSave]
+  )
+
   useEffect(() => {
     let cancelled = false
 
@@ -239,19 +284,6 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
       Object.values(saveTimersRef.current).forEach((timer) => window.clearTimeout(timer))
     }
   }, [])
-
-  const handleFieldChange = (rowId, key, value) => {
-    setRows((prev) =>
-      prev.map((row) => {
-        if (row.id !== rowId) return row
-        if (key === 'status') {
-          return { ...row, status: normalizeContactStatus(value) }
-        }
-        return { ...row, [key]: value }
-      })
-    )
-    scheduleSave(rowId)
-  }
 
   const handleAddRow = async () => {
     const sortOrder = nextSortOrder(rowsRef.current)
@@ -372,93 +404,53 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
                   <td className="sales-contacts-sticky sales-contacts-sticky--seq sales-contacts-cell--locked">
                     {row.seq}
                   </td>
-                  <td className="sales-contacts-sticky sales-contacts-sticky--manager">
-                    <input
-                      className="sales-contacts-cell-input"
-                      type="text"
-                      value={row.managerName}
-                      onChange={(e) => handleFieldChange(row.id, 'managerName', e.target.value)}
-                      onBlur={() => flushSave(row.id)}
-                      aria-label={`${row.seq}번 담당자명`}
-                    />
-                  </td>
-                  <td className="sales-contacts-sticky sales-contacts-sticky--position">
-                    <input
-                      className="sales-contacts-cell-input"
-                      type="text"
-                      value={row.position}
-                      onChange={(e) => handleFieldChange(row.id, 'position', e.target.value)}
-                      onBlur={() => flushSave(row.id)}
-                      aria-label={`${row.seq}번 직위`}
-                    />
-                  </td>
-                  <td className="sales-contacts-sticky sales-contacts-sticky--phone">
-                    <input
-                      className="sales-contacts-cell-input"
-                      type="text"
-                      inputMode="tel"
-                      value={row.phone}
-                      onChange={(e) => handleFieldChange(row.id, 'phone', e.target.value)}
-                      onBlur={() => flushSave(row.id)}
-                      aria-label={`${row.seq}번 휴대폰`}
-                    />
-                  </td>
-                  <td className="sales-contacts-sticky sales-contacts-sticky--email">
-                    <input
-                      className="sales-contacts-cell-input"
-                      type="email"
-                      value={row.email}
-                      onChange={(e) => handleFieldChange(row.id, 'email', e.target.value)}
-                      onBlur={() => flushSave(row.id)}
-                      aria-label={`${row.seq}번 이메일`}
-                    />
-                  </td>
-                  <td className="sales-contacts-sticky sales-contacts-sticky--division">
-                    <input
-                      className="sales-contacts-cell-input"
-                      type="text"
-                      value={row.division}
-                      onChange={(e) => handleFieldChange(row.id, 'division', e.target.value)}
-                      onBlur={() => flushSave(row.id)}
-                      aria-label={`${row.seq}번 구분`}
-                    />
-                  </td>
-                  <td className="sales-contacts-sticky sales-contacts-sticky--company">
-                    <input
-                      className="sales-contacts-cell-input"
-                      type="text"
-                      value={row.companyName}
-                      onChange={(e) => handleFieldChange(row.id, 'companyName', e.target.value)}
-                      onBlur={() => flushSave(row.id)}
-                      aria-label={`${row.seq}번 회사명`}
-                    />
-                  </td>
-                  <td className="sales-contacts-sticky sales-contacts-sticky--department sales-contacts-sticky--last">
-                    <input
-                      className="sales-contacts-cell-input"
-                      type="text"
-                      value={row.department}
-                      onChange={(e) => handleFieldChange(row.id, 'department', e.target.value)}
-                      onBlur={() => flushSave(row.id)}
-                      aria-label={`${row.seq}번 부서명`}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="sales-contacts-cell-input"
-                      type="text"
-                      value={row.review}
-                      onChange={(e) => handleFieldChange(row.id, 'review', e.target.value)}
-                      onBlur={() => flushSave(row.id)}
-                      aria-label={`${row.seq}번 심사`}
-                    />
-                  </td>
-                  <td>
+                  <ContactTextCell
+                    row={row}
+                    field="managerName"
+                    tdClassName="sales-contacts-sticky sales-contacts-sticky--manager"
+                    onCommit={commitField}
+                  />
+                  <ContactTextCell
+                    row={row}
+                    field="position"
+                    tdClassName="sales-contacts-sticky sales-contacts-sticky--position"
+                    onCommit={commitField}
+                  />
+                  <ContactTextCell
+                    row={row}
+                    field="phone"
+                    tdClassName="sales-contacts-sticky sales-contacts-sticky--phone"
+                    onCommit={commitField}
+                  />
+                  <ContactTextCell
+                    row={row}
+                    field="email"
+                    tdClassName="sales-contacts-sticky sales-contacts-sticky--email"
+                    onCommit={commitField}
+                  />
+                  <ContactTextCell
+                    row={row}
+                    field="division"
+                    tdClassName="sales-contacts-sticky sales-contacts-sticky--division"
+                    onCommit={commitField}
+                  />
+                  <ContactTextCell
+                    row={row}
+                    field="companyName"
+                    tdClassName="sales-contacts-sticky sales-contacts-sticky--company"
+                    onCommit={commitField}
+                  />
+                  <ContactTextCell
+                    row={row}
+                    field="department"
+                    tdClassName="sales-contacts-sticky sales-contacts-sticky--department sales-contacts-sticky--last"
+                    onCommit={commitField}
+                  />
+                  <ContactTextCell row={row} field="review" onCommit={commitField} />
+                  <td className={`${CONTACT_EDITABLE_CELL_CLASS} sales-contacts-col--status`}>
                     <select
-                      className="sales-contacts-cell-input sales-contacts-cell-select"
                       value={normalizeContactStatus(row.status)}
-                      onChange={(e) => handleFieldChange(row.id, 'status', e.target.value)}
-                      onBlur={() => flushSave(row.id)}
+                      onChange={(e) => commitField(row.id, 'status', e.target.value)}
                       aria-label={`${row.seq}번 분류`}
                       disabled={!showInactive}
                     >
@@ -469,36 +461,9 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
                       ))}
                     </select>
                   </td>
-                  <td>
-                    <input
-                      className="sales-contacts-cell-input"
-                      type="text"
-                      value={row.linkedProject}
-                      onChange={(e) => handleFieldChange(row.id, 'linkedProject', e.target.value)}
-                      onBlur={() => flushSave(row.id)}
-                      aria-label={`${row.seq}번 연계 사업`}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="sales-contacts-cell-input"
-                      type="text"
-                      value={row.address}
-                      onChange={(e) => handleFieldChange(row.id, 'address', e.target.value)}
-                      onBlur={() => flushSave(row.id)}
-                      aria-label={`${row.seq}번 주소`}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="sales-contacts-cell-input"
-                      type="text"
-                      value={row.notes}
-                      onChange={(e) => handleFieldChange(row.id, 'notes', e.target.value)}
-                      onBlur={() => flushSave(row.id)}
-                      aria-label={`${row.seq}번 비고`}
-                    />
-                  </td>
+                  <ContactTextCell row={row} field="linkedProject" onCommit={commitField} />
+                  <ContactTextCell row={row} field="address" onCommit={commitField} />
+                  <ContactTextCell row={row} field="notes" onCommit={commitField} />
                 </tr>
               )
             })}
