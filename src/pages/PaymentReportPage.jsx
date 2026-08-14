@@ -175,7 +175,7 @@ function PaymentReportExpandedPanel({ row, onChange }) {
               autoComplete="off"
               value={row.completionAmount}
               onChange={(e) => onChange(row.id, 'completionAmount', e.target.value)}
-              placeholder="예: 42,576,000원 / 100%"
+              placeholder="-원 / -%"
             />
           </label>
           <label className="payment-report-expand-field">
@@ -186,7 +186,7 @@ function PaymentReportExpandedPanel({ row, onChange }) {
               autoComplete="off"
               value={row.materialCost}
               onChange={(e) => onChange(row.id, 'materialCost', e.target.value)}
-              placeholder="예: 33,000,000원 / 77.51%"
+              placeholder="-원 / -%"
             />
           </label>
           <label className="payment-report-expand-field">
@@ -197,7 +197,7 @@ function PaymentReportExpandedPanel({ row, onChange }) {
               autoComplete="off"
               value={row.currentExpense}
               onChange={(e) => onChange(row.id, 'currentExpense', e.target.value)}
-              placeholder="예: 6,386,400원 / 15%"
+              placeholder="-원 / -%"
             />
           </label>
           <label className="payment-report-expand-field">
@@ -208,7 +208,7 @@ function PaymentReportExpandedPanel({ row, onChange }) {
               autoComplete="off"
               value={row.profitRate}
               onChange={(e) => onChange(row.id, 'profitRate', e.target.value)}
-              placeholder="예: 3,189,600원"
+              placeholder="-원 / -%"
             />
           </label>
         </div>
