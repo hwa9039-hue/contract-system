@@ -145,7 +145,7 @@ import { useAuth } from './AuthContext.jsx'
 import {
   canAccessMenu,
   canEditMenu,
-  filterSidebarMenuItems,
+  filterSidebarMenuGroups,
 } from './permissions.js'
 import { CONTRACT_SHARED_WARNING_MS, formatRemainingSessionLabel } from './authSession.js'
 import {
@@ -5945,18 +5945,18 @@ function splitDashboardRecentTitleLabel(fullLabel) {
 }
 
 function App() {
-  const { isAdmin, roleLabel, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
+  const { role, roleLabel, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
     useAuth()
-  const canEditContracts = canEditMenu('contracts', isAdmin)
-  // const canEditProjectManagement = canEditMenu('projectManagement', isAdmin) // 메뉴 제거
-  const canEditMaterialsBoard = canEditMenu('materialsBoard', isAdmin)
-  const canEditInstallCases = canEditMenu('installCases', isAdmin)
-  const canEditContactsManage = canEditMenu('contactsManage', isAdmin)
-  // const canEditUnitPrice = canEditMenu('unitPrice', isAdmin) // 메뉴 제거
-  const canEditSales = canEditMenu('sales', isAdmin)
-  const canEditDiscovery = canEditMenu('discovery', isAdmin)
-  const canEditExcluded = canEditMenu('excluded', isAdmin)
-  const canEditDocuments = canEditMenu('documents', isAdmin)
+  const canEditContracts = canEditMenu('contracts', role)
+  // const canEditProjectManagement = canEditMenu('projectManagement', role) // 메뉴 제거
+  const canEditMaterialsBoard = canEditMenu('materialsBoard', role)
+  const canEditInstallCases = canEditMenu('installCases', role)
+  const canEditContactsManage = canEditMenu('contactsManage', role)
+  // const canEditUnitPrice = canEditMenu('unitPrice', role) // 메뉴 제거
+  const canEditSales = canEditMenu('sales', role)
+  const canEditDiscovery = canEditMenu('discovery', role)
+  const canEditExcluded = canEditMenu('excluded', role)
+  const canEditDocuments = canEditMenu('documents', role)
   const [contactsManageRows, setContactsManageRows] = useState([])
   const contactsManageRawRowsRef = useRef([])
   const [isLoadingContactsManage, setIsLoadingContactsManage] = useState(false)
@@ -6195,27 +6195,28 @@ function App() {
 
   useEffect(() => {
     if (menu !== 'contactsManage') return
-    if (!canAccessMenu('contactsManage', isAdmin)) return
+    if (!canAccessMenu('contactsManage', role)) return
     void fetchContactsManageRows()
-  }, [isAdmin, menu])
+  }, [role, menu])
 
   useEffect(() => {
     if (!authHydrated) return
-    if (canAccessMenu(menu, isAdmin)) return
+    if (canAccessMenu(menu, role)) return
 
     showAppAlert('접근 권한이 없습니다.', '권한 없음')
     setMenu('dashboard')
     try {
       if (
         window.location.pathname === UNIT_PRICE_MENU_PATH ||
-        window.location.pathname === PROJECT_MANAGEMENT_MENU_PATH
+        window.location.pathname === PROJECT_MANAGEMENT_MENU_PATH ||
+        window.location.pathname === ORDER_MANAGEMENT_MENU_PATH
       ) {
         window.history.replaceState(null, '', '/')
       }
     } catch {
       /* ignore */
     }
-  }, [authHydrated, isAdmin, menu, showAppAlert])
+  }, [authHydrated, role, menu, showAppAlert])
 
   useEffect(() => {
     setIsMobileNavOpen(false)
@@ -8377,7 +8378,7 @@ function App() {
   }
 
   const requireMenuEdit = (menuKey, message = '편집 권한이 없습니다.') => {
-    if (canEditMenu(menuKey, isAdmin)) return true
+    if (canEditMenu(menuKey, role)) return true
     showAppAlert(message, '권한 없음')
     return false
   }
@@ -15402,7 +15403,7 @@ function App() {
               대시보드
             </button>
 
-            {SIDEBAR_MENU_GROUPS.map((group) => {
+            {filterSidebarMenuGroups(SIDEBAR_MENU_GROUPS, role).map((group) => {
               const isExpanded = Boolean(expandedMenuGroups[group.id])
               const hasActiveChild = group.items.some((item) => item.key === menu)
               return (
@@ -15421,7 +15422,7 @@ function App() {
                   </button>
                   {isExpanded ? (
                     <ul className="menu-group-items">
-                      {filterSidebarMenuItems(group.items, isAdmin).map((item) => (
+                      {group.items.map((item) => (
                         <li key={item.key} className="menu-group-item">
                           <button
                             type="button"
@@ -17281,7 +17282,7 @@ function App() {
           </section>
         )}
 
-        {menu === 'contactsManage' && canAccessMenu('contactsManage', isAdmin) && (
+        {menu === 'contactsManage' && canAccessMenu('contactsManage', role) && (
           <section className="stat-card">
               <div className="contracts-header-actions">
                 {canEditContactsManage ? (
@@ -17584,7 +17585,7 @@ function App() {
             <ProjectManagement canEdit={canEditProjectManagement} />
           </section>
         )}
-        {menu === 'unitPrice' && canAccessMenu('unitPrice', isAdmin) && (
+        {menu === 'unitPrice' && canAccessMenu('unitPrice', role) && (
           <section className="stat-card stat-card--unit-price">
             <UnitPriceManagement canEdit={canEditUnitPrice} />
           </section>
