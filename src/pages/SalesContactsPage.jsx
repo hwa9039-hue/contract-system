@@ -616,17 +616,17 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
           placeholder="담당자, 회사, 연락처 등 검색"
           aria-label="연락처 검색"
         />
-        {loadError ? (
-          <p className="sales-contacts-save-status is-error" role="alert">
-            {loadError}
-          </p>
-        ) : null}
-        <p className="sales-contacts-page-desc">
-          {showInactive
-            ? '관리자·부서장은 활성/비활성 연락처를 모두 볼 수 있습니다.'
-            : '사용자 권한에서는 분류가 활성인 연락처만 표시됩니다.'}
-        </p>
       </div>
+      {loadError ? (
+        <p className="sales-contacts-save-status is-error" role="alert">
+          {loadError}
+        </p>
+      ) : null}
+      {!showInactive ? (
+        <p className="sales-contacts-page-desc">
+          사용자 권한에서는 분류가 활성인 연락처만 표시됩니다.
+        </p>
+      ) : null}
 
       <div className="sales-contacts-table-wrap">
         <table className="sales-contacts-table excel-table registry-table">

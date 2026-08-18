@@ -13363,20 +13363,23 @@ body.work-report-manager-menu-open .work-report-board-section {
 
 .sales-contacts-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 12px;
   margin: 0 0 12px;
+  width: 100%;
+  min-width: 0;
 }
 
 .sales-contacts-search-input {
-  flex: 1 1 220px;
-  min-width: 180px;
-  max-width: 320px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  width: auto;
 }
 
 .sales-contacts-page-desc {
-  margin: 0;
+  margin: 0 0 12px;
   font-size: 13px;
   font-weight: 500;
   color: #64748b;
@@ -13384,7 +13387,7 @@ body.work-report-manager-menu-open .work-report-board-section {
 }
 
 .sales-contacts-save-status {
-  margin: 0;
+  margin: 0 0 8px;
   font-size: 13px;
   font-weight: 700;
   color: #b91c1c;
@@ -13829,7 +13832,7 @@ table.sales-contacts-table td.sales-contacts-sticky--status select {
 
 .payment-report-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 10px;
   margin: 0 0 10px;
@@ -13898,9 +13901,10 @@ table.sales-contacts-table td.sales-contacts-sticky--status select {
 }
 
 .payment-report-search-input {
-  flex: 1 1 220px;
-  min-width: 180px;
-  max-width: 360px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  width: auto;
 }
 
 .payment-report-tab {
@@ -17584,6 +17588,14 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
 
   .install-cases-filters > .table-search-input {
     flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .sales-contacts-toolbar > .table-search-input,
+  .payment-report-toolbar > .table-search-input {
+    flex: 1 1 auto !important;
     width: auto !important;
     min-width: 0 !important;
     max-width: none !important;
