@@ -551,22 +551,31 @@ def _backfill_empty_contract_process_status(cursor) -> None:
 
     준공일 < 오늘 → 준공완료, 그 외(당일·미래·준공일 없음) → 진행중.
     이미 진행중/준공완료로 수기 저장한 값은 덮어쓰지 않는다.
+    운영 DB의 dueDate 는 date 또는 varchar 일 수 있어 텍스트로 비교한다.
     """
     if not _pg_rel_column_exists(cursor, "contracts_rows", "processStatus"):
         return
-    cursor.execute(
-        """
-        update contracts_rows
-        set "processStatus" = case
-          when "dueDate" is not null
-               and "dueDate" < (timezone('Asia/Seoul', now()))::date
-          then '준공완료'
-          else '진행중'
-        end
-        where btrim(coalesce("processStatus", '')) = ''
-           or "processStatus" in ('시공중', '준공')
-        """
-    )
+    try:
+        cursor.execute(
+            """
+            update contracts_rows
+            set "processStatus" = case
+              when (
+                substring(
+                  btrim(coalesce("dueDate"::text, ''))
+                  from '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+                )
+              )::date < (timezone('Asia/Seoul', now()))::date
+              then '준공완료'
+              else '진행중'
+            end
+            where btrim(coalesce("processStatus", '')) = ''
+               or "processStatus" in ('시공중', '준공')
+            """
+        )
+    except Exception:
+        logger.exception("contracts_rows processStatus backfill skipped")
+        return
     updated = cursor.rowcount or 0
     if updated:
         logger.info("contracts_rows processStatus backfill: %s row(s)", updated)
