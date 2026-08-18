@@ -83,7 +83,7 @@ function renumberContactRows(rows) {
 }
 
 /**
- * 복사 문자열: `회사명 부서명 담당자명 직위 - 휴대폰번호`
+ * 복사 문자열: `회사명 부서명 담당자명 직위 - 휴대폰번호 이메일`
  * 빈 값은 건너뛰고 공백/구분자만 남지 않게 정리한다.
  */
 function buildContactCopyText(row) {
@@ -95,10 +95,13 @@ function buildContactCopyText(row) {
   ]
     .filter(Boolean)
     .join(' ')
-  const phone = safeString(row?.phone).trim()
-  if (left && phone) return `${left} - ${phone}`
+  const contactParts = [safeString(row?.phone).trim(), safeString(row?.email).trim()].filter(
+    Boolean
+  )
+  const contact = contactParts.join(' ')
+  if (left && contact) return `${left} - ${contact}`
   if (left) return left
-  return phone
+  return contact
 }
 
 async function copyTextToClipboard(text) {
