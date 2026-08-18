@@ -4,7 +4,7 @@ import { AutoGrowTextarea } from '../AutoGrowTextarea.jsx'
 import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { EditableTextCell } from '../EditableTextCell.jsx'
 import { computeFixedPortalPosition, fixedPortalStyle } from '../portalMenuPosition.js'
-import { ROLES, normalizeRole } from '../permissions.js'
+import { ROLES, hasAdminPrivileges, normalizeRole } from '../permissions.js'
 import { normalizeSalesContactRow, salesContactsApi } from '../salesContactsApi.js'
 import {
   EXCLUDED_INLINE_EDITOR_CLASS,
@@ -114,7 +114,7 @@ function buildContactCopyText(row) {
   return contact
 }
 
-function matchesContactSearch(row, query) {
+function matchesContactSearch(row, query, { includeSensitive = true } = {}) {
   const q = safeString(query).trim().toLowerCase()
   if (!q) return true
   const statusLabel =
@@ -128,11 +128,9 @@ function matchesContactSearch(row, query) {
     row.division,
     row.companyName,
     row.department,
-    row.review,
     statusLabel,
     row.linkedProject,
-    row.address,
-    row.notes,
+    ...(includeSensitive ? [row.review, row.address, row.notes] : []),
   ]
     .map((value) => safeString(value).toLowerCase())
     .join(' ')
@@ -169,6 +167,16 @@ async function copyTextToClipboard(text) {
 }
 
 const CONTACT_EDITABLE_CELL_CLASS = `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
+
+/** 사용자(user)에게는 심사·주소·비고 실제 값을 DOM에 넣지 않는다 */
+function ContactMaskedCell({ tdClassName = '' }) {
+  return (
+    <td
+      className={`sales-contacts-masked-cell select-none ${tdClassName}`.trim()}
+      aria-label="열람 불가"
+    />
+  )
+}
 
 /** 영업관리 대장과 동일한 엑셀형 셀 — 클릭 시 투명 편집기, 확정 시 저장 */
 function ContactTextCell({ row, field, align = 'center', tdClassName = '', onCommit }) {
@@ -412,6 +420,7 @@ function ContactLinkedProjectCell({ row, tdClassName = '', onCommit }) {
 export default function SalesContactsPage({ role = ROLES.USER }) {
   const normalizedRole = normalizeRole(role)
   const showInactive = canViewInactiveContacts(normalizedRole)
+  const canViewSensitive = hasAdminPrivileges(normalizedRole)
 
   const [rows, setRows] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -432,8 +441,10 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
     const byStatus = showInactive
       ? rows
       : rows.filter((row) => normalizeContactStatus(row.status) === CONTACT_STATUS.ACTIVE)
-    return byStatus.filter((row) => matchesContactSearch(row, searchQuery))
-  }, [rows, showInactive, searchQuery])
+    return byStatus.filter((row) =>
+      matchesContactSearch(row, searchQuery, { includeSensitive: canViewSensitive })
+    )
+  }, [rows, showInactive, searchQuery, canViewSensitive])
 
   const showLocalToast = useCallback((message, tone = 'success') => {
     setToast({ message: safeString(message), tone })
@@ -745,19 +756,31 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
                     tdClassName="sales-contacts-sticky sales-contacts-sticky--linked sales-contacts-sticky--last"
                     onCommit={commitField}
                   />
-                  <ContactTextCell
-                    row={row}
-                    field="review"
-                    tdClassName="sales-contacts-col--review"
-                    onCommit={commitField}
-                  />
-                  <ContactTextCell row={row} field="address" onCommit={commitField} />
-                  <ContactTextCell
-                    row={row}
-                    field="notes"
-                    tdClassName="sales-contacts-col--notes"
-                    onCommit={commitField}
-                  />
+                  {canViewSensitive ? (
+                    <ContactTextCell
+                      row={row}
+                      field="review"
+                      tdClassName="sales-contacts-col--review"
+                      onCommit={commitField}
+                    />
+                  ) : (
+                    <ContactMaskedCell tdClassName="sales-contacts-col--review" />
+                  )}
+                  {canViewSensitive ? (
+                    <ContactTextCell row={row} field="address" onCommit={commitField} />
+                  ) : (
+                    <ContactMaskedCell />
+                  )}
+                  {canViewSensitive ? (
+                    <ContactTextCell
+                      row={row}
+                      field="notes"
+                      tdClassName="sales-contacts-col--notes"
+                      onCommit={commitField}
+                    />
+                  ) : (
+                    <ContactMaskedCell tdClassName="sales-contacts-col--notes" />
+                  )}
                 </tr>
               )
             })}
