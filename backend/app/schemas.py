@@ -40,6 +40,7 @@ class ContractBase(BaseModel):
     identNo: str = ""
     contractDate: Optional[date] = None
     dueDate: Optional[date] = None
+    processStatus: str = ""
     projectName: str = ""
     amount: int = 0
     salesOwner: str = ""
@@ -121,6 +122,7 @@ class ContractPatch(BaseModel):
     identNo: Optional[str] = None
     contractDate: Optional[date] = None
     dueDate: Optional[date] = None
+    processStatus: Optional[str] = None
     projectName: Optional[str] = None
     amount: Optional[int] = None
     salesOwner: Optional[str] = None
@@ -204,6 +206,7 @@ class ContractOut(BaseModel):
     identNo: Optional[Any] = None
     contractDate: Optional[Any] = None
     dueDate: Optional[Any] = None
+    processStatus: Optional[Any] = None
     projectName: Optional[Any] = None
     amount: Optional[Any] = None
     salesOwner: Optional[Any] = None
@@ -952,6 +955,9 @@ def row_to_contract(row) -> dict:
         "identNo": to_response_value(row.get("identNo", "")),
         "contractDate": contract_date_to_response(row.get("contractDate")),
         "dueDate": contract_date_to_response(row.get("dueDate")),
+        "processStatus": to_response_value(
+            _contract_row_field(row, "processStatus", default="")
+        ),
         "projectName": to_response_value(row["projectName"]),
         "amount": to_response_value(row["amount"]),
         "salesOwner": to_response_value(row["salesOwner"]),
@@ -1293,6 +1299,7 @@ CONTRACT_DB_COLUMNS = {
     "identNo": "identNo",
     "contractDate": "contractDate",
     "dueDate": "dueDate",
+    "processStatus": "processStatus",
     "projectName": "projectName",
     "amount": "amount",
     "salesOwner": "salesOwner",

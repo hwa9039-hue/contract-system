@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
+  AlertTriangle,
   ChevronRight,
   Copy,
   Download,
@@ -226,9 +227,82 @@ const EXCLUDED_DRAFT_CELL_BACKGROUND_STYLE = {
 
 /**
  * 계약현황 표 컬럼 — 이 배열 순서가 헤더·데이터 행·colgroup·엑셀 다운로드 순서를 모두 결정한다.
- * 앞 4개(사업년도·참고번호·발주처·사업명)는 체크박스·복사·D-Day와 함께 가로 스크롤 시 좌측에 고정된다.
+ * 앞쪽(공정상태·사업년도·참고번호·발주처·사업명)은 체크박스·복사·D-Day와 함께 가로 스크롤 시 좌측에 고정된다.
+ *
+ * 공정상태 표시 규칙 (수기값 stored 는 유지, 라벨만 강제):
+ * - 준공완료 → 그대로 '준공완료' (D-Day 칸은 '준공')
+ * - 준공일 경과 + 미완료 → '준공지연' (보라 글씨만; 애니메이션은 D-Day 칸)
+ * - 준공 임박(D-14~당일) + 미완료 → '준공임박' (빨간 글씨만; 애니메이션은 D-Day 칸)
  */
+const CONTRACT_PROCESS_STATUS_COMPLETE = '준공완료'
+/** 준공 임박으로 볼 남은 일수 — 오늘(D-Day)부터 이 값까지 */
+const CONTRACT_DUE_SOON_DAYS = 14
+
+const CONTRACT_PROCESS_STATUS_OPTIONS = [
+  { value: '', label: '선택' },
+  { value: '진행중', label: '진행중' },
+  { value: '준공완료', label: '준공완료' },
+]
+
+/** 구버전 표기 → 현재 옵션으로 정규화 */
+function normalizeContractProcessStatus(value) {
+  const raw = safeString(value).trim()
+  if (raw === '시공중') return '진행중'
+  if (raw === '준공') return CONTRACT_PROCESS_STATUS_COMPLETE
+  return raw
+}
+
+/**
+ * 공정상태 화면 표시.
+ * 저장값(stored)은 건드리지 않는다. select value 는 항상 stored.
+ */
+function resolveContractProcessStatusView(dueDate, processStatus) {
+  const stored = normalizeContractProcessStatus(processStatus)
+  if (stored === CONTRACT_PROCESS_STATUS_COMPLETE) {
+    return {
+      stored,
+      tone: '',
+      isDelayed: false,
+      isImminent: false,
+      label: stored,
+    }
+  }
+
+  const diff = getDateDiffFromToday(dueDate)
+  if (diff === null) {
+    return { stored, tone: '', isDelayed: false, isImminent: false, label: stored }
+  }
+  if (diff < 0) {
+    return {
+      stored,
+      tone: 'delayed',
+      isDelayed: true,
+      isImminent: false,
+      label: '준공지연',
+    }
+  }
+  if (diff <= CONTRACT_DUE_SOON_DAYS) {
+    return {
+      stored,
+      tone: 'imminent',
+      isDelayed: false,
+      isImminent: true,
+      label: '준공임박',
+    }
+  }
+  return { stored, tone: '', isDelayed: false, isImminent: false, label: stored }
+}
+
 const CONTRACT_COLUMNS = [
+  {
+    key: 'processStatus',
+    label: '공정상태',
+    className: 'col-process-status',
+    align: 'center',
+    type: 'select',
+    options: CONTRACT_PROCESS_STATUS_OPTIONS.map((opt) => opt.value).filter(Boolean),
+    width: 100,
+  },
   { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text', width: 112 },
   { key: 'refNo', label: '참고번호', className: 'col-ref', align: 'center', type: 'text', width: 110 },
   { key: 'client', label: '발주처', className: 'col-client', align: 'center', type: 'textarea', width: 150 },
@@ -250,6 +324,7 @@ const CONTRACT_COLUMNS = [
  * 여기서는 어떤 열이 고정 대상인지만 표시한다.
  */
 const CONTRACT_STICKY_COLUMN_CLASS = {
+  processStatus: 'contract-sticky-col contract-sticky-col--process',
   year: 'contract-sticky-col contract-sticky-col--year',
   refNo: 'contract-sticky-col contract-sticky-col--ref',
   client: 'contract-sticky-col contract-sticky-col--client',
@@ -1324,14 +1399,21 @@ function getCalendarEventPillTypeClass(type) {
 
 /**
  * 준공 일정에 붙일 상태 클래스 — 판정 기준은 계약현황 D-Day 뱃지와 같은 getContractDueStatus.
- * - 임박(D-14 ~ D-Day): 붉게 깜빡이는 강조
- * - 지남: 무채색으로 가라앉혀 진행 중인 건과 구분
+ * 공정상태 준공완료면 강조하지 않는다.
+ * - 임박(D-14 ~ D-Day): 빨간 깜빡임
+ * - 지남(준공지연): 보라 깜빡임 (계약일 노란색과 구분)
  */
 function getCalendarDueStatusClass(item) {
   if (item?.type !== 'due') return ''
+  if (
+    normalizeContractProcessStatus(item?.contract?.processStatus) ===
+    CONTRACT_PROCESS_STATUS_COMPLETE
+  ) {
+    return ''
+  }
   const status = getContractDueStatus(item?.date)
   if (status === 'due-soon') return 'calendar-due-soon'
-  if (status === 'overdue') return 'calendar-due-past'
+  if (status === 'overdue') return 'calendar-due-delayed'
   return ''
 }
 
@@ -3272,6 +3354,7 @@ const emptyContract = {
   identNo: '',
   contractDate: '',
   dueDate: '',
+  processStatus: '',
   projectName: '',
   amount: '',
   salesOwner: '',
@@ -3894,17 +3977,35 @@ function collectDashboardTodayExternalRows(dateYmd, workReportRows, workReportDr
 
 function mapDashboardWeekDueRow(calendarDueItem) {
   const contract = calendarDueItem?.contract || {}
+  const dueDate = safeString(calendarDueItem?.date).trim().slice(0, 10)
+  const processStatus = normalizeContractProcessStatus(contract.processStatus)
   return {
     id: safeString(calendarDueItem?.id),
     projectName: stripRedundantCalendarTitlePrefix(
       contract.projectName || calendarDueItem?.title
     ),
-    dueDate: safeString(calendarDueItem?.date).trim().slice(0, 10),
-    dday: safeString(calendarDueItem?.dday).trim(),
+    dueDate,
+    dday: getDashboardDueDayLabel(dueDate, processStatus),
     client: safeString(contract.client).trim(),
     salesManager: safeString(contract.salesOwner).trim(),
     fieldPM: safeString(contract.pm).trim(),
+    processStatus,
   }
+}
+
+/**
+ * 대시보드 준공임박 카드 D-Day 라벨.
+ * 준공일 경과 + 미완료 → '준공지연', 준공완료 → '준공'
+ */
+function getDashboardDueDayLabel(dueDate, processStatus) {
+  if (normalizeContractProcessStatus(processStatus) === CONTRACT_PROCESS_STATUS_COMPLETE) {
+    return '준공'
+  }
+  const diff = getDateDiffFromToday(dueDate)
+  if (diff === null) return ''
+  if (diff < 0) return '준공지연'
+  if (diff === 0) return 'D-Day'
+  return `D-${diff}`
 }
 
 /** 대시보드 준공임박 카드에서 '지금 당장' 급한 건으로 볼 남은 일수 */
@@ -3912,18 +4013,22 @@ const DASHBOARD_DUE_URGENT_DAYS = 3
 
 /**
  * 대시보드 준공임박 카드 강조 단계.
- * - `overdue` 준공일이 지난 건 — 무채색으로 가라앉힌다
- * - `urgent`  D-Day ~ D-3 — 붉은 카드 + 깜빡이는 D-Day 뱃지
- * - `soon`    그 밖의 금주 준공 예정 건 — 붉은 D-Day 텍스트만
+ * - `overdue` 준공일이 지난 건 — 보라 카드 + 보라 D-Day 뱃지 애니메이션
+ * - `urgent`  D-Day ~ D-3 — 붉은 카드 + 빨간 D-Day 뱃지 애니메이션
+ * - `soon`    그 밖의 금주 준공 예정 건 — 붉은 D-Day 텍스트
+ * - 공정상태 준공완료면 강조 없음
  */
-function getDashboardDueUrgency(dueDate) {
+function getDashboardDueUrgency(dueDate, processStatus) {
+  if (normalizeContractProcessStatus(processStatus) === CONTRACT_PROCESS_STATUS_COMPLETE) {
+    return ''
+  }
   const diff = getDateDiffFromToday(dueDate)
   if (diff === null) return ''
   if (diff < 0) return 'overdue'
   return diff <= DASHBOARD_DUE_URGENT_DAYS ? 'urgent' : 'soon'
 }
 
-/** 대시보드 브리핑: 금주(월~일) 준공 일정 — 캘린더 due 항목 */
+/** 대시보드 브리핑: 금주(월~일) 준공 일정 — 캘린더 due 항목 (준공완료 제외) */
 function collectDashboardWeekDueRows(calendarItems, weekAnchorDate = new Date()) {
   const weekStart = getWeekStartMonday(weekAnchorDate)
   const startYmd = formatDateInput(weekStart)
@@ -3934,6 +4039,11 @@ function collectDashboardWeekDueRows(calendarItems, weekAnchorDate = new Date())
       const ymd = safeString(item.date).trim().slice(0, 10)
       return ymd && ymd >= startYmd && ymd <= endYmd
     })
+    .filter(
+      (item) =>
+        normalizeContractProcessStatus(item?.contract?.processStatus) !==
+        CONTRACT_PROCESS_STATUS_COMPLETE
+    )
     .sort((a, b) => safeString(a.date).localeCompare(safeString(b.date)))
     .map(mapDashboardWeekDueRow)
 }
@@ -4424,6 +4534,7 @@ function normalizeContractPayload(item) {
     identNo: normalizeExcelPlaceholderText(sanitizeExcelContractText(item.identNo)),
     contractDate: toDbDate(item.contractDate),
     dueDate: toDbDate(item.dueDate),
+    processStatus: normalizeContractProcessStatus(item.processStatus),
     projectName: normalizeExcelPlaceholderText(safeString(item.projectName).trim()),
     amount: parseAmount(item.amount),
     salesOwner: normalizeExcelPlaceholderText(safeString(item.salesOwner).trim()),
@@ -5570,16 +5681,21 @@ function getExcludedBadgeStyle(toneMap, value) {
   }
 }
 
-function getDdayText(dateString) {
+/**
+ * 계약현황 D-Day 칸 표시.
+ * - 공정상태가 '준공완료'이면 날짜와 무관하게 '준공'
+ * - 그 외: 미래 D-n / 당일 D-Day / 과거 D+n
+ */
+function getDdayText(dateString, processStatus) {
+  if (normalizeContractProcessStatus(processStatus) === CONTRACT_PROCESS_STATUS_COMPLETE) {
+    return '준공'
+  }
   const diff = getDateDiffFromToday(dateString)
   if (diff === null) return ''
-  if (diff < 0) return '준공'
+  if (diff < 0) return `D+${-diff}`
   if (diff === 0) return 'D-Day'
   return `D-${diff}`
 }
-
-/** 준공 임박으로 볼 남은 일수 — 오늘(D-Day)부터 이 값까지 강조한다. */
-const CONTRACT_DUE_SOON_DAYS = 14
 
 /**
  * 준공일자 기준 행 상태.
@@ -5597,13 +5713,17 @@ function getContractDueStatus(dueDate) {
   return diff <= CONTRACT_DUE_SOON_DAYS ? 'due-soon' : ''
 }
 
-/** 캘린더 우측 리스트·일정 객체: 준공일만 D-n / 그 외(당일·과거)=「준공」. 계약·기타는 기존 D+/D-Day/D-n */
-function getCalendarListRelativeDayLabel(eventType, dateString) {
+/** 캘린더 우측 리스트·일정 객체: 준공일 D-n / 당일 D-Day / 지연·완료 라벨. 계약·기타는 기존 D+/D-Day/D-n */
+function getCalendarListRelativeDayLabel(eventType, dateString, processStatus) {
   const diff = getDateDiffFromToday(dateString)
   if (diff === null) return ''
   if (eventType === 'due') {
-    if (diff > 0) return `D-${diff}`
-    return '준공'
+    if (normalizeContractProcessStatus(processStatus) === CONTRACT_PROCESS_STATUS_COMPLETE) {
+      return '준공'
+    }
+    if (diff < 0) return '준공지연'
+    if (diff === 0) return 'D-Day'
+    return `D-${diff}`
   }
   if (diff < 0) return `D+${-diff}`
   if (diff === 0) return 'D-Day'
@@ -7036,12 +7156,13 @@ function App() {
     search,
   ])
 
-  /** 현재 필터 조건에서 준공 임박(D-Day 기준 CONTRACT_DUE_SOON_DAYS 일 이내)인 건 */
+  /** 준공 임박·준공지연(미완료) 퀵 필터 대상 */
   const contractDueSoonRows = useMemo(
     () =>
-      contractRowsBeforeDueSoonFilter.filter(
-        (item) => getContractDueStatus(item.dueDate) === 'due-soon'
-      ),
+      contractRowsBeforeDueSoonFilter.filter((item) => {
+        const tone = resolveContractProcessStatusView(item.dueDate, item.processStatus).tone
+        return tone === 'imminent' || tone === 'delayed'
+      }),
     [contractRowsBeforeDueSoonFilter]
   )
 
@@ -8363,7 +8484,7 @@ function App() {
         title: `준공: ${item.projectName}`,
         text: `준공: ${item.projectName}`,
         type: 'due',
-        dday: getCalendarListRelativeDayLabel('due', item.dueDate),
+        dday: getCalendarListRelativeDayLabel('due', item.dueDate, item.processStatus),
         owner: item.salesOwner,
         pm: item.pm,
         contract: item,
@@ -12266,7 +12387,7 @@ function App() {
             ...EXCLUDED_DRAFT_CELL_BACKGROUND_STYLE,
           }}
         >
-          <div className="cell-display dday-cell">{getDdayText(row.dueDate)}</div>
+          <div className="cell-display dday-cell">{getDdayText(row.dueDate, row.processStatus)}</div>
         </td>
         {CONTRACT_COLUMNS.map((column) => {
           const isContractAmountColumn = column.key === 'amount'
@@ -12335,7 +12456,30 @@ function App() {
     }
 
     let control
-    if (column.type === 'date') {
+    if (column.type === 'select') {
+      control = (
+        <select
+          {...commonProps}
+          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} min-h-[2.5rem] py-2`}
+          style={{ textAlign: 'center' }}
+          onChange={(e) => {
+            const value = e.target.value
+            setContractEditDraft(value)
+            contractEditDraftRef.current = value
+            window.setTimeout(() => {
+              void saveEdit()
+            }, 0)
+          }}
+        >
+          <option value="">선택</option>
+          {(column.options || []).map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      )
+    } else if (column.type === 'date') {
       control = <input {...commonProps} type="date" />
     } else if (
       column.type === 'textarea' ||
@@ -12361,6 +12505,33 @@ function App() {
       </ContractTableCellShell>
     )
   }
+
+  /** 공정상태 — 수기 select. 준공지연은 표시만 강제하고, 저장값은 onChange 로만 갱신한다. */
+  const handleContractProcessStatusChange = useCallback(
+    async (item, nextValue) => {
+      if (!canEditContracts) return
+      const id = firstUsableContractPathId(item?.id, item?.key)
+      if (!isUsableContractPathId(id)) {
+        setToastMessage('유효한 ID가 없습니다')
+        return
+      }
+      const value = normalizeContractProcessStatus(nextValue)
+      const rowSelectKey = getContractTableRowKey(item)
+      setContracts((prev) =>
+        prev.map((row) =>
+          getContractTableRowKey(row) === rowSelectKey ? { ...row, processStatus: value } : row
+        )
+      )
+      try {
+        await contractsApi.update(id, { processStatus: value })
+      } catch (error) {
+        logApiOperationError('계약현황 공정상태 수정', error)
+        setToastMessage(`저장에 실패했습니다. ${safeString(error?.message)}`)
+        await fetchContracts()
+      }
+    },
+    [canEditContracts, fetchContracts]
+  )
 
   const addManualEvent = async () => {
     const title = eventForm.title.trim()
@@ -15552,19 +15723,11 @@ function App() {
               <h1 className="top-system-page-title">{PAGE_TITLE_MAP[menu] || ''}</h1>
             </div>
             <div className="top-system-session-actions">
-              <span
-                className={`top-system-session-badge${
-                  isLongLivedSession
-                    ? ' top-system-session-badge--auto'
-                    : remainingSessionMinutes <= 1
-                      ? ' top-system-session-badge--danger'
-                      : ' top-system-session-badge--timer'
-                }`}
-              >
-                {isLongLivedSession
-                  ? '자동 로그인'
-                  : `남은 시간 ${formatRemainingSessionLabel(remainingSessionMinutes)}`}
-              </span>
+              {isLongLivedSession ? (
+                <span className="top-system-session-badge top-system-session-badge--auto">
+                  자동 로그인
+                </span>
+              ) : null}
               <button
                 className="secondary-btn top-system-session-extend-btn"
                 type="button"
@@ -15746,7 +15909,10 @@ function App() {
                         {dashboardWeekDueRows.length > 0 ? (
                           <ul className="dashboard-briefing-due-list">
                             {dashboardWeekDueRows.map((item) => {
-                              const urgency = getDashboardDueUrgency(item.dueDate)
+                              const urgency = getDashboardDueUrgency(
+                                item.dueDate,
+                                item.processStatus
+                              )
                               return (
                                 <li
                                   key={item.id}
@@ -16053,11 +16219,14 @@ function App() {
                 type="button"
                 onClick={handleToggleContractDueSoonOnly}
                 aria-pressed={isContractDueSoonOnly}
-                title={`준공일자가 ${CONTRACT_DUE_SOON_DAYS}일 이내로 남은 계약만 모아봅니다.`}
+                title={
+                  isContractDueSoonOnly
+                    ? '전체 목록 보기'
+                    : `준공임박(${CONTRACT_DUE_SOON_DAYS}일 이내)·준공지연 건만 모아봅니다.`
+                }
               >
-                {isContractDueSoonOnly
-                  ? `전체 목록 보기 (준공 임박 ${contractDueSoonRows.length}건)`
-                  : `🚨 준공 임박 모아보기 (${contractDueSoonRows.length}건)`}
+                <AlertTriangle size={15} strokeWidth={2.4} aria-hidden="true" />
+                준공임박({contractDueSoonRows.length}건)
               </button>
 
               <input
@@ -16365,23 +16534,34 @@ function App() {
                                   <ContractTableCellShell align="center">
                                     <div
                                       className={`cell-display dday-cell${
-                                        dueStatus ? ` dday-cell--${dueStatus}` : ''
+                                        normalizeContractProcessStatus(item.processStatus) ===
+                                        CONTRACT_PROCESS_STATUS_COMPLETE
+                                          ? ' dday-cell--complete'
+                                          : dueStatus === 'overdue'
+                                            ? ' dday-cell--overdue'
+                                            : dueStatus === 'due-soon'
+                                              ? ' dday-cell--due-soon'
+                                              : ''
                                       }`}
                                       title={
-                                        dueStatus === 'due-soon'
-                                          ? `준공 임박 (${CONTRACT_DUE_SOON_DAYS}일 이내)`
+                                        normalizeContractProcessStatus(item.processStatus) ===
+                                        CONTRACT_PROCESS_STATUS_COMPLETE
+                                          ? '공정상태 준공완료'
                                           : dueStatus === 'overdue'
-                                            ? '준공일자 경과'
-                                            : undefined
+                                            ? '준공일자 경과 (준공지연)'
+                                            : dueStatus === 'due-soon'
+                                              ? `준공 임박 (${CONTRACT_DUE_SOON_DAYS}일 이내)`
+                                              : undefined
                                       }
                                     >
-                                      {getDdayText(item.dueDate)}
+                                      {getDdayText(item.dueDate, item.processStatus)}
                                     </div>
                                   </ContractTableCellShell>
                                 </td>
 
                                 {CONTRACT_COLUMNS.map((column) => {
                                   const isContractAmountColumn = column.key === 'amount'
+                                  const isProcessStatusColumn = column.key === 'processStatus'
                                   const bodyAlignClass = isContractAmountColumn
                                     ? 'td-align-right'
                                     : getTableBodyAlignClass(column)
@@ -16389,6 +16569,7 @@ function App() {
                                   const cellAlign = shellAlign
                                   const isLongCell = isLongTextTableColumn(column)
                                   const isThisContractCell =
+                                    !isProcessStatusColumn &&
                                     contractEdit?.rowKey === rowSelectKey &&
                                     contractEdit?.key === column.key
                                   const contractDisplay = getContractCellDisplayState(item, column)
@@ -16411,6 +16592,72 @@ function App() {
                                       {contractWeekTag === 'current' ? '금주' : '전주'}
                                     </span>
                                   ) : null
+
+                                  if (isProcessStatusColumn) {
+                                    const statusView = resolveContractProcessStatusView(
+                                      item.dueDate,
+                                      item.processStatus
+                                    )
+                                    const { stored, tone, label } = statusView
+                                    const toneClass =
+                                      tone === 'delayed'
+                                        ? ' is-delayed'
+                                        : tone === 'imminent'
+                                          ? ' is-imminent'
+                                          : ''
+                                    return (
+                                      <td
+                                        key={column.key}
+                                        className={`${column.className} ${bodyAlignClass} ${CONTRACT_TABLE_DATA_TD_CLASS} ${getTableColumnLayoutClass(column)} ${
+                                          canEditContracts ? 'editable-cell' : ''
+                                        } ${tableCellStateClass(!stored && !tone)} ${getContractStickyColumnClass(column.key)}`}
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <ContractTableCellShell align="center">
+                                          {canEditContracts ? (
+                                            <select
+                                              className={`contract-process-status-select${toneClass}`}
+                                              value={stored}
+                                              aria-label={`${item.projectName || '계약'} 공정상태`}
+                                              onChange={(e) => {
+                                                void handleContractProcessStatusChange(
+                                                  item,
+                                                  e.target.value
+                                                )
+                                              }}
+                                            >
+                                              {CONTRACT_PROCESS_STATUS_OPTIONS.map((opt) => {
+                                                const optionLabel =
+                                                  tone && opt.value === stored ? label : opt.label
+                                                return (
+                                                  <option
+                                                    key={opt.value || 'empty'}
+                                                    value={opt.value}
+                                                  >
+                                                    {optionLabel}
+                                                  </option>
+                                                )
+                                              })}
+                                            </select>
+                                          ) : (
+                                            <div
+                                              className={`cell-display editable-text-cell-display editable-text-cell-display--center contract-process-status-label${
+                                                !label ? ' table-cell-empty-placeholder' : ''
+                                              }${
+                                                tone === 'delayed'
+                                                  ? ' contract-process-status-label--delayed'
+                                                  : tone === 'imminent'
+                                                    ? ' contract-process-status-label--imminent'
+                                                    : ''
+                                              }`}
+                                            >
+                                              {label || '—'}
+                                            </div>
+                                          )}
+                                        </ContractTableCellShell>
+                                      </td>
+                                    )
+                                  }
 
                                   return (
                                     <td

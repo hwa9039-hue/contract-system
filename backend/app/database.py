@@ -872,7 +872,8 @@ def init_db():
                   add column if not exists "guaranteeRate" text not null default '',
                   add column if not exists "inspectionRequestDate" date,
                   add column if not exists "taxInvoice" text not null default '',
-                  add column if not exists "performanceCertStatus" text not null default ''
+                  add column if not exists "performanceCertStatus" text not null default '',
+                  add column if not exists "processStatus" text not null default ''
                 """
             )
             _migrate_contract_unit_price_items(cursor)

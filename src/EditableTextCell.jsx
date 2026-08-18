@@ -44,6 +44,8 @@ export function EditableTextCell({
   suffix = null,
   /** 'amount' 이면 입력 중에도 콤마 포맷 + 숫자만 허용 */
   formatMode = null,
+  /** 보기 모드 커스텀 렌더 (예: 연계 사업 칩). null/undefined 이면 문자열 표시 */
+  renderDisplay = null,
 }) {
   const toDisplay = (raw) => {
     if (formatMode === 'amount') return formatAmountInputValue(raw)
@@ -98,7 +100,7 @@ export function EditableTextCell({
         } ${className}`.trim()}
         style={displayStyle || undefined}
       >
-        {isEmpty ? TABLE_CELL_EMPTY_LABEL : displayValue}
+        {isEmpty ? TABLE_CELL_EMPTY_LABEL : renderDisplay ? renderDisplay(displayValue) : displayValue}
         {suffix}
       </div>
     )
@@ -182,7 +184,7 @@ export function EditableTextCell({
         }
       }}
     >
-      {isEmpty ? TABLE_CELL_EMPTY_LABEL : displayValue}
+      {isEmpty ? TABLE_CELL_EMPTY_LABEL : renderDisplay ? renderDisplay(displayValue) : displayValue}
       {suffix}
     </div>
   )

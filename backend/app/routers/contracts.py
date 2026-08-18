@@ -227,6 +227,7 @@ CONTRACT_PARENT_RETURNING_SQL = """
   "identNo",
   "contractDate",
   "dueDate",
+  "processStatus",
   "projectName",
   amount,
   "salesOwner",

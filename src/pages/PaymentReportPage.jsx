@@ -23,6 +23,89 @@ function formatAmountComma(value) {
   return Number(raw).toLocaleString('ko-KR')
 }
 
+/** 금액 문자열 → 숫자. `원 / %` 형식이면 금액(원 앞)만 읽고 요율 숫자는 무시한다. */
+function parseAmountNumber(value) {
+  const text = safeString(value).trim()
+  if (!text) return null
+  const amountPart = text.includes('원')
+    ? text.slice(0, text.indexOf('원'))
+    : text.includes('/')
+      ? text.slice(0, text.indexOf('/'))
+      : text
+  const raw = normalizeAmountDigits(amountPart)
+  if (!raw) return null
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : null
+}
+
+/** 기준 금액 대비 요율(%). 소수 둘째 자리까지 */
+function formatRateAgainstBase(amount, base) {
+  if (amount == null || base == null || base <= 0) return null
+  const pct = (amount / base) * 100
+  const rounded = Math.round(pct * 100) / 100
+  if (!Number.isFinite(rounded)) return null
+  return String(rounded)
+}
+
+/** `12,345원 / 67.8%` 형식 */
+function formatAmountWonRate(amount, ratePercent) {
+  if (amount == null || !Number.isFinite(amount)) return ''
+  const amountText = Math.round(amount).toLocaleString('ko-KR')
+  if (ratePercent == null || ratePercent === '') return `${amountText}원`
+  return `${amountText}원 / ${ratePercent}%`
+}
+
+/**
+ * 사업준공금액(C) + 결제 예정 금액(P) → 물품원가·금회지출·수익률만 계산.
+ * 사업준공금액 문자열은 절대 바꾸지 않는다.
+ */
+function buildDerivedPaymentInfoFields(completionRaw, plannedRaw) {
+  const completion = parseAmountNumber(completionRaw)
+  if (completion == null || completion <= 0) {
+    return {
+      materialCost: '',
+      currentExpense: '',
+      profitRate: '',
+    }
+  }
+
+  const planned = parseAmountNumber(plannedRaw)
+  if (planned == null) {
+    return {
+      materialCost: '',
+      currentExpense: '',
+      profitRate: '',
+    }
+  }
+
+  const expenseRate = formatRateAgainstBase(planned, completion)
+  const profit = completion - planned
+  const profitRatePct = formatRateAgainstBase(profit, completion)
+
+  return {
+    materialCost: formatAmountWonRate(planned, expenseRate),
+    currentExpense: formatAmountWonRate(planned, expenseRate),
+    profitRate: formatAmountWonRate(profit, profitRatePct),
+  }
+}
+
+/** 사업준공금액 blur 시: 준공칸은 금액(콤마)만 정리 + 파생 3칸 갱신 */
+function buildCompletionBlurPaymentInfoFields(completionRaw, plannedRaw) {
+  const completion = parseAmountNumber(completionRaw)
+  if (completion == null || completion <= 0) {
+    return {
+      completionAmount: '',
+      materialCost: '',
+      currentExpense: '',
+      profitRate: '',
+    }
+  }
+  return {
+    completionAmount: formatAmountComma(String(completion)),
+    ...buildDerivedPaymentInfoFields(completion, plannedRaw),
+  }
+}
+
 const PAYMENT_REPORT_AMOUNT_KEYS = new Set(['plannedAmount'])
 
 const PAYMENT_REPORT_TABLE_COL_COUNT = 11
@@ -51,16 +134,47 @@ function normalizePaymentMonth(value, fallback = formatPaymentMonth()) {
   return fallback
 }
 
-function shiftPaymentMonth(monthKey, deltaMonths) {
-  const base = normalizePaymentMonth(monthKey)
-  const [y, m] = base.split('-').map(Number)
-  const date = new Date(y, m - 1 + deltaMonths, 1)
-  return formatPaymentMonth(date)
+function getPaymentYear(monthKey) {
+  return normalizePaymentMonth(monthKey).slice(0, 4)
 }
 
-function formatPaymentMonthLabel(monthKey) {
-  const [y, m] = normalizePaymentMonth(monthKey).split('-')
-  return `${y}년 ${Number(m)}월`
+function formatPaymentYearLabel(monthKey) {
+  return `${getPaymentYear(monthKey)}년`
+}
+
+function shiftPaymentYear(monthKey, deltaYears) {
+  const base = normalizePaymentMonth(monthKey)
+  const [y, m] = base.split('-').map(Number)
+  return `${y + deltaYears}-${String(m).padStart(2, '0')}`
+}
+
+function matchesPaymentReportSearch(row, query) {
+  const q = safeString(query).trim().toLowerCase()
+  if (!q) return true
+  const cycleLabel = normalizePaymentCycle(row.paymentCycle) === '31' ? '31일' : '15일'
+  const haystack = [
+    row.seq,
+    row.classification,
+    row.projectName,
+    row.contractAmount,
+    row.projectPeriod,
+    row.client,
+    row.vendorInfo,
+    row.plannedAmount,
+    row.progress,
+    row.projectVolume,
+    row.expenseContent,
+    row.vendorDetail,
+    row.completionAmount,
+    row.materialCost,
+    row.currentExpense,
+    row.profitRate,
+    row.paymentMonth,
+    cycleLabel,
+  ]
+    .map((value) => safeString(value).toLowerCase())
+    .join(' ')
+  return haystack.includes(q)
 }
 
 function displayLocked(value) {
@@ -557,7 +671,15 @@ function isPersistedPaymentReportId(id) {
   )
 }
 
-function PaymentReportExpandedPanel({ row, onChange, onCommit, onDownloadPdf, isDownloading }) {
+function PaymentReportExpandedPanel({
+  row,
+  onChange,
+  onCompletionAmountChange,
+  onCompletionAmountBlur,
+  onCommit,
+  onDownloadPdf,
+  isDownloading,
+}) {
   const commit = () => onCommit?.(row.id)
   return (
     <div
@@ -650,11 +772,18 @@ function PaymentReportExpandedPanel({ row, onChange, onCommit, onDownloadPdf, is
             <input
               className="payment-report-cell-input"
               type="text"
+              inputMode="numeric"
               autoComplete="off"
               value={row.completionAmount}
-              onChange={(e) => onChange(row.id, 'completionAmount', e.target.value)}
-              onBlur={commit}
-              placeholder="-원 / -%"
+              onChange={(e) => onCompletionAmountChange?.(row.id, e.target.value)}
+              onFocus={(e) => {
+                const amount = parseAmountNumber(e.target.value)
+                if (amount != null && /원|\//.test(e.target.value)) {
+                  onChange(row.id, 'completionAmount', formatAmountComma(String(amount)))
+                }
+              }}
+              onBlur={() => onCompletionAmountBlur?.(row.id)}
+              placeholder="금액 입력"
             />
           </label>
           <label className="payment-report-expand-field">
@@ -727,6 +856,7 @@ function renumberRowsByMonthCycle(rows) {
 export default function PaymentReportPage({ contracts = [] }) {
   const [activeMonth, setActiveMonth] = useState(() => formatPaymentMonth())
   const [activeTab, setActiveTab] = useState('15')
+  const [searchQuery, setSearchQuery] = useState('')
   const [rows, setRows] = useState([])
   const [expandedIds, setExpandedIds] = useState(() => new Set())
   const [pdfDownloadingId, setPdfDownloadingId] = useState('')
@@ -742,12 +872,16 @@ export default function PaymentReportPage({ contracts = [] }) {
   }, [rows])
 
   const visibleRows = useMemo(() => {
-    const month = normalizePaymentMonth(activeMonth)
-    const inMonth = rows.filter((row) => normalizePaymentMonth(row.paymentMonth) === month)
-    if (activeTab === 'all') return inMonth
-    const cycle = normalizePaymentCycle(activeTab)
-    return inMonth.filter((row) => normalizePaymentCycle(row.paymentCycle) === cycle)
-  }, [rows, activeMonth, activeTab])
+    const year = getPaymentYear(activeMonth)
+    const query = safeString(searchQuery).trim()
+    const inYear = rows.filter((row) => getPaymentYear(row.paymentMonth) === year)
+    const byCycle =
+      activeTab === 'all'
+        ? inYear
+        : inYear.filter((row) => normalizePaymentCycle(row.paymentCycle) === normalizePaymentCycle(activeTab))
+    if (!query) return byCycle
+    return byCycle.filter((row) => matchesPaymentReportSearch(row, query))
+  }, [rows, activeMonth, activeTab, searchQuery])
 
   /** 서버 반영 — 저장 중 들어온 추가 입력은 dirty 로 남겨 뒤이어 한 번 더 저장한다. */
   const persistRow = useCallback(async (rowId) => {
@@ -893,11 +1027,52 @@ export default function PaymentReportPage({ contracts = [] }) {
     (rowId, key, value, options) => {
       applyRowUpdate(
         rowId,
+        (row) => {
+          const nextValue = PAYMENT_REPORT_AMOUNT_KEYS.has(key)
+            ? formatAmountComma(value)
+            : value
+          const nextRow = { ...row, [key]: nextValue }
+          // 결제 예정 금액 변경 시 파생 3칸만 갱신 — 사업준공금액은 그대로 둔다
+          if (key === 'plannedAmount' && parseAmountNumber(row.completionAmount) != null) {
+            return {
+              ...nextRow,
+              ...buildDerivedPaymentInfoFields(row.completionAmount, nextValue),
+            }
+          }
+          return nextRow
+        },
+        options
+      )
+    },
+    [applyRowUpdate]
+  )
+
+  /** 사업준공금액 입력 중 — 숫자·콤마만 보여 주고, 하단 3칸은 결제예정 기준으로 즉시 갱신 */
+  const handleCompletionAmountChange = useCallback(
+    (rowId, value) => {
+      applyRowUpdate(rowId, (row) => {
+        const digits = normalizeAmountDigits(value)
+        const display = formatAmountComma(digits)
+        return {
+          ...row,
+          completionAmount: display,
+          ...buildDerivedPaymentInfoFields(digits, row.plannedAmount),
+        }
+      })
+    },
+    [applyRowUpdate]
+  )
+
+  /** 사업준공금액 확정 — 금액(콤마)만 정리 + 파생 필드 저장 */
+  const handleCompletionAmountBlur = useCallback(
+    (rowId) => {
+      applyRowUpdate(
+        rowId,
         (row) => ({
           ...row,
-          [key]: PAYMENT_REPORT_AMOUNT_KEYS.has(key) ? formatAmountComma(value) : value,
+          ...buildCompletionBlurPaymentInfoFields(row.completionAmount, row.plannedAmount),
         }),
-        options
+        { immediate: true }
       )
     },
     [applyRowUpdate]
@@ -938,8 +1113,8 @@ export default function PaymentReportPage({ contracts = [] }) {
     }
   }
 
-  const handleMonthShift = (delta) => {
-    setActiveMonth(shiftPaymentMonth(activeMonth, delta))
+  const handleYearShift = (deltaYears) => {
+    setActiveMonth(shiftPaymentYear(activeMonth, deltaYears))
   }
 
   const handleTabChange = (tabId) => {
@@ -1006,21 +1181,21 @@ export default function PaymentReportPage({ contracts = [] }) {
           등록
         </button>
 
-        <div className="payment-report-month-nav" aria-label="결제 월 선택">
+        <div className="payment-report-month-nav" aria-label="결제 연도 선택">
           <button
             type="button"
             className="payment-report-month-btn"
-            onClick={() => handleMonthShift(-1)}
-            aria-label="이전 달"
+            onClick={() => handleYearShift(-1)}
+            aria-label="이전 해"
           >
             ‹
           </button>
-          <span className="payment-report-month-label">{formatPaymentMonthLabel(activeMonth)}</span>
+          <span className="payment-report-month-label">{formatPaymentYearLabel(activeMonth)}</span>
           <button
             type="button"
             className="payment-report-month-btn"
-            onClick={() => handleMonthShift(1)}
-            aria-label="다음 달"
+            onClick={() => handleYearShift(1)}
+            aria-label="다음 해"
           >
             ›
           </button>
@@ -1044,10 +1219,19 @@ export default function PaymentReportPage({ contracts = [] }) {
             )
           })}
         </div>
+
+        <input
+          className="table-search-input payment-report-search-input"
+          type="search"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="사업명, 업체, 발주처 등 검색"
+          aria-label="결제보고 검색"
+        />
       </div>
 
       <p className="payment-report-page-desc">
-        {formatPaymentMonthLabel(activeMonth)} 기준으로{' '}
+        {formatPaymentYearLabel(activeMonth)} 전체 기간 기준으로{' '}
         {activeTab === 'all'
           ? '15일·31일 결제 건을 함께 표시합니다. 등록 시 기본값은 15일 결제입니다.'
           : `${activeTab}일 결제 건만 표시합니다. 등록 시 현재 월·주기가 자동 적용됩니다.`}{' '}
@@ -1186,6 +1370,8 @@ export default function PaymentReportPage({ contracts = [] }) {
                           <PaymentReportExpandedPanel
                             row={row}
                             onChange={handleEditableChange}
+                            onCompletionAmountChange={handleCompletionAmountChange}
+                            onCompletionAmountBlur={handleCompletionAmountBlur}
                             onCommit={flushSave}
                             onDownloadPdf={handleDownloadPdf}
                             isDownloading={pdfDownloadingId === row.id}

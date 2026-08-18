@@ -34,6 +34,7 @@ CONTRACT_PARENT_SELECT = """
   c."identNo",
   c."contractDate",
   c."dueDate",
+  c."processStatus",
   c."projectName",
   c.amount,
   c."salesOwner",

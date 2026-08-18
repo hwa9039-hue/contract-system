@@ -15,11 +15,13 @@ import {
   CONTRACT_PERSISTENT_SESSION_DURATION_MS,
   CONTRACT_SHARED_SESSION_DURATION_MS,
   CONTRACT_TOKEN_REFRESH_INTERVAL_MS,
+  findManagerAccount,
   hydrateAuthSessionFromStorage,
   restoreAuthSessionFromStorages,
   ROLE_EXPECTED_PASSWORD,
   resolveEffectiveRole,
   writeRole,
+  writeRoleLabel,
   writeSharedAuthSession,
   clearRole,
   clearSharedAuthSession,
@@ -41,6 +43,9 @@ export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(hydrated.isAuthenticated)
   // 실제 로그인 역할('admin' | 'manager' | 'user') — Role 기반 상태 관리의 핵심.
   const [role, setRole] = useState(hydrated.role)
+  const [roleLabel, setRoleLabel] = useState(
+    hydrated.roleLabel || ROLE_LABELS[hydrated.role] || ROLE_LABELS[ROLES.USER]
+  )
   const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(hydrated.expiresAt)
   const [authHydrated, setAuthHydrated] = useState(true)
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState('')
@@ -53,6 +58,7 @@ export function AuthProvider({ children }) {
     setAuthPersistence(session.persistence)
     setIsAuthenticated(session.isAuthenticated)
     setRole(session.role)
+    setRoleLabel(session.roleLabel || ROLE_LABELS[session.role] || ROLE_LABELS[ROLES.USER])
     setSharedSessionExpiresAt(session.expiresAt)
     if (session.isAuthenticated) {
       syncAuthTokenToActiveStorage(session.persistence)
@@ -70,6 +76,7 @@ export function AuthProvider({ children }) {
       setAuthPersistence('none')
       setIsAuthenticated(false)
       setRole(ROLES.USER)
+      setRoleLabel(ROLE_LABELS[ROLES.USER])
       setSharedSessionExpiresAt(0)
       setSessionExpiredNotice(message || SESSION_EXPIRED_USER_MESSAGE)
     })
@@ -93,6 +100,7 @@ export function AuthProvider({ children }) {
       setAuthPersistence('none')
       setIsAuthenticated(false)
       setRole(ROLES.USER)
+      setRoleLabel(ROLE_LABELS[ROLES.USER])
       setSharedSessionExpiresAt(0)
       clearSharedAuthSession()
       clearRole()
@@ -127,8 +135,14 @@ export function AuthProvider({ children }) {
         // 서버가 알려준 실제 역할(admin·manager·user)로 상태·스토리지를 동기화
         if (data.valid && VALID_ROLES.has(normalizeRole(data.role))) {
           const serverRole = normalizeRole(data.role)
+          const serverLabel =
+            String(data.role_label || '').trim() ||
+            ROLE_LABELS[serverRole] ||
+            ROLE_LABELS[ROLES.USER]
           setRole(serverRole)
+          setRoleLabel(serverLabel)
           writeRole(serverRole, stored.persistence)
+          writeRoleLabel(serverLabel, stored.persistence)
         }
 
         if (data.valid) return
@@ -214,13 +228,17 @@ export function AuthProvider({ children }) {
       return { ok: false, error: '비밀번호를 입력해 주세요.' }
     }
 
-    // 비밀번호 값으로 실제 역할을 결정: '일반 사용자' 탭에서 부서장 비밀번호(kk2331!)를
+    // 비밀번호 값으로 실제 역할을 결정: '일반 사용자' 탭에서 부서장 계정 비밀번호를
     // 입력하면 manager 로 승격됩니다. (authSession.js 의 resolveEffectiveRole 참고)
     const wantsRole = resolveEffectiveRole(requestedRole, trimmed)
-    const expectedPassword = ROLE_EXPECTED_PASSWORD[wantsRole]
+    const managerAccount = wantsRole === ROLES.MANAGER ? findManagerAccount(trimmed) : null
+    const passwordOk =
+      wantsRole === ROLES.MANAGER
+        ? Boolean(managerAccount)
+        : trimmed === ROLE_EXPECTED_PASSWORD[wantsRole]
 
     // 클라이언트 1차 검증(UX용). 실제 인증은 백엔드가 최종 판정합니다.
-    if (trimmed !== expectedPassword) {
+    if (!passwordOk) {
       // 승격 실패 시(잘못된 비밀번호)에는 요청 탭 기준으로 안내합니다.
       const shownRole = normalizeRole(requestedRole)
       const label = shownRole === ROLES.USER ? '공용' : ROLE_LABELS[shownRole] || '사용자'
@@ -256,7 +274,7 @@ export function AuthProvider({ children }) {
 
       if (data.auth_disabled) {
         // 인증 비활성(AUTH_DISABLED) 모드: 클라이언트 비밀번호만 재확인
-        if (trimmed !== expectedPassword) {
+        if (!passwordOk) {
           logCmsApiLogin('rejected', { reason: 'client password mismatch (auth_disabled mode)' })
           return { ok: false, error: '비밀번호가 올바르지 않습니다.' }
         }
@@ -277,6 +295,11 @@ export function AuthProvider({ children }) {
 
       // 서버가 확정한 역할을 우선 사용, 없으면 요청 역할로 폴백
       const resolvedRole = data.role ? normalizeRole(data.role) : wantsRole
+      const resolvedLabel =
+        String(data.role_label || '').trim() ||
+        managerAccount?.label ||
+        ROLE_LABELS[resolvedRole] ||
+        ROLE_LABELS[ROLES.USER]
 
       const persistence = rememberMe ? 'persistent' : 'session'
       const sessionDuration = rememberMe
@@ -285,11 +308,13 @@ export function AuthProvider({ children }) {
       const expiresAt = Date.now() + sessionDuration
       writeSharedAuthSession(expiresAt, persistence)
       writeRole(resolvedRole, persistence)
+      writeRoleLabel(resolvedLabel, persistence)
       syncAuthTokenToActiveStorage(persistence)
 
       setAuthPersistence(persistence)
       setIsAuthenticated(true)
       setRole(resolvedRole)
+      setRoleLabel(resolvedLabel)
       setSharedSessionExpiresAt(expiresAt)
 
       logCmsApiLogin('success', {
@@ -313,6 +338,7 @@ export function AuthProvider({ children }) {
     setAuthPersistence('none')
     setIsAuthenticated(false)
     setRole(ROLES.USER)
+    setRoleLabel(ROLE_LABELS[ROLES.USER])
     setSharedSessionExpiresAt(0)
   }, [])
 
@@ -327,8 +353,8 @@ export function AuthProvider({ children }) {
       isAuthenticated,
       // role: 실제 역할 문자열('admin' | 'manager' | 'user') — 세밀한 분기에 사용
       role,
-      // roleLabel: 화면 표시용 한글 라벨('관리자' | '부서장' | '일반 사용자')
-      roleLabel: ROLE_LABELS[role] || ROLE_LABELS[ROLES.USER],
+      // roleLabel: 화면 표시용 한글 라벨('관리자' | '전기웅(영업)' | '사용자' 등)
+      roleLabel,
       // isAdmin: 관리자급 권한 여부(admin·manager 공통) — 기존 코드 하위 호환용
       isAdmin,
       sharedSessionExpiresAt,
@@ -342,6 +368,7 @@ export function AuthProvider({ children }) {
     [
       isAuthenticated,
       role,
+      roleLabel,
       isAdmin,
       sharedSessionExpiresAt,
       authHydrated,

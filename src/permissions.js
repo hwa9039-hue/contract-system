@@ -23,7 +23,7 @@ export const ROLES = Object.freeze({
 /** 로그인 화면·사이드바 배지에 표시할 한글 라벨 */
 export const ROLE_LABELS = Object.freeze({
   [ROLES.ADMIN]: '관리자',
-  [ROLES.MANAGER]: '부서장(영업)',
+  [ROLES.MANAGER]: '전기웅(영업)',
   [ROLES.USER]: '사용자',
 })
 

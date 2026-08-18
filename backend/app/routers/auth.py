@@ -9,10 +9,11 @@ from app.auth_utils import (
     decode_token,
     decode_token_allow_expired,
     get_auth_admin_password,
-    get_auth_manager_password,
     get_auth_shared_password,
     get_jwt_secret,
+    has_manager_accounts_configured,
     is_auth_disabled,
+    match_manager_account,
     normalize_token_role,
     verify_login_password,
 )
@@ -53,22 +54,28 @@ def login(body: LoginBody):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AUTH_ADMIN_PASSWORD is not set on the server",
         )
-    if login_role == "manager" and not get_auth_manager_password():
+    if login_role == "manager" and not has_manager_accounts_configured():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AUTH_MANAGER_PASSWORD is not set on the server",
+            detail="AUTH_MANAGER_ACCOUNTS is not set on the server",
         )
 
     if not verify_login_password(body.password, login_role):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
 
-    token = create_access_token(login_role)
+    display_name = ""
+    if login_role == "manager":
+        matched = match_manager_account(body.password)
+        display_name = matched[1] if matched else "전기웅(영업)"
+
+    token = create_access_token(login_role, display_name=display_name)
     return {
         "access_token": token,
         "token_type": "bearer",
         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         "auth_disabled": False,
         "role": login_role,
+        "role_label": display_name or None,
     }
 
 
@@ -107,13 +114,15 @@ def refresh(request: Request):
         )
 
     role = normalize_token_role(payload.get("role"))
-    new_token = create_access_token(role)
+    display_name = str(payload.get("display_name") or "").strip()
+    new_token = create_access_token(role, display_name=display_name)
     return {
         "access_token": new_token,
         "token_type": "bearer",
         "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         "auth_disabled": False,
         "role": role,
+        "role_label": display_name or None,
     }
 
 
@@ -134,6 +143,12 @@ def me(request: Request):
     try:
         payload = decode_token(token)
         role = normalize_token_role(payload.get("role"))
-        return {"valid": True, "auth_disabled": False, "role": role}
+        display_name = str(payload.get("display_name") or "").strip()
+        return {
+            "valid": True,
+            "auth_disabled": False,
+            "role": role,
+            "role_label": display_name or None,
+        }
     except (InvalidTokenError, RuntimeError):
         return {"valid": False, "auth_disabled": False}

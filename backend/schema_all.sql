@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS contracts_rows (
   "identNo" text NOT NULL DEFAULT '',
   "contractDate" date,
   "dueDate" date,
+  "processStatus" text NOT NULL DEFAULT '',
   "projectName" text NOT NULL DEFAULT '',
   amount numeric(18, 0) NOT NULL DEFAULT 0,
   "salesOwner" text NOT NULL DEFAULT '',

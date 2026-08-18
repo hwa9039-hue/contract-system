@@ -77,6 +77,7 @@ def _project_contract(row: dict) -> dict[str, Any]:
         "식별번호": _normalize_cell(item.get("identNo")),
         "계약일자": _normalize_cell(item.get("contractDate")) or "-",
         "준공일자": _normalize_cell(item.get("dueDate")) or "-",
+        "공정상태": _normalize_cell(item.get("processStatus")),
         "사업명": _normalize_cell(item.get("projectName")),
         "계약금액": _amount_display(item.get("amount")),
         "영업담당자": _normalize_cell(item.get("salesOwner")),

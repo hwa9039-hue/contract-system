@@ -32,6 +32,7 @@ CONTRACT_ROW_FIELDS = (
     "identNo",
     "contractDate",
     "dueDate",
+    "processStatus",
     "projectName",
     "amount",
     "salesOwner",
