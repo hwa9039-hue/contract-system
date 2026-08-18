@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
+import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { EditableTextCell } from '../EditableTextCell.jsx'
 import { normalizePaymentReportRow, paymentReportsApi } from '../paymentReportsApi.js'
 import {
@@ -857,6 +858,7 @@ export default function PaymentReportPage({ contracts = [] }) {
   const [activeMonth, setActiveMonth] = useState(() => formatPaymentMonth())
   const [activeTab, setActiveTab] = useState('15')
   const [searchQuery, setSearchQuery] = useState('')
+  const { itemToDelete, isModalOpen, requestDelete, cancelDelete } = useDeleteConfirm()
   const [rows, setRows] = useState([])
   const [expandedIds, setExpandedIds] = useState(() => new Set())
   const [pdfDownloadingId, setPdfDownloadingId] = useState('')
@@ -1149,6 +1151,7 @@ export default function PaymentReportPage({ contracts = [] }) {
   }
 
   const handleRemoveRow = async (rowId) => {
+    if (!rowId) return
     const timers = saveTimersRef.current
     if (timers[rowId]) {
       window.clearTimeout(timers[rowId])
@@ -1281,7 +1284,7 @@ export default function PaymentReportPage({ contracts = [] }) {
                       <button
                         type="button"
                         className="payment-report-remove-btn"
-                        onClick={() => handleRemoveRow(row.id)}
+                        onClick={() => requestDelete(row.id)}
                         aria-label={`${row.seq}번 행 삭제`}
                       >
                         ×
@@ -1386,6 +1389,16 @@ export default function PaymentReportPage({ contracts = [] }) {
           </tbody>
         </table>
       </div>
+
+      <DeleteConfirmModal
+        open={isModalOpen}
+        onCancel={cancelDelete}
+        onConfirm={() => {
+          const rowId = itemToDelete
+          cancelDelete()
+          void handleRemoveRow(rowId)
+        }}
+      />
     </section>
   )
 }

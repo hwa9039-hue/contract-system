@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AutoGrowTextarea } from '../AutoGrowTextarea.jsx'
+import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { EditableTextCell } from '../EditableTextCell.jsx'
 import { computeFixedPortalPosition, fixedPortalStyle } from '../portalMenuPosition.js'
 import { ROLES, normalizeRole } from '../permissions.js'
@@ -414,6 +415,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
 
   const [rows, setRows] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
+  const { itemToDelete, isModalOpen, requestDelete, cancelDelete } = useDeleteConfirm()
   const [toast, setToast] = useState({ message: '', tone: '' })
   const [loadError, setLoadError] = useState('')
 
@@ -572,6 +574,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
   }
 
   const handleRemoveRow = async (rowId) => {
+    if (!rowId) return
     const target = rowsRef.current.find((row) => row.id === rowId)
     const remaining = rowsRef.current.filter((row) => row.id !== rowId)
 
@@ -659,7 +662,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
                     <button
                       type="button"
                       className="sales-contacts-remove-btn"
-                      onClick={() => handleRemoveRow(row.id)}
+                      onClick={() => requestDelete(row.id)}
                       aria-label={`${row.seq}번 행 삭제`}
                     >
                       ×
@@ -771,6 +774,16 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
           {toast.message}
         </div>
       ) : null}
+
+      <DeleteConfirmModal
+        open={isModalOpen}
+        onCancel={cancelDelete}
+        onConfirm={() => {
+          const rowId = itemToDelete
+          cancelDelete()
+          void handleRemoveRow(rowId)
+        }}
+      />
     </section>
   )
 }

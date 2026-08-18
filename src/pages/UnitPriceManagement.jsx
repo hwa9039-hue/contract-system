@@ -4,6 +4,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.js'
 import { EditableTextCell } from '../EditableTextCell.jsx'
+import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { isAuthSessionExpiredError } from '../apiClient.js'
 import { unitPricesApi } from '../api/unitPricesApi.js'
 import {
@@ -454,6 +455,7 @@ export default function UnitPriceManagement({ canEdit = true }) {
   const [saveError, setSaveError] = useState(null)
   const [saveSuccess, setSaveSuccess] = useState(null)
   const [tableBusy, setTableBusy] = useState(false)
+  const { itemToDelete, isModalOpen, requestDelete, cancelDelete } = useDeleteConfirm()
 
   const [search, setSearch] = useState('')
   const [activeFilters, setActiveFilters] = useState({})
@@ -672,18 +674,15 @@ export default function UnitPriceManagement({ canEdit = true }) {
   )
 
   const handleDeleteItem = useCallback(
-    async (row) => {
-      if (row?.isPlaceholder || isPlaceholderRowId(row?.id)) return
-      if (!canEdit) return
-      const itemId = safeString(row?.id).trim()
-      if (!itemId || tableBusy) return
-      if (!window.confirm('이 품목을 삭제할까요?')) return
+    async (itemId) => {
+      const id = safeString(itemId).trim()
+      if (!id || isPlaceholderRowId(id) || !canEdit || tableBusy) return
 
       setTableBusy(true)
       setSaveError(null)
       try {
-        await unitPricesApi.removeItem(itemId)
-        delete savedByItemIdRef.current[itemId]
+        await unitPricesApi.removeItem(id)
+        delete savedByItemIdRef.current[id]
         await fetchTree({ silent: true })
       } catch (err) {
         if (!isAuthSessionExpiredError(err)) {
@@ -722,7 +721,10 @@ export default function UnitPriceManagement({ canEdit = true }) {
                 className="unit-price-action-btn unit-price-action-btn--danger"
                 aria-label="품목 삭제"
                 disabled={tableBusy || row.isPlaceholder}
-                onClick={() => void handleDeleteItem(row)}
+                onClick={() => {
+                  if (row?.isPlaceholder || isPlaceholderRowId(row?.id)) return
+                  requestDelete(row.id)
+                }}
               >
                 <Trash2 size={14} strokeWidth={2.25} aria-hidden />
               </button>
@@ -811,7 +813,7 @@ export default function UnitPriceManagement({ canEdit = true }) {
 
       return null
     },
-    [canEdit, handleAddItem, handleDeleteItem, handleItemFieldSave, tableBusy]
+    [canEdit, handleAddItem, handleItemFieldSave, requestDelete, tableBusy]
   )
 
   return (
@@ -923,6 +925,16 @@ export default function UnitPriceManagement({ canEdit = true }) {
             ) : null}
           </div>
         )}
+
+        <DeleteConfirmModal
+          open={isModalOpen}
+          onCancel={cancelDelete}
+          onConfirm={() => {
+            const itemId = itemToDelete
+            cancelDelete()
+            void handleDeleteItem(itemId)
+          }}
+        />
       </div>
     </div>
   )

@@ -150,6 +150,7 @@ import {
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { formatExcelUploadErrorMessage } from './apiErrors.js'
 import { useAuth } from './AuthContext.jsx'
+import { DeleteConfirmModal } from './DeleteConfirmModal.jsx'
 import {
   canAccessMenu,
   canEditMenu,
@@ -5908,6 +5909,13 @@ function logApiOperationError(label, error) {
 function isWorkReportNotFoundError(error) {
   const message = safeString(error?.message ?? error)
   return /not found|404/i.test(message)
+}
+
+/** 알림·임시저장 불러오기 등과 구분: 데이터 삭제 확인만 공통 삭제 모달로 연다 */
+function isDeleteConfirmDialog(dialog) {
+  if (!dialog || dialog.alert || dialog.prompt) return false
+  if (dialog.destructive === true) return true
+  return Array.isArray(dialog.payloadIds) && dialog.payloadIds.length > 0
 }
 
 function getDashboardDisplayDate(value) {
@@ -18951,7 +18959,21 @@ function App() {
         </div>
       )}
 
-      {contractConfirmDialog &&
+      {isDeleteConfirmDialog(contractConfirmDialog) ? (
+        <DeleteConfirmModal
+          open
+          confirmBusy={Boolean(contractConfirmDialog.confirmBusy)}
+          onCancel={() => {
+            if (typeof contractConfirmDialog.onCancel === 'function') {
+              contractConfirmDialog.onCancel()
+            }
+            setContractConfirmDialog(null)
+          }}
+          onConfirm={handleConfirmDialogPrimary}
+        />
+      ) : null}
+
+      {contractConfirmDialog && !isDeleteConfirmDialog(contractConfirmDialog) &&
         (() => {
           const d = contractConfirmDialog
           const isContractDel = Array.isArray(d.payloadIds) && d.payloadIds.length > 0
