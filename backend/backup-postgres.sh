@@ -776,7 +776,8 @@ list_backup_sessions() {
 }
 
 prune_old_backup_sessions() {
-  local keep="${BACKUP_RETENTION_COUNT:-30}"
+  # 기본 90개 = 하루 3회 × 30일. BACKUP_RETENTION_COUNT 로 조정 가능(0이면 비활성).
+  local keep="${BACKUP_RETENTION_COUNT:-90}"
   keep="$(trim_path "$keep")"
 
   if ! [[ "$keep" =~ ^[0-9]+$ ]] || (( keep <= 0 )); then
