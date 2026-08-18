@@ -23,9 +23,22 @@ const CONTACT_STATUS_OPTIONS = [
 ]
 
 function normalizeContactStatus(value) {
-  return value === CONTACT_STATUS.INACTIVE ? CONTACT_STATUS.INACTIVE : CONTACT_STATUS.ACTIVE
+  const raw = safeString(value).trim().toLowerCase()
+  // API·수기 입력에서 올 수 있는 비활성 표기들을 모두 동일하게 취급
+  if (
+    raw === CONTACT_STATUS.INACTIVE ||
+    raw === '비활성' ||
+    raw === '비활성화' ||
+    raw === 'disabled' ||
+    raw === 'n' ||
+    raw === '0'
+  ) {
+    return CONTACT_STATUS.INACTIVE
+  }
+  return CONTACT_STATUS.ACTIVE
 }
 
+/** 일반 사용자(user)는 비활성 연락처를 보지 못한다. 관리자·부서장만 전체 조회. */
 function canViewInactiveContacts(role) {
   const normalized = normalizeRole(role)
   return normalized === ROLES.ADMIN || normalized === ROLES.MANAGER
@@ -120,7 +133,7 @@ async function copyTextToClipboard(text) {
 const CONTACT_EDITABLE_CELL_CLASS = `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
 
 /** 영업관리 대장과 동일한 엑셀형 셀 — 클릭 시 투명 편집기, 확정 시 저장 */
-function ContactTextCell({ row, field, align = 'left', tdClassName = '', onCommit }) {
+function ContactTextCell({ row, field, align = 'center', tdClassName = '', onCommit }) {
   return (
     <td className={`${CONTACT_EDITABLE_CELL_CLASS} ${tdClassName}`.trim()}>
       <EditableTextCell
@@ -135,9 +148,9 @@ function ContactTextCell({ row, field, align = 'left', tdClassName = '', onCommi
 }
 
 /**
- * 영업정보 > 연락처
+ * 영업관리 > 연락처
  * - 수기 입력 표 (입력 후 자동 저장)
- * - user: 분류=활성만 표시 / admin·manager: 전체(+비활성 회색)
+ * - user: 분류=활성만 표시 / admin·manager: 전체
  * - 행 복사 → 클립보드
  */
 export default function SalesContactsPage({ role = ROLES.USER }) {
@@ -344,7 +357,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
         ) : null}
         <p className="sales-contacts-page-desc">
           {showInactive
-            ? '관리자·부서장은 활성/비활성 연락처를 모두 볼 수 있습니다. 비활성 행은 회색으로 표시됩니다.'
+            ? '관리자·부서장은 활성/비활성 연락처를 모두 볼 수 있습니다.'
             : '사용자 권한에서는 분류가 활성인 연락처만 표시됩니다.'}
         </p>
       </div>
@@ -374,12 +387,8 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
           </thead>
           <tbody>
             {visibleRows.map((row) => {
-              const isInactive = normalizeContactStatus(row.status) === CONTACT_STATUS.INACTIVE
               return (
-                <tr
-                  key={row.id}
-                  className={`sales-contacts-data-row${isInactive ? ' is-inactive' : ''}`}
-                >
+                <tr key={row.id} className="sales-contacts-data-row">
                   <td className="sales-contacts-sticky sales-contacts-sticky--action">
                     <button
                       type="button"

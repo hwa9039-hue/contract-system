@@ -1665,6 +1665,7 @@ const SIDEBAR_MENU_GROUPS = [
       { key: 'discovery', label: '건축정보' },
       { key: 'excluded', label: '사업공유' },
       { key: 'documents', label: '문서수발신대장' },
+      { key: 'salesContacts', label: '연락처' },
     ],
   },
   {
@@ -1672,7 +1673,6 @@ const SIDEBAR_MENU_GROUPS = [
     label: '영업정보',
     items: [
       { key: 'paymentReport', label: '결제보고' },
-      { key: 'salesContacts', label: '연락처' },
       { key: 'orderManagement', label: '발주관리' },
     ],
   },

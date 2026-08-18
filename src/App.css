@@ -13373,6 +13373,7 @@ table.sales-contacts-table tbody td {
   border-right: 1px solid #eef2f7;
   padding: 6px 8px;
   vertical-align: middle;
+  text-align: center;
   background: #ffffff;
   font-size: 13px;
   color: #0f172a;
@@ -13484,15 +13485,6 @@ table.sales-contacts-table td.sales-contacts-sticky--last::after {
   height: 100%;
   pointer-events: none;
   background: linear-gradient(to right, rgba(15, 23, 42, 0.12), rgba(15, 23, 42, 0));
-}
-
-table.sales-contacts-table tbody tr.sales-contacts-data-row.is-inactive > td {
-  background: #f1f5f9;
-  color: #64748b;
-}
-
-table.sales-contacts-table tbody tr.sales-contacts-data-row.is-inactive > td.sales-contacts-sticky {
-  background: #f1f5f9;
 }
 
 .sales-contacts-cell--locked {
@@ -13941,6 +13933,12 @@ table.payment-report-table td.editable-cell .editable-text-cell-display {
   word-break: keep-all;
   overflow-wrap: break-word;
   overflow: visible;
+}
+
+table.sales-contacts-table td.editable-cell .editable-text-cell-display,
+table.sales-contacts-table td.editable-cell .excluded-inline-editor,
+table.sales-contacts-table td.editable-cell > select {
+  text-align: center;
 }
 
 table.sales-contacts-table td.editable-cell .excluded-inline-editor,

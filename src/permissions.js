@@ -8,10 +8,10 @@
  * └──────────────────────────────────────────────────────────────────────┘
  *
  * 확정 권한 요약
- * - 사용자(user): 영업정보 중 연락처만 접근(활성만). 결제보고·발주관리는 숨김.
+ * - 사용자(user): 영업관리의 연락처만 접근(활성만). 결제보고·발주관리는 숨김.
  *               계약현황·게시판·설치사례는 Read-Only
  * - 관리자(admin): 전 메뉴 접근·편집
- * - 부서장(manager): 영업정보 접근 가능. 계약현황·게시판·설치사례는 Read-Only
+ * - 부서장(manager): 영업정보·연락처 접근 가능. 계약현황·게시판·설치사례는 Read-Only
  */
 
 export const ROLES = Object.freeze({
@@ -91,7 +91,7 @@ export const FULL_ACCESS_MENUS = new Set([
  * 등록된 메뉴는 이 목록에 있는 역할만 사이드바·진입이 허용된다.
  */
 export const MENU_ALLOWED_ROLES = Object.freeze({
-  // 영업정보 — 결제보고·발주관리: admin/manager, 연락처: 전 역할(활성 필터는 페이지에서 처리)
+  // 결제보고·발주관리: admin/manager, 연락처(영업관리): 전 역할(비활성은 페이지에서 user 숨김)
   paymentReport: [ROLES.ADMIN, ROLES.MANAGER],
   salesContacts: [ROLES.ADMIN, ROLES.MANAGER, ROLES.USER],
   orderManagement: [ROLES.ADMIN, ROLES.MANAGER],

@@ -9,7 +9,18 @@ function safeString(value) {
 }
 
 function normalizeStatus(value) {
-  return safeString(value).trim().toLowerCase() === 'inactive' ? 'inactive' : 'active'
+  const raw = safeString(value).trim().toLowerCase()
+  if (
+    raw === 'inactive' ||
+    raw === '비활성' ||
+    raw === '비활성화' ||
+    raw === 'disabled' ||
+    raw === 'n' ||
+    raw === '0'
+  ) {
+    return 'inactive'
+  }
+  return 'active'
 }
 
 export function buildSalesContactPayload(form) {
