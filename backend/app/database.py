@@ -546,6 +546,32 @@ def _migrate_contract_unit_price_items(cursor) -> None:
             )
 
 
+def _backfill_empty_contract_process_status(cursor) -> None:
+    """빈 공정상태(및 구버전 시공중/준공)만 오늘(Asia/Seoul) 준공일 기준으로 채운다.
+
+    준공일 < 오늘 → 준공완료, 그 외(당일·미래·준공일 없음) → 진행중.
+    이미 진행중/준공완료로 수기 저장한 값은 덮어쓰지 않는다.
+    """
+    if not _pg_rel_column_exists(cursor, "contracts_rows", "processStatus"):
+        return
+    cursor.execute(
+        """
+        update contracts_rows
+        set "processStatus" = case
+          when "dueDate" is not null
+               and "dueDate" < (timezone('Asia/Seoul', now()))::date
+          then '준공완료'
+          else '진행중'
+        end
+        where btrim(coalesce("processStatus", '')) = ''
+           or "processStatus" in ('시공중', '준공')
+        """
+    )
+    updated = cursor.rowcount or 0
+    if updated:
+        logger.info("contracts_rows processStatus backfill: %s row(s)", updated)
+
+
 def init_db():
     """DDL 을 한 트랜잭션에 묶으면 중간 실패 시 앞선 CREATE 도 전부 롤백될 수 있어 autocommit 으로 각 문장을 확정합니다."""
     with get_connection() as connection:
@@ -876,6 +902,7 @@ def init_db():
                   add column if not exists "processStatus" text not null default ''
                 """
             )
+            _backfill_empty_contract_process_status(cursor)
             _migrate_contract_unit_price_items(cursor)
             cursor.execute(
                 """
