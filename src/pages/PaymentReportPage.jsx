@@ -109,7 +109,7 @@ function buildCompletionBlurPaymentInfoFields(completionRaw, plannedRaw) {
 
 const PAYMENT_REPORT_AMOUNT_KEYS = new Set(['plannedAmount'])
 
-const PAYMENT_REPORT_TABLE_COL_COUNT = 11
+const PAYMENT_REPORT_TABLE_COL_COUNT = 12
 
 const PAYMENT_REPORT_EDITABLE_CELL_CLASS = `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
 
@@ -183,6 +183,33 @@ function displayLocked(value) {
   return text || '—'
 }
 
+function escapeHtmlForPdf(value) {
+  return safeString(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function isMultilinePdfText(value) {
+  return /\r|\n/.test(safeString(value))
+}
+
+/** html2canvas 는 textarea·pre-wrap 의 줄바꿈을 한 줄로 그리는 경우가 있어 <br> 로 강제한다 */
+function applyPdfMirrorText(el, text, multiline) {
+  const value = safeString(text)
+  if (!multiline) {
+    el.textContent = value
+    return
+  }
+  const html = escapeHtmlForPdf(value)
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .join('<br>')
+  el.innerHTML = html || '—'
+}
+
 function formatContractPeriod(contract) {
   const start = safeString(contract?.contractDate).trim()
   const end = safeString(contract?.dueDate).trim()
@@ -213,6 +240,10 @@ function buildPaymentReportPdfFilename(projectName, vendorInfo) {
   return `결제보고_${sanitizePdfFilenamePart(projectName)}_${sanitizePdfFilenamePart(vendorInfo)}_${formatPdfDateStamp()}.pdf`
 }
 
+function buildMergedPaymentReportPdfFilename() {
+  return `결제보고_병합본_${formatPdfDateStamp()}.pdf`
+}
+
 function readCssBorder(computed, side) {
   return `${computed[`border${side}Width`]} ${computed[`border${side}Style`]} ${computed[`border${side}Color`]}`
 }
@@ -230,28 +261,42 @@ function resolvePaddingPx(computed, side, fallbackPx) {
  * - overflow:visible + line-height:1.5 + min-height 로 글자 하단 잘림 방지
  * - 중첩 table-cell 구조는 쓰지 않음 (패딩/정렬이 캡처에서 깨지기 쉬움)
  */
-function createFormControlMirror(liveEl) {
-  const isTextarea = liveEl.tagName.toLowerCase() === 'textarea'
-  const computed = window.getComputedStyle(liveEl)
-  const width = Math.max(liveEl.offsetWidth, 1)
-  const measuredHeight = Math.max(liveEl.offsetHeight, isTextarea ? 96 : 34)
-  const value = safeString(liveEl.value)
-  const text = value || safeString(liveEl.getAttribute('placeholder')).trim() || '—'
+function createFormControlMirror(sourceEl, valueOverride) {
+  const isTextarea = sourceEl.tagName.toLowerCase() === 'textarea'
+  const computed = window.getComputedStyle(sourceEl)
+  const value = valueOverride != null ? safeString(valueOverride) : safeString(sourceEl.value)
+  const multiline = isTextarea || isMultilinePdfText(value)
+  const text = value || safeString(sourceEl.getAttribute('placeholder')).trim() || '—'
   const color = value ? computed.color : '#94a3b8'
 
   const padTop = resolvePaddingPx(computed, 'Top', isTextarea ? 8 : 8)
   const padRight = resolvePaddingPx(computed, 'Right', 10)
   const padBottom = resolvePaddingPx(computed, 'Bottom', isTextarea ? 8 : 8)
   const padLeft = resolvePaddingPx(computed, 'Left', 10)
+  const fontSize = Number.parseFloat(computed.fontSize) || 13
+  const lineCount = Math.max(1, text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').length)
+  const contentHeight = lineCount * fontSize * 1.5 + padTop + padBottom
+  const measuredHeight = Math.max(
+    sourceEl.scrollHeight || 0,
+    sourceEl.offsetHeight || 0,
+    isTextarea ? 96 : 34,
+    multiline ? contentHeight : 0
+  )
 
   const mirror = document.createElement('div')
-  mirror.className = 'payment-report-pdf-input-mirror'
+  mirror.className = multiline
+    ? 'payment-report-pdf-input-mirror payment-report-pdf-input-mirror--multiline'
+    : 'payment-report-pdf-input-mirror'
   mirror.style.boxSizing = 'border-box'
   mirror.style.display = 'block'
-  mirror.style.width = `${width}px`
+  // 고정 px 폭이면 칸보다 넓어져 한 줄로 잘릴 수 있음 — 멀티라인은 칸에 맞춤
+  if (multiline) {
+    mirror.style.width = '100%'
+  } else {
+    mirror.style.width = `${Math.max(sourceEl.offsetWidth, 1)}px`
+  }
   mirror.style.maxWidth = '100%'
   mirror.style.minHeight = `${measuredHeight}px`
-  // 고정 height 대신 auto — line-height/패딩에 맞춰 글자가 잘리지 않게
   mirror.style.height = 'auto'
   mirror.style.margin = '0'
   mirror.style.borderTop = readCssBorder(computed, 'Top')
@@ -266,7 +311,6 @@ function createFormControlMirror(liveEl) {
   mirror.style.color = color
   mirror.style.textAlign = computed.textAlign || 'left'
 
-  // 핵심: 원본 input padding 복구 (글자가 테두리에 붙지 않게)
   mirror.style.paddingTop = `${padTop}px`
   mirror.style.paddingRight = `${padRight}px`
   mirror.style.paddingBottom = `${padBottom}px`
@@ -274,25 +318,64 @@ function createFormControlMirror(liveEl) {
 
   mirror.style.lineHeight = '1.5'
   mirror.style.overflow = 'visible'
-  mirror.style.whiteSpace = isTextarea ? 'pre-wrap' : 'nowrap'
-  mirror.style.wordBreak = isTextarea ? 'break-word' : 'normal'
-  mirror.style.overflowWrap = isTextarea ? 'anywhere' : 'normal'
-  mirror.style.textOverflow = isTextarea ? 'clip' : 'ellipsis'
-  mirror.textContent = text
+  if (multiline) {
+    mirror.style.setProperty('white-space', 'pre-wrap', 'important')
+    mirror.style.wordBreak = 'break-word'
+    mirror.style.overflowWrap = 'anywhere'
+    mirror.style.textOverflow = 'clip'
+  } else {
+    mirror.style.whiteSpace = 'nowrap'
+    mirror.style.wordBreak = 'normal'
+    mirror.style.overflowWrap = 'normal'
+    mirror.style.textOverflow = 'ellipsis'
+  }
+  applyPdfMirrorText(mirror, text, multiline)
   return mirror
 }
 
-/** clone 쪽 input/textarea 를 live 값·치수 기준 미러로 순서대로 치환 */
+/** 체크박스 등은 PDF 텍스트로 쓰지 않는다 */
+function isPdfSkippedControl(el) {
+  if (!el) return true
+  if (el.closest?.('[data-pdf-exclude]')) return true
+  const type = safeString(el.getAttribute?.('type') || el.type).toLowerCase()
+  return type === 'checkbox' || type === 'radio' || type === 'hidden' || type === 'button' || type === 'submit'
+}
+
+/** clone 쪽 input/textarea 를 필드명으로 짝지어 미러로 치환 — 인덱스 순서에 의존하지 않음 */
 function replaceCloneFormControls(cloneControls, liveControls) {
-  const count = Math.min(cloneControls.length, liveControls.length)
-  for (let i = 0; i < count; i += 1) {
-    const cloneEl = cloneControls[i]
-    const liveEl = liveControls[i]
-    if (!cloneEl || !liveEl) continue
-    cloneEl.replaceWith(createFormControlMirror(liveEl))
-  }
-  ;[...cloneControls].slice(count).forEach((cloneEl) => {
-    if (cloneEl.isConnected) cloneEl.replaceWith(createFormControlMirror(cloneEl))
+  const liveByField = new Map()
+  liveControls.forEach((el) => {
+    if (isPdfSkippedControl(el)) return
+    const key = safeString(el.getAttribute('data-pdf-field')).trim()
+    if (key) liveByField.set(key, el)
+  })
+
+  cloneControls.forEach((cloneEl) => {
+    if (!cloneEl) return
+    if (isPdfSkippedControl(cloneEl)) {
+      cloneEl.remove()
+      return
+    }
+    const key = safeString(cloneEl.getAttribute('data-pdf-field')).trim()
+    const liveEl = key ? liveByField.get(key) : null
+    const sourceEl = liveEl || cloneEl
+    const value = liveEl ? liveEl.value : cloneEl.value
+    const field = cloneEl.closest('.payment-report-expand-field')
+    const mirror = createFormControlMirror(sourceEl, value)
+    cloneEl.replaceWith(mirror)
+    if (field && mirror.classList.contains('payment-report-pdf-input-mirror--multiline')) {
+      field.classList.add('payment-report-expand-field--multiline')
+    }
+  })
+}
+
+/** 체크박스 value="on" 이 사업물량 등과 섞이지 않게 텍스트 입력만 모은다 */
+function collectPdfTextControls(rootEl) {
+  if (!rootEl) return []
+  return [...rootEl.querySelectorAll('input, textarea')].filter((el) => {
+    if (el.closest('[data-pdf-exclude]')) return false
+    const type = safeString(el.getAttribute('type') || el.type).toLowerCase()
+    return type !== 'checkbox' && type !== 'radio' && type !== 'hidden' && type !== 'button' && type !== 'submit'
   })
 }
 
@@ -306,7 +389,9 @@ function mirrorStaticTextBox(liveEl, cloneEl) {
   const measuredHeight = Math.max(liveEl.offsetHeight, 34)
   const text = safeString(cloneEl.textContent).trim() || '—'
   const multiline =
-    cloneEl.classList.contains('payment-report-expand-readonly-wrap') || measuredHeight > 40
+    cloneEl.classList.contains('payment-report-expand-readonly-wrap') ||
+    isMultilinePdfText(text) ||
+    measuredHeight > 40
 
   const padTop = resolvePaddingPx(computed, 'Top', 8)
   const padRight = resolvePaddingPx(computed, 'Right', 10)
@@ -314,10 +399,12 @@ function mirrorStaticTextBox(liveEl, cloneEl) {
   const padLeft = resolvePaddingPx(computed, 'Left', 10)
 
   const shell = document.createElement('div')
-  shell.className = 'payment-report-pdf-static-mirror'
+  shell.className = multiline
+    ? 'payment-report-pdf-static-mirror payment-report-pdf-static-mirror--multiline'
+    : 'payment-report-pdf-static-mirror'
   shell.style.boxSizing = 'border-box'
   shell.style.display = 'block'
-  shell.style.width = `${width}px`
+  shell.style.width = multiline ? '100%' : `${width}px`
   shell.style.maxWidth = '100%'
   shell.style.minHeight = `${measuredHeight}px`
   shell.style.height = 'auto'
@@ -334,10 +421,16 @@ function mirrorStaticTextBox(liveEl, cloneEl) {
   shell.style.paddingLeft = `${padLeft}px`
   shell.style.lineHeight = '1.5'
   shell.style.overflow = 'visible'
-  shell.style.whiteSpace = multiline ? 'pre-wrap' : 'nowrap'
-  shell.style.wordBreak = multiline ? 'break-word' : 'normal'
-  shell.style.overflowWrap = multiline ? 'anywhere' : 'normal'
-  shell.textContent = text
+  if (multiline) {
+    shell.style.setProperty('white-space', 'pre-wrap', 'important')
+    shell.style.wordBreak = 'break-word'
+    shell.style.overflowWrap = 'anywhere'
+  } else {
+    shell.style.whiteSpace = 'nowrap'
+    shell.style.wordBreak = 'normal'
+    shell.style.overflowWrap = 'normal'
+  }
+  applyPdfMirrorText(shell, text, multiline)
   cloneEl.replaceWith(shell)
 }
 
@@ -412,7 +505,6 @@ function hardenCloneStylesForPdfCapture(rootEl) {
   })
 
   rootEl.querySelectorAll('.payment-report-pdf-input-mirror, .payment-report-pdf-static-mirror').forEach((el) => {
-    // padding 이 비어 있으면 최소 여백 보장
     const cs = window.getComputedStyle(el)
     if (Number.parseFloat(cs.paddingTop) <= 0) el.style.paddingTop = '8px'
     if (Number.parseFloat(cs.paddingBottom) <= 0) el.style.paddingBottom = '8px'
@@ -421,10 +513,34 @@ function hardenCloneStylesForPdfCapture(rootEl) {
     el.style.setProperty('overflow', 'visible', 'important')
     el.style.setProperty('line-height', '1.5', 'important')
   })
+
+  rootEl
+    .querySelectorAll(
+      '.payment-report-pdf-input-mirror--multiline, .payment-report-pdf-static-mirror--multiline'
+    )
+    .forEach((el) => {
+      el.style.setProperty('white-space', 'pre-wrap', 'important')
+      el.style.setProperty('word-break', 'break-word', 'important')
+      el.style.setProperty('overflow-wrap', 'anywhere', 'important')
+      el.style.setProperty('overflow', 'visible', 'important')
+      el.style.setProperty('height', 'auto', 'important')
+      el.style.setProperty('max-width', '100%', 'important')
+      el.style.setProperty('width', '100%', 'important')
+      el.style.setProperty('text-overflow', 'clip', 'important')
+    })
+
+  rootEl.querySelectorAll('.payment-report-expand-field--multiline').forEach((el) => {
+    el.style.setProperty('align-items', 'start', 'important')
+  })
 }
 
 function applyLiveColumnWidths(sourceTable, theadClone, dataRowClone) {
-  const sourceHeads = sourceTable.querySelectorAll('thead th')
+  theadClone.querySelectorAll('[data-pdf-exclude]').forEach((el) => el.remove())
+  dataRowClone.querySelectorAll('[data-pdf-exclude]').forEach((el) => el.remove())
+
+  const sourceHeads = [...sourceTable.querySelectorAll('thead th')].filter(
+    (th) => !th.hasAttribute('data-pdf-exclude')
+  )
   const cloneHeads = theadClone.querySelectorAll('th')
   const cloneCells = dataRowClone.querySelectorAll('td')
   const minWidths = [56, 64, 100, 220, 140, 170, 120, 96, 150, 160, 150]
@@ -466,9 +582,11 @@ function buildPaymentReportPdfCaptureRoot(dataRowEl, detailEl) {
   table.className = 'payment-report-table excel-table registry-table payment-report-pdf-table'
 
   const thead = sourceTable.querySelector('thead')?.cloneNode(true) || document.createElement('thead')
+  thead.querySelectorAll('[data-pdf-exclude]').forEach((el) => el.remove())
   const dataClone = dataRowEl.cloneNode(true)
   dataClone.classList.add('is-expanded')
   dataClone.querySelectorAll('.payment-report-row-hint').forEach((el) => el.remove())
+  dataClone.querySelectorAll('[data-pdf-exclude]').forEach((el) => el.remove())
   const columnsWidth = applyLiveColumnWidths(sourceTable, thead, dataClone)
 
   const tbody = document.createElement('tbody')
@@ -490,12 +608,12 @@ function buildPaymentReportPdfCaptureRoot(dataRowEl, detailEl) {
   normalizeCloneStaticBoxes(dataRowEl, detailEl, dataClone, detailClone)
 
   const liveControls = [
-    ...dataRowEl.querySelectorAll('input, textarea'),
-    ...detailEl.querySelectorAll('input, textarea'),
+    ...collectPdfTextControls(dataRowEl),
+    ...collectPdfTextControls(detailEl),
   ]
   const cloneControls = [
-    ...dataClone.querySelectorAll('input, textarea'),
-    ...detailClone.querySelectorAll('input, textarea'),
+    ...collectPdfTextControls(dataClone),
+    ...collectPdfTextControls(detailClone),
   ]
   replaceCloneFormControls(cloneControls, liveControls)
 
@@ -524,15 +642,12 @@ function waitForStyleReflow(ms = 100) {
   })
 }
 
-async function downloadPaymentReportDetailPdf(row, dataRowEl, detailEl) {
-  if (!row || !dataRowEl || !detailEl) throw new Error('PDF 대상 영역을 찾을 수 없습니다.')
-
-  const clone = buildPaymentReportPdfCaptureRoot(dataRowEl, detailEl)
+function createOffscreenPdfHost() {
   const host = document.createElement('div')
   host.className = 'payment-report-pdf-capture-host'
   host.setAttribute('aria-hidden', 'true')
   host.style.cssText = [
-    'position:fixed',
+    'position:absolute',
     'left:-9999px',
     'top:0',
     'margin:0',
@@ -540,11 +655,70 @@ async function downloadPaymentReportDetailPdf(row, dataRowEl, detailEl) {
     'opacity:1',
     'pointer-events:none',
     'z-index:1',
+    'width:1400px',
+    'background:#ffffff',
   ].join(';')
+  return host
+}
+
+/**
+ * 아코디언이 접혀 있어도 캡처되도록, 화면 밖에 행+펼친 세부사항을 펼쳐 둔다.
+ */
+async function mountForcedOpenPaymentReportSlice(rowId) {
+  const dataRowEl = document.querySelector(`[data-payment-report-data-id="${rowId}"]`)
+  const detailEl = document.getElementById(`payment-report-pdf-${rowId}`)
+  if (!dataRowEl || !detailEl) {
+    throw new Error('세부사항 영역을 찾을 수 없습니다.')
+  }
+  const sourceTable = dataRowEl.closest('table')
+  if (!sourceTable) throw new Error('결제보고 표를 찾을 수 없습니다.')
+
+  const host = createOffscreenPdfHost()
+  const table = sourceTable.cloneNode(false)
+  const thead = sourceTable.querySelector('thead')?.cloneNode(true)
+  const tbody = document.createElement('tbody')
+  const dataClone = dataRowEl.cloneNode(true)
+  dataClone.classList.add('is-expanded')
+  tbody.appendChild(dataClone)
+
+  const expandRow = document.createElement('tr')
+  expandRow.className = 'payment-report-expand-row is-open'
+  const expandTd = document.createElement('td')
+  expandTd.colSpan = Math.max(sourceTable.querySelectorAll('thead th').length, PAYMENT_REPORT_TABLE_COL_COUNT)
+  const inner = document.createElement('div')
+  inner.className = 'payment-report-expand-inner'
+  inner.style.display = 'block'
+  inner.style.gridTemplateRows = '1fr'
+  const body = document.createElement('div')
+  body.className = 'payment-report-expand-body'
+  body.style.overflow = 'visible'
+  body.style.height = 'auto'
+  body.style.minHeight = 'auto'
+  body.style.padding = '16px 18px 18px'
+  const detailClone = detailEl.cloneNode(true)
+  detailClone.style.overflow = 'visible'
+  detailClone.style.height = 'auto'
+  body.appendChild(detailClone)
+  inner.appendChild(body)
+  expandTd.appendChild(inner)
+  expandRow.appendChild(expandTd)
+  tbody.appendChild(expandRow)
+  if (thead) table.appendChild(thead)
+  table.appendChild(tbody)
+  host.appendChild(table)
+  document.body.appendChild(host)
+
+  await waitForNextPaint()
+  await waitForStyleReflow(80)
+  return { host, dataRowEl: dataClone, detailEl: detailClone }
+}
+
+async function capturePaymentReportCanvas(dataRowEl, detailEl) {
+  const clone = buildPaymentReportPdfCaptureRoot(dataRowEl, detailEl)
+  const host = createOffscreenPdfHost()
   host.appendChild(clone)
   document.body.appendChild(host)
 
-  // 스타일 계산(Reflow) 안정화 후 캡처
   await waitForNextPaint()
   await waitForStyleReflow(100)
 
@@ -560,38 +734,71 @@ async function downloadPaymentReportDetailPdf(row, dataRowEl, detailEl) {
       windowWidth: document.documentElement.offsetWidth,
       windowHeight: Math.max(clone.scrollHeight, document.documentElement.offsetHeight),
     })
-
     if (!canvas.width || !canvas.height) {
       throw new Error('PDF 캡처 결과가 비어 있습니다.')
     }
-
-    const imgData = canvas.toDataURL('image/png')
-    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-    const pageWidth = pdf.internal.pageSize.getWidth()
-    const pageHeight = pdf.internal.pageSize.getHeight()
-    const margin = 8
-    const usableWidth = pageWidth - margin * 2
-    const usableHeight = pageHeight - margin * 2
-
-    const imgWidth = usableWidth
-    const imgHeight = (canvas.height * imgWidth) / canvas.width
-
-    let heightLeft = imgHeight
-    let position = margin
-    pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight)
-    heightLeft -= usableHeight
-
-    while (heightLeft > 1) {
-      position = margin - (imgHeight - heightLeft)
-      pdf.addPage()
-      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight)
-      heightLeft -= usableHeight
-    }
-
-    pdf.save(buildPaymentReportPdfFilename(row.projectName, row.vendorInfo))
+    return canvas
   } finally {
     host.remove()
   }
+}
+
+async function capturePaymentReportRowCanvas(rowId) {
+  const staged = await mountForcedOpenPaymentReportSlice(rowId)
+  try {
+    return await capturePaymentReportCanvas(staged.dataRowEl, staged.detailEl)
+  } finally {
+    staged.host.remove()
+  }
+}
+
+function appendCanvasToPdf(pdf, canvas, { addPageBefore = false } = {}) {
+  if (addPageBefore) pdf.addPage()
+
+  const pageWidth = pdf.internal.pageSize.getWidth()
+  const pageHeight = pdf.internal.pageSize.getHeight()
+  const margin = 8
+  const usableWidth = pageWidth - margin * 2
+  const usableHeight = pageHeight - margin * 2
+  const imgData = canvas.toDataURL('image/png')
+  const imgWidth = usableWidth
+  const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+  let heightLeft = imgHeight
+  let position = margin
+  pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight)
+  heightLeft -= usableHeight
+
+  while (heightLeft > 1) {
+    position = margin - (imgHeight - heightLeft)
+    pdf.addPage()
+    pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight)
+    heightLeft -= usableHeight
+  }
+}
+
+function createLandscapePaymentPdf() {
+  return new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+}
+
+async function downloadPaymentReportDetailPdf(row) {
+  if (!row?.id) throw new Error('PDF 대상 영역을 찾을 수 없습니다.')
+  const canvas = await capturePaymentReportRowCanvas(row.id)
+  const pdf = createLandscapePaymentPdf()
+  appendCanvasToPdf(pdf, canvas)
+  pdf.save(buildPaymentReportPdfFilename(row.projectName, row.vendorInfo))
+}
+
+async function downloadMergedPaymentReportPdf(rows) {
+  const list = (Array.isArray(rows) ? rows : []).filter((row) => row?.id)
+  if (!list.length) throw new Error('선택된 결제보고가 없습니다.')
+
+  const pdf = createLandscapePaymentPdf()
+  for (let index = 0; index < list.length; index += 1) {
+    const canvas = await capturePaymentReportRowCanvas(list[index].id)
+    appendCanvasToPdf(pdf, canvas, { addPageBefore: index > 0 })
+  }
+  pdf.save(buildMergedPaymentReportPdfFilename())
 }
 
 /** 분류(참고번호) ↔ 계약현황 참고번호 매칭. 숫자면 선행 0 무시하고 동일 숫자로도 찾는다. */
@@ -709,16 +916,16 @@ function PaymentReportExpandedPanel({
             <dd>{displayLocked(row.projectName)}</dd>
           </div>
           <div>
-            <dt>발주처</dt>
-            <dd>{displayLocked(row.client)}</dd>
-          </div>
-          <div>
             <dt>계약금액</dt>
             <dd>{displayLocked(row.contractAmount)}</dd>
           </div>
           <div>
             <dt>사업기간</dt>
             <dd>{displayLocked(row.projectPeriod)}</dd>
+          </div>
+          <div>
+            <dt>발주처</dt>
+            <dd>{displayLocked(row.client)}</dd>
           </div>
           <div>
             <dt>사업진행사항</dt>
@@ -730,6 +937,7 @@ function PaymentReportExpandedPanel({
           <textarea
             className="payment-report-expand-textarea"
             rows={5}
+            data-pdf-field="projectVolume"
             value={row.projectVolume}
             onChange={(e) => onChange(row.id, 'projectVolume', e.target.value)}
             onBlur={commit}
@@ -749,6 +957,7 @@ function PaymentReportExpandedPanel({
           <textarea
             className="payment-report-expand-textarea"
             rows={3}
+            data-pdf-field="expenseContent"
             value={row.expenseContent}
             onChange={(e) => onChange(row.id, 'expenseContent', e.target.value)}
             onBlur={commit}
@@ -760,6 +969,7 @@ function PaymentReportExpandedPanel({
           <textarea
             className="payment-report-expand-textarea"
             rows={3}
+            data-pdf-field="vendorDetail"
             value={row.vendorDetail}
             onChange={(e) => onChange(row.id, 'vendorDetail', e.target.value)}
             onBlur={commit}
@@ -775,6 +985,7 @@ function PaymentReportExpandedPanel({
               type="text"
               inputMode="numeric"
               autoComplete="off"
+              data-pdf-field="completionAmount"
               value={row.completionAmount}
               onChange={(e) => onCompletionAmountChange?.(row.id, e.target.value)}
               onFocus={(e) => {
@@ -793,6 +1004,7 @@ function PaymentReportExpandedPanel({
               className="payment-report-cell-input"
               type="text"
               autoComplete="off"
+              data-pdf-field="materialCost"
               value={row.materialCost}
               onChange={(e) => onChange(row.id, 'materialCost', e.target.value)}
               onBlur={commit}
@@ -805,6 +1017,7 @@ function PaymentReportExpandedPanel({
               className="payment-report-cell-input"
               type="text"
               autoComplete="off"
+              data-pdf-field="currentExpense"
               value={row.currentExpense}
               onChange={(e) => onChange(row.id, 'currentExpense', e.target.value)}
               onBlur={commit}
@@ -817,6 +1030,7 @@ function PaymentReportExpandedPanel({
               className="payment-report-cell-input"
               type="text"
               autoComplete="off"
+              data-pdf-field="profitRate"
               value={row.profitRate}
               onChange={(e) => onChange(row.id, 'profitRate', e.target.value)}
               onBlur={commit}
@@ -860,6 +1074,7 @@ export default function PaymentReportPage({ contracts = [] }) {
   const [searchQuery, setSearchQuery] = useState('')
   const { itemToDelete, isModalOpen, requestDelete, cancelDelete } = useDeleteConfirm()
   const [rows, setRows] = useState([])
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
   const [expandedIds, setExpandedIds] = useState(() => new Set())
   const [pdfDownloadingId, setPdfDownloadingId] = useState('')
   const [saveError, setSaveError] = useState('')
@@ -868,6 +1083,7 @@ export default function PaymentReportPage({ contracts = [] }) {
   const saveTimersRef = useRef({})
   const dirtyIdsRef = useRef(new Set())
   const savingIdsRef = useRef(new Set())
+  const selectAllRef = useRef(null)
 
   useEffect(() => {
     rowsRef.current = rows
@@ -884,6 +1100,20 @@ export default function PaymentReportPage({ contracts = [] }) {
     if (!query) return byCycle
     return byCycle.filter((row) => matchesPaymentReportSearch(row, query))
   }, [rows, activeMonth, activeTab, searchQuery])
+
+  const selectedVisibleRows = useMemo(
+    () => visibleRows.filter((row) => selectedIds.has(row.id)),
+    [visibleRows, selectedIds]
+  )
+  const selectedCount = selectedVisibleRows.length
+  const allVisibleSelected = visibleRows.length > 0 && selectedCount === visibleRows.length
+  const someVisibleSelected = selectedCount > 0 && !allVisibleSelected
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someVisibleSelected
+    }
+  }, [someVisibleSelected, allVisibleSelected])
 
   /** 서버 반영 — 저장 중 들어온 추가 입력은 dirty 로 남겨 뒤이어 한 번 더 저장한다. */
   const persistRow = useCallback(async (rowId) => {
@@ -1098,21 +1328,48 @@ export default function PaymentReportPage({ contracts = [] }) {
 
   const handleDownloadPdf = async (row) => {
     if (!row?.id || pdfDownloadingId) return
-    const dataRowEl = document.querySelector(`[data-payment-report-data-id="${row.id}"]`)
-    const detailEl = document.getElementById(`payment-report-pdf-${row.id}`)
-    if (!dataRowEl || !detailEl) {
-      window.alert('세부사항 영역을 찾을 수 없습니다. 세부사항을 연 뒤 다시 시도해 주세요.')
-      return
-    }
     setPdfDownloadingId(row.id)
     try {
-      await downloadPaymentReportDetailPdf(row, dataRowEl, detailEl)
+      await downloadPaymentReportDetailPdf(row)
     } catch (error) {
       console.error(error)
       window.alert('PDF 다운로드에 실패했습니다. 잠시 후 다시 시도해 주세요.')
     } finally {
       setPdfDownloadingId('')
     }
+  }
+
+  const handleMergePdfDownload = async () => {
+    if (!selectedCount || pdfDownloadingId) return
+    setPdfDownloadingId('merge')
+    try {
+      await downloadMergedPaymentReportPdf(selectedVisibleRows)
+    } catch (error) {
+      console.error(error)
+      window.alert('병합 PDF 다운로드에 실패했습니다. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setPdfDownloadingId('')
+    }
+  }
+
+  const toggleRowSelected = (rowId, checked) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(rowId)
+      else next.delete(rowId)
+      return next
+    })
+  }
+
+  const toggleSelectAllVisible = (checked) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      visibleRows.forEach((row) => {
+        if (checked) next.add(row.id)
+        else next.delete(row.id)
+      })
+      return next
+    })
   }
 
   const handleYearShift = (deltaYears) => {
@@ -1174,6 +1431,12 @@ export default function PaymentReportPage({ contracts = [] }) {
       next.delete(rowId)
       return next
     })
+    setSelectedIds((prev) => {
+      if (!prev.has(rowId)) return prev
+      const next = new Set(prev)
+      next.delete(rowId)
+      return next
+    })
     setRows((prev) => renumberRowsByMonthCycle(prev.filter((row) => row.id !== rowId)))
   }
 
@@ -1223,6 +1486,16 @@ export default function PaymentReportPage({ contracts = [] }) {
           })}
         </div>
 
+        <button
+          type="button"
+          className="payment-report-merge-pdf-btn"
+          disabled={selectedCount === 0 || Boolean(pdfDownloadingId)}
+          onClick={() => void handleMergePdfDownload()}
+        >
+          {pdfDownloadingId === 'merge' ? '병합 PDF 생성 중…' : '📄 선택항목 병합 PDF 다운로드'}
+          <span className="payment-report-merge-pdf-badge">{selectedCount}건</span>
+        </button>
+
         <input
           className="table-search-input payment-report-search-input"
           type="search"
@@ -1251,6 +1524,18 @@ export default function PaymentReportPage({ contracts = [] }) {
         <table className="payment-report-table excel-table registry-table">
           <thead>
             <tr>
+              <th
+                className="payment-report-sticky payment-report-sticky--select"
+                data-pdf-exclude="true"
+              >
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={(e) => toggleSelectAllVisible(e.target.checked)}
+                  aria-label="결제보고 전체 선택"
+                />
+              </th>
               <th className="payment-report-sticky payment-report-sticky--action">삭제</th>
               <th className="payment-report-sticky payment-report-sticky--seq">구분</th>
               <th className="payment-report-sticky payment-report-sticky--class">분류</th>
@@ -1280,6 +1565,17 @@ export default function PaymentReportPage({ contracts = [] }) {
                     }
                     data-payment-report-data-id={row.id}
                   >
+                    <td
+                      className="payment-report-sticky payment-report-sticky--select"
+                      data-pdf-exclude="true"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(row.id)}
+                        onChange={(e) => toggleRowSelected(row.id, e.target.checked)}
+                        aria-label={`${row.seq}번 행 선택`}
+                      />
+                    </td>
                     <td className="payment-report-sticky payment-report-sticky--action">
                       <button
                         type="button"

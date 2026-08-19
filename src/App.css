@@ -13915,6 +13915,48 @@ table.sales-contacts-table td.sales-contacts-sticky--status select {
   width: auto;
 }
 
+.payment-report-merge-pdf-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid #2563eb;
+  border-radius: 9px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.payment-report-merge-pdf-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.payment-report-merge-pdf-btn:disabled {
+  cursor: not-allowed;
+  background: #94a3b8;
+  border-color: #94a3b8;
+  color: #f8fafc;
+}
+
+.payment-report-merge-pdf-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .payment-report-tab {
   appearance: none;
   border: 1px solid transparent;
@@ -13976,6 +14018,7 @@ table.sales-contacts-table td.sales-contacts-sticky--status select {
 }
 
 table.payment-report-table {
+  --pr-sticky-w-select: 44px;
   --pr-sticky-w-action: 56px;
   --pr-sticky-w-seq: 64px;
   --pr-sticky-w-class: 100px;
@@ -13985,8 +14028,9 @@ table.payment-report-table {
   --pr-sticky-w-client: 140px;
   --pr-sticky-w-detail: 96px;
 
-  --pr-sticky-left-action: 0px;
-  --pr-sticky-left-seq: var(--pr-sticky-w-action);
+  --pr-sticky-left-select: 0px;
+  --pr-sticky-left-action: var(--pr-sticky-w-select);
+  --pr-sticky-left-seq: calc(var(--pr-sticky-left-action) + var(--pr-sticky-w-action));
   --pr-sticky-left-class: calc(var(--pr-sticky-left-seq) + var(--pr-sticky-w-seq));
   --pr-sticky-left-project: calc(var(--pr-sticky-left-class) + var(--pr-sticky-w-class));
   --pr-sticky-left-amount: calc(var(--pr-sticky-left-project) + var(--pr-sticky-w-project));
@@ -14047,6 +14091,22 @@ table.payment-report-table thead th.payment-report-sticky {
 table.payment-report-table tbody td.payment-report-sticky {
   z-index: 5;
   background: #ffffff;
+}
+
+table.payment-report-table .payment-report-sticky--select {
+  left: var(--pr-sticky-left-select);
+  width: var(--pr-sticky-w-select);
+  min-width: var(--pr-sticky-w-select);
+  max-width: var(--pr-sticky-w-select);
+  text-align: center;
+}
+
+table.payment-report-table .payment-report-sticky--select input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #2563eb;
 }
 
 table.payment-report-table .payment-report-sticky--action {
@@ -14557,6 +14617,25 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   appearance: none;
 }
 
+.payment-report-pdf-input-mirror--multiline,
+.payment-report-pdf-static-mirror--multiline {
+  width: 100% !important;
+  max-width: 100% !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  text-overflow: clip !important;
+}
+
+.payment-report-pdf-capture-root .payment-report-expand-field--multiline,
+.payment-report-pdf-capture-root .payment-report-expand-field:has(textarea) {
+  align-items: start;
+}
+
+.payment-report-pdf-capture-root .payment-report-expand-field--multiline > span {
+  padding-top: 10px;
+}
+
 .payment-report-expand-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -14671,11 +14750,13 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   line-height: 1.25;
 }
 
-.payment-report-expand-field:has(textarea) {
+.payment-report-expand-field:has(textarea),
+.payment-report-expand-field--multiline {
   align-items: start;
 }
 
-.payment-report-expand-field:has(textarea) > span {
+.payment-report-expand-field:has(textarea) > span,
+.payment-report-expand-field--multiline > span {
   padding-top: 10px;
 }
 
