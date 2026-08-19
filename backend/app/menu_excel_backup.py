@@ -26,10 +26,14 @@ from app.schemas import (
     row_to_excluded_project,
     row_to_install_case,
     row_to_materials_board_post,
+    row_to_payment_report,
     row_to_project_discovery,
+    row_to_sales_contact,
     row_to_sales_register,
     row_to_weekly_work_report,
 )
+
+MEETING_MINUTES_SECTION = "회의록"
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +157,19 @@ def _project_excluded(row: dict) -> dict[str, Any]:
     }
 
 
+def _work_report_section(row: dict) -> str:
+    item = row_to_weekly_work_report(row)
+    return str(item.get("section") or item.get("category") or "").strip()
+
+
+def _is_meeting_minutes_row(row: dict) -> bool:
+    return _work_report_section(row) == MEETING_MINUTES_SECTION
+
+
+def _is_weekly_work_report_row(row: dict) -> bool:
+    return not _is_meeting_minutes_row(row)
+
+
 def _project_work_report(row: dict) -> dict[str, Any]:
     item = row_to_weekly_work_report(row)
     return {
@@ -162,6 +179,70 @@ def _project_work_report(row: dict) -> dict[str, Any]:
         "팀": _normalize_cell(item.get("team")),
         "구분": _normalize_cell(item.get("category") or item.get("section")),
         "내용": _normalize_cell(item.get("content")),
+    }
+
+
+def _project_meeting_minutes(row: dict) -> dict[str, Any]:
+    item = row_to_weekly_work_report(row)
+    return {
+        "보고일": _normalize_cell(item.get("reportDate") or item.get("date")),
+        "주차": _normalize_cell(item.get("weekNumber")),
+        "주 시작일": _normalize_cell(item.get("weekStartDate")),
+        "담당자": _normalize_cell(item.get("assignee") or item.get("user")),
+        "내용": _normalize_cell(item.get("content")),
+    }
+
+
+def _contact_status_label(value: Any) -> str:
+    raw = str(value or "").strip().lower()
+    return "비활성" if raw == "inactive" else "활성"
+
+
+def _project_sales_contact(row: dict) -> dict[str, Any]:
+    item = row_to_sales_contact(row)
+    return {
+        "담당자명": _normalize_cell(item.get("managerName")),
+        "직위": _normalize_cell(item.get("position")),
+        "휴대폰": _normalize_cell(item.get("phone")),
+        "이메일": _normalize_cell(item.get("email")),
+        "구분": _normalize_cell(item.get("division")),
+        "회사명": _normalize_cell(item.get("companyName")),
+        "부서명": _normalize_cell(item.get("department")),
+        "분류": _contact_status_label(item.get("status")),
+        "연계 사업": _normalize_cell(item.get("linkedProject")),
+        "심사": _normalize_cell(item.get("review")),
+        "주소": _normalize_cell(item.get("address")),
+        "비고": _normalize_cell(item.get("notes")),
+    }
+
+
+def _payment_cycle_label(value: Any) -> str:
+    cycle = str(value or "").strip()
+    if cycle == "31":
+        return "31일 결제"
+    return "15일 결제"
+
+
+def _project_payment_report(row: dict) -> dict[str, Any]:
+    item = row_to_payment_report(row)
+    return {
+        "결제월": _normalize_cell(item.get("paymentMonth")),
+        "결제주기": _payment_cycle_label(item.get("paymentCycle")),
+        "분류": _normalize_cell(item.get("classification")),
+        "사업명": _normalize_cell(item.get("projectName")),
+        "계약금액": _normalize_cell(item.get("contractAmount")),
+        "사업기간": _normalize_cell(item.get("projectPeriod")),
+        "발주처": _normalize_cell(item.get("client")),
+        "결제 업체정보": _normalize_cell(item.get("vendorInfo")),
+        "결제 예정 금액": _normalize_cell(item.get("plannedAmount")),
+        "진행사항": _normalize_cell(item.get("progress")),
+        "사업물량": _normalize_cell(item.get("projectVolume")),
+        "지출내용": _normalize_cell(item.get("expenseContent")),
+        "업체정보": _normalize_cell(item.get("vendorDetail")),
+        "사업준공금액": _normalize_cell(item.get("completionAmount")),
+        "자재비": _normalize_cell(item.get("materialCost")),
+        "현지출": _normalize_cell(item.get("currentExpense")),
+        "이익률": _normalize_cell(item.get("profitRate")),
     }
 
 
@@ -257,8 +338,8 @@ MENU_EXPORT_SPECS: tuple[dict[str, Any], ...] = (
         "project": _project_discovery,
     },
     {
-        "file_prefix": "사업검색이력",
-        "sheet_title": "사업검색이력",
+        "file_prefix": "사업공유",
+        "sheet_title": "사업공유",
         "table": "excluded_projects_rows",
         "order_by": '"writeDate" desc nulls last, "createdAt" desc nulls last',
         "project": _project_excluded,
@@ -269,13 +350,38 @@ MENU_EXPORT_SPECS: tuple[dict[str, Any], ...] = (
         "table": "weekly_work_reports_rows",
         "order_by": '"date" desc nulls last, "reportDate" desc nulls last, order_index asc nulls last',
         "project": _project_work_report,
+        "include_row": _is_weekly_work_report_row,
     },
     {
-        "file_prefix": "캘린더_기타일정",
-        "sheet_title": "캘린더기타",
+        "file_prefix": "회의록",
+        "sheet_title": "회의록",
+        "table": "weekly_work_reports_rows",
+        "order_by": '"date" desc nulls last, "reportDate" desc nulls last, order_index asc nulls last',
+        "project": _project_meeting_minutes,
+        "include_row": _is_meeting_minutes_row,
+    },
+    {
+        "file_prefix": "캘린더",
+        "sheet_title": "캘린더",
         "table": "calendar_manual_events",
         "order_by": '"dateStart" desc nulls last, "createdAt" desc nulls last',
         "project": _project_calendar,
+        "optional_table": True,
+    },
+    {
+        "file_prefix": "연락처",
+        "sheet_title": "연락처",
+        "table": "sales_contacts_rows",
+        "order_by": "sort_order asc nulls last, created_at desc nulls last",
+        "project": _project_sales_contact,
+        "optional_table": True,
+    },
+    {
+        "file_prefix": "결제보고",
+        "sheet_title": "결제보고",
+        "table": "payment_report_rows",
+        "order_by": '"payment_month" desc nulls last, sort_order asc nulls last, created_at desc nulls last',
+        "project": _project_payment_report,
         "optional_table": True,
     },
     {
@@ -360,6 +466,9 @@ def export_all_menu_excel_backups(output_dir: Path, stamp: str | None = None) ->
 
                 try:
                     db_rows = _fetch_table_rows(cursor, table, spec["order_by"])
+                    include_row = spec.get("include_row")
+                    if include_row is not None:
+                        db_rows = [row for row in db_rows if include_row(row)]
                     projected = [spec["project"](row) for row in db_rows]
                     out_path = output_dir / f"{spec['file_prefix']}_백업_{stamp}.xlsx"
                     _write_workbook(out_path, spec["sheet_title"], projected)

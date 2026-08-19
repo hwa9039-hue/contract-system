@@ -36,7 +36,7 @@ SSH 접속 후:
 ### 성공 로그 확인
 
 - [ ] `Dump OK: .../pg_backup_YYYYMMDD_HHMMSS.dump (... bytes)` — **0 bytes 아님**
-- [ ] `Excel OK: .../excel/ (9 files)` — **메뉴별 xlsx 9종**
+- [ ] `Excel OK: .../excel/ (12 files)` — **메뉴별 xlsx 12종**
 - [ ] `Files OK (host): .../backend/uploads → ...` 또는 `Files OK (docker cp): ...`
 - [ ] `Backup session complete: .../YYYYMMDD_HHMMSS`
 
@@ -61,7 +61,7 @@ ls -la /volume1/backup/contract-db/$(ls -t /volume1/backup/contract-db | head -1
 ```
 
 - [ ] `pg_backup_*.dump` 파일 존재
-- [ ] `excel/` 폴더에 **9개** `.xlsx` (계약·영업·문서·건축·사업검색·주간보고·캘린더·설치사례·게시판)
+- [ ] `excel/` 폴더에 **12개** `.xlsx` (계약현황·영업관리대장·문서수발신대장·건축정보·사업공유·주간업무보고서·회의록·캘린더·연락처·결제보고·설치사례·게시판)
 - [ ] `files/` 하위 폴더 존재
 
 ```bash
@@ -78,7 +78,9 @@ ls -lh /volume1/docker/contract-backend/backups/$(ls -t /volume1/docker/contract
 
 | 메뉴 | pg_dump | excel/ | files/ |
 |------|---------|--------|--------|
-| 계약·영업·건축·문서·사업검색·주간보고·캘린더 | ✅ | ✅ `.xlsx` | — |
+| 계약현황·영업관리대장·건축정보·문서수발신대장·사업공유 | ✅ | ✅ `.xlsx` | — |
+| 주간업무보고서·회의록·캘린더 | ✅ | ✅ `.xlsx` | — |
+| 연락처·결제보고 | ✅ | ✅ `.xlsx` | — |
 | **설치사례** | ✅ | ✅ 요약 `.xlsx` | ✅ `.jpg` |
 | **게시판** | ✅ | ✅ 목록 `.xlsx` | ✅ 첨부 원본 |
 
