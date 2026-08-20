@@ -4020,12 +4020,9 @@ function isYmdInInclusiveRange(ymd, startYmd, endYmd) {
 }
 
 /**
- * 대시보드 준공 위젯 분류 (월~일 주 단위).
+ * 대시보드 준공 위젯 분류 (월~일 주 단위, 전주·금주만).
  * 1) 공정상태가 '준공완료'가 아닌 계약만 남긴다.
- * 2) 준공일이 속하는 주로 나눈다.
- *    - 그룹 A 지연(전주): 지난주 월~일
- *    - 그룹 B 임박(금주): 이번 주 월~일
- * 두 그룹은 날짜가 겹치지 않는다. 그 이전 주·다음 주는 이 위젯에 넣지 않는다.
+ * 2) 준공일이 지난 건은 금주여도 지연(보라). 오늘 이후 금주 건만 임박(빨강).
  */
 function collectDashboardDueWatchGroups(contracts, anchorDate = new Date()) {
   const lastWeek = getMondaySundayRangeYmd(anchorDate, -1)
@@ -4040,14 +4037,23 @@ function collectDashboardDueWatchGroups(contracts, anchorDate = new Date()) {
     .map(mapDashboardDueRowFromContract)
     .filter((row) => row.id && getDateDiffFromToday(row.dueDate) !== null)
 
+  const inWatchWindow = (row) =>
+    isYmdInInclusiveRange(row.dueDate, lastWeek.startYmd, lastWeek.endYmd) ||
+    isYmdInInclusiveRange(row.dueDate, thisWeekRange.startYmd, thisWeekRange.endYmd)
+
   const delayed = openRows
-    .filter((row) => isYmdInInclusiveRange(row.dueDate, lastWeek.startYmd, lastWeek.endYmd))
+    .filter((row) => inWatchWindow(row) && getDateDiffFromToday(row.dueDate) < 0)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.projectName.localeCompare(b.projectName))
 
   const thisWeek = openRows
-    .filter((row) =>
-      isYmdInInclusiveRange(row.dueDate, thisWeekRange.startYmd, thisWeekRange.endYmd)
-    )
+    .filter((row) => {
+      const diff = getDateDiffFromToday(row.dueDate)
+      return (
+        isYmdInInclusiveRange(row.dueDate, thisWeekRange.startYmd, thisWeekRange.endYmd) &&
+        diff !== null &&
+        diff >= 0
+      )
+    })
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.projectName.localeCompare(b.projectName))
 
   return { delayed, thisWeek }
@@ -15973,28 +15979,20 @@ function App() {
                         {dashboardDueWatchGroups.delayed.length === 0 &&
                         dashboardDueWatchGroups.thisWeek.length === 0 ? (
                           <p className="dashboard-briefing-box-empty">
-                            현재 전주 지연·금주 예정 건이 없습니다.
+                            현재 준공 지연·금주 임박 건이 없습니다.
                           </p>
                         ) : (
                           <>
                             {dashboardDueWatchGroups.delayed.length > 0 ? (
-                              <section className="dashboard-briefing-due-section">
-                                <h4 className="dashboard-briefing-due-section-title dashboard-briefing-due-section-title--delayed">
-                                  🚨 준공 지연 (전주)
-                                  <span className="dashboard-briefing-due-section-count">
-                                    {dashboardDueWatchGroups.delayed.length}건
-                                  </span>
-                                </h4>
-                                <ul className="dashboard-briefing-due-list">
-                                  {dashboardDueWatchGroups.delayed.map((item) => (
-                                    <DashboardDueWatchItem
-                                      key={`due-delayed-${item.id}`}
-                                      item={item}
-                                      variant="delayed"
-                                    />
-                                  ))}
-                                </ul>
-                              </section>
+                              <ul className="dashboard-briefing-due-list">
+                                {dashboardDueWatchGroups.delayed.map((item) => (
+                                  <DashboardDueWatchItem
+                                    key={`due-delayed-${item.id}`}
+                                    item={item}
+                                    variant="delayed"
+                                  />
+                                ))}
+                              </ul>
                             ) : null}
 
                             {dashboardDueWatchGroups.delayed.length > 0 &&
@@ -16003,23 +16001,15 @@ function App() {
                             ) : null}
 
                             {dashboardDueWatchGroups.thisWeek.length > 0 ? (
-                              <section className="dashboard-briefing-due-section">
-                                <h4 className="dashboard-briefing-due-section-title dashboard-briefing-due-section-title--week">
-                                  📅 금주 예정
-                                  <span className="dashboard-briefing-due-section-count">
-                                    {dashboardDueWatchGroups.thisWeek.length}건
-                                  </span>
-                                </h4>
-                                <ul className="dashboard-briefing-due-list">
-                                  {dashboardDueWatchGroups.thisWeek.map((item) => (
-                                    <DashboardDueWatchItem
-                                      key={`due-week-${item.id}`}
-                                      item={item}
-                                      variant="week"
-                                    />
-                                  ))}
-                                </ul>
-                              </section>
+                              <ul className="dashboard-briefing-due-list">
+                                {dashboardDueWatchGroups.thisWeek.map((item) => (
+                                  <DashboardDueWatchItem
+                                    key={`due-week-${item.id}`}
+                                    item={item}
+                                    variant="week"
+                                  />
+                                ))}
+                              </ul>
                             ) : null}
                           </>
                         )}
