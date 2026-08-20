@@ -28,6 +28,13 @@ def decode_work_report_wire_content(value: Any) -> str:
     return s
 
 
+def _sanitize_pasted_text(value: Any) -> Any:
+    """메모장 복붙의 NUL/CR — PostgreSQL text 저장 실패 방지."""
+    if value is None or not isinstance(value, str):
+        return value
+    return value.replace("\x00", "").replace("\r\n", "\n").replace("\r", "\n")
+
+
 class ContractBase(BaseModel):
     year: Optional[int] = None
     segment: str = ""
@@ -1617,7 +1624,7 @@ def excluded_project_patch_to_db_values(patch: ExcludedProjectPatch) -> dict:
         if api_key == "isHidden":
             out[db_key] = bool(val) if val is not None else False
             continue
-        out[db_key] = val
+        out[db_key] = _sanitize_pasted_text(val)
     return out
 
 
@@ -1631,7 +1638,7 @@ def excluded_project_to_db_values(row: ExcludedProjectBase) -> dict:
         if api_key == "isHidden":
             out[db_key] = bool(val) if val is not None else False
             continue
-        out[db_key] = val
+        out[db_key] = _sanitize_pasted_text(val)
     return out
 
 

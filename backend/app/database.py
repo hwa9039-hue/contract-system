@@ -283,6 +283,41 @@ def _migrate_sales_register_text_columns(cursor) -> None:
             )
 
 
+def _migrate_excluded_projects_text_columns(cursor) -> None:
+    """구형 NAS DB: 사업공유 varchar(50) → text (메모장 복붙·긴 세부내용 보존)."""
+    text_columns = (
+        "orderNo",
+        "category",
+        "keyword",
+        "shareStatus",
+        "writer",
+        "projectName",
+        "client",
+        "exclusionReason",
+    )
+    for col in text_columns:
+        quoted = f'"{col}"'
+        try:
+            cursor.execute(
+                f"""
+                alter table excluded_projects_rows
+                  alter column {quoted} type text
+                  using (
+                    case
+                      when {quoted} is null then null::text
+                      else {quoted}::text
+                    end
+                  )
+                """
+            )
+        except Exception:
+            logger.debug(
+                "excluded_projects_rows.%s type migration skipped or already text",
+                col,
+                exc_info=True,
+            )
+
+
 def _migrate_excluded_projects_row_columns(cursor) -> None:
     for old, new in (
         ("orderno", "orderNo"),
@@ -822,6 +857,7 @@ def init_db():
                 """
             )
             _migrate_excluded_projects_row_columns(cursor)
+            _migrate_excluded_projects_text_columns(cursor)
             cursor.execute(
                 """
                 create table if not exists weekly_work_reports_rows (

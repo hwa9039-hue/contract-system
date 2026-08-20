@@ -4085,6 +4085,14 @@ function safeString(value) {
   return String(value)
 }
 
+/** 메모장 복붙: NUL·CR 제거. PostgreSQL text / JSON 저장 실패 방지 */
+function sanitizeRegistryPastedText(value) {
+  return safeString(value)
+    .replace(/\u0000/g, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+}
+
 function normalizeRegistryRowId(id) {
   if (id === null || id === undefined) return ''
   if (typeof id === 'string') return id.trim()
@@ -4916,11 +4924,11 @@ function toExcludedPayload(row, timestamp) {
     category: safeString(row.category).trim(),
     keyword: safeString(row.keyword).trim(),
     shareStatus: safeString(row.shareStatus).trim(),
-    writer: safeString(row.writer).trim(),
-    projectName: safeString(row.projectName).trim(),
-    client: safeString(row.client).trim(),
+    writer: sanitizeRegistryPastedText(row.writer).trim(),
+    projectName: sanitizeRegistryPastedText(row.projectName).trim(),
+    client: sanitizeRegistryPastedText(row.client).trim(),
     projectAmount: parseAmount(row.projectAmount),
-    exclusionReason: safeString(row.exclusionReason).trim(),
+    exclusionReason: sanitizeRegistryPastedText(row.exclusionReason).trim(),
     updatedAt: timestamp,
   }
 }
@@ -6149,6 +6157,7 @@ function App() {
   const [discoveryRows, setDiscoveryRows] = useState([])
   const [discoveryTableData, setDiscoveryTableData] = useState([])
   const [excludedRows, setExcludedRows] = useState([])
+  const excludedRowsRef = useRef([])
   const [workReportRows, setWorkReportRows] = useState([])
   const workReportRowsRef = useRef([])
   const initialMenu = resolveInitialMenu()
@@ -6540,6 +6549,10 @@ function App() {
   useEffect(() => {
     saveStoredExcludedHiddenRowIds(excludedHiddenRowIds)
   }, [excludedHiddenRowIds])
+
+  useEffect(() => {
+    excludedRowsRef.current = excludedRows
+  }, [excludedRows])
 
   const fetchDiscoveryRows = async (preserveDrafts = true) => {
     try {
@@ -10304,12 +10317,18 @@ function App() {
   }
 
   const handleExcludedCellChange = (rowId, key, value) => {
+    const nextValue =
+      key === 'projectAmount'
+        ? formatAmount(value)
+        : typeof value === 'string'
+          ? sanitizeRegistryPastedText(value)
+          : value
     setExcludedRows((prev) =>
       prev.map((row) =>
         row.id === rowId
           ? {
               ...row,
-              [key]: key === 'projectAmount' ? formatAmount(value) : value,
+              [key]: nextValue,
             }
           : row
       )
@@ -10378,7 +10397,7 @@ function App() {
   }
 
   const saveExcludedRow = async (rowId) => {
-    const targetRow = excludedRows.find((row) => row.id === rowId)
+    const targetRow = excludedRowsRef.current.find((row) => row.id === rowId)
     if (!targetRow) return
 
     if (isExcludedRowEmpty(targetRow)) {
@@ -10414,12 +10433,10 @@ function App() {
       setExcludedEditSnapshots((prev) => removeObjectKey(prev, rowId))
       setToastMessage('저장되었습니다.')
     } catch (error) {
-      if (targetRow.isDraft) {
-        setExcludedRows((prev) => prev.filter((row) => row.id !== rowId))
-        setSelectedExcludedIds((prev) => prev.filter((id) => id !== rowId))
-        setExcludedDraftFocusRowId((prev) => (prev === rowId ? null : prev))
-      }
       logApiOperationError('사업공유 저장', error)
+      setToastMessage(
+        `저장에 실패했습니다. ${safeString(error?.message) || '잠시 후 다시 시도해 주세요.'}`
+      )
     } finally {
       setIsSavingExcluded(false)
     }
@@ -12892,7 +12909,7 @@ function App() {
     if (column.key === 'projectStage') {
       return { projectStage: normalizeSalesProjectStage(draftStr) }
     }
-    return { [column.key]: safeString(draftStr ?? '').trim() }
+    return { [column.key]: sanitizeRegistryPastedText(draftStr).trim() }
   }
 
   const findAdjacentEditableRegistryColumn = (columns, startIndex, direction) => {
@@ -13479,15 +13496,19 @@ function App() {
     }
   }
 
-  const handleRegistryRowBlur = async (e, row, isSaving, onSave, onCancel, isEmptyRow) => {
+  const handleRegistryRowBlur = (e, row, isSaving, onSave, onCancel, isEmptyRow, getLatestRow) => {
     if (e.currentTarget.contains(e.relatedTarget) || isSaving) return
-
-    if (row.isDraft && isEmptyRow(row)) {
-      onCancel()
-      return
-    }
-
-    await onSave()
+    const rowEl = e.currentTarget
+    window.setTimeout(() => {
+      if (rowEl.isConnected && rowEl.contains(document.activeElement)) return
+      const latest = typeof getLatestRow === 'function' ? getLatestRow() || row : row
+      if (!latest) return
+      if (latest.isDraft && isEmptyRow(latest)) {
+        onCancel()
+        return
+      }
+      void onSave()
+    }, 80)
   }
 
   const renderRegistryEditor = (row, column, onChange, { onSave, onCancel, autoFocus = false, extraClassName = '', extraStyle = null }) => {
@@ -13676,7 +13697,18 @@ function App() {
         }
         onBlur={
           row.isDraft && showDraftOrLegacyRow
-            ? (e) => handleRegistryRowBlur(e, row, isSaving, onSaveRow, onCancelRow, isEmptyRow)
+            ? (e) =>
+                handleRegistryRowBlur(
+                  e,
+                  row,
+                  isSaving,
+                  onSaveRow,
+                  onCancelRow,
+                  isEmptyRow,
+                  cellEditScope === 'excluded'
+                    ? () => excludedRowsRef.current.find((item) => item.id === rowId)
+                    : null
+                )
             : undefined
         }
       >
