@@ -29,16 +29,8 @@ import { AUTH_TOKEN_KEY } from './apiClient.js'
 import { hasAdminPrivileges, normalizeRole, ROLE_LABELS, ROLES } from './permissions.js'
 
 export const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'smartdi2026!'
-export const ADMIN_PASSWORD = import.meta.env.VITE_APP_ADMIN_PASSWORD || 'admin2026!'
 
-/** 기본 부서장 계정 (비밀번호 → 하단 표시명). 권한은 모두 manager 동일. */
-const DEFAULT_MANAGER_ACCOUNTS = Object.freeze([
-  { password: 'kk2331!', label: '전기웅(영업)' },
-  { password: 'nov1st!', label: '유영무(영업)' },
-  { password: 'sskim!', label: '김성수(영업)' },
-])
-
-function parseManagerAccountsEnv(raw) {
+function parseAccountsEnv(raw, fallbackLabel) {
   const text = String(raw || '').trim()
   if (!text) return []
   const out = []
@@ -47,31 +39,61 @@ function parseManagerAccountsEnv(raw) {
     if (!chunk || !chunk.includes(':')) continue
     const idx = chunk.indexOf(':')
     const password = chunk.slice(0, idx).trim()
-    const label = chunk.slice(idx + 1).trim() || '전기웅(영업)'
+    const label = chunk.slice(idx + 1).trim() || fallbackLabel
     if (password) out.push({ password, label })
   }
   return out
 }
 
+/** 기본 관리자 계정 (비밀번호 → 표시명). 권한은 모두 admin. */
+const DEFAULT_ADMIN_ACCOUNTS = Object.freeze([
+  { password: 'hy9039!', label: '정화영' },
+  { password: 'jhjoung!', label: '정주희' },
+])
+
+/** 기본 부서장 계정 (비밀번호 → 표시명). 권한은 모두 manager. 일반 사용자 계정은 없음. */
+const DEFAULT_MANAGER_ACCOUNTS = Object.freeze([
+  { password: 'kk2331!', label: '전기웅(영업)' },
+  { password: 'nov1st!', label: '유영무(영업)' },
+  { password: 'sskim!', label: '김성수(영업)' },
+  { password: 'yongja_lee!', label: '이용자' },
+  { password: 'pjb9878!', label: '박재범' },
+  { password: 'jslee!', label: '이재승' },
+  { password: 'wizard1221!', label: '전재우' },
+  { password: 'ssj8845!', label: '신상준' },
+])
+
+/**
+ * 관리자 계정 목록.
+ * VITE_APP_ADMIN_ACCOUNTS=`pwd:라벨,pwd:라벨` 이 있으면 우선.
+ */
+export const ADMIN_ACCOUNTS = (() => {
+  const fromEnv = parseAccountsEnv(import.meta.env.VITE_APP_ADMIN_ACCOUNTS, '관리자')
+  if (fromEnv.length > 0) return Object.freeze(fromEnv)
+  return DEFAULT_ADMIN_ACCOUNTS
+})()
+
 /**
  * 부서장 계정 목록.
  * VITE_APP_MANAGER_ACCOUNTS=`pwd:라벨,pwd:라벨` 이 있으면 우선.
- * 없으면 기본 3계정. VITE_APP_MANAGER_PASSWORD 단독 값은 전기웅 계정으로 추가(하위 호환).
  */
 export const MANAGER_ACCOUNTS = (() => {
-  const fromEnv = parseManagerAccountsEnv(import.meta.env.VITE_APP_MANAGER_ACCOUNTS)
+  const fromEnv = parseAccountsEnv(import.meta.env.VITE_APP_MANAGER_ACCOUNTS, '부서장')
   if (fromEnv.length > 0) return Object.freeze(fromEnv)
-
-  const accounts = [...DEFAULT_MANAGER_ACCOUNTS]
-  const legacy = String(import.meta.env.VITE_APP_MANAGER_PASSWORD || '').trim()
-  if (legacy && !accounts.some((a) => a.password === legacy)) {
-    accounts.unshift({ password: legacy, label: '전기웅(영업)' })
-  }
-  return Object.freeze(accounts)
+  return DEFAULT_MANAGER_ACCOUNTS
 })()
+
+/** @deprecated 단일 관리자 비밀번호 — ADMIN_ACCOUNTS[0] 하위 호환 */
+export const ADMIN_PASSWORD = ADMIN_ACCOUNTS[0]?.password || 'hy9039!'
 
 /** @deprecated 단일 부서장 비밀번호 — MANAGER_ACCOUNTS[0] 하위 호환 */
 export const MANAGER_PASSWORD = MANAGER_ACCOUNTS[0]?.password || 'kk2331!'
+
+export function findAdminAccount(password) {
+  const trimmed = String(password || '').trim()
+  if (!trimmed) return null
+  return ADMIN_ACCOUNTS.find((a) => a.password === trimmed) || null
+}
 
 export function findManagerAccount(password) {
   const trimmed = String(password || '').trim()
@@ -81,25 +103,34 @@ export function findManagerAccount(password) {
 
 /**
  * 로그인 role 별로 클라이언트에서 1차 검증할 기대 비밀번호.
- * manager 는 복수 계정이라 ROLE_EXPECTED_PASSWORD 에 넣지 않고 findManagerAccount 로 검사한다.
+ * admin·manager 는 복수 계정이라 findAdminAccount / findManagerAccount 로 검사한다.
  */
 export const ROLE_EXPECTED_PASSWORD = Object.freeze({
-  [ROLES.ADMIN]: ADMIN_PASSWORD,
   [ROLES.USER]: SHARED_APP_PASSWORD,
 })
 
 /**
+ * 비밀번호만으로 로그인 계정을 찾는다.
+ * 관리자 목록을 먼저 보고, 없으면 부서장 목록을 본다.
+ */
+export function resolveLoginAccount(password) {
+  const trimmed = String(password || '').trim()
+  if (!trimmed) return null
+  const admin = findAdminAccount(trimmed)
+  if (admin) return { role: ROLES.ADMIN, label: admin.label, password: admin.password }
+  const manager = findManagerAccount(trimmed)
+  if (manager) return { role: ROLES.MANAGER, label: manager.label, password: manager.password }
+  return null
+}
+
+/**
  * ★ 비밀번호 기반 역할 분기 ★
- *  - 관리자 탭         → 그대로 admin
- *  - 일반 사용자 탭    → 부서장 계정 비밀번호면 manager, 그 외 user
+ * 탭 구분 없이 비밀번호가 어느 계정 목록에 있는지 보고 역할을 정한다.
  */
 export function resolveEffectiveRole(requestedRole, password) {
-  const requested = normalizeRole(requestedRole)
-  const trimmed = String(password).trim()
-  if (requested === ROLES.USER && findManagerAccount(trimmed)) {
-    return ROLES.MANAGER
-  }
-  return requested
+  const matched = resolveLoginAccount(password)
+  if (matched) return matched.role
+  return normalizeRole(requestedRole)
 }
 
 function readAuthFromStorage(storage) {

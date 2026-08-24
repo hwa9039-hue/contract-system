@@ -54,7 +54,7 @@ import './App.css'
 import { contractsApi } from './contractsApi'
 import { contactsManageApi } from './contactsManageApi.js'
 import { documentRegisterApi } from './documentRegisterApi'
-import { excludedProjectsApi } from './excludedProjectsApi'
+import { excludedProjectsApi, EXCLUDED_PROJECTS_API_PATH } from './excludedProjectsApi'
 import { buildExcelImportAlertBody } from './excelImportResponse.js'
 import {
   DISCOVERY_API_PATHS,
@@ -62,7 +62,10 @@ import {
   projectDiscoveryApi,
   saveStoredDiscoveryRows,
 } from './projectDiscoveryApi'
-import { salesRegisterApi } from './salesRegisterApi'
+import { salesRegisterApi, SALES_REGISTER_API_PATH } from './salesRegisterApi'
+import { RecordAttachmentChip, RecordFileAttachments } from './RecordFileAttachments.jsx'
+import { attachmentsNeedSync, getAttachmentCount, mergeAttachmentLists } from './recordFileAttachments.js'
+import { recordAttachmentDownloadUrl, saveRecordAttachments } from './recordAttachmentsApi.js'
 import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 // 사업관리 / 단가관리 — 사이드바·라우트 비활성화 (페이지 파일은 보관)
 // import UnitPriceManagement from './pages/UnitPriceManagement.jsx'
@@ -4712,6 +4715,7 @@ function normalizeSalesRow(item) {
     salesNote: safeString(item.salesNote ?? item.salesnote),
     actionRequest: safeString(item.actionRequest ?? item.actionrequest),
     summary: safeString(item.summary).trim(),
+    files: Array.isArray(item.files) ? item.files : [],
     createdAt: safeString(item.createdAt ?? item.createdat),
     updatedAt: safeString(item.updatedAt ?? item.updatedat),
     isHidden: hasSalesRowHiddenFlagFromApi(item),
@@ -4909,6 +4913,7 @@ function normalizeExcludedRow(item) {
     exclusionReason: safeString(item.exclusionReason ?? item.exclusionreason),
     isHidden: hasExcludedRowHiddenFlagFromApi(item),
     apiReportsHidden,
+    files: Array.isArray(item.files) ? item.files : [],
     createdAt: safeString(item.createdAt ?? item.createdat),
     updatedAt: safeString(item.updatedAt ?? item.updatedat),
     isDraft: false,
@@ -6181,6 +6186,7 @@ function App() {
   const [documents, setDocuments] = useState([])
   const [salesRows, setSalesRows] = useState([])
   const [salesRecordModal, setSalesRecordModal] = useState(null)
+  const [excludedAttachmentsModal, setExcludedAttachmentsModal] = useState(null)
   const [discoveryRecordModal, setDiscoveryRecordModal] = useState(null)
   const [registryLongTextModal, setRegistryLongTextModal] = useState(null)
   const [discoveryRows, setDiscoveryRows] = useState([])
@@ -9486,24 +9492,64 @@ function App() {
     setToastMessage(nextHidden ? '숨김 처리되었습니다.' : '숨김 해제되었습니다.')
   }
 
+  const openSalesRecordModal = (row) => {
+    const rowId = safeString(row?.id).trim()
+    if (!rowId || rowId === 'undefined' || row.isDraft || rowId.startsWith('sales-draft-')) {
+      showAppAlert('행을 저장한 뒤 요약을 작성할 수 있습니다.', '알림')
+      return
+    }
+    const sourceRow = salesRows.find((item) => item.id === rowId) || row
+    const summaryRawInitial = buildSalesSummaryFallbackFromRow(sourceRow)
+    const summaryDisplay = getSalesRecordHistoryForDisplay(
+      summaryRawInitial,
+      sourceRow.registerDate
+    )
+    setSalesRecordModal({
+      rowId,
+      client: safeString(sourceRow.client).trim(),
+      projectName: safeString(sourceRow.projectName).trim(),
+      manager: safeString(sourceRow.manager).trim(),
+      department: safeString(sourceRow.department).trim(),
+      summary: summaryDisplay,
+      summaryRaw: getSalesRecordRawHistory(summaryRawInitial),
+      summaryDraft: summaryDisplay,
+      summaryDisplayInitial: summaryDisplay,
+      files: Array.isArray(sourceRow.files) ? sourceRow.files : [],
+      attachmentItems: mergeAttachmentLists(sourceRow.files, []),
+      isEditingSummary: false,
+      saving: false,
+    })
+  }
+
   const renderSalesArchiveCell = (row) => {
-    if (!canEditSales || row.isDraft) return null
+    if (row.isDraft) return null
     const isHidden = Boolean(row.isHidden)
     const label = isHidden ? '숨기기 해제' : '숨기기'
     const Icon = isHidden ? Eye : EyeOff
     return (
-      <button
-        type="button"
-        className={`sales-archive-btn${isHidden ? ' sales-archive-btn--restore' : ''}`}
-        title={label}
-        aria-label={label}
-        onClick={(e) => {
-          e.stopPropagation()
-          toggleSalesRowHidden(row, !isHidden)
-        }}
-      >
-        <Icon size={16} strokeWidth={2.2} aria-hidden />
-      </button>
+      <>
+        {canEditSales ? (
+          <button
+            type="button"
+            className={`sales-archive-btn${isHidden ? ' sales-archive-btn--restore' : ''}`}
+            title={label}
+            aria-label={label}
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleSalesRowHidden(row, !isHidden)
+            }}
+          >
+            <Icon size={16} strokeWidth={2.2} aria-hidden />
+          </button>
+        ) : null}
+        <RecordAttachmentChip
+          count={getAttachmentCount(row)}
+          onClick={(e) => {
+            e.stopPropagation()
+            openSalesRecordModal(row)
+          }}
+        />
+      </>
     )
   }
 
@@ -9608,23 +9654,47 @@ function App() {
   }
 
   const renderExcludedArchiveCell = (row) => {
-    if (!canEditExcluded || row.isDraft) return null
+    if (row.isDraft) return null
     const isHidden = Boolean(row.isHidden)
     const label = isHidden ? '숨기기 해제' : '숨기기'
     const Icon = isHidden ? Eye : EyeOff
     return (
-      <button
-        type="button"
-        className={`sales-archive-btn${isHidden ? ' sales-archive-btn--restore' : ''}`}
-        title={label}
-        aria-label={label}
-        onClick={(e) => {
-          e.stopPropagation()
-          toggleExcludedRowHidden(row, !isHidden)
-        }}
-      >
-        <Icon size={16} strokeWidth={2.2} aria-hidden />
-      </button>
+      <>
+        {canEditExcluded ? (
+          <button
+            type="button"
+            className={`sales-archive-btn${isHidden ? ' sales-archive-btn--restore' : ''}`}
+            title={label}
+            aria-label={label}
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleExcludedRowHidden(row, !isHidden)
+            }}
+          >
+            <Icon size={16} strokeWidth={2.2} aria-hidden />
+          </button>
+        ) : null}
+        <RecordAttachmentChip
+          count={getAttachmentCount(row)}
+          onClick={(e) => {
+            e.stopPropagation()
+            const rowId = safeString(row?.id).trim()
+            if (!rowId || rowId === 'undefined') {
+              showAppAlert('행을 저장한 뒤 파일을 첨부할 수 있습니다.', '알림')
+              return
+            }
+            const sourceRow = excludedRows.find((item) => item.id === rowId) || row
+            setExcludedAttachmentsModal({
+              rowId,
+              projectName: safeString(sourceRow.projectName).trim(),
+              client: safeString(sourceRow.client).trim(),
+              files: Array.isArray(sourceRow.files) ? sourceRow.files : [],
+              attachmentItems: mergeAttachmentLists(sourceRow.files, []),
+              saving: false,
+            })
+          }}
+        />
+      </>
     )
   }
 
@@ -9640,30 +9710,7 @@ function App() {
         aria-label="요약 보기 및 작성"
         onClick={(e) => {
           e.stopPropagation()
-          const rowId = safeString(row?.id).trim()
-          if (!rowId || rowId === 'undefined' || row.isDraft || rowId.startsWith('sales-draft-')) {
-            showAppAlert('행을 저장한 뒤 요약을 작성할 수 있습니다.', '알림')
-            return
-          }
-          const sourceRow = salesRows.find((item) => item.id === rowId) || row
-          const summaryRawInitial = buildSalesSummaryFallbackFromRow(sourceRow)
-          const summaryDisplay = getSalesRecordHistoryForDisplay(
-            summaryRawInitial,
-            sourceRow.registerDate
-          )
-          setSalesRecordModal({
-            rowId,
-            client: safeString(sourceRow.client).trim(),
-            projectName: safeString(sourceRow.projectName).trim(),
-            manager: safeString(sourceRow.manager).trim(),
-            department: safeString(sourceRow.department).trim(),
-            summary: summaryDisplay,
-            summaryRaw: getSalesRecordRawHistory(summaryRawInitial),
-            summaryDraft: summaryDisplay,
-            summaryDisplayInitial: summaryDisplay,
-            isEditingSummary: false,
-            saving: false,
-          })
+          openSalesRecordModal(row)
         }}
       >
         <FileText size={18} aria-hidden />
@@ -9672,6 +9719,42 @@ function App() {
   }
 
   const closeSalesRecordModal = () => setSalesRecordModal(null)
+
+  const closeExcludedAttachmentsModal = () => setExcludedAttachmentsModal(null)
+
+  const saveExcludedAttachmentsModal = async () => {
+    if (!excludedAttachmentsModal?.rowId) return
+    const rowId = safeString(excludedAttachmentsModal.rowId).trim()
+    if (!rowId || rowId === 'undefined') {
+      showAppAlert('저장 경로를 찾을 수 없거나 서버 통신에 실패했습니다.', '알림')
+      return
+    }
+    const attachmentItems = Array.isArray(excludedAttachmentsModal.attachmentItems)
+      ? excludedAttachmentsModal.attachmentItems
+      : []
+    if (!attachmentsNeedSync(attachmentItems, excludedAttachmentsModal.files)) {
+      showAppAlert('변경된 내용이 없습니다.', '알림')
+      return
+    }
+    setExcludedAttachmentsModal((prev) => (prev ? { ...prev, saving: true } : prev))
+    try {
+      const attached = await saveRecordAttachments(
+        EXCLUDED_PROJECTS_API_PATH,
+        rowId,
+        attachmentItems
+      )
+      const files = attached?.files ?? []
+      setExcludedRows((prev) =>
+        prev.map((row) => (row.id === rowId ? { ...row, files } : row))
+      )
+      closeExcludedAttachmentsModal()
+      setToastMessage('저장되었습니다.')
+    } catch (error) {
+      const errorMessage = safeString(error?.message).trim()
+      showAppAlert(errorMessage || '파일 첨부 저장에 실패했습니다.', '알림')
+      setExcludedAttachmentsModal((prev) => (prev ? { ...prev, saving: false } : prev))
+    }
+  }
 
   const saveSalesRecordModal = async () => {
     if (!salesRecordModal?.rowId) return
@@ -9685,7 +9768,11 @@ function App() {
       summaryRaw: salesRecordModal.summaryRaw,
       summaryDisplayInitial: salesRecordModal.summaryDisplayInitial,
     })
-    if (!hasChanges) {
+    const attachmentItems = Array.isArray(salesRecordModal.attachmentItems)
+      ? salesRecordModal.attachmentItems
+      : []
+    const attachmentsChanged = attachmentsNeedSync(attachmentItems, salesRecordModal.files)
+    if (!hasChanges && !attachmentsChanged) {
       showAppAlert('변경된 내용이 없습니다.', '알림')
       return
     }
@@ -9696,12 +9783,25 @@ function App() {
     }
     setSalesRecordModal((prev) => (prev ? { ...prev, saving: true } : prev))
     try {
-      await salesRegisterApi.update(rowId, payload)
-      setSalesRows((prev) =>
-        prev.map((row) =>
-          row.id === rowId ? normalizeSalesRow({ ...row, ...payload }) : row
+      if (hasChanges) {
+        await salesRegisterApi.update(rowId, payload)
+        setSalesRows((prev) =>
+          prev.map((row) =>
+            row.id === rowId ? normalizeSalesRow({ ...row, ...payload }) : row
+          )
         )
-      )
+      }
+      if (attachmentsChanged) {
+        const attached = await saveRecordAttachments(
+          SALES_REGISTER_API_PATH,
+          rowId,
+          attachmentItems
+        )
+        const files = attached?.files ?? []
+        setSalesRows((prev) =>
+          prev.map((row) => (row.id === rowId ? { ...row, files } : row))
+        )
+      }
       closeSalesRecordModal()
       setToastMessage('저장되었습니다.')
       await fetchSalesRows(true)
@@ -18696,6 +18796,16 @@ function App() {
                   )}
                 </div>
               </div>
+              <RecordFileAttachments
+                items={Array.isArray(salesRecordModal.attachmentItems) ? salesRecordModal.attachmentItems : []}
+                disabled={salesRecordModal.saving}
+                onChange={(next) =>
+                  setSalesRecordModal((prev) => (prev ? { ...prev, attachmentItems: next } : prev))
+                }
+                downloadHrefFor={(item) =>
+                  recordAttachmentDownloadUrl(SALES_REGISTER_API_PATH, salesRecordModal.rowId, item.id)
+                }
+              />
             </div>
             <div className="sales-record-modal-actions">
               <button
@@ -18713,6 +18823,89 @@ function App() {
                 disabled={salesRecordModal.saving}
               >
                 {salesRecordModal.saving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {excludedAttachmentsModal && (
+        <div className="modal-backdrop" onClick={closeExcludedAttachmentsModal}>
+          <div
+            className="sales-record-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="excluded-attachments-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sales-record-modal-header">
+              <div>
+                <h3 id="excluded-attachments-modal-title" className="sales-record-modal-title">
+                  파일 첨부
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={closeExcludedAttachmentsModal}
+                aria-label="닫기"
+                disabled={excludedAttachmentsModal.saving}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="sales-record-modal-body">
+              <div className="sales-record-modal-info" aria-label="선택 항목 기본 정보">
+                <div className="sales-record-modal-info-item">
+                  <span className="sales-record-modal-info-label">발주처</span>
+                  <span className="sales-record-modal-info-value">
+                    {excludedAttachmentsModal.client || '-'}
+                  </span>
+                </div>
+                <div className="sales-record-modal-info-item">
+                  <span className="sales-record-modal-info-label">사업명</span>
+                  <span className="sales-record-modal-info-value">
+                    {excludedAttachmentsModal.projectName || '-'}
+                  </span>
+                </div>
+              </div>
+              <RecordFileAttachments
+                items={
+                  Array.isArray(excludedAttachmentsModal.attachmentItems)
+                    ? excludedAttachmentsModal.attachmentItems
+                    : []
+                }
+                disabled={excludedAttachmentsModal.saving || !canEditExcluded}
+                onChange={(next) =>
+                  setExcludedAttachmentsModal((prev) =>
+                    prev ? { ...prev, attachmentItems: next } : prev
+                  )
+                }
+                downloadHrefFor={(item) =>
+                  recordAttachmentDownloadUrl(
+                    EXCLUDED_PROJECTS_API_PATH,
+                    excludedAttachmentsModal.rowId,
+                    item.id
+                  )
+                }
+              />
+            </div>
+            <div className="sales-record-modal-actions">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={closeExcludedAttachmentsModal}
+                disabled={excludedAttachmentsModal.saving}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => void saveExcludedAttachmentsModal()}
+                disabled={excludedAttachmentsModal.saving || !canEditExcluded}
+              >
+                {excludedAttachmentsModal.saving ? '저장 중...' : '저장'}
               </button>
             </div>
           </div>

@@ -3,6 +3,8 @@ import { ApiRequestError, readApiErrorMessage } from './apiErrors.js'
 import { sanitizeRegistryImportPayload } from './excelSheetUtils.js'
 import { normalizeRegistryImportResponse } from './excelImportResponse.js'
 
+export const EXCLUDED_PROJECTS_API_PATH = '/api/excluded-projects'
+
 async function requestJson(path, options = {}) {
   const url = `${API_BASE_URL}${path}`
   const { headers: optHeaders, ...rest } = options

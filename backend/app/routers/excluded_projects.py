@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from app.database import get_connection
+from app.record_attachments import KIND_EXCLUDED, delete_kind_root, delete_record_files, download_attachment, replace_attachments
 from app.excel_import_dedupe import EXCLUDED_SIGNATURE_KEYS, import_rows_with_signature_dedupe
 from app.schemas import (
     ExcludedProjectBulkDelete,
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/api/excluded-projects", tags=["excluded-projects"])
 RETURNING_COLUMNS = """
   id, "orderNo", "writeDate", "openDate", category,
   keyword, "shareStatus", writer, "projectName", client, "projectAmount",
-  "exclusionReason", "isHidden", "createdAt", "updatedAt"
+  "exclusionReason", "isHidden", files, "createdAt", "updatedAt"
 """
 
 
@@ -127,6 +128,7 @@ def delete_excluded_project_row(row_id: str):
 
     if deleted_count == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Excluded row not found")
+    delete_record_files("excluded", row_id)
 
 
 @router.post("/bulk-delete")
@@ -141,6 +143,8 @@ def bulk_delete_excluded_project_rows(payload: ExcludedProjectBulkDelete):
             deleted_count = cursor.rowcount
         connection.commit()
 
+    for row_id in ids:
+        delete_record_files("excluded", row_id)
     return {"deleted": deleted_count}
 
 
@@ -152,7 +156,23 @@ def delete_all_excluded_project_rows():
             deleted_count = cursor.rowcount
         connection.commit()
 
+    delete_kind_root("excluded")
     return {"deleted": deleted_count}
+
+
+@router.post("/{row_id}/attachments")
+async def replace_excluded_project_attachments(row_id: str, request: Request):
+    """multipart/form-data: payload/keepFileIds + files[]. 개수·용량 제한 없음.
+
+    운영: UploadFile 청크 저장. Nginx 는 client_max_body_size 제한을 해제·상향해야 한다.
+    """
+    files = await replace_attachments("excluded", KIND_EXCLUDED, row_id, request)
+    return {"id": row_id, "files": files}
+
+
+@router.get("/{row_id}/attachments/{file_id}")
+def download_excluded_project_attachment(row_id: str, file_id: str):
+    return download_attachment("excluded", KIND_EXCLUDED, row_id, file_id)
 
 
 @router.post("/import", status_code=status.HTTP_201_CREATED)

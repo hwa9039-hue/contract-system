@@ -1,6 +1,11 @@
 # NAS 또는 PC에서 backend 폴더 안에서 실행:
 #   docker compose build --no-cache && docker compose up -d --force-recreate
 #
+# 무제한 다중 첨부(영업관리대장/사업공유/결제보고):
+#   - 컨테이너는 UPLOAD_DIR(/app/uploads) 에 청크 저장한다.
+#   - 앞단 Nginx 가 있으면 client_max_body_size 를 키우거나 0(무제한)으로 두지 않으면
+#     대용량·다건 업로드가 413 으로 끊긴다. 예: client_max_body_size 0;
+#
 # 동일 폴더에 .env 를 두면 아래 ${변수} 로 덮어쓸 수 있습니다. (.env.example 참고)
 # Synology에서 compose.yaml 만 쓰는 경우 contract-backend 서비스에도 같은 environment 를 넣어주세요.
 
@@ -16,9 +21,9 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-https://contract.smart-di.com,https://contract.signtelecom-smartdi.com,https://contract-system-2ev.pages.dev,http://localhost:5173,http://127.0.0.1:5173}
       JWT_SECRET: ${JWT_SECRET:-20262026signtelecomsmartdi20262026}
       AUTH_SHARED_PASSWORD: ${AUTH_SHARED_PASSWORD:-smartdi2026!}
-      AUTH_ADMIN_PASSWORD: ${AUTH_ADMIN_PASSWORD:-admin2026!}
-      # 부서장(MANAGER) 계정. 일반 사용자 탭에서 해당 비밀번호 입력 시 manager 권한.
-      AUTH_MANAGER_ACCOUNTS: ${AUTH_MANAGER_ACCOUNTS:-kk2331!:전기웅(영업),nov1st!:유영무(영업),sskim!:김성수(영업)}
+      AUTH_ADMIN_ACCOUNTS: ${AUTH_ADMIN_ACCOUNTS:-hy9039!:정화영,jhjoung!:정주희}
+      # 부서장(MANAGER) 계정. 사용자 탭에서 해당 비밀번호 입력 시 manager 권한.
+      AUTH_MANAGER_ACCOUNTS: ${AUTH_MANAGER_ACCOUNTS:-kk2331!:전기웅(영업),nov1st!:유영무(영업),sskim!:김성수(영업),yongja_lee!:이용자,pjb9878!:박재범,jslee!:이재승,wizard1221!:전재우,ssj8845!:신상준}
       AUTH_DISABLED: ${AUTH_DISABLED:-false}
       UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
       CONTRACT_IMPORT_EXCEL_BACKUP_DIR: ${CONTRACT_IMPORT_EXCEL_BACKUP_DIR:-/data/contract_excel_backup}

@@ -3,9 +3,10 @@ from uuid import uuid4
 
 import logging
 import psycopg
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from app.database import get_connection
+from app.record_attachments import KIND_SALES, delete_kind_root, delete_record_files, download_attachment, replace_attachments
 from app.excel_import_dedupe import SALES_SIGNATURE_KEYS, import_rows_with_signature_dedupe
 from app.schemas import (
     SalesRegisterBulkDelete,
@@ -29,7 +30,7 @@ RETURNING_COLUMNS = """
   id, "registerDate", client, "projectName", "projectAmount",
   "projectCategory", "projectStage", manager, "projectType",
   department, detail, source, "salesNote", "actionRequest", summary,
-  "createdAt", "updatedAt"
+  files, "createdAt", "updatedAt"
 """
 
 
@@ -200,6 +201,7 @@ def delete_sales_register_row(row_id: str):
 
     if deleted_count == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sales row not found")
+    delete_record_files("sales", row_id)
 
 
 @router.post("/bulk-delete")
@@ -214,6 +216,8 @@ def bulk_delete_sales_register_rows(payload: SalesRegisterBulkDelete):
             deleted_count = cursor.rowcount
         connection.commit()
 
+    for row_id in ids:
+        delete_record_files("sales", row_id)
     return {"deleted": deleted_count}
 
 
@@ -225,7 +229,24 @@ def delete_all_sales_register_rows():
             deleted_count = cursor.rowcount
         connection.commit()
 
+    delete_kind_root("sales")
     return {"deleted": deleted_count}
+
+
+@router.post("/{row_id}/attachments")
+async def replace_sales_register_attachments(row_id: str, request: Request):
+    """multipart/form-data: payload/keepFileIds + files[]. 개수·용량 제한 없음.
+
+    운영: UploadFile 은 청크 저장(record_attachments.save_upload_file).
+    Nginx 사용 시 client_max_body_size 를 충분히 키우거나 0 으로 둔다.
+    """
+    files = await replace_attachments("sales", KIND_SALES, row_id, request)
+    return {"id": row_id, "files": files}
+
+
+@router.get("/{row_id}/attachments/{file_id}")
+def download_sales_register_attachment(row_id: str, file_id: str):
+    return download_attachment("sales", KIND_SALES, row_id, file_id)
 
 
 @router.post("/import", status_code=status.HTTP_201_CREATED)

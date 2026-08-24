@@ -1,5 +1,6 @@
 import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { readApiErrorMessage } from './apiErrors.js'
+import { mergeAttachmentLists } from './recordFileAttachments.js'
 
 export const PAYMENT_REPORTS_API_PATH = '/api/payment-reports'
 
@@ -56,6 +57,8 @@ export function normalizePaymentReportRow(row, seq = 1) {
   PAYMENT_REPORT_FIELDS.forEach((key) => {
     normalized[key] = key === 'paymentCycle' ? normalizeCycle(source[key]) : safeString(source[key])
   })
+  normalized.files = Array.isArray(source.files) ? source.files : []
+  normalized.attachmentItems = mergeAttachmentLists(normalized.files, source.attachmentItems)
   return normalized
 }
 

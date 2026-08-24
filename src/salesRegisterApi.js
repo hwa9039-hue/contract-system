@@ -3,6 +3,8 @@ import { ApiRequestError, readApiErrorMessage } from './apiErrors.js'
 import { sanitizeRegistryImportPayload } from './excelSheetUtils.js'
 import { normalizeRegistryImportResponse } from './excelImportResponse.js'
 
+export const SALES_REGISTER_API_PATH = '/api/sales-register'
+
 /**
  * GET /api/sales-register → normalizeSalesRow / toSalesPayload 와 동일한 API·DB 필드명.
  * (sales_register_rows.summary, 응답 JSON 키: summary)

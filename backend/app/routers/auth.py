@@ -4,18 +4,16 @@ from pydantic import BaseModel
 
 from app.auth_utils import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
-    VALID_ROLES,
     create_access_token,
     decode_token,
     decode_token_allow_expired,
-    get_auth_admin_password,
     get_auth_shared_password,
     get_jwt_secret,
+    has_admin_accounts_configured,
     has_manager_accounts_configured,
     is_auth_disabled,
-    match_manager_account,
     normalize_token_role,
-    verify_login_password,
+    resolve_login_account,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -28,9 +26,6 @@ class LoginBody(BaseModel):
 
 @router.post("/login")
 def login(body: LoginBody):
-    login_role = (body.role or "user").strip().lower()
-    if login_role not in VALID_ROLES:
-        login_role = "user"
     if is_auth_disabled():
         return {
             "access_token": None,
@@ -49,24 +44,17 @@ def login(body: LoginBody):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AUTH_SHARED_PASSWORD is not set on the server",
         )
-    if login_role == "admin" and not get_auth_admin_password():
+    if not has_admin_accounts_configured() and not has_manager_accounts_configured():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AUTH_ADMIN_PASSWORD is not set on the server",
-        )
-    if login_role == "manager" and not has_manager_accounts_configured():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AUTH_MANAGER_ACCOUNTS is not set on the server",
+            detail="AUTH_ADMIN_ACCOUNTS / AUTH_MANAGER_ACCOUNTS is not set on the server",
         )
 
-    if not verify_login_password(body.password, login_role):
+    matched = resolve_login_account(body.password)
+    if not matched:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
 
-    display_name = ""
-    if login_role == "manager":
-        matched = match_manager_account(body.password)
-        display_name = matched[1] if matched else "전기웅(영업)"
+    login_role, display_name = matched
 
     token = create_access_token(login_role, display_name=display_name)
     return {

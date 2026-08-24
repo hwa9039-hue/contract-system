@@ -3,7 +3,14 @@ import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { EditableTextCell } from '../EditableTextCell.jsx'
-import { normalizePaymentReportRow, paymentReportsApi } from '../paymentReportsApi.js'
+import { PAYMENT_REPORTS_API_PATH, normalizePaymentReportRow, paymentReportsApi } from '../paymentReportsApi.js'
+import { RecordAttachmentChip, RecordFileAttachments } from '../RecordFileAttachments.jsx'
+import {
+  attachmentsNeedSync,
+  getAttachmentCount,
+  mergeAttachmentLists,
+} from '../recordFileAttachments.js'
+import { recordAttachmentDownloadUrl, saveRecordAttachments } from '../recordAttachmentsApi.js'
 import {
   EXCLUDED_INLINE_EDITOR_CLASS,
   TABLE_INLINE_EDITABLE_CELL_CLASS,
@@ -877,6 +884,8 @@ function createPaymentReportRow(seq, id, paymentCycle = '15', paymentMonth = for
     materialCost: '',
     currentExpense: '',
     profitRate: '',
+    files: [],
+    attachmentItems: [],
   }
 }
 
@@ -893,6 +902,7 @@ function PaymentReportExpandedPanel({
   onCompletionAmountBlur,
   onMaterialCostChange,
   onMaterialCostBlur,
+  onAttachmentsChange,
   onCommit,
   onDownloadPdf,
   isDownloading,
@@ -1056,6 +1066,15 @@ function PaymentReportExpandedPanel({
         </div>
       </div>
       </div>
+      <RecordFileAttachments
+        items={Array.isArray(row.attachmentItems) ? row.attachmentItems : []}
+        onChange={(next) => onAttachmentsChange?.(row.id, next)}
+        downloadHrefFor={
+          isPersistedPaymentReportId(row.id)
+            ? (item) => recordAttachmentDownloadUrl(PAYMENT_REPORTS_API_PATH, row.id, item.id)
+            : undefined
+        }
+      />
     </div>
   )
 }
@@ -1138,21 +1157,45 @@ export default function PaymentReportPage({ contracts = [] }) {
 
     savingIdsRef.current.add(rowId)
     dirtyIdsRef.current.delete(rowId)
+    const attachmentItems = Array.isArray(row.attachmentItems)
+      ? row.attachmentItems
+      : mergeAttachmentLists(row.files, [])
+    const uploadedLocalIds = new Set(
+      attachmentItems.filter((item) => item?.file instanceof File).map((item) => item.id)
+    )
     try {
       const saved = isPersistedPaymentReportId(row.id)
         ? await paymentReportsApi.update(row.id, row)
         : await paymentReportsApi.create(row)
-      const normalized = normalizePaymentReportRow(saved, row.seq)
+      let files = saved?.files
+      if (attachmentsNeedSync(attachmentItems, saved?.files)) {
+        const attached = await saveRecordAttachments(PAYMENT_REPORTS_API_PATH, saved.id, attachmentItems)
+        files = attached?.files ?? files
+      }
+      const normalized = normalizePaymentReportRow({ ...saved, files }, row.seq)
 
-      setRows((prev) =>
-        prev.map((item) => {
+      setRows((prev) => {
+        const next = prev.map((item) => {
           if (item.id !== rowId) return item
           if (dirtyIdsRef.current.has(rowId)) {
-            return { ...item, id: normalized.id, sortOrder: normalized.sortOrder }
+            return {
+              ...item,
+              id: normalized.id,
+              sortOrder: normalized.sortOrder,
+              files: normalized.files,
+              attachmentItems: mergeAttachmentLists(
+                normalized.files,
+                (item.attachmentItems || []).filter(
+                  (entry) => entry?.file instanceof File && !uploadedLocalIds.has(entry.id)
+                )
+              ),
+            }
           }
           return { ...normalized, seq: item.seq }
         })
-      )
+        rowsRef.current = next
+        return next
+      })
       setSaveError('')
 
       if (dirtyIdsRef.current.has(rowId)) {
@@ -1269,6 +1312,16 @@ export default function PaymentReportPage({ contracts = [] }) {
       )
     },
     [contracts, applyRowUpdate]
+  )
+
+  const handleAttachmentsChange = useCallback(
+    (rowId, nextItems) => {
+      applyRowUpdate(rowId, (row) => ({
+        ...row,
+        attachmentItems: Array.isArray(nextItems) ? nextItems : [],
+      }))
+    },
+    [applyRowUpdate]
   )
 
   const handleEditableChange = useCallback(
@@ -1675,15 +1728,27 @@ export default function PaymentReportPage({ contracts = [] }) {
                       </span>
                     </td>
                     <td className="payment-report-sticky payment-report-sticky--detail payment-report-sticky--last payment-report-col-detail">
-                      <button
-                        type="button"
-                        className={`payment-report-detail-btn${isExpanded ? ' is-open' : ''}`}
-                        aria-expanded={isExpanded}
-                        aria-controls={`payment-report-detail-${row.id}`}
-                        onClick={() => toggleRowExpand(row.id)}
-                      >
-                        세부사항
-                      </button>
+                      <div className="payment-report-detail-cell-inner">
+                        <button
+                          type="button"
+                          className={`payment-report-detail-btn${isExpanded ? ' is-open' : ''}`}
+                          aria-expanded={isExpanded}
+                          aria-controls={`payment-report-detail-${row.id}`}
+                          onClick={() => toggleRowExpand(row.id)}
+                        >
+                          세부사항
+                        </button>
+                        <span data-pdf-exclude="true">
+                          <RecordAttachmentChip
+                            count={getAttachmentCount(row)}
+                            className="payment-report-attach-chip"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (!isExpanded) toggleRowExpand(row.id)
+                            }}
+                          />
+                        </span>
+                      </div>
                     </td>
                     <td className={PAYMENT_REPORT_EDITABLE_CELL_CLASS}>
                       <EditableTextCell
@@ -1725,6 +1790,7 @@ export default function PaymentReportPage({ contracts = [] }) {
                             onCompletionAmountBlur={handleCompletionAmountBlur}
                             onMaterialCostChange={handleMaterialCostChange}
                             onMaterialCostBlur={handleMaterialCostBlur}
+                            onAttachmentsChange={handleAttachmentsChange}
                             onCommit={flushSave}
                             onDownloadPdf={handleDownloadPdf}
                             isDownloading={pdfDownloadingId === row.id}

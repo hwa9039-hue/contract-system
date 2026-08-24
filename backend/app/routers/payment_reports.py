@@ -2,9 +2,10 @@ import logging
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from app.database import get_connection
+from app.record_attachments import KIND_PAYMENT, delete_record_files, download_attachment, replace_attachments
 from app.schemas import (
     PAYMENT_REPORT_DB_COLUMNS,
     PaymentReportBulkDelete,
@@ -22,7 +23,7 @@ PAYMENT_REPORTS_API_PATH = "/api/payment-reports"
 router = APIRouter(prefix=PAYMENT_REPORTS_API_PATH, tags=["payment-reports"])
 
 PAYMENT_REPORT_COLUMNS = list(PAYMENT_REPORT_DB_COLUMNS.values())
-PAYMENT_REPORT_RETURNING = ",\n  ".join(["id::text as id", *PAYMENT_REPORT_COLUMNS])
+PAYMENT_REPORT_RETURNING = ",\n  ".join(["id::text as id", *PAYMENT_REPORT_COLUMNS, "files"])
 
 
 def insert_payment_report_row(cursor, row: PaymentReportCreate) -> dict:
@@ -131,4 +132,21 @@ def bulk_delete_payment_reports(payload: PaymentReportBulkDelete):
         connection.commit()
 
     logger.info("payment_report_rows bulk deleted count=%s", deleted_count)
+    for row_id in ids:
+        delete_record_files("payment", row_id)
     return {"deleted": deleted_count}
+
+
+@router.post("/{row_id}/attachments")
+async def replace_payment_report_attachments(row_id: str, request: Request):
+    """multipart/form-data: payload/keepFileIds + files[]. 개수·용량 제한 없음.
+
+    운영: UploadFile 청크 저장. Nginx client_max_body_size 를 키우거나 0 으로 둔다.
+    """
+    files = await replace_attachments("payment", KIND_PAYMENT, row_id, request)
+    return {"id": row_id, "files": files}
+
+
+@router.get("/{row_id}/attachments/{file_id}")
+def download_payment_report_attachment(row_id: str, file_id: str):
+    return download_attachment("payment", KIND_PAYMENT, row_id, file_id)

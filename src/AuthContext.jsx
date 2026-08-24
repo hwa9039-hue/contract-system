@@ -15,11 +15,9 @@ import {
   CONTRACT_PERSISTENT_SESSION_DURATION_MS,
   CONTRACT_SHARED_SESSION_DURATION_MS,
   CONTRACT_TOKEN_REFRESH_INTERVAL_MS,
-  findManagerAccount,
   hydrateAuthSessionFromStorage,
   restoreAuthSessionFromStorages,
-  ROLE_EXPECTED_PASSWORD,
-  resolveEffectiveRole,
+  resolveLoginAccount,
   writeRole,
   writeRoleLabel,
   writeSharedAuthSession,
@@ -220,30 +218,20 @@ export function AuthProvider({ children }) {
     setSessionExpiredNotice('')
   }, [])
 
-  const login = useCallback(async (requestedRole, password, rememberMe = false) => {
+  const login = useCallback(async (password, rememberMe = false) => {
     setSessionExpiredNotice('')
     const trimmed = String(password).trim()
 
     if (!trimmed) {
-      return { ok: false, error: '비밀번호를 입력해 주세요.' }
+      return { ok: false, error: '계정을 입력해 주세요.' }
     }
 
-    // 비밀번호 값으로 실제 역할을 결정: '일반 사용자' 탭에서 부서장 계정 비밀번호를
-    // 입력하면 manager 로 승격됩니다. (authSession.js 의 resolveEffectiveRole 참고)
-    const wantsRole = resolveEffectiveRole(requestedRole, trimmed)
-    const managerAccount = wantsRole === ROLES.MANAGER ? findManagerAccount(trimmed) : null
-    const passwordOk =
-      wantsRole === ROLES.MANAGER
-        ? Boolean(managerAccount)
-        : trimmed === ROLE_EXPECTED_PASSWORD[wantsRole]
-
-    // 클라이언트 1차 검증(UX용). 실제 인증은 백엔드가 최종 판정합니다.
-    if (!passwordOk) {
-      // 승격 실패 시(잘못된 비밀번호)에는 요청 탭 기준으로 안내합니다.
-      const shownRole = normalizeRole(requestedRole)
-      const label = shownRole === ROLES.USER ? '공용' : ROLE_LABELS[shownRole] || '사용자'
-      return { ok: false, error: `${label} 비밀번호가 올바르지 않습니다.` }
+    const matched = resolveLoginAccount(trimmed)
+    if (!matched) {
+      return { ok: false, error: '계정이 올바르지 않습니다.' }
     }
+
+    const wantsRole = matched.role
 
     logCmsApiLogin('attempt', {
       POST: `${API_BASE_URL}/api/auth/login`,
@@ -273,11 +261,6 @@ export function AuthProvider({ children }) {
       })
 
       if (data.auth_disabled) {
-        // 인증 비활성(AUTH_DISABLED) 모드: 클라이언트 비밀번호만 재확인
-        if (!passwordOk) {
-          logCmsApiLogin('rejected', { reason: 'client password mismatch (auth_disabled mode)' })
-          return { ok: false, error: '비밀번호가 올바르지 않습니다.' }
-        }
         clearAuthToken()
       } else if (!response.ok) {
         const detail = data.detail
@@ -297,7 +280,7 @@ export function AuthProvider({ children }) {
       const resolvedRole = data.role ? normalizeRole(data.role) : wantsRole
       const resolvedLabel =
         String(data.role_label || '').trim() ||
-        managerAccount?.label ||
+        matched.label ||
         ROLE_LABELS[resolvedRole] ||
         ROLE_LABELS[ROLES.USER]
 

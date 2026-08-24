@@ -300,6 +300,7 @@ class SalesRegisterPatch(BaseModel):
 
 class SalesRegisterOut(SalesRegisterBase):
     id: Optional[Any] = None
+    files: Optional[Any] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -485,6 +486,7 @@ class ExcludedProjectPatch(BaseModel):
 
 class ExcludedProjectOut(ExcludedProjectBase):
     id: Optional[Any] = None
+    files: Optional[Any] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -694,6 +696,7 @@ class PaymentReportPatch(BaseModel):
 
 class PaymentReportOut(PaymentReportBase):
     id: Optional[Any] = None
+    files: Optional[Any] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -916,6 +919,12 @@ def decimal_to_int(value):
     return value or 0
 
 
+def _files_to_response(value):
+    if isinstance(value, list):
+        return value
+    return []
+
+
 def to_response_value(value):
     if value is None:
         return None
@@ -1026,6 +1035,7 @@ def row_to_sales_register(row) -> dict:
         "salesNote": to_response_value(row["salesNote"]),
         "actionRequest": to_response_value(row["actionRequest"]),
         "summary": to_response_value(row.get("summary")),
+        "files": _files_to_response(row.get("files")),
         "createdAt": to_response_value(row["createdAt"]),
         "updatedAt": to_response_value(row["updatedAt"]),
     }
@@ -1088,6 +1098,7 @@ def row_to_excluded_project(row) -> dict:
         "projectAmount": to_response_value(row["projectAmount"]),
         "exclusionReason": to_response_value(row["exclusionReason"]),
         "isHidden": bool(_contract_row_field(row, "isHidden", "ishidden", default=False)),
+        "files": _files_to_response(row.get("files")),
         "createdAt": to_response_value(row["createdAt"]),
         "updatedAt": to_response_value(row["updatedAt"]),
     }
@@ -1760,6 +1771,7 @@ def row_to_payment_report(row) -> dict:
             out[api_key] = _normalize_payment_cycle(row.get(db_key))
             continue
         out[api_key] = to_response_value(row.get(db_key)) or ""
+    out["files"] = _files_to_response(row.get("files"))
     return out
 
 

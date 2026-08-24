@@ -1162,6 +1162,24 @@ def init_db():
             )
             cursor.execute(
                 """
+                alter table sales_register_rows
+                  add column if not exists files jsonb not null default '[]'::jsonb
+                """
+            )
+            cursor.execute(
+                """
+                alter table excluded_projects_rows
+                  add column if not exists files jsonb not null default '[]'::jsonb
+                """
+            )
+            cursor.execute(
+                """
+                alter table payment_report_rows
+                  add column if not exists files jsonb not null default '[]'::jsonb
+                """
+            )
+            cursor.execute(
+                """
                 create table if not exists calendar_manual_events (
                   id uuid primary key default gen_random_uuid(),
                   "dateStart" date,

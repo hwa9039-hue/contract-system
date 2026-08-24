@@ -2498,6 +2498,215 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
   border-top: 1px solid #e5e7eb;
 }
 
+.sales-record-modal-body:has(.record-file-attachments) .sales-record-modal-history,
+.sales-record-modal-body:has(.record-file-attachments) .sales-record-modal-history-edit {
+  min-height: min(28vh, 260px);
+}
+
+.record-file-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.record-file-attachments-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.record-file-dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 112px;
+  padding: 16px;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.record-file-dropzone.is-dragover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.record-file-dropzone.is-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.record-file-dropzone-copy {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.record-file-pick-btn {
+  flex-shrink: 0;
+}
+
+.record-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.record-file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.record-file-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.record-file-meta {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.record-file-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+a.record-file-name {
+  text-decoration: none;
+}
+
+a.record-file-name:hover {
+  text-decoration: underline;
+}
+
+.record-file-size {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.record-file-remove {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fff;
+  color: #64748b;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.record-file-remove:hover:not(:disabled) {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.record-file-empty {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.payment-report-expand-section > .record-file-attachments {
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.sales-archive-btn--has-files {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.record-attach-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.record-attach-chip:hover:not(:disabled) {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.record-attach-chip.has-files {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.record-attach-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.record-attach-chip-count {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.payment-report-detail-cell-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .materials-board-register-modal {
   width: min(560px, calc(100vw - 40px));
 }
@@ -8985,8 +9194,10 @@ table.excluded-registry-table.excel-table.registry-table td.excluded-sticky-col-
 
 .excluded-registry-table .excluded-registry-icon-cell-inner {
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 4px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -10341,8 +10552,10 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
 .discovery-registry-table .excluded-registry-icon-cell-inner,
 .contracts-fixed-table .excluded-registry-icon-cell-inner {
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 4px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -14060,7 +14273,7 @@ table.payment-report-table {
   --pr-sticky-w-amount: 156px;
   --pr-sticky-w-period: 180px;
   --pr-sticky-w-client: 140px;
-  --pr-sticky-w-detail: 96px;
+  --pr-sticky-w-detail: 132px;
 
   --pr-sticky-left-select: 0px;
   --pr-sticky-left-action: var(--pr-sticky-w-select);
@@ -14409,8 +14622,8 @@ table.payment-report-table .payment-report-sticky--action {
 }
 
 .payment-report-col-detail {
-  width: 96px;
-  min-width: 96px;
+  width: 132px;
+  min-width: 132px;
   text-align: center;
 }
 
