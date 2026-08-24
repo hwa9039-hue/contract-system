@@ -14268,6 +14268,12 @@ table.payment-report-table td.payment-report-cell--amount {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
+.payment-report-cell-input--readonly {
+  background: #f8fafc;
+  color: #334155;
+  cursor: default;
+}
+
 .payment-report-row-hint {
   display: inline-block;
   margin-top: 4px;

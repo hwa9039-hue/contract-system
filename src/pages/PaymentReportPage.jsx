@@ -56,54 +56,61 @@ function formatAmountWonRate(amount, ratePercent) {
   return `${amountText}원 / ${ratePercent}%`
 }
 
+/** 입력 중에는 숫자·콤마만 보여 준다. 빈칸은 빈칸으로 둔다. */
+function toTypingAmountDisplay(value) {
+  return formatAmountComma(normalizeAmountDigits(value))
+}
+
 /**
- * 사업준공금액(C) + 결제 예정 금액(P) → 물품원가·금회지출·수익률만 계산.
- * 사업준공금액 문자열은 절대 바꾸지 않는다.
+ * 금액 + 사업준공금액 대비 요율. 금액이 없으면 빈칸.
+ * 준공금액이 없으면 금액만(원) 보여 준다.
  */
-function buildDerivedPaymentInfoFields(completionRaw, plannedRaw) {
+function formatAmountWithRate(amountRaw, completionRaw) {
+  const amount = parseAmountNumber(amountRaw)
+  if (amount == null) return ''
   const completion = parseAmountNumber(completionRaw)
-  if (completion == null || completion <= 0) {
-    return {
-      materialCost: '',
-      currentExpense: '',
-      profitRate: '',
-    }
-  }
+  const rate =
+    completion != null && completion > 0 ? formatRateAgainstBase(amount, completion) : null
+  return formatAmountWonRate(amount, rate)
+}
 
-  const planned = parseAmountNumber(plannedRaw)
-  if (planned == null) {
-    return {
-      materialCost: '',
-      currentExpense: '',
-      profitRate: '',
-    }
-  }
+/** 수익률 = 사업준공금액 - 물품원가금액. 둘 다 있을 때만 채운다. */
+function formatProfitFromMaterialCost(completionRaw, materialCostRaw) {
+  const completion = parseAmountNumber(completionRaw)
+  const material = parseAmountNumber(materialCostRaw)
+  if (completion == null || completion <= 0 || material == null) return ''
+  const profit = completion - material
+  return formatAmountWonRate(profit, formatRateAgainstBase(profit, completion))
+}
 
-  const expenseRate = formatRateAgainstBase(planned, completion)
-  const profit = completion - planned
-  const profitRatePct = formatRateAgainstBase(profit, completion)
-
+/**
+ * 결제정보 파생 칸.
+ * - 물품원가금액: 수기 금액 유지 + 준공 대비 요율
+ * - 금회지출액: 표의 결제 예정 금액(plannedAmount)을 그대로 따라감 + 준공 대비 요율
+ * - 수익률: 준공 - 물품원가 + 준공 대비 요율
+ */
+function recalcDerivedPaymentInfo(completionRaw, materialCostRaw, plannedRaw) {
   return {
-    materialCost: formatAmountWonRate(planned, expenseRate),
-    currentExpense: formatAmountWonRate(planned, expenseRate),
-    profitRate: formatAmountWonRate(profit, profitRatePct),
+    materialCost: formatAmountWithRate(materialCostRaw, completionRaw),
+    currentExpense: formatAmountWithRate(plannedRaw, completionRaw),
+    profitRate: formatProfitFromMaterialCost(completionRaw, materialCostRaw),
   }
 }
 
-/** 사업준공금액 blur 시: 준공칸은 금액(콤마)만 정리 + 파생 3칸 갱신 */
-function buildCompletionBlurPaymentInfoFields(completionRaw, plannedRaw) {
+/** 사업준공금액 blur 시: 준공칸은 금액(콤마)만 정리 + 요율·금회지출·수익률 갱신 */
+function buildCompletionBlurPaymentInfoFields(completionRaw, materialCostRaw, plannedRaw) {
   const completion = parseAmountNumber(completionRaw)
   if (completion == null || completion <= 0) {
     return {
       completionAmount: '',
-      materialCost: '',
-      currentExpense: '',
+      materialCost: formatAmountWithRate(materialCostRaw, ''),
+      currentExpense: formatAmountWithRate(plannedRaw, ''),
       profitRate: '',
     }
   }
   return {
     completionAmount: formatAmountComma(String(completion)),
-    ...buildDerivedPaymentInfoFields(completion, plannedRaw),
+    ...recalcDerivedPaymentInfo(completion, materialCostRaw, plannedRaw),
   }
 }
 
@@ -884,6 +891,8 @@ function PaymentReportExpandedPanel({
   onChange,
   onCompletionAmountChange,
   onCompletionAmountBlur,
+  onMaterialCostChange,
+  onMaterialCostBlur,
   onCommit,
   onDownloadPdf,
   isDownloading,
@@ -1003,37 +1012,44 @@ function PaymentReportExpandedPanel({
             <input
               className="payment-report-cell-input"
               type="text"
+              inputMode="numeric"
               autoComplete="off"
               data-pdf-field="materialCost"
               value={row.materialCost}
-              onChange={(e) => onChange(row.id, 'materialCost', e.target.value)}
-              onBlur={commit}
+              onChange={(e) => onMaterialCostChange?.(row.id, e.target.value)}
+              onFocus={(e) => {
+                const amount = parseAmountNumber(e.target.value)
+                if (amount != null && /원|\//.test(e.target.value)) {
+                  onMaterialCostChange?.(row.id, formatAmountComma(String(amount)))
+                }
+              }}
+              onBlur={() => onMaterialCostBlur?.(row.id)}
               placeholder="-원 / -%"
             />
           </label>
           <label className="payment-report-expand-field">
             <span>금회지출액</span>
             <input
-              className="payment-report-cell-input"
+              className="payment-report-cell-input payment-report-cell-input--readonly"
               type="text"
+              readOnly
+              tabIndex={-1}
               autoComplete="off"
               data-pdf-field="currentExpense"
               value={row.currentExpense}
-              onChange={(e) => onChange(row.id, 'currentExpense', e.target.value)}
-              onBlur={commit}
               placeholder="-원 / -%"
             />
           </label>
           <label className="payment-report-expand-field">
             <span>수익률</span>
             <input
-              className="payment-report-cell-input"
+              className="payment-report-cell-input payment-report-cell-input--readonly"
               type="text"
+              readOnly
+              tabIndex={-1}
               autoComplete="off"
               data-pdf-field="profitRate"
               value={row.profitRate}
-              onChange={(e) => onChange(row.id, 'profitRate', e.target.value)}
-              onBlur={commit}
               placeholder="-원 / -%"
             />
           </label>
@@ -1264,11 +1280,10 @@ export default function PaymentReportPage({ contracts = [] }) {
             ? formatAmountComma(value)
             : value
           const nextRow = { ...row, [key]: nextValue }
-          // 결제 예정 금액 변경 시 파생 3칸만 갱신 — 사업준공금액은 그대로 둔다
-          if (key === 'plannedAmount' && parseAmountNumber(row.completionAmount) != null) {
+          if (key === 'plannedAmount') {
             return {
               ...nextRow,
-              ...buildDerivedPaymentInfoFields(row.completionAmount, nextValue),
+              ...recalcDerivedPaymentInfo(row.completionAmount, row.materialCost, nextValue),
             }
           }
           return nextRow
@@ -1279,7 +1294,7 @@ export default function PaymentReportPage({ contracts = [] }) {
     [applyRowUpdate]
   )
 
-  /** 사업준공금액 입력 중 — 숫자·콤마만 보여 주고, 하단 3칸은 결제예정 기준으로 즉시 갱신 */
+  /** 사업준공금액 입력 중 — 숫자·콤마만 보여 주고, 물품원가 요율·금회지출·수익률을 갱신 */
   const handleCompletionAmountChange = useCallback(
     (rowId, value) => {
       applyRowUpdate(rowId, (row) => {
@@ -1288,7 +1303,7 @@ export default function PaymentReportPage({ contracts = [] }) {
         return {
           ...row,
           completionAmount: display,
-          ...buildDerivedPaymentInfoFields(digits, row.plannedAmount),
+          ...recalcDerivedPaymentInfo(display, row.materialCost, row.plannedAmount),
         }
       })
     },
@@ -1302,8 +1317,45 @@ export default function PaymentReportPage({ contracts = [] }) {
         rowId,
         (row) => ({
           ...row,
-          ...buildCompletionBlurPaymentInfoFields(row.completionAmount, row.plannedAmount),
+          ...buildCompletionBlurPaymentInfoFields(
+            row.completionAmount,
+            row.materialCost,
+            row.plannedAmount
+          ),
         }),
+        { immediate: true }
+      )
+    },
+    [applyRowUpdate]
+  )
+
+  /** 물품원가금액 수기 입력. 금회지출액은 결제 예정 금액을 유지한다. */
+  const handleMaterialCostChange = useCallback(
+    (rowId, value) => {
+      applyRowUpdate(rowId, (row) => {
+        const display = toTypingAmountDisplay(value)
+        return {
+          ...row,
+          materialCost: display,
+          profitRate: formatProfitFromMaterialCost(row.completionAmount, display),
+        }
+      })
+    },
+    [applyRowUpdate]
+  )
+
+  const handleMaterialCostBlur = useCallback(
+    (rowId) => {
+      applyRowUpdate(
+        rowId,
+        (row) => {
+          const materialCost = formatAmountWithRate(row.materialCost, row.completionAmount)
+          return {
+            ...row,
+            materialCost,
+            profitRate: formatProfitFromMaterialCost(row.completionAmount, materialCost),
+          }
+        },
         { immediate: true }
       )
     },
@@ -1671,6 +1723,8 @@ export default function PaymentReportPage({ contracts = [] }) {
                             onChange={handleEditableChange}
                             onCompletionAmountChange={handleCompletionAmountChange}
                             onCompletionAmountBlur={handleCompletionAmountBlur}
+                            onMaterialCostChange={handleMaterialCostChange}
+                            onMaterialCostBlur={handleMaterialCostBlur}
                             onCommit={flushSave}
                             onDownloadPdf={handleDownloadPdf}
                             isDownloading={pdfDownloadingId === row.id}
