@@ -15051,6 +15051,17 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   margin-bottom: 8px;
 }
 
+.payment-report-amount-rate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 108px;
+  gap: 8px;
+  min-width: 0;
+}
+
+.payment-report-rate-input {
+  text-align: right;
+}
+
 @media (max-width: 1100px) {
   .payment-report-expand-grid {
     grid-template-columns: 1fr;

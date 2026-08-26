@@ -264,12 +264,16 @@ export function AuthProvider({ children }) {
         clearAuthToken()
       } else if (!response.ok) {
         const detail = data.detail
-        const message =
+        const raw =
           typeof detail === 'string'
             ? detail
             : Array.isArray(detail)
               ? detail.map((item) => item.msg || item).join(', ')
-              : '로그인에 실패했습니다.'
+              : ''
+        const message =
+          response.status === 401 || /invalid password/i.test(raw)
+            ? '계정이 올바르지 않습니다.'
+            : raw || '로그인에 실패했습니다.'
         logCmsApiLogin('rejected', { status: response.status, message })
         return { ok: false, error: message }
       } else if (data.access_token) {
