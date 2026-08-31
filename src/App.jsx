@@ -154,7 +154,7 @@ import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { formatExcelUploadErrorMessage } from './apiErrors.js'
 import { useAuth } from './AuthContext.jsx'
 import { usePresence } from './usePresence.js'
-import { PresenceAvatars } from './PresenceAvatars.jsx'
+import { PresenceAvatars, formatPersonDisplayName } from './PresenceAvatars.jsx'
 import { DeleteConfirmModal } from './DeleteConfirmModal.jsx'
 import {
   canAccessMenu,
@@ -15940,7 +15940,7 @@ function App() {
         </div>
 
         <div className="sidebar-bottom">
-          <div className="viewer-badge">{roleLabel}</div>
+          <div className="viewer-badge">{formatPersonDisplayName(roleLabel) || roleLabel}</div>
           <button
             className="logout-btn"
             type="button"

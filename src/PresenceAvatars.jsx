@@ -20,13 +20,24 @@ export function colorForPresenceId(id) {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length]
 }
 
-/** '전기웅(영업)' → '기웅', '전재우' → '재우' */
-export function getPresenceInitials(displayName) {
+/** '전기웅(영업)' → '전기웅' — 화면에는 이름 세 글자만. */
+export function formatPersonDisplayName(displayName) {
   const stripped = String(displayName || '')
     .replace(/\s+/g, '')
     .replace(/\([^)]*\)/g, '')
-  if (!stripped) return '?'
-  return stripped.slice(-2)
+  if (!stripped) return ''
+  return stripped.slice(0, 3)
+}
+
+export function getPresenceInitials(displayName) {
+  return formatPersonGivenName(displayName) || '?'
+}
+
+/** '전기웅(영업)' → '기웅' — 원 안에는 성 빼고 두 글자. */
+export function formatPersonGivenName(displayName) {
+  const full = formatPersonDisplayName(displayName)
+  if (!full) return ''
+  return full.slice(-2)
 }
 
 export function PresenceAvatars({ users = [] }) {
@@ -38,19 +49,21 @@ export function PresenceAvatars({ users = [] }) {
       aria-label={`접속 중 ${users.length}명`}
     >
       {users.map((user) => {
-        const name = user.displayName || user.id
+        const raw = user.displayName || user.id
+        const fullName = formatPersonDisplayName(raw) || raw
+        const shortName = formatPersonGivenName(raw) || fullName
         return (
           <li key={user.id} className="presence-avatar-item relative">
             <span
               className="presence-avatar w-8 h-8 rounded-full ring-2 ring-white shadow-sm"
               style={{ backgroundColor: colorForPresenceId(user.id) }}
-              title={name}
-              aria-label={name}
+              title={fullName}
+              aria-label={fullName}
             >
-              {getPresenceInitials(name)}
+              {shortName || '?'}
             </span>
             <span className="presence-avatar-tooltip" role="tooltip">
-              {name}
+              {fullName}
             </span>
           </li>
         )
