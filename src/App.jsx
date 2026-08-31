@@ -5794,17 +5794,43 @@ function getContractPageSummaryCategoryTitle(name) {
 }
 
 /** 대시보드·계약현황 「연도별 계약금액 현황」 카드 그리드. `formatCategoryTitle`로 화면 제목만 변환. */
-function YearContractAmountCategoryCards({ items, keyPrefix, formatCategoryTitle }) {
+function YearContractAmountCategoryCards({
+  items,
+  keyPrefix,
+  formatCategoryTitle,
+  selectedCategory = null,
+  onCategorySelect,
+}) {
   const prefix = keyPrefix != null && keyPrefix !== '' ? String(keyPrefix) : ''
   const titleFor = (name) => (typeof formatCategoryTitle === 'function' ? formatCategoryTitle(name) : name)
+  const interactive = typeof onCategorySelect === 'function'
   return (
     <div className="dashboard-year-cards">
       {items.map((item) => {
         const displayName = titleFor(item.name)
+        const isActive = selectedCategory === item.name
+        const className = [
+          'dashboard-year-card',
+          interactive ? 'dashboard-year-card--clickable cursor-pointer hover:shadow-lg' : '',
+          interactive && isActive
+            ? 'dashboard-year-card--active bg-blue-50 ring-2 ring-blue-500 shadow-md'
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+        const CardTag = interactive ? 'button' : 'div'
         return (
-        <div
-          className="dashboard-year-card"
+        <CardTag
+          className={className}
           key={prefix ? `${prefix}-${item.name}` : item.name}
+          {...(interactive
+            ? {
+                type: 'button',
+                onClick: () => onCategorySelect(item.name),
+                'aria-pressed': isActive,
+                'aria-label': isActive ? `${displayName} 필터 해제` : `${displayName}만 보기`,
+              }
+            : {})}
         >
           <div className="graph-card-title">{displayName}</div>
 
@@ -5834,7 +5860,7 @@ function YearContractAmountCategoryCards({ items, keyPrefix, formatCategoryTitle
               </div>
             </div>
           </div>
-        </div>
+        </CardTag>
         )
       })}
     </div>
@@ -5845,13 +5871,43 @@ function getMonthLabel(date) {
   return `${date.getFullYear()}년 ${date.getMonth() + 1}월`
 }
 
+const DISPLAY_TYPE_CODES = new Set(['55121903'])
+const BIT_TYPE_CODES = new Set(['43211514', '43211507', '43211902'])
+
+/**
+ * 계약분류(contractType) → 요약 카드 5분류.
+ * 엑셀·수기 값은 UNSPSC 코드와 한글 라벨이 섞여 있으므로 둘 다 받는다.
+ * `도로공사`는 도로사업, `전광판`은 디스플레이(내부 키 전광판)로 둔다.
+ */
 function getCategory(contract) {
   const type = safeString(contract.contractType).trim()
-  if (type === '55121903') return '전광판'
-  if (['43211514', '43211507', '43211902'].includes(type)) return 'BIT'
-  if (type === '도로사업') return '도로사업'
-  if (type === '유지보수') return '유지보수'
-  // 계약분류가 위 네 가지에 안 걸리거나 비어 있으면 기타로 집계
+  const compact = type.replace(/[\s,]+/g, '')
+  if (!compact || compact === '-' || compact === '--') return '기타'
+
+  const upper = compact.toUpperCase()
+
+  if (
+    DISPLAY_TYPE_CODES.has(type) ||
+    compact.includes('55121903') ||
+    compact.includes('전광판') ||
+    compact.includes('디스플레이')
+  ) {
+    return '전광판'
+  }
+
+  if (
+    BIT_TYPE_CODES.has(type) ||
+    [...BIT_TYPE_CODES].some((code) => compact.includes(code)) ||
+    upper === 'BIT' ||
+    upper.includes('BIT')
+  ) {
+    return 'BIT'
+  }
+
+  if (compact.includes('유지보수')) return '유지보수'
+
+  if (compact.includes('도로사업') || compact.includes('도로공사')) return '도로사업'
+
   return '기타'
 }
 
@@ -6325,6 +6381,8 @@ function App() {
   const [activeFilters, setActiveFilters] = useState({})
   /** 준공 임박 건만 모아보는 퀵 필터 — 검색·기간·열 필터 위에 겹쳐서 적용된다. */
   const [isContractDueSoonOnly, setIsContractDueSoonOnly] = useState(false)
+  /** 계약현황 상단 분야 카드 필터. null이면 전체. 값은 getCategory() 키(전광판·BIT·도로사업·유지보수·기타). */
+  const [selectedCategory, setSelectedCategory] = useState(null)
   /**
    * 퀵 필터가 켜져 있는 동안 쓸 계약 테이블 열 너비(px).
    * 계약 테이블은 table-layout: auto 라 표시 중인 행의 내용으로 열 너비가 정해진다.
@@ -7228,6 +7286,17 @@ function App() {
    */
   const filteredData = isContractDueSoonOnly ? contractDueSoonRows : contractRowsBeforeDueSoonFilter
 
+  /** 상단 분야 카드 토글 — 같은 카드를 다시 누르면 전체 목록으로 돌아간다. */
+  const handleToggleContractCategory = useCallback((categoryName) => {
+    setSelectedCategory((prev) => (prev === categoryName ? null : categoryName))
+  }, [])
+
+  /** [3단계] 분야 카드 필터. 요약 카드 숫자는 filteredData를 유지하고, 표만 이 배열을 쓴다. */
+  const categoryFilteredData = useMemo(() => {
+    if (!selectedCategory) return filteredData
+    return filteredData.filter((item) => getCategory(item) === selectedCategory)
+  }, [filteredData, selectedCategory])
+
   const handleToggleContractDueSoonOnly = useCallback(() => {
     const nextActive = !isContractDueSoonOnly
     if (nextActive) {
@@ -7264,14 +7333,14 @@ function App() {
   const isContractTableFilterResultEmpty = useMemo(
     () =>
       contractsRawData.some((row) => !row.isDraft) &&
-      filteredData.length === 0 &&
+      categoryFilteredData.length === 0 &&
       contractDraftRows.length === 0,
-    [contractDraftRows.length, contractsRawData, filteredData.length]
+    [categoryFilteredData.length, contractDraftRows.length, contractsRawData]
   )
 
   const filteredTotalAmount = useMemo(
-    () => filteredData.reduce((sum, item) => sum + parseAmount(item.amount), 0),
-    [filteredData]
+    () => categoryFilteredData.reduce((sum, item) => sum + parseAmount(item.amount), 0),
+    [categoryFilteredData]
   )
 
   const isContractsTableDefaultFilterState = useMemo(
@@ -7280,13 +7349,15 @@ function App() {
       !hasActiveContractColumnFilters(activeFilters) &&
       !safeString(contractDateRange.startDate).trim() &&
       !safeString(contractDateRange.endDate).trim() &&
-      !isContractDueSoonOnly,
+      !isContractDueSoonOnly &&
+      !selectedCategory,
     [
       activeFilters,
       contractDateRange.endDate,
       contractDateRange.startDate,
       isContractDueSoonOnly,
       search,
+      selectedCategory,
     ]
   )
 
@@ -7298,17 +7369,26 @@ function App() {
   /** 자동 로그인(30일) 등 24시간 초과 세션 — 분 단위 타이머 대신 문구 표시 */
   const isLongLivedSession = remainingSessionMinutes > 24 * 60
 
-  /** [2단계] filteredData만 그룹화 — 원본 contracts 미사용 */
+  /** [2단계] 표에 뿌릴 행만 그룹화 — 분야 카드 필터가 있으면 categoryFilteredData */
   const groupedContracts = useMemo(
-    () => groupContractsForAccordion(filteredData),
-    [filteredData]
+    () => groupContractsForAccordion(categoryFilteredData),
+    [categoryFilteredData]
   )
 
   const contractPageSummaryFocusYear = useMemo(() => {
     const yearFilter = activeFilters.year
     if (Array.isArray(yearFilter) && yearFilter.length === 1) return yearFilter[0]
-    return groupedContracts[0]?.year ?? ''
-  }, [activeFilters.year, groupedContracts])
+    if (filteredData.length === 0) return ''
+    const years = [...new Set(filteredData.map((item) => getContractYearKey(item)))]
+    return (
+      years.sort((a, b) => {
+        const na = Number(a)
+        const nb = Number(b)
+        if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return nb - na
+        return String(b).localeCompare(String(a), 'ko-KR', { numeric: true })
+      })[0] ?? ''
+    )
+  }, [activeFilters.year, filteredData])
 
   const contractPageSummaryRows = useMemo(() => {
     const y = contractPageSummaryFocusYear
@@ -9089,7 +9169,7 @@ function App() {
   const handleExcelDownload = () => {
     // 화면 filteredData(검색·기간·열 필터·정렬)와 CONTRACT_COLUMNS 헤더/순서 동기화
     const rows = buildExcelRowsFromTableColumns(
-      filteredData,
+      categoryFilteredData,
       CONTRACT_COLUMNS,
       getContractExcelExportCellValue,
       { excludeDrafts: false }
@@ -16436,6 +16516,8 @@ function App() {
                       items={contractPageYearSummaryBlock.items}
                       keyPrefix={`contracts-${contractPageSummaryFocusYear}`}
                       formatCategoryTitle={getContractPageSummaryCategoryTitle}
+                      selectedCategory={selectedCategory}
+                      onCategorySelect={handleToggleContractCategory}
                     />
                   </div>
                 </div>
