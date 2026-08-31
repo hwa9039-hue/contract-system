@@ -5,7 +5,7 @@ import { isPresenceApiReady, listOnlinePresence, pingPresence } from './presence
 /**
  * 온라인 접속자 Heartbeat.
  *
- * 로그인되어 있으면 30초마다:
+ * 로그인되어 있으면 운영 10초마다:
  *   1) POST /api/presence/ping  — 내가 살아 있다고 알림
  *   2) GET  /api/presence/online — 최근 ping 한 사람 목록
  *
@@ -19,7 +19,7 @@ import { isPresenceApiReady, listOnlinePresence, pingPresence } from './presence
  * 식별자는 JWT display_name (예: 전재우, 신상준).
  * ──────────────────────────────────────────────────────────
  */
-export const PRESENCE_HEARTBEAT_MS = import.meta.env.DEV ? 3_000 : 30_000
+export const PRESENCE_HEARTBEAT_MS = import.meta.env.DEV ? 3_000 : 10_000
 
 function normalizeOnlineUsers(payload) {
   const rows = Array.isArray(payload?.users) ? payload.users : Array.isArray(payload) ? payload : []
