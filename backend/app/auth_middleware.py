@@ -109,6 +109,7 @@ class ApiJwtAuthMiddleware(BaseHTTPMiddleware):
 
         role = normalize_token_role(payload.get("role"))
         request.state.auth_role = role
+        request.state.auth_display_name = str(payload.get("display_name") or "").strip()
 
         # RBAC 도입 이전 JWT(role 클레임 없음)는 만료될 때까지 기존과 동일하게 전체 허용
         if "role" in payload and not is_rbac_allowed(path, request.method, role):

@@ -343,6 +343,7 @@ textarea {
   flex-wrap: nowrap;
   flex-shrink: 0;
   justify-content: flex-end;
+  overflow: visible;
 }
 
 /* 자동 로그인(상태) · 로그인 연장 — 동일 사각형 크기, 위계만 분리 */
@@ -410,6 +411,68 @@ textarea {
 .top-system-session-extend-btn.secondary-btn:active {
   background: #242933;
   border-color: #242933;
+}
+
+/* 헤더 우측 — 구글 시트 스타일 접속자 아바타 */
+.presence-avatar-list {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.presence-avatar-item {
+  position: relative;
+  margin: 0;
+}
+
+.presence-avatar-item + .presence-avatar-item {
+  margin-left: -8px;
+}
+
+.presence-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
+  cursor: default;
+}
+
+.presence-avatar-tooltip {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #1f2937;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 40;
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.18);
+}
+
+.presence-avatar-item:hover {
+  z-index: 5;
+}
+
+.presence-avatar-item:hover .presence-avatar-tooltip {
+  opacity: 1;
 }
 
 .stat-card {

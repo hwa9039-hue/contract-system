@@ -153,6 +153,8 @@ import {
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { formatExcelUploadErrorMessage } from './apiErrors.js'
 import { useAuth } from './AuthContext.jsx'
+import { usePresence } from './usePresence.js'
+import { PresenceAvatars } from './PresenceAvatars.jsx'
 import { DeleteConfirmModal } from './DeleteConfirmModal.jsx'
 import {
   canAccessMenu,
@@ -6219,6 +6221,7 @@ function splitDashboardRecentTitleLabel(fullLabel) {
 function App() {
   const { role, roleLabel, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
     useAuth()
+  const { onlineUsers } = usePresence()
   const canEditContracts = canEditMenu('contracts', role)
   // const canEditProjectManagement = canEditMenu('projectManagement', role) // 메뉴 제거
   const canEditMaterialsBoard = canEditMenu('materialsBoard', role)
@@ -15972,6 +15975,7 @@ function App() {
               <h1 className="top-system-page-title">{PAGE_TITLE_MAP[menu] || ''}</h1>
             </div>
             <div className="top-system-session-actions">
+              <PresenceAvatars users={onlineUsers} />
               {isLongLivedSession ? (
                 <span className="top-system-session-badge top-system-session-badge--auto">
                   자동 로그인

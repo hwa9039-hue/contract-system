@@ -24,6 +24,7 @@ from app.routers.payment_reports import router as payment_reports_router
 from app.routers.install_cases import INSTALL_CASES_API_PATH, router as install_cases_router
 from app.routers.materials_board import MATERIALS_BOARD_API_PATH, router as materials_board_router
 from app.routers.calendar_events import CALENDAR_EVENTS_API_PATH, router as calendar_events_router
+from app.routers import presence
 
 
 DEFAULT_CORS_ORIGINS = (
@@ -190,6 +191,12 @@ def health_check():
                 if getattr(route, "path", None) and "unit-prices" in route.path
             }
         ),
+        "presence": bool(
+            any(
+                getattr(route, "path", "") in ("/api/presence/ping", "/api/presence/online")
+                for route in app.routes
+            )
+        ),
     }
 
 
@@ -210,3 +217,4 @@ app.include_router(payment_reports_router)
 app.include_router(install_cases_router)
 app.include_router(materials_board_router)
 app.include_router(calendar_events_router)
+app.include_router(presence.router)
