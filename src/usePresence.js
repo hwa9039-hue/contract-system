@@ -81,13 +81,18 @@ export function usePresence() {
     const onVisible = () => {
       if (document.visibilityState === 'visible') tick()
     }
+    const onPageHide = () => {
+      void leavePresence(displayName)
+    }
     document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pagehide', onPageHide)
 
     return () => {
       cancelled = true
       window.clearInterval(timerId)
       document.removeEventListener('visibilitychange', onVisible)
-      void leavePresence(displayName)
+      window.removeEventListener('pagehide', onPageHide)
+      // StrictMode/HMR cleanup 에서 leave 하지 않는다. 상대 창 목록이 지워진다.
     }
   }, [isAuthenticated, roleLabel])
 

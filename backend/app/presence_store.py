@@ -54,4 +54,7 @@ def leave(user_id: str) -> None:
     if not key:
         return
     with _lock:
-        _last_active.pop(key, None)
+        ts = _last_active.get(key)
+        # StrictMode/HMR 이 ping 직후 leave 를 보내도 목록에서 바로 빼지 않는다.
+        if ts is not None and _utcnow() - ts > timedelta(seconds=4):
+            _last_active.pop(key, None)

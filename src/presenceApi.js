@@ -7,9 +7,9 @@ function trimSlash(url) {
 }
 
 /**
- * npm run dev: 계약 API는 NAS, 접속자 ping은 로컬 8010.
- * (NAS에는 아직 presence 라우트가 없어서 혼자 두 창 테스트가 안 됨)
- * 운영 빌드: 같은 API 서버를 쓴다.
+ * npm run dev: 같은 Vite 서버(`/api/presence`)에 ping 해서
+ * 일반 창·시크릿 창이 한 목록을 나눈다. 계약 API는 NAS를 그대로 쓴다.
+ * 운영 빌드: FastAPI 와 같은 API_BASE_URL.
  */
 export function getPresenceBaseUrl() {
   if (import.meta.env.DEV) {
@@ -17,7 +17,7 @@ export function getPresenceBaseUrl() {
     if (fromEnv != null && String(fromEnv).trim() !== '') {
       return trimSlash(fromEnv)
     }
-    return 'http://127.0.0.1:8010'
+    return ''
   }
   return API_BASE_URL
 }
