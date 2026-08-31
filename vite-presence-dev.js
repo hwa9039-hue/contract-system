@@ -46,7 +46,16 @@ function readJsonBody(req) {
 function sendJson(res, status, body) {
   res.statusCode = status
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
+  res.setHeader('Pragma', 'no-cache')
   res.end(JSON.stringify(body))
+}
+
+function presencePath(req) {
+  const raw = String(req.originalUrl || req.url || '')
+  const path = raw.split('?')[0]
+  const idx = path.indexOf('/api/presence')
+  return idx >= 0 ? path.slice(idx) : path
 }
 
 export function presenceDevMiddleware() {
@@ -54,7 +63,7 @@ export function presenceDevMiddleware() {
     name: 'presence-dev-middleware',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        const path = String(req.url || '').split('?')[0]
+        const path = presencePath(req)
         if (!path.startsWith('/api/presence')) {
           next()
           return

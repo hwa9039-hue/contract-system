@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from './AuthContext.jsx'
-import { leavePresence, listOnlinePresence, pingPresence } from './presenceApi.js'
+import { listOnlinePresence, pingPresence } from './presenceApi.js'
 
 /**
  * 온라인 접속자 Heartbeat.
@@ -19,7 +19,7 @@ import { leavePresence, listOnlinePresence, pingPresence } from './presenceApi.j
  * 식별자는 JWT display_name (예: 전재우, 신상준).
  * ──────────────────────────────────────────────────────────
  */
-export const PRESENCE_HEARTBEAT_MS = 30_000
+export const PRESENCE_HEARTBEAT_MS = import.meta.env.DEV ? 3_000 : 30_000
 
 function normalizeOnlineUsers(payload) {
   const rows = Array.isArray(payload?.users) ? payload.users : Array.isArray(payload) ? payload : []
@@ -81,18 +81,13 @@ export function usePresence() {
     const onVisible = () => {
       if (document.visibilityState === 'visible') tick()
     }
-    const onPageHide = () => {
-      void leavePresence(displayName)
-    }
     document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('pagehide', onPageHide)
 
     return () => {
       cancelled = true
       window.clearInterval(timerId)
       document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('pagehide', onPageHide)
-      // StrictMode/HMR cleanup 에서 leave 하지 않는다. 상대 창 목록이 지워진다.
+      // pagehide/HMR 에서 leave 하지 않는다. 창만 바꿔도 상대가 목록에서 사라진다.
     }
   }, [isAuthenticated, roleLabel])
 

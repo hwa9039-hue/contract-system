@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders } from './apiClient.js'
+import { API_BASE_URL, getAuthHeaders } from './apiClient.js'
 
 export const PRESENCE_API_PATH = '/api/presence'
 
@@ -23,22 +23,28 @@ export function getPresenceBaseUrl() {
 }
 
 async function requestJson(path, options = {}) {
-  const url = `${getPresenceBaseUrl()}${path}`
-  const { headers: optHeaders, keepalive, ...rest } = options
-  const response = await apiFetch(
-    url,
-    apiFetchInit({
-      ...rest,
-      keepalive,
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders(),
-        ...(optHeaders || {}),
-      },
-    })
-  )
+  const url = `${getPresenceBaseUrl()}${path}${path.includes('?') ? '&' : '?'}_=${Date.now()}`
+  const { keepalive, ...rest } = options
+  const response = await fetch(url, {
+    cache: 'no-store',
+    keepalive,
+    ...rest,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+      ...getAuthHeaders(),
+    },
+  })
   if (response.status === 204) return null
-  const data = await response.json().catch(() => ({}))
+  const text = await response.text()
+  let data = {}
+  try {
+    data = text ? JSON.parse(text) : {}
+  } catch {
+    const error = new Error('presence 응답이 JSON이 아닙니다.')
+    error.status = response.status
+    throw error
+  }
   if (!response.ok) {
     const error = new Error(data?.detail || `presence ${response.status}`)
     error.status = response.status
@@ -55,7 +61,7 @@ export function pingPresence(displayName) {
 }
 
 export function listOnlinePresence() {
-  return requestJson(`${PRESENCE_API_PATH}/online`)
+  return requestJson(`${PRESENCE_API_PATH}/online`, { method: 'GET' })
 }
 
 export function leavePresence(displayName) {
