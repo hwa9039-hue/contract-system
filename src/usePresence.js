@@ -50,28 +50,31 @@ export function usePresence() {
     const self = displayName
       ? [{ id: displayName, displayName, lastActiveAt: '' }]
       : []
-    setOnlineUsers(self)
 
     let cancelled = false
 
-    const mergeUsers = (payload) => {
+    const mergeUsers = (payload, prev) => {
       const fromServer = normalizeOnlineUsers(payload)
-      if (!displayName) return fromServer
-      if (fromServer.some((user) => user.id === displayName || user.displayName === displayName)) {
-        return fromServer
+      const merged = new Map()
+      for (const user of [...fromServer, ...prev, ...self]) {
+        if (!user?.id) continue
+        merged.set(user.id, user)
       }
-      return [...self, ...fromServer]
+      return [...merged.values()]
     }
 
     const tick = async () => {
       try {
-        await pingPresence(displayName)
+        const pingResult = await pingPresence(displayName)
         if (cancelled) return
-        const payload = await listOnlinePresence()
+        const payload =
+          pingResult && Array.isArray(pingResult.users)
+            ? pingResult
+            : await listOnlinePresence()
         if (cancelled) return
-        setOnlineUsers(mergeUsers(payload))
+        setOnlineUsers((prev) => mergeUsers(payload, prev))
       } catch {
-        if (!cancelled) setOnlineUsers(self)
+        // 네트워크가 끊겨도 이미 모아 둔 접속자는 유지한다.
       }
     }
 

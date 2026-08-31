@@ -30,9 +30,10 @@ async function requestJson(path, options = {}) {
     keepalive,
     ...rest,
     headers: {
-      'Content-Type': 'application/json',
+      Accept: 'application/json',
       'Cache-Control': 'no-store',
       ...getAuthHeaders(),
+      ...(rest.method && rest.method !== 'GET' ? { 'Content-Type': 'application/json' } : {}),
     },
   })
   if (response.status === 204) return null
@@ -61,7 +62,7 @@ export function pingPresence(displayName) {
 }
 
 export function listOnlinePresence() {
-  return requestJson(`${PRESENCE_API_PATH}/online`, { method: 'GET' })
+  return requestJson(`${PRESENCE_API_PATH}/online`)
 }
 
 export function leavePresence(displayName) {

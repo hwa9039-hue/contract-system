@@ -43,31 +43,47 @@ export function formatPersonGivenName(displayName) {
 export function PresenceAvatars({ users = [] }) {
   if (!Array.isArray(users) || users.length === 0) return null
 
+  const unique = []
+  const seen = new Set()
+  users.forEach((user) => {
+    const raw = user.displayName || user.id
+    const fullName = formatPersonDisplayName(raw) || raw
+    if (!fullName || seen.has(fullName)) return
+    seen.add(fullName)
+    unique.push({ ...user, fullName, shortName: formatPersonGivenName(raw) || fullName })
+  })
+
   return (
-    <ul
-      className="presence-avatar-list flex -space-x-2"
-      aria-label={`접속 중 ${users.length}명`}
-    >
-      {users.map((user) => {
-        const raw = user.displayName || user.id
-        const fullName = formatPersonDisplayName(raw) || raw
-        const shortName = formatPersonGivenName(raw) || fullName
-        return (
-          <li key={user.id} className="presence-avatar-item relative">
+    <div className="presence-cluster">
+      <ul
+        className="presence-avatar-list flex"
+        aria-label={`접속 중 ${unique.length}명`}
+      >
+        {unique.map((user, index) => (
+          <li
+            key={user.fullName}
+            className="presence-avatar-item relative"
+            style={{ zIndex: index + 1 }}
+          >
             <span
               className="presence-avatar w-8 h-8 rounded-full ring-2 ring-white shadow-sm"
-              style={{ backgroundColor: colorForPresenceId(user.id) }}
-              title={fullName}
-              aria-label={fullName}
+              style={{ backgroundColor: colorForPresenceId(user.fullName) }}
+              title={user.fullName}
+              aria-label={user.fullName}
             >
-              {shortName || '?'}
+              {user.shortName || '?'}
             </span>
             <span className="presence-avatar-tooltip" role="tooltip">
-              {fullName}
+              {user.fullName}
             </span>
           </li>
-        )
-      })}
-    </ul>
+        ))}
+      </ul>
+      {unique.length > 1 ? (
+        <span className="presence-count" aria-hidden="true">
+          {unique.length}
+        </span>
+      ) : null}
+    </div>
   )
 }

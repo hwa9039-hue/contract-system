@@ -1,15 +1,46 @@
 /**
  * npm run dev 전용 접속자 저장소.
- * 일반 창·시크릿 창이 같은 Vite 서버를 쓰므로 아바타가 한 목록으로 모인다.
+ * 메모리 + 파일(data/presence-online.json)을 같이 써서
+ * 서버가 재시작되어도 일반 창·시크릿 창이 한 목록을 나눈다.
  */
+import fs from 'node:fs'
+import path from 'node:path'
+
 const ONLINE_WINDOW_MS = 120_000
-const lastActive = new Map()
+const STORE_FILE = path.join(process.cwd(), 'data', 'presence-online.json')
+const lastActive = loadStore()
+
+function loadStore() {
+  try {
+    const raw = fs.readFileSync(STORE_FILE, 'utf8')
+    const obj = JSON.parse(raw)
+    return new Map(
+      Object.entries(obj).map(([id, ts]) => [id, Number(ts)]).filter(([, ts]) => Number.isFinite(ts))
+    )
+  } catch {
+    return new Map()
+  }
+}
+
+function persist() {
+  try {
+    fs.mkdirSync(path.dirname(STORE_FILE), { recursive: true })
+    fs.writeFileSync(STORE_FILE, JSON.stringify(Object.fromEntries(lastActive)), 'utf8')
+  } catch {
+    // 로컬 파일 잠금 실패는 메모리 목록으로 계속한다.
+  }
+}
 
 function prune() {
   const cutoff = Date.now() - ONLINE_WINDOW_MS
+  let changed = false
   for (const [id, ts] of lastActive) {
-    if (ts < cutoff) lastActive.delete(id)
+    if (ts < cutoff) {
+      lastActive.delete(id)
+      changed = true
+    }
   }
+  if (changed) persist()
 }
 
 function listOnline() {
@@ -53,9 +84,9 @@ function sendJson(res, status, body) {
 
 function presencePath(req) {
   const raw = String(req.originalUrl || req.url || '')
-  const path = raw.split('?')[0]
-  const idx = path.indexOf('/api/presence')
-  return idx >= 0 ? path.slice(idx) : path
+  const pathName = raw.split('?')[0]
+  const idx = pathName.indexOf('/api/presence')
+  return idx >= 0 ? pathName.slice(idx) : pathName
 }
 
 export function presenceDevMiddleware() {
@@ -63,8 +94,8 @@ export function presenceDevMiddleware() {
     name: 'presence-dev-middleware',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        const path = presencePath(req)
-        if (!path.startsWith('/api/presence')) {
+        const reqPath = presencePath(req)
+        if (!reqPath.startsWith('/api/presence')) {
           next()
           return
         }
@@ -75,7 +106,7 @@ export function presenceDevMiddleware() {
           return
         }
 
-        if (path === '/api/presence/ping' && req.method === 'POST') {
+        if (reqPath === '/api/presence/ping' && req.method === 'POST') {
           const body = await readJsonBody(req)
           const name = String(body.displayName || '').trim()
           if (!name) {
@@ -83,28 +114,23 @@ export function presenceDevMiddleware() {
             return
           }
           lastActive.set(name, Date.now())
+          persist()
           sendJson(res, 200, {
             id: name,
             displayName: name,
             lastActiveAt: new Date().toISOString(),
+            users: listOnline(),
           })
           return
         }
 
-        if (path === '/api/presence/online' && req.method === 'GET') {
+        if (reqPath === '/api/presence/online' && req.method === 'GET') {
           sendJson(res, 200, { users: listOnline() })
           return
         }
 
-        if (path === '/api/presence/leave' && req.method === 'POST') {
-          const body = await readJsonBody(req)
-          const name = String(body.displayName || '').trim()
-          const ts = name ? lastActive.get(name) : null
-          // StrictMode/HMR cleanup leave 가 ping 직후 도착해도 지우지 않는다.
-          if (name && ts != null && Date.now() - ts > 4000) {
-            lastActive.delete(name)
-          }
-          sendJson(res, 200, { ok: true })
+        if (reqPath === '/api/presence/leave' && req.method === 'POST') {
+          sendJson(res, 200, { ok: true, users: listOnline() })
           return
         }
 

@@ -414,13 +414,34 @@ textarea {
 }
 
 /* 헤더 우측 — 구글 시트 스타일 접속자 아바타 */
+.presence-cluster {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .presence-avatar-list {
   display: flex;
   flex-direction: row;
   align-items: center;
   margin: 0;
-  padding: 0;
+  padding: 0 2px 0 0;
   list-style: none;
+  flex-shrink: 0;
+}
+
+.presence-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  background: #e8eef9;
+  color: #1f4fd1;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
 }
 
 .presence-avatar-item {
