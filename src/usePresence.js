@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from './AuthContext.jsx'
-import { listOnlinePresence, pingPresence } from './presenceApi.js'
+import { isPresenceApiReady, listOnlinePresence, pingPresence } from './presenceApi.js'
 
 /**
  * 온라인 접속자 Heartbeat.
@@ -51,8 +51,6 @@ export function usePresence() {
       ? [{ id: displayName, displayName, lastActiveAt: '' }]
       : []
 
-    let cancelled = false
-
     const mergeUsers = (payload, prev) => {
       const fromServer = normalizeOnlineUsers(payload)
       const merged = new Map()
@@ -63,8 +61,22 @@ export function usePresence() {
       return [...merged.values()]
     }
 
+    // 운영 NAS에 라우트가 없어도 본인 원은 남긴다. 실패 시 목록을 비우지 않는다.
+    setOnlineUsers((prev) => mergeUsers({ users: [] }, prev))
+
+    let cancelled = false
+    let apiReady = import.meta.env.DEV
+
     const tick = async () => {
       try {
+        if (!apiReady) {
+          apiReady = await isPresenceApiReady()
+          if (cancelled) return
+          if (!apiReady) {
+            setOnlineUsers((prev) => mergeUsers({ users: [] }, prev))
+            return
+          }
+        }
         const pingResult = await pingPresence(displayName)
         if (cancelled) return
         const payload =
@@ -73,8 +85,9 @@ export function usePresence() {
             : await listOnlinePresence()
         if (cancelled) return
         setOnlineUsers((prev) => mergeUsers(payload, prev))
-      } catch {
-        // 네트워크가 끊겨도 이미 모아 둔 접속자는 유지한다.
+      } catch (error) {
+        if (error?.status === 404) apiReady = false
+        setOnlineUsers((prev) => mergeUsers({ users: [] }, prev))
       }
     }
 

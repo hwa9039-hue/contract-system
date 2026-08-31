@@ -54,6 +54,21 @@ async function requestJson(path, options = {}) {
   return data
 }
 
+/** 운영 NAS에 아직 presence 라우트가 없으면 false. dev(Vite 미들웨어)는 항상 true. */
+export async function isPresenceApiReady() {
+  if (import.meta.env.DEV) return true
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/health?_=${Date.now()}`, {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    })
+    const data = await response.json().catch(() => ({}))
+    return data?.presence === true
+  } catch {
+    return false
+  }
+}
+
 export function pingPresence(displayName) {
   return requestJson(`${PRESENCE_API_PATH}/ping`, {
     method: 'POST',
