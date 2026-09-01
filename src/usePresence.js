@@ -46,7 +46,8 @@ export function usePresence() {
       return undefined
     }
 
-    const displayName = String(roleLabel || '').trim()
+    const rawLabel = String(roleLabel || '').trim()
+    const displayName = rawLabel === '사용자' ? '이용자' : rawLabel
     const self = displayName
       ? [{ id: displayName, displayName, lastActiveAt: '' }]
       : []

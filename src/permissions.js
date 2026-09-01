@@ -24,7 +24,7 @@ export const ROLES = Object.freeze({
 export const ROLE_LABELS = Object.freeze({
   [ROLES.ADMIN]: '관리자',
   [ROLES.MANAGER]: '전기웅(영업)',
-  [ROLES.USER]: '사용자',
+  [ROLES.USER]: '이용자',
 })
 
 /**

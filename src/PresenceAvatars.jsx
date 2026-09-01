@@ -20,13 +20,19 @@ export function colorForPresenceId(id) {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length]
 }
 
+/** 예전 역할 기본 라벨 → 실제 표시명 */
+const PERSON_DISPLAY_ALIASES = {
+  사용자: '이용자',
+}
+
 /** '전기웅(영업)' → '전기웅' — 화면에는 이름 세 글자만. */
 export function formatPersonDisplayName(displayName) {
   const stripped = String(displayName || '')
     .replace(/\s+/g, '')
     .replace(/\([^)]*\)/g, '')
-  if (!stripped) return ''
-  return stripped.slice(0, 3)
+  const aliased = PERSON_DISPLAY_ALIASES[stripped] || stripped
+  if (!aliased) return ''
+  return aliased.slice(0, 3)
 }
 
 export function getPresenceInitials(displayName) {
