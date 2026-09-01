@@ -45,14 +45,10 @@ function parseAccountsEnv(raw, fallbackLabel) {
   return out
 }
 
-/** 기본 관리자 계정 (비밀번호 → 표시명). 권한은 모두 admin. */
+/** 기본 계정 (비밀번호 → 표시명). 전원 동일 권한(admin). */
 const DEFAULT_ADMIN_ACCOUNTS = Object.freeze([
   { password: 'hy9039!', label: '정화영' },
   { password: 'jhjoung!', label: '정주희' },
-])
-
-/** 기본 부서장 계정 (비밀번호 → 표시명). 권한은 모두 manager. 일반 사용자 계정은 없음. */
-const DEFAULT_MANAGER_ACCOUNTS = Object.freeze([
   { password: 'kk2331!', label: '전기웅' },
   { password: 'nov1st!', label: '유영무' },
   { password: 'sskim!', label: '김성수' },
@@ -62,6 +58,9 @@ const DEFAULT_MANAGER_ACCOUNTS = Object.freeze([
   { password: 'wizard1221!', label: '전재우' },
   { password: 'ssj8845!', label: '신상준' },
 ])
+
+/** 하위 호환. 새 계정은 DEFAULT_ADMIN_ACCOUNTS 에 넣는다. */
+const DEFAULT_MANAGER_ACCOUNTS = Object.freeze([])
 
 /**
  * 관리자 계정 목록.
@@ -119,7 +118,7 @@ export function resolveLoginAccount(password) {
   const admin = findAdminAccount(trimmed)
   if (admin) return { role: ROLES.ADMIN, label: admin.label, password: admin.password }
   const manager = findManagerAccount(trimmed)
-  if (manager) return { role: ROLES.MANAGER, label: manager.label, password: manager.password }
+  if (manager) return { role: ROLES.ADMIN, label: manager.label, password: manager.password }
   return null
 }
 

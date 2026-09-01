@@ -16,11 +16,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 480
 _DEFAULT_ADMIN_ACCOUNTS: tuple[tuple[str, str], ...] = (
     ("hy9039!", "정화영"),
     ("jhjoung!", "정주희"),
-)
-
-# 부서장(manager) 기본 계정 — AUTH_MANAGER_ACCOUNTS 미설정 시 사용
-# (password, display_label)  일반 사용자 계정은 없음.
-_DEFAULT_MANAGER_ACCOUNTS: tuple[tuple[str, str], ...] = (
     ("kk2331!", "전기웅"),
     ("nov1st!", "유영무"),
     ("sskim!", "김성수"),
@@ -30,6 +25,9 @@ _DEFAULT_MANAGER_ACCOUNTS: tuple[tuple[str, str], ...] = (
     ("wizard1221!", "전재우"),
     ("ssj8845!", "신상준"),
 )
+
+# 하위 호환. 새 계정은 _DEFAULT_ADMIN_ACCOUNTS 에 넣는다.
+_DEFAULT_MANAGER_ACCOUNTS: tuple[tuple[str, str], ...] = ()
 
 
 def get_jwt_secret() -> str:
@@ -177,7 +175,7 @@ def resolve_login_account(password: str) -> tuple[str, str] | None:
         return "admin", admin[1]
     manager = match_manager_account(password)
     if manager:
-        return "manager", manager[1]
+        return "admin", manager[1]
     return None
 
 

@@ -21,9 +21,8 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-https://contract.smart-di.com,https://contract.signtelecom-smartdi.com,https://contract-system-2ev.pages.dev,http://localhost:5173,http://127.0.0.1:5173}
       JWT_SECRET: ${JWT_SECRET:-20262026signtelecomsmartdi20262026}
       AUTH_SHARED_PASSWORD: ${AUTH_SHARED_PASSWORD:-smartdi2026!}
-      AUTH_ADMIN_ACCOUNTS: ${AUTH_ADMIN_ACCOUNTS:-hy9039!:정화영,jhjoung!:정주희}
-      # 부서장(MANAGER) 계정. 사용자 탭에서 해당 비밀번호 입력 시 manager 권한.
-      AUTH_MANAGER_ACCOUNTS: ${AUTH_MANAGER_ACCOUNTS:-kk2331!:전기웅,nov1st!:유영무,sskim!:김성수,yongja_lee!:이용자,pjb9878!:박재범,jslee!:이재승,wizard1221!:전재우,ssj8845!:신상준}
+      AUTH_ADMIN_ACCOUNTS: ${AUTH_ADMIN_ACCOUNTS:-hy9039!:정화영,jhjoung!:정주희,kk2331!:전기웅,nov1st!:유영무,sskim!:김성수,yongja_lee!:이용자,pjb9878!:박재범,jslee!:이재승,wizard1221!:전재우,ssj8845!:신상준}
+      AUTH_MANAGER_ACCOUNTS: ${AUTH_MANAGER_ACCOUNTS:-}
       AUTH_DISABLED: ${AUTH_DISABLED:-false}
       UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
       CONTRACT_IMPORT_EXCEL_BACKUP_DIR: ${CONTRACT_IMPORT_EXCEL_BACKUP_DIR:-/data/contract_excel_backup}

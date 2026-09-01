@@ -8,10 +8,8 @@
  * └──────────────────────────────────────────────────────────────────────┘
  *
  * 확정 권한 요약
- * - 사용자(user): 영업관리의 연락처만 접근(활성만). 결제보고·발주관리는 숨김.
- *               계약현황·게시판·설치사례는 Read-Only
- * - 관리자(admin): 전 메뉴 접근·편집
- * - 부서장(manager): 영업정보·연락처 접근 가능. 계약현황·게시판·설치사례는 Read-Only
+ * - 모든 로그인 계정은 동일 권한(admin). 전 메뉴 접근·편집.
+ * - manager / user 역할 코드는 옛 세션 호환용으로만 남긴다.
  */
 
 export const ROLES = Object.freeze({
@@ -59,18 +57,9 @@ export function hasAdminPrivileges(role) {
 export const ADMIN_ONLY_MENUS = new Set([])
 
 /**
- * 조회 전용 — 관리자(admin)만 등록/수정/삭제 UI 노출.
- * 부서장·사용자는 화면 열람만 가능.
+ * 조회 전용 — 지금은 비움. 볼 수 있는 메뉴는 편집도 같다.
  */
-export const VIEWER_ONLY_MENUS = new Set([
-  'contracts',
-  'materialsBoard',
-  'installCases',
-  // 사이드바에서 빠진 레거시 메뉴도 동일 정책 유지
-  'projectManagement',
-  'contactsManage',
-  'unitPrice',
-])
+export const VIEWER_ONLY_MENUS = new Set([])
 
 /** 일반 사용자도 조회·편집 가능 (VIEWER_ONLY / MENU_ALLOWED_ROLES 예외 없음) */
 export const FULL_ACCESS_MENUS = new Set([
