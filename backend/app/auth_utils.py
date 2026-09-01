@@ -21,9 +21,9 @@ _DEFAULT_ADMIN_ACCOUNTS: tuple[tuple[str, str], ...] = (
 # 부서장(manager) 기본 계정 — AUTH_MANAGER_ACCOUNTS 미설정 시 사용
 # (password, display_label)  일반 사용자 계정은 없음.
 _DEFAULT_MANAGER_ACCOUNTS: tuple[tuple[str, str], ...] = (
-    ("kk2331!", "전기웅(영업)"),
-    ("nov1st!", "유영무(영업)"),
-    ("sskim!", "김성수(영업)"),
+    ("kk2331!", "전기웅"),
+    ("nov1st!", "유영무"),
+    ("sskim!", "김성수"),
     ("yongja_lee!", "이용자"),
     ("pjb9878!", "박재범"),
     ("jslee!", "이재승"),

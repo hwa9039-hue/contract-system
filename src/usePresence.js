@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from './AuthContext.jsx'
+import { formatPersonDisplayName } from './PresenceAvatars.jsx'
 import { isPresenceApiReady, listOnlinePresence, pingPresence } from './presenceApi.js'
 
 /**
@@ -31,14 +32,16 @@ function normalizeOnlineUsers(payload) {
         id: String(row?.id || displayName).trim(),
         displayName,
         lastActiveAt: row?.lastActiveAt || '',
+        menuTitle: String(row?.menuTitle || '').trim(),
       }
     })
     .filter(Boolean)
 }
 
-export function usePresence() {
+export function usePresence(menuTitle = '') {
   const { isAuthenticated, roleLabel } = useAuth()
   const [onlineUsers, setOnlineUsers] = useState([])
+  const currentMenuTitle = String(menuTitle || '').trim()
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -46,18 +49,18 @@ export function usePresence() {
       return undefined
     }
 
-    const rawLabel = String(roleLabel || '').trim()
-    const displayName = rawLabel === '사용자' ? '이용자' : rawLabel
+    const displayName = formatPersonDisplayName(roleLabel) || String(roleLabel || '').trim()
     const self = displayName
-      ? [{ id: displayName, displayName, lastActiveAt: '' }]
+      ? [{ id: displayName, displayName, lastActiveAt: '', menuTitle: currentMenuTitle }]
       : []
 
     const mergeUsers = (payload, prev) => {
       const fromServer = normalizeOnlineUsers(payload)
       const merged = new Map()
-      for (const user of [...fromServer, ...prev, ...self]) {
+      for (const user of [...prev, ...fromServer, ...self]) {
         if (!user?.id) continue
-        merged.set(user.id, user)
+        const existing = merged.get(user.id)
+        merged.set(user.id, existing ? { ...existing, ...user } : user)
       }
       return [...merged.values()]
     }
@@ -78,7 +81,7 @@ export function usePresence() {
             return
           }
         }
-        const pingResult = await pingPresence(displayName)
+        const pingResult = await pingPresence(displayName, currentMenuTitle)
         if (cancelled) return
         const payload =
           pingResult && Array.isArray(pingResult.users)
@@ -106,7 +109,7 @@ export function usePresence() {
       document.removeEventListener('visibilitychange', onVisible)
       // pagehide/HMR 에서 leave 하지 않는다. 창만 바꿔도 상대가 목록에서 사라진다.
     }
-  }, [isAuthenticated, roleLabel])
+  }, [isAuthenticated, roleLabel, currentMenuTitle])
 
   return { onlineUsers }
 }

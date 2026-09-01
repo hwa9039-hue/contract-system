@@ -10,12 +10,26 @@ const ONLINE_WINDOW_MS = 120_000
 const STORE_FILE = path.join(process.cwd(), 'data', 'presence-online.json')
 const lastActive = loadStore()
 
+function toRecord(value) {
+  if (value && typeof value === 'object') {
+    const ts = Number(value.ts)
+    return {
+      ts: Number.isFinite(ts) ? ts : 0,
+      menuTitle: String(value.menuTitle || '').trim(),
+    }
+  }
+  const ts = Number(value)
+  return { ts: Number.isFinite(ts) ? ts : 0, menuTitle: '' }
+}
+
 function loadStore() {
   try {
     const raw = fs.readFileSync(STORE_FILE, 'utf8')
     const obj = JSON.parse(raw)
     return new Map(
-      Object.entries(obj).map(([id, ts]) => [id, Number(ts)]).filter(([, ts]) => Number.isFinite(ts))
+      Object.entries(obj)
+        .map(([id, value]) => [id, toRecord(value)])
+        .filter(([, rec]) => rec.ts > 0)
     )
   } catch {
     return new Map()
@@ -34,8 +48,8 @@ function persist() {
 function prune() {
   const cutoff = Date.now() - ONLINE_WINDOW_MS
   let changed = false
-  for (const [id, ts] of lastActive) {
-    if (ts < cutoff) {
+  for (const [id, rec] of lastActive) {
+    if ((rec?.ts || 0) < cutoff) {
       lastActive.delete(id)
       changed = true
     }
@@ -47,10 +61,11 @@ function listOnline() {
   prune()
   return [...lastActive.entries()]
     .sort(([a], [b]) => a.localeCompare(b, 'ko'))
-    .map(([id, ts]) => ({
+    .map(([id, rec]) => ({
       id,
       displayName: id,
-      lastActiveAt: new Date(ts).toISOString(),
+      lastActiveAt: new Date(rec.ts).toISOString(),
+      menuTitle: rec.menuTitle || '',
     }))
 }
 
@@ -113,12 +128,14 @@ export function presenceDevMiddleware() {
             sendJson(res, 400, { detail: 'displayName is required' })
             return
           }
-          lastActive.set(name, Date.now())
+          const menuTitle = String(body.menuTitle || '').trim().slice(0, 40)
+          lastActive.set(name, { ts: Date.now(), menuTitle })
           persist()
           sendJson(res, 200, {
             id: name,
             displayName: name,
             lastActiveAt: new Date().toISOString(),
+            menuTitle,
             users: listOnline(),
           })
           return

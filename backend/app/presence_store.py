@@ -1,6 +1,7 @@
 """접속 생존 신고(heartbeat) 저장소.
 
 워커가 여러 개여도 같은 파일을 보도록 UPLOAD_DIR(공유 볼륨)에 기록한다.
+값은 예전처럼 시각 문자열이거나 {ts, menuTitle} 객체다.
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _read() -> dict[str, str]:
+def _read() -> dict:
     path = _store_path()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -37,7 +38,7 @@ def _read() -> dict[str, str]:
         return {}
 
 
-def _write(data: dict[str, str]) -> None:
+def _write(data: dict) -> None:
     path = _store_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
@@ -45,20 +46,38 @@ def _write(data: dict[str, str]) -> None:
     tmp.replace(path)
 
 
-def record_ping(user_id: str, display_name: str) -> dict:
+def _parse_entry(raw) -> tuple[datetime | None, str]:
+    if isinstance(raw, dict):
+        raw_ts = raw.get("ts") or raw.get("lastActiveAt") or ""
+        menu_title = str(raw.get("menuTitle") or "").strip()
+    else:
+        raw_ts = raw
+        menu_title = ""
+    try:
+        ts = datetime.fromisoformat(str(raw_ts))
+    except ValueError:
+        return None, ""
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts, menu_title
+
+
+def record_ping(user_id: str, display_name: str, menu_title: str = "") -> dict:
     key = (user_id or display_name or "").strip()
     name = (display_name or user_id or "").strip()
     if not key:
         raise ValueError("empty presence id")
     now = _utcnow()
+    title = str(menu_title or "").strip()[:40]
     with _lock:
         data = _read()
-        data[key] = now.isoformat()
+        data[key] = {"ts": now.isoformat(), "menuTitle": title}
         _write(data)
     return {
         "id": key,
         "displayName": name,
         "lastActiveAt": now.isoformat(),
+        "menuTitle": title,
         "users": list_online(),
     }
 
@@ -67,22 +86,23 @@ def list_online() -> list[dict]:
     cutoff = _utcnow() - ONLINE_WINDOW
     with _lock:
         data = _read()
-        kept: dict[str, str] = {}
-        for key, raw_ts in data.items():
-            try:
-                ts = datetime.fromisoformat(str(raw_ts))
-            except ValueError:
+        kept: dict = {}
+        items: list[dict] = []
+        for key, raw in data.items():
+            ts, menu_title = _parse_entry(raw)
+            if ts is None or ts < cutoff:
                 continue
-            if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
-            if ts >= cutoff:
-                kept[key] = ts.isoformat()
+            kept[key] = {"ts": ts.isoformat(), "menuTitle": menu_title}
+            items.append(
+                {
+                    "id": key,
+                    "displayName": key,
+                    "lastActiveAt": ts.isoformat(),
+                    "menuTitle": menu_title,
+                }
+            )
         if kept != data:
             _write(kept)
-        items = [
-            {"id": key, "displayName": key, "lastActiveAt": ts}
-            for key, ts in kept.items()
-        ]
     items.sort(key=lambda row: row["displayName"])
     return items
 

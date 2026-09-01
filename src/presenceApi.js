@@ -69,10 +69,13 @@ export async function isPresenceApiReady() {
   }
 }
 
-export function pingPresence(displayName) {
+export function pingPresence(displayName, menuTitle = '') {
   return requestJson(`${PRESENCE_API_PATH}/ping`, {
     method: 'POST',
-    body: JSON.stringify({ displayName: displayName || '' }),
+    body: JSON.stringify({
+      displayName: displayName || '',
+      menuTitle: menuTitle || '',
+    }),
   })
 }
 

@@ -53,9 +53,9 @@ const DEFAULT_ADMIN_ACCOUNTS = Object.freeze([
 
 /** 기본 부서장 계정 (비밀번호 → 표시명). 권한은 모두 manager. 일반 사용자 계정은 없음. */
 const DEFAULT_MANAGER_ACCOUNTS = Object.freeze([
-  { password: 'kk2331!', label: '전기웅(영업)' },
-  { password: 'nov1st!', label: '유영무(영업)' },
-  { password: 'sskim!', label: '김성수(영업)' },
+  { password: 'kk2331!', label: '전기웅' },
+  { password: 'nov1st!', label: '유영무' },
+  { password: 'sskim!', label: '김성수' },
   { password: 'yongja_lee!', label: '이용자' },
   { password: 'pjb9878!', label: '박재범' },
   { password: 'jslee!', label: '이재승' },

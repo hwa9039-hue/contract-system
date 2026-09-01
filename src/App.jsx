@@ -6221,7 +6221,6 @@ function splitDashboardRecentTitleLabel(fullLabel) {
 function App() {
   const { role, roleLabel, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
     useAuth()
-  const { onlineUsers } = usePresence()
   const canEditContracts = canEditMenu('contracts', role)
   // const canEditProjectManagement = canEditMenu('projectManagement', role) // 메뉴 제거
   const canEditMaterialsBoard = canEditMenu('materialsBoard', role)
@@ -6256,6 +6255,7 @@ function App() {
   const workReportRowsRef = useRef([])
   const initialMenu = resolveInitialMenu()
   const [menu, setMenu] = useState(initialMenu)
+  const { onlineUsers } = usePresence(PAGE_TITLE_MAP[menu] || '')
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const [expandedMenuGroups, setExpandedMenuGroups] = useState(() =>
     loadExpandedMenuGroups(initialMenu)

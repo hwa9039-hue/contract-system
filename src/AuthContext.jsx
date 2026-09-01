@@ -340,7 +340,7 @@ export function AuthProvider({ children }) {
       isAuthenticated,
       // role: 실제 역할 문자열('admin' | 'manager' | 'user') — 세밀한 분기에 사용
       role,
-      // roleLabel: 화면 표시용 한글 라벨('관리자' | '전기웅(영업)' | '이용자' 등)
+      // roleLabel: 화면 표시용 한글 라벨('관리자' | '전기웅' | '이용자' 등)
       roleLabel,
       // isAdmin: 관리자급 권한 여부(admin·manager 공통) — 기존 코드 하위 호환용
       isAdmin,

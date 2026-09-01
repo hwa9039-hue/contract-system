@@ -56,7 +56,12 @@ export function PresenceAvatars({ users = [] }) {
     const fullName = formatPersonDisplayName(raw) || raw
     if (!fullName || seen.has(fullName)) return
     seen.add(fullName)
-    unique.push({ ...user, fullName, shortName: formatPersonGivenName(raw) || fullName })
+    unique.push({
+      ...user,
+      fullName,
+      shortName: formatPersonGivenName(raw) || fullName,
+      menuTitle: String(user.menuTitle || '').trim(),
+    })
   })
 
   return (
@@ -74,13 +79,14 @@ export function PresenceAvatars({ users = [] }) {
             <span
               className="presence-avatar w-8 h-8 rounded-full ring-2 ring-white shadow-sm"
               style={{ backgroundColor: colorForPresenceId(user.fullName) }}
-              title={user.fullName}
-              aria-label={user.fullName}
+              title={user.menuTitle ? `${user.fullName} · ${user.menuTitle}` : user.fullName}
+              aria-label={user.menuTitle ? `${user.fullName} · ${user.menuTitle}` : user.fullName}
             >
               {user.shortName || '?'}
             </span>
             <span className="presence-avatar-tooltip" role="tooltip">
               {user.fullName}
+              {user.menuTitle ? ` · ${user.menuTitle}` : ''}
             </span>
           </li>
         ))}

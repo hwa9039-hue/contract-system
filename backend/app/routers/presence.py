@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api/presence", tags=["presence"])
 
 class PresencePingBody(BaseModel):
     displayName: str | None = Field(default=None, max_length=80)
+    menuTitle: str | None = Field(default=None, max_length=40)
 
 
 def _identity_from_request(request: Request, body_name: str | None) -> tuple[str, str]:
@@ -36,8 +37,9 @@ def _identity_from_request(request: Request, body_name: str | None) -> tuple[str
 @router.post("/ping")
 def ping(request: Request, body: PresencePingBody | None = None):
     display_name = body.displayName if body else None
+    menu_title = body.menuTitle if body else None
     user_id, name = _identity_from_request(request, display_name)
-    return record_ping(user_id, name)
+    return record_ping(user_id, name, menu_title or "")
 
 
 @router.get("/online")
