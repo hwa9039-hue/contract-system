@@ -129,7 +129,11 @@ export function presenceDevMiddleware() {
             return
           }
           const menuTitle = String(body.menuTitle || '').trim().slice(0, 40)
-          lastActive.set(name, { ts: Date.now(), menuTitle })
+          const prev = lastActive.get(name)
+          lastActive.set(name, {
+            ts: Date.now(),
+            menuTitle: menuTitle || prev?.menuTitle || '',
+          })
           persist()
           sendJson(res, 200, {
             id: name,

@@ -50,18 +50,27 @@ export function PresenceAvatars({ users = [] }) {
   if (!Array.isArray(users) || users.length === 0) return null
 
   const unique = []
-  const seen = new Set()
+  const seen = new Map()
   users.forEach((user) => {
     const raw = user.displayName || user.id
     const fullName = formatPersonDisplayName(raw) || raw
-    if (!fullName || seen.has(fullName)) return
-    seen.add(fullName)
-    unique.push({
+    if (!fullName) return
+    const menuTitle = String(user.menuTitle || '').trim()
+    const next = {
       ...user,
       fullName,
       shortName: formatPersonGivenName(raw) || fullName,
-      menuTitle: String(user.menuTitle || '').trim(),
-    })
+      menuTitle,
+    }
+    const existing = seen.get(fullName)
+    if (!existing) {
+      seen.set(fullName, next)
+      unique.push(next)
+      return
+    }
+    if (menuTitle && !existing.menuTitle) {
+      existing.menuTitle = menuTitle
+    }
   })
 
   return (

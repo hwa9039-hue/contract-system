@@ -22,14 +22,24 @@ import { isPresenceApiReady, listOnlinePresence, pingPresence } from './presence
  */
 export const PRESENCE_HEARTBEAT_MS = import.meta.env.DEV ? 3_000 : 10_000
 
+function mergePresenceUser(existing, user) {
+  if (!existing) return user
+  return {
+    ...existing,
+    ...user,
+    menuTitle: user.menuTitle || existing.menuTitle || '',
+  }
+}
+
 function normalizeOnlineUsers(payload) {
   const rows = Array.isArray(payload?.users) ? payload.users : Array.isArray(payload) ? payload : []
   return rows
     .map((row) => {
-      const displayName = String(row?.displayName || row?.name || row?.id || '').trim()
+      const rawName = String(row?.displayName || row?.name || row?.id || '').trim()
+      const displayName = formatPersonDisplayName(rawName) || rawName
       if (!displayName) return null
       return {
-        id: String(row?.id || displayName).trim(),
+        id: displayName,
         displayName,
         lastActiveAt: row?.lastActiveAt || '',
         menuTitle: String(row?.menuTitle || '').trim(),
@@ -59,8 +69,7 @@ export function usePresence(menuTitle = '') {
       const merged = new Map()
       for (const user of [...prev, ...fromServer, ...self]) {
         if (!user?.id) continue
-        const existing = merged.get(user.id)
-        merged.set(user.id, existing ? { ...existing, ...user } : user)
+        merged.set(user.id, mergePresenceUser(merged.get(user.id), user))
       }
       return [...merged.values()]
     }

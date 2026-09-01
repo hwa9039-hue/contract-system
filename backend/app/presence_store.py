@@ -71,8 +71,10 @@ def record_ping(user_id: str, display_name: str, menu_title: str = "") -> dict:
     title = str(menu_title or "").strip()[:40]
     with _lock:
         data = _read()
-        data[key] = {"ts": now.isoformat(), "menuTitle": title}
+        _, prev_menu = _parse_entry(data.get(key))
+        data[key] = {"ts": now.isoformat(), "menuTitle": title or prev_menu}
         _write(data)
+    title = title or prev_menu
     return {
         "id": key,
         "displayName": name,
