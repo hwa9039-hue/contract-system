@@ -175,18 +175,27 @@ export function WorkReportExternalManagerMultiSelect({ value, onChange, options 
       <button
         ref={triggerRef}
         type="button"
-        className="work-report-external-manager-multi-trigger"
+        className="work-report-external-manager-multi-trigger flex items-center gap-1"
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="work-report-external-manager-multi-value">
+        <span className="work-report-external-manager-multi-value flex items-center flex-nowrap gap-1">
           {selected.length ? (
-            selected.map((name) => (
-              <span key={name} className="work-report-external-manager-multi-chip">
-                {name}
+            <>
+              <span className="work-report-external-manager-multi-chip">
+                {selected[0]}
               </span>
-            ))
+              {selected.length > 1 ? (
+                <span
+                  className="work-report-external-manager-multi-more"
+                  data-tooltip={selected.join(', ')}
+                  title={selected.join(', ')}
+                >
+                  +{selected.length - 1}
+                </span>
+              ) : null}
+            </>
           ) : (
             <span className="work-report-external-manager-multi-placeholder">담당자 선택</span>
           )}

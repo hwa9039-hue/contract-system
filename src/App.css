@@ -1124,6 +1124,14 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
   display: flex;
 }
 
+.items-center {
+  align-items: center;
+}
+
+.gap-1 {
+  gap: 0.25rem;
+}
+
 .flex-nowrap {
   flex-wrap: nowrap;
 }
@@ -12710,22 +12718,28 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
 }
 
 .meeting-minutes-doc__agenda-assignee {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-width: 0;
   min-height: 48px;
   padding: 10px 12px;
   box-sizing: border-box;
   overflow: visible;
   position: relative;
+  text-align: center;
+  vertical-align: middle;
 }
 
 /* 담당자: 뱃지 바로 옆에 ▼ 밀착 (셀 전체 폭으로 화살표가 떨어지지 않게) */
 .meeting-minutes-doc__agenda-assignee .work-report-external-manager-multi {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: fit-content;
   max-width: 100%;
   margin-inline: auto;
+}
+
+.meeting-minutes-doc__agenda-due-cell {
+  vertical-align: middle;
 }
 
 .meeting-minutes-doc__agenda-assignee .work-report-external-manager-multi-trigger {
@@ -12741,16 +12755,24 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
   line-height: 1.35;
   box-shadow: none;
   color: #111827;
-  justify-content: center;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
   gap: 4px;
 }
 
 .meeting-minutes-doc__agenda-assignee .work-report-external-manager-multi-value {
   flex: 0 1 auto;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 4px 6px;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 4px;
   min-width: 0;
+  overflow: visible;
+}
+
+.meeting-minutes-doc__agenda-assignee .work-report-external-manager-multi-more {
+  font-size: 11px;
+  font-weight: 800;
+  color: #1e3a5f;
 }
 
 .meeting-minutes-doc__agenda-assignee .work-report-external-manager-multi-chevron {
@@ -13239,7 +13261,7 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 4px;
   width: 100%;
   min-height: 34px;
   padding: 4px 8px;
@@ -13250,6 +13272,7 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
   text-align: left;
   font-size: 12px;
   color: #1f2937;
+  flex-wrap: nowrap;
 }
 
 .work-report-external-manager-multi-trigger:hover {
@@ -13264,16 +13287,18 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
 
 .work-report-external-manager-multi-value {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
   align-items: center;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 
 .work-report-external-manager-multi-chip {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
   padding: 2px 7px;
   border-radius: 999px;
   background: var(--accent-soft);
@@ -13284,6 +13309,46 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
   max-width: 100%;
   white-space: nowrap;
   word-break: keep-all;
+}
+
+.work-report-external-manager-multi-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+  color: var(--color-medium);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.work-report-external-manager-multi-more[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  z-index: 40;
+  width: max-content;
+  max-width: 240px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #1e293b;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: normal;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+  pointer-events: none;
 }
 
 .work-report-external-manager-multi-placeholder {
@@ -17666,11 +17731,19 @@ table[data-contract-table-row-key] tbody td.editable-cell.table-cell--empty {
 /* Inline input cells — flush with grid lines (Excel-like) */
 .contract-table.excel-table.registry-table tbody td.p-0,
 table[data-contract-table-row-key] tbody td.p-0,
-.unit-price-table tbody td.p-0,
+.unit-price-table tbody td.p-0 {
+  padding: 0 !important;
+  vertical-align: top;
+}
+
 .meeting-minutes-doc__agenda-content-cell.p-0,
 .meeting-minutes-doc__agenda-due-cell.p-0 {
   padding: 0 !important;
-  vertical-align: top;
+  vertical-align: middle;
+}
+
+.meeting-minutes-doc__table tbody td.align-middle {
+  vertical-align: middle !important;
 }
 
 .contract-table.excel-table.registry-table tbody td.p-0 > input,
@@ -17678,8 +17751,7 @@ table[data-contract-table-row-key] tbody td.p-0,
 .contract-table.excel-table.registry-table tbody td.p-0 > select,
 table[data-contract-table-row-key] tbody td.p-0 > input,
 table[data-contract-table-row-key] tbody td.p-0 > textarea,
-.unit-price-table tbody td.p-0 > input,
-.meeting-minutes-doc__agenda-due-cell > input {
+.unit-price-table tbody td.p-0 > input {
   display: block;
   width: 100%;
   height: 100%;
@@ -17689,6 +17761,19 @@ table[data-contract-table-row-key] tbody td.p-0 > textarea,
   border: none;
   border-radius: 0;
   outline: none;
+}
+
+.meeting-minutes-doc__agenda-due-cell > input {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 48px;
+  margin: 0;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  align-self: center;
 }
 
 .meeting-minutes-doc__agenda-content-cell > textarea.meeting-minutes-doc__agenda-content {

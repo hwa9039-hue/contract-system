@@ -878,7 +878,7 @@ export function WorkReportMeetingMinutesSection({
                   className={`meeting-minutes-doc__agenda-row${isRowEmpty ? ' is-empty' : ' has-data'}`}
                   onBlur={handleRowBlur}
                 >
-                  <td className="th-align-center meeting-minutes-doc__agenda-num">
+                  <td className="th-align-center meeting-minutes-doc__agenda-num align-middle">
                     {index + 1}
                   </td>
                   <td
@@ -894,7 +894,7 @@ export function WorkReportMeetingMinutesSection({
                     />
                   </td>
                   <td
-                    className={`meeting-minutes-doc__agenda-assignee${hasAssignees ? ' has-value' : ' is-empty-cell'}`}
+                    className={`meeting-minutes-doc__agenda-assignee${hasAssignees ? ' has-value' : ' is-empty-cell'} align-middle`}
                   >
                     <WorkReportExternalManagerMultiSelect
                       value={assignees}
