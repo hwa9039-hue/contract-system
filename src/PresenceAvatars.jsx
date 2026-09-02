@@ -25,14 +25,60 @@ const PERSON_DISPLAY_ALIASES = {
   사용자: '이용자',
 }
 
+const PRESENCE_MENU_CACHE_KEY = 'cms-presence-last-menus-v1'
+
 /** '전기웅(영업)' → '전기웅' — 화면에는 이름 세 글자만. */
 export function formatPersonDisplayName(displayName) {
   const stripped = String(displayName || '')
     .replace(/\s+/g, '')
-    .replace(/\([^)]*\)/g, '')
+    .replace(/[\(\（][^\)\）]*[\)\）]/g, '')
+    .replace(/영업$/g, '')
   const aliased = PERSON_DISPLAY_ALIASES[stripped] || stripped
   if (!aliased) return ''
   return aliased.slice(0, 3)
+}
+
+export function readPresenceMenuTitle(row) {
+  return String(row?.menuTitle || row?.menu_title || row?.pageTitle || '').trim()
+}
+
+export function samePresencePerson(left, right) {
+  const a = formatPersonDisplayName(left)
+  const b = formatPersonDisplayName(right)
+  if (!a || !b) return false
+  if (a === b) return true
+  return a.endsWith(b) || b.endsWith(a)
+}
+
+export function rememberPresenceMenuTitle(name, menuTitle) {
+  const id = formatPersonDisplayName(name)
+  const title = String(menuTitle || '').trim()
+  if (!id || !title) return
+  try {
+    const raw = JSON.parse(sessionStorage.getItem(PRESENCE_MENU_CACHE_KEY) || '{}')
+    if (!raw || typeof raw !== 'object') return
+    raw[id] = title
+    sessionStorage.setItem(PRESENCE_MENU_CACHE_KEY, JSON.stringify(raw))
+  } catch {
+    /* ignore */
+  }
+}
+
+export function recalledPresenceMenuTitle(name) {
+  const id = formatPersonDisplayName(name)
+  if (!id) return ''
+  try {
+    const raw = JSON.parse(sessionStorage.getItem(PRESENCE_MENU_CACHE_KEY) || '{}')
+    if (raw && typeof raw === 'object' && raw[id]) return String(raw[id] || '').trim()
+    if (raw && typeof raw === 'object') {
+      for (const [key, value] of Object.entries(raw)) {
+        if (samePresencePerson(key, id) && value) return String(value).trim()
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return ''
 }
 
 export function getPresenceInitials(displayName) {
@@ -55,21 +101,28 @@ export function PresenceAvatars({ users = [] }) {
     const raw = user.displayName || user.id
     const fullName = formatPersonDisplayName(raw) || raw
     if (!fullName) return
-    const menuTitle = String(user.menuTitle || '').trim()
+    const menuTitle =
+      readPresenceMenuTitle(user) || recalledPresenceMenuTitle(fullName) || recalledPresenceMenuTitle(raw)
+    if (menuTitle) rememberPresenceMenuTitle(fullName, menuTitle)
     const next = {
       ...user,
       fullName,
       shortName: formatPersonGivenName(raw) || fullName,
       menuTitle,
     }
-    const existing = seen.get(fullName)
+    const existing =
+      seen.get(fullName) ||
+      unique.find((row) => samePresencePerson(row.fullName, fullName))
     if (!existing) {
       seen.set(fullName, next)
       unique.push(next)
       return
     }
-    if (menuTitle && !existing.menuTitle) {
-      existing.menuTitle = menuTitle
+    if (menuTitle) existing.menuTitle = menuTitle
+    if (fullName.length > existing.fullName.length) {
+      existing.fullName = fullName
+      existing.shortName = formatPersonGivenName(fullName) || existing.shortName
+      seen.set(fullName, existing)
     }
   })
 

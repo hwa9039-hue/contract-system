@@ -31,15 +31,20 @@ def _identity_from_request(request: Request, body_name: str | None) -> tuple[str
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="displayName is required for presence ping",
         )
-    return name, name
+    return jwt_name or fallback, fallback or jwt_name
 
 
 @router.post("/ping")
 def ping(request: Request, body: PresencePingBody | None = None):
     display_name = body.displayName if body else None
     menu_title = body.menuTitle if body else None
-    user_id, name = _identity_from_request(request, display_name)
-    return record_ping(user_id, name, menu_title or "")
+    jwt_or_body, body_or_jwt = _identity_from_request(request, display_name)
+    return record_ping(
+        jwt_or_body,
+        body_or_jwt,
+        menu_title or "",
+        aliases=[jwt_or_body, body_or_jwt, display_name or ""],
+    )
 
 
 @router.get("/online")

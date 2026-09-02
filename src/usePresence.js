@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from './AuthContext.jsx'
-import { formatPersonDisplayName } from './PresenceAvatars.jsx'
+import {
+  formatPersonDisplayName,
+  readPresenceMenuTitle,
+  recalledPresenceMenuTitle,
+  rememberPresenceMenuTitle,
+  samePresencePerson,
+} from './PresenceAvatars.jsx'
 import { isPresenceApiReady, listOnlinePresence, pingPresence } from './presenceApi.js'
 
 /**
@@ -24,11 +30,28 @@ export const PRESENCE_HEARTBEAT_MS = import.meta.env.DEV ? 3_000 : 10_000
 
 function mergePresenceUser(existing, user) {
   if (!existing) return user
+  const menuTitle = user.menuTitle || existing.menuTitle || ''
+  const displayName =
+    (user.displayName || '').length > (existing.displayName || '').length
+      ? user.displayName
+      : existing.displayName
   return {
     ...existing,
     ...user,
-    menuTitle: user.menuTitle || existing.menuTitle || '',
+    id: displayName || user.id || existing.id,
+    displayName,
+    menuTitle,
   }
+}
+
+function findMergedPresenceUser(merged, user) {
+  if (user?.id && merged.has(user.id)) return user.id
+  for (const [key, row] of merged) {
+    if (samePresencePerson(row.displayName || row.id || key, user.displayName || user.id)) {
+      return key
+    }
+  }
+  return user?.id || ''
 }
 
 function normalizeOnlineUsers(payload) {
@@ -38,11 +61,16 @@ function normalizeOnlineUsers(payload) {
       const rawName = String(row?.displayName || row?.name || row?.id || '').trim()
       const displayName = formatPersonDisplayName(rawName) || rawName
       if (!displayName) return null
+      const menuTitle =
+        readPresenceMenuTitle(row) ||
+        recalledPresenceMenuTitle(displayName) ||
+        recalledPresenceMenuTitle(rawName)
+      if (menuTitle) rememberPresenceMenuTitle(displayName, menuTitle)
       return {
         id: displayName,
         displayName,
         lastActiveAt: row?.lastActiveAt || '',
-        menuTitle: String(row?.menuTitle || '').trim(),
+        menuTitle,
       }
     })
     .filter(Boolean)
@@ -59,9 +87,16 @@ export function usePresence(menuTitle = '') {
       return undefined
     }
 
-    const displayName = formatPersonDisplayName(roleLabel) || String(roleLabel || '').trim()
+    const rawLabel = String(roleLabel || '').trim()
+    const displayName = formatPersonDisplayName(rawLabel) || rawLabel
+    const pageTitle =
+      currentMenuTitle ||
+      (typeof document !== 'undefined'
+        ? String(document.querySelector('.top-system-page-title')?.textContent || '').trim()
+        : '')
+    if (displayName && pageTitle) rememberPresenceMenuTitle(displayName, pageTitle)
     const self = displayName
-      ? [{ id: displayName, displayName, lastActiveAt: '', menuTitle: currentMenuTitle }]
+      ? [{ id: displayName, displayName, lastActiveAt: '', menuTitle: pageTitle }]
       : []
 
     const mergeUsers = (payload, prev) => {
@@ -69,7 +104,8 @@ export function usePresence(menuTitle = '') {
       const merged = new Map()
       for (const user of [...prev, ...fromServer, ...self]) {
         if (!user?.id) continue
-        merged.set(user.id, mergePresenceUser(merged.get(user.id), user))
+        const key = findMergedPresenceUser(merged, user) || user.id
+        merged.set(key, mergePresenceUser(merged.get(key), { ...user, id: key }))
       }
       return [...merged.values()]
     }
@@ -90,7 +126,7 @@ export function usePresence(menuTitle = '') {
             return
           }
         }
-        const pingResult = await pingPresence(displayName, currentMenuTitle)
+        const pingResult = await pingPresence(rawLabel || displayName, pageTitle)
         if (cancelled) return
         const payload =
           pingResult && Array.isArray(pingResult.users)

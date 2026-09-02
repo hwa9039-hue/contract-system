@@ -70,12 +70,12 @@ export async function isPresenceApiReady() {
 }
 
 export function pingPresence(displayName, menuTitle = '') {
+  const title = String(menuTitle || '').trim()
+  const body = { displayName: displayName || '' }
+  if (title) body.menuTitle = title
   return requestJson(`${PRESENCE_API_PATH}/ping`, {
     method: 'POST',
-    body: JSON.stringify({
-      displayName: displayName || '',
-      menuTitle: menuTitle || '',
-    }),
+    body: JSON.stringify(body),
   })
 }
 

@@ -13,9 +13,18 @@ const lastActive = loadStore()
 function normalizePresenceName(name) {
   const compact = String(name || '')
     .replace(/\s+/g, '')
-    .replace(/\([^)]*\)/g, '')
+    .replace(/[\(\（][^\)\）]*[\)\）]/g, '')
+    .replace(/영업$/g, '')
   if (compact === '사용자') return '이용자'
   return compact.slice(0, 3)
+}
+
+function samePresencePerson(left, right) {
+  const a = normalizePresenceName(left)
+  const b = normalizePresenceName(right)
+  if (!a || !b) return false
+  if (a === b) return true
+  return a.endsWith(b) || b.endsWith(a)
 }
 
 function toRecord(value) {
@@ -70,13 +79,19 @@ function listOnline() {
   const collapsed = new Map()
   for (const [id, rec] of lastActive) {
     const name = normalizePresenceName(id) || id
-    const prev = collapsed.get(name)
+    const matchKey = [...collapsed.keys()].find((key) => samePresencePerson(key, name)) || name
+    const prev = collapsed.get(matchKey)
     if (!prev) {
       collapsed.set(name, { ...rec })
       continue
     }
-    if ((rec.ts || 0) > (prev.ts || 0)) prev.ts = rec.ts
-    if (rec.menuTitle) prev.menuTitle = rec.menuTitle
+    if (name.length > matchKey.length) {
+      collapsed.delete(matchKey)
+      collapsed.set(name, prev)
+    }
+    const kept = collapsed.get(name.length > matchKey.length ? name : matchKey)
+    if ((rec.ts || 0) > (kept.ts || 0)) kept.ts = rec.ts
+    if (rec.menuTitle) kept.menuTitle = rec.menuTitle
   }
   return [...collapsed.entries()]
     .sort(([a], [b]) => a.localeCompare(b, 'ko'))
@@ -150,22 +165,23 @@ export function presenceDevMiddleware() {
           const menuTitle = String(body.menuTitle || '').trim().slice(0, 40)
           let prevMenu = ''
           for (const [id, rec] of lastActive) {
-            if (id === name || normalizePresenceName(id) === name) {
+            if (id === name || samePresencePerson(id, name) || samePresencePerson(id, body.displayName)) {
               if (rec?.menuTitle) prevMenu = rec.menuTitle
               if (id !== name) lastActive.delete(id)
             }
           }
           const prev = lastActive.get(name)
+          const storedTitle = menuTitle || prev?.menuTitle || prevMenu || ''
           lastActive.set(name, {
             ts: Date.now(),
-            menuTitle: menuTitle || prev?.menuTitle || prevMenu || '',
+            menuTitle: storedTitle,
           })
           persist()
           sendJson(res, 200, {
             id: name,
             displayName: name,
             lastActiveAt: new Date().toISOString(),
-            menuTitle,
+            menuTitle: storedTitle,
             users: listOnline(),
           })
           return
