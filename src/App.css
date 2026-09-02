@@ -13287,11 +13287,15 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
 
 .work-report-external-manager-multi-value {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 4px;
   align-items: center;
   flex: 1;
   min-width: 0;
+}
+
+.work-report-external-manager-multi.is-compact .work-report-external-manager-multi-value {
+  flex-wrap: nowrap;
   overflow: hidden;
 }
 

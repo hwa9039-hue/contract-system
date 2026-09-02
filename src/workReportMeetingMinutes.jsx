@@ -897,6 +897,7 @@ export function WorkReportMeetingMinutesSection({
                     className={`meeting-minutes-doc__agenda-assignee${hasAssignees ? ' has-value' : ' is-empty-cell'} align-middle`}
                   >
                     <WorkReportExternalManagerMultiSelect
+                      compact
                       value={assignees}
                       options={MEETING_MINUTES_ASSIGNEE_OPTIONS}
                       onChange={(nextCsv) =>

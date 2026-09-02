@@ -63,7 +63,12 @@ export function toggleManagerMultiSelectCsv(currentValue, managerName, optionLis
   return optionList.filter((option) => set.has(option)).join(', ')
 }
 
-export function WorkReportExternalManagerMultiSelect({ value, onChange, options = WORK_REPORT_MANAGER_OPTIONS }) {
+export function WorkReportExternalManagerMultiSelect({
+  value,
+  onChange,
+  options = WORK_REPORT_MANAGER_OPTIONS,
+  compact = false,
+}) {
   const [open, setOpen] = useState(false)
   const [menuPosition, setMenuPosition] = useState(null)
   const rootRef = useRef(null)
@@ -169,7 +174,7 @@ export function WorkReportExternalManagerMultiSelect({ value, onChange, options 
 
   return (
     <div
-      className={`work-report-external-manager-multi relative${open ? ' is-open' : ''}`}
+      className={`work-report-external-manager-multi relative${open ? ' is-open' : ''}${compact ? ' is-compact' : ''}`}
       ref={rootRef}
     >
       <button
@@ -180,22 +185,34 @@ export function WorkReportExternalManagerMultiSelect({ value, onChange, options 
         aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="work-report-external-manager-multi-value flex items-center flex-nowrap gap-1">
+        <span
+          className={`work-report-external-manager-multi-value flex items-center gap-1${
+            compact ? ' flex-nowrap' : ''
+          }`}
+        >
           {selected.length ? (
-            <>
-              <span className="work-report-external-manager-multi-chip">
-                {selected[0]}
-              </span>
-              {selected.length > 1 ? (
-                <span
-                  className="work-report-external-manager-multi-more"
-                  data-tooltip={selected.join(', ')}
-                  title={selected.join(', ')}
-                >
-                  +{selected.length - 1}
+            compact ? (
+              <>
+                <span className="work-report-external-manager-multi-chip">
+                  {selected[0]}
                 </span>
-              ) : null}
-            </>
+                {selected.length > 1 ? (
+                  <span
+                    className="work-report-external-manager-multi-more"
+                    data-tooltip={selected.join(', ')}
+                    title={selected.join(', ')}
+                  >
+                    +{selected.length - 1}
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              selected.map((name) => (
+                <span key={name} className="work-report-external-manager-multi-chip">
+                  {name}
+                </span>
+              ))
+            )
           ) : (
             <span className="work-report-external-manager-multi-placeholder">담당자 선택</span>
           )}
