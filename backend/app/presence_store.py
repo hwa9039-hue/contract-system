@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -46,6 +47,14 @@ def _write(data: dict) -> None:
     tmp.replace(path)
 
 
+def normalize_presence_name(name: str) -> str:
+    compact = re.sub(r"\s+", "", str(name or ""))
+    compact = re.sub(r"\([^)]*\)", "", compact)
+    if compact == "사용자":
+        compact = "이용자"
+    return compact[:3] if compact else ""
+
+
 def _parse_entry(raw) -> tuple[datetime | None, str]:
     if isinstance(raw, dict):
         raw_ts = raw.get("ts") or raw.get("lastActiveAt") or ""
@@ -63,18 +72,27 @@ def _parse_entry(raw) -> tuple[datetime | None, str]:
 
 
 def record_ping(user_id: str, display_name: str, menu_title: str = "") -> dict:
-    key = (user_id or display_name or "").strip()
-    name = (display_name or user_id or "").strip()
+    key = normalize_presence_name(user_id or display_name) or (user_id or display_name or "").strip()
+    name = normalize_presence_name(display_name or user_id) or key
     if not key:
         raise ValueError("empty presence id")
     now = _utcnow()
     title = str(menu_title or "").strip()[:40]
     with _lock:
         data = _read()
+        for old_key in list(data.keys()):
+            if old_key == key:
+                continue
+            if normalize_presence_name(old_key) != key:
+                continue
+            _, alias_menu = _parse_entry(data.get(old_key))
+            if alias_menu and not title:
+                title = alias_menu
+            del data[old_key]
         _, prev_menu = _parse_entry(data.get(key))
-        data[key] = {"ts": now.isoformat(), "menuTitle": title or prev_menu}
+        title = title or prev_menu
+        data[key] = {"ts": now.isoformat(), "menuTitle": title}
         _write(data)
-    title = title or prev_menu
     return {
         "id": key,
         "displayName": name,
@@ -88,23 +106,35 @@ def list_online() -> list[dict]:
     cutoff = _utcnow() - ONLINE_WINDOW
     with _lock:
         data = _read()
-        kept: dict = {}
-        items: list[dict] = []
+        collapsed: dict[str, dict] = {}
         for key, raw in data.items():
             ts, menu_title = _parse_entry(raw)
             if ts is None or ts < cutoff:
                 continue
-            kept[key] = {"ts": ts.isoformat(), "menuTitle": menu_title}
-            items.append(
-                {
-                    "id": key,
-                    "displayName": key,
-                    "lastActiveAt": ts.isoformat(),
-                    "menuTitle": menu_title,
-                }
-            )
+            norm = normalize_presence_name(key) or key
+            prev = collapsed.get(norm)
+            if prev is None:
+                collapsed[norm] = {"ts": ts, "menuTitle": menu_title}
+                continue
+            if ts > prev["ts"]:
+                prev["ts"] = ts
+            if menu_title:
+                prev["menuTitle"] = menu_title
+        kept = {
+            name: {"ts": row["ts"].isoformat(), "menuTitle": row["menuTitle"]}
+            for name, row in collapsed.items()
+        }
         if kept != data:
             _write(kept)
+        items = [
+            {
+                "id": name,
+                "displayName": name,
+                "lastActiveAt": row["ts"].isoformat(),
+                "menuTitle": row["menuTitle"],
+            }
+            for name, row in collapsed.items()
+        ]
     items.sort(key=lambda row: row["displayName"])
     return items
 

@@ -10,6 +10,14 @@ const ONLINE_WINDOW_MS = 120_000
 const STORE_FILE = path.join(process.cwd(), 'data', 'presence-online.json')
 const lastActive = loadStore()
 
+function normalizePresenceName(name) {
+  const compact = String(name || '')
+    .replace(/\s+/g, '')
+    .replace(/\([^)]*\)/g, '')
+  if (compact === '사용자') return '이용자'
+  return compact.slice(0, 3)
+}
+
 function toRecord(value) {
   if (value && typeof value === 'object') {
     const ts = Number(value.ts)
@@ -59,7 +67,18 @@ function prune() {
 
 function listOnline() {
   prune()
-  return [...lastActive.entries()]
+  const collapsed = new Map()
+  for (const [id, rec] of lastActive) {
+    const name = normalizePresenceName(id) || id
+    const prev = collapsed.get(name)
+    if (!prev) {
+      collapsed.set(name, { ...rec })
+      continue
+    }
+    if ((rec.ts || 0) > (prev.ts || 0)) prev.ts = rec.ts
+    if (rec.menuTitle) prev.menuTitle = rec.menuTitle
+  }
+  return [...collapsed.entries()]
     .sort(([a], [b]) => a.localeCompare(b, 'ko'))
     .map(([id, rec]) => ({
       id,
@@ -123,16 +142,23 @@ export function presenceDevMiddleware() {
 
         if (reqPath === '/api/presence/ping' && req.method === 'POST') {
           const body = await readJsonBody(req)
-          const name = String(body.displayName || '').trim()
+          const name = normalizePresenceName(body.displayName)
           if (!name) {
             sendJson(res, 400, { detail: 'displayName is required' })
             return
           }
           const menuTitle = String(body.menuTitle || '').trim().slice(0, 40)
+          let prevMenu = ''
+          for (const [id, rec] of lastActive) {
+            if (id === name || normalizePresenceName(id) === name) {
+              if (rec?.menuTitle) prevMenu = rec.menuTitle
+              if (id !== name) lastActive.delete(id)
+            }
+          }
           const prev = lastActive.get(name)
           lastActive.set(name, {
             ts: Date.now(),
-            menuTitle: menuTitle || prev?.menuTitle || '',
+            menuTitle: menuTitle || prev?.menuTitle || prevMenu || '',
           })
           persist()
           sendJson(res, 200, {

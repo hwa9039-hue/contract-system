@@ -8,13 +8,11 @@
 - 지금은 메모리 dict. 다중 워커면 Redis 등으로 바꾸면 된다.
 """
 
-import re
-
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from app.presence_store import leave as store_leave
-from app.presence_store import list_online, record_ping
+from app.presence_store import list_online, normalize_presence_name, record_ping
 
 router = APIRouter(prefix="/api/presence", tags=["presence"])
 
@@ -24,18 +22,10 @@ class PresencePingBody(BaseModel):
     menuTitle: str | None = Field(default=None, max_length=40)
 
 
-def _normalize_presence_name(name: str) -> str:
-    compact = re.sub(r"\s+", "", str(name or ""))
-    compact = re.sub(r"\([^)]*\)", "", compact)
-    if compact == "사용자":
-        compact = "이용자"
-    return compact[:3] if compact else ""
-
-
 def _identity_from_request(request: Request, body_name: str | None) -> tuple[str, str]:
     jwt_name = str(getattr(request.state, "auth_display_name", "") or "").strip()
     fallback = str(body_name or "").strip()
-    name = _normalize_presence_name(jwt_name or fallback)
+    name = normalize_presence_name(jwt_name or fallback)
     if not name:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
