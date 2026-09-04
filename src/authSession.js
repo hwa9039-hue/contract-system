@@ -28,7 +28,14 @@ export function formatRemainingSessionLabel(minutes) {
 import { AUTH_TOKEN_KEY } from './apiClient.js'
 import { hasAdminPrivileges, normalizeRole, ROLE_LABELS, ROLES } from './permissions.js'
 
-export const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || 'smartdi2026!'
+/** 예전 공용 관리자·사용자 비밀번호. 로그인에 쓰지 않는다. */
+export const RETIRED_LOGIN_PASSWORDS = Object.freeze(['admin2026!', 'smartdi2026!'])
+
+export function isRetiredLoginPassword(password) {
+  return RETIRED_LOGIN_PASSWORDS.includes(String(password || '').trim())
+}
+
+export const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || ''
 
 function parseAccountsEnv(raw, fallbackLabel) {
   const text = String(raw || '').trim()
@@ -40,7 +47,7 @@ function parseAccountsEnv(raw, fallbackLabel) {
     const idx = chunk.indexOf(':')
     const password = chunk.slice(0, idx).trim()
     const label = chunk.slice(idx + 1).trim() || fallbackLabel
-    if (password) out.push({ password, label })
+    if (password && !isRetiredLoginPassword(password)) out.push({ password, label })
   }
   return out
 }
@@ -69,7 +76,7 @@ const DEFAULT_MANAGER_ACCOUNTS = Object.freeze([])
 export const ADMIN_ACCOUNTS = (() => {
   const fromEnv = parseAccountsEnv(import.meta.env.VITE_APP_ADMIN_ACCOUNTS, '관리자')
   if (fromEnv.length > 0) return Object.freeze(fromEnv)
-  return DEFAULT_ADMIN_ACCOUNTS
+  return Object.freeze(DEFAULT_ADMIN_ACCOUNTS.filter((account) => !isRetiredLoginPassword(account.password)))
 })()
 
 /**
@@ -83,10 +90,10 @@ export const MANAGER_ACCOUNTS = (() => {
 })()
 
 /** @deprecated 단일 관리자 비밀번호 — ADMIN_ACCOUNTS[0] 하위 호환 */
-export const ADMIN_PASSWORD = ADMIN_ACCOUNTS[0]?.password || 'hy9039!'
+export const ADMIN_PASSWORD = ADMIN_ACCOUNTS[0]?.password || ''
 
 /** @deprecated 단일 부서장 비밀번호 — MANAGER_ACCOUNTS[0] 하위 호환 */
-export const MANAGER_PASSWORD = MANAGER_ACCOUNTS[0]?.password || 'kk2331!'
+export const MANAGER_PASSWORD = MANAGER_ACCOUNTS[0]?.password || ''
 
 export function findAdminAccount(password) {
   const trimmed = String(password || '').trim()
@@ -104,9 +111,7 @@ export function findManagerAccount(password) {
  * 로그인 role 별로 클라이언트에서 1차 검증할 기대 비밀번호.
  * admin·manager 는 복수 계정이라 findAdminAccount / findManagerAccount 로 검사한다.
  */
-export const ROLE_EXPECTED_PASSWORD = Object.freeze({
-  [ROLES.USER]: SHARED_APP_PASSWORD,
-})
+export const ROLE_EXPECTED_PASSWORD = Object.freeze({})
 
 /**
  * 비밀번호만으로 로그인 계정을 찾는다.
@@ -114,7 +119,7 @@ export const ROLE_EXPECTED_PASSWORD = Object.freeze({
  */
 export function resolveLoginAccount(password) {
   const trimmed = String(password || '').trim()
-  if (!trimmed) return null
+  if (!trimmed || isRetiredLoginPassword(trimmed)) return null
   const admin = findAdminAccount(trimmed)
   if (admin) return { role: ROLES.ADMIN, label: admin.label, password: admin.password }
   const manager = findManagerAccount(trimmed)

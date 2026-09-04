@@ -12,6 +12,7 @@ from app.auth_utils import (
     has_admin_accounts_configured,
     has_manager_accounts_configured,
     is_auth_disabled,
+    is_retired_login_password,
     normalize_token_role,
     resolve_login_account,
 )
@@ -50,9 +51,10 @@ def login(body: LoginBody):
             detail="AUTH_ADMIN_ACCOUNTS / AUTH_MANAGER_ACCOUNTS is not set on the server",
         )
 
-    matched = resolve_login_account(body.password)
-    if not matched:
+    if is_retired_login_password(body.password) or not resolve_login_account(body.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
+
+    matched = resolve_login_account(body.password)
 
     login_role, display_name = matched
 

@@ -17,6 +17,7 @@ import {
   CONTRACT_TOKEN_REFRESH_INTERVAL_MS,
   hydrateAuthSessionFromStorage,
   restoreAuthSessionFromStorages,
+  isRetiredLoginPassword,
   resolveLoginAccount,
   writeRole,
   writeRoleLabel,
@@ -226,10 +227,11 @@ export function AuthProvider({ children }) {
       return { ok: false, error: '계정을 입력해 주세요.' }
     }
 
-    const matched = resolveLoginAccount(trimmed)
-    if (!matched) {
+    if (isRetiredLoginPassword(trimmed) || !resolveLoginAccount(trimmed)) {
       return { ok: false, error: '계정이 올바르지 않습니다.' }
     }
+
+    const matched = resolveLoginAccount(trimmed)
 
     const wantsRole = matched.role
 

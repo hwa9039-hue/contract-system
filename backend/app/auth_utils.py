@@ -29,6 +29,27 @@ _DEFAULT_ADMIN_ACCOUNTS: tuple[tuple[str, str], ...] = (
 # 하위 호환. 새 계정은 _DEFAULT_ADMIN_ACCOUNTS 에 넣는다.
 _DEFAULT_MANAGER_ACCOUNTS: tuple[tuple[str, str], ...] = ()
 
+# 예전 공용 관리자·사용자 비밀번호. 개인 계정만 로그인 허용.
+_RETIRED_LOGIN_PASSWORDS: tuple[str, ...] = ("admin2026!", "smartdi2026!")
+
+
+def is_retired_login_password(password: str) -> bool:
+    trimmed = (password or "").strip()
+    if not trimmed:
+        return False
+    encoded = trimmed.encode("utf-8")
+    for retired in _RETIRED_LOGIN_PASSWORDS:
+        retired_bytes = retired.encode("utf-8")
+        if len(encoded) != len(retired_bytes):
+            continue
+        if secrets.compare_digest(encoded, retired_bytes):
+            return True
+    return False
+
+
+def _without_retired_passwords(accounts: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    return [(pwd, label) for pwd, label in accounts if pwd and not is_retired_login_password(pwd)]
+
 
 def get_jwt_secret() -> str:
     return os.getenv("JWT_SECRET", "").strip()
@@ -69,8 +90,8 @@ def get_admin_accounts() -> list[tuple[str, str]]:
     if raw:
         parsed = _parse_accounts_env(raw, "관리자")
         if parsed:
-            return parsed
-    return list(_DEFAULT_ADMIN_ACCOUNTS)
+            return _without_retired_passwords(parsed)
+    return _without_retired_passwords(list(_DEFAULT_ADMIN_ACCOUNTS))
 
 
 def has_admin_accounts_configured() -> bool:
@@ -96,8 +117,8 @@ def get_manager_accounts() -> list[tuple[str, str]]:
     if raw:
         parsed = _parse_accounts_env(raw, "부서장")
         if parsed:
-            return parsed
-    return list(_DEFAULT_MANAGER_ACCOUNTS)
+            return _without_retired_passwords(parsed)
+    return _without_retired_passwords(list(_DEFAULT_MANAGER_ACCOUNTS))
 
 
 def has_manager_accounts_configured() -> bool:
@@ -170,19 +191,22 @@ def verify_shared_password(password: str) -> bool:
 
 def resolve_login_account(password: str) -> tuple[str, str] | None:
     """비밀번호만으로 (role, display_label) 을 찾는다. 관리자 → 부서장 순."""
-    admin = match_admin_account(password)
+    trimmed = (password or "").strip()
+    if not trimmed or is_retired_login_password(trimmed):
+        return None
+    admin = match_admin_account(trimmed)
     if admin:
         return "admin", admin[1]
-    manager = match_manager_account(password)
+    manager = match_manager_account(trimmed)
     if manager:
         return "admin", manager[1]
     return None
 
 
 def verify_login_password(password: str, role: str = "user") -> bool:
-    """역할별 비밀번호 검증. 역할이 비어 있으면 비밀번호로 계정을 찾는다."""
+    """개인 계정만 통과. 공용 관리자·사용자 비밀번호는 거부한다."""
     trimmed = (password or "").strip()
-    if not trimmed:
+    if not trimmed or is_retired_login_password(trimmed):
         return False
     if resolve_login_account(trimmed) is not None:
         return True
@@ -191,7 +215,4 @@ def verify_login_password(password: str, role: str = "user") -> bool:
         return match_admin_account(trimmed) is not None
     if normalized_role == "manager":
         return match_manager_account(trimmed) is not None
-    expected = get_auth_shared_password()
-    if not expected:
-        return False
-    return secrets.compare_digest(trimmed.encode("utf-8"), expected.encode("utf-8"))
+    return False
