@@ -6977,6 +6977,8 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
 .calendar-legend-dot--contract { background: #eab308; }
 .calendar-legend-dot--due      { background: #2563eb; }
 .calendar-legend-dot--manual   { background: #22c55e; }
+.calendar-legend-dot--due-soon { background: #dc2626; }
+.calendar-legend-dot--due-delayed { background: #7c3aed; }
 
 .calendar-grid {
   margin-top: 0;
@@ -13690,6 +13692,7 @@ body.work-report-manager-menu-open .work-report-board-section {
   height: 100%;
   object-fit: cover;
   display: block;
+  pointer-events: none;
 }
 
 .install-case-card-media video {
@@ -18001,10 +18004,12 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   html,
   body {
     width: 100%;
+    max-width: 100%;
     height: auto;
     min-height: 100%;
     overflow-x: hidden;
     overflow-y: auto;
+    scrollbar-gutter: stable;
     -webkit-overflow-scrolling: touch;
   }
 
@@ -18015,6 +18020,7 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   #root {
     display: block;
     width: 100%;
+    max-width: 100%;
     min-width: 0;
     height: auto;
     min-height: 0;
@@ -18101,6 +18107,22 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     cursor: pointer;
   }
 
+  .main-area {
+    padding-top: calc(var(--app-top-chrome-height) + 16px);
+  }
+
+  .main-area > .top-system-bar,
+  .top-system-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 80;
+    margin: 0;
+    padding: 8px;
+    background: var(--page-bg, #f4f4f6);
+  }
+
   .top-system-title {
     align-items: center;
     gap: 10px;
@@ -18108,19 +18130,20 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     min-height: var(--app-top-chrome-height);
     max-height: var(--app-top-chrome-height);
     padding: 0 12px;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
   }
 
   .top-system-title-left {
     gap: 8px;
   }
 
-  .top-system-title-text {
-    font-size: 11px;
-    max-width: 42vw;
+  .top-system-title-text,
+  .top-system-title-sep {
+    display: none;
   }
 
   .top-system-page-title {
-    font-size: 15px;
+    font-size: 16px;
   }
 
   .top-system-session-actions {
@@ -18151,12 +18174,25 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     gap: 8px;
   }
 
-  /* 설치사례 필터는 좁은 화면에서도 한 줄 유지 */
-  .install-cases-toolbar,
-  .install-cases-filters {
-    flex-direction: row !important;
+  .install-cases-toolbar {
+    flex-direction: column !important;
     flex-wrap: nowrap !important;
-    align-items: center !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  .install-cases-filters {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    width: 100%;
+  }
+
+  .install-cases-filters > .install-cases-search-input,
+  .install-cases-filters > .table-search-input {
+    grid-column: 1 / -1;
   }
 
   .table-search-input,
@@ -18176,12 +18212,23 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   }
 
   .install-cases-filters > .table-search-input {
-    flex: 1 1 0 !important;
-    width: auto !important;
+    flex: none !important;
+    width: 100% !important;
     min-width: 0 !important;
-    max-width: none !important;
+    max-width: 100% !important;
   }
 
+  .payment-report-toolbar {
+    flex-wrap: wrap !important;
+    align-items: stretch !important;
+  }
+
+  .payment-report-page-desc,
+  .payment-report-merge-pdf-btn {
+    display: none !important;
+  }
+
+  .payment-report-search-input,
   .sales-contacts-toolbar > .table-search-input,
   .payment-report-toolbar > .table-search-input {
     flex: 1 1 auto !important;
@@ -18190,15 +18237,33 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     max-width: none !important;
   }
 
-  .install-cases-filters > .install-cases-select,
-  .install-cases-toolbar > .primary-btn {
-    flex: 0 0 auto !important;
-    width: auto !important;
-    min-width: 120px;
+  .install-cases-filters > .install-cases-select {
+    flex: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
   }
 
   .install-cases-toolbar > .primary-btn {
-    min-width: 0;
+    flex: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .install-cases-gallery,
+  .main-area > section.stat-card .install-cases-gallery {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    flex: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overscroll-behavior: auto;
+  }
+
+  .install-case-card,
+  .install-case-card-shell {
+    touch-action: pan-y;
   }
 
   .table-summary-box {
@@ -18233,14 +18298,16 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   .contracts-only-scroll,
   .unit-price-table-scroll,
   .work-report-week-board-area,
-  .meeting-minutes-table-wrap {
+  .meeting-minutes-table-wrap,
+  .payment-report-table-wrap,
+  .sales-contacts-table-wrap,
+  .materials-board-table-panel {
     width: 100%;
     max-width: 100%;
     height: auto !important;
     max-height: none !important;
-    overflow-x: auto !important;
+    overflow-x: hidden !important;
     overflow-y: visible !important;
-    -webkit-overflow-scrolling: touch;
   }
 
   .work-report-week-grid {
@@ -18319,6 +18386,259 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   .stat-card--iframe-embed .iframe-embed-frame {
     min-height: 60vh;
     height: auto;
+  }
+
+  .stat-card--calendar,
+  .main-area > section.stat-card.stat-card--calendar,
+  .main-area > section.stat-card.stat-card--calendar .calendar-page,
+  .main-area > section.stat-card.stat-card--calendar .calendar-page-body,
+  .main-area > section.stat-card.stat-card--calendar .calendar-page-main,
+  .main-area > section.stat-card.stat-card--calendar .calendar-page-main .calendar-body,
+  .calendar-page,
+  .calendar-page-body,
+  .calendar-page-main,
+  .calendar-page-main .calendar-body {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: auto !important;
+    max-height: none !important;
+    overflow: hidden !important;
+    flex: none !important;
+    min-height: 0 !important;
+    box-sizing: border-box;
+  }
+
+  .stat-card--calendar,
+  .main-area > section.stat-card.stat-card--calendar {
+    contain: inline-size;
+  }
+
+  .calendar-main-toolbar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'nav register'
+      'legend legend';
+    align-items: center;
+    gap: 8px 10px !important;
+  }
+
+  .calendar-toolbar-left {
+    display: contents;
+  }
+
+  .calendar-main-toolbar .calendar-toolbar-nav {
+    grid-area: nav;
+    min-width: 0;
+  }
+
+  .calendar-legend-divider {
+    display: none;
+  }
+
+  .calendar-legend,
+  .calendar-main-toolbar .calendar-legend {
+    grid-area: legend;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+
+  .calendar-main-toolbar .calendar-month-title {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .calendar-main-toolbar .calendar-legend-item {
+    font-size: 12px;
+  }
+
+  .calendar-toolbar-form.calendar-toolbar-form--register-only,
+  .calendar-main-toolbar .calendar-toolbar-form.calendar-toolbar-form--register-only {
+    grid-area: register;
+    width: auto !important;
+    flex: 0 0 auto;
+    justify-content: flex-end;
+  }
+
+  .calendar-add-btn {
+    width: auto;
+    min-width: 4.5rem;
+    height: 36px;
+    padding: 0 14px;
+  }
+
+  .calendar-surface,
+  .calendar-page-main .calendar-surface {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: auto !important;
+    overflow: hidden;
+    scrollbar-width: none;
+  }
+
+  .calendar-surface::-webkit-scrollbar {
+    display: none;
+  }
+
+  .calendar-weekday-row,
+  .calendar-month-weeks,
+  .calendar-week-stack,
+  .calendar-grid,
+  .calendar-grid.calendar-grid--days,
+  .calendar-grid.calendar-grid--week {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: auto !important;
+    flex: none !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    overflow: hidden;
+  }
+
+  .calendar-week-multi-lane {
+    display: none !important;
+  }
+
+  .day-box {
+    min-width: 0 !important;
+    width: auto;
+    min-height: 54px !important;
+    height: 54px !important;
+    max-height: 54px;
+    padding: 3px 1px 4px;
+    overflow: hidden;
+    touch-action: pan-y;
+    cursor: pointer;
+  }
+
+  .day-box .day-number {
+    width: auto;
+    height: auto;
+    margin: 0 0 2px;
+    padding: 0;
+    background: transparent;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .day-box--selected {
+    box-shadow: inset 0 0 0 2px #2563eb;
+    border-radius: 6px;
+    background: #eff6ff;
+  }
+
+  .day-events {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: center;
+    gap: 2px;
+    overflow: hidden;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  .day-events .event-pill {
+    flex: 0 0 8px;
+    width: 8px !important;
+    min-width: 8px !important;
+    max-width: 8px !important;
+    height: 8px !important;
+    min-height: 8px !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 999px;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    overflow: hidden;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: none !important;
+    animation: none !important;
+  }
+
+  .day-events .event-pill.contract-event {
+    background: #eab308 !important;
+  }
+
+  .day-events .event-pill.due-event {
+    background: #2563eb !important;
+  }
+
+  .day-events .event-pill.manual-event {
+    background: #22c55e !important;
+  }
+
+  .day-events .event-pill.calendar-due-soon {
+    background: #dc2626 !important;
+  }
+
+  .day-events .event-pill.calendar-due-delayed {
+    background: #7c3aed !important;
+  }
+
+  .calendar-span-bar.event-pill {
+    min-height: 8px;
+    height: 8px;
+    padding: 0;
+    font-size: 0;
+    border-radius: 999px;
+  }
+
+  .modal-backdrop {
+    z-index: 120;
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .install-case-detail-modal {
+    --ic-modal-w: calc(100vw - 16px);
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100dvh - 24px);
+  }
+
+  .install-case-detail-modal-header {
+    padding: 14px 16px;
+    overflow: visible;
+  }
+
+  .install-case-detail-modal-header h3,
+  .install-case-detail-modal-title {
+    margin: 0;
+    padding: 2px 0;
+    line-height: 1.4;
+    font-size: 17px;
+    font-weight: 800;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+    display: block;
+  }
+
+  .detail-modal-grid,
+  .detail-modal-grid--calendar {
+    grid-template-columns: 1fr !important;
+    padding: 12px !important;
+  }
+
+  .detail-item {
+    grid-template-columns: 84px minmax(0, 1fr) !important;
+    min-width: 0;
+  }
+
+  .detail-label,
+  .detail-value,
+  .detail-item-full .detail-value:not(.prewrap) {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    -webkit-line-clamp: unset !important;
+    display: flex !important;
+    align-items: center;
+    min-width: 0;
   }
 }
 
@@ -18921,4 +19241,333 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
   .event-pill.due-event.calendar-due-delayed {
     animation: none;
   }
+}
+
+/* 모바일 카드 리스트 — md(768px) 미만에서만 표시, 테이블은 desktop-table-only */
+.mobile-card-only {
+  display: none;
+}
+
+.desktop-table-only {
+  display: block;
+}
+
+@media (max-width: 767px) {
+  .desktop-table-only {
+    display: none !important;
+  }
+
+  .mobile-card-only,
+  .mobile-data-card-list {
+    display: flex !important;
+    flex-direction: column;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .stat-card,
+  .main-area,
+  .contract-table-panel,
+  .payment-report-table-wrap,
+  .sales-contacts-table-wrap,
+  .materials-board-table-panel {
+    overflow-x: hidden !important;
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-card-only,
+  .mobile-data-card-list {
+    display: none !important;
+  }
+}
+
+.mobile-data-card-list {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 2px 0 8px;
+  box-sizing: border-box;
+}
+
+.mobile-data-card-empty {
+  margin: 0;
+  padding: 28px 16px;
+  border: 1px dashed #d8dee9;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
+}
+
+.mobile-data-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 14px 14px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.mobile-data-card.is-clickable {
+  cursor: pointer;
+}
+
+.mobile-data-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.mobile-data-card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.mobile-data-card-badge {
+  flex: 0 0 auto;
+  max-width: 42%;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.mobile-data-card-badge.is-blue {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.mobile-data-card-badge.is-green {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.mobile-data-card-badge.is-amber,
+.mobile-data-card-badge.is-yellow {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.mobile-data-card-badge.is-red {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.mobile-data-card-badge.is-purple {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.mobile-data-card-badge.is-slate,
+.mobile-data-card-badge.is-gray,
+.mobile-data-card-badge.is-empty {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.mobile-data-card-summary,
+.mobile-data-card-details dl {
+  margin: 0;
+}
+
+.mobile-data-card-field,
+.mobile-data-card-kv {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 3px 0;
+}
+
+.mobile-data-card-field dt,
+.mobile-data-card-kv dt {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.mobile-data-card-field dd,
+.mobile-data-card-kv dd {
+  margin: 0;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.mobile-data-card-details {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: 4px;
+  border-top: 1px solid transparent;
+  transition: grid-template-rows 0.22s ease, border-color 0.22s ease;
+}
+
+.mobile-data-card-details > dl {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mobile-data-card-details.is-open {
+  grid-template-rows: 1fr;
+  padding-top: 8px;
+  border-top-color: #e2e8f0;
+}
+
+.mobile-data-card-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 40px;
+  margin-top: 8px;
+  padding: 8px 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mobile-data-card-toggle:hover,
+.mobile-data-card-toggle:focus-visible {
+  color: #1d4ed8;
+}
+
+.calendar-mobile-agenda {
+  display: none;
+  margin-top: 12px;
+  padding-top: 4px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+@media (max-width: 767px) {
+  .calendar-mobile-agenda {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+.calendar-mobile-agenda-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.calendar-mobile-agenda-empty {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed #d8dee9;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
+}
+
+.calendar-mobile-agenda-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0 !important;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: normal !important;
+}
+
+.calendar-mobile-agenda-item.contract-event {
+  background: #fef9c3;
+  border-color: #eab308;
+  color: #713f12;
+}
+
+.calendar-mobile-agenda-item.due-event {
+  background: #dbeafe;
+  border-color: #2563eb;
+  color: #1e40af;
+}
+
+.calendar-mobile-agenda-item.manual-event {
+  background: #dcfce7;
+  border-color: #22c55e;
+  color: #14532d;
+}
+
+.calendar-mobile-agenda-item.calendar-due-soon {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #dc2626;
+}
+
+.calendar-mobile-agenda-item.calendar-due-delayed {
+  background: #ede9fe;
+  border-color: #a855f7;
+  color: #7c3aed;
+}
+
+.calendar-mobile-agenda-kind,
+.calendar-mobile-agenda-text {
+  max-width: 100%;
+  min-width: 0;
+  white-space: normal !important;
+}
+
+.calendar-mobile-agenda-kind {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.calendar-mobile-agenda-text {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }

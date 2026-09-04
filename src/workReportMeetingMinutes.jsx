@@ -1,5 +1,6 @@
 ﻿import { useCallback, useEffect, useRef, useState } from 'react'
 import { AutoGrowTextarea } from './AutoGrowTextarea.jsx'
+import { MobileDataCardList, mobileCardText } from './MobileDataCardList.jsx'
 import { decodeWorkReportWireText } from './workReportWire.js'
 import {
   WORK_REPORT_MANAGER_OPTIONS,
@@ -846,7 +847,7 @@ export function WorkReportMeetingMinutesSection({
   return (
     <section className="work-report-meeting-minutes-panel meeting-minutes-doc">
       <div className="contract-table-panel meeting-minutes-doc__table-panel">
-        <div className="table-wrap meeting-minutes-table-wrap overflow-x-auto">
+        <div className="table-wrap meeting-minutes-table-wrap overflow-x-auto desktop-table-only hidden md:block">
           <table className="meeting-minutes-doc__table contract-table excel-table registry-table">
             <colgroup>
               <col className="meeting-minutes-doc__col-num" />
@@ -922,6 +923,36 @@ export function WorkReportMeetingMinutesSection({
             </tbody>
           </table>
         </div>
+        <MobileDataCardList
+          rows={agendaRows.filter((row) => {
+            const assignees = Array.isArray(row.assignees)
+              ? row.assignees
+              : parseManagerMultiSelectValue(row.assignee)
+            return Boolean(
+              mobileCardText(row.content) || assignees.length || mobileCardText(row.dueDate)
+            )
+          })}
+          getRowKey={(row, index) => `meeting-card-${index}-${mobileCardText(row.content).slice(0, 12)}`}
+          getTitle={(row) => row.content}
+          getBadge={(row) => {
+            const due = mobileCardText(row.dueDate)
+            return due ? { label: due, tone: 'blue' } : null
+          }}
+          summaryFields={[
+            {
+              label: '담당자',
+              getValue: (row) => {
+                const assignees = Array.isArray(row.assignees)
+                  ? row.assignees
+                  : parseManagerMultiSelectValue(row.assignee)
+                return assignees.join(', ')
+              },
+            },
+            { label: '기한', getValue: (row) => row.dueDate },
+          ]}
+          detailFields={[{ label: '회의내용', getValue: (row) => row.content }]}
+          emptyText="이번 주 회의록이 없습니다."
+        />
       </div>
     </section>
   )

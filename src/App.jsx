@@ -74,6 +74,7 @@ import OrderManagementPlaceholder from './pages/OrderManagementPlaceholder.jsx'
 import PreparingPlaceholder from './pages/PreparingPlaceholder.jsx'
 import PaymentReportPage from './pages/PaymentReportPage.jsx'
 import SalesContactsPage from './pages/SalesContactsPage.jsx'
+import { MobileDataCardList, mobileCardAmount, mobileCardText } from './MobileDataCardList.jsx'
 import NaraMarket from './pages/NaraMarket.jsx'
 import NewsMonitor from './pages/NewsMonitor.jsx'
 import { decodeWorkReportWireText } from './workReportWire.js'
@@ -1409,6 +1410,31 @@ function getCalendarEventPillTypeClass(type) {
  * - 임박(D-14 ~ D-Day): 빨간 깜빡임
  * - 지남(준공지연): 보라 깜빡임 (계약일 노란색과 구분)
  */
+function getCalendarItemsOnDay(items, day) {
+  if (!day) return []
+  return items.filter((item) => {
+    if (item.type === 'manual') {
+      const range = normalizeManualEventRangeInPlace(item)
+      if (range.dateStart && range.dateEnd && range.dateStart !== range.dateEnd) {
+        return day >= range.dateStart && day <= range.dateEnd
+      }
+    }
+    return item.date === day
+  })
+}
+
+function formatCalendarSelectedDayLabel(ymd) {
+  const parsed = parseDateOnly(ymd)
+  if (!parsed) return ymd || ''
+  return `${parsed.getFullYear()}년 ${parsed.getMonth() + 1}월 ${parsed.getDate()}일`
+}
+
+function getCalendarItemKindLabel(type) {
+  if (type === 'contract') return '계약'
+  if (type === 'due') return '준공'
+  return '기타'
+}
+
 function getCalendarDueStatusClass(item) {
   if (item?.type !== 'due') return ''
   if (
@@ -6421,6 +6447,7 @@ function App() {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
+  const [calendarSelectedDay, setCalendarSelectedDay] = useState(() => formatDateInput(new Date()))
   const [eventForm, setEventForm] = useState({ ...emptyEvent })
   const [calendarManualDetailEditMode, setCalendarManualDetailEditMode] = useState(false)
   const [calendarManualDetailDraft, setCalendarManualDetailDraft] = useState(null)
@@ -8650,6 +8677,23 @@ function App() {
 
     return [...contractDateItems, ...dueDateItems, ...extraItems]
   }, [contracts, manualEvents])
+
+  const calendarSelectedDayItems = useMemo(
+    () => getCalendarItemsOnDay(calendarItems, calendarSelectedDay),
+    [calendarItems, calendarSelectedDay]
+  )
+
+  useEffect(() => {
+    const year = calendarCursor.getFullYear()
+    const month = String(calendarCursor.getMonth() + 1).padStart(2, '0')
+    const prefix = `${year}-${month}`
+    setCalendarSelectedDay((prev) => {
+      if (safeString(prev).startsWith(prefix)) return prev
+      const today = formatDateInput(new Date())
+      if (today.startsWith(prefix)) return today
+      return `${prefix}-01`
+    })
+  }, [calendarCursor])
 
   const dashboardDueWatchGroups = useMemo(
     () => collectDashboardDueWatchGroups(contracts),
@@ -16559,7 +16603,7 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <div className="table-wrap contracts-only-scroll overflow-x-auto">
+              <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
                 <table
                   ref={contractTableRef}
                   className={`contract-table excel-table registry-table ledger-table-ui contracts-fixed-table table-w-full-min table-layout-auto${
@@ -16972,6 +17016,36 @@ function App() {
                   </tbody>
                 </table>
               </div>
+              <MobileDataCardList
+                rows={sortRegistryRowsByDateDesc(categoryFilteredData, 'contractDate')}
+                getRowKey={(row, index) => row.key || row.id || `contract-${index}`}
+                getTitle={(row) => row.projectName}
+                getBadge={(row) => {
+                  const view = resolveContractProcessStatusView(row.dueDate, row.processStatus)
+                  const label = view.label || row.processStatus
+                  let tone = 'slate'
+                  if (view.isDelayed) tone = 'purple'
+                  else if (view.isImminent) tone = 'red'
+                  return { label, tone }
+                }}
+                summaryFields={[
+                  { label: '발주처', getValue: (row) => row.client },
+                  { label: '계약금액', getValue: (row) => formatAmountWithWon(row.amount).replace(/^-/, '') },
+                  { label: '준공일자', getValue: (row) => row.dueDate },
+                ]}
+                detailFields={[
+                  { label: '사업년도', getValue: (row) => row.year },
+                  { label: '참고번호', getValue: (row) => row.refNo },
+                  { label: '계약일자', getValue: (row) => row.contractDate },
+                  { label: '영업담당', getValue: (row) => row.salesOwner },
+                  { label: '현장 PM', getValue: (row) => row.pm },
+                  { label: '담당부서', getValue: (row) => row.department },
+                  { label: '계약방식', getValue: (row) => row.contractMethod },
+                  { label: '계약분류', getValue: (row) => row.contractType },
+                  { label: '비고', getValue: (row) => row.note },
+                ]}
+                emptyText="표시할 계약이 없습니다."
+              />
             </div>
           </section>
         )}
@@ -17044,7 +17118,7 @@ function App() {
 
             <div className="contract-table-panel">
               <ImportanceLegend />
-              <div className="table-wrap contracts-only-scroll overflow-x-auto">
+              <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
                 <table className="contract-table excel-table registry-table sales-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
                     <col className="sales-registry-check-col" />
@@ -17199,6 +17273,30 @@ function App() {
                   </tbody>
                 </table>
               </div>
+              <MobileDataCardList
+                rows={sortRegistryRowsByDateDesc(
+                  filteredSalesRows.filter((row) => !row.isDraft),
+                  'registerDate'
+                )}
+                getRowKey={(row, index) => row.id || `sales-${index}`}
+                getTitle={(row) => row.projectName}
+                getBadge={(row) => ({
+                  label: row.projectStage,
+                  tone: getImportanceStyle(row.projectStage).tone,
+                })}
+                summaryFields={[
+                  { label: '발주처', getValue: (row) => row.client },
+                  { label: '사업금액', getValue: (row) => mobileCardAmount(row.projectAmount) || mobileCardText(row.projectAmount) },
+                  { label: '등록일', getValue: (row) => row.registerDate },
+                ]}
+                detailFields={[
+                  { label: '담당자', getValue: (row) => row.manager },
+                  { label: '담당부서', getValue: (row) => row.department },
+                  { label: '세부내용', getValue: (row) => row.detail },
+                  { label: '출처', getValue: (row) => row.source },
+                ]}
+                emptyText="표시할 영업 건이 없습니다."
+              />
             </div>
           </section>
         )}
@@ -17279,7 +17377,7 @@ function App() {
 
             <div className="contract-table-panel">
               <ImportanceLegend />
-              <div className="table-wrap contracts-only-scroll overflow-x-auto">
+              <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
                 <table className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
                     <col className="registry-check-col" />
@@ -17437,6 +17535,27 @@ function App() {
                   </tbody>
                 </table>
               </div>
+              <MobileDataCardList
+                rows={sortedDiscoveryRows}
+                getRowKey={(row, index) => row.id || `discovery-${index}`}
+                getTitle={(row) => row.projectName}
+                getBadge={(row) => ({
+                  label: row.projectStage,
+                  tone: getImportanceStyle(row.projectStage).tone,
+                })}
+                summaryFields={[
+                  { label: '발주처', getValue: (row) => row.client },
+                  { label: '사업금액', getValue: (row) => mobileCardAmount(row.projectAmount) || mobileCardText(row.projectAmount) },
+                  { label: '등록일', getValue: (row) => row.permitDate },
+                ]}
+                detailFields={[
+                  { label: '세부내용', getValue: (row) => row.note },
+                  { label: '사업구분', getValue: (row) => row.projectCategory },
+                  { label: '준공시기', getValue: (row) => row.completionPeriod },
+                  { label: '담당자', getValue: (row) => row.manager },
+                ]}
+                emptyText="표시할 건축정보가 없습니다."
+              />
             </div>
           </section>
         )}
@@ -17517,7 +17636,7 @@ function App() {
 
             <div className="contract-table-panel">
               <ImportanceLegend />
-              <div className="table-wrap contracts-only-scroll overflow-x-auto">
+              <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
                 <table className="contract-table excel-table registry-table excluded-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
                     <col className="registry-check-col" />
@@ -17653,6 +17772,29 @@ function App() {
                   </tbody>
                 </table>
               </div>
+              <MobileDataCardList
+                rows={sortRegistryRowsByDateDesc(
+                  filteredExcludedRows.filter((row) => !row.isDraft),
+                  'writeDate'
+                )}
+                getRowKey={(row, index) => row.id || `excluded-${index}`}
+                getTitle={(row) => row.projectName}
+                getBadge={(row) => ({
+                  label: row.category,
+                  tone: getImportanceStyle(row.category).tone,
+                })}
+                summaryFields={[
+                  { label: '발주처', getValue: (row) => row.client },
+                  { label: '사업금액', getValue: (row) => mobileCardAmount(row.projectAmount) || mobileCardText(row.projectAmount) },
+                  { label: '등록일', getValue: (row) => row.writeDate },
+                ]}
+                detailFields={[
+                  { label: '세부내용', getValue: (row) => row.exclusionReason },
+                  { label: '작성자', getValue: (row) => row.writer },
+                  { label: '공유', getValue: (row) => row.shareStatus },
+                ]}
+                emptyText="표시할 사업공유 건이 없습니다."
+              />
             </div>
           </section>
         )}
@@ -17710,7 +17852,7 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <div className="table-wrap contracts-only-scroll overflow-x-auto">
+              <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
                 <table className="contract-table excel-table registry-table documents-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
                     <col className="registry-check-col" />
@@ -17831,6 +17973,25 @@ function App() {
                   </tbody>
                 </table>
               </div>
+              <MobileDataCardList
+                rows={sortRegistryRowsByDateDesc(
+                  filteredDocuments.filter((row) => !row.isDraft),
+                  'docDate'
+                )}
+                getRowKey={(row, index) => row.id || `document-${index}`}
+                getTitle={(row) => row.title}
+                getBadge={(row) => ({ label: row.method })}
+                summaryFields={[
+                  { label: '수신/발신', getValue: (row) => row.senderReceiver },
+                  { label: '등록일', getValue: (row) => row.docDate },
+                  { label: '문서번호', getValue: (row) => row.docNo },
+                ]}
+                detailFields={[
+                  { label: '작성자', getValue: (row) => row.writer },
+                  { label: '비고', getValue: (row) => row.note },
+                ]}
+                emptyText="표시할 문서가 없습니다."
+              />
             </div>
           </section>
         )}
@@ -17880,7 +18041,7 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <div className="table-wrap contracts-only-scroll overflow-x-auto">
+              <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
                 <table className="contract-table excel-table registry-table contacts-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
                     {canEditContactsManage ? <col className="registry-check-col" /> : null}
@@ -18007,6 +18168,22 @@ function App() {
                   </tbody>
                 </table>
               </div>
+              <MobileDataCardList
+                rows={filteredPersistedContactsRows}
+                getRowKey={(row, index) => row.id || `legacy-contact-${index}`}
+                getTitle={(row) => row.manager_name}
+                getBadge={(row) => ({ label: row.category })}
+                summaryFields={[
+                  { label: '사업내용', getValue: (row) => row.business_content },
+                  { label: '전화번호', getValue: (row) => row.phone },
+                  { label: '직위', getValue: (row) => row.position },
+                ]}
+                detailFields={[
+                  { label: '이메일', getValue: (row) => row.email },
+                  { label: '비고', getValue: (row) => row.notes },
+                ]}
+                emptyText="표시할 연락처가 없습니다."
+              />
             </div>
           </section>
         )}
@@ -18173,7 +18350,7 @@ function App() {
                   </div>
                 </div>
 
-                <div className="materials-board-table-panel">
+                <div className="materials-board-table-panel desktop-table-only hidden md:block">
                   <table className="contract-table excel-table registry-table materials-board-table">
                     <thead>
                       <tr>
@@ -18285,6 +18462,31 @@ function App() {
                     </tbody>
                   </table>
                 </div>
+                <MobileDataCardList
+                  rows={filteredMaterialsBoardPosts}
+                  getRowKey={(row) => row.id}
+                  getTitle={(row) => row.title}
+                  getBadge={(row) => {
+                    const attach = getMaterialsBoardAttachSummary(row)
+                    return attach ? { label: `첨부 ${attach.count}`, tone: 'blue' } : { label: '첨부 없음', tone: 'slate' }
+                  }}
+                  summaryFields={[
+                    { label: '등록일', getValue: (row) => row.registeredAt },
+                    { label: '다운로드', getValue: (row) => String(Number(row.downloadCount) || 0) },
+                  ]}
+                  detailFields={[
+                    {
+                      label: '첨부파일',
+                      getValue: (row) => getMaterialsBoardAttachSummary(row)?.title || '',
+                    },
+                  ]}
+                  emptyText={
+                    materialsBoardPosts.length === 0 ? '등록된 글이 없습니다.' : '검색 결과가 없습니다.'
+                  }
+                  onCardClick={(row) => {
+                    void handleDownloadMaterialsBoardFile(row)
+                  }}
+                />
               </div>
             </div>
           </section>
@@ -18332,6 +18534,14 @@ function App() {
                           <span className="calendar-legend-item">
                             <span className="calendar-legend-dot calendar-legend-dot--manual" />
                             기타
+                          </span>
+                          <span className="calendar-legend-item">
+                            <span className="calendar-legend-dot calendar-legend-dot--due-soon" />
+                            임박
+                          </span>
+                          <span className="calendar-legend-item">
+                            <span className="calendar-legend-dot calendar-legend-dot--due-delayed" />
+                            지연
                           </span>
                         </div>
                       </div>
@@ -18386,29 +18596,24 @@ function App() {
                                   const dayBoxClass = [
                                     day ? 'day-box' : 'day-box empty',
                                     day && day === calendarTodayYmd ? 'day-box--today' : '',
+                                    day && day === calendarSelectedDay ? 'day-box--selected' : '',
                                   ]
                                     .filter(Boolean)
                                     .join(' ')
                                   return (
-                                    <div key={index} className={dayBoxClass}>
+                                    <div
+                                      key={index}
+                                      className={dayBoxClass}
+                                      onClick={() => {
+                                        if (day) setCalendarSelectedDay(day)
+                                      }}
+                                    >
                                       {day && (
                                         <>
                                           <div className={dayNumberClass}>{dayNum}</div>
                                           <div className="day-events">
-                                            {calendarItems
-                                              .filter((item) => {
-                                                if (item.type === 'manual') {
-                                                  const r = normalizeManualEventRangeInPlace(item)
-                                                  if (
-                                                    r.dateStart &&
-                                                    r.dateEnd &&
-                                                    r.dateStart !== r.dateEnd
-                                                  ) {
-                                                    return false
-                                                  }
-                                                }
-                                                return item.date === day
-                                              })
+                                            {getCalendarItemsOnDay(calendarItems, day)
+                                              .slice(0, 3)
                                               .map((item) => (
                                                 <button
                                                   key={item.id}
@@ -18430,7 +18635,7 @@ function App() {
                                 <div
                                   className="calendar-week-multi-lane"
                                   style={{
-                                    gridTemplateRows: `repeat(${spanData.laneCount}, 28px)`,
+                                    gridTemplateRows: `repeat(${spanData.laneCount}, var(--calendar-span-lane-h, 28px))`,
                                   }}
                                 >
                                   {spanData.placed.map((seg) => (
@@ -18453,6 +18658,35 @@ function App() {
                           )
                         })}
                       </div>
+                    </div>
+                    <div className="calendar-mobile-agenda mobile-card-only">
+                      <h3 className="calendar-mobile-agenda-title">
+                        {formatCalendarSelectedDayLabel(calendarSelectedDay)}
+                      </h3>
+                      {calendarSelectedDayItems.length === 0 ? (
+                        <p className="calendar-mobile-agenda-empty">선택한 날의 일정이 없습니다.</p>
+                      ) : (
+                        calendarSelectedDayItems.map((item) => {
+                          const dueClass = getCalendarDueStatusClass(item)
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              className={`calendar-mobile-agenda-item ${getCalendarEventPillTypeClass(item.type)} ${dueClass}`}
+                              onClick={() => openCalendarDetail(item)}
+                            >
+                              <span className="calendar-mobile-agenda-kind">
+                                {dueClass === 'calendar-due-soon'
+                                  ? '준공임박'
+                                  : dueClass === 'calendar-due-delayed'
+                                    ? '준공지연'
+                                    : getCalendarItemKindLabel(item.type)}
+                              </span>
+                              <span className="calendar-mobile-agenda-text">{item.text}</span>
+                            </button>
+                          )
+                        })
+                      )}
                     </div>
                   </div>
                 </div>
@@ -19406,7 +19640,9 @@ function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="install-case-detail-modal-header">
-              <h3 id="calendar-detail-modal-title">상세 정보</h3>
+              <h3 id="calendar-detail-modal-title" className="install-case-detail-modal-title">
+                상세 정보
+              </h3>
               <div className="install-case-detail-modal-actions">
                 {detailModal.manualEventId != null && (
                   <>

@@ -5,6 +5,7 @@ import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { EditableTextCell } from '../EditableTextCell.jsx'
 import { computeFixedPortalPosition, fixedPortalStyle } from '../portalMenuPosition.js'
 import { ROLES, hasAdminPrivileges, normalizeRole } from '../permissions.js'
+import { MobileDataCardList } from '../MobileDataCardList.jsx'
 import { normalizeSalesContactRow, salesContactsApi } from '../salesContactsApi.js'
 import {
   EXCLUDED_INLINE_EDITOR_CLASS,
@@ -642,7 +643,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
         </p>
       ) : null}
 
-      <div className="sales-contacts-table-wrap">
+      <div className="sales-contacts-table-wrap desktop-table-only hidden md:block">
         <table className="sales-contacts-table excel-table registry-table">
           <thead>
             <tr>
@@ -787,6 +788,30 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
           </tbody>
         </table>
       </div>
+
+      <MobileDataCardList
+        rows={visibleRows}
+        getRowKey={(row) => row.id}
+        getTitle={(row) => row.managerName}
+        getBadge={(row) => ({
+          label: normalizeContactStatus(row.status) === CONTACT_STATUS.INACTIVE ? '비활성' : '활성',
+        })}
+        summaryFields={[
+          { label: '회사명', getValue: (row) => row.companyName },
+          { label: '휴대폰', getValue: (row) => row.phone },
+          { label: '직위', getValue: (row) => row.position },
+        ]}
+        detailFields={[
+          { label: '이메일', getValue: (row) => (canViewSensitive ? row.email : '') },
+          { label: '구분', getValue: (row) => row.division },
+          { label: '부서명', getValue: (row) => row.department },
+          { label: '연계사업', getValue: (row) => row.linkedProject },
+          { label: '심사', getValue: (row) => (canViewSensitive ? row.review : '') },
+          { label: '주소', getValue: (row) => (canViewSensitive ? row.address : '') },
+          { label: '비고', getValue: (row) => (canViewSensitive ? row.notes : '') },
+        ]}
+        emptyText="표시할 연락처가 없습니다."
+      />
 
       {toast.message ? (
         <div

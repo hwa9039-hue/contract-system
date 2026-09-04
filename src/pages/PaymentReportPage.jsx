@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { EditableTextCell } from '../EditableTextCell.jsx'
+import { MobileDataCardList, mobileCardAmount, mobileCardText } from '../MobileDataCardList.jsx'
 import { PAYMENT_REPORTS_API_PATH, normalizePaymentReportRow, paymentReportsApi } from '../paymentReportsApi.js'
 import { RecordAttachmentChip, RecordFileAttachments } from '../RecordFileAttachments.jsx'
 import {
@@ -1106,6 +1107,20 @@ function PaymentReportExpandedPanel({
 }
 
 /** 같은 결제월·주기 안에서 구분(seq)을 1부터 다시 부여 */
+function getPaymentPeriodStart(row) {
+  const match = safeString(row?.projectPeriod).match(/\d{4}-\d{2}-\d{2}/)
+  return match ? match[0] : ''
+}
+
+function sortPaymentReportRowsByPeriodDesc(rows) {
+  return [...rows].sort((rowA, rowB) => {
+    const dateA = getPaymentPeriodStart(rowA)
+    const dateB = getPaymentPeriodStart(rowB)
+    if (dateA !== dateB) return dateB.localeCompare(dateA)
+    return (Number(rowA.seq) || 0) - (Number(rowB.seq) || 0)
+  })
+}
+
 function renumberRowsByMonthCycle(rows) {
   const counters = new Map()
   return rows.map((row) => {
@@ -1159,8 +1174,8 @@ export default function PaymentReportPage({ contracts = [] }) {
       activeTab === 'all'
         ? inMonth
         : inMonth.filter((row) => normalizePaymentCycle(row.paymentCycle) === normalizePaymentCycle(activeTab))
-    if (!query) return byCycle
-    return byCycle.filter((row) => matchesPaymentReportSearch(row, query))
+    const filtered = query ? byCycle.filter((row) => matchesPaymentReportSearch(row, query)) : byCycle
+    return sortPaymentReportRowsByPeriodDesc(filtered)
   }, [rows, activeMonth, activeTab, searchQuery])
 
   const selectedVisibleRows = useMemo(
@@ -1725,7 +1740,7 @@ export default function PaymentReportPage({ contracts = [] }) {
         </p>
       ) : null}
 
-      <div className="payment-report-table-wrap">
+      <div className="payment-report-table-wrap desktop-table-only hidden md:block">
         <table className="payment-report-table excel-table registry-table">
           <thead>
             <tr>
@@ -1909,6 +1924,29 @@ export default function PaymentReportPage({ contracts = [] }) {
           </tbody>
         </table>
       </div>
+
+      <MobileDataCardList
+        rows={visibleRows}
+        getRowKey={(row) => row.id}
+        getTitle={(row) => row.projectName}
+        getBadge={(row) => ({
+          label: normalizePaymentCycle(row.paymentCycle) === '31' ? '31일' : '15일',
+          tone: 'blue',
+        })}
+        summaryFields={[
+          { label: '발주처', getValue: (row) => row.client },
+          { label: '계약금액', getValue: (row) => mobileCardAmount(row.contractAmount) || mobileCardText(row.contractAmount) },
+          { label: '사업기간', getValue: (row) => row.projectPeriod },
+        ]}
+        detailFields={[
+          { label: '분류', getValue: (row) => row.classification },
+          { label: '결제업체', getValue: (row) => row.vendorInfo },
+          { label: '결제금액', getValue: (row) => mobileCardAmount(row.plannedAmount) || mobileCardText(row.plannedAmount) },
+          { label: '진행사항', getValue: (row) => row.progress },
+          { label: '결제주기', getValue: (row) => (normalizePaymentCycle(row.paymentCycle) === '31' ? '31일 결제' : '15일 결제') },
+        ]}
+        emptyText="해당 월에 표시할 결제보고가 없습니다."
+      />
 
       <DeleteConfirmModal
         open={isModalOpen}
