@@ -152,6 +152,21 @@ function shiftPaymentYear(monthKey, deltaYears) {
   return `${y + deltaYears}-${String(m).padStart(2, '0')}`
 }
 
+function getPaymentMonthNumber(monthKey) {
+  return Number(normalizePaymentMonth(monthKey).slice(5, 7))
+}
+
+function formatPaymentMonthLabel(monthKey) {
+  return `${getPaymentMonthNumber(monthKey)}월`
+}
+
+function shiftPaymentCalendarMonth(monthKey, deltaMonths) {
+  const base = normalizePaymentMonth(monthKey)
+  const [year, month] = base.split('-').map(Number)
+  const next = new Date(year, month - 1 + deltaMonths, 1)
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
+}
+
 function matchesPaymentReportSearch(row, query) {
   const q = safeString(query).trim().toLowerCase()
   if (!q) return true
@@ -1116,6 +1131,7 @@ function renumberRowsByMonthCycle(rows) {
  */
 export default function PaymentReportPage({ contracts = [] }) {
   const [activeMonth, setActiveMonth] = useState(() => formatPaymentMonth())
+  const selectedMonth = getPaymentMonthNumber(activeMonth)
   const [activeTab, setActiveTab] = useState('15')
   const [searchQuery, setSearchQuery] = useState('')
   const { itemToDelete, isModalOpen, requestDelete, cancelDelete } = useDeleteConfirm()
@@ -1136,13 +1152,13 @@ export default function PaymentReportPage({ contracts = [] }) {
   }, [rows])
 
   const visibleRows = useMemo(() => {
-    const year = getPaymentYear(activeMonth)
+    const monthKey = normalizePaymentMonth(activeMonth)
     const query = safeString(searchQuery).trim()
-    const inYear = rows.filter((row) => getPaymentYear(row.paymentMonth) === year)
+    const inMonth = rows.filter((row) => normalizePaymentMonth(row.paymentMonth) === monthKey)
     const byCycle =
       activeTab === 'all'
-        ? inYear
-        : inYear.filter((row) => normalizePaymentCycle(row.paymentCycle) === normalizePaymentCycle(activeTab))
+        ? inMonth
+        : inMonth.filter((row) => normalizePaymentCycle(row.paymentCycle) === normalizePaymentCycle(activeTab))
     if (!query) return byCycle
     return byCycle.filter((row) => matchesPaymentReportSearch(row, query))
   }, [rows, activeMonth, activeTab, searchQuery])
@@ -1538,6 +1554,10 @@ export default function PaymentReportPage({ contracts = [] }) {
     setActiveMonth(shiftPaymentYear(activeMonth, deltaYears))
   }
 
+  const handleMonthShift = (deltaMonths) => {
+    setActiveMonth(shiftPaymentCalendarMonth(activeMonth, deltaMonths))
+  }
+
   const handleTabChange = (tabId) => {
     setActiveTab(tabId)
   }
@@ -1609,24 +1629,47 @@ export default function PaymentReportPage({ contracts = [] }) {
           등록
         </button>
 
-        <div className="payment-report-month-nav" aria-label="결제 연도 선택">
-          <button
-            type="button"
-            className="payment-report-month-btn"
-            onClick={() => handleYearShift(-1)}
-            aria-label="이전 해"
-          >
-            ‹
-          </button>
-          <span className="payment-report-month-label">{formatPaymentYearLabel(activeMonth)}</span>
-          <button
-            type="button"
-            className="payment-report-month-btn"
-            onClick={() => handleYearShift(1)}
-            aria-label="다음 해"
-          >
-            ›
-          </button>
+        <div className="payment-report-period-nav">
+          <div className="payment-report-month-nav" aria-label="결제 연도 선택">
+            <button
+              type="button"
+              className="payment-report-month-btn"
+              onClick={() => handleYearShift(-1)}
+              aria-label="이전 해"
+            >
+              ‹
+            </button>
+            <span className="payment-report-month-label">{formatPaymentYearLabel(activeMonth)}</span>
+            <button
+              type="button"
+              className="payment-report-month-btn"
+              onClick={() => handleYearShift(1)}
+              aria-label="다음 해"
+            >
+              ›
+            </button>
+          </div>
+          <div className="payment-report-month-nav" aria-label={`결제 월 선택, 현재 ${selectedMonth}월`}>
+            <button
+              type="button"
+              className="payment-report-month-btn"
+              onClick={() => handleMonthShift(-1)}
+              aria-label="이전 달"
+            >
+              ‹
+            </button>
+            <span className="payment-report-month-label payment-report-month-label--month">
+              {formatPaymentMonthLabel(activeMonth)}
+            </span>
+            <button
+              type="button"
+              className="payment-report-month-btn"
+              onClick={() => handleMonthShift(1)}
+              aria-label="다음 달"
+            >
+              ›
+            </button>
+          </div>
         </div>
 
         <div className="payment-report-tabs" role="tablist" aria-label="결제 주기">
@@ -1669,10 +1712,10 @@ export default function PaymentReportPage({ contracts = [] }) {
       </div>
 
       <p className="payment-report-page-desc">
-        {formatPaymentYearLabel(activeMonth)} 전체 기간 기준으로{' '}
+        {formatPaymentYearLabel(activeMonth)} {formatPaymentMonthLabel(activeMonth)} 기준으로{' '}
         {activeTab === 'all'
-          ? '15일·31일 결제 건을 함께 표시합니다. 등록 시 기본값은 15일 결제입니다.'
-          : `${activeTab}일 결제 건만 표시합니다. 등록 시 현재 월·주기가 자동 적용됩니다.`}{' '}
+          ? '선택한 달의 15일·31일 결제 건을 함께 표시합니다. 등록 시 기본값은 15일 결제입니다.'
+          : `${activeTab}일 결제 건만 표시합니다. 등록 시 현재 연·월·주기가 자동 적용됩니다.`}{' '}
         분류(참고번호)를 입력하면 계약현황 정보가 표에 자동 입력되며 수정할 수 없습니다.
       </p>
 
@@ -1710,9 +1753,9 @@ export default function PaymentReportPage({ contracts = [] }) {
               <th className="payment-report-sticky payment-report-sticky--detail payment-report-sticky--last">
                 세부사항
               </th>
-              <th>결제 업체정보</th>
-              <th>결제 예정 금액 (VAT 포함)</th>
-              <th>진행사항</th>
+              <th className="payment-report-col-vendor">결제 업체정보</th>
+              <th className="payment-report-col-planned">결제 예정 금액 (VAT 포함)</th>
+              <th className="payment-report-col-progress">진행사항</th>
             </tr>
           </thead>
           <tbody>
@@ -1807,7 +1850,7 @@ export default function PaymentReportPage({ contracts = [] }) {
                         </span>
                       </div>
                     </td>
-                    <td className={PAYMENT_REPORT_EDITABLE_CELL_CLASS}>
+                    <td className={`${PAYMENT_REPORT_EDITABLE_CELL_CLASS} payment-report-col-vendor`}>
                       <EditableTextCell
                         value={row.vendorInfo}
                         className="registry-cell-text-wrap"
@@ -1824,7 +1867,7 @@ export default function PaymentReportPage({ contracts = [] }) {
                         onSave={(nextValue) => handleCellCommit(row.id, 'plannedAmount', nextValue)}
                       />
                     </td>
-                    <td className={PAYMENT_REPORT_EDITABLE_CELL_CLASS}>
+                    <td className={`${PAYMENT_REPORT_EDITABLE_CELL_CLASS} payment-report-col-progress`}>
                       <EditableTextCell
                         value={row.progress}
                         className="registry-cell-text-wrap"

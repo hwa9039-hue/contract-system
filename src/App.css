@@ -14278,6 +14278,13 @@ table.sales-contacts-table td.sales-contacts-sticky--status select {
   min-width: 0;
 }
 
+.payment-report-period-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 .payment-report-month-nav {
   display: inline-flex;
   align-items: center;
@@ -14316,6 +14323,10 @@ table.sales-contacts-table td.sales-contacts-sticky--status select {
   color: #0f172a;
   letter-spacing: -0.02em;
   white-space: nowrap;
+}
+
+.payment-report-month-label--month {
+  min-width: 56px;
 }
 
 .payment-report-tabs {
@@ -14451,11 +14462,11 @@ table.payment-report-table {
   --pr-sticky-w-select: 44px;
   --pr-sticky-w-action: 56px;
   --pr-sticky-w-seq: 64px;
-  --pr-sticky-w-class: 100px;
-  --pr-sticky-w-project: 220px;
-  --pr-sticky-w-amount: 156px;
-  --pr-sticky-w-period: 180px;
-  --pr-sticky-w-client: 140px;
+  --pr-sticky-w-class: 110px;
+  --pr-sticky-w-project: 300px;
+  --pr-sticky-w-amount: 168px;
+  --pr-sticky-w-period: 200px;
+  --pr-sticky-w-client: 170px;
   --pr-sticky-w-detail: 132px;
 
   --pr-sticky-left-select: 0px;
@@ -14468,8 +14479,8 @@ table.payment-report-table {
   --pr-sticky-left-client: calc(var(--pr-sticky-left-period) + var(--pr-sticky-w-period));
   --pr-sticky-left-detail: calc(var(--pr-sticky-left-client) + var(--pr-sticky-w-client));
 
-  width: 100%;
-  min-width: 100%;
+  width: max-content;
+  min-width: max-content;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -14737,6 +14748,27 @@ table.payment-report-table td.editable-cell > select {
 table.payment-report-table td.payment-report-cell--planned .editable-text-cell-display,
 table.payment-report-table td.payment-report-cell--planned .excluded-inline-editor {
   font-variant-numeric: tabular-nums;
+}
+
+table.payment-report-table th.payment-report-col-vendor,
+table.payment-report-table td.payment-report-col-vendor {
+  width: 148px;
+  min-width: 148px;
+  max-width: 148px;
+}
+
+table.payment-report-table th.payment-report-col-planned,
+table.payment-report-table td.payment-report-cell--planned {
+  width: 212px;
+  min-width: 212px;
+  max-width: 212px;
+}
+
+table.payment-report-table th.payment-report-col-progress,
+table.payment-report-table td.payment-report-col-progress {
+  width: 200px;
+  min-width: 200px;
+  max-width: 200px;
 }
 
 table.sales-contacts-table td.editable-cell textarea.registry-cell-autogrow-textarea,
@@ -15253,10 +15285,11 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
 
 @media (max-width: 768px) {
   table.payment-report-table {
-    --pr-sticky-w-project: 160px;
-    --pr-sticky-w-amount: 110px;
-    --pr-sticky-w-period: 140px;
-    --pr-sticky-w-client: 110px;
+    --pr-sticky-w-class: 88px;
+    --pr-sticky-w-project: 220px;
+    --pr-sticky-w-amount: 130px;
+    --pr-sticky-w-period: 160px;
+    --pr-sticky-w-client: 130px;
   }
 }
 
