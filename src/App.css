@@ -14482,7 +14482,7 @@ table.payment-report-table {
   --pr-sticky-left-client: calc(var(--pr-sticky-left-period) + var(--pr-sticky-w-period));
   --pr-sticky-left-detail: calc(var(--pr-sticky-left-client) + var(--pr-sticky-w-client));
 
-  width: max-content;
+  width: 100%;
   min-width: max-content;
   border-collapse: separate;
   border-spacing: 0;
@@ -14757,21 +14757,18 @@ table.payment-report-table th.payment-report-col-vendor,
 table.payment-report-table td.payment-report-col-vendor {
   width: 148px;
   min-width: 148px;
-  max-width: 148px;
 }
 
 table.payment-report-table th.payment-report-col-planned,
 table.payment-report-table td.payment-report-cell--planned {
   width: 212px;
   min-width: 212px;
-  max-width: 212px;
 }
 
 table.payment-report-table th.payment-report-col-progress,
 table.payment-report-table td.payment-report-col-progress {
-  width: 200px;
+  width: auto;
   min-width: 200px;
-  max-width: 200px;
 }
 
 table.sales-contacts-table td.editable-cell textarea.registry-cell-autogrow-textarea,
