@@ -15852,8 +15852,43 @@ function App() {
       })
     })
 
+  const renderWorkReportMobileDayStack = () => (
+    <div className="work-report-mobile-day-stack mobile-card-only">
+      {selectedWorkWeekDays.map((day) => (
+        <article
+          key={`mobile-day-${day.date}`}
+          className={`work-report-mobile-day-card${day.isToday ? ' is-today' : ''}`}
+        >
+          <div className="work-report-day-head">
+            <div className="work-report-day-head-line">
+              <span className="work-report-day-weekday">{day.label}</span>
+              <span className="work-report-day-date">{day.date}</span>
+            </div>
+          </div>
+          {renderWorkReportChecklistSectionV4(day.date)}
+          {renderWorkReportExternalSectionV4(day.date)}
+          {renderWorkReportManagedSection(
+            day.date,
+            'DI사업',
+            WORK_REPORT_SECTION_KEYS.di,
+            WORK_REPORT_DI_ROW_COUNT,
+            'work-report-board-textarea-di'
+          )}
+          {renderWorkReportManagedSection(
+            day.date,
+            '도로사업',
+            WORK_REPORT_SECTION_KEYS.road,
+            WORK_REPORT_ROAD_ROW_COUNT,
+            'work-report-board-textarea-road'
+          )}
+          {renderWorkReportSupportSectionV4(day.date)}
+        </article>
+      ))}
+    </div>
+  )
+
   const renderWorkReportWeekBoardV5 = () => (
-    <div className="work-report-week-board-area work-report-week-board-scroll flex-1 min-h-0">
+    <div className="work-report-week-board-area work-report-week-board-scroll flex-1 min-h-0 desktop-table-only hidden md:block">
       <div className="work-report-week-board-inner">
         <div className="work-report-week-day-headers" aria-label="요일 헤더">
           {selectedWorkWeekDays.map((day) => (
@@ -16390,6 +16425,7 @@ function App() {
                 </div>
               </div>
 
+              {renderWorkReportMobileDayStack()}
               {renderWorkReportWeekBoardV5()}
 
               {isSavingWorkReports && (
