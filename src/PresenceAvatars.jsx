@@ -25,6 +25,17 @@ const PERSON_DISPLAY_ALIASES = {
   사용자: '이용자',
 }
 
+const GENERIC_ACCOUNT_LABELS = new Set(['관리자', '부서장', '리자'])
+
+/** 공용 역할 이름. 사람 계정으로 취급하지 않는다. */
+export function isGenericAccountLabel(displayName) {
+  const raw = String(displayName || '').trim()
+  if (!raw) return false
+  if (GENERIC_ACCOUNT_LABELS.has(raw)) return true
+  const full = formatPersonDisplayName(raw)
+  return GENERIC_ACCOUNT_LABELS.has(full)
+}
+
 const PRESENCE_MENU_CACHE_KEY = 'cms-presence-last-menus-v1'
 
 /** '전기웅(영업)' → '전기웅' — 화면에는 이름 세 글자만. */
@@ -100,7 +111,7 @@ export function PresenceAvatars({ users = [] }) {
   users.forEach((user) => {
     const raw = user.displayName || user.id
     const fullName = formatPersonDisplayName(raw) || raw
-    if (!fullName) return
+    if (!fullName || isGenericAccountLabel(raw) || isGenericAccountLabel(fullName)) return
     const menuTitle =
       readPresenceMenuTitle(user) || recalledPresenceMenuTitle(fullName) || recalledPresenceMenuTitle(raw)
     if (menuTitle) rememberPresenceMenuTitle(fullName, menuTitle)

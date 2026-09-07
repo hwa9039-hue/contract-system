@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from './AuthContext.jsx'
 import {
   formatPersonDisplayName,
+  isGenericAccountLabel,
   readPresenceMenuTitle,
   recalledPresenceMenuTitle,
   rememberPresenceMenuTitle,
@@ -60,7 +61,9 @@ function normalizeOnlineUsers(payload) {
     .map((row) => {
       const rawName = String(row?.displayName || row?.name || row?.id || '').trim()
       const displayName = formatPersonDisplayName(rawName) || rawName
-      if (!displayName) return null
+      if (!displayName || isGenericAccountLabel(rawName) || isGenericAccountLabel(displayName)) {
+        return null
+      }
       const menuTitle =
         readPresenceMenuTitle(row) ||
         recalledPresenceMenuTitle(displayName) ||
@@ -89,6 +92,15 @@ export function usePresence(menuTitle = '') {
 
     const rawLabel = String(roleLabel || '').trim()
     const displayName = formatPersonDisplayName(rawLabel) || rawLabel
+    if (
+      !rawLabel ||
+      !displayName ||
+      isGenericAccountLabel(rawLabel) ||
+      isGenericAccountLabel(displayName)
+    ) {
+      setOnlineUsers([])
+      return undefined
+    }
     const pageTitle =
       currentMenuTitle ||
       (typeof document !== 'undefined'

@@ -12,6 +12,7 @@ from app.auth_utils import (
     has_admin_accounts_configured,
     has_manager_accounts_configured,
     is_auth_disabled,
+    is_generic_account_label,
     is_retired_login_password,
     normalize_token_role,
     resolve_login_account,
@@ -57,6 +58,8 @@ def login(body: LoginBody):
     matched = resolve_login_account(body.password)
 
     login_role, display_name = matched
+    if is_generic_account_label(display_name):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
 
     token = create_access_token(login_role, display_name=display_name)
     return {
@@ -105,6 +108,8 @@ def refresh(request: Request):
 
     role = normalize_token_role(payload.get("role"))
     display_name = str(payload.get("display_name") or "").strip()
+    if not display_name or is_generic_account_label(display_name):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
     new_token = create_access_token(role, display_name=display_name)
     return {
         "access_token": new_token,
@@ -134,6 +139,8 @@ def me(request: Request):
         payload = decode_token(token)
         role = normalize_token_role(payload.get("role"))
         display_name = str(payload.get("display_name") or "").strip()
+        if not display_name or is_generic_account_label(display_name):
+            return {"valid": False, "auth_disabled": False}
         return {
             "valid": True,
             "auth_disabled": False,

@@ -47,12 +47,23 @@ def _write(data: dict) -> None:
     tmp.replace(path)
 
 
+_GENERIC_ACCOUNT_LABELS = frozenset({"관리자", "부서장", "리자"})
+
+
+def is_generic_account_label(name: str) -> bool:
+    compact = re.sub(r"\s+", "", str(name or ""))
+    compact = re.sub(r"[\(\（][^\)\）]*[\)\）]", "", compact)
+    return compact in _GENERIC_ACCOUNT_LABELS or compact[:3] in _GENERIC_ACCOUNT_LABELS
+
+
 def normalize_presence_name(name: str) -> str:
     compact = re.sub(r"\s+", "", str(name or ""))
     compact = re.sub(r"[\(\（][^\)\）]*[\)\）]", "", compact)
     compact = re.sub(r"영업$", "", compact)
     if compact == "사용자":
         compact = "이용자"
+    if is_generic_account_label(compact):
+        return ""
     return compact[:3] if compact else ""
 
 
@@ -92,10 +103,24 @@ def record_ping(
     menu_title: str = "",
     aliases: list[str] | None = None,
 ) -> dict:
-    key = normalize_presence_name(user_id or display_name) or (user_id or display_name or "").strip()
+    if is_generic_account_label(user_id) or is_generic_account_label(display_name):
+        return {
+            "id": "",
+            "displayName": "",
+            "lastActiveAt": "",
+            "menuTitle": "",
+            "users": list_online(),
+        }
+    key = normalize_presence_name(user_id or display_name)
     name = normalize_presence_name(display_name or user_id) or key
     if not key:
-        raise ValueError("empty presence id")
+        return {
+            "id": "",
+            "displayName": "",
+            "lastActiveAt": "",
+            "menuTitle": "",
+            "users": list_online(),
+        }
     now = _utcnow()
     title = str(menu_title or "").strip()[:40]
     alias_names = [user_id, display_name, *(aliases or [])]
@@ -132,7 +157,11 @@ def list_online() -> list[dict]:
             ts, menu_title = _parse_entry(raw)
             if ts is None or ts < cutoff:
                 continue
-            norm = normalize_presence_name(key) or key
+            if is_generic_account_label(key):
+                continue
+            norm = normalize_presence_name(key)
+            if not norm:
+                continue
             match_key = next((name for name in collapsed if same_presence_person(name, norm)), norm)
             prev = collapsed.get(match_key)
             if prev is None:

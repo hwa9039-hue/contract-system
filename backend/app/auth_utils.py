@@ -33,6 +33,14 @@ _DEFAULT_MANAGER_ACCOUNTS: tuple[tuple[str, str], ...] = ()
 _RETIRED_LOGIN_PASSWORDS: tuple[str, ...] = ("admin2026!", "smartdi2026!")
 
 
+_GENERIC_ACCOUNT_LABELS = frozenset({"관리자", "부서장", "리자"})
+
+
+def is_generic_account_label(name: str) -> bool:
+    compact = "".join(str(name or "").split())
+    return compact in _GENERIC_ACCOUNT_LABELS
+
+
 def is_retired_login_password(password: str) -> bool:
     trimmed = (password or "").strip()
     if not trimmed:
@@ -79,7 +87,7 @@ def _parse_accounts_env(raw: str, fallback_label: str) -> list[tuple[str, str]]:
         password, label = chunk.split(":", 1)
         password = password.strip()
         label = label.strip() or fallback_label
-        if password:
+        if password and not is_generic_account_label(label):
             accounts.append((password, label))
     return accounts
 

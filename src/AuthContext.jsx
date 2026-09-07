@@ -33,6 +33,7 @@ import {
   ROLES,
   VALID_ROLES,
 } from './permissions.js'
+import { isGenericAccountLabel } from './PresenceAvatars.jsx'
 
 const AuthContext = createContext(null)
 
@@ -138,6 +139,10 @@ export function AuthProvider({ children }) {
             String(data.role_label || '').trim() ||
             ROLE_LABELS[serverRole] ||
             ROLE_LABELS[ROLES.USER]
+          if (isGenericAccountLabel(serverLabel) || isGenericAccountLabel(data.role_label)) {
+            clearSession()
+            return
+          }
           setRole(serverRole)
           setRoleLabel(serverLabel)
           writeRole(serverRole, stored.persistence)
@@ -290,6 +295,11 @@ export function AuthProvider({ children }) {
         ROLE_LABELS[resolvedRole] ||
         ROLE_LABELS[ROLES.USER]
 
+      if (isGenericAccountLabel(resolvedLabel) || isGenericAccountLabel(matched.label)) {
+        clearAuthToken()
+        return { ok: false, error: '계정이 올바르지 않습니다.' }
+      }
+
       const persistence = rememberMe ? 'persistent' : 'session'
       const sessionDuration = rememberMe
         ? CONTRACT_PERSISTENT_SESSION_DURATION_MS
@@ -330,6 +340,13 @@ export function AuthProvider({ children }) {
     setRoleLabel(ROLE_LABELS[ROLES.USER])
     setSharedSessionExpiresAt(0)
   }, [])
+
+  useEffect(() => {
+    if (!authHydrated || !isAuthenticated) return
+    if (isGenericAccountLabel(roleLabel)) {
+      logout()
+    }
+  }, [authHydrated, isAuthenticated, roleLabel, logout])
 
   const extendLogin = useCallback(async () => {
     const persistence = authPersistence === 'persistent' ? 'persistent' : 'session'

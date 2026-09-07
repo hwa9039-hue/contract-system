@@ -25,8 +25,26 @@ export function formatRemainingSessionLabel(minutes) {
   return `${hours}시간 ${rest}분`
 }
 
-import { AUTH_TOKEN_KEY } from './apiClient.js'
+import { AUTH_TOKEN_KEY, clearAuthToken } from './apiClient.js'
 import { hasAdminPrivileges, normalizeRole, ROLE_LABELS, ROLES } from './permissions.js'
+
+/** 공용 역할 이름. 사람 계정 세션으로 복구하지 않는다. */
+const GENERIC_ACCOUNT_LABELS = new Set(['관리자', '부서장', '리자'])
+
+function isGenericAccountLabel(label) {
+  return GENERIC_ACCOUNT_LABELS.has(String(label || '').trim())
+}
+
+function loggedOutAuthSession() {
+  return {
+    isAuthenticated: false,
+    expiresAt: 0,
+    persistence: 'none',
+    isAdmin: false,
+    role: ROLES.USER,
+    roleLabel: ROLE_LABELS[ROLES.USER],
+  }
+}
 
 /** 예전 공용 관리자·사용자 비밀번호. 로그인에 쓰지 않는다. */
 export const RETIRED_LOGIN_PASSWORDS = Object.freeze(['admin2026!', 'smartdi2026!'])
@@ -47,7 +65,9 @@ function parseAccountsEnv(raw, fallbackLabel) {
     const idx = chunk.indexOf(':')
     const password = chunk.slice(0, idx).trim()
     const label = chunk.slice(idx + 1).trim() || fallbackLabel
-    if (password && !isRetiredLoginPassword(password)) out.push({ password, label })
+    if (password && !isRetiredLoginPassword(password) && !isGenericAccountLabel(label)) {
+      out.push({ password, label })
+    }
   }
   return out
 }
@@ -384,14 +404,7 @@ export function restoreAuthSessionFromStorages() {
   }
 
   if (!chosen) {
-    return {
-      isAuthenticated: false,
-      expiresAt: 0,
-      persistence: 'none',
-      isAdmin: false,
-      role: ROLES.USER,
-      roleLabel: ROLE_LABELS[ROLES.USER],
-    }
+    return loggedOutAuthSession()
   }
 
   syncAuthTokenToActiveStorage(persistence)
@@ -399,6 +412,13 @@ export function restoreAuthSessionFromStorages() {
   const role = readStoredRole(persistence)
   const storedLabel = readStoredRoleLabel(persistence)
   const roleLabel = storedLabel || ROLE_LABELS[role] || ROLE_LABELS[ROLES.USER]
+
+  if (isGenericAccountLabel(storedLabel) || isGenericAccountLabel(roleLabel)) {
+    clearSharedAuthSession()
+    clearRole()
+    clearAuthToken()
+    return loggedOutAuthSession()
+  }
 
   return {
     isAuthenticated: true,
