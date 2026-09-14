@@ -3,6 +3,8 @@ export const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
 export const ROLE_SESSION_KEY = 'contract_manager_role_session_v1'
 /** 화면 표시용 라벨(부서장 이름 등) 저장 키 */
 export const ROLE_LABEL_SESSION_KEY = 'contract_manager_role_label_session_v1'
+/** 로그인 계정 ID(hy9039, wizard1221 등) 저장 키 — 사람 단위 메뉴 권한에 사용 */
+export const ACCOUNT_ID_SESSION_KEY = 'contract_manager_account_id_v1'
 export const CONTRACT_SHARED_AUTH_KEY = 'CONTRACT_SHARED_AUTH'
 export const CONTRACT_SHARED_EXPIRES_AT_KEY = 'CONTRACT_SHARED_EXPIRES_AT'
 export const CONTRACT_REMEMBER_ME_FLAG_KEY = 'CONTRACT_REMEMBER_ME'
@@ -26,7 +28,14 @@ export function formatRemainingSessionLabel(minutes) {
 }
 
 import { AUTH_TOKEN_KEY, clearAuthToken } from './apiClient.js'
-import { hasAdminPrivileges, normalizeRole, ROLE_LABELS, ROLES } from './permissions.js'
+import {
+  accountIdFromRoleLabel,
+  hasAdminPrivileges,
+  normalizeAccountId,
+  normalizeRole,
+  ROLE_LABELS,
+  ROLES,
+} from './permissions.js'
 
 /** 공용 역할 이름. 사람 계정 세션으로 복구하지 않는다. */
 const GENERIC_ACCOUNT_LABELS = new Set(['관리자', '부서장', '리자'])
@@ -43,6 +52,7 @@ function loggedOutAuthSession() {
     isAdmin: false,
     role: ROLES.USER,
     roleLabel: ROLE_LABELS[ROLES.USER],
+    accountId: '',
   }
 }
 
@@ -66,7 +76,11 @@ function parseAccountsEnv(raw, fallbackLabel) {
     const password = chunk.slice(0, idx).trim()
     const label = chunk.slice(idx + 1).trim() || fallbackLabel
     if (password && !isRetiredLoginPassword(password) && !isGenericAccountLabel(label)) {
-      out.push({ password, label })
+      out.push({
+        id: normalizeAccountId(password),
+        password,
+        label,
+      })
     }
   }
   return out
@@ -74,16 +88,16 @@ function parseAccountsEnv(raw, fallbackLabel) {
 
 /** 기본 계정 (비밀번호 → 표시명). 전원 동일 권한(admin). */
 const DEFAULT_ADMIN_ACCOUNTS = Object.freeze([
-  { password: 'hy9039!', label: '정화영' },
-  { password: 'jhjoung!', label: '정주희' },
-  { password: 'kk2331!', label: '전기웅' },
-  { password: 'nov1st!', label: '유영무' },
-  { password: 'sskim!', label: '김성수' },
-  { password: 'yongja_lee!', label: '이용자' },
-  { password: 'pjb9878!', label: '박재범' },
-  { password: 'jslee!', label: '이재승' },
-  { password: 'wizard1221!', label: '전재우' },
-  { password: 'ssj8845!', label: '신상준' },
+  { id: 'hy9039', password: 'hy9039!', label: '정화영' },
+  { id: 'jhjoung', password: 'jhjoung!', label: '정주희' },
+  { id: 'kk2331', password: 'kk2331!', label: '전기웅' },
+  { id: 'nov1st', password: 'nov1st!', label: '유영무' },
+  { id: 'sskim', password: 'sskim!', label: '김성수' },
+  { id: 'yongja_lee', password: 'yongja_lee!', label: '이용자' },
+  { id: 'pjb9878', password: 'pjb9878!', label: '박재범' },
+  { id: 'jslee', password: 'jslee!', label: '이재승' },
+  { id: 'wizard1221', password: 'wizard1221!', label: '전재우' },
+  { id: 'ssj8845', password: 'ssj8845!', label: '신상준' },
 ])
 
 /** 하위 호환. 새 계정은 DEFAULT_ADMIN_ACCOUNTS 에 넣는다. */
@@ -141,9 +155,23 @@ export function resolveLoginAccount(password) {
   const trimmed = String(password || '').trim()
   if (!trimmed || isRetiredLoginPassword(trimmed)) return null
   const admin = findAdminAccount(trimmed)
-  if (admin) return { role: ROLES.ADMIN, label: admin.label, password: admin.password }
+  if (admin) {
+    return {
+      role: ROLES.ADMIN,
+      id: normalizeAccountId(admin.id || admin.password),
+      label: admin.label,
+      password: admin.password,
+    }
+  }
   const manager = findManagerAccount(trimmed)
-  if (manager) return { role: ROLES.ADMIN, label: manager.label, password: manager.password }
+  if (manager) {
+    return {
+      role: ROLES.ADMIN,
+      id: normalizeAccountId(manager.id || manager.password),
+      label: manager.label,
+      password: manager.password,
+    }
+  }
   return null
 }
 
@@ -320,6 +348,7 @@ export function clearRole() {
   }
   clearAdminFlag()
   clearRoleLabel()
+  clearAccountId()
 }
 
 /** @param {'session' | 'persistent'} persistence */
@@ -357,6 +386,46 @@ export function clearRoleLabel() {
   try {
     localStorage.removeItem(ROLE_LABEL_SESSION_KEY)
     sessionStorage.removeItem(ROLE_LABEL_SESSION_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** @param {'session' | 'persistent'} persistence */
+export function readStoredAccountId(persistence = 'session') {
+  try {
+    const raw =
+      persistence === 'persistent'
+        ? localStorage.getItem(ACCOUNT_ID_SESSION_KEY) ||
+          sessionStorage.getItem(ACCOUNT_ID_SESSION_KEY)
+        : sessionStorage.getItem(ACCOUNT_ID_SESSION_KEY)
+    return normalizeAccountId(raw)
+  } catch {
+    return ''
+  }
+}
+
+/** @param {'session' | 'persistent'} persistence */
+export function writeAccountId(accountId, persistence = 'session') {
+  const text = normalizeAccountId(accountId)
+  try {
+    localStorage.removeItem(ACCOUNT_ID_SESSION_KEY)
+    sessionStorage.removeItem(ACCOUNT_ID_SESSION_KEY)
+    if (!text) return
+    const primary = persistence === 'persistent' ? localStorage : sessionStorage
+    primary.setItem(ACCOUNT_ID_SESSION_KEY, text)
+    if (persistence === 'persistent') {
+      sessionStorage.setItem(ACCOUNT_ID_SESSION_KEY, text)
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearAccountId() {
+  try {
+    localStorage.removeItem(ACCOUNT_ID_SESSION_KEY)
+    sessionStorage.removeItem(ACCOUNT_ID_SESSION_KEY)
   } catch {
     /* ignore */
   }
@@ -412,6 +481,7 @@ export function restoreAuthSessionFromStorages() {
   const role = readStoredRole(persistence)
   const storedLabel = readStoredRoleLabel(persistence)
   const roleLabel = storedLabel || ROLE_LABELS[role] || ROLE_LABELS[ROLES.USER]
+  const accountId = readStoredAccountId(persistence) || accountIdFromRoleLabel(roleLabel)
 
   if (isGenericAccountLabel(storedLabel) || isGenericAccountLabel(roleLabel)) {
     clearSharedAuthSession()
@@ -420,12 +490,15 @@ export function restoreAuthSessionFromStorages() {
     return loggedOutAuthSession()
   }
 
+  if (accountId) writeAccountId(accountId, persistence)
+
   return {
     isAuthenticated: true,
     expiresAt: chosen.expiresAt,
     persistence,
     role,
     roleLabel,
+    accountId,
     // isAdmin 은 "관리자급 여부" — 부서장(manager)도 true 로 취급 (permissions.js 참고)
     isAdmin: hasAdminPrivileges(role),
   }

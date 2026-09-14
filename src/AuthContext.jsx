@@ -21,13 +21,16 @@ import {
   resolveLoginAccount,
   writeRole,
   writeRoleLabel,
+  writeAccountId,
   writeSharedAuthSession,
   clearRole,
   clearSharedAuthSession,
   syncAuthTokenToActiveStorage,
 } from './authSession.js'
 import {
+  accountIdFromRoleLabel,
   hasAdminPrivileges,
+  normalizeAccountId,
   normalizeRole,
   ROLE_LABELS,
   ROLES,
@@ -46,6 +49,7 @@ export function AuthProvider({ children }) {
   const [roleLabel, setRoleLabel] = useState(
     hydrated.roleLabel || ROLE_LABELS[hydrated.role] || ROLE_LABELS[ROLES.USER]
   )
+  const [accountId, setAccountId] = useState(hydrated.accountId || '')
   const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(hydrated.expiresAt)
   const [authHydrated, setAuthHydrated] = useState(true)
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState('')
@@ -59,6 +63,7 @@ export function AuthProvider({ children }) {
     setIsAuthenticated(session.isAuthenticated)
     setRole(session.role)
     setRoleLabel(session.roleLabel || ROLE_LABELS[session.role] || ROLE_LABELS[ROLES.USER])
+    setAccountId(session.accountId || accountIdFromRoleLabel(session.roleLabel) || '')
     setSharedSessionExpiresAt(session.expiresAt)
     if (session.isAuthenticated) {
       syncAuthTokenToActiveStorage(session.persistence)
@@ -77,6 +82,7 @@ export function AuthProvider({ children }) {
       setIsAuthenticated(false)
       setRole(ROLES.USER)
       setRoleLabel(ROLE_LABELS[ROLES.USER])
+      setAccountId('')
       setSharedSessionExpiresAt(0)
       setSessionExpiredNotice(message || SESSION_EXPIRED_USER_MESSAGE)
     })
@@ -101,6 +107,7 @@ export function AuthProvider({ children }) {
       setIsAuthenticated(false)
       setRole(ROLES.USER)
       setRoleLabel(ROLE_LABELS[ROLES.USER])
+      setAccountId('')
       setSharedSessionExpiresAt(0)
       clearSharedAuthSession()
       clearRole()
@@ -300,6 +307,11 @@ export function AuthProvider({ children }) {
         return { ok: false, error: '계정이 올바르지 않습니다.' }
       }
 
+      const resolvedAccountId =
+        normalizeAccountId(matched.id) ||
+        accountIdFromRoleLabel(resolvedLabel) ||
+        normalizeAccountId(matched.password)
+
       const persistence = rememberMe ? 'persistent' : 'session'
       const sessionDuration = rememberMe
         ? CONTRACT_PERSISTENT_SESSION_DURATION_MS
@@ -308,12 +320,14 @@ export function AuthProvider({ children }) {
       writeSharedAuthSession(expiresAt, persistence)
       writeRole(resolvedRole, persistence)
       writeRoleLabel(resolvedLabel, persistence)
+      writeAccountId(resolvedAccountId, persistence)
       syncAuthTokenToActiveStorage(persistence)
 
       setAuthPersistence(persistence)
       setIsAuthenticated(true)
       setRole(resolvedRole)
       setRoleLabel(resolvedLabel)
+      setAccountId(resolvedAccountId)
       setSharedSessionExpiresAt(expiresAt)
 
       logCmsApiLogin('success', {
@@ -338,6 +352,7 @@ export function AuthProvider({ children }) {
     setIsAuthenticated(false)
     setRole(ROLES.USER)
     setRoleLabel(ROLE_LABELS[ROLES.USER])
+    setAccountId('')
     setSharedSessionExpiresAt(0)
   }, [])
 
@@ -361,6 +376,7 @@ export function AuthProvider({ children }) {
       role,
       // roleLabel: 화면 표시용 한글 라벨('관리자' | '전기웅' | '이용자' 등)
       roleLabel,
+      accountId,
       // isAdmin: 관리자급 권한 여부(admin·manager 공통) — 기존 코드 하위 호환용
       isAdmin,
       sharedSessionExpiresAt,
@@ -375,6 +391,7 @@ export function AuthProvider({ children }) {
       isAuthenticated,
       role,
       roleLabel,
+      accountId,
       isAdmin,
       sharedSessionExpiresAt,
       authHydrated,

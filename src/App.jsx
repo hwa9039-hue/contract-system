@@ -71,6 +71,7 @@ import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 // import UnitPriceManagement from './pages/UnitPriceManagement.jsx'
 // import ProjectManagement from './pages/ProjectManagement.jsx'
 import OrderManagementPlaceholder from './pages/OrderManagementPlaceholder.jsx'
+import BitHistoryPage from './pages/sales/BitHistoryPage.jsx'
 import PreparingPlaceholder from './pages/PreparingPlaceholder.jsx'
 import PaymentReportPage from './pages/PaymentReportPage.jsx'
 import SalesContactsPage from './pages/SalesContactsPage.jsx'
@@ -158,11 +159,13 @@ import { usePresence } from './usePresence.js'
 import { PresenceAvatars, formatPersonDisplayName } from './PresenceAvatars.jsx'
 import { DeleteConfirmModal } from './DeleteConfirmModal.jsx'
 import {
+  BIT_HISTORY_MENU_KEY,
+  canAccessBitHistory,
   canAccessMenu,
   canEditMenu,
   filterSidebarMenuGroups,
 } from './permissions.js'
-import { CONTRACT_SHARED_WARNING_MS, formatRemainingSessionLabel } from './authSession.js'
+import { CONTRACT_SHARED_WARNING_MS, formatRemainingSessionLabel, hydrateAuthSessionFromStorage } from './authSession.js'
 import {
   CONTRACT_EXCEL_HEADER_KEYWORDS,
   sheetToJsonWithSmartHeader,
@@ -1623,6 +1626,7 @@ const PAGE_TITLE_MAP = {
   workReports: '주간업무보고서',
   meetingMinutes: '회의록',
   contracts: '계약현황',
+  bitHistory: 'BIT 이력관리',
   calendar: '캘린더',
   sales: '영업관리대장',
   discovery: '건축정보',
@@ -1647,6 +1651,7 @@ const UNIT_PRICE_MENU_PATH = '/unit-price'
 /** @deprecated 사이드바에서 제거 — 북마크 진입 시 홈으로 되돌림 */
 const PROJECT_MANAGEMENT_MENU_PATH = '/project-management'
 const ORDER_MANAGEMENT_MENU_PATH = '/order-management'
+const BIT_HISTORY_MENU_PATH = '/sales/bit-history'
 function isWorkReportRelatedMenu(menuKey) {
   return menuKey === 'workReports' || menuKey === 'meetingMinutes'
 }
@@ -1775,6 +1780,7 @@ const SIDEBAR_MENU_GROUPS = [
     label: '영업관리',
     items: [
       { key: 'contracts', label: '계약현황' },
+      { key: BIT_HISTORY_MENU_KEY, label: 'BIT 이력관리' },
       { key: 'sales', label: '영업관리대장' },
       { key: 'discovery', label: '건축정보' },
       { key: 'excluded', label: '사업공유' },
@@ -1819,6 +1825,9 @@ function resolveInitialMenu() {
         return 'dashboard'
       }
       if (window.location.pathname === ORDER_MANAGEMENT_MENU_PATH) return 'orderManagement'
+      if (window.location.pathname === BIT_HISTORY_MENU_PATH) {
+        return BIT_HISTORY_MENU_KEY
+      }
     }
   } catch {
     /* ignore */
@@ -1836,6 +1845,10 @@ function getMenuGroupIdForMenu(menuKey) {
 function loadStoredMenu() {
   try {
     const saved = localStorage.getItem(ACTIVE_MENU_STORAGE_KEY)
+    if (saved === BIT_HISTORY_MENU_KEY) {
+      const session = hydrateAuthSessionFromStorage()
+      if (!canAccessBitHistory(session.accountId)) return 'dashboard'
+    }
     if (saved && ALL_MENU_KEYS.includes(saved)) return saved
   } catch {
     /* ignore */
@@ -6245,7 +6258,7 @@ function splitDashboardRecentTitleLabel(fullLabel) {
 }
 
 function App() {
-  const { role, roleLabel, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
+  const { role, roleLabel, accountId, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
     useAuth()
   const canEditContracts = canEditMenu('contracts', role)
   // const canEditProjectManagement = canEditMenu('projectManagement', role) // 메뉴 제거
@@ -6507,7 +6520,7 @@ function App() {
 
   useEffect(() => {
     if (!authHydrated) return
-    if (canAccessMenu(menu, role)) return
+    if (canAccessMenu(menu, role, accountId)) return
 
     showAppAlert('접근 권한이 없습니다.', '권한 없음')
     setMenu('dashboard')
@@ -6515,14 +6528,15 @@ function App() {
       if (
         window.location.pathname === UNIT_PRICE_MENU_PATH ||
         window.location.pathname === PROJECT_MANAGEMENT_MENU_PATH ||
-        window.location.pathname === ORDER_MANAGEMENT_MENU_PATH
+        window.location.pathname === ORDER_MANAGEMENT_MENU_PATH ||
+        window.location.pathname === BIT_HISTORY_MENU_PATH
       ) {
         window.history.replaceState(null, '', '/')
       }
     } catch {
       /* ignore */
     }
-  }, [authHydrated, role, menu, showAppAlert])
+  }, [authHydrated, role, accountId, menu, showAppAlert])
 
   useEffect(() => {
     setIsMobileNavOpen(false)
@@ -6898,12 +6912,17 @@ function App() {
         if (window.location.pathname !== ORDER_MANAGEMENT_MENU_PATH) {
           window.history.replaceState(null, '', ORDER_MANAGEMENT_MENU_PATH)
         }
+      } else if (menu === BIT_HISTORY_MENU_KEY) {
+        if (window.location.pathname !== BIT_HISTORY_MENU_PATH) {
+          window.history.replaceState(null, '', BIT_HISTORY_MENU_PATH)
+        }
       } else if (
         window.location.pathname === UNIT_PRICE_MENU_PATH ||
         window.location.pathname === PROJECT_MANAGEMENT_MENU_PATH ||
-        window.location.pathname === ORDER_MANAGEMENT_MENU_PATH
+        window.location.pathname === ORDER_MANAGEMENT_MENU_PATH ||
+        window.location.pathname === BIT_HISTORY_MENU_PATH
       ) {
-        // 제거된 메뉴·발주관리 외 메뉴로 이동 시 URL 정리
+        // 제거된 메뉴·전용 URL 메뉴 외로 이동 시 URL 정리
         window.history.replaceState(null, '', '/')
       }
     } catch {
@@ -15959,7 +15978,7 @@ function App() {
               대시보드
             </button>
 
-            {filterSidebarMenuGroups(SIDEBAR_MENU_GROUPS, role).map((group) => {
+            {filterSidebarMenuGroups(SIDEBAR_MENU_GROUPS, role, accountId).map((group) => {
               const isExpanded = Boolean(expandedMenuGroups[group.id])
               const hasActiveChild = group.items.some((item) => item.key === menu)
               return (
@@ -18344,6 +18363,10 @@ function App() {
         {menu === 'salesContacts' && <SalesContactsPage role={role} />}
 
         {menu === 'orderManagement' && <OrderManagementPlaceholder />}
+
+        {menu === BIT_HISTORY_MENU_KEY && canAccessMenu(BIT_HISTORY_MENU_KEY, role, accountId) && (
+          <BitHistoryPage />
+        )}
 
         {/* 사업관리 / 단가관리 라우트 비활성화
         {menu === 'projectManagement' && (

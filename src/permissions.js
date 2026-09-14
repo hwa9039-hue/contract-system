@@ -35,6 +35,48 @@ export const ADMIN_LEVEL_ROLES = new Set([ROLES.ADMIN, ROLES.MANAGER])
 
 export const VALID_ROLES = new Set([ROLES.ADMIN, ROLES.MANAGER, ROLES.USER])
 
+export const BIT_HISTORY_MENU_KEY = 'bitHistory'
+
+/** BIT 이력관리 메뉴·URL 허용 계정 ID (비밀번호에서 ! 를 뺀 값) */
+export const BIT_HISTORY_ALLOWED_ACCOUNT_IDS = Object.freeze([
+  'kk2331',
+  'wizard1221',
+  'hy9039',
+  'jhjoung',
+])
+
+const BIT_HISTORY_ALLOWED_ACCOUNT_ID_SET = new Set(BIT_HISTORY_ALLOWED_ACCOUNT_IDS)
+
+/** 표시명 → 계정 ID. 예전 세션에 ID 가 없을 때 복구용 */
+export const ACCOUNT_ID_BY_LABEL = Object.freeze({
+  정화영: 'hy9039',
+  정주희: 'jhjoung',
+  전기웅: 'kk2331',
+  유영무: 'nov1st',
+  김성수: 'sskim',
+  이용자: 'yongja_lee',
+  박재범: 'pjb9878',
+  이재승: 'jslee',
+  전재우: 'wizard1221',
+  신상준: 'ssj8845',
+})
+
+export function normalizeAccountId(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/!+$/g, '')
+}
+
+export function accountIdFromRoleLabel(roleLabel) {
+  const label = String(roleLabel || '').trim()
+  return ACCOUNT_ID_BY_LABEL[label] || ''
+}
+
+export function canAccessBitHistory(accountId) {
+  return BIT_HISTORY_ALLOWED_ACCOUNT_ID_SET.has(normalizeAccountId(accountId))
+}
+
 /** 문자열 role 을 안전하게 정규화 (알 수 없는 값 → user) */
 export function normalizeRole(role) {
   const normalized = String(role || ROLES.USER).trim().toLowerCase()
@@ -105,7 +147,11 @@ function toIsPrivileged(isAdminOrRole) {
 }
 
 /** 특정 역할이 해당 메뉴에 접근(열람)할 수 있는지 */
-export function canAccessMenu(menuKey, isAdminOrRole) {
+export function canAccessMenu(menuKey, isAdminOrRole, accountId) {
+  if (menuKey === BIT_HISTORY_MENU_KEY) {
+    return canAccessBitHistory(accountId)
+  }
+
   const role = resolveRole(isAdminOrRole)
   const whitelist = MENU_ALLOWED_ROLES[menuKey]
   if (whitelist) {
@@ -117,7 +163,7 @@ export function canAccessMenu(menuKey, isAdminOrRole) {
 }
 
 /** 특정 역할이 해당 메뉴를 편집(쓰기)할 수 있는지 */
-export function canEditMenu(menuKey, isAdminOrRole) {
+export function canEditMenu(menuKey, isAdminOrRole, accountId) {
   const role = resolveRole(isAdminOrRole)
 
   // 조회 전용: 관리자만 등록/수정/삭제
@@ -130,21 +176,21 @@ export function canEditMenu(menuKey, isAdminOrRole) {
   }
 
   // 접근 자체가 막힌 메뉴는 편집도 불가
-  if (!canAccessMenu(menuKey, role)) return false
+  if (!canAccessMenu(menuKey, role, accountId)) return false
 
   return true
 }
 
-export function filterSidebarMenuItems(items, isAdminOrRole) {
-  return items.filter((item) => canAccessMenu(item.key, isAdminOrRole))
+export function filterSidebarMenuItems(items, isAdminOrRole, accountId) {
+  return items.filter((item) => canAccessMenu(item.key, isAdminOrRole, accountId))
 }
 
 /** 접근 가능한 하위 항목이 하나도 없으면 대분류 그룹 자체를 숨긴다 */
-export function filterSidebarMenuGroups(groups, isAdminOrRole) {
+export function filterSidebarMenuGroups(groups, isAdminOrRole, accountId) {
   return groups
     .map((group) => ({
       ...group,
-      items: filterSidebarMenuItems(group.items, isAdminOrRole),
+      items: filterSidebarMenuItems(group.items, isAdminOrRole, accountId),
     }))
     .filter((group) => group.items.length > 0)
 }
@@ -153,7 +199,7 @@ export function isAdminOnlyMenuPath(pathname) {
   return false
 }
 
-export function resolveMenuAccessDeniedRedirect(menuKey, isAdminOrRole) {
-  if (canAccessMenu(menuKey, isAdminOrRole)) return null
+export function resolveMenuAccessDeniedRedirect(menuKey, isAdminOrRole, accountId) {
+  if (canAccessMenu(menuKey, isAdminOrRole, accountId)) return null
   return 'dashboard'
 }
