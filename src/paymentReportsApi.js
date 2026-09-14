@@ -21,8 +21,11 @@ export const PAYMENT_REPORT_FIELDS = [
   'vendorDetail',
   'completionAmount',
   'materialCost',
+  'materialCostMemo',
   'currentExpense',
+  'currentExpenseMemo',
   'profitRate',
+  'profitMemo',
 ]
 
 function safeString(value) {

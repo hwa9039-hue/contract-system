@@ -241,8 +241,11 @@ def _project_payment_report(row: dict) -> dict[str, Any]:
         "업체정보": _normalize_cell(item.get("vendorDetail")),
         "사업준공금액": _normalize_cell(item.get("completionAmount")),
         "자재비": _normalize_cell(item.get("materialCost")),
+        "자재비 비고": _normalize_cell(item.get("materialCostMemo")),
         "현지출": _normalize_cell(item.get("currentExpense")),
+        "현지출 비고": _normalize_cell(item.get("currentExpenseMemo")),
         "이익률": _normalize_cell(item.get("profitRate")),
+        "이익률 비고": _normalize_cell(item.get("profitMemo")),
     }
 
 

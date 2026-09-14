@@ -187,8 +187,11 @@ function matchesPaymentReportSearch(row, query) {
     row.vendorDetail,
     row.completionAmount,
     row.materialCost,
+    row.materialCostMemo,
     row.currentExpense,
+    row.currentExpenseMemo,
     row.profitRate,
+    row.profitMemo,
     row.paymentMonth,
     cycleLabel,
   ]
@@ -887,8 +890,11 @@ function createPaymentReportRow(seq, id, paymentCycle = '15', paymentMonth = for
     vendorDetail: '',
     completionAmount: '',
     materialCost: '',
+    materialCostMemo: '',
     currentExpense: '',
+    currentExpenseMemo: '',
     profitRate: '',
+    profitMemo: '',
     files: [],
     attachmentItems: [],
   }
@@ -900,20 +906,56 @@ function isPersistedPaymentReportId(id) {
   )
 }
 
+function PaymentMemoInput({ value, onChange, onBlur, className, fieldKey, ariaLabel }) {
+  const [text, setText] = useState(() => safeString(value))
+  const focusedRef = useRef(false)
+
+  useEffect(() => {
+    if (!focusedRef.current) setText(safeString(value))
+  }, [value])
+
+  return (
+    <input
+      className={className}
+      type="text"
+      autoComplete="off"
+      data-pdf-field={fieldKey}
+      value={text}
+      onFocus={() => {
+        focusedRef.current = true
+      }}
+      onChange={(e) => {
+        const next = e.target.value
+        setText(next)
+        onChange?.(next)
+      }}
+      onBlur={() => {
+        focusedRef.current = false
+        onBlur?.()
+      }}
+      aria-label={ariaLabel}
+    />
+  )
+}
+
 function PaymentAmountRateField({
   label,
   fieldKey,
   amountValue,
+  memoValue,
+  memoFieldKey,
   completionAmount,
   onChange,
   onBlur,
+  onMemoChange,
+  onMemoBlur,
 }) {
   return (
     <div className="payment-report-expand-field payment-report-expand-field--split">
       <span>{label}</span>
-      <div className="payment-report-amount-rate">
+      <div className="payment-report-amount-rate grid grid-cols-12 gap-3 min-w-0">
         <input
-          className="payment-report-cell-input"
+          className="payment-report-cell-input payment-report-amount-rate__amount col-span-6 min-w-0 rounded-md"
           type="text"
           inputMode="numeric"
           autoComplete="off"
@@ -925,7 +967,7 @@ function PaymentAmountRateField({
           aria-label={`${label} 금액`}
         />
         <input
-          className="payment-report-cell-input payment-report-cell-input--readonly payment-report-rate-input"
+          className="payment-report-cell-input payment-report-cell-input--readonly payment-report-rate-input payment-report-amount-rate__rate col-span-2 min-w-0 rounded-md"
           type="text"
           readOnly
           tabIndex={-1}
@@ -934,6 +976,14 @@ function PaymentAmountRateField({
           value={formatRatePercentDisplay(amountValue, completionAmount)}
           placeholder="-%"
           aria-label={`${label} 요율`}
+        />
+        <PaymentMemoInput
+          className="payment-report-cell-input payment-report-amount-rate__memo col-span-4 min-w-0 rounded-md"
+          fieldKey={memoFieldKey || `${fieldKey}Memo`}
+          value={memoValue}
+          onChange={onMemoChange}
+          onBlur={onMemoBlur}
+          ariaLabel={`${label} 비고/내역`}
         />
       </div>
     </div>
@@ -1048,47 +1098,63 @@ function PaymentReportExpandedPanel({
           <p className="payment-report-expand-amounts-title">결제정보</p>
           <label className="payment-report-expand-field">
             <span>사업준공금액</span>
-            <input
-              className="payment-report-cell-input"
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              data-pdf-field="completionAmount"
-              value={row.completionAmount}
-              onChange={(e) => onCompletionAmountChange?.(row.id, e.target.value)}
-              onFocus={(e) => {
-                const amount = parseAmountNumber(e.target.value)
-                if (amount != null && /원|\//.test(e.target.value)) {
-                  onChange(row.id, 'completionAmount', formatAmountComma(String(amount)))
-                }
-              }}
-              onBlur={() => onCompletionAmountBlur?.(row.id)}
-              placeholder="금액 입력"
-            />
+            <div className="payment-report-amount-rate grid grid-cols-12 gap-3 min-w-0">
+              <input
+                className="payment-report-cell-input payment-report-amount-rate__amount col-span-6 min-w-0 rounded-md"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                data-pdf-field="completionAmount"
+                value={row.completionAmount}
+                onChange={(e) => onCompletionAmountChange?.(row.id, e.target.value)}
+                onFocus={(e) => {
+                  const amount = parseAmountNumber(e.target.value)
+                  if (amount != null && /원|\//.test(e.target.value)) {
+                    onChange(row.id, 'completionAmount', formatAmountComma(String(amount)))
+                  }
+                }}
+                onBlur={() => onCompletionAmountBlur?.(row.id)}
+                placeholder="금액 입력"
+              />
+              <span className="col-span-2 min-w-0" aria-hidden="true" />
+              <span className="col-span-4 min-w-0" aria-hidden="true" />
+            </div>
           </label>
           <PaymentAmountRateField
             label="물품원가금액"
             fieldKey="materialCost"
+            memoFieldKey="materialCostMemo"
             amountValue={row.materialCost}
+            memoValue={row.materialCostMemo}
             completionAmount={row.completionAmount}
             onChange={(value) => onMaterialCostChange?.(row.id, value)}
             onBlur={() => onMaterialCostBlur?.(row.id)}
+            onMemoChange={(value) => onChange(row.id, 'materialCostMemo', value)}
+            onMemoBlur={commit}
           />
           <PaymentAmountRateField
             label="금회지출액"
             fieldKey="currentExpense"
+            memoFieldKey="currentExpenseMemo"
             amountValue={row.currentExpense}
+            memoValue={row.currentExpenseMemo}
             completionAmount={row.completionAmount}
             onChange={(value) => onCurrentExpenseChange?.(row.id, value)}
             onBlur={() => onCurrentExpenseBlur?.(row.id)}
+            onMemoChange={(value) => onChange(row.id, 'currentExpenseMemo', value)}
+            onMemoBlur={commit}
           />
           <PaymentAmountRateField
             label="수익률"
             fieldKey="profitRate"
+            memoFieldKey="profitMemo"
             amountValue={row.profitRate}
+            memoValue={row.profitMemo}
             completionAmount={row.completionAmount}
             onChange={(value) => onProfitRateChange?.(row.id, value)}
             onBlur={() => onProfitRateBlur?.(row.id)}
+            onMemoChange={(value) => onChange(row.id, 'profitMemo', value)}
+            onMemoBlur={commit}
           />
         </div>
       </div>
@@ -1214,7 +1280,16 @@ export default function PaymentReportPage({ contracts = [] }) {
         const attached = await saveRecordAttachments(PAYMENT_REPORTS_API_PATH, saved.id, attachmentItems)
         files = attached?.files ?? files
       }
-      const normalized = normalizePaymentReportRow({ ...saved, files }, row.seq)
+      const normalized = normalizePaymentReportRow({ ...row, ...saved, files }, row.seq)
+      if (!safeString(normalized.materialCostMemo)) {
+        normalized.materialCostMemo = safeString(row.materialCostMemo)
+      }
+      if (!safeString(normalized.currentExpenseMemo)) {
+        normalized.currentExpenseMemo = safeString(row.currentExpenseMemo)
+      }
+      if (!safeString(normalized.profitMemo)) {
+        normalized.profitMemo = safeString(row.profitMemo)
+      }
 
       setRows((prev) => {
         const next = prev.map((item) => {

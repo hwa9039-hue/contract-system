@@ -652,8 +652,11 @@ class PaymentReportBase(BaseModel):
     vendorDetail: str = ""
     completionAmount: str = ""
     materialCost: str = ""
+    materialCostMemo: str = ""
     currentExpense: str = ""
+    currentExpenseMemo: str = ""
     profitRate: str = ""
+    profitMemo: str = ""
 
     @field_validator("paymentCycle", mode="before")
     @classmethod
@@ -690,8 +693,11 @@ class PaymentReportPatch(BaseModel):
     vendorDetail: Optional[Any] = None
     completionAmount: Optional[Any] = None
     materialCost: Optional[Any] = None
+    materialCostMemo: Optional[Any] = None
     currentExpense: Optional[Any] = None
+    currentExpenseMemo: Optional[Any] = None
     profitRate: Optional[Any] = None
+    profitMemo: Optional[Any] = None
 
 
 class PaymentReportOut(PaymentReportBase):
@@ -1546,8 +1552,11 @@ TABLE_COLUMN_MAPPINGS = {
         "vendorDetail": "vendor_detail",
         "completionAmount": "completion_amount",
         "materialCost": "material_cost",
+        "materialCostMemo": "material_cost_memo",
         "currentExpense": "current_expense",
+        "currentExpenseMemo": "current_expense_memo",
         "profitRate": "profit_rate",
+        "profitMemo": "profit_memo",
     },
 }
 

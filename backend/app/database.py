@@ -746,8 +746,11 @@ def init_db():
                   vendor_detail text not null default '',
                   completion_amount text not null default '',
                   material_cost text not null default '',
+                  material_cost_memo text not null default '',
                   current_expense text not null default '',
+                  current_expense_memo text not null default '',
                   profit_rate text not null default '',
+                  profit_memo text not null default '',
                   created_at timestamptz not null default now(),
                   updated_at timestamptz not null default now()
                 )
@@ -1176,6 +1179,24 @@ def init_db():
                 """
                 alter table payment_report_rows
                   add column if not exists files jsonb not null default '[]'::jsonb
+                """
+            )
+            cursor.execute(
+                """
+                alter table payment_report_rows
+                  add column if not exists material_cost_memo text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table payment_report_rows
+                  add column if not exists current_expense_memo text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table payment_report_rows
+                  add column if not exists profit_memo text not null default ''
                 """
             )
             cursor.execute(
