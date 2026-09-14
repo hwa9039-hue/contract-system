@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import * as XLSX from 'xlsx'
 import { AutoGrowTextarea } from '../AutoGrowTextarea.jsx'
 import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { EditableTextCell } from '../EditableTextCell.jsx'
@@ -18,6 +17,7 @@ import {
   isTableCellEmpty,
   tableCellStateClass,
 } from '../tableCellEmptyState.js'
+import { buildStyledExcelFilename, downloadStyledExcel } from '../styledExcelDownload.js'
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -180,12 +180,21 @@ function formatLinkedProjectsForExcel(value) {
   return parseLinkedProjectTags(value).join(', ')
 }
 
-function buildContactsExcelFilename(date = new Date()) {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `연락처_목록_${y}${m}${d}.xlsx`
-}
+const CONTACT_EXCEL_COLUMNS = [
+  { header: '번호', key: '번호', minWidth: 8 },
+  { header: '담당자명', key: '담당자명', minWidth: 12 },
+  { header: '직위', key: '직위', minWidth: 10 },
+  { header: '휴대폰', key: '휴대폰', minWidth: 15 },
+  { header: '이메일', key: '이메일', minWidth: 22 },
+  { header: '구분', key: '구분', minWidth: 10 },
+  { header: '회사명', key: '회사명', minWidth: 16 },
+  { header: '부서명', key: '부서명', minWidth: 12 },
+  { header: '분류', key: '분류', minWidth: 10 },
+  { header: '연계 사업', key: '연계 사업', minWidth: 18 },
+  { header: '심사', key: '심사', minWidth: 12 },
+  { header: '주소', key: '주소', minWidth: 40 },
+  { header: '비고', key: '비고', minWidth: 16 },
+]
 
 /**
  * 화면에 보이는 연락처를 엑셀 행으로 변환한다.
@@ -647,32 +656,19 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
     setRows(renumberContactRows(remaining))
   }
 
-  const handleExcelDownload = useCallback(() => {
-    const excelRows = buildSalesContactsExcelRows(visibleRows, { canViewSensitive })
-    const worksheet =
-      excelRows.length > 0
-        ? XLSX.utils.json_to_sheet(excelRows)
-        : XLSX.utils.aoa_to_sheet([
-            [
-              '번호',
-              '담당자명',
-              '직위',
-              '휴대폰',
-              '이메일',
-              '구분',
-              '회사명',
-              '부서명',
-              '분류',
-              '연계 사업',
-              '심사',
-              '주소',
-              '비고',
-            ],
-          ])
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, '연락처')
-    XLSX.writeFile(workbook, buildContactsExcelFilename())
-  }, [visibleRows, canViewSensitive])
+  const handleExcelDownload = useCallback(async () => {
+    try {
+      const excelRows = buildSalesContactsExcelRows(visibleRows, { canViewSensitive })
+      await downloadStyledExcel({
+        sheetName: '연락처',
+        filename: buildStyledExcelFilename('연락처'),
+        columns: CONTACT_EXCEL_COLUMNS,
+        rows: excelRows,
+      })
+    } catch {
+      showLocalToast('엑셀 다운로드에 실패했습니다.', 'error')
+    }
+  }, [visibleRows, canViewSensitive, showLocalToast])
 
   const handleCopyRow = async (row) => {
     const text = buildContactCopyText(row)

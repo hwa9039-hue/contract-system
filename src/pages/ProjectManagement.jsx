@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import * as XLSX from 'xlsx'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.js'
 import { EditableTextCell } from '../EditableTextCell.jsx'
@@ -41,6 +40,11 @@ import {
   isTableCellEmpty,
   tableCellStateClass,
 } from '../tableCellEmptyState.js'
+import {
+  buildStyledExcelFilename,
+  columnsFromExcelRowKeys,
+  downloadStyledExcel,
+} from '../styledExcelDownload.js'
 import '../App.css'
 
 /** 계약분류 — 목록에서 제외 (코드·라벨) */
@@ -342,11 +346,21 @@ function projectManagementRowToExcelRow(row) {
   }
 }
 
-function buildMenuExcelFilename(menuLabel) {
-  const now = new Date()
-  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
-  return `${menuLabel}_${ymd}.xlsx`
-}
+const PROJECT_MANAGEMENT_EXCEL_COLUMNS = columnsFromExcelRowKeys([
+  '사업년도',
+  '발주처',
+  '계약일자',
+  '납기일(준공일자)',
+  '사업명',
+  '영업담당자',
+  '현장PM',
+  '착수계',
+  '준공계',
+  '하자보증 시작',
+  '하자보증 만기',
+  '보증금율',
+  '실적증명 여부',
+])
 
 export default function ProjectManagement({ canEdit = true }) {
   const [contracts, setContracts] = useState([])
@@ -595,13 +609,12 @@ export default function ProjectManagement({ canEdit = true }) {
 
   const handleExcelDownload = useCallback(() => {
     const rows = filteredRows.map(projectManagementRowToExcelRow)
-    const worksheet =
-      rows.length > 0
-        ? XLSX.utils.json_to_sheet(rows)
-        : XLSX.utils.aoa_to_sheet([columns.map((column) => column.headerName)])
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, '사업관리')
-    XLSX.writeFile(workbook, buildMenuExcelFilename('사업관리'))
+    void downloadStyledExcel({
+      sheetName: '사업관리',
+      filename: buildStyledExcelFilename('사업관리'),
+      columns: PROJECT_MANAGEMENT_EXCEL_COLUMNS,
+      rows,
+    })
   }, [filteredRows])
 
   const showEmpty = !loading && !error && contracts.length === 0

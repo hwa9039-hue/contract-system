@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import * as XLSX from 'xlsx'
 import { Plus, Trash2 } from 'lucide-react'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.js'
@@ -26,6 +25,11 @@ import {
   unitPriceTableWrapClass,
 } from '../unitPricePageLayout.js'
 import { isTableCellEmpty, tableCellStateClass } from '../tableCellEmptyState.js'
+import {
+  buildStyledExcelFilename,
+  columnsFromExcelRowKeys,
+  downloadStyledExcel,
+} from '../styledExcelDownload.js'
 import '../App.css'
 
 const CONTRACT_TYPE_FILTER = '55121903'
@@ -441,11 +445,23 @@ function unitPriceRowToExcelRow(row) {
   }
 }
 
-function buildMenuExcelFilename(menuLabel) {
-  const now = new Date()
-  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
-  return `${menuLabel}_${ymd}.xlsx`
-}
+const UNIT_PRICE_EXCEL_COLUMNS = columnsFromExcelRowKeys([
+  '사업년도',
+  '발주처',
+  '사업명',
+  '원가용역',
+  '품명',
+  '설계단가',
+  'Pitch',
+  'W(가로)',
+  'H(세로)',
+  '함체 규격',
+  '구조물 규격',
+  '전광판 수량',
+  '신규/교체',
+  '견적단가',
+  '공사 특이사항',
+])
 
 export default function UnitPriceManagement({ canEdit = true }) {
   const [contracts, setContracts] = useState([])
@@ -551,17 +567,15 @@ export default function UnitPriceManagement({ canEdit = true }) {
   )
 
   const handleExcelDownload = useCallback(() => {
-    const exportColumns = columns.filter((column) => column.field !== 'actions')
     const rows = filteredFlatRows
       .filter((row) => !row.isPlaceholder && !isPlaceholderRowId(row.id))
       .map(unitPriceRowToExcelRow)
-    const worksheet =
-      rows.length > 0
-        ? XLSX.utils.json_to_sheet(rows)
-        : XLSX.utils.aoa_to_sheet([exportColumns.map((column) => column.headerName)])
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, '단가관리')
-    XLSX.writeFile(workbook, buildMenuExcelFilename('단가관리'))
+    void downloadStyledExcel({
+      sheetName: '단가관리',
+      filename: buildStyledExcelFilename('단가관리'),
+      columns: UNIT_PRICE_EXCEL_COLUMNS,
+      rows,
+    })
   }, [filteredFlatRows])
 
   const handleActiveFiltersApply = useCallback((columnKey, selected) => {

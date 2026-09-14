@@ -50,6 +50,7 @@ import {
   normalizeContactsManageColumnFilterSelection,
 } from './contactsManageColumnFilter.js'
 import * as XLSX from 'xlsx'
+import { buildStyledExcelFilename, downloadStyledExcel } from './styledExcelDownload.js'
 import './App.css'
 import { contractsApi } from './contractsApi'
 import { contactsManageApi } from './contactsManageApi.js'
@@ -5360,11 +5361,16 @@ function buildExcelRowsFromTableColumns(rows, columns, getCellValue, { excludeDr
 }
 
 /** 필터 결과 0건이어도 화면과 동일한 헤더 행을 유지한다. */
-function createExcelWorksheetFromColumnRows(rows, columns) {
-  if (!rows.length) {
-    return XLSX.utils.aoa_to_sheet([columns.map((column) => column.label)])
-  }
-  return XLSX.utils.json_to_sheet(rows)
+function downloadStyledExcelFromTableColumns(rows, columns, sheetName, filename) {
+  return downloadStyledExcel({
+    sheetName,
+    filename,
+    columns: columns.map((column) => ({
+      header: column.label,
+      key: column.label,
+    })),
+    rows,
+  })
 }
 
 function getContractCellDisplayState(item, column) {
@@ -8937,13 +8943,12 @@ function App() {
       getRegistryExcelExportCellValue
     )
 
-    const worksheet = createExcelWorksheetFromColumnRows(rows, CONTACTS_MANAGE_COLUMNS)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, '연락처')
-
-    const now = new Date()
-    const filename = `연락처_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
-    XLSX.writeFile(workbook, filename)
+    void downloadStyledExcelFromTableColumns(
+      rows,
+      CONTACTS_MANAGE_COLUMNS,
+      '연락처',
+      buildStyledExcelFilename('연락처')
+    )
   }
 
   const handleContactsCellChange = (rowId, key, value) => {
@@ -9241,13 +9246,12 @@ function App() {
       { excludeDrafts: false }
     )
 
-    const worksheet = createExcelWorksheetFromColumnRows(rows, CONTRACT_COLUMNS)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, '계약현황')
-
-    const now = new Date()
-    const filename = `계약현황_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}.xlsx`
-    XLSX.writeFile(workbook, filename)
+    void downloadStyledExcelFromTableColumns(
+      rows,
+      CONTRACT_COLUMNS,
+      '계약현황',
+      buildStyledExcelFilename('계약현황')
+    )
   }
 
   const closeRegistryCreateModal = () => setRegistryCreateModal(null)
@@ -9580,13 +9584,12 @@ function App() {
       getRegistryExcelExportCellValue
     )
 
-    const worksheet = createExcelWorksheetFromColumnRows(rows, DOCUMENT_COLUMNS)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, '문서수발신대장')
-
-    const now = new Date()
-    const filename = `문서수발신대장_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
-    XLSX.writeFile(workbook, filename)
+    void downloadStyledExcelFromTableColumns(
+      rows,
+      DOCUMENT_COLUMNS,
+      '문서수발신대장',
+      buildStyledExcelFilename('문서수발신대장')
+    )
   }
 
   const handleAddSalesRow = () => {
@@ -10265,13 +10268,12 @@ function App() {
       getRegistryExcelExportCellValue
     )
 
-    const worksheet = createExcelWorksheetFromColumnRows(rows, SALES_COLUMNS)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, '영업관리대장')
-
-    const now = new Date()
-    const filename = `영업관리대장_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
-    XLSX.writeFile(workbook, filename)
+    void downloadStyledExcelFromTableColumns(
+      rows,
+      SALES_COLUMNS,
+      '영업관리대장',
+      buildStyledExcelFilename('영업관리대장')
+    )
   }
 
   const handleAddDiscoveryRow = () => {
@@ -10572,13 +10574,12 @@ function App() {
       getRegistryExcelExportCellValue
     )
 
-    const worksheet = createExcelWorksheetFromColumnRows(rows, DISCOVERY_COLUMNS)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, '건축정보')
-
-    const now = new Date()
-    const filename = `건축정보_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
-    XLSX.writeFile(workbook, filename)
+    void downloadStyledExcelFromTableColumns(
+      rows,
+      DISCOVERY_COLUMNS,
+      '건축정보',
+      buildStyledExcelFilename('건축정보')
+    )
   }
 
   const handleAddExcludedRow = () => {
@@ -10878,13 +10879,12 @@ function App() {
       getRegistryExcelExportCellValue
     )
 
-    const worksheet = createExcelWorksheetFromColumnRows(rows, EXCLUDED_COLUMNS)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, '사업공유')
-
-    const now = new Date()
-    const filename = `사업공유_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.xlsx`
-    XLSX.writeFile(workbook, filename)
+    void downloadStyledExcelFromTableColumns(
+      rows,
+      EXCLUDED_COLUMNS,
+      '사업공유',
+      buildStyledExcelFilename('사업공유')
+    )
   }
 
   const openRegistryUpload = (target) => {
