@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import * as XLSX from 'xlsx'
 import { AutoGrowTextarea } from '../AutoGrowTextarea.jsx'
 import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { EditableTextCell } from '../EditableTextCell.jsx'
@@ -168,6 +169,45 @@ async function copyTextToClipboard(text) {
 }
 
 const CONTACT_EDITABLE_CELL_CLASS = `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS}`
+
+const CONTACT_SENSITIVE_MASK = '열람 불가'
+
+/** 연계 사업 태그/배열을 엑셀 셀용 한 줄 문자열로 만든다. */
+function formatLinkedProjectsForExcel(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => safeString(item).trim()).filter(Boolean).join(', ')
+  }
+  return parseLinkedProjectTags(value).join(', ')
+}
+
+function buildContactsExcelFilename(date = new Date()) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `연락처_목록_${y}${m}${d}.xlsx`
+}
+
+/**
+ * 화면에 보이는 연락처를 엑셀 행으로 변환한다.
+ * user 권한이면 심사·주소·비고는 원본 대신 마스킹 문구만 넣는다.
+ */
+function buildSalesContactsExcelRows(rows, { canViewSensitive = false } = {}) {
+  return (Array.isArray(rows) ? rows : []).map((row) => ({
+    번호: row.seq ?? '',
+    담당자명: safeString(row.managerName),
+    직위: safeString(row.position),
+    휴대폰: safeString(row.phone),
+    이메일: safeString(row.email),
+    구분: safeString(row.division),
+    회사명: safeString(row.companyName),
+    부서명: safeString(row.department),
+    분류: normalizeContactStatus(row.status) === CONTACT_STATUS.INACTIVE ? '비활성' : '활성',
+    '연계 사업': formatLinkedProjectsForExcel(row.linkedProject),
+    심사: canViewSensitive ? safeString(row.review) : CONTACT_SENSITIVE_MASK,
+    주소: canViewSensitive ? safeString(row.address) : CONTACT_SENSITIVE_MASK,
+    비고: canViewSensitive ? safeString(row.notes) : CONTACT_SENSITIVE_MASK,
+  }))
+}
 
 /** 사용자(user)에게는 심사·주소·비고 실제 값을 DOM에 넣지 않는다 */
 function ContactMaskedCell({ tdClassName = '' }) {
@@ -607,6 +647,33 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
     setRows(renumberContactRows(remaining))
   }
 
+  const handleExcelDownload = useCallback(() => {
+    const excelRows = buildSalesContactsExcelRows(visibleRows, { canViewSensitive })
+    const worksheet =
+      excelRows.length > 0
+        ? XLSX.utils.json_to_sheet(excelRows)
+        : XLSX.utils.aoa_to_sheet([
+            [
+              '번호',
+              '담당자명',
+              '직위',
+              '휴대폰',
+              '이메일',
+              '구분',
+              '회사명',
+              '부서명',
+              '분류',
+              '연계 사업',
+              '심사',
+              '주소',
+              '비고',
+            ],
+          ])
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, '연락처')
+    XLSX.writeFile(workbook, buildContactsExcelFilename())
+  }, [visibleRows, canViewSensitive])
+
   const handleCopyRow = async (row) => {
     const text = buildContactCopyText(row)
     if (!text) {
@@ -622,6 +689,9 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
       <div className="sales-contacts-toolbar">
         <button type="button" className="primary-btn" onClick={handleAddRow}>
           등록
+        </button>
+        <button className="secondary-btn" type="button" onClick={handleExcelDownload}>
+          엑셀 다운로드
         </button>
         <input
           className="table-search-input sales-contacts-search-input"
