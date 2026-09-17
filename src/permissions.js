@@ -77,8 +77,8 @@ export function canAccessBitHistory(accountId) {
   return BIT_HISTORY_ALLOWED_ACCOUNT_ID_SET.has(normalizeAccountId(accountId))
 }
 
-/** 비활성 연락처를 작성자와 무관하게 볼 수 있는 계정 (정화영, 정주희) */
-export const CONTACTS_INACTIVE_ADMIN_ACCOUNT_IDS = Object.freeze(['hy9039', 'jhjoung'])
+/** 비활성 연락처를 작성자와 무관하게 볼 수 있는 계정 (정화영, 정주희, 전기웅) */
+export const CONTACTS_INACTIVE_ADMIN_ACCOUNT_IDS = Object.freeze(['hy9039', 'jhjoung', 'kk2331'])
 
 const CONTACTS_INACTIVE_ADMIN_ACCOUNT_ID_SET = new Set(CONTACTS_INACTIVE_ADMIN_ACCOUNT_IDS)
 
