@@ -34,7 +34,8 @@ SALES_CONTACTS_RETURNING = """
   status,
   linked_project,
   address,
-  notes
+  notes,
+  author_id
 """
 
 
@@ -59,6 +60,7 @@ def insert_sales_contact_row(cursor, row: SalesContactCreate) -> dict:
           linked_project,
           address,
           notes,
+          author_id,
           created_at,
           updated_at
         )
@@ -77,6 +79,7 @@ def insert_sales_contact_row(cursor, row: SalesContactCreate) -> dict:
           %(linked_project)s,
           %(address)s,
           %(notes)s,
+          %(author_id)s,
           %(created_at)s,
           %(updated_at)s
         )

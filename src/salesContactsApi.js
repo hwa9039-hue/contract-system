@@ -43,6 +43,13 @@ export function buildSalesContactPayload(form) {
   }
 }
 
+export function buildSalesContactCreatePayload(form) {
+  return {
+    ...buildSalesContactPayload(form),
+    authorId: safeString(form?.authorId ?? form?.authorid ?? form?.regId ?? form?.createdBy).trim(),
+  }
+}
+
 export function normalizeSalesContactRow(row, seq = 1) {
   const source = row && typeof row === 'object' ? row : {}
   const sortOrderRaw = Number(source.sortOrder)
@@ -62,6 +69,9 @@ export function normalizeSalesContactRow(row, seq = 1) {
     linkedProject: safeString(source.linkedProject),
     address: safeString(source.address),
     notes: safeString(source.notes),
+    authorId: safeString(
+      source.authorId ?? source.authorid ?? source.regId ?? source.regid ?? source.createdBy
+    ),
   }
 }
 
@@ -102,7 +112,7 @@ export const salesContactsApi = {
     return requestJson(SALES_CONTACTS_API_PATH, { method: 'GET' })
   },
   create(formOrPayload) {
-    const payload = buildSalesContactPayload(formOrPayload)
+    const payload = buildSalesContactCreatePayload(formOrPayload)
     return requestJson(SALES_CONTACTS_API_PATH, {
       method: 'POST',
       body: JSON.stringify(payload),

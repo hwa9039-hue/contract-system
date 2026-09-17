@@ -589,6 +589,7 @@ class SalesContactBase(BaseModel):
     linkedProject: str = ""
     address: str = ""
     notes: str = ""
+    authorId: str = ""
 
     @field_validator("status", mode="before")
     @classmethod
@@ -1534,6 +1535,7 @@ TABLE_COLUMN_MAPPINGS = {
         "linkedProject": "linked_project",
         "address": "address",
         "notes": "notes",
+        "authorId": "author_id",
     },
     "payment_report_rows": {
         "sortOrder": "sort_order",
@@ -1713,6 +1715,8 @@ def sales_contact_patch_to_db_values(row: SalesContactPatch) -> dict:
     for api_key, db_key in SALES_CONTACTS_DB_COLUMNS.items():
         if api_key not in data:
             continue
+        if api_key == "authorId":
+            continue
         value = data[api_key]
         if api_key == "status":
             values[db_key] = _normalize_sales_contact_status(value)
@@ -1805,6 +1809,7 @@ def row_to_sales_contact(row) -> dict:
         "linkedProject": to_response_value(row["linked_project"]) or "",
         "address": to_response_value(row["address"]) or "",
         "notes": to_response_value(row["notes"]) or "",
+        "authorId": to_response_value(row.get("author_id")) or "",
     }
 
 

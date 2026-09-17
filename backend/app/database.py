@@ -780,6 +780,12 @@ def init_db():
             )
             cursor.execute(
                 """
+                alter table sales_contacts_rows
+                  add column if not exists author_id text not null default ''
+                """
+            )
+            cursor.execute(
+                """
                 create table if not exists project_discovery_rows (
                   id uuid primary key default gen_random_uuid(),
                   "permitDate" text,

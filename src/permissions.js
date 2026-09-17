@@ -77,6 +77,15 @@ export function canAccessBitHistory(accountId) {
   return BIT_HISTORY_ALLOWED_ACCOUNT_ID_SET.has(normalizeAccountId(accountId))
 }
 
+/** 비활성 연락처를 작성자와 무관하게 볼 수 있는 계정 (정화영, 정주희) */
+export const CONTACTS_INACTIVE_ADMIN_ACCOUNT_IDS = Object.freeze(['hy9039', 'jhjoung'])
+
+const CONTACTS_INACTIVE_ADMIN_ACCOUNT_ID_SET = new Set(CONTACTS_INACTIVE_ADMIN_ACCOUNT_IDS)
+
+export function canViewAllInactiveContacts(accountId) {
+  return CONTACTS_INACTIVE_ADMIN_ACCOUNT_ID_SET.has(normalizeAccountId(accountId))
+}
+
 /** 문자열 role 을 안전하게 정규화 (알 수 없는 값 → user) */
 export function normalizeRole(role) {
   const normalized = String(role || ROLES.USER).trim().toLowerCase()

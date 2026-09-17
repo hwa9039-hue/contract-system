@@ -4,9 +4,10 @@ import { AutoGrowTextarea } from '../AutoGrowTextarea.jsx'
 import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { EditableTextCell } from '../EditableTextCell.jsx'
 import { computeFixedPortalPosition, fixedPortalStyle } from '../portalMenuPosition.js'
-import { ROLES, hasAdminPrivileges, normalizeRole } from '../permissions.js'
+import { ROLES, canViewAllInactiveContacts, hasAdminPrivileges, normalizeAccountId, normalizeRole } from '../permissions.js'
 import { MobileDataCardList } from '../MobileDataCardList.jsx'
 import { normalizeSalesContactRow, salesContactsApi } from '../salesContactsApi.js'
+import { useAuth } from '../AuthContext.jsx'
 import {
   EXCLUDED_INLINE_EDITOR_CLASS,
   TABLE_INLINE_EDITABLE_CELL_CLASS,
@@ -50,13 +51,22 @@ function normalizeContactStatus(value) {
   return CONTACT_STATUS.ACTIVE
 }
 
-/** 일반 사용자(user)는 비활성 연락처를 보지 못한다. 관리자·부서장만 전체 조회. */
-function canViewInactiveContacts(role) {
-  const normalized = normalizeRole(role)
-  return normalized === ROLES.ADMIN || normalized === ROLES.MANAGER
+function getContactAuthorId(row) {
+  return normalizeAccountId(
+    row?.authorId ?? row?.authorid ?? row?.regId ?? row?.regid ?? row?.createdBy
+  )
 }
 
-function createContactRow(seq, id, sortOrder = seq) {
+/** 활성은 전원 공개. 비활성은 작성자 본인 또는 정화영·정주희만. */
+function canShowContactRow(row, accountId) {
+  if (normalizeContactStatus(row?.status) !== CONTACT_STATUS.INACTIVE) return true
+  if (canViewAllInactiveContacts(accountId)) return true
+  const currentId = normalizeAccountId(accountId)
+  const authorId = getContactAuthorId(row)
+  return Boolean(currentId) && Boolean(authorId) && currentId === authorId
+}
+
+function createContactRow(seq, id, sortOrder = seq, authorId = '') {
   return {
     id,
     seq,
@@ -73,6 +83,7 @@ function createContactRow(seq, id, sortOrder = seq) {
     linkedProject: '',
     address: '',
     notes: '',
+    authorId: normalizeAccountId(authorId),
   }
 }
 
@@ -464,12 +475,12 @@ function ContactLinkedProjectCell({ row, tdClassName = '', onCommit }) {
 /**
  * 영업관리 > 연락처
  * - 수기 입력 표 (입력 후 자동 저장)
- * - user: 분류=활성만 표시 / admin·manager: 전체
+ * - 활성: 전원 표시 / 비활성: 작성자 본인 + 정화영·정주희만
  * - 행 복사 → 클립보드
  */
 export default function SalesContactsPage({ role = ROLES.USER }) {
   const normalizedRole = normalizeRole(role)
-  const showInactive = canViewInactiveContacts(normalizedRole)
+  const { accountId } = useAuth()
   const canViewSensitive = hasAdminPrivileges(normalizedRole)
 
   const [rows, setRows] = useState([])
@@ -488,13 +499,12 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
   }, [rows])
 
   const visibleRows = useMemo(() => {
-    const byStatus = showInactive
-      ? rows
-      : rows.filter((row) => normalizeContactStatus(row.status) === CONTACT_STATUS.ACTIVE)
-    return byStatus.filter((row) =>
-      matchesContactSearch(row, searchQuery, { includeSensitive: canViewSensitive })
-    )
-  }, [rows, showInactive, searchQuery, canViewSensitive])
+    return rows
+      .filter((row) => canShowContactRow(row, accountId))
+      .filter((row) =>
+        matchesContactSearch(row, searchQuery, { includeSensitive: canViewSensitive })
+      )
+  }, [rows, accountId, searchQuery, canViewSensitive])
 
   const showLocalToast = useCallback((message, tone = 'success') => {
     setToast({ message: safeString(message), tone })
@@ -523,7 +533,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
           if (dirtyIdsRef.current.has(rowId) || dirtyIdsRef.current.has(normalized.id)) {
             return { ...item, id: normalized.id, sortOrder: normalized.sortOrder }
           }
-          return { ...normalized, seq: item.seq }
+          return { ...normalized, seq: item.seq, authorId: normalized.authorId || item.authorId }
         })
       )
       setLoadError('')
@@ -604,11 +614,11 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
         const normalized = (Array.isArray(list) ? list : []).map((row, index) =>
           normalizeSalesContactRow(row, index + 1)
         )
-        setRows(normalized.length ? normalized : [createContactRow(1, 'draft-1', 1)])
+        setRows(normalized.length ? normalized : [createContactRow(1, 'draft-1', 1, accountId)])
       } catch (error) {
         if (cancelled) return
         setLoadError(safeString(error?.message) || '연락처를 불러오지 못했습니다.')
-        setRows([createContactRow(1, 'draft-1', 1)])
+        setRows([createContactRow(1, 'draft-1', 1, accountId)])
       }
     }
 
@@ -621,11 +631,16 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
 
   const handleAddRow = async () => {
     const sortOrder = nextSortOrder(rowsRef.current)
-    const draft = createContactRow(rowsRef.current.length + 1, `draft-${Date.now()}`, sortOrder)
+    const draft = createContactRow(rowsRef.current.length + 1, `draft-${Date.now()}`, sortOrder, accountId)
     try {
       const created = await salesContactsApi.create(draft)
       const normalized = normalizeSalesContactRow(created, rowsRef.current.length + 1)
-      setRows((prev) => renumberContactRows([...prev, normalized]))
+      setRows((prev) =>
+        renumberContactRows([
+          ...prev,
+          { ...normalized, authorId: normalized.authorId || draft.authorId },
+        ])
+      )
       setLoadError('')
     } catch (error) {
       setRows((prev) => renumberContactRows([...prev, draft]))
@@ -650,7 +665,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
     }
 
     if (remaining.length === 0) {
-      setRows([createContactRow(1, `draft-${Date.now()}`, 1)])
+      setRows([createContactRow(1, `draft-${Date.now()}`, 1, accountId)])
       return
     }
     setRows(renumberContactRows(remaining))
@@ -703,7 +718,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
           {loadError}
         </p>
       ) : null}
-      {!showInactive ? (
+      {normalizedRole === ROLES.USER ? (
         <p className="sales-contacts-page-desc">
           사용자 권한에서는 분류가 활성인 연락처만 표시됩니다.
         </p>
@@ -809,7 +824,6 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
                       value={normalizeContactStatus(row.status)}
                       onChange={(e) => commitField(row.id, 'status', e.target.value)}
                       aria-label={`${row.seq}번 분류`}
-                      disabled={!showInactive}
                     >
                       {CONTACT_STATUS_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
