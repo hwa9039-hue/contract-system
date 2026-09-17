@@ -3767,6 +3767,7 @@ function buildRegistrySmartDetailSavePayload(scope, column, row, rawValue) {
         : '')
     const stampedSummaryLine = attachSalesRecordDateStamp(formatSalesRecordDateStamp(), newNote)
     return {
+      permitDate: formatDateInput(new Date()),
       note: normalizeSalesRecordForSave(newNote),
       summary: normalizeSalesRecordForSave(
         newNote
@@ -6199,49 +6200,6 @@ function getRegisterDateWeekTag(dateValue) {
   return null
 }
 
-function isDiscoveryReportStatus(row) {
-  return normalizeSalesProjectStage(row?.projectStage) === '보고'
-}
-
-function getDiscoveryReportMarkedDate(row) {
-  const markedAt = safeString(row?.reportMarkedAt ?? row?.reportmarkedat).trim()
-  const parsed = parseDateOnly(markedAt)
-  if (parsed) return parsed
-  // reportMarkedAt 도입 전 이미 '보고'로 저장된 행은 최신 updatedAt을 1회성 판단 기준으로 사용한다.
-  if (isDiscoveryReportStatus(row)) {
-    const updated = parseDateOnly(row?.updatedAt ?? row?.updatedat)
-    if (updated) return updated
-  }
-  return null
-}
-
-/** 상태 '보고' + 보고로 올라간 시점부터 7일 동안만 상단/N 표시 */
-function isDiscoveryReportRecentlyMarked(row, referenceDate = new Date()) {
-  if (!isDiscoveryReportStatus(row)) return false
-  const markedDate = getDiscoveryReportMarkedDate(row)
-  if (!markedDate) return false
-  const today = parseDateOnly(referenceDate) ?? new Date()
-  const expireDate = addDays(markedDate, 7)
-  return markedDate <= today && today <= expireDate
-}
-
-function shouldShowDiscoveryReportNewBadge(row, referenceDate = new Date()) {
-  return isDiscoveryReportRecentlyMarked(row, referenceDate)
-}
-
-/**
- * 건축정보 평면(1차원) 정렬 — 그룹핑/아코디언 없이 정렬만 적용.
- * 1순위: 최근 보고로 올라간 항목 먼저, 2순위: 건축정보일자(permitDate) 최신순(내림차순).
- */
-function sortDiscoveryRowsReportFirst(rows, dateKey) {
-  return [...rows].sort((rowA, rowB) => {
-    const reportA = isDiscoveryReportRecentlyMarked(rowA) ? 0 : 1
-    const reportB = isDiscoveryReportRecentlyMarked(rowB) ? 0 : 1
-    if (reportA !== reportB) return reportA - reportB
-    return compareRegistryRowsByDateDesc(rowA, rowB, dateKey)
-  })
-}
-
 /** 문서 접수·수신 vs 발송·발신 — 텍스트 필드에서 키워드 탐지(발신류 우선) */
 function countDocumentsInboundOutbound(rows) {
   let inbound = 0
@@ -8338,7 +8296,7 @@ function App() {
   )
 
   /* 건축정보는 그룹핑/아코디언 없이 평면 목록으로 렌더링한다.
-     정렬: 1순위 '보고' 상태 우선, 2순위 건축정보일자 최신순. */
+     정렬: 등록일(permitDate) 최신순 — 영업관리대장과 동일. */
   const discoveryDraftRows = useMemo(
     () => visibleModeDiscoveryRows.filter((row) => row.isDraft),
     [visibleModeDiscoveryRows]
@@ -8346,7 +8304,7 @@ function App() {
 
   const sortedDiscoveryRows = useMemo(
     () =>
-      sortDiscoveryRowsReportFirst(
+      sortRegistryRowsByDateDesc(
         filteredDiscoveryRows.filter((row) => !row.isDraft),
         'permitDate'
       ),
@@ -13273,6 +13231,7 @@ function App() {
       const previous =
         scope === 'discovery'
           ? {
+              permitDate: targetRow.permitDate,
               note: targetRow.note,
               summary: targetRow.summary,
             }
@@ -13283,6 +13242,7 @@ function App() {
             }
 
       if (scope === 'discovery') {
+        applyRegistryRowFieldPatch(scope, rowId, { key: 'permitDate', type: 'date' }, payload.permitDate)
         applyRegistryRowFieldPatch(scope, rowId, { key: 'note', type: 'textarea' }, payload.note)
         applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, payload.summary)
       } else {
@@ -13300,6 +13260,7 @@ function App() {
         return true
       } catch (error) {
         if (scope === 'discovery') {
+          applyRegistryRowFieldPatch(scope, rowId, { key: 'permitDate', type: 'date' }, previous.permitDate)
           applyRegistryRowFieldPatch(scope, rowId, { key: 'note', type: 'textarea' }, previous.note)
           applyRegistryRowFieldPatch(scope, rowId, { key: 'summary', type: 'text' }, previous.summary)
         } else {
@@ -13319,11 +13280,8 @@ function App() {
 
     const patch = buildRegistryCellApiPatch(column, rawValue)
     // 건축정보: 상태(projectStage) 변경 시 permitDate(건축정보일자)는 절대 PATCH에 포함하지 않는다.
-    // 보고 상단/N 노출 기간은 건축정보일자가 아니라 보고로 올린 시점(reportMarkedAt)을 기준으로 한다.
     if (scope === 'discovery' && column.key === 'projectStage') {
-      const nextStage = normalizeSalesProjectStage(rawValue)
       delete patch.permitDate
-      patch.reportMarkedAt = nextStage === '보고' ? new Date().toISOString() : null
     }
     // 중요도 컬럼은 patch/row 값이 column.key('importance')가 아니라 statusKey 로 존재한다.
     const fieldKey = getRegistryColumnFieldKey(column)
@@ -13357,16 +13315,7 @@ function App() {
     }
 
     const previous = previousValueOverride !== undefined ? previousValueOverride : targetRow[fieldKey]
-    const previousReportMarkedAt = targetRow.reportMarkedAt
     applyRegistryRowFieldPatch(scope, rowId, column, rawValue)
-    if (scope === 'discovery' && column.key === 'projectStage') {
-      applyRegistryRowFieldPatch(
-        scope,
-        rowId,
-        { key: 'reportMarkedAt', type: 'text' },
-        patch.reportMarkedAt
-      )
-    }
 
     try {
       switch (scope) {
@@ -13398,14 +13347,6 @@ function App() {
       return true
     } catch (error) {
       applyRegistryRowFieldPatch(scope, rowId, column, previous)
-      if (scope === 'discovery' && column.key === 'projectStage') {
-        applyRegistryRowFieldPatch(
-          scope,
-          rowId,
-          { key: 'reportMarkedAt', type: 'text' },
-          previousReportMarkedAt
-        )
-      }
       const labelMap = {
         sales: '영업관리대장',
         discovery: '건축정보',
@@ -14082,10 +14023,11 @@ function App() {
           const plainDisplay = getRegistryPlainDisplayState(row, column)
           // 영업관리대장 '등록일'(sales.registerDate) / 사업공유 '등록일'(excluded.writeDate)
           // 컬럼에 한정해 금주/전주 등록건 텍스트 뱃지로 구분 표시한다.
-          // 건축정보 permitDate의 전주/금주 뱃지는 제거 — '보고' 상태 N 뱃지로 대체한다.
+          // 건축정보(discovery)에는 전주/금주 뱃지를 넣지 않는다.
           const isRegistryWeekBadgeColumn =
-            (cellEditScope === 'sales' && column.key === 'registerDate') ||
-            (cellEditScope === 'excluded' && column.key === 'writeDate')
+            cellEditScope !== 'discovery' &&
+            ((cellEditScope === 'sales' && column.key === 'registerDate') ||
+              (cellEditScope === 'excluded' && column.key === 'writeDate'))
           const registryWeekTag = isRegistryWeekBadgeColumn
             ? getRegisterDateWeekTag(row?.[column.key])
             : null
@@ -14103,15 +14045,7 @@ function App() {
               {registryWeekTag === 'current' ? '금주' : '전주'}
             </span>
           ) : null
-          const discoveryReportNewBadge =
-            cellEditScope === 'discovery' &&
-            column.key === 'permitDate' &&
-            shouldShowDiscoveryReportNewBadge(row) ? (
-              <span className="discovery-report-new-badge" title="보고 후 7일 이내">
-                N
-              </span>
-            ) : null
-          const registryDateSuffixBadge = registryWeekBadge || discoveryReportNewBadge
+          const registryDateSuffixBadge = registryWeekBadge
           const cellStyle = isFlatInlineScope
             ? usesTableInlineInput
               ? flatInlineEditCellStyle
@@ -14300,9 +14234,7 @@ function App() {
                       : isLongTextTableColumn(column)
                         ? 'table-cell-clamp'
                         : ''
-                  } ${registryWeekHighlightClass}${
-                    discoveryReportNewBadge ? ' discovery-permit-date-with-badge' : ''
-                  }`.trim()}
+                  } ${registryWeekHighlightClass}`.trim()}
                   suffix={registryDateSuffixBadge}
                   onSave={(nextValue) =>
                     handleRegistryTextCellSave(cellEditScope, rowId, column, nextValue)
@@ -14346,7 +14278,7 @@ function App() {
                         : ''
                   }${plainDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''}${
                     registryWeekHighlightClass ? ` ${registryWeekHighlightClass}` : ''
-                  }${discoveryReportNewBadge ? ' discovery-permit-date-with-badge' : ''}`}
+                  }`}
                 >
                   {plainDisplay.text}
                   {registryDateSuffixBadge}
