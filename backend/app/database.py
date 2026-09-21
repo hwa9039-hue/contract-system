@@ -786,6 +786,46 @@ def init_db():
             )
             cursor.execute(
                 """
+                create table if not exists bit_history_rows (
+                  id uuid primary key default gen_random_uuid(),
+                  sort_order integer not null default 0,
+                  contract_id text not null default '',
+                  seq_no text not null default '',
+                  client text not null default '',
+                  department text not null default '',
+                  contract_method text not null default '',
+                  contract_class text not null default '',
+                  ident_no text not null default '',
+                  contract_date text not null default '',
+                  due_date text not null default '',
+                  project_name text not null default '',
+                  contract_amount text not null default '',
+                  quantity text not null default '',
+                  board_applied text not null default '',
+                  program_item text not null default '',
+                  manufacturing text not null default '',
+                  shipping_inspection text not null default '',
+                  note1 text not null default '',
+                  module_item text not null default '',
+                  module_array text not null default '',
+                  module_kind text not null default '',
+                  etc_item text not null default '',
+                  project_complete text not null default '',
+                  defect text not null default '',
+                  note2 text not null default '',
+                  created_at timestamptz not null default now(),
+                  updated_at timestamptz not null default now()
+                )
+                """
+            )
+            cursor.execute(
+                """
+                alter table bit_history_rows
+                add column if not exists contract_id text not null default ''
+                """
+            )
+            cursor.execute(
+                """
                 create table if not exists project_discovery_rows (
                   id uuid primary key default gen_random_uuid(),
                   "permitDate" text,

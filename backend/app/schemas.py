@@ -636,6 +636,120 @@ class SalesContactBulkDelete(BaseModel):
     ids: list[Any]
 
 
+class BitHistoryBase(BaseModel):
+    sortOrder: int = 0
+    # 계약현황에서 자동 반영된 행의 원본 계약 id — 재동기화 시 중복 생성을 막는 키
+    contractId: str = ""
+    seqNo: str = ""
+    client: str = ""
+    department: str = ""
+    contractMethod: str = ""
+    contractClass: str = ""
+    identNo: str = ""
+    contractDate: str = ""
+    dueDate: str = ""
+    projectName: str = ""
+    contractAmount: str = ""
+    quantity: str = ""
+    boardApplied: str = ""
+    programItem: str = ""
+    manufacturing: str = ""
+    shippingInspection: str = ""
+    note1: str = ""
+    moduleItem: str = ""
+    moduleArray: str = ""
+    moduleKind: str = ""
+    etcItem: str = ""
+    projectComplete: str = ""
+    defect: str = ""
+    note2: str = ""
+
+    @field_validator("sortOrder", mode="before")
+    @classmethod
+    def coerce_bit_sort_order(cls, value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    @field_validator(
+        "contractId",
+        "seqNo",
+        "client",
+        "department",
+        "contractMethod",
+        "contractClass",
+        "identNo",
+        "contractDate",
+        "dueDate",
+        "projectName",
+        "contractAmount",
+        "quantity",
+        "boardApplied",
+        "programItem",
+        "manufacturing",
+        "shippingInspection",
+        "note1",
+        "moduleItem",
+        "moduleArray",
+        "moduleKind",
+        "etcItem",
+        "projectComplete",
+        "defect",
+        "note2",
+        mode="before",
+    )
+    @classmethod
+    def coerce_bit_text(cls, value):
+        if value is None:
+            return ""
+        return str(value)
+
+
+class BitHistoryCreate(BitHistoryBase):
+    pass
+
+
+class BitHistoryPatch(BaseModel):
+    sortOrder: Optional[Any] = None
+    contractId: Optional[Any] = None
+    seqNo: Optional[Any] = None
+    client: Optional[Any] = None
+    department: Optional[Any] = None
+    contractMethod: Optional[Any] = None
+    contractClass: Optional[Any] = None
+    identNo: Optional[Any] = None
+    contractDate: Optional[Any] = None
+    dueDate: Optional[Any] = None
+    projectName: Optional[Any] = None
+    contractAmount: Optional[Any] = None
+    quantity: Optional[Any] = None
+    boardApplied: Optional[Any] = None
+    programItem: Optional[Any] = None
+    manufacturing: Optional[Any] = None
+    shippingInspection: Optional[Any] = None
+    note1: Optional[Any] = None
+    moduleItem: Optional[Any] = None
+    moduleArray: Optional[Any] = None
+    moduleKind: Optional[Any] = None
+    etcItem: Optional[Any] = None
+    projectComplete: Optional[Any] = None
+    defect: Optional[Any] = None
+    note2: Optional[Any] = None
+
+
+class BitHistoryOut(BitHistoryBase):
+    id: Optional[Any] = None
+    createdAt: Optional[Any] = None
+    updatedAt: Optional[Any] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BitHistoryBulkDelete(BaseModel):
+    ids: list[Any]
+
+
 class PaymentReportBase(BaseModel):
     sortOrder: int = 0
     paymentMonth: str = ""
@@ -1560,6 +1674,33 @@ TABLE_COLUMN_MAPPINGS = {
         "profitRate": "profit_rate",
         "profitMemo": "profit_memo",
     },
+    "bit_history_rows": {
+        "sortOrder": "sort_order",
+        "contractId": "contract_id",
+        "seqNo": "seq_no",
+        "client": "client",
+        "department": "department",
+        "contractMethod": "contract_method",
+        "contractClass": "contract_class",
+        "identNo": "ident_no",
+        "contractDate": "contract_date",
+        "dueDate": "due_date",
+        "projectName": "project_name",
+        "contractAmount": "contract_amount",
+        "quantity": "quantity",
+        "boardApplied": "board_applied",
+        "programItem": "program_item",
+        "manufacturing": "manufacturing",
+        "shippingInspection": "shipping_inspection",
+        "note1": "note1",
+        "moduleItem": "module_item",
+        "moduleArray": "module_array",
+        "moduleKind": "module_kind",
+        "etcItem": "etc_item",
+        "projectComplete": "project_complete",
+        "defect": "defect",
+        "note2": "note2",
+    },
 }
 
 SALES_REGISTER_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["sales_register_rows"]
@@ -1573,6 +1714,7 @@ CALENDAR_MANUAL_EVENT_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["calendar_manual_events
 CONTACTS_MANAGE_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["contacts_rows"]
 SALES_CONTACTS_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["sales_contacts_rows"]
 PAYMENT_REPORT_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["payment_report_rows"]
+BIT_HISTORY_DB_COLUMNS = TABLE_COLUMN_MAPPINGS["bit_history_rows"]
 
 
 def sales_register_to_db_values(row: SalesRegisterBase) -> dict:
@@ -1811,6 +1953,60 @@ def row_to_sales_contact(row) -> dict:
         "notes": to_response_value(row["notes"]) or "",
         "authorId": to_response_value(row.get("author_id")) or "",
     }
+
+
+def bit_history_to_db_values(row: BitHistoryBase) -> dict:
+    data = row.model_dump()
+    values = {
+        db_key: data.get(api_key, "")
+        for api_key, db_key in BIT_HISTORY_DB_COLUMNS.items()
+    }
+    try:
+        values["sort_order"] = int(values.get("sort_order") or 0)
+    except (TypeError, ValueError):
+        values["sort_order"] = 0
+    for key, value in list(values.items()):
+        if key == "sort_order":
+            continue
+        values[key] = "" if value is None else str(value)
+    return values
+
+
+def bit_history_patch_to_db_values(row: BitHistoryPatch) -> dict:
+    data = row.model_dump(exclude_unset=True)
+    values = {}
+    for api_key, db_key in BIT_HISTORY_DB_COLUMNS.items():
+        if api_key not in data:
+            continue
+        value = data[api_key]
+        if api_key == "sortOrder":
+            try:
+                values[db_key] = int(value or 0)
+            except (TypeError, ValueError):
+                values[db_key] = 0
+            continue
+        values[db_key] = "" if value is None else str(value)
+    return values
+
+
+def row_to_bit_history(row) -> dict:
+    sort_order = row.get("sort_order")
+    try:
+        sort_order = int(sort_order)
+    except (TypeError, ValueError):
+        sort_order = 0
+
+    out = {
+        "id": to_response_value(row["id"]),
+        "sortOrder": sort_order,
+        "createdAt": to_response_value(row.get("created_at")) or "",
+        "updatedAt": to_response_value(row.get("updated_at")) or "",
+    }
+    for api_key, db_key in BIT_HISTORY_DB_COLUMNS.items():
+        if api_key == "sortOrder":
+            continue
+        out[api_key] = to_response_value(row.get(db_key)) or ""
+    return out
 
 
 def weekly_work_report_to_db_values(row: WeeklyWorkReportBase) -> dict:

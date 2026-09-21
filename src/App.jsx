@@ -154,6 +154,7 @@ import {
   normalizeCalendarManualEvent,
 } from './calendarEventsApi'
 import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
+import { isBitContractType } from './bitHistoryApi.js'
 import { formatExcelUploadErrorMessage } from './apiErrors.js'
 import { useAuth } from './AuthContext.jsx'
 import { usePresence } from './usePresence.js'
@@ -5920,7 +5921,6 @@ function getMonthLabel(date) {
 }
 
 const DISPLAY_TYPE_CODES = new Set(['55121903'])
-const BIT_TYPE_CODES = new Set(['43211514', '43211507', '43211902'])
 
 /**
  * 계약분류(contractType) → 요약 카드 5분류.
@@ -5932,8 +5932,6 @@ function getCategory(contract) {
   const compact = type.replace(/[\s,]+/g, '')
   if (!compact || compact === '-' || compact === '--') return '기타'
 
-  const upper = compact.toUpperCase()
-
   if (
     DISPLAY_TYPE_CODES.has(type) ||
     compact.includes('55121903') ||
@@ -5943,14 +5941,8 @@ function getCategory(contract) {
     return '전광판'
   }
 
-  if (
-    BIT_TYPE_CODES.has(type) ||
-    [...BIT_TYPE_CODES].some((code) => compact.includes(code)) ||
-    upper === 'BIT' ||
-    upper.includes('BIT')
-  ) {
-    return 'BIT'
-  }
+  // BIT 판정은 BIT 이력관리 자동 연동과 같은 기준을 쓴다(bitHistoryApi.isBitContractType)
+  if (isBitContractType(type)) return 'BIT'
 
   if (compact.includes('유지보수')) return '유지보수'
 
@@ -14021,13 +14013,13 @@ function App() {
               ? 'whitespace-pre-wrap break-words'
               : ''
           const plainDisplay = getRegistryPlainDisplayState(row, column)
-          // 영업관리대장 '등록일'(sales.registerDate) / 사업공유 '등록일'(excluded.writeDate)
-          // 컬럼에 한정해 금주/전주 등록건 텍스트 뱃지로 구분 표시한다.
-          // 건축정보(discovery)에는 전주/금주 뱃지를 넣지 않는다.
+          // 영업관리대장 '등록일'(sales.registerDate) / 건축정보 '등록일'(discovery.permitDate) /
+          // 사업공유 '등록일'(excluded.writeDate) 컬럼에 금주/전주 뱃지를 붙인다.
+          // 주 판정은 getRegisterDateWeekTag(날짜) 한 함수를 그대로 쓴다.
           const isRegistryWeekBadgeColumn =
-            cellEditScope !== 'discovery' &&
-            ((cellEditScope === 'sales' && column.key === 'registerDate') ||
-              (cellEditScope === 'excluded' && column.key === 'writeDate'))
+            (cellEditScope === 'sales' && column.key === 'registerDate') ||
+            (cellEditScope === 'discovery' && column.key === 'permitDate') ||
+            (cellEditScope === 'excluded' && column.key === 'writeDate')
           const registryWeekTag = isRegistryWeekBadgeColumn
             ? getRegisterDateWeekTag(row?.[column.key])
             : null
@@ -18297,7 +18289,7 @@ function App() {
         {menu === 'orderManagement' && <OrderManagementPlaceholder />}
 
         {menu === BIT_HISTORY_MENU_KEY && canAccessMenu(BIT_HISTORY_MENU_KEY, role, accountId) && (
-          <BitHistoryPage />
+          <BitHistoryPage contracts={contracts} />
         )}
 
         {/* 사업관리 / 단가관리 라우트 비활성화

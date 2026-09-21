@@ -8,3 +8,4 @@ backend/uploads/
 **/*.pyc
 .env.local
 data/presence-online.json
+data/backup/
