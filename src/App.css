@@ -4806,6 +4806,19 @@ textarea:focus-visible {
   color: #2563eb;
   font-weight: 800;
   letter-spacing: 0.02em;
+  animation: dashboard-due-in-progress-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes dashboard-due-in-progress-pulse {
+  0%,
+  100% {
+    background-color: #dbeafe;
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.55);
+  }
+  50% {
+    background-color: #93c5fd;
+    box-shadow: 0 0 0 6px rgba(59, 130, 246, 0);
+  }
 }
 
 @keyframes dashboard-due-urgent-pulse {
@@ -4822,7 +4835,8 @@ textarea:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
   .dashboard-briefing-due-dday--delayed,
-  .dashboard-briefing-due-dday--week {
+  .dashboard-briefing-due-dday--week,
+  .dashboard-briefing-due-dday--inProgress {
     animation: none;
   }
 }
@@ -5776,7 +5790,7 @@ table[data-contract-table-row-key] tbody td.col-dday {
 }
 
 /*
- * 준공진행 — 파란 알약 뱃지 (공정상태와 동일)
+ * 준공진행 — 파란 알약 뱃지 + 링 펄스
  */
 .dday-cell.dday-cell--in-progress,
 table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-cell--in-progress {
@@ -5790,11 +5804,25 @@ table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-ce
   font-weight: 800 !important;
   letter-spacing: 0.02em;
   line-height: 1.25;
+  animation: dday-in-progress-pulse 1.1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes dday-in-progress-pulse {
+  0%,
+  100% {
+    background-color: #dbeafe;
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.55);
+  }
+  50% {
+    background-color: #93c5fd;
+    box-shadow: 0 0 0 9px rgba(59, 130, 246, 0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .dday-cell.dday-cell--due-soon,
-  .dday-cell.dday-cell--overdue {
+  .dday-cell.dday-cell--overdue,
+  .dday-cell.dday-cell--in-progress {
     animation: none;
   }
 }
