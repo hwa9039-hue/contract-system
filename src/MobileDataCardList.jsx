@@ -17,6 +17,7 @@ export function mobileCardBadgeTone(label) {
   if (!text) return 'slate'
   if (text === '준공지연') return 'purple'
   if (text === '준공임박') return 'red'
+  if (text === '준공진행') return 'blue'
   if (text === '준공완료' || text === '진행중') return 'slate'
   const importance = getImportanceStyle(text)
   if (importance.tone && importance.tone !== 'empty' && importance.tone !== 'gray') {

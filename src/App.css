@@ -4749,6 +4749,18 @@ textarea:focus-visible {
   color: #b91c1c;
 }
 
+.dashboard-briefing-due-item--inProgress {
+  border-color: #bfdbfe;
+  border-left: 4px solid #3b82f6;
+  background: #eff6ff;
+}
+
+.dashboard-briefing-due-item--inProgress .dashboard-briefing-due-title,
+.dashboard-briefing-due-item--inProgress .dashboard-briefing-due-sub,
+.dashboard-briefing-due-item--inProgress .dashboard-briefing-due-meta {
+  color: #1d4ed8;
+}
+
 .dashboard-briefing-due-dday--delayed {
   display: inline-flex;
   align-items: center;
@@ -4783,6 +4795,17 @@ textarea:focus-visible {
   font-weight: 800;
   letter-spacing: 0.02em;
   animation: dashboard-due-urgent-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.dashboard-briefing-due-dday--inProgress {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #2563eb;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 @keyframes dashboard-due-urgent-pulse {
@@ -5221,6 +5244,33 @@ textarea:focus-visible {
   color: #374151;
   white-space: nowrap;
   line-height: 1.25;
+}
+
+.dashboard-importance-legend-item--button {
+  margin: 0;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background-color 0.15s ease, filter 0.15s ease;
+}
+
+.dashboard-importance-legend-item--button:hover {
+  background: #f3f4f6;
+  filter: brightness(0.92);
+}
+
+.dashboard-importance-legend-item--button.is-active {
+  background: #eef2ff;
+  font-weight: 800;
+  color: #111827;
+}
+
+.dashboard-importance-legend.is-filtered .dashboard-importance-legend-item--button:not(.is-active) {
+  opacity: 0.4;
 }
 
 .registry-importance-dot--size-sm {
@@ -5725,6 +5775,23 @@ table[data-contract-table-row-key] tbody td.col-dday {
   }
 }
 
+/*
+ * 준공진행 — 파란 알약 뱃지 (공정상태와 동일)
+ */
+.dday-cell.dday-cell--in-progress,
+table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-cell--in-progress {
+  display: inline-block;
+  width: auto;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #2563eb !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dday-cell.dday-cell--due-soon,
   .dday-cell.dday-cell--overdue {
@@ -5848,7 +5915,7 @@ table[data-contract-table-row-key].contract-table tbody td.contract-sticky-col {
   background-color: #ffffff;
 }
 
-/* 공정상태 수기 select — 셀 안에서만 보이도록 투명·가운데 정렬 */
+/* 공정상태 수기 select — 셀 안에서만 보이도록 투명·가운데 정렬, 글자색은 기본 */
 table[data-contract-table-row-key].contract-table .contract-process-status-select {
   display: block;
   width: 100%;
@@ -5863,20 +5930,6 @@ table[data-contract-table-row-key].contract-table .contract-process-status-selec
   font-size: 13px;
   color: #0f172a;
   cursor: pointer;
-}
-
-/* 준공임박 — 빨간 글씨만 (애니메이션은 D-Day 칸) */
-table[data-contract-table-row-key].contract-table .contract-process-status-select.is-imminent,
-table[data-contract-table-row-key].contract-table .contract-process-status-label--imminent {
-  color: #dc2626 !important;
-  font-weight: 700;
-}
-
-/* 준공지연 — 보라 글씨만 (애니메이션은 D-Day 칸) */
-table[data-contract-table-row-key].contract-table .contract-process-status-select.is-delayed,
-table[data-contract-table-row-key].contract-table .contract-process-status-label--delayed {
-  color: #7c3aed !important;
-  font-weight: 700;
 }
 
 table[data-contract-table-row-key].contract-table td.contract-sticky-col--process:has(.contract-process-status-select:focus) {
@@ -19463,6 +19516,18 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
 .event-pill.due-event.calendar-due-delayed:hover {
   background: #d8b4fe;
   border-color: #9333ea;
+}
+
+.event-pill.due-event.calendar-due-in-progress {
+  background: #dbeafe;
+  border-color: #60a5fa;
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+.event-pill.due-event.calendar-due-in-progress:hover {
+  background: #bfdbfe;
+  border-color: #3b82f6;
 }
 
 @keyframes calendar-due-delayed-blink {

@@ -23,6 +23,15 @@ export function normalizeStatusForImportance(status) {
 }
 
 /**
+ * 범례에서 고른 색(tone)과 행의 상태값이 같은 중요도인지 본다.
+ * selectedTone 이 없으면 전체를 통과시킨다.
+ */
+export function matchesSelectedImportance(status, selectedTone) {
+  if (!selectedTone) return true
+  return getImportanceStyle(status).tone === selectedTone
+}
+
+/**
  * @param {string} status
  * @returns {{ tone: 'red'|'yellow'|'blue'|'green'|'gray'|'empty', label: string }}
  */

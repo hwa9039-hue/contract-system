@@ -91,6 +91,7 @@ import {
   RegistryImportanceDot,
   getImportanceStatusFromRow,
   getImportanceStyle,
+  matchesSelectedImportance,
   normalizeStatusForImportance,
   resolveRegistryImportanceStatus,
 } from './registryImportance.jsx'
@@ -241,22 +242,25 @@ const EXCLUDED_DRAFT_CELL_BACKGROUND_STYLE = {
  * 계약현황 표 컬럼 — 이 배열 순서가 헤더·데이터 행·colgroup·엑셀 다운로드 순서를 모두 결정한다.
  * 앞쪽(공정상태·사업년도·참고번호·발주처·사업명)은 체크박스·복사·D-Day와 함께 가로 스크롤 시 좌측에 고정된다.
  *
- * 공정상태 표시 규칙 (수기값 stored 는 유지, 라벨만 강제):
- * - 준공완료 → 그대로 '준공완료' (D-Day 칸은 '준공')
- * - 준공일 경과 + 미완료 → '준공지연' (보라 글씨만; 애니메이션은 D-Day 칸)
- * - 준공 임박(D-14~당일) + 미완료 → '준공임박' (빨간 글씨만; 애니메이션은 D-Day 칸)
+ * 공정상태는 수기 select 5종만 쓴다. 글자색은 기본, 색은 D-Day 칸에만 반영한다.
  */
 const CONTRACT_PROCESS_STATUS_COMPLETE = '준공완료'
 /** 준공 임박으로 볼 남은 일수 — 오늘(D-Day)부터 이 값까지 */
 const CONTRACT_DUE_SOON_DAYS = 14
 
 const CONTRACT_PROCESS_STATUS_OPTIONS = [
-  { value: '', label: '선택' },
   { value: '진행중', label: '진행중' },
+  { value: '준공진행', label: '준공진행' },
+  { value: '준공지연', label: '준공지연' },
+  { value: '준공임박', label: '준공임박' },
   { value: '준공완료', label: '준공완료' },
 ]
 
-/** 구버전 표기 → 현재 옵션으로 정규화 */
+const CONTRACT_PROCESS_STATUS_VALUES = new Set(
+  CONTRACT_PROCESS_STATUS_OPTIONS.map((opt) => opt.value)
+)
+
+/** 구버전 표기 → 현재 옵션으로 정규화 (레거시 '준공완료'는 표시·D-Day 용으로 유지) */
 function normalizeContractProcessStatus(value) {
   const raw = safeString(value).trim()
   if (raw === '시공중') return '진행중'
@@ -264,45 +268,64 @@ function normalizeContractProcessStatus(value) {
   return raw
 }
 
-/**
- * 공정상태 화면 표시.
- * 저장값(stored)은 건드리지 않는다. select value 는 항상 stored.
- */
-function resolveContractProcessStatusView(dueDate, processStatus) {
-  const stored = normalizeContractProcessStatus(processStatus)
-  if (stored === CONTRACT_PROCESS_STATUS_COMPLETE) {
-    return {
-      stored,
-      tone: '',
-      isDelayed: false,
-      isImminent: false,
-      label: stored,
-    }
-  }
+function getContractProcessStatusTone(stored) {
+  if (stored === '준공지연') return 'delayed'
+  if (stored === '준공임박') return 'imminent'
+  if (stored === '준공진행') return 'inProgress'
+  return ''
+}
 
+/**
+ * 공정상태 칸 표시 — 드롭다운에 고른 텍스트 그대로, 색만 상태에 맞춘다.
+ */
+function resolveContractProcessStatusView(_dueDate, processStatus) {
+  const stored = normalizeContractProcessStatus(processStatus)
+  const tone = getContractProcessStatusTone(stored)
+  return {
+    stored,
+    tone,
+    isDelayed: tone === 'delayed',
+    isImminent: tone === 'imminent',
+    isInProgress: tone === 'inProgress',
+    label: stored,
+  }
+}
+
+/** D-Day 뱃지 색 — 준공진행/지연/임박은 공정상태, 그 외(진행중)는 준공일자 */
+function getDdayCellModifierClass(dueDate, processStatus) {
+  const stored = normalizeContractProcessStatus(processStatus)
+  if (stored === CONTRACT_PROCESS_STATUS_COMPLETE) return ' dday-cell--complete'
+  const processTone = getContractProcessStatusTone(stored)
+  if (processTone === 'inProgress') return ' dday-cell--in-progress'
+  if (processTone === 'delayed') return ' dday-cell--overdue'
+  if (processTone === 'imminent') return ' dday-cell--due-soon'
+  const dueStatus = getContractDueStatus(dueDate)
+  if (dueStatus === 'overdue') return ' dday-cell--overdue'
+  if (dueStatus === 'due-soon') return ' dday-cell--due-soon'
+  return ''
+}
+
+function getDdayCellTitle(dueDate, processStatus) {
+  const stored = normalizeContractProcessStatus(processStatus)
+  if (stored === CONTRACT_PROCESS_STATUS_COMPLETE) return '공정상태 준공완료'
+  if (stored === '준공지연') return '공정상태 준공지연'
+  if (stored === '준공임박') return '공정상태 준공임박'
+  if (stored === '준공진행') return '공정상태 준공진행'
+  const dueStatus = getContractDueStatus(dueDate)
+  if (dueStatus === 'overdue') return '준공일자 경과 (준공지연)'
+  if (dueStatus === 'due-soon') return `준공 임박 (${CONTRACT_DUE_SOON_DAYS}일 이내)`
+  return undefined
+}
+
+/** 상단 준공임박 퀵필터 — 준공일자 기준 (공정상태 수기값과 별개) */
+function getContractDueWatchTone(dueDate, processStatus) {
+  const stored = normalizeContractProcessStatus(processStatus)
+  if (stored === CONTRACT_PROCESS_STATUS_COMPLETE) return ''
   const diff = getDateDiffFromToday(dueDate)
-  if (diff === null) {
-    return { stored, tone: '', isDelayed: false, isImminent: false, label: stored }
-  }
-  if (diff < 0) {
-    return {
-      stored,
-      tone: 'delayed',
-      isDelayed: true,
-      isImminent: false,
-      label: '준공지연',
-    }
-  }
-  if (diff <= CONTRACT_DUE_SOON_DAYS) {
-    return {
-      stored,
-      tone: 'imminent',
-      isDelayed: false,
-      isImminent: true,
-      label: '준공임박',
-    }
-  }
-  return { stored, tone: '', isDelayed: false, isImminent: false, label: stored }
+  if (diff === null) return ''
+  if (diff < 0) return 'delayed'
+  if (diff <= CONTRACT_DUE_SOON_DAYS) return 'imminent'
+  return ''
 }
 
 const CONTRACT_COLUMNS = [
@@ -4043,9 +4066,9 @@ function mapDashboardDueRowFromContract(contract) {
  * 준공일 경과 + 미완료 → '준공지연', 준공완료 → '준공'
  */
 function getDashboardDueDayLabel(dueDate, processStatus) {
-  if (normalizeContractProcessStatus(processStatus) === CONTRACT_PROCESS_STATUS_COMPLETE) {
-    return '준공'
-  }
+  const stored = normalizeContractProcessStatus(processStatus)
+  if (stored === CONTRACT_PROCESS_STATUS_COMPLETE) return '준공'
+  if (stored === '준공진행') return '준공진행'
   const diff = getDateDiffFromToday(dueDate)
   if (diff === null) return ''
   if (diff < 0) return '준공지연'
@@ -4066,10 +4089,15 @@ function isYmdInInclusiveRange(ymd, startYmd, endYmd) {
   return Boolean(ymd) && ymd >= startYmd && ymd <= endYmd
 }
 
+function sortDashboardDueRows(a, b) {
+  return a.dueDate.localeCompare(b.dueDate) || a.projectName.localeCompare(b.projectName)
+}
+
 /**
- * 대시보드 준공 위젯 분류 (월~일 주 단위, 전주·금주만).
- * 1) 공정상태가 '준공완료'가 아닌 계약만 남긴다.
- * 2) 준공일이 지난 건은 금주여도 지연(보라). 오늘 이후 금주 건만 임박(빨강).
+ * 대시보드 준공임박 위젯.
+ * - 준공진행: 공정상태를 준공진행으로 고른 건 (파랑). 준공일과 무관.
+ * - 준공지연: 전주·금주 준공일이 지난 건 (보라). 준공진행은 제외.
+ * - 금주 임박: 금주 준공일이 오늘 이후인 건 (빨강). 준공진행은 제외.
  */
 function collectDashboardDueWatchGroups(contracts, anchorDate = new Date()) {
   const lastWeek = getMondaySundayRangeYmd(anchorDate, -1)
@@ -4082,17 +4110,25 @@ function collectDashboardDueWatchGroups(contracts, anchorDate = new Date()) {
         normalizeContractProcessStatus(contract?.processStatus) !== CONTRACT_PROCESS_STATUS_COMPLETE
     )
     .map(mapDashboardDueRowFromContract)
-    .filter((row) => row.id && getDateDiffFromToday(row.dueDate) !== null)
+    .filter((row) => row.id)
+
+  const inProgress = openRows
+    .filter((row) => row.processStatus === '준공진행')
+    .sort(sortDashboardDueRows)
+
+  const datedRows = openRows.filter(
+    (row) => row.processStatus !== '준공진행' && getDateDiffFromToday(row.dueDate) !== null
+  )
 
   const inWatchWindow = (row) =>
     isYmdInInclusiveRange(row.dueDate, lastWeek.startYmd, lastWeek.endYmd) ||
     isYmdInInclusiveRange(row.dueDate, thisWeekRange.startYmd, thisWeekRange.endYmd)
 
-  const delayed = openRows
+  const delayed = datedRows
     .filter((row) => inWatchWindow(row) && getDateDiffFromToday(row.dueDate) < 0)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.projectName.localeCompare(b.projectName))
+    .sort(sortDashboardDueRows)
 
-  const thisWeek = openRows
+  const thisWeek = datedRows
     .filter((row) => {
       const diff = getDateDiffFromToday(row.dueDate)
       return (
@@ -4101,9 +4137,9 @@ function collectDashboardDueWatchGroups(contracts, anchorDate = new Date()) {
         diff >= 0
       )
     })
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.projectName.localeCompare(b.projectName))
+    .sort(sortDashboardDueRows)
 
-  return { delayed, thisWeek }
+  return { delayed, thisWeek, inProgress }
 }
 
 function DashboardDueWatchItem({ item, variant }) {
@@ -6328,6 +6364,7 @@ function App() {
   const [salesDraftFocusRowId, setSalesDraftFocusRowId] = useState(null)
   const [isSavingSales, setIsSavingSales] = useState(false)
   const [salesSearch, setSalesSearch] = useState('')
+  const [selectedSalesImportance, setSelectedSalesImportance] = useState(null)
   const [salesDateRange, setSalesDateRange] = useState({ startDate: '', endDate: '' })
   const [salesActiveFilters, setSalesActiveFilters] = useState({})
   const [openSalesColumnFilterKey, setOpenSalesColumnFilterKey] = useState(null)
@@ -6339,6 +6376,7 @@ function App() {
   const [discoveryDraftFocusRowId, setDiscoveryDraftFocusRowId] = useState(null)
   const [isSavingDiscovery, setIsSavingDiscovery] = useState(false)
   const [discoverySearch, setDiscoverySearch] = useState('')
+  const [selectedDiscoveryImportance, setSelectedDiscoveryImportance] = useState(null)
   const [discoveryDateRange, setDiscoveryDateRange] = useState({ startDate: '', endDate: '' })
   const [discoveryActiveFilters, setDiscoveryActiveFilters] = useState({})
   const [openDiscoveryColumnFilterKey, setOpenDiscoveryColumnFilterKey] = useState(null)
@@ -6348,6 +6386,7 @@ function App() {
   const [excludedEditSnapshots, setExcludedEditSnapshots] = useState({})
   const [isSavingExcluded, setIsSavingExcluded] = useState(false)
   const [excludedSearch, setExcludedSearch] = useState('')
+  const [selectedExcludedImportance, setSelectedExcludedImportance] = useState(null)
   const [excludedDateRange, setExcludedDateRange] = useState({ startDate: '', endDate: '' })
   const [excludedActiveFilters, setExcludedActiveFilters] = useState({})
   const [openExcludedColumnFilterKey, setOpenExcludedColumnFilterKey] = useState(null)
@@ -7279,7 +7318,7 @@ function App() {
   const contractDueSoonRows = useMemo(
     () =>
       contractRowsBeforeDueSoonFilter.filter((item) => {
-        const tone = resolveContractProcessStatusView(item.dueDate, item.processStatus).tone
+        const tone = getContractDueWatchTone(item.dueDate, item.processStatus)
         return tone === 'imminent' || tone === 'delayed'
       }),
     [contractRowsBeforeDueSoonFilter]
@@ -8155,12 +8194,15 @@ function App() {
           salesDateRange.endDate
         )
     )
-    return filterSalesRowsByActiveFilters(toolbarFiltered, salesActiveFilters)
+    return filterSalesRowsByActiveFilters(toolbarFiltered, salesActiveFilters).filter((row) =>
+      matchesSelectedImportance(row.projectStage, selectedSalesImportance)
+    )
   }, [
     salesActiveFilters,
     salesDateRange.endDate,
     salesDateRange.startDate,
     salesSearch,
+    selectedSalesImportance,
     visibleModeSalesRows,
   ])
 
@@ -8175,12 +8217,15 @@ function App() {
           discoveryDateRange.endDate
         )
     )
-    return filterDiscoveryRowsByActiveFilters(toolbarFiltered, discoveryActiveFilters)
+    return filterDiscoveryRowsByActiveFilters(toolbarFiltered, discoveryActiveFilters).filter((row) =>
+      matchesSelectedImportance(row.projectStage, selectedDiscoveryImportance)
+    )
   }, [
     discoveryActiveFilters,
     discoveryDateRange.endDate,
     discoveryDateRange.startDate,
     discoverySearch,
+    selectedDiscoveryImportance,
     visibleModeDiscoveryRows,
   ])
 
@@ -8258,12 +8303,15 @@ function App() {
           excludedDateRange.endDate
         )
     )
-    return filterExcludedRowsByActiveFilters(toolbarFiltered, excludedActiveFilters)
+    return filterExcludedRowsByActiveFilters(toolbarFiltered, excludedActiveFilters).filter((row) =>
+      matchesSelectedImportance(row.category, selectedExcludedImportance)
+    )
   }, [
     excludedActiveFilters,
     excludedDateRange.endDate,
     excludedDateRange.startDate,
     excludedSearch,
+    selectedExcludedImportance,
     visibleModeExcludedRows,
   ])
 
@@ -12637,7 +12685,9 @@ function App() {
             ...EXCLUDED_DRAFT_CELL_BACKGROUND_STYLE,
           }}
         >
-          <div className="cell-display dday-cell">{getDdayText(row.dueDate, row.processStatus)}</div>
+          <div className={`cell-display dday-cell${getDdayCellModifierClass(row.dueDate, row.processStatus)}`}>
+            {getDdayText(row.dueDate, row.processStatus)}
+          </div>
         </td>
         {CONTRACT_COLUMNS.map((column) => {
           const isContractAmountColumn = column.key === 'amount'
@@ -16178,14 +16228,17 @@ function App() {
 
                     <div className="dashboard-briefing-box">
                       <h3 className="dashboard-briefing-box-title">
-                        준공임박{' '}
-                        <span className="dashboard-briefing-box-title-note">(준공 지연 · 금주 임박)</span>
+                        준공현황{' '}
+                        <span className="dashboard-briefing-box-title-note">
+                          (준공 지연 · 금주 임박 · 준공 진행)
+                        </span>
                       </h3>
                       <div className="dashboard-briefing-box-body">
                         {dashboardDueWatchGroups.delayed.length === 0 &&
-                        dashboardDueWatchGroups.thisWeek.length === 0 ? (
+                        dashboardDueWatchGroups.thisWeek.length === 0 &&
+                        dashboardDueWatchGroups.inProgress.length === 0 ? (
                           <p className="dashboard-briefing-box-empty">
-                            현재 준공 지연·금주 임박 건이 없습니다.
+                            현재 준공 지연·금주 임박·준공 진행 건이 없습니다.
                           </p>
                         ) : (
                           <>
@@ -16213,6 +16266,24 @@ function App() {
                                     key={`due-week-${item.id}`}
                                     item={item}
                                     variant="week"
+                                  />
+                                ))}
+                              </ul>
+                            ) : null}
+
+                            {(dashboardDueWatchGroups.delayed.length > 0 ||
+                              dashboardDueWatchGroups.thisWeek.length > 0) &&
+                            dashboardDueWatchGroups.inProgress.length > 0 ? (
+                              <hr className="dashboard-briefing-due-divider" />
+                            ) : null}
+
+                            {dashboardDueWatchGroups.inProgress.length > 0 ? (
+                              <ul className="dashboard-briefing-due-list">
+                                {dashboardDueWatchGroups.inProgress.map((item) => (
+                                  <DashboardDueWatchItem
+                                    key={`due-in-progress-${item.id}`}
+                                    item={item}
+                                    variant="inProgress"
                                   />
                                 ))}
                               </ul>
@@ -16808,26 +16879,8 @@ function App() {
                                 <td className={`col-dday td-align-center table-col-tight contract-sticky-col contract-sticky-col--dday ${CONTRACT_TABLE_DATA_TD_CLASS}`}>
                                   <ContractTableCellShell align="center">
                                     <div
-                                      className={`cell-display dday-cell${
-                                        normalizeContractProcessStatus(item.processStatus) ===
-                                        CONTRACT_PROCESS_STATUS_COMPLETE
-                                          ? ' dday-cell--complete'
-                                          : dueStatus === 'overdue'
-                                            ? ' dday-cell--overdue'
-                                            : dueStatus === 'due-soon'
-                                              ? ' dday-cell--due-soon'
-                                              : ''
-                                      }`}
-                                      title={
-                                        normalizeContractProcessStatus(item.processStatus) ===
-                                        CONTRACT_PROCESS_STATUS_COMPLETE
-                                          ? '공정상태 준공완료'
-                                          : dueStatus === 'overdue'
-                                            ? '준공일자 경과 (준공지연)'
-                                            : dueStatus === 'due-soon'
-                                              ? `준공 임박 (${CONTRACT_DUE_SOON_DAYS}일 이내)`
-                                              : undefined
-                                      }
+                                      className={`cell-display dday-cell${getDdayCellModifierClass(item.dueDate, item.processStatus)}`}
+                                      title={getDdayCellTitle(item.dueDate, item.processStatus)}
                                     >
                                       {getDdayText(item.dueDate, item.processStatus)}
                                     </div>
@@ -16873,26 +16926,26 @@ function App() {
                                       item.dueDate,
                                       item.processStatus
                                     )
-                                    const { stored, tone, label } = statusView
-                                    const toneClass =
-                                      tone === 'delayed'
-                                        ? ' is-delayed'
-                                        : tone === 'imminent'
-                                          ? ' is-imminent'
-                                          : ''
+                                    const { stored, label } = statusView
+                                    const isKnownStatus = CONTRACT_PROCESS_STATUS_VALUES.has(stored)
+                                    const processStatusOptions = isKnownStatus
+                                      ? CONTRACT_PROCESS_STATUS_OPTIONS
+                                      : stored
+                                        ? [{ value: stored, label: stored }, ...CONTRACT_PROCESS_STATUS_OPTIONS]
+                                        : [{ value: '', label: '선택' }, ...CONTRACT_PROCESS_STATUS_OPTIONS]
                                     return (
                                       <td
                                         key={column.key}
                                         className={`${column.className} ${bodyAlignClass} ${CONTRACT_TABLE_DATA_TD_CLASS} ${getTableColumnLayoutClass(column)} ${
                                           canEditContracts ? 'editable-cell' : ''
-                                        } ${tableCellStateClass(!stored && !tone)} ${getContractStickyColumnClass(column.key)}`}
+                                        } ${tableCellStateClass(!stored)} ${getContractStickyColumnClass(column.key)}`}
                                         onClick={(e) => e.stopPropagation()}
                                       >
                                         <ContractTableCellShell align="center">
                                           {canEditContracts ? (
                                             <select
-                                              className={`contract-process-status-select${toneClass}`}
-                                              value={stored}
+                                              className="contract-process-status-select"
+                                              value={isKnownStatus ? stored : stored || ''}
                                               aria-label={`${item.projectName || '계약'} 공정상태`}
                                               onChange={(e) => {
                                                 void handleContractProcessStatusChange(
@@ -16901,29 +16954,19 @@ function App() {
                                                 )
                                               }}
                                             >
-                                              {CONTRACT_PROCESS_STATUS_OPTIONS.map((opt) => {
-                                                const optionLabel =
-                                                  tone && opt.value === stored ? label : opt.label
-                                                return (
-                                                  <option
-                                                    key={opt.value || 'empty'}
-                                                    value={opt.value}
-                                                  >
-                                                    {optionLabel}
-                                                  </option>
-                                                )
-                                              })}
+                                              {processStatusOptions.map((opt) => (
+                                                <option
+                                                  key={opt.value || 'empty'}
+                                                  value={opt.value}
+                                                >
+                                                  {opt.label}
+                                                </option>
+                                              ))}
                                             </select>
                                           ) : (
                                             <div
                                               className={`cell-display editable-text-cell-display editable-text-cell-display--center contract-process-status-label${
                                                 !label ? ' table-cell-empty-placeholder' : ''
-                                              }${
-                                                tone === 'delayed'
-                                                  ? ' contract-process-status-label--delayed'
-                                                  : tone === 'imminent'
-                                                    ? ' contract-process-status-label--imminent'
-                                                    : ''
                                               }`}
                                             >
                                               {label || '—'}
@@ -17000,12 +17043,13 @@ function App() {
                 getRowKey={(row, index) => row.key || row.id || `contract-${index}`}
                 getTitle={(row) => row.projectName}
                 getBadge={(row) => {
-                  const view = resolveContractProcessStatusView(row.dueDate, row.processStatus)
-                  const label = view.label || row.processStatus
+                  const dday = getDdayText(row.dueDate, row.processStatus)
+                  const modifier = getDdayCellModifierClass(row.dueDate, row.processStatus)
                   let tone = 'slate'
-                  if (view.isDelayed) tone = 'purple'
-                  else if (view.isImminent) tone = 'red'
-                  return { label, tone }
+                  if (modifier.includes('in-progress')) tone = 'blue'
+                  else if (modifier.includes('overdue')) tone = 'purple'
+                  else if (modifier.includes('due-soon')) tone = 'red'
+                  return { label: dday || row.processStatus, tone }
                 }}
                 summaryFields={[
                   { label: '발주처', getValue: (row) => row.client },
@@ -17096,7 +17140,10 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <ImportanceLegend />
+              <ImportanceLegend
+                selectedImportance={selectedSalesImportance}
+                onSelect={setSelectedSalesImportance}
+              />
               <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
                 <table className="contract-table excel-table registry-table sales-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
@@ -17355,7 +17402,10 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <ImportanceLegend />
+              <ImportanceLegend
+                selectedImportance={selectedDiscoveryImportance}
+                onSelect={setSelectedDiscoveryImportance}
+              />
               <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
                 <table className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
@@ -17614,7 +17664,10 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <ImportanceLegend />
+              <ImportanceLegend
+                selectedImportance={selectedExcludedImportance}
+                onSelect={setSelectedExcludedImportance}
+              />
               <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
                 <table className="contract-table excel-table registry-table excluded-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
