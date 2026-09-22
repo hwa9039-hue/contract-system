@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Optional
@@ -640,6 +641,7 @@ class BitHistoryBase(BaseModel):
     sortOrder: int = 0
     # 계약현황에서 자동 반영된 행의 원본 계약 id — 재동기화 시 중복 생성을 막는 키
     contractId: str = ""
+    lineNo: str = "1"
     seqNo: str = ""
     client: str = ""
     department: str = ""
@@ -674,6 +676,7 @@ class BitHistoryBase(BaseModel):
 
     @field_validator(
         "contractId",
+        "lineNo",
         "seqNo",
         "client",
         "department",
@@ -713,6 +716,7 @@ class BitHistoryCreate(BitHistoryBase):
 class BitHistoryPatch(BaseModel):
     sortOrder: Optional[Any] = None
     contractId: Optional[Any] = None
+    lineNo: Optional[Any] = None
     seqNo: Optional[Any] = None
     client: Optional[Any] = None
     department: Optional[Any] = None
@@ -1677,6 +1681,7 @@ TABLE_COLUMN_MAPPINGS = {
     "bit_history_rows": {
         "sortOrder": "sort_order",
         "contractId": "contract_id",
+        "lineNo": "line_no",
         "seqNo": "seq_no",
         "client": "client",
         "department": "department",
@@ -1965,8 +1970,12 @@ def bit_history_to_db_values(row: BitHistoryBase) -> dict:
         values["sort_order"] = int(values.get("sort_order") or 0)
     except (TypeError, ValueError):
         values["sort_order"] = 0
+    try:
+        values["line_no"] = int(values.get("line_no") or 1)
+    except (TypeError, ValueError):
+        values["line_no"] = 1
     for key, value in list(values.items()):
-        if key == "sort_order":
+        if key in ("sort_order", "line_no"):
             continue
         values[key] = "" if value is None else str(value)
     return values
@@ -1985,8 +1994,84 @@ def bit_history_patch_to_db_values(row: BitHistoryPatch) -> dict:
             except (TypeError, ValueError):
                 values[db_key] = 0
             continue
+        if api_key == "lineNo":
+            try:
+                values[db_key] = int(value or 1)
+            except (TypeError, ValueError):
+                values[db_key] = 1
+            continue
         values[db_key] = "" if value is None else str(value)
     return values
+
+
+BIT_EXTRA_API_KEYS = (
+    "quantity",
+    "boardApplied",
+    "programItem",
+    "manufacturing",
+    "shippingInspection",
+    "note1",
+    "moduleItem",
+    "moduleArray",
+    "moduleKind",
+    "etcItem",
+    "projectComplete",
+    "defect",
+    "note2",
+)
+
+_BIT_CONTRACT_TYPE_CODES = ("43211514", "43211507", "43211902")
+_BIT_DISPLAY_TYPE_HINTS = ("55121903", "전광판", "디스플레이")
+
+
+def is_bit_contract_type(value) -> bool:
+    """계약현황 계약분류가 BIT 인지 — 프론트 isBitContractType 과 동일."""
+    compact = re.sub(r"[\s,]+", "", "" if value is None else str(value))
+    if not compact:
+        return False
+    if any(hint in compact for hint in _BIT_DISPLAY_TYPE_HINTS):
+        return False
+    if "BIT" in compact.upper():
+        return True
+    return any(code in compact for code in _BIT_CONTRACT_TYPE_CODES)
+
+
+def format_bit_contract_amount(value) -> str:
+    if value is None or value == "":
+        return ""
+    try:
+        return f"{int(round(float(value))):,}"
+    except (TypeError, ValueError):
+        digits = re.sub(r"[^\d]", "", str(value))
+        return f"{int(digits):,}" if digits else ""
+
+
+def bit_history_extras_to_db_values(row: BitHistoryPatch) -> dict:
+    """BIT 전용 추가 필드만 DB 컬럼으로 추출한다. 계약현황 스냅샷은 무시."""
+    data = row.model_dump(exclude_unset=True)
+    values = {}
+    for api_key, db_key in BIT_HISTORY_DB_COLUMNS.items():
+        if api_key not in BIT_EXTRA_API_KEYS or api_key not in data:
+            continue
+        value = data[api_key]
+        values[db_key] = "" if value is None else str(value)
+    return values
+
+
+def contract_snapshot_for_bit(row) -> dict:
+    return {
+        "id": str(to_response_value(row.get("id")) or "").strip(),
+        "refNo": to_response_value(row.get("refNo")) or "",
+        "client": to_response_value(row.get("client")) or "",
+        "department": to_response_value(row.get("department")) or "",
+        "contractMethod": to_response_value(row.get("contractMethod")) or "",
+        "contractType": to_response_value(row.get("contractType")) or "",
+        "identNo": to_response_value(row.get("identNo")) or "",
+        "contractDate": contract_date_to_response(row.get("contractDate")) or "",
+        "dueDate": contract_date_to_response(row.get("dueDate")) or "",
+        "projectName": to_response_value(row.get("projectName")) or "",
+        "amount": to_response_value(row.get("amount")),
+    }
 
 
 def row_to_bit_history(row) -> dict:
@@ -2006,6 +2091,35 @@ def row_to_bit_history(row) -> dict:
         if api_key == "sortOrder":
             continue
         out[api_key] = to_response_value(row.get(db_key)) or ""
+    return out
+
+
+def join_contract_and_bit_extra(contract: dict, extra_row=None, seq_no: int = 0) -> dict:
+    """계약현황 행 + bit_history_rows extras 를 한 화면 행으로 합친다."""
+    extra = row_to_bit_history(extra_row) if extra_row is not None else {}
+    extra_id = str(extra.get("id") or "").strip()
+    contract_id = str(contract.get("id") or "").strip()
+    line_no = extra.get("lineNo") or extra.get("line_no") or "1"
+    out = {
+        "id": extra_id or (f"contract-{contract_id}" if contract_id else ""),
+        "sortOrder": seq_no,
+        "createdAt": extra.get("createdAt") or "",
+        "updatedAt": extra.get("updatedAt") or "",
+        "contractId": contract_id,
+        "lineNo": str(line_no or "1"),
+        "seqNo": str(contract.get("refNo") or "").strip(),
+        "client": contract.get("client") or "",
+        "department": contract.get("department") or "",
+        "contractMethod": contract.get("contractMethod") or "",
+        "contractClass": contract.get("contractType") or "",
+        "identNo": contract.get("identNo") or "",
+        "contractDate": contract.get("contractDate") or "",
+        "dueDate": contract.get("dueDate") or "",
+        "projectName": contract.get("projectName") or "",
+        "contractAmount": format_bit_contract_amount(contract.get("amount")),
+    }
+    for key in BIT_EXTRA_API_KEYS:
+        out[key] = extra.get(key) or ""
     return out
 
 

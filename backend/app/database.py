@@ -824,6 +824,13 @@ def init_db():
                 add column if not exists contract_id text not null default ''
                 """
             )
+            cursor.execute("drop index if exists bit_history_rows_contract_id_uidx")
+            cursor.execute(
+                """
+                alter table bit_history_rows
+                add column if not exists line_no integer not null default 1
+                """
+            )
             cursor.execute(
                 """
                 create table if not exists project_discovery_rows (

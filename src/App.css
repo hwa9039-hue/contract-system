@@ -13940,16 +13940,38 @@ body.work-report-manager-menu-open .work-report-board-section {
   color: #1d4ed8;
 }
 
-/* 계약금액(우측)·사업명(좌측)만 예외, 나머지는 가로·세로 가운데 */
+.bit-history-join-hint {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.bit-history-table td.bit-history-td--from-contract {
+  cursor: default;
+}
+
+.bit-history-table td.bit-history-td--from-contract .cell-display,
+.bit-history-table td.bit-history-td--from-contract .editable-text-cell-display,
+.bit-history-table td.bit-history-td--from-contract .editable-date-cell-display {
+  cursor: default;
+}
+
+/* 계약금액(우측)·사업명(좌측)만 가로 정렬 예외, 세로는 전부 가운데 */
+.bit-history-table.contract-table.excel-table.registry-table tbody td,
+.bit-history-table.contract-table.excel-table.registry-table thead th,
 .bit-history-table tbody td,
 .bit-history-table thead th {
-  vertical-align: middle;
+  vertical-align: middle !important;
 }
 
 .bit-history-table tbody td .cell-display,
 .bit-history-table tbody td .editable-text-cell-display,
-.bit-history-table tbody td .editable-date-cell-display {
-  align-items: center;
+.bit-history-table tbody td .editable-date-cell-display,
+.bit-history-table tbody td .registry-cell-text-wrap {
+  height: 100%;
+  min-height: 36px;
+  display: flex;
+  align-items: center !important;
 }
 
 .bit-history-table tbody td.td-align-center .cell-display,
@@ -13963,6 +13985,22 @@ body.work-report-manager-menu-open .work-report-board-section {
 .bit-history-table tbody td.td-align-right .editable-text-cell-display {
   justify-content: flex-end;
   text-align: right;
+}
+
+.bit-history-table td.bit-history-td--contractAmount {
+  padding-right: 16px;
+}
+
+.bit-history-table td.bit-history-td--contractAmount .cell-display,
+.bit-history-table td.bit-history-td--contractAmount .editable-text-cell-display {
+  justify-content: flex-end;
+  text-align: right;
+  padding-right: 8px;
+}
+
+.bit-history-table tbody tr.contract-year-row > td {
+  padding: 0 !important;
+  vertical-align: middle !important;
 }
 
 /* ── 좌측 틀 고정: 체크박스 → 발주처 → … → 사업명 ──────────────────────
@@ -13996,6 +14034,28 @@ body.work-report-manager-menu-open .work-report-board-section {
 
 .bit-history-table tbody tr:focus-within > td.bit-history-sticky {
   background-color: #eff6ff !important;
+}
+
+/* 줄 추가 행 — 참고번호~계약금액은 회색, 수량부터는 기존처럼 활성 */
+.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--added-muted,
+.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--from-contract,
+.bit-history-table tbody tr.bit-history-data-row--added.row-odd > td.bit-history-td--added-muted,
+.bit-history-table tbody tr.bit-history-data-row--added.row-odd > td.bit-history-td--from-contract,
+.bit-history-table tbody tr.bit-history-data-row--added:hover > td.bit-history-td--added-muted,
+.bit-history-table tbody tr.bit-history-data-row--added:hover > td.bit-history-td--from-contract,
+.bit-history-table tbody tr.bit-history-data-row--added:focus-within > td.bit-history-td--added-muted,
+.bit-history-table tbody tr.bit-history-data-row--added:focus-within > td.bit-history-td--from-contract {
+  background-color: #eef2f6 !important;
+  color: #94a3b8 !important;
+}
+
+.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--added-muted .cell-display,
+.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--from-contract .cell-display,
+.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--added-muted .editable-text-cell-display,
+.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--from-contract .editable-text-cell-display,
+.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--added-muted .editable-date-cell-display,
+.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--from-contract .editable-date-cell-display {
+  color: #94a3b8 !important;
 }
 
 /* 긴 발주처·사업명이 고정 폭을 밀어내지 않게 예외를 준다 */

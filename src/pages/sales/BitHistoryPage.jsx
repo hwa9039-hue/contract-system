@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../AuthContext.jsx'
-import { bitHistoryApi, isBitContractType, normalizeBitHistoryRow } from '../../bitHistoryApi.js'
+import {
+  BIT_EXTRA_KEYS,
+  BIT_FROM_CONTRACT_KEYS,
+  bitHistoryApi,
+  isManualBitRow,
+  mergeBitRowsFromContracts,
+  normalizeBitHistoryRow,
+} from '../../bitHistoryApi.js'
+import { getContractYearKey } from '../../contractAggregation.js'
 import { DeleteConfirmModal, useDeleteConfirm } from '../../DeleteConfirmModal.jsx'
 import { EditableDateCell } from '../../EditableDateCell.jsx'
 import { EditableTextCell } from '../../EditableTextCell.jsx'
@@ -24,16 +32,16 @@ function safeString(value) {
  * sticky 컬럼(발주처~사업명)은 폭이 흔들리면 left 좌표가 어긋나므로 width 를 고정값으로 쓴다.
  */
 const BIT_COLUMNS = [
-  { key: 'seqNo', label: '순번', type: 'text', width: 56, align: 'center', sticky: true },
-  { key: 'client', label: '발주처', type: 'text', width: 130, align: 'center', sticky: true },
-  { key: 'department', label: '담당부서', type: 'text', width: 96, align: 'center', sticky: true },
-  { key: 'contractMethod', label: '계약방식', type: 'text', width: 88, align: 'center', sticky: true },
-  { key: 'contractClass', label: '계약분류', type: 'text', width: 96, align: 'center', sticky: true },
-  { key: 'identNo', label: '식별번호', type: 'text', width: 96, align: 'center', sticky: true },
-  { key: 'contractDate', label: '계약일자', type: 'date', width: 140, align: 'center', sticky: true },
-  { key: 'dueDate', label: '납기일', type: 'date', width: 140, align: 'center', sticky: true },
-  { key: 'projectName', label: '사업명', type: 'text', width: 220, align: 'left', sticky: true },
-  { key: 'contractAmount', label: '계약금액', type: 'amount', width: 135, align: 'right' },
+  { key: 'seqNo', label: '참고번호', type: 'text', width: 88, align: 'center', sticky: true, fromContract: true },
+  { key: 'client', label: '발주처', type: 'text', width: 130, align: 'center', sticky: true, fromContract: true },
+  { key: 'department', label: '담당부서', type: 'text', width: 96, align: 'center', sticky: true, fromContract: true },
+  { key: 'contractMethod', label: '계약방식', type: 'text', width: 88, align: 'center', sticky: true, fromContract: true },
+  { key: 'contractClass', label: '계약분류', type: 'text', width: 96, align: 'center', sticky: true, fromContract: true },
+  { key: 'identNo', label: '식별번호', type: 'text', width: 96, align: 'center', sticky: true, fromContract: true },
+  { key: 'contractDate', label: '계약일자', type: 'date', width: 140, align: 'center', sticky: true, fromContract: true },
+  { key: 'dueDate', label: '준공일자', type: 'date', width: 140, align: 'center', sticky: true, fromContract: true },
+  { key: 'projectName', label: '사업명', type: 'text', width: 280, align: 'left', sticky: true, fromContract: true },
+  { key: 'contractAmount', label: '계약금액', type: 'amount', width: 150, align: 'right', fromContract: true },
   { key: 'quantity', label: '수량', type: 'text', width: 80, align: 'center' },
   { key: 'boardApplied', label: '보드적용', type: 'check', width: 100, align: 'center' },
   { key: 'programItem', label: '프로그램', type: 'check', width: 100, align: 'center' },
@@ -76,19 +84,6 @@ const BIT_EXCEL_COLUMNS = BIT_COLUMNS.map((column) => ({
   minWidth: column.type === 'note' ? 24 : column.type === 'amount' ? 16 : undefined,
 }))
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-
-function isPersistedBitId(id) {
-  return UUID_RE.test(safeString(id).trim())
-}
-
-function createEmptyBitRow() {
-  return BIT_COLUMNS.reduce((acc, column) => {
-    acc[column.key] = ''
-    return acc
-  }, {})
-}
-
 function formatYmdSlash(ymd) {
   const s = safeString(ymd).trim()
   if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return ''
@@ -119,78 +114,76 @@ function formatAmountDisplay(value) {
   return formatted ? `${formatted}원` : ''
 }
 
-/** 계약현황 → BIT 이력 그대로 옮겨 담는 필드(나머지 진행·사후관리 항목은 여기서 직접 입력) */
-const CONTRACT_SYNC_FIELDS = {
-  client: 'client',
-  department: 'department',
-  contractMethod: 'contractMethod',
-  contractClass: 'contractType',
-  identNo: 'identNo',
-  projectName: 'projectName',
+function parseBitAmount(value) {
+  const digits = safeString(value).replace(/[^\d]/g, '')
+  return digits ? Number(digits) : 0
 }
 
-function normalizeProjectKey(value) {
-  return safeString(value).replace(/\s+/g, '').toLowerCase()
-}
-
-function amountDigits(value) {
-  return safeString(value).replace(/[^\d]/g, '')
-}
-
-/**
- * 같은 계약이 이미 이력에 있는지 볼 때 쓰는 키.
- * 엑셀로 먼저 넣은 행은 contractId 가 없으므로 계약일자 + (사업명 | 금액) 으로도 맞춰본다.
- */
-function bitDedupKeys(row) {
-  const contractDate = toDateInputValue(row.contractDate)
-  if (!contractDate) return []
-  const keys = []
-  const name = normalizeProjectKey(row.projectName)
-  if (name) keys.push(`${contractDate}|n:${name}`)
-  const amount = amountDigits(row.contractAmount)
-  if (amount) keys.push(`${contractDate}|a:${amount}`)
-  return keys
-}
-
-/** 계약현황 행 → BIT 이력 행(진행·사후관리 항목은 빈칸으로 두고 화면에서 채운다) */
-function bitRowFromContract(contract) {
-  const row = createEmptyBitRow()
-  for (const [bitKey, contractKey] of Object.entries(CONTRACT_SYNC_FIELDS)) {
-    row[bitKey] = safeString(contract[contractKey]).trim()
+function uniqueContractAmountSum(items) {
+  const seen = new Set()
+  let sum = 0
+  for (const row of items) {
+    const key = safeString(row.contractId || row.id)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    sum += parseBitAmount(row.contractAmount)
   }
-  row.contractDate = toDateInputValue(contract.contractDate)
-  row.dueDate = toDateInputValue(contract.dueDate)
-  row.contractAmount = formatAmountComma(contract.amount)
-  row.contractId = safeString(contract.id).trim()
-  return row
+  return sum
 }
 
-/** 계약현황(계약분류=BIT) 자동 반영 스위치 — 이력 초기화 요청으로 현재는 꺼 둔 상태 */
-const AUTO_SYNC_FROM_CONTRACTS = false
-
-/**
- * 자동 반영을 이미 시도한 계약 id — 모듈 스코프라서 StrictMode 재마운트·메뉴 재진입에도
- * 같은 계약을 두 번 등록하지 않는다. 직렬 체인(syncChain)으로 동시 실행도 막는다.
- */
-const attemptedContractIds = new Set()
-let syncChain = null
-
-function nextSeqNo(rows) {
-  return (
-    rows.reduce((acc, row) => {
-      const value = Number(safeString(row?.seqNo).replace(/[^\d]/g, ''))
-      return Number.isFinite(value) ? Math.max(acc, value) : acc
-    }, 0) + 1
-  )
+function getBitYearKey(row) {
+  return getContractYearKey({ contractDate: row?.contractDate })
 }
 
-function nextSortOrder(rows) {
-  return (
-    rows.reduce((acc, row) => {
-      const value = Number(row?.sortOrder)
-      return Number.isFinite(value) ? Math.max(acc, value) : acc
-    }, 0) + 1
-  )
+function groupBitRowsByYear(rows) {
+  const groups = new Map()
+  for (const row of rows) {
+    const year = getBitYearKey(row)
+    if (!groups.has(year)) groups.set(year, [])
+    groups.get(year).push(row)
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => {
+      const na = Number(a)
+      const nb = Number(b)
+      if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return nb - na
+      return safeString(b).localeCompare(safeString(a), 'ko-KR', { numeric: true })
+    })
+    .map(([year, items]) => ({
+      year,
+      items,
+      count: items.length,
+      totalAmount: uniqueContractAmountSum(items),
+    }))
+}
+
+function bindExpandCollapseRow(toggle, isExpanded) {
+  return {
+    role: 'button',
+    tabIndex: 0,
+    'aria-expanded': isExpanded,
+    onClick: toggle,
+    onKeyDown: (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        toggle()
+      }
+    },
+  }
+}
+
+function isAddedBitLine(row) {
+  const line = Number(safeString(row?.lineNo).replace(/[^\d]/g, ''))
+  return Number.isFinite(line) && line > 1
+}
+
+function nextLineNo(rows, contractId) {
+  const siblings = (rows || []).filter((row) => safeString(row.contractId) === safeString(contractId))
+  const maxLine = siblings.reduce((acc, row) => {
+    const value = Number(safeString(row.lineNo).replace(/[^\d]/g, ''))
+    return Number.isFinite(value) ? Math.max(acc, value) : acc
+  }, 0)
+  return maxLine + 1
 }
 
 /** 기간 필터는 계약일자 기준 */
@@ -224,14 +217,27 @@ function matchesBitSearch(row, query) {
  * 계약일자 최신순. 방금 [등록]으로 추가한 빈 행(계약일자 미입력)은 맨 위에 남겨
  * 바로 이어서 입력할 수 있게 한다.
  */
+function lineNoNum(row) {
+  const value = Number(safeString(row?.lineNo).replace(/[^\d]/g, ''))
+  return Number.isFinite(value) && value > 0 ? value : 1
+}
+
 function sortBitRows(rows) {
   return [...rows].sort((a, b) => {
     const da = toDateInputValue(a.contractDate)
     const db = toDateInputValue(b.contractDate)
-    if (!da && !db) return safeString(b.createdAt).localeCompare(safeString(a.createdAt))
-    if (!da) return -1
-    if (!db) return 1
-    if (da !== db) return db.localeCompare(da)
+    if (!da && db) return -1
+    if (da && !db) return 1
+    if (da && db && da !== db) return db.localeCompare(da)
+
+    const contractA = safeString(a.contractId)
+    const contractB = safeString(b.contractId)
+    if (contractA && contractB && contractA === contractB) {
+      return lineNoNum(a) - lineNoNum(b)
+    }
+
+    const ref = safeString(b.seqNo).localeCompare(safeString(a.seqNo), 'ko-KR', { numeric: true })
+    if (ref !== 0) return ref
     return safeString(b.createdAt).localeCompare(safeString(a.createdAt))
   })
 }
@@ -319,11 +325,16 @@ function BitDateRangeFilter({ startDate, endDate, onStartChange, onEndChange }) 
   )
 }
 
-/** 컬럼 type 하나로 셀 편집기를 결정한다 — 컬럼을 추가하면 표도 자동으로 따라온다. */
+/** 컬럼 type 하나로 셀 편집기를 결정한다 — 연동 행의 계약현황 필드는 읽기 전용. */
 function BitDataCell({ column, row, onCommit }) {
+  const locked =
+    column.fromContract === true && (!isManualBitRow(row) || isAddedBitLine(row))
+  const muted = isAddedBitLine(row) && column.fromContract === true
   const props = stickyCellProps(
     column,
-    `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS} ${cellAlignClass(column.align)} bit-history-td--${column.key}`
+    `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS} ${cellAlignClass(column.align)} bit-history-td--${column.key}${
+      locked ? ' bit-history-td--from-contract' : ''
+    }${muted ? ' bit-history-td--added-muted' : ''}`
   )
 
   if (column.type === 'date') {
@@ -331,6 +342,7 @@ function BitDataCell({ column, row, onCommit }) {
       <td {...props}>
         <EditableDateCell
           value={row[column.key]}
+          disabled={locked}
           onSave={(next) => onCommit(row.id, column.key, next ?? '')}
         />
       </td>
@@ -341,6 +353,7 @@ function BitDataCell({ column, row, onCommit }) {
     <td {...props}>
       <EditableTextCell
         value={row[column.key]}
+        disabled={locked}
         align={column.align === 'right' ? 'right' : column.align === 'left' ? 'left' : 'center'}
         formatMode={column.type === 'amount' ? 'amount' : null}
         className="registry-cell-text-wrap"
@@ -362,6 +375,7 @@ export default function BitHistoryPage({ contracts = [] }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' })
   const [selectedIds, setSelectedIds] = useState([])
+  const [openYears, setOpenYears] = useState({})
   const { itemToDelete, isModalOpen, requestDelete, cancelDelete } = useDeleteConfirm()
 
   /** 셀 저장은 방금 입력한 값을 포함한 최신 행 전체를 보내야 하므로 ref 로 들고 있는다. */
@@ -376,99 +390,58 @@ export default function BitHistoryPage({ contracts = [] }) {
     contractsRef.current = Array.isArray(contracts) ? contracts : []
   }, [contracts])
 
-  /** 목록 조회가 성공한 뒤에만 자동 반영한다(조회 실패 시 전건 재등록 방지). */
-  const loadedRef = useRef(false)
+  /** extras API 응답 — 계약현황이 나중에 도착해도 extras 를 잃지 않게 보관 */
+  const extrasRef = useRef([])
+
+  const applyJoinedRows = useCallback((contractList, extras) => {
+    const contractsSource = Array.isArray(contractList) ? contractList : []
+    const extraSource = Array.isArray(extras) ? extras : []
+    extrasRef.current = extraSource
+    if (contractsSource.length > 0) {
+      return sortBitRows(mergeBitRowsFromContracts(contractsSource, extraSource))
+    }
+    if (extraSource.length > 0) {
+      return sortBitRows(extraSource.map((row, index) => normalizeBitHistoryRow(row, index + 1)))
+    }
+    return []
+  }, [])
 
   const loadRows = useCallback(async () => {
     setIsLoading(true)
+    const contractList = contractsRef.current
     try {
       const data = await bitHistoryApi.list()
       const list = Array.isArray(data) ? data : []
-      setRows(sortBitRows(list.map((row, index) => normalizeBitHistoryRow(row, index + 1))))
-      loadedRef.current = true
+      setRows(applyJoinedRows(contractList, list))
       setLoadError('')
+      setSyncNotice('')
     } catch (error) {
-      setLoadError(`목록을 불러오지 못했습니다. ${safeString(error?.message)}`)
+      // extras API 가 404(Not Found)여도 계약현황 BIT 는 화면에 띄운다.
+      const fallback = applyJoinedRows(contractList, extrasRef.current)
+      setRows(fallback)
+      if (fallback.length > 0) {
+        setLoadError('')
+        setSyncNotice('계약현황의 BIT 계약을 표시합니다. 추가 이력 저장은 서버 연결 후 가능합니다.')
+      } else {
+        setLoadError(`목록을 불러오지 못했습니다. ${safeString(error?.message)}`)
+      }
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [applyJoinedRows])
 
   useEffect(() => {
     if (!allowed) return
     void loadRows()
   }, [allowed, loadRows])
 
-  /**
-   * 계약현황의 계약분류 = BIT 계약을 이력에 자동 등록한다.
-   * 이미 있는 건(contractId 일치 또는 계약일자+사업명·금액 일치)은 건너뛴다.
-   */
-  const syncFromContracts = useCallback(async () => {
-    const existing = rowsRef.current
-    const existingContractIds = new Set(
-      existing.map((row) => safeString(row.contractId).trim()).filter(Boolean)
-    )
-    const existingKeys = new Set(existing.flatMap(bitDedupKeys))
-
-    const candidates = contractsRef.current
-      .filter((contract) => !contract?.isDraft && safeString(contract?.id).trim())
-      .filter((contract) => isBitContractType(contract.contractType))
-      .map(bitRowFromContract)
-      .filter(
-        (row) =>
-          !attemptedContractIds.has(row.contractId) &&
-          !existingContractIds.has(row.contractId) &&
-          !bitDedupKeys(row).some((key) => existingKeys.has(key))
-      )
-      .sort((a, b) => safeString(a.contractDate).localeCompare(safeString(b.contractDate)))
-
-    if (candidates.length === 0) return
-
-    let seqNo = nextSeqNo(existing)
-    let sortOrder = nextSortOrder(existing)
-    const payloads = candidates.map((row) => {
-      attemptedContractIds.add(row.contractId)
-      return { ...row, seqNo: String(seqNo++), sortOrder: sortOrder++ }
-    })
-
-    // 건수가 많을 수 있어 4건씩 나눠 보낸다.
-    const created = []
-    let failed = 0
-    for (let index = 0; index < payloads.length; index += 4) {
-      const results = await Promise.allSettled(
-        payloads.slice(index, index + 4).map((payload) => bitHistoryApi.create(payload))
-      )
-      for (const result of results) {
-        if (result.status === 'fulfilled') created.push(result.value)
-        else failed += 1
-      }
-    }
-
-    if (created.length > 0) {
-      setRows((prev) =>
-        sortBitRows([
-          ...prev,
-          ...created.map((row, index) => normalizeBitHistoryRow(row, prev.length + index + 1)),
-        ])
-      )
-    }
-    setSyncNotice(
-      failed > 0
-        ? `계약현황 BIT 계약 ${created.length}건을 가져왔습니다. (${failed}건 실패)`
-        : `계약현황 BIT 계약 ${created.length}건을 새로 가져왔습니다.`
-    )
-  }, [])
-
+  /** 계약현황이 비동기로 도착·갱신되면 같은 extras 를 다시 조인한다. */
   useEffect(() => {
-    if (!AUTO_SYNC_FROM_CONTRACTS) return
-    if (!allowed || isLoading || !loadedRef.current) return
-    if (!Array.isArray(contracts) || contracts.length === 0) return
-    const run = () =>
-      syncFromContracts().catch((error) => {
-        setSyncNotice(`계약현황 자동 반영에 실패했습니다. ${safeString(error?.message)}`)
-      })
-    syncChain = (syncChain ?? Promise.resolve()).then(run, run)
-  }, [allowed, isLoading, contracts, syncFromContracts])
+    if (!allowed) return
+    const contractList = Array.isArray(contracts) ? contracts : []
+    if (contractList.length === 0) return
+    setRows((prev) => applyJoinedRows(contractList, extrasRef.current.length > 0 ? extrasRef.current : prev))
+  }, [allowed, contracts, applyJoinedRows])
 
   const filteredRows = useMemo(
     () =>
@@ -481,6 +454,21 @@ export default function BitHistoryPage({ contracts = [] }) {
       ),
     [rows, searchQuery, dateRange]
   )
+
+  const yearGroups = useMemo(() => groupBitRowsByYear(filteredRows), [filteredRows])
+  const defaultOpenYear = yearGroups[0]?.year || ''
+
+  const isYearOpen = (year) =>
+    Object.prototype.hasOwnProperty.call(openYears, year)
+      ? openYears[year]
+      : year === defaultOpenYear
+
+  const toggleYear = (year) => {
+    setOpenYears((prev) => ({
+      ...prev,
+      [year]: !isYearOpen(year),
+    }))
+  }
 
   const mobileDetailFields = useMemo(
     () =>
@@ -498,37 +486,139 @@ export default function BitHistoryPage({ contracts = [] }) {
   const allSelected =
     filteredRows.length > 0 && filteredRows.every((row) => selectedIds.includes(row.id))
 
-  /** [등록] — 모달 없이 빈 행 한 줄을 만들어 표 맨 위에 붙인다. */
-  const handleAddRow = async () => {
-    const draft = { ...createEmptyBitRow(), sortOrder: nextSortOrder(rowsRef.current) }
-    try {
-      const created = await bitHistoryApi.create(draft)
-      const normalized = normalizeBitHistoryRow(created, rowsRef.current.length + 1)
-      setRows((prev) => sortBitRows([...prev, normalized]))
-      setLoadError('')
-    } catch (error) {
-      setLoadError(`행 추가에 실패했습니다. ${safeString(error?.message)}`)
-    }
+  const replaceRow = (rowId, nextRow) => {
+    rowsRef.current = rowsRef.current.map((row) => (row.id === rowId ? nextRow : row))
+    setRows(sortBitRows(rowsRef.current))
+    const extraKey = nextRow.extraId || nextRow.id
+    const hasExtra = extrasRef.current.some(
+      (row) => safeString(row.extraId || row.id) === safeString(extraKey)
+    )
+    extrasRef.current = hasExtra
+      ? extrasRef.current.map((row) =>
+          safeString(row.extraId || row.id) === safeString(extraKey) ? nextRow : row
+        )
+      : [...extrasRef.current, nextRow]
   }
 
-  /** 셀 편집 확정 — 로컬 반영 후 해당 행만 PATCH */
+  /** 셀 편집 확정 — 연동 행은 extras 만, 수기등록은 전 필드 저장 */
   const commitCell = useCallback(async (rowId, key, value) => {
     const target = rowsRef.current.find((row) => row.id === rowId)
     if (!target) return
+    const lockedKeys =
+      isManualBitRow(target) && !isAddedBitLine(target) ? [] : BIT_FROM_CONTRACT_KEYS
+    if (lockedKeys.includes(key)) return
     const nextRow = { ...target, [key]: safeString(value) }
-    rowsRef.current = rowsRef.current.map((row) => (row.id === rowId ? nextRow : row))
-    setRows(sortBitRows(rowsRef.current))
+    replaceRow(rowId, nextRow)
 
-    if (!isPersistedBitId(rowId)) return
     try {
-      const saved = await bitHistoryApi.update(rowId, nextRow)
+      const saved = nextRow.extraId
+        ? await bitHistoryApi.update(nextRow.extraId, nextRow)
+        : await bitHistoryApi.create(nextRow)
       const normalized = normalizeBitHistoryRow(saved, nextRow.sortOrder)
-      setRows((prev) => sortBitRows(prev.map((row) => (row.id === rowId ? normalized : row))))
+      const extraId = normalized.extraId || normalized.id
+      const merged = {
+        ...nextRow,
+        ...normalized,
+        extraId,
+        id: extraId || nextRow.id,
+        contractId: nextRow.contractId,
+        isManual: isManualBitRow(nextRow),
+        lineNo: nextRow.lineNo || normalized.lineNo || '1',
+        seqNo: nextRow.seqNo,
+        client: nextRow.client,
+        department: nextRow.department,
+        contractMethod: nextRow.contractMethod,
+        contractClass: nextRow.contractClass,
+        identNo: nextRow.identNo,
+        contractDate: nextRow.contractDate,
+        dueDate: nextRow.dueDate,
+        projectName: nextRow.projectName,
+        contractAmount: nextRow.contractAmount,
+      }
+      replaceRow(rowId, merged)
       setLoadError('')
     } catch (error) {
       setLoadError(`저장에 실패했습니다. ${safeString(error?.message)}`)
     }
   }, [])
+
+  const handleManualAdd = async () => {
+    try {
+      const created = await bitHistoryApi.create({
+        contractClass: 'BIT',
+        lineNo: '1',
+      })
+      const normalized = {
+        ...normalizeBitHistoryRow(created, rowsRef.current.length + 1),
+        isManual: true,
+        contractId: '',
+      }
+      extrasRef.current = [...extrasRef.current, normalized]
+      setRows(sortBitRows([...rowsRef.current, normalized]))
+      setOpenYears((prev) => ({ ...prev, 미분류: true }))
+      setLoadError('')
+    } catch (error) {
+      setLoadError(`등록에 실패했습니다. ${safeString(error?.message)}`)
+    }
+  }
+
+  const handleAddLine = async () => {
+    const selected = rowsRef.current.filter((row) => selectedIds.includes(row.id))
+    if (selected.length === 0) return
+    const seen = new Set()
+    const targets = []
+    for (const row of selected) {
+      const key = safeString(row.contractId || row.id)
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      targets.push(row)
+    }
+
+    const createdRows = []
+    let failed = 0
+    for (const row of targets) {
+      const extraBlank = BIT_EXTRA_KEYS.reduce((acc, key) => {
+        acc[key] = ''
+        return acc
+      }, {})
+      const payload = {
+        ...extraBlank,
+        contractId: row.contractId || '',
+        lineNo: String(nextLineNo(rowsRef.current, row.contractId || row.id)),
+        client: row.client,
+        department: row.department,
+        contractMethod: row.contractMethod,
+        contractClass: row.contractClass || 'BIT',
+        seqNo: row.seqNo,
+        identNo: row.identNo,
+        contractDate: row.contractDate,
+        dueDate: row.dueDate,
+        projectName: row.projectName,
+        contractAmount: row.contractAmount,
+      }
+      try {
+        const created = await bitHistoryApi.create(payload)
+        createdRows.push({
+          ...normalizeBitHistoryRow(created, rowsRef.current.length + createdRows.length + 1),
+          isManual: isManualBitRow(payload),
+          contractId: payload.contractId,
+          lineNo: payload.lineNo,
+        })
+      } catch {
+        failed += 1
+      }
+    }
+
+    if (createdRows.length > 0) {
+      extrasRef.current = [...extrasRef.current, ...createdRows]
+      setRows(sortBitRows([...rowsRef.current, ...createdRows]))
+    }
+    if (failed > 0) {
+      setLoadError(`줄 추가 ${createdRows.length}건 성공, ${failed}건 실패`)
+    } else {
+      setLoadError('')
+    }
+  }
 
   const handleExcelDownload = useCallback(async () => {
     const excelRows = filteredRows.map((row) => {
@@ -569,10 +659,15 @@ export default function BitHistoryPage({ contracts = [] }) {
 
   const handleConfirmDelete = async () => {
     const ids = Array.isArray(itemToDelete) ? itemToDelete : itemToDelete ? [itemToDelete] : []
-    const persisted = ids.filter(isPersistedBitId)
-    if (persisted.length > 0) {
+    const extraIds = ids
+      .map((id) => {
+        const row = rowsRef.current.find((item) => item.id === id)
+        return safeString(row?.extraId || (row?.isManual ? row?.id : '')).trim()
+      })
+      .filter(Boolean)
+    if (extraIds.length > 0) {
       try {
-        await bitHistoryApi.bulkDelete(persisted)
+        await bitHistoryApi.bulkDelete(extraIds)
         setLoadError('')
       } catch (error) {
         setLoadError(`삭제에 실패했습니다. ${safeString(error?.message)}`)
@@ -580,7 +675,11 @@ export default function BitHistoryPage({ contracts = [] }) {
         return
       }
     }
-    setRows((prev) => prev.filter((row) => !ids.includes(row.id)))
+    extrasRef.current = extrasRef.current.filter((row) => {
+      const extraId = safeString(row.extraId || row.id).trim()
+      return !extraIds.includes(extraId)
+    })
+    setRows(applyJoinedRows(contractsRef.current, extrasRef.current))
     setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)))
     cancelDelete()
   }
@@ -591,16 +690,26 @@ export default function BitHistoryPage({ contracts = [] }) {
     <section className="stat-card bit-history-page" aria-label="BIT 이력관리">
       <div className="bit-history-toolbar">
         <div className="bit-history-toolbar-left">
-          <button className="primary-btn" type="button" onClick={() => void handleAddRow()}>
+          <button className="primary-btn" type="button" onClick={() => void handleManualAdd()}>
             등록
+          </button>
+          <button
+            className="secondary-btn"
+            type="button"
+            onClick={() => void handleAddLine()}
+            disabled={selectedIds.length === 0}
+            title="선택한 계약과 같은 기본 정보로 이력을 한 줄 더 만듭니다."
+          >
+            줄 추가
           </button>
           <button
             className="secondary-btn"
             type="button"
             onClick={() => requestDelete(selectedIds)}
             disabled={selectedIds.length === 0}
+            title="BIT 이력 줄만 지웁니다. 계약현황 원본은 그대로 둡니다."
           >
-            선택 삭제
+            삭제
           </button>
           {selectedIds.length > 0 && (
             <button
@@ -639,6 +748,11 @@ export default function BitHistoryPage({ contracts = [] }) {
           {loadError}
         </p>
       ) : null}
+
+      <p className="bit-history-join-hint" role="note">
+        계약현황의 BIT 계약이 연도별로 자동 표시됩니다. 같은 계약을 출하·모듈 단위로 나눠야 하면 행을 고르고 [줄 추가] 하세요.
+        계약현황에서 지우면 여기 연동 줄도 사라지고, 여기서 지우면 계약현황은 남습니다.
+      </p>
 
       {!loadError && syncNotice ? (
         <p className="bit-history-sync-notice" role="status">
@@ -706,43 +820,72 @@ export default function BitHistoryPage({ contracts = [] }) {
                 <tr>
                   <td colSpan={BIT_COLUMNS.length + 1} className="empty-cell">
                     {rows.length === 0
-                      ? '등록된 데이터가 없습니다.'
+                      ? '계약현황에 등록된 BIT 계약이 없습니다.'
                       : '필터 조건에 맞는 데이터가 없습니다.'}
                   </td>
                 </tr>
               ) : (
-                filteredRows.map((row, index) => (
-                  <tr
-                    key={row.id}
-                    className={`bit-history-data-row ${index % 2 === 0 ? 'row-even' : 'row-odd'}`}
-                  >
-                    <td
-                      className="td-align-center registry-check-cell bit-history-sticky"
-                      style={{
-                        left: 0,
-                        width: `${BIT_CHECK_COL_WIDTH}px`,
-                        minWidth: `${BIT_CHECK_COL_WIDTH}px`,
-                        maxWidth: `${BIT_CHECK_COL_WIDTH}px`,
-                      }}
+                yearGroups.flatMap((yearBlock) => {
+                  const collapsed = !isYearOpen(yearBlock.year)
+                  const yearRow = (
+                    <tr
+                      className="contract-year-row contract-year-row--toggle"
+                      key={`bit-year-${yearBlock.year}`}
+                      {...bindExpandCollapseRow(() => toggleYear(yearBlock.year), !collapsed)}
                     >
-                      <input
-                        className="registry-row-checkbox"
-                        type="checkbox"
-                        checked={selectedIds.includes(row.id)}
-                        onChange={() => toggleRowSelection(row.id)}
-                        aria-label={`${row.projectName || 'BIT 이력'} 선택`}
-                      />
-                    </td>
-                    {BIT_COLUMNS.map((column) => (
-                      <BitDataCell
-                        key={column.key}
-                        column={column}
-                        row={row}
-                        onCommit={commitCell}
-                      />
-                    ))}
-                  </tr>
-                ))
+                      <td colSpan={BIT_COLUMNS.length + 1}>
+                        <div className="contract-year-toggle" aria-hidden="true">
+                          <span className="contract-year-sign">{collapsed ? '+' : '-'}</span>
+                          <span>{yearBlock.year === '미분류' ? '미분류' : `${yearBlock.year}년`}</span>
+                          <span className="contract-year-count">
+                            {yearBlock.count.toLocaleString('ko-KR')}건 (총{' '}
+                            {yearBlock.totalAmount.toLocaleString('ko-KR')}원)
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                  if (collapsed) return [yearRow]
+                  return [
+                    yearRow,
+                    ...yearBlock.items.map((row, index) => (
+                      <tr
+                        key={row.id}
+                        className={`bit-history-data-row ${index % 2 === 0 ? 'row-even' : 'row-odd'}${
+                          isAddedBitLine(row) ? ' bit-history-data-row--added' : ''
+                        }`}
+                      >
+                        <td
+                          className={`td-align-center registry-check-cell bit-history-sticky${
+                            isAddedBitLine(row) ? ' bit-history-td--added-muted' : ''
+                          }`}
+                          style={{
+                            left: 0,
+                            width: `${BIT_CHECK_COL_WIDTH}px`,
+                            minWidth: `${BIT_CHECK_COL_WIDTH}px`,
+                            maxWidth: `${BIT_CHECK_COL_WIDTH}px`,
+                          }}
+                        >
+                          <input
+                            className="registry-row-checkbox"
+                            type="checkbox"
+                            checked={selectedIds.includes(row.id)}
+                            onChange={() => toggleRowSelection(row.id)}
+                            aria-label={`${row.projectName || 'BIT 이력'} 선택`}
+                          />
+                        </td>
+                        {BIT_COLUMNS.map((column) => (
+                          <BitDataCell
+                            key={column.key}
+                            column={column}
+                            row={row}
+                            onCommit={commitCell}
+                          />
+                        ))}
+                      </tr>
+                    )),
+                  ]
+                })
               )}
             </tbody>
           </table>

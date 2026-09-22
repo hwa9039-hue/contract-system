@@ -412,6 +412,10 @@ def bulk_delete_contracts(payload: ContractBulkDelete):
     try:
         with get_connection() as connection:
             with connection.cursor() as cursor:
+                cursor.execute(
+                    "delete from bit_history_rows where contract_id = any(%s)",
+                    (ids,),
+                )
                 cursor.execute("delete from contracts_rows where id::text = any(%s)", (ids,))
                 deleted_count = cursor.rowcount
             connection.commit()
@@ -506,6 +510,10 @@ async def update_contract(contract_id: str, request: Request):
 def delete_contract(contract_id: str):
     with get_connection() as connection:
         with connection.cursor() as cursor:
+            cursor.execute(
+                "delete from bit_history_rows where contract_id = %s",
+                (contract_id,),
+            )
             cursor.execute("delete from contracts_rows where id::text = %s", (contract_id,))
             deleted_count = cursor.rowcount
         connection.commit()
