@@ -253,7 +253,11 @@ function stickyCellProps(column, extraClass = '') {
   if (!column.sticky) {
     return {
       className: extraClass.trim(),
-      style: { minWidth: `${column.width}px` },
+      style: {
+        width: `${column.width}px`,
+        minWidth: `${column.width}px`,
+        maxWidth: `${column.width}px`,
+      },
     }
   }
   const isLast = column.key === BIT_STICKY_LAST_KEY
@@ -772,11 +776,11 @@ export default function BitHistoryPage({ contracts = [] }) {
               {BIT_COLUMNS.map((column) => (
                 <col
                   key={column.key}
-                  style={
-                    column.sticky
-                      ? { width: `${column.width}px`, minWidth: `${column.width}px` }
-                      : { minWidth: `${column.width}px` }
-                  }
+                  style={{
+                    width: `${column.width}px`,
+                    minWidth: `${column.width}px`,
+                    maxWidth: `${column.width}px`,
+                  }}
                 />
               ))}
             </colgroup>

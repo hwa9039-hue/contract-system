@@ -13932,6 +13932,26 @@ body.work-report-manager-menu-open .work-report-board-section {
   padding-right: 6px;
 }
 
+.bit-history-table tbody td.editable-cell {
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.bit-history-table tbody td.editable-cell > input,
+.bit-history-table tbody td.editable-cell > textarea,
+.bit-history-table tbody td textarea.registry-cell-autogrow-textarea,
+.bit-history-table tbody td .editable-date-cell-input {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  field-sizing: fixed;
+  white-space: pre-wrap !important;
+  overflow-x: hidden !important;
+  overflow-wrap: anywhere !important;
+}
+
 /* 계약현황 BIT 계약 자동 반영 결과 안내 */
 .bit-history-sync-notice {
   margin: 0 0 8px;
