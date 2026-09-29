@@ -19582,6 +19582,239 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
   border-right: 1px solid #e2e8f0;
 }
 
+/* 주간업무보고서 톤만 조정. 요일 열·섹션 그리드 구조는 그대로 둔다.
+   Tailwind 대응: bg-gray-50 / bg-white / rounded-lg / shadow-sm / border-gray-200
+   / focus:ring-1 focus:ring-blue-500 / text-xs text-gray-400 / border-l-4 border-blue-500 */
+.main-area > section.stat-card.stat-card--work-reports {
+  background: #f9fafb;
+}
+
+.main-area > section.stat-card.stat-card--work-reports .work-report-toolbar-sticky,
+.main-area > section.stat-card.stat-card--work-reports .work-report-week-board-area {
+  background: #f9fafb;
+  border-bottom-color: #e5e7eb;
+  box-shadow: none;
+}
+
+.work-report-week-board-inner {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.work-report-week-board-inner .work-report-week-day-headers {
+  background: #ffffff;
+  border-bottom: 0;
+  box-shadow: none;
+  padding-bottom: 0;
+}
+
+.work-report-week-board-inner .work-report-week-day-head,
+.work-report-week-board-inner .work-report-week-day-head:last-child {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  transform: none;
+}
+
+.work-report-week-board-inner .work-report-week-section-title,
+.work-report-week-board-inner .work-report-board-section-title,
+.work-report-week-board-inner .work-report-board-support-title,
+.stat-card--work-reports .work-report-board-section-title,
+.stat-card--work-reports .work-report-board-support-title {
+  background: #f8fafc;
+  color: #1f2937;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: inset 4px 0 0 #3b82f6;
+}
+
+.work-report-week-section-title-label {
+  background: transparent;
+  color: #1f2937;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.work-report-week-board-inner .work-report-week-data-cell,
+.work-report-week-board-inner .work-report-week-section,
+.work-report-week-board-inner .work-report-board-header-row,
+.work-report-week-board-inner .work-report-board-header-row-no-index,
+.work-report-week-board-inner .work-report-board-header-row-external-no-index,
+.work-report-week-board-inner .work-report-board-row,
+.work-report-week-board-inner .work-report-board-row-no-index,
+.work-report-week-board-inner .work-report-board-row-external-no-index {
+  border-color: #e5e7eb;
+  background-color: #ffffff;
+}
+
+.work-report-week-board-inner .work-report-week-data-cell:not(:last-child),
+.work-report-week-board-inner .work-report-week-day-head:not(:last-child) {
+  border-right: 1px solid #e5e7eb;
+}
+
+.work-report-week-board-inner .work-report-board-header-row-no-index > *,
+.work-report-week-board-inner .work-report-board-header-row-external-no-index > *,
+.work-report-week-board-inner .work-report-board-row-no-index > *,
+.work-report-week-board-inner .work-report-board-row-external-no-index > *,
+.work-report-week-board-inner .work-report-board-row > * {
+  border-right-color: #e5e7eb;
+}
+
+.work-report-week-board-inner .work-report-day-weekday,
+.work-report-week-board-inner .work-report-day-date,
+.work-report-week-board-inner .work-report-week-section-title-label,
+.work-report-week-board-inner .work-report-board-manager-header,
+.work-report-week-board-inner .work-report-board-content-header,
+.work-report-week-board-inner .work-report-board-destination-header,
+.work-report-week-board-inner .work-report-board-deadline-header,
+.work-report-week-board-inner .work-report-board-index,
+.work-report-week-board-inner .work-report-board-fixed-manager,
+.work-report-week-board-inner textarea,
+.work-report-week-board-inner input:not([type='checkbox']),
+.work-report-week-board-inner select,
+.work-report-week-board-inner .work-report-external-manager-multi-trigger,
+.work-report-week-board-inner .work-report-external-manager-multi-chip {
+  font-size: 14px;
+}
+
+.work-report-week-board-inner .work-report-board-manager-header,
+.work-report-week-board-inner .work-report-board-content-header,
+.work-report-week-board-inner .work-report-board-destination-header,
+.work-report-week-board-inner .work-report-board-deadline-header {
+  background: transparent;
+  color: #374151;
+  font-weight: 700;
+}
+
+/* 외부일정 담당자 112px과 같은 시작선. DI·도로 담당자, 영업지원 순번+체크도 112px. */
+.work-report-week-board-inner .work-report-board-header-row-managed,
+.work-report-week-board-inner .work-report-board-row-managed {
+  grid-template-columns: 112px minmax(0, 1fr);
+}
+
+.work-report-week-board-inner .work-report-board-row-todo {
+  grid-template-columns: 56px 56px minmax(0, 1fr);
+}
+
+/* 요일 칸은 520px 아래로 줄지 않는다. shrink 되면 글자가 한 글자씩 세로로 끊긴다. */
+.work-report-week-board-inner .work-report-week-day-headers,
+.work-report-week-board-inner .work-report-week-data-row {
+  grid-template-columns: repeat(7, minmax(520px, var(--work-report-day-col-width)));
+}
+
+.work-report-week-board-inner .work-report-week-day-head,
+.work-report-week-board-inner .work-report-week-data-cell {
+  flex: 0 0 520px;
+  flex-shrink: 0;
+  width: 520px;
+  min-width: 520px;
+  max-width: none;
+}
+
+.work-report-week-board-inner .work-report-board-fixed-manager,
+.work-report-week-board-inner .work-report-board-manager-header,
+.work-report-week-board-inner .work-report-board-content-header,
+.work-report-week-board-inner .work-report-board-destination-header,
+.work-report-week-board-inner .work-report-day-weekday,
+.work-report-week-board-inner .work-report-day-date {
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+.work-report-week-board-inner textarea,
+.work-report-week-board-inner input:not([type='checkbox']),
+.work-report-week-board-inner select,
+.work-report-week-board-inner .work-report-external-manager-multi-trigger,
+.work-report-week-board-inner .work-report-external-manager-multi-trigger:hover {
+  border-color: transparent;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.work-report-week-board-inner textarea:hover,
+.work-report-week-board-inner input:not([type='checkbox']):hover,
+.work-report-week-board-inner select:hover {
+  background: #f9fafb;
+}
+
+.work-report-week-board-inner textarea:focus,
+.work-report-week-board-inner input:not([type='checkbox']):focus,
+.work-report-week-board-inner select:focus,
+.work-report-week-board-inner .work-report-external-manager-multi-trigger:focus {
+  border-color: transparent;
+  background: #ffffff;
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px #3b82f6,
+    0 4px 6px -1px rgba(37, 99, 235, 0.18),
+    0 2px 4px -2px rgba(15, 23, 42, 0.08);
+}
+
+.work-report-week-board-inner .work-report-week-day-head.is-today {
+  background: #eff6ff;
+  border-color: #e5e7eb;
+  border-top: 4px solid #3b82f6;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  transform: none;
+}
+
+.work-report-week-board-inner .work-report-week-day-head.is-today .work-report-day-weekday {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.work-report-week-board-inner .work-report-week-day-head.is-today .work-report-day-date {
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.work-report-week-board-inner .work-report-week-data-cell.is-today,
+.work-report-week-board-inner .work-report-week-data-cell.is-today .work-report-board-row,
+.work-report-week-board-inner .work-report-week-data-cell.is-today .work-report-board-row-no-index,
+.work-report-week-board-inner .work-report-week-data-cell.is-today .work-report-board-row-external-no-index,
+.work-report-week-board-inner .work-report-week-data-cell.is-today .work-report-board-header-row-no-index,
+.work-report-week-board-inner .work-report-week-data-cell.is-today .work-report-board-header-row-external-no-index,
+.work-report-week-board-inner .work-report-week-data-cell.is-today .work-report-board-index,
+.work-report-week-board-inner .work-report-week-data-cell.is-today .work-report-board-todo-check,
+.work-report-week-board-inner .work-report-week-data-cell.is-today .work-report-board-fixed-manager {
+  background-color: #eff6ff;
+}
+
+.stat-card--work-reports .work-report-day-board,
+.stat-card--work-reports .work-report-mobile-day-card,
+.stat-card--work-reports .work-report-board-section {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.stat-card--work-reports .work-report-board-textarea,
+.stat-card--work-reports .work-report-section-textarea {
+  border-color: transparent;
+  background: transparent;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-card--work-reports .work-report-board-textarea:focus,
+.stat-card--work-reports .work-report-section-textarea:focus {
+  border-color: transparent;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #3b82f6;
+}
+
+.work-report-week-board-inner .work-report-board-header-row-no-index > *:not(:last-child),
+.work-report-week-board-inner .work-report-board-header-row-external-no-index > *:not(:last-child),
+.work-report-week-board-inner .work-report-board-row-no-index > *:not(:last-child),
+.work-report-week-board-inner .work-report-board-row-external-no-index > *:not(:last-child),
+.work-report-week-board-inner .work-report-board-row > *:not(:last-child) {
+  border-right: 1px solid #e5e7eb;
+}
+
 /* ── 캘린더 준공 임박·지연 강조 ─────────────────────────────────────────
    계약현황 D-Day 뱃지와 같은 기준(getContractDueStatus)으로 붙는 클래스.
    달력 칸(.day-events)이 overflow:auto 라 바깥으로 퍼지는 링은 잘리므로,

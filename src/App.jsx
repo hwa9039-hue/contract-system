@@ -6405,6 +6405,7 @@ function App() {
   const saveWorkReportBoardEntryRef = useRef(() => Promise.resolve())
   const workReportSaveTimersRef = useRef({})
   const workReportManualSaveFailedRef = useRef(false)
+  const workReportWeekBoardRef = useRef(null)
   const skipWorkReportWeekFlushRef = useRef(true)
   useLayoutEffect(() => {
     workReportRowsRef.current = workReportRows
@@ -8450,6 +8451,38 @@ function App() {
     () => getWorkReportWeekDays(selectedWorkWeekMeta.weekStartDate),
     [selectedWorkWeekMeta.weekStartDate]
   )
+
+  useEffect(() => {
+    if (menu !== 'workReports') return
+    const board = workReportWeekBoardRef.current
+    if (!board) return
+    const todayHead = board.querySelector('.work-report-week-day-head.is-today')
+    if (!todayHead) return
+    const frame = window.requestAnimationFrame(() => {
+      const boardRect = board.getBoundingClientRect()
+      const headRect = todayHead.getBoundingClientRect()
+      const nextLeft = board.scrollLeft + (headRect.left - boardRect.left) - 12
+      board.scrollTo({ left: Math.max(0, nextLeft), behavior: 'smooth' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [menu, selectedWorkWeekMeta.weekStartDate])
+
+  useEffect(() => {
+    if (menu !== 'workReports') return
+    const board = workReportWeekBoardRef.current
+    if (!board) return
+    const onWheel = (event) => {
+      if (board.scrollWidth <= board.clientWidth + 1) return
+      const useVerticalWheel = event.shiftKey || Math.abs(event.deltaX) <= Math.abs(event.deltaY)
+      const delta = useVerticalWheel ? event.deltaY : event.deltaX
+      if (!delta) return
+      const previous = board.scrollLeft
+      board.scrollLeft += delta
+      if (board.scrollLeft !== previous) event.preventDefault()
+    }
+    board.addEventListener('wheel', onWheel, { passive: false })
+    return () => board.removeEventListener('wheel', onWheel)
+  }, [menu])
   const dashboardTodayWorkBrief = useMemo(() => {
     const now = new Date()
     const todayYmd = formatDateInput(new Date(now.getFullYear(), now.getMonth(), now.getDate()))
@@ -15652,7 +15685,7 @@ function App() {
       {selectedWorkWeekDays.map((day) => (
         <div
           key={`${rowKey}-${day.date}`}
-          className="work-report-week-data-cell"
+          className={`work-report-week-data-cell${day.isToday ? ' is-today' : ''}`}
           role="gridcell"
         >
           {renderDayCell(day.date, day)}
@@ -15932,7 +15965,10 @@ function App() {
   )
 
   const renderWorkReportWeekBoardV5 = () => (
-    <div className="work-report-week-board-area work-report-week-board-scroll flex-1 min-h-0 desktop-table-only hidden md:block">
+    <div
+      ref={workReportWeekBoardRef}
+      className="work-report-week-board-area work-report-week-board-scroll flex-1 min-h-0 desktop-table-only hidden md:block"
+    >
       <div className="work-report-week-board-inner">
         <div className="work-report-week-day-headers" aria-label="요일 헤더">
           {selectedWorkWeekDays.map((day) => (
