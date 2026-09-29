@@ -8459,30 +8459,11 @@ function App() {
     const todayHead = board.querySelector('.work-report-week-day-head.is-today')
     if (!todayHead) return
     const frame = window.requestAnimationFrame(() => {
-      const boardRect = board.getBoundingClientRect()
-      const headRect = todayHead.getBoundingClientRect()
-      const nextLeft = board.scrollLeft + (headRect.left - boardRect.left) - 12
-      board.scrollTo({ left: Math.max(0, nextLeft), behavior: 'smooth' })
+      todayHead.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
     })
     return () => window.cancelAnimationFrame(frame)
   }, [menu, selectedWorkWeekMeta.weekStartDate])
 
-  useEffect(() => {
-    if (menu !== 'workReports') return
-    const board = workReportWeekBoardRef.current
-    if (!board) return
-    const onWheel = (event) => {
-      if (board.scrollWidth <= board.clientWidth + 1) return
-      const useVerticalWheel = event.shiftKey || Math.abs(event.deltaX) <= Math.abs(event.deltaY)
-      const delta = useVerticalWheel ? event.deltaY : event.deltaX
-      if (!delta) return
-      const previous = board.scrollLeft
-      board.scrollLeft += delta
-      if (board.scrollLeft !== previous) event.preventDefault()
-    }
-    board.addEventListener('wheel', onWheel, { passive: false })
-    return () => board.removeEventListener('wheel', onWheel)
-  }, [menu])
   const dashboardTodayWorkBrief = useMemo(() => {
     const now = new Date()
     const todayYmd = formatDateInput(new Date(now.getFullYear(), now.getMonth(), now.getDate()))
