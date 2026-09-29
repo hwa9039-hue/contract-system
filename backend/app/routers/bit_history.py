@@ -426,32 +426,34 @@ def update_bit_history(row_id: str, patch: BitHistoryPatch):
                 )
                 found = cursor.fetchone()
                 if found:
-                    contract_id = str(found.get("contract_id") or "").strip() or patch_contract_id
-                    if not contract_id:
-                        extras = bit_history_extras_to_db_values(patch)
-                        if not extras:
-                            raise HTTPException(
-                                status_code=status.HTTP_400_BAD_REQUEST,
-                                detail="No BIT extra fields to update",
-                            )
-                        extras["updated_at"] = datetime.now(timezone.utc)
-                        extras["id"] = row_id
-                        assignments = [f"{column} = %({column})s" for column in extras if column != "id"]
-                        cursor.execute(
-                            f"""
-                            update bit_history_rows
-                            set {", ".join(assignments)}
-                            where id::text = %(id)s
-                            returning {BIT_HISTORY_RETURNING}
-                            """,
-                            extras,
+                    extras = bit_history_extras_to_db_values(patch)
+                    if patch.lineNo is not None:
+                        try:
+                            extras["line_no"] = int(patch.lineNo or 1)
+                        except (TypeError, ValueError):
+                            extras["line_no"] = 1
+                    if not extras:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="No BIT extra fields to update",
                         )
-                        updated = cursor.fetchone()
-                        connection.commit()
-                        return row_to_bit_history(updated)
-                    result = upsert_extras_by_contract_id(cursor, contract_id, patch)
+                    extras["updated_at"] = datetime.now(timezone.utc)
+                    extras["id"] = row_id
+                    assignments = [f"{column} = %({column})s" for column in extras if column != "id"]
+                    cursor.execute(
+                        f"""
+                        update bit_history_rows
+                        set {", ".join(assignments)}
+                        where id::text = %(id)s
+                        returning {BIT_HISTORY_RETURNING}
+                        """,
+                        extras,
+                    )
+                    updated = cursor.fetchone()
                     connection.commit()
-                    return result
+                    contract_id = str((updated or found).get("contract_id") or "").strip()
+                    contract = _fetch_contract_snapshot(cursor, contract_id) if contract_id else None
+                    return _joined_or_extra(contract, updated or found)
 
             target_contract_id = patch_contract_id or path_id
             if not target_contract_id:
@@ -477,11 +479,8 @@ def bulk_delete_bit_history(payload: BitHistoryBulkDelete):
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
-                """
-                delete from bit_history_rows
-                where id::text = any(%s) or contract_id = any(%s)
-                """,
-                (ids, ids),
+                "delete from bit_history_rows where id::text = any(%s)",
+                (ids,),
             )
             deleted_count = cursor.rowcount
         connection.commit()

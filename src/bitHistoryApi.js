@@ -35,15 +35,15 @@ export const BIT_FROM_CONTRACT_KEYS = [
   'department',
   'contractMethod',
   'contractClass',
-  'identNo',
   'contractDate',
   'dueDate',
   'projectName',
   'contractAmount',
 ]
 
-/** BIT 이력관리에만 있는 추가 필드 — contract_id 로 별도 저장 */
+/** BIT 이력관리에만 있는 추가 필드 — contract_id 로 별도 저장. 식별번호는 줄마다 따로 수정한다. */
 export const BIT_EXTRA_KEYS = [
+  'identNo',
   'quantity',
   'boardApplied',
   'programItem',
@@ -86,6 +86,7 @@ export function buildBitHistoryPayload(form) {
   const sortOrderRaw = Number(source.sortOrder)
   const payload = {
     sortOrder: Number.isFinite(sortOrderRaw) ? sortOrderRaw : 0,
+    lineNo: safeString(source.lineNo).trim() || '1',
   }
   for (const key of BIT_TEXT_KEYS) {
     payload[key] = safeString(source[key]).trim()
@@ -116,7 +117,7 @@ export function normalizeBitHistoryRow(row, sortOrderFallback = 0) {
       ? rawId
       : ''
   const normalized = {
-    id: contractId || rawId,
+    id: extraId || rawId,
     extraId,
     sortOrder: Number.isFinite(sortOrderRaw) ? sortOrderRaw : sortOrderFallback,
     createdAt: safeString(sourceRow.createdAt ?? sourceRow.created_at),
@@ -156,7 +157,7 @@ function buildLinkedBitRow(contract, extra, seqNo, lineNo) {
     department: safeString(contract.department).trim(),
     contractMethod: safeString(contract.contractMethod).trim(),
     contractClass: safeString(contract.contractType).trim(),
-    identNo: safeString(contract.identNo).trim(),
+    identNo: safeString(extra?.identNo).trim() || safeString(contract.identNo).trim(),
     contractDate: safeString(contract.contractDate).trim(),
     dueDate: safeString(contract.dueDate).trim(),
     projectName: safeString(contract.projectName).trim(),
@@ -165,6 +166,7 @@ function buildLinkedBitRow(contract, extra, seqNo, lineNo) {
     updatedAt: safeString(extra?.updatedAt ?? extra?.updated_at),
   }
   for (const key of BIT_EXTRA_KEYS) {
+    if (key === 'identNo') continue
     row[key] = safeString(extra?.[key])
   }
   if (!row.quantity) {

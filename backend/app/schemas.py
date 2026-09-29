@@ -2005,6 +2005,7 @@ def bit_history_patch_to_db_values(row: BitHistoryPatch) -> dict:
 
 
 BIT_EXTRA_API_KEYS = (
+    "identNo",
     "quantity",
     "boardApplied",
     "programItem",
@@ -2112,13 +2113,15 @@ def join_contract_and_bit_extra(contract: dict, extra_row=None, seq_no: int = 0)
         "department": contract.get("department") or "",
         "contractMethod": contract.get("contractMethod") or "",
         "contractClass": contract.get("contractType") or "",
-        "identNo": contract.get("identNo") or "",
+        "identNo": (extra.get("identNo") or "").strip() or (contract.get("identNo") or ""),
         "contractDate": contract.get("contractDate") or "",
         "dueDate": contract.get("dueDate") or "",
         "projectName": contract.get("projectName") or "",
         "contractAmount": format_bit_contract_amount(contract.get("amount")),
     }
     for key in BIT_EXTRA_API_KEYS:
+        if key == "identNo":
+            continue
         out[key] = extra.get(key) or ""
     return out
 

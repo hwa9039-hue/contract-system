@@ -37,11 +37,11 @@ const BIT_COLUMNS = [
   { key: 'department', label: '담당부서', type: 'text', width: 96, align: 'center', sticky: true, fromContract: true },
   { key: 'contractMethod', label: '계약방식', type: 'text', width: 88, align: 'center', sticky: true, fromContract: true },
   { key: 'contractClass', label: '계약분류', type: 'text', width: 96, align: 'center', sticky: true, fromContract: true },
-  { key: 'identNo', label: '식별번호', type: 'text', width: 96, align: 'center', sticky: true, fromContract: true },
   { key: 'contractDate', label: '계약일자', type: 'date', width: 140, align: 'center', sticky: true, fromContract: true },
   { key: 'dueDate', label: '준공일자', type: 'date', width: 140, align: 'center', sticky: true, fromContract: true },
   { key: 'projectName', label: '사업명', type: 'text', width: 280, align: 'left', sticky: true, fromContract: true },
   { key: 'contractAmount', label: '계약금액', type: 'amount', width: 150, align: 'right', fromContract: true },
+  { key: 'identNo', label: '식별번호', type: 'text', width: 110, align: 'center' },
   { key: 'quantity', label: '수량', type: 'text', width: 80, align: 'center' },
   { key: 'boardApplied', label: '보드적용', type: 'check', width: 100, align: 'center' },
   { key: 'programItem', label: '프로그램', type: 'check', width: 100, align: 'center' },
@@ -170,6 +170,20 @@ function bindExpandCollapseRow(toggle, isExpanded) {
       }
     },
   }
+}
+
+const BIT_PROGRESS_RESET_KEYS = BIT_EXTRA_KEYS.filter((key) => key !== 'identNo')
+
+function newBitLineId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `bit-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function cloneBitRow(row) {
+  if (typeof structuredClone === 'function') return structuredClone(row)
+  return JSON.parse(JSON.stringify(row))
 }
 
 function isAddedBitLine(row) {
@@ -394,13 +408,13 @@ export default function BitHistoryPage({ contracts = [] }) {
     contractsRef.current = Array.isArray(contracts) ? contracts : []
   }, [contracts])
 
-  /** extras API 응답 — 계약현황이 나중에 도착해도 extras 를 잃지 않게 보관 */
+  /** 서버 extras 만 보관한다. 화면 행을 다시 넣으면 줄이 중복된다. */
   const extrasRef = useRef([])
+  const joinedOnceRef = useRef(false)
 
-  const applyJoinedRows = useCallback((contractList, extras) => {
+  const joinRows = useCallback((contractList, extras) => {
     const contractsSource = Array.isArray(contractList) ? contractList : []
     const extraSource = Array.isArray(extras) ? extras : []
-    extrasRef.current = extraSource
     if (contractsSource.length > 0) {
       return sortBitRows(mergeBitRowsFromContracts(contractsSource, extraSource))
     }
@@ -416,12 +430,12 @@ export default function BitHistoryPage({ contracts = [] }) {
     try {
       const data = await bitHistoryApi.list()
       const list = Array.isArray(data) ? data : []
-      setRows(applyJoinedRows(contractList, list))
+      extrasRef.current = list
+      setRows(joinRows(contractList, list))
       setLoadError('')
       setSyncNotice('')
     } catch (error) {
-      // extras API 가 404(Not Found)여도 계약현황 BIT 는 화면에 띄운다.
-      const fallback = applyJoinedRows(contractList, extrasRef.current)
+      const fallback = joinRows(contractList, extrasRef.current)
       setRows(fallback)
       if (fallback.length > 0) {
         setLoadError('')
@@ -432,20 +446,21 @@ export default function BitHistoryPage({ contracts = [] }) {
     } finally {
       setIsLoading(false)
     }
-  }, [applyJoinedRows])
+  }, [joinRows])
 
   useEffect(() => {
     if (!allowed) return
     void loadRows()
   }, [allowed, loadRows])
 
-  /** 계약현황이 비동기로 도착·갱신되면 같은 extras 를 다시 조인한다. */
+  /** 계약현황이 목록보다 늦게 도착한 첫 한 번만 조인한다. 이후에는 줄 추가·삭제를 덮어쓰지 않는다. */
   useEffect(() => {
-    if (!allowed) return
+    if (!allowed || isLoading || joinedOnceRef.current) return
     const contractList = Array.isArray(contracts) ? contracts : []
     if (contractList.length === 0) return
-    setRows((prev) => applyJoinedRows(contractList, extrasRef.current.length > 0 ? extrasRef.current : prev))
-  }, [allowed, contracts, applyJoinedRows])
+    joinedOnceRef.current = true
+    setRows(joinRows(contractList, extrasRef.current))
+  }, [allowed, isLoading, contracts, joinRows])
 
   const filteredRows = useMemo(
     () =>
@@ -491,17 +506,25 @@ export default function BitHistoryPage({ contracts = [] }) {
     filteredRows.length > 0 && filteredRows.every((row) => selectedIds.includes(row.id))
 
   const replaceRow = (rowId, nextRow) => {
-    rowsRef.current = rowsRef.current.map((row) => (row.id === rowId ? nextRow : row))
-    setRows(sortBitRows(rowsRef.current))
-    const extraKey = nextRow.extraId || nextRow.id
-    const hasExtra = extrasRef.current.some(
-      (row) => safeString(row.extraId || row.id) === safeString(extraKey)
+    let replaced = false
+    const nextRows = rowsRef.current.map((row) => {
+      if (replaced || row.id !== rowId) return row
+      replaced = true
+      return { ...nextRow }
+    })
+    rowsRef.current = nextRows
+    setRows(sortBitRows(nextRows))
+    const extraId = safeString(nextRow.extraId)
+    if (!extraId) return
+    const record = { ...nextRow, id: extraId }
+    const exists = extrasRef.current.some(
+      (row) => safeString(row.extraId || row.id) === extraId
     )
-    extrasRef.current = hasExtra
+    extrasRef.current = exists
       ? extrasRef.current.map((row) =>
-          safeString(row.extraId || row.id) === safeString(extraKey) ? nextRow : row
+          safeString(row.extraId || row.id) === extraId ? record : row
         )
-      : [...extrasRef.current, nextRow]
+      : [...extrasRef.current, record]
   }
 
   /** 셀 편집 확정 — 연동 행은 extras 만, 수기등록은 전 필드 저장 */
@@ -519,12 +542,12 @@ export default function BitHistoryPage({ contracts = [] }) {
         ? await bitHistoryApi.update(nextRow.extraId, nextRow)
         : await bitHistoryApi.create(nextRow)
       const normalized = normalizeBitHistoryRow(saved, nextRow.sortOrder)
-      const extraId = normalized.extraId || normalized.id
+      const extraId = normalized.extraId || (safeString(normalized.id) !== safeString(nextRow.contractId) ? normalized.id : '')
       const merged = {
         ...nextRow,
         ...normalized,
         extraId,
-        id: extraId || nextRow.id,
+        id: nextRow.id,
         contractId: nextRow.contractId,
         isManual: isManualBitRow(nextRow),
         lineNo: nextRow.lineNo || normalized.lineNo || '1',
@@ -578,47 +601,53 @@ export default function BitHistoryPage({ contracts = [] }) {
       targets.push(row)
     }
 
-    const createdRows = []
-    let failed = 0
-    for (const row of targets) {
-      const extraBlank = BIT_EXTRA_KEYS.reduce((acc, key) => {
+    const drafts = targets.map((row) => {
+      const source = cloneBitRow(row)
+      const id = newBitLineId()
+      const blanked = BIT_PROGRESS_RESET_KEYS.reduce((acc, key) => {
         acc[key] = ''
         return acc
       }, {})
-      const payload = {
-        ...extraBlank,
-        contractId: row.contractId || '',
-        lineNo: String(nextLineNo(rowsRef.current, row.contractId || row.id)),
-        client: row.client,
-        department: row.department,
-        contractMethod: row.contractMethod,
-        contractClass: row.contractClass || 'BIT',
-        seqNo: row.seqNo,
-        identNo: row.identNo,
-        contractDate: row.contractDate,
-        dueDate: row.dueDate,
-        projectName: row.projectName,
-        contractAmount: row.contractAmount,
+      return {
+        ...source,
+        ...blanked,
+        id,
+        extraId: '',
+        contractId: safeString(source.contractId),
+        lineNo: String(nextLineNo([...rowsRef.current], source.contractId || source.id)),
+        isAddedLine: true,
+        isManual: isManualBitRow(source),
+        identNo: safeString(source.identNo),
       }
+    })
+
+    rowsRef.current = [...rowsRef.current, ...drafts]
+    setRows(sortBitRows(rowsRef.current))
+
+    let failed = 0
+    for (const draft of drafts) {
       try {
-        const created = await bitHistoryApi.create(payload)
-        createdRows.push({
-          ...normalizeBitHistoryRow(created, rowsRef.current.length + createdRows.length + 1),
-          isManual: isManualBitRow(payload),
-          contractId: payload.contractId,
-          lineNo: payload.lineNo,
-        })
+        const created = await bitHistoryApi.create(draft)
+        const normalized = normalizeBitHistoryRow(created, draft.sortOrder)
+        const extraId = normalized.extraId || normalized.id
+        const saved = {
+          ...draft,
+          extraId,
+          id: draft.id,
+          lineNo: draft.lineNo,
+          contractId: draft.contractId,
+          isAddedLine: true,
+        }
+        replaceRow(draft.id, saved)
       } catch {
         failed += 1
+        rowsRef.current = rowsRef.current.filter((row) => row.id !== draft.id)
+        setRows(sortBitRows(rowsRef.current))
       }
     }
 
-    if (createdRows.length > 0) {
-      extrasRef.current = [...extrasRef.current, ...createdRows]
-      setRows(sortBitRows([...rowsRef.current, ...createdRows]))
-    }
     if (failed > 0) {
-      setLoadError(`줄 추가 ${createdRows.length}건 성공, ${failed}건 실패`)
+      setLoadError(`줄 추가에 실패했습니다. (${failed}건)`)
     } else {
       setLoadError('')
     }
@@ -663,12 +692,12 @@ export default function BitHistoryPage({ contracts = [] }) {
 
   const handleConfirmDelete = async () => {
     const ids = Array.isArray(itemToDelete) ? itemToDelete : itemToDelete ? [itemToDelete] : []
-    const extraIds = ids
-      .map((id) => {
-        const row = rowsRef.current.find((item) => item.id === id)
-        return safeString(row?.extraId || (row?.isManual ? row?.id : '')).trim()
-      })
-      .filter(Boolean)
+    const targetIds = new Set(ids.map((id) => safeString(id)).filter(Boolean))
+    const extraIds = rowsRef.current
+      .filter((row) => targetIds.has(row.id))
+      .map((row) => safeString(row.extraId))
+      .filter((id) => /^[0-9a-f-]{36}$/i.test(id))
+
     if (extraIds.length > 0) {
       try {
         await bitHistoryApi.bulkDelete(extraIds)
@@ -679,12 +708,17 @@ export default function BitHistoryPage({ contracts = [] }) {
         return
       }
     }
+
+    const extraIdSet = new Set(extraIds)
+    rowsRef.current = rowsRef.current.filter(
+      (row) => !targetIds.has(row.id) && !extraIdSet.has(safeString(row.extraId))
+    )
+    setRows(rowsRef.current)
     extrasRef.current = extrasRef.current.filter((row) => {
-      const extraId = safeString(row.extraId || row.id).trim()
-      return !extraIds.includes(extraId)
+      const extraId = safeString(row.extraId || row.id)
+      return !targetIds.has(safeString(row.id)) && !extraIdSet.has(extraId)
     })
-    setRows(applyJoinedRows(contractsRef.current, extrasRef.current))
-    setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)))
+    setSelectedIds((prev) => prev.filter((id) => !targetIds.has(id)))
     cancelDelete()
   }
 
