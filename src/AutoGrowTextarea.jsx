@@ -1,4 +1,42 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+
+const CHECKLIST_BULLET_PREFIX = '• '
+
+function checklistText(value) {
+  return typeof value === 'string' ? value : value == null ? '' : String(value)
+}
+
+function checklistLineBounds(value, cursor) {
+  const lineStart = value.lastIndexOf('\n', Math.max(0, cursor - 1)) + 1
+  const nextBreak = value.indexOf('\n', cursor)
+  const lineEnd = nextBreak === -1 ? value.length : nextBreak
+  return { lineStart, lineEnd, line: value.slice(lineStart, lineEnd) }
+}
+
+function isEmptyChecklistBullet(line) {
+  const trimmed = checklistText(line).trimEnd()
+  return trimmed === '•' || trimmed === '-' || trimmed === '• ' || trimmed === '- '
+}
+
+function placeChecklistCursor(el, cursor) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      try {
+        el.selectionStart = cursor
+        el.selectionEnd = cursor
+      } catch {
+        /* ignore */
+      }
+    })
+  })
+}
+
+function applyChecklistBullet(prevValue, rawNext) {
+  const prev = checklistText(prevValue)
+  const next = checklistText(rawNext)
+  if (prev !== '' || next === '' || next.startsWith(CHECKLIST_BULLET_PREFIX)) return next
+  return `${CHECKLIST_BULLET_PREFIX}${next}`
+}
 
 const WORK_REPORT_ROW_SELECTOR =
   '.work-report-board-row, .work-report-board-row-external, .work-report-board-row-journal, .work-report-board-row-simple, .work-report-board-row-no-index, .work-report-board-row-external-no-index'
@@ -20,13 +58,50 @@ const WORK_REPORT_ROW_SELECTOR =
 export function AutoGrowTextarea({
   value,
   onChange,
+  onFocus,
+  onBlur,
+  onKeyDown,
   className = '',
   style,
   syncToRow = true,
   fillRow = false,
+  buffered = false,
+  checklistBullets = false,
   ...rest
 }) {
   const ref = useRef(null)
+  const [draft, setDraft] = useState(() => checklistText(value))
+  const draftRef = useRef(draft)
+  const focusedRef = useRef(false)
+  const dirtyRef = useRef(false)
+  const shownValue = buffered ? draft : value
+
+  useEffect(() => {
+    if (!buffered) return
+    const next = checklistText(value)
+    if (next === draftRef.current) {
+      dirtyRef.current = false
+      return
+    }
+    if (focusedRef.current || dirtyRef.current) return
+    draftRef.current = next
+    setDraft(next)
+  }, [buffered, value])
+
+  const publish = (next, sourceEvent) => {
+    const text = checklistText(next)
+    if (buffered) {
+      dirtyRef.current = true
+      draftRef.current = text
+      setDraft(text)
+    }
+    if (typeof onChange !== 'function') return
+    if (sourceEvent && sourceEvent.target?.value === text) {
+      onChange(sourceEvent)
+      return
+    }
+    onChange({ target: { value: text } })
+  }
 
   const shouldSyncToRow =
     syncToRow && Boolean(className.includes('work-report-board-textarea'))
@@ -54,10 +129,18 @@ export function AutoGrowTextarea({
     el.style.height = `${nextHeight}px`
   }
 
-  // 값 변경·최초 마운트 시 높이 재계산 (paint 전 실행으로 깜빡임 방지)
+  // 일반 칸은 paint 전에 높이를 맞춘다.
   useLayoutEffect(() => {
+    if (buffered) return
     resize()
-  }, [value])
+  }, [shownValue, buffered])
+
+  // 주간업무 입력 중에는 글자가 먼저 그려지고, 높이 계산은 다음 프레임으로 미룬다.
+  useEffect(() => {
+    if (!buffered) return
+    const frame = requestAnimationFrame(() => resize())
+    return () => cancelAnimationFrame(frame)
+  }, [shownValue, buffered])
 
   // 폭이 변할 때만(창 크기·레이아웃 변경) 높이 재계산 — 높이 변경으로 인한 무한 루프 방지
   useLayoutEffect(() => {
@@ -87,12 +170,68 @@ export function AutoGrowTextarea({
     return () => rowObserver.disconnect()
   }, [shouldSyncToRow])
 
+  const handleFocus = (event) => {
+    focusedRef.current = true
+    if (checklistBullets && checklistText(draftRef.current) === '') {
+      publish(CHECKLIST_BULLET_PREFIX)
+      placeChecklistCursor(event.currentTarget, CHECKLIST_BULLET_PREFIX.length)
+    }
+    onFocus?.(event)
+  }
+
+  const handleChange = (event) => {
+    const rawNext = event.target.value
+    const next = checklistBullets ? applyChecklistBullet(draftRef.current, rawNext) : rawNext
+    publish(next, event)
+  }
+
+  const handleBlur = (event) => {
+    focusedRef.current = false
+    onBlur?.(event)
+  }
+
+  const handleKeyDown = (event) => {
+    if (!checklistBullets) {
+      onKeyDown?.(event)
+      return
+    }
+    if (event.key === 'Escape') return
+    if (event.key === 'Enter' && event.shiftKey) {
+      const el = event.currentTarget
+      const current = checklistText(el.value)
+      const start = Number(el.selectionStart) || 0
+      const end = Number(el.selectionEnd) || start
+      const { lineStart, lineEnd, line } = checklistLineBounds(current, start)
+      event.preventDefault()
+      if (isEmptyChecklistBullet(line)) {
+        const next =
+          lineStart === 0 && lineEnd === current.length
+            ? ''
+            : `${current.slice(0, lineStart)}${current.slice(lineEnd)}`
+        publish(next)
+        placeChecklistCursor(el, lineStart)
+        return
+      }
+      const insert = `\n${CHECKLIST_BULLET_PREFIX}`
+      publish(`${current.slice(0, start)}${insert}${current.slice(end)}`)
+      placeChecklistCursor(el, start + insert.length)
+      return
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      event.currentTarget?.blur?.()
+    }
+  }
+
   return (
     <textarea
       ref={ref}
       className={className}
-      value={value}
-      onChange={onChange}
+      value={shownValue}
+      onChange={handleChange}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
       // 콘텐츠 높이에 정확히 맞추므로 내부 스크롤은 숨긴다.
       style={{ overflowY: 'hidden', resize: 'none', ...style }}
       {...rest}

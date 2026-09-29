@@ -967,6 +967,8 @@ const EXCLUDED_COLUMNS = [
 const WORK_REPORT_WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
 const WORK_REPORT_MAIN_CHECK_COUNT = 5
 const WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX = 1
+/** 타이핑이 멈춘 뒤 이 시간이 지나야 주간업무 자동 저장 API를 호출한다. */
+const WORK_REPORT_AUTOSAVE_DELAY_MS = 1000
 const WORK_REPORT_EXTERNAL_ROW_COUNT = 5
 const WORK_REPORT_DI_ROW_COUNT = 4
 const WORK_REPORT_ROAD_ROW_COUNT = 2
@@ -6402,6 +6404,7 @@ function App() {
   const workReportSaveChainRef = useRef(Promise.resolve())
   const saveWorkReportBoardEntryRef = useRef(() => Promise.resolve())
   const workReportSaveTimersRef = useRef({})
+  const workReportManualSaveFailedRef = useRef(false)
   const skipWorkReportWeekFlushRef = useRef(true)
   useLayoutEffect(() => {
     workReportRowsRef.current = workReportRows
@@ -11635,39 +11638,40 @@ function App() {
     })
   }
 
-  const updateWorkReportBoardEntry = (date, section, orderIndex, patch) => {
+  const updateWorkReportBoardEntry = (date, section, orderIndex, patch, options = {}) => {
+    const commit = options.commit !== false
     const sectionNorm = safeString(section).trim()
     const oi =
       sectionNorm === WORK_REPORT_SECTION_KEYS.checklist
         ? WORK_REPORT_CHECKLIST_CONSOLIDATED_ORDER_INDEX
         : Number(orderIndex || 1)
     const cellKey = getWorkReportCellKey(date, sectionNorm, oi)
-    setWorkReportDrafts((prev) => {
-      const baseEntry = {
-        ...getWorkReportBoardEntry(date, sectionNorm, oi, prev),
-        ...prev[cellKey],
-      }
-      const resolvedPatch = typeof patch === 'function' ? patch(baseEntry) : patch
-      const storedEntry = getStoredWorkReportEntry(date, sectionNorm, oi)
-      const fixedManager = getWorkReportFixedManagerName(sectionNorm, oi)
-      const nextEntry = {
-        ...baseEntry,
-        ...resolvedPatch,
-        date: normalizeWorkReportDateKey(date),
-        section: sectionNorm,
-        orderIndex: oi,
-        ...(fixedManager ? { user: fixedManager } : {}),
-      }
-      if (storedEntry?.id) {
-        nextEntry.id = storedEntry.id
-        nextEntry.isDraft = false
-      } else if (!isWorkReportDraftRowId(nextEntry.id)) {
-        nextEntry.isDraft = false
-      }
-      const next = { ...prev, [cellKey]: nextEntry }
-      workReportDraftsRef.current = next
-      return next
-    })
+    const prev = workReportDraftsRef.current
+    const baseEntry = {
+      ...getWorkReportBoardEntry(date, sectionNorm, oi, prev),
+      ...prev[cellKey],
+    }
+    const resolvedPatch = typeof patch === 'function' ? patch(baseEntry) : patch
+    const storedEntry = getStoredWorkReportEntry(date, sectionNorm, oi)
+    const fixedManager = getWorkReportFixedManagerName(sectionNorm, oi)
+    const nextEntry = {
+      ...baseEntry,
+      ...resolvedPatch,
+      date: normalizeWorkReportDateKey(date),
+      section: sectionNorm,
+      orderIndex: oi,
+      ...(fixedManager ? { user: fixedManager } : {}),
+    }
+    if (storedEntry?.id) {
+      nextEntry.id = storedEntry.id
+      nextEntry.isDraft = false
+    } else if (!isWorkReportDraftRowId(nextEntry.id)) {
+      nextEntry.isDraft = false
+    }
+    const next = { ...prev, [cellKey]: nextEntry }
+    workReportDraftsRef.current = next
+    // 글자마다 App 전체를 다시 그리지 않는다. 선택·체크처럼 화면이 바로 바뀌어야 하는 경우만 commit.
+    if (commit) setWorkReportDrafts(next)
     const timers = workReportSaveTimersRef.current
     if (timers[cellKey]) {
       window.clearTimeout(timers[cellKey])
@@ -11675,7 +11679,7 @@ function App() {
     timers[cellKey] = window.setTimeout(() => {
       delete timers[cellKey]
       void saveWorkReportBoardEntryRef.current(date, sectionNorm, oi)
-    }, 600)
+    }, WORK_REPORT_AUTOSAVE_DELAY_MS)
   }
 
   const clearWorkReportSaveTimers = () => {
@@ -11730,8 +11734,8 @@ function App() {
             if (!ok) return
           }
           await fetchWorkReportRows()
-          setWorkReportDrafts((prev) => {
-            const next = { ...prev }
+          setWorkReportDrafts(() => {
+            const next = { ...workReportDraftsRef.current }
             for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
               delete next[getWorkReportCellKey(date, sectionNorm, idx)]
             }
@@ -11752,8 +11756,8 @@ function App() {
           return
         }
 
-        setWorkReportDrafts((prev) => {
-          const next = removeObjectKey(prev, cellKey)
+        setWorkReportDrafts(() => {
+          const next = removeObjectKey(workReportDraftsRef.current, cellKey)
           workReportDraftsRef.current = next
           return next
         })
@@ -11767,8 +11771,6 @@ function App() {
           if (ex?.id && ex.id !== targetRow.id) checklistExtraIdsToDelete.push(ex.id)
         }
       }
-
-      setIsSavingWorkReports(true)
 
       try {
         const timestamp = new Date().toISOString()
@@ -11818,9 +11820,9 @@ function App() {
         if (sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
           clearMeetingMinutesSessionBackup(normalizeWorkReportDateKey(date))
         }
-        setToastMessage('저장되었습니다.')
 
-        setWorkReportDrafts((prev) => {
+        setWorkReportDrafts(() => {
+          const prev = workReportDraftsRef.current
           const next = { ...prev }
           const currentDraft = prev[cellKey]
 
@@ -11844,6 +11846,7 @@ function App() {
           return next
         })
       } catch (error) {
+        workReportManualSaveFailedRef.current = true
         const saveFailureLabel =
           sectionNorm === WORK_REPORT_SECTION_KEYS.meetingMinutes
             ? '회의록'
@@ -11854,8 +11857,6 @@ function App() {
           ? 'Cloudflare 보안(WAF)이 긴 저장 요청을 막았을 수 있습니다. 페이지를 새로고침(Ctrl+Shift+R)한 뒤 다시 저장해 보세요. 계속되면 NAS 백엔드를 최신으로 재시작해 주세요.'
           : '로그인 상태를 확인한 뒤 다시 시도해주세요.'
         showAppAlert(`${saveFailureLabel} 저장에 실패했습니다.\n${message.slice(0, 200)}\n\n${hint}`)
-      } finally {
-        setIsSavingWorkReports(false)
       }
     }
 
@@ -11936,7 +11937,31 @@ function App() {
 
   const handleWorkReportBoardBlur = (date, section, orderIndex = 1) => async (e) => {
     if (e.currentTarget.contains(e.relatedTarget)) return
-    await flushWorkReportEntrySave(date, section, orderIndex)
+    const { cellKey, sectionNorm, orderIndex: oi } = resolveWorkReportSaveCellMeta(date, section, orderIndex)
+    const timers = workReportSaveTimersRef.current
+    if (timers[cellKey]) {
+      window.clearTimeout(timers[cellKey])
+      delete timers[cellKey]
+    }
+    await flushWorkReportEntrySave(date, sectionNorm, oi)
+  }
+
+  const handleManualWorkReportSave = async (notifyMessage, scope) => {
+    clearWorkReportSaveTimers()
+    workReportManualSaveFailedRef.current = false
+    setIsSavingWorkReports(true)
+    try {
+      if (scope) {
+        await flushWorkReportEntrySave(scope.date, scope.section, scope.orderIndex)
+      } else {
+        await flushAllPendingWorkReportSaves()
+      }
+      if (!workReportManualSaveFailedRef.current) {
+        setToastMessage(notifyMessage)
+      }
+    } finally {
+      setIsSavingWorkReports(false)
+    }
   }
 
   /** 영업지원 통합 To-Do: 진행/완료 section을 하나의 슬롯으로 합쳐 읽기 */
@@ -15659,21 +15684,17 @@ function App() {
             className="work-report-board-textarea work-report-board-textarea-checklist-combined"
             syncToRow={false}
             fillRow
+            buffered
+            checklistBullets
             value={entry.content}
             placeholder="주요 확인사항 입력 (여러 줄 입력 가능)"
             onChange={(e) =>
-              updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, {
-                content: applyWorkReportChecklistInputValue(entry.content, e.target.value),
-              })
-            }
-            onFocus={(e) =>
-              handleWorkReportChecklistTextareaFocus(e, entry.content, (content) =>
-                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
-              )
-            }
-            onKeyDown={(e) =>
-              handleWorkReportChecklistTextEditKeyDown(e, (content) =>
-                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.checklist, 1, { content })
+              updateWorkReportBoardEntry(
+                date,
+                WORK_REPORT_SECTION_KEYS.checklist,
+                1,
+                { content: e.target.value },
+                { commit: false }
               )
             }
           />
@@ -15711,12 +15732,17 @@ function App() {
               className="work-report-board-textarea work-report-board-textarea-external"
               syncToRow={false}
               fillRow
+              buffered
               value={entry.content}
               placeholder="내용 입력"
               onChange={(e) =>
-                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
-                  content: e.target.value,
-                })
+                updateWorkReportBoardEntry(
+                  date,
+                  WORK_REPORT_SECTION_KEYS.external,
+                  orderIndex,
+                  { content: e.target.value },
+                  { commit: false }
+                )
               }
               onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
             />
@@ -15724,12 +15750,17 @@ function App() {
               className="work-report-board-textarea work-report-board-textarea-destination"
               syncToRow={false}
               fillRow
+              buffered
               value={entry.destination}
               placeholder="목적지 입력"
               onChange={(e) =>
-                updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
-                  destination: e.target.value,
-                })
+                updateWorkReportBoardEntry(
+                  date,
+                  WORK_REPORT_SECTION_KEYS.external,
+                  orderIndex,
+                  { destination: e.target.value },
+                  { commit: false }
+                )
               }
               onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
             />
@@ -15780,13 +15811,20 @@ function App() {
                 className={`work-report-board-textarea ${contentClassName}`}
                 syncToRow={false}
                 fillRow
+                buffered
                 value={entry.content}
                 placeholder="내용 입력"
                 onChange={(e) =>
-                  updateWorkReportBoardEntry(date, section, orderIndex, {
-                    ...(fixedName ? { user: fixedName } : {}),
-                    content: e.target.value,
-                  })
+                  updateWorkReportBoardEntry(
+                    date,
+                    section,
+                    orderIndex,
+                    {
+                      ...(fixedName ? { user: fixedName } : {}),
+                      content: e.target.value,
+                    },
+                    { commit: false }
+                  )
                 }
                 onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
@@ -15825,17 +15863,30 @@ function App() {
               className="work-report-board-textarea work-report-board-textarea-support-line"
               syncToRow={false}
               fillRow
+              buffered
               value={todo.content}
               placeholder="내용 입력"
               onChange={(e) =>
-                updateWorkReportBoardEntry(date, activeSection, orderIndex, {
-                  content: e.target.value,
-                  user: todo.completed ? WORK_REPORT_SUPPORT_COMPLETED_USER : '',
-                })
+                updateWorkReportBoardEntry(
+                  date,
+                  activeSection,
+                  orderIndex,
+                  {
+                    content: e.target.value,
+                    user: todo.completed ? WORK_REPORT_SUPPORT_COMPLETED_USER : '',
+                  },
+                  { commit: false }
+                )
               }
               onBlur={async (e) => {
                 const rowEl = e.currentTarget.closest('[data-support-todo-row]')
                 if (rowEl && e.relatedTarget && rowEl.contains(e.relatedTarget)) return
+                const cellKey = getWorkReportCellKey(date, activeSection, orderIndex)
+                const timers = workReportSaveTimersRef.current
+                if (timers[cellKey]) {
+                  window.clearTimeout(timers[cellKey])
+                  delete timers[cellKey]
+                }
                 await flushWorkReportEntrySave(date, activeSection, orderIndex)
               }}
               onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
@@ -16420,8 +16471,7 @@ function App() {
                   className="primary-btn"
                   type="button"
                   onClick={() => {
-                    clearWorkReportSaveTimers()
-                    void flushAllPendingWorkReportSaves()
+                    void handleManualWorkReportSave('주간업무보고가 성공적으로 저장되었습니다.')
                   }}
                 >
                   저장
@@ -16477,12 +16527,11 @@ function App() {
                   className="primary-btn"
                   type="button"
                   onClick={() => {
-                    clearWorkReportSaveTimers()
-                    void flushWorkReportEntrySave(
-                      selectedWorkWeekMeta.weekStartDate,
-                      WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                      1
-                    )
+                    void handleManualWorkReportSave('회의록이 성공적으로 저장되었습니다.', {
+                      date: selectedWorkWeekMeta.weekStartDate,
+                      section: WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                      orderIndex: 1,
+                    })
                   }}
                 >
                   저장
