@@ -5,8 +5,10 @@ import App from './App.jsx'
 import LoginPage from './LoginPage.jsx'
 import { AuthProvider, useAuth } from './AuthContext.jsx'
 import { bootstrapCmsApiProbe } from './cmsApiProbe.js'
+import { installProductionGuard } from './productionGuard.js'
 
 bootstrapCmsApiProbe()
+installProductionGuard()
 
 function AppRoot() {
   const { isAuthenticated, authHydrated } = useAuth()

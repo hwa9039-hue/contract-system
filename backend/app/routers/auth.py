@@ -9,6 +9,8 @@ from app.auth_utils import (
     decode_token_allow_expired,
     get_auth_shared_password,
     get_jwt_secret,
+    access_claims_for_account,
+    account_id_from_login_password,
     has_admin_accounts_configured,
     has_manager_accounts_configured,
     is_auth_disabled,
@@ -61,7 +63,8 @@ def login(body: LoginBody):
     if is_generic_account_label(display_name):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
 
-    token = create_access_token(login_role, display_name=display_name)
+    claims = access_claims_for_account(account_id_from_login_password(body.password))
+    token = create_access_token(login_role, display_name=display_name, **claims)
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -69,6 +72,7 @@ def login(body: LoginBody):
         "auth_disabled": False,
         "role": login_role,
         "role_label": display_name or None,
+        **claims,
     }
 
 
@@ -110,7 +114,8 @@ def refresh(request: Request):
     display_name = str(payload.get("display_name") or "").strip()
     if not display_name or is_generic_account_label(display_name):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
-    new_token = create_access_token(role, display_name=display_name)
+    claims = access_claims_for_account(str(payload.get("account_id") or ""))
+    new_token = create_access_token(role, display_name=display_name, **claims)
     return {
         "access_token": new_token,
         "token_type": "bearer",
@@ -118,6 +123,7 @@ def refresh(request: Request):
         "auth_disabled": False,
         "role": role,
         "role_label": display_name or None,
+        **claims,
     }
 
 

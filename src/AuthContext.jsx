@@ -17,8 +17,6 @@ import {
   CONTRACT_TOKEN_REFRESH_INTERVAL_MS,
   hydrateAuthSessionFromStorage,
   restoreAuthSessionFromStorages,
-  isRetiredLoginPassword,
-  resolveLoginAccount,
   writeRole,
   writeRoleLabel,
   writeAccountId,
@@ -28,8 +26,8 @@ import {
   syncAuthTokenToActiveStorage,
 } from './authSession.js'
 import {
-  accountIdFromRoleLabel,
   hasAdminPrivileges,
+  writeClientAccessFlags,
   normalizeAccountId,
   normalizeRole,
   ROLE_LABELS,
@@ -63,7 +61,7 @@ export function AuthProvider({ children }) {
     setIsAuthenticated(session.isAuthenticated)
     setRole(session.role)
     setRoleLabel(session.roleLabel || ROLE_LABELS[session.role] || ROLE_LABELS[ROLES.USER])
-    setAccountId(session.accountId || accountIdFromRoleLabel(session.roleLabel) || '')
+    setAccountId(session.accountId || '')
     setSharedSessionExpiresAt(session.expiresAt)
     if (session.isAuthenticated) {
       syncAuthTokenToActiveStorage(session.persistence)
@@ -239,17 +237,8 @@ export function AuthProvider({ children }) {
       return { ok: false, error: '계정을 입력해 주세요.' }
     }
 
-    if (isRetiredLoginPassword(trimmed) || !resolveLoginAccount(trimmed)) {
-      return { ok: false, error: '계정이 올바르지 않습니다.' }
-    }
-
-    const matched = resolveLoginAccount(trimmed)
-
-    const wantsRole = matched.role
-
     logCmsApiLogin('attempt', {
       POST: `${API_BASE_URL}/api/auth/login`,
-      role: wantsRole,
       note: 'password is never logged',
     })
 
@@ -261,7 +250,6 @@ export function AuthProvider({ children }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             password: trimmed,
-            role: wantsRole,
           }),
         })
       )
@@ -294,23 +282,18 @@ export function AuthProvider({ children }) {
         setAuthToken(data.access_token, { persistent: rememberMe })
       }
 
-      // 서버가 확정한 역할을 우선 사용, 없으면 요청 역할로 폴백
-      const resolvedRole = data.role ? normalizeRole(data.role) : wantsRole
+      const resolvedRole = data.role ? normalizeRole(data.role) : ROLES.ADMIN
       const resolvedLabel =
         String(data.role_label || '').trim() ||
-        matched.label ||
         ROLE_LABELS[resolvedRole] ||
         ROLE_LABELS[ROLES.USER]
 
-      if (isGenericAccountLabel(resolvedLabel) || isGenericAccountLabel(matched.label)) {
+      if (!data.auth_disabled && isGenericAccountLabel(resolvedLabel)) {
         clearAuthToken()
         return { ok: false, error: '계정이 올바르지 않습니다.' }
       }
 
-      const resolvedAccountId =
-        normalizeAccountId(matched.id) ||
-        accountIdFromRoleLabel(resolvedLabel) ||
-        normalizeAccountId(matched.password)
+      const resolvedAccountId = normalizeAccountId(data.account_id)
 
       const persistence = rememberMe ? 'persistent' : 'session'
       const sessionDuration = rememberMe
@@ -321,6 +304,13 @@ export function AuthProvider({ children }) {
       writeRole(resolvedRole, persistence)
       writeRoleLabel(resolvedLabel, persistence)
       writeAccountId(resolvedAccountId, persistence)
+      writeClientAccessFlags(
+        {
+          canAccessBitHistory: Boolean(data.can_access_bit_history),
+          canViewAllInactiveContacts: Boolean(data.can_view_all_inactive_contacts),
+        },
+        persistence,
+      )
       syncAuthTokenToActiveStorage(persistence)
 
       setAuthPersistence(persistence)

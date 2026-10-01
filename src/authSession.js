@@ -3,7 +3,7 @@ export const ADMIN_SESSION_KEY = 'contract_manager_admin_session_v1'
 export const ROLE_SESSION_KEY = 'contract_manager_role_session_v1'
 /** 화면 표시용 라벨(부서장 이름 등) 저장 키 */
 export const ROLE_LABEL_SESSION_KEY = 'contract_manager_role_label_session_v1'
-/** 로그인 계정 ID(hy9039, wizard1221 등) 저장 키 — 사람 단위 메뉴 권한에 사용 */
+/** 로그인한 계정의 ID 저장 키. 값은 서버 로그인 응답으로만 채운다. */
 export const ACCOUNT_ID_SESSION_KEY = 'contract_manager_account_id_v1'
 export const CONTRACT_SHARED_AUTH_KEY = 'CONTRACT_SHARED_AUTH'
 export const CONTRACT_SHARED_EXPIRES_AT_KEY = 'CONTRACT_SHARED_EXPIRES_AT'
@@ -29,7 +29,7 @@ export function formatRemainingSessionLabel(minutes) {
 
 import { AUTH_TOKEN_KEY, clearAuthToken } from './apiClient.js'
 import {
-  accountIdFromRoleLabel,
+  clearClientAccessFlags,
   hasAdminPrivileges,
   normalizeAccountId,
   normalizeRole,
@@ -54,135 +54,6 @@ function loggedOutAuthSession() {
     roleLabel: ROLE_LABELS[ROLES.USER],
     accountId: '',
   }
-}
-
-/** 예전 공용 관리자·사용자 비밀번호. 로그인에 쓰지 않는다. */
-export const RETIRED_LOGIN_PASSWORDS = Object.freeze(['admin2026!', 'smartdi2026!'])
-
-export function isRetiredLoginPassword(password) {
-  return RETIRED_LOGIN_PASSWORDS.includes(String(password || '').trim())
-}
-
-export const SHARED_APP_PASSWORD = import.meta.env.VITE_APP_SHARED_PASSWORD || ''
-
-function parseAccountsEnv(raw, fallbackLabel) {
-  const text = String(raw || '').trim()
-  if (!text) return []
-  const out = []
-  for (const part of text.split(',')) {
-    const chunk = part.trim()
-    if (!chunk || !chunk.includes(':')) continue
-    const idx = chunk.indexOf(':')
-    const password = chunk.slice(0, idx).trim()
-    const label = chunk.slice(idx + 1).trim() || fallbackLabel
-    if (password && !isRetiredLoginPassword(password) && !isGenericAccountLabel(label)) {
-      out.push({
-        id: normalizeAccountId(password),
-        password,
-        label,
-      })
-    }
-  }
-  return out
-}
-
-/** 기본 계정 (비밀번호 → 표시명). 전원 동일 권한(admin). */
-const DEFAULT_ADMIN_ACCOUNTS = Object.freeze([
-  { id: 'hy9039', password: 'hy9039!', label: '정화영' },
-  { id: 'jhjoung', password: 'jhjoung!', label: '정주희' },
-  { id: 'kk2331', password: 'kk2331!', label: '전기웅' },
-  { id: 'nov1st', password: 'nov1st!', label: '유영무' },
-  { id: 'sskim', password: 'sskim!', label: '김성수' },
-  { id: 'yongja_lee', password: 'yongja_lee!', label: '이용자' },
-  { id: 'pjb9878', password: 'pjb9878!', label: '박재범' },
-  { id: 'jslee', password: 'jslee!', label: '이재승' },
-  { id: 'wizard1221', password: 'wizard1221!', label: '전재우' },
-  { id: 'ssj8845', password: 'ssj8845!', label: '신상준' },
-])
-
-/** 하위 호환. 새 계정은 DEFAULT_ADMIN_ACCOUNTS 에 넣는다. */
-const DEFAULT_MANAGER_ACCOUNTS = Object.freeze([])
-
-/**
- * 관리자 계정 목록.
- * VITE_APP_ADMIN_ACCOUNTS=`pwd:라벨,pwd:라벨` 이 있으면 우선.
- */
-export const ADMIN_ACCOUNTS = (() => {
-  const fromEnv = parseAccountsEnv(import.meta.env.VITE_APP_ADMIN_ACCOUNTS, '관리자')
-  if (fromEnv.length > 0) return Object.freeze(fromEnv)
-  return Object.freeze(DEFAULT_ADMIN_ACCOUNTS.filter((account) => !isRetiredLoginPassword(account.password)))
-})()
-
-/**
- * 부서장 계정 목록.
- * VITE_APP_MANAGER_ACCOUNTS=`pwd:라벨,pwd:라벨` 이 있으면 우선.
- */
-export const MANAGER_ACCOUNTS = (() => {
-  const fromEnv = parseAccountsEnv(import.meta.env.VITE_APP_MANAGER_ACCOUNTS, '부서장')
-  if (fromEnv.length > 0) return Object.freeze(fromEnv)
-  return DEFAULT_MANAGER_ACCOUNTS
-})()
-
-/** @deprecated 단일 관리자 비밀번호 — ADMIN_ACCOUNTS[0] 하위 호환 */
-export const ADMIN_PASSWORD = ADMIN_ACCOUNTS[0]?.password || ''
-
-/** @deprecated 단일 부서장 비밀번호 — MANAGER_ACCOUNTS[0] 하위 호환 */
-export const MANAGER_PASSWORD = MANAGER_ACCOUNTS[0]?.password || ''
-
-export function findAdminAccount(password) {
-  const trimmed = String(password || '').trim()
-  if (!trimmed) return null
-  return ADMIN_ACCOUNTS.find((a) => a.password === trimmed) || null
-}
-
-export function findManagerAccount(password) {
-  const trimmed = String(password || '').trim()
-  if (!trimmed) return null
-  return MANAGER_ACCOUNTS.find((a) => a.password === trimmed) || null
-}
-
-/**
- * 로그인 role 별로 클라이언트에서 1차 검증할 기대 비밀번호.
- * admin·manager 는 복수 계정이라 findAdminAccount / findManagerAccount 로 검사한다.
- */
-export const ROLE_EXPECTED_PASSWORD = Object.freeze({})
-
-/**
- * 비밀번호만으로 로그인 계정을 찾는다.
- * 관리자 목록을 먼저 보고, 없으면 부서장 목록을 본다.
- */
-export function resolveLoginAccount(password) {
-  const trimmed = String(password || '').trim()
-  if (!trimmed || isRetiredLoginPassword(trimmed)) return null
-  const admin = findAdminAccount(trimmed)
-  if (admin) {
-    return {
-      role: ROLES.ADMIN,
-      id: normalizeAccountId(admin.id || admin.password),
-      label: admin.label,
-      password: admin.password,
-    }
-  }
-  const manager = findManagerAccount(trimmed)
-  if (manager) {
-    return {
-      role: ROLES.ADMIN,
-      id: normalizeAccountId(manager.id || manager.password),
-      label: manager.label,
-      password: manager.password,
-    }
-  }
-  return null
-}
-
-/**
- * ★ 비밀번호 기반 역할 분기 ★
- * 탭 구분 없이 비밀번호가 어느 계정 목록에 있는지 보고 역할을 정한다.
- */
-export function resolveEffectiveRole(requestedRole, password) {
-  const matched = resolveLoginAccount(password)
-  if (matched) return matched.role
-  return normalizeRole(requestedRole)
 }
 
 function readAuthFromStorage(storage) {
@@ -429,6 +300,7 @@ export function clearAccountId() {
   } catch {
     /* ignore */
   }
+  clearClientAccessFlags()
 }
 
 /** localStorage·sessionStorage 중 존재하는 토큰을 활성 스토리지에 복원 */
@@ -481,7 +353,7 @@ export function restoreAuthSessionFromStorages() {
   const role = readStoredRole(persistence)
   const storedLabel = readStoredRoleLabel(persistence)
   const roleLabel = storedLabel || ROLE_LABELS[role] || ROLE_LABELS[ROLES.USER]
-  const accountId = readStoredAccountId(persistence) || accountIdFromRoleLabel(roleLabel)
+  const accountId = readStoredAccountId(persistence)
 
   if (isGenericAccountLabel(storedLabel) || isGenericAccountLabel(roleLabel)) {
     clearSharedAuthSession()

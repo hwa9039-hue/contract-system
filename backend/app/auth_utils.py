@@ -159,7 +159,31 @@ def normalize_token_role(role: str | None) -> str:
     return normalized if normalized in VALID_ROLES else "user"
 
 
-def create_access_token(role: str = "user", display_name: str = "") -> str:
+# 브라우저 번들에 계정 목록을 넣지 않기 위해 서버에서만 권한을 계산한다.
+_BIT_HISTORY_ACCOUNT_IDS = frozenset({"kk2331", "wizard1221", "hy9039", "jhjoung"})
+_INACTIVE_CONTACTS_ACCOUNT_IDS = frozenset({"hy9039", "jhjoung", "kk2331"})
+
+
+def account_id_from_login_password(password: str) -> str:
+    return (password or "").strip().lower().rstrip("!")
+
+
+def access_claims_for_account(account_id: str) -> dict:
+    aid = (account_id or "").strip().lower()
+    return {
+        "account_id": aid,
+        "can_access_bit_history": aid in _BIT_HISTORY_ACCOUNT_IDS,
+        "can_view_all_inactive_contacts": aid in _INACTIVE_CONTACTS_ACCOUNT_IDS,
+    }
+
+
+def create_access_token(
+    role: str = "user",
+    display_name: str = "",
+    account_id: str = "",
+    can_access_bit_history: bool = False,
+    can_view_all_inactive_contacts: bool = False,
+) -> str:
     secret = get_jwt_secret()
     if not secret:
         raise RuntimeError("JWT_SECRET is not set")
@@ -168,6 +192,9 @@ def create_access_token(role: str = "user", display_name: str = "") -> str:
         "sub": "contract-app",
         "role": normalize_token_role(role),
         "exp": expire,
+        "account_id": (account_id or "").strip().lower(),
+        "can_access_bit_history": bool(can_access_bit_history),
+        "can_view_all_inactive_contacts": bool(can_view_all_inactive_contacts),
     }
     label = (display_name or "").strip()
     if label:

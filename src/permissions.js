@@ -37,29 +37,51 @@ export const VALID_ROLES = new Set([ROLES.ADMIN, ROLES.MANAGER, ROLES.USER])
 
 export const BIT_HISTORY_MENU_KEY = 'bitHistory'
 
-/** BIT 이력관리 메뉴·URL 허용 계정 ID (비밀번호에서 ! 를 뺀 값) */
-export const BIT_HISTORY_ALLOWED_ACCOUNT_IDS = Object.freeze([
-  'kk2331',
-  'wizard1221',
-  'hy9039',
-  'jhjoung',
-])
+/** 로그인 응답으로만 켜지는 권한. 계정 목록은 브라우저 번들에 두지 않는다. */
+const BIT_HISTORY_ACCESS_KEY = 'contract_manager_bit_history_access_v1'
+const INACTIVE_CONTACTS_ACCESS_KEY = 'contract_manager_inactive_contacts_access_v1'
 
-const BIT_HISTORY_ALLOWED_ACCOUNT_ID_SET = new Set(BIT_HISTORY_ALLOWED_ACCOUNT_IDS)
+function readAccessFlag(key) {
+  try {
+    return sessionStorage.getItem(key) === '1' || localStorage.getItem(key) === '1'
+  } catch {
+    return false
+  }
+}
 
-/** 표시명 → 계정 ID. 예전 세션에 ID 가 없을 때 복구용 */
-export const ACCOUNT_ID_BY_LABEL = Object.freeze({
-  정화영: 'hy9039',
-  정주희: 'jhjoung',
-  전기웅: 'kk2331',
-  유영무: 'nov1st',
-  김성수: 'sskim',
-  이용자: 'yongja_lee',
-  박재범: 'pjb9878',
-  이재승: 'jslee',
-  전재우: 'wizard1221',
-  신상준: 'ssj8845',
-})
+function writeAccessFlag(key, enabled, persistence = 'session') {
+  const primary = persistence === 'persistent' ? localStorage : sessionStorage
+  const secondary = persistence === 'persistent' ? sessionStorage : localStorage
+  secondary.removeItem(key)
+  primary.setItem(key, enabled ? '1' : '0')
+  if (persistence === 'persistent') {
+    sessionStorage.setItem(key, enabled ? '1' : '0')
+  }
+}
+
+export function writeClientAccessFlags(flags, persistence = 'session') {
+  try {
+    writeAccessFlag(BIT_HISTORY_ACCESS_KEY, Boolean(flags?.canAccessBitHistory), persistence)
+    writeAccessFlag(
+      INACTIVE_CONTACTS_ACCESS_KEY,
+      Boolean(flags?.canViewAllInactiveContacts),
+      persistence,
+    )
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearClientAccessFlags() {
+  try {
+    for (const key of [BIT_HISTORY_ACCESS_KEY, INACTIVE_CONTACTS_ACCESS_KEY]) {
+      localStorage.removeItem(key)
+      sessionStorage.removeItem(key)
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 export function normalizeAccountId(value) {
   return String(value || '')
@@ -68,22 +90,12 @@ export function normalizeAccountId(value) {
     .replace(/!+$/g, '')
 }
 
-export function accountIdFromRoleLabel(roleLabel) {
-  const label = String(roleLabel || '').trim()
-  return ACCOUNT_ID_BY_LABEL[label] || ''
+export function canAccessBitHistory() {
+  return readAccessFlag(BIT_HISTORY_ACCESS_KEY)
 }
 
-export function canAccessBitHistory(accountId) {
-  return BIT_HISTORY_ALLOWED_ACCOUNT_ID_SET.has(normalizeAccountId(accountId))
-}
-
-/** 비활성 연락처를 작성자와 무관하게 볼 수 있는 계정 (정화영, 정주희, 전기웅) */
-export const CONTACTS_INACTIVE_ADMIN_ACCOUNT_IDS = Object.freeze(['hy9039', 'jhjoung', 'kk2331'])
-
-const CONTACTS_INACTIVE_ADMIN_ACCOUNT_ID_SET = new Set(CONTACTS_INACTIVE_ADMIN_ACCOUNT_IDS)
-
-export function canViewAllInactiveContacts(accountId) {
-  return CONTACTS_INACTIVE_ADMIN_ACCOUNT_ID_SET.has(normalizeAccountId(accountId))
+export function canViewAllInactiveContacts() {
+  return readAccessFlag(INACTIVE_CONTACTS_ACCESS_KEY)
 }
 
 /** 문자열 role 을 안전하게 정규화 (알 수 없는 값 → user) */

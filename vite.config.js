@@ -23,4 +23,11 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
   },
+  build: {
+    // 프로덕션 번들에 .map 을 만들지 않는다. Sources 탭에 원본 경로·JSX가 붙지 않는다.
+    sourcemap: false,
+    // Vite 8 기본 압축기. 식별자 축약·공백 제거가 프로덕션 빌드에 항상 켜진다.
+    minify: 'oxc',
+    cssMinify: 'lightningcss',
+  },
 })
