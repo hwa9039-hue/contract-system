@@ -1,5 +1,4 @@
-const SECURITY_ALERT_MESSAGE =
-  '🚨 보안 정책에 의해 소스코드 조회가 차단되었습니다. 비정상적인 접근이 감지되었습니다.'
+const SECURITY_ALERT_MESSAGE = '🚨 보안 정책에 의해 비정상적인 접근이 감지되었습니다.'
 
 function isBlockedShortcut(event) {
   const key = String(event.key || '')
