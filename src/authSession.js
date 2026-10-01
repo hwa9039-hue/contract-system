@@ -27,7 +27,7 @@ export function formatRemainingSessionLabel(minutes) {
   return `${hours}시간 ${rest}분`
 }
 
-import { AUTH_TOKEN_KEY, clearAuthToken } from './apiClient.js'
+import { AUTH_TOKEN_KEY, clearAuthToken, getAuthToken } from './apiClient.js'
 import {
   clearClientAccessFlags,
   hasAdminPrivileges,
@@ -345,6 +345,13 @@ export function restoreAuthSessionFromStorages() {
   }
 
   if (!chosen) {
+    return loggedOutAuthSession()
+  }
+
+  if (!getAuthToken()) {
+    clearSharedAuthSession()
+    clearRole()
+    clearAuthToken()
     return loggedOutAuthSession()
   }
 

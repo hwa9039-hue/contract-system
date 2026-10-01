@@ -50,6 +50,7 @@ export function AuthProvider({ children }) {
   const [accountId, setAccountId] = useState(hydrated.accountId || '')
   const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(hydrated.expiresAt)
   const [authHydrated, setAuthHydrated] = useState(true)
+  const [accessGranted, setAccessGranted] = useState(false)
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState('')
 
   // isAdmin = "관리자급 권한 보유 여부". 부서장(manager)도 현재는 true.
@@ -78,6 +79,7 @@ export function AuthProvider({ children }) {
     registerAuthSessionExpiredHandler((message) => {
       setAuthPersistence('none')
       setIsAuthenticated(false)
+      setAccessGranted(false)
       setRole(ROLES.USER)
       setRoleLabel(ROLE_LABELS[ROLES.USER])
       setAccountId('')
@@ -97,12 +99,16 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    if (!authHydrated || !isAuthenticated) return
+    if (!authHydrated || !isAuthenticated) {
+      setAccessGranted(false)
+      return
+    }
     let cancelled = false
 
     const clearSession = () => {
       setAuthPersistence('none')
       setIsAuthenticated(false)
+      setAccessGranted(false)
       setRole(ROLES.USER)
       setRoleLabel(ROLE_LABELS[ROLES.USER])
       setAccountId('')
@@ -122,11 +128,16 @@ export function AuthProvider({ children }) {
 
         const authHeaders = getAuthHeaders()
         const hadBearerToken = Boolean(authHeaders.Authorization)
+        if (!hadBearerToken) {
+          if (!cancelled) clearSession()
+          return
+        }
 
-        if (hadBearerToken) {
-          const refreshResult = await refreshAccessToken(stored.persistence)
-          if (cancelled) return
-          if (refreshResult === 'network_fail') return
+        const refreshResult = await refreshAccessToken(stored.persistence)
+        if (cancelled) return
+        if (refreshResult === 'network_fail') {
+          setAccessGranted(true)
+          return
         }
 
         const res = await apiFetch(
@@ -135,7 +146,10 @@ export function AuthProvider({ children }) {
         )
         const data = await res.json().catch(() => ({}))
         if (cancelled) return
-        if (data.auth_disabled) return
+        if (data.auth_disabled) {
+          setAccessGranted(true)
+          return
+        }
 
         // 서버가 알려준 실제 역할(admin·manager·user)로 상태·스토리지를 동기화
         if (data.valid && VALID_ROLES.has(normalizeRole(data.role))) {
@@ -154,18 +168,21 @@ export function AuthProvider({ children }) {
           writeRoleLabel(serverLabel, stored.persistence)
         }
 
-        if (data.valid) return
+        if (data.valid) {
+          setAccessGranted(true)
+          return
+        }
 
-        if (!hadBearerToken) return
-
-        const refreshResult = await refreshAccessToken(stored.persistence)
+        const retryResult = await refreshAccessToken(stored.persistence)
         if (cancelled) return
-        if (refreshResult === 'ok') return
-        if (refreshResult === 'network_fail') return
+        if (retryResult === 'ok' || retryResult === 'network_fail') {
+          setAccessGranted(true)
+          return
+        }
 
         clearSession()
       } catch {
-        /* 네트워크 오류 시 기존 세션 유지 */
+        if (!cancelled) setAccessGranted(true)
       }
     })()
 
@@ -318,6 +335,7 @@ export function AuthProvider({ children }) {
       setRole(resolvedRole)
       setRoleLabel(resolvedLabel)
       setAccountId(resolvedAccountId)
+      setAccessGranted(true)
       setSharedSessionExpiresAt(expiresAt)
 
       logCmsApiLogin('success', {
@@ -340,6 +358,7 @@ export function AuthProvider({ children }) {
     clearAuthToken()
     setAuthPersistence('none')
     setIsAuthenticated(false)
+    setAccessGranted(false)
     setRole(ROLES.USER)
     setRoleLabel(ROLE_LABELS[ROLES.USER])
     setAccountId('')
@@ -362,6 +381,7 @@ export function AuthProvider({ children }) {
   const value = useMemo(
     () => ({
       isAuthenticated,
+      accessGranted,
       // role: 실제 역할 문자열('admin' | 'manager' | 'user') — 세밀한 분기에 사용
       role,
       // roleLabel: 화면 표시용 한글 라벨('관리자' | '전기웅' | '이용자' 등)
@@ -379,6 +399,7 @@ export function AuthProvider({ children }) {
     }),
     [
       isAuthenticated,
+      accessGranted,
       role,
       roleLabel,
       accountId,

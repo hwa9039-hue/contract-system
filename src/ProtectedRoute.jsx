@@ -34,7 +34,10 @@ export { ROLES }
  * @param {React.ReactNode} [props.fallback]  권한이 없을 때 렌더링할 내용 (기본: 아무것도 렌더링 안 함)
  */
 export function ProtectedRoute({ allowedRoles, children, fallback = null }) {
-  const { role } = useAuth()
+  const { role, isAuthenticated } = useAuth()
+  if (!isAuthenticated) {
+    return null
+  }
   if (isRoleAllowed(role, allowedRoles)) {
     return <>{children}</>
   }
