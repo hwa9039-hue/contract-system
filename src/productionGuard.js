@@ -1,3 +1,5 @@
+import { sendAuditLog } from './utils/logger.js'
+
 const SECURITY_ALERT_MESSAGE = '🚨 보안 정책에 의해 비정상적인 접근이 감지되었습니다.'
 
 function isBlockedShortcut(event) {
@@ -21,6 +23,7 @@ export function installProductionGuard() {
     event.preventDefault()
     event.stopPropagation()
     if (warningOpen) return
+    sendAuditLog('SECURITY_VIOLATION', '개발자 도구(F12) 또는 우클릭 접근 시도')
     warningOpen = true
     window.alert(SECURITY_ALERT_MESSAGE)
     warningOpen = false

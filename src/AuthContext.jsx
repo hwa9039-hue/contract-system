@@ -35,6 +35,7 @@ import {
   VALID_ROLES,
 } from './permissions.js'
 import { isGenericAccountLabel } from './PresenceAvatars.jsx'
+import { sendAuditLog } from './utils/logger.js'
 
 const AuthContext = createContext(null)
 
@@ -337,6 +338,7 @@ export function AuthProvider({ children }) {
       setAccountId(resolvedAccountId)
       setAccessGranted(true)
       setSharedSessionExpiresAt(expiresAt)
+      sendAuditLog('LOGIN', '시스템 로그인')
 
       logCmsApiLogin('success', {
         mode: data.auth_disabled ? 'auth_disabled' : 'jwt',

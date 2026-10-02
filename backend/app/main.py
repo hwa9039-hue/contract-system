@@ -26,6 +26,7 @@ from app.routers.install_cases import INSTALL_CASES_API_PATH, router as install_
 from app.routers.materials_board import MATERIALS_BOARD_API_PATH, router as materials_board_router
 from app.routers.calendar_events import CALENDAR_EVENTS_API_PATH, router as calendar_events_router
 from app.routers import presence
+from app.routers.audit_logs import router as audit_logs_router
 
 
 DEFAULT_CORS_ORIGINS = (
@@ -220,3 +221,4 @@ app.include_router(install_cases_router)
 app.include_router(materials_board_router)
 app.include_router(calendar_events_router)
 app.include_router(presence.router)
+app.include_router(audit_logs_router)

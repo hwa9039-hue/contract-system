@@ -624,6 +624,25 @@ def init_db():
             cursor.execute("create extension if not exists pgcrypto")
             cursor.execute(
                 """
+                create table if not exists audit_logs (
+                  id uuid primary key default gen_random_uuid(),
+                  occurred_at timestamptz not null default now(),
+                  actor_name text not null default '',
+                  actor_id text not null default '',
+                  ip_address text not null default '',
+                  action_type text not null default '',
+                  description text not null default ''
+                )
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists audit_logs_occurred_at_idx
+                  on audit_logs (occurred_at desc)
+                """
+            )
+            cursor.execute(
+                """
                 create table if not exists contracts_rows (
                   id uuid primary key default gen_random_uuid(),
                   year integer,

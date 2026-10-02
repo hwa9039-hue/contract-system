@@ -169,6 +169,8 @@ import {
   filterSidebarMenuGroups,
 } from './permissions.js'
 import { CONTRACT_SHARED_WARNING_MS, formatRemainingSessionLabel, hydrateAuthSessionFromStorage } from './authSession.js'
+import { sendAuditLog } from './utils/logger.js'
+import AuditLogPage from './pages/admin/AuditLogPage.jsx'
 import {
   CONTRACT_EXCEL_HEADER_KEYWORDS,
   sheetToJsonWithSmartHeader,
@@ -6254,6 +6256,8 @@ function splitDashboardRecentTitleLabel(fullLabel) {
 function App() {
   const { role, roleLabel, accountId, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
     useAuth()
+  const canViewAuditLogs = roleLabel === '정화영' || accountId === 'hy9039'
+  const [isAuditLogOpen, setIsAuditLogOpen] = useState(false)
   const canEditContracts = canEditMenu('contracts', role)
   // const canEditProjectManagement = canEditMenu('projectManagement', role) // 메뉴 제거
   const canEditMaterialsBoard = canEditMenu('materialsBoard', role)
@@ -10127,6 +10131,7 @@ function App() {
 
         setEditingSalesIds((prev) => prev.filter((id) => id !== rowId))
         setSalesEditSnapshots((prev) => removeObjectKey(prev, rowId))
+        sendAuditLog('DATA_ACTION', '영업관리대장 삭제')
         await fetchSalesRows(false)
       },
     })
@@ -10163,6 +10168,7 @@ function App() {
       setEditingSalesIds((prev) => prev.filter((id) => id !== rowId))
       setSalesEditSnapshots((prev) => removeObjectKey(prev, rowId))
       setToastMessage('저장되었습니다.')
+      sendAuditLog('DATA_ACTION', '영업관리대장 저장')
     } catch (error) {
       if (targetRow.isDraft) {
         setSalesRows((prev) => prev.filter((row) => row.id !== rowId))
@@ -10214,6 +10220,7 @@ function App() {
           setSalesRows(remainingDrafts)
           setSelectedSalesIds([])
           setEditingSalesIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
+          sendAuditLog('DATA_ACTION', `영업관리대장 ${persistedIds.length}건 삭제`)
           await fetchSalesRows(true)
           return
         }
@@ -10269,6 +10276,7 @@ function App() {
       setSelectedSalesIds([])
       setEditingSalesIds([])
       setToastMessage('저장되었습니다.')
+      sendAuditLog('DATA_ACTION', '영업관리대장 저장')
     } catch (error) {
       logApiOperationError('영업관리대장 일괄 저장', error)
     } finally {
@@ -11413,6 +11421,9 @@ function App() {
     removeWorkReportRowLocallyById(id)
     try {
       await weeklyWorkReportsApi.remove(id)
+      if (errorLabel === '주간업무보고서 삭제') {
+        sendAuditLog('DATA_ACTION', '주간업무보고서 삭제')
+      }
       return true
     } catch (error) {
       if (isWorkReportNotFoundError(error)) return true
@@ -11972,6 +11983,8 @@ function App() {
       }
       if (!workReportManualSaveFailedRef.current) {
         setToastMessage(notifyMessage)
+        const savedMeetingMinutes = String(notifyMessage || '').includes('회의록')
+        sendAuditLog('DATA_ACTION', savedMeetingMinutes ? '회의록 저장' : '주간업무보고서 저장')
       }
     } finally {
       setIsSavingWorkReports(false)
@@ -16081,6 +16094,16 @@ function App() {
 
         <div className="sidebar-bottom">
           <div className="viewer-badge">{formatPersonDisplayName(roleLabel) || roleLabel}</div>
+          {canViewAuditLogs ? (
+            <button
+              className="logout-btn audit-log-open-btn"
+              type="button"
+              onClick={() => setIsAuditLogOpen(true)}
+              style={{ width: '100%' }}
+            >
+              시스템 로그
+            </button>
+          ) : null}
           <button
             className="logout-btn"
             type="button"
@@ -16091,6 +16114,20 @@ function App() {
           </button>
         </div>
       </aside>
+
+      {canViewAuditLogs && isAuditLogOpen ? (
+        <div className="audit-log-modal-backdrop" onClick={() => setIsAuditLogOpen(false)}>
+          <div
+            className="audit-log-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="시스템 로그"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <AuditLogPage onClose={() => setIsAuditLogOpen(false)} />
+          </div>
+        </div>
+      ) : null}
 
       <main className="main-area">
         <div className="top-system-bar app-global-header">

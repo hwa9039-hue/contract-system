@@ -5,7 +5,9 @@ manager — 부서장. 현재는 admin 과 100% 동일(ADMIN_LEVEL_ROLES 참고)
 user    — admin-only menus blocked; viewer-only menus GET-only; rest full access
 """
 
-ADMIN_ONLY_PREFIXES = ()
+ADMIN_ONLY_PREFIXES = (
+    "/api/audit-logs",
+)
 
 USER_READ_ONLY_PREFIXES = (
     "/api/contracts",
