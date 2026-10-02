@@ -1,6 +1,19 @@
 import { sendAuditLog } from './utils/logger.js'
 
 const SECURITY_ALERT_MESSAGE = '🚨 보안 정책에 의해 비정상적인 접근이 감지되었습니다.'
+const CAPTURE_ALERT_MESSAGE = '🚨 보안 정책: 화면 캡처 시도가 감지되어 기록되었습니다.'
+
+function isCaptureShortcut(event) {
+  const key = String(event.key || '')
+  const code = String(event.code || '')
+  const shift = event.shiftKey
+  const meta = event.metaKey
+  const ctrl = event.ctrlKey
+  if (key === 'PrintScreen' || code === 'PrintScreen' || event.keyCode === 44) return true
+  if ((meta || ctrl) && shift && (key === 'S' || key === 's')) return true
+  if (meta && shift && (key === '3' || key === '4' || key === '5')) return true
+  return false
+}
 
 function isBlockedShortcut(event) {
   const key = String(event.key || '')
@@ -18,6 +31,7 @@ function isBlockedShortcut(event) {
  */
 export function installProductionGuard() {
   let warningOpen = false
+  let lastCaptureAt = 0
 
   const blockAndWarn = (event) => {
     event.preventDefault()
@@ -34,6 +48,20 @@ export function installProductionGuard() {
     blockAndWarn(event)
   }
 
+  const warnCapture = (event) => {
+    if (!isCaptureShortcut(event)) return
+    event.preventDefault()
+    const now = Date.now()
+    if (warningOpen || now - lastCaptureAt < 1500) return
+    lastCaptureAt = now
+    sendAuditLog('SECURITY_VIOLATION', '화면 캡처 시도 감지')
+    warningOpen = true
+    window.alert(CAPTURE_ALERT_MESSAGE)
+    warningOpen = false
+  }
+
   window.addEventListener('contextmenu', blockAndWarn)
   window.addEventListener('keydown', blockShortcut, true)
+  window.addEventListener('keydown', warnCapture, true)
+  window.addEventListener('keyup', warnCapture, true)
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from './AuthContext.jsx'
 
-const MARK_COUNT = 80
+const MARK_COUNT = 36
 
 function formatStamp(date) {
   const pad = (value) => String(value).padStart(2, '0')
@@ -43,13 +43,12 @@ export function Watermark() {
       aria-hidden="true"
     >
       <div
-        className="pointer-events-none absolute left-1/2 top-1/2 grid w-max -translate-x-1/2 -translate-y-1/2 -rotate-45 grid-cols-[repeat(4,max-content)] gap-x-28 gap-y-24"
-        style={{ opacity: 0.1 }}
+        className="pointer-events-none absolute left-1/2 top-1/2 grid w-max -translate-x-1/2 -translate-y-1/2 -rotate-45 grid-cols-[repeat(3,max-content)] gap-x-40 gap-y-36 opacity-[0.03]"
       >
         {Array.from({ length: MARK_COUNT }, (_, index) => (
           <span
             key={index}
-            className="whitespace-nowrap text-lg font-semibold tracking-wide text-slate-900"
+            className="whitespace-nowrap text-4xl font-semibold tracking-wide text-black"
           >
             {text}
           </span>
