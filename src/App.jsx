@@ -1845,21 +1845,21 @@ const SIDEBAR_MENU_TREE = [
   },
   {
     type: 'group',
-    id: 'documents',
-    label: '문서관리',
-    items: [
-      { key: 'quoteDesignDocs', label: '견적 · 설계 반출 현황' },
-      { key: 'documents', label: '문서수발신대장' },
-    ],
-  },
-  {
-    type: 'group',
     id: 'salesInfo',
     label: '영업정보',
     items: [
       { key: 'salesContacts', label: '연락처' },
       { key: 'paymentReport', label: '결제보고' },
       { key: 'orderManagement', label: '발주관리' },
+    ],
+  },
+  {
+    type: 'group',
+    id: 'documents',
+    label: '문서관리',
+    items: [
+      { key: 'quoteDesignDocs', label: '견적 · 설계 반출 현황' },
+      { key: 'documents', label: '문서수발신대장' },
     ],
   },
   {
@@ -16071,8 +16071,8 @@ function App() {
           onClick={() => setIsMobileNavOpen(false)}
         />
       ) : null}
-      <aside className="sidebar">
-        <div className="sidebar-top">
+      <aside className="sidebar w-[212px] min-w-[212px] max-w-[212px] shrink-0 grow-0 overflow-x-hidden">
+        <div className="sidebar-top overflow-x-hidden [scrollbar-gutter:stable]">
           <div className="company-logo-box">
             <img className="company-logo-img" src="/logo.png" alt="스마트DI" />
           </div>
@@ -16086,8 +16086,9 @@ function App() {
                     type="button"
                     className={menu === node.key ? 'menu-btn active' : 'menu-btn'}
                     onClick={() => setMenu(node.key)}
+                    title={node.label}
                   >
-                    {node.label}
+                    <span className="block min-w-0 truncate">{node.label}</span>
                   </button>
                 )
               }
@@ -16103,7 +16104,7 @@ function App() {
                     aria-expanded={isExpanded}
                     aria-label={`${group.label} ${isExpanded ? '접기' : '펼치기'}`}
                   >
-                    <span className="menu-group-label">{group.label}</span>
+                    <span className="menu-group-label truncate">{group.label}</span>
                     <span className="menu-group-chevron" aria-hidden>
                       {isExpanded ? '▲' : '▼'}
                     </span>
@@ -16118,8 +16119,9 @@ function App() {
                               menu === item.key ? 'menu-btn menu-btn--child active' : 'menu-btn menu-btn--child'
                             }
                             onClick={() => setMenu(item.key)}
+                            title={item.label}
                           >
-                            {item.label}
+                            <span className="block min-w-0 truncate whitespace-nowrap">{item.label}</span>
                           </button>
                         </li>
                       ))}
