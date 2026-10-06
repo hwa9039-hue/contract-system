@@ -14184,12 +14184,13 @@ table.email-export-table .email-export-col--sent {
   width: 150px;
 }
 
-table.email-export-table .email-export-col--sender {
-  width: 220px;
+table.email-export-table .email-export-col--name {
+  width: 90px;
 }
 
-table.email-export-table .email-export-col--name {
-  width: 110px;
+table.email-export-table .email-export-col--sender,
+table.email-export-table .email-export-col--recipient {
+  width: 200px;
 }
 
 /* 제목·첨부파일은 너비를 지정하지 않는다: 고정 컬럼을 뺀 남는 가로 폭을 반반 나눠 가장 넓게(스크롤 방지) */
@@ -14225,6 +14226,41 @@ table.email-export-table tbody td.email-export-cell--files {
 
 table.email-export-table .sales-contacts-linked-chip {
   max-width: 24rem;
+}
+
+/* 메일 제목: 글자 위에 마우스를 올리면 본문 요약 말풍선 */
+table.email-export-table .email-export-subject {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+table.email-export-table .email-export-subject.has-summary {
+  cursor: help;
+  border-bottom: 1px dotted #94a3b8;
+}
+
+.email-export-body-tooltip {
+  max-width: 26rem;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.email-export-body-tooltip-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #1d4ed8;
+}
+
+.email-export-body-tooltip-text {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.55;
+  color: #0f172a;
+  word-break: break-word;
 }
 
 table.email-export-table .email-export-cell--empty {

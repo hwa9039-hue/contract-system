@@ -12,12 +12,81 @@ import { resolveSenderName } from '../userNameMap.js'
 
 const EXPORT_EXCEL_COLUMNS = [
   { header: '구분', key: 'seq', minWidth: 8 },
-  { header: '보낸일시', key: 'sentAt', minWidth: 18 },
-  { header: '보낸사람', key: 'sender', minWidth: 28 },
+  { header: '발신일시', key: 'sentAt', minWidth: 18 },
   { header: '성명', key: 'name', minWidth: 12 },
-  { header: '제목', key: 'subject', minWidth: 40 },
+  { header: '발신자', key: 'sender', minWidth: 28 },
+  { header: '수신자', key: 'recipient', minWidth: 28 },
+  { header: '메일 제목', key: 'subject', minWidth: 40 },
   { header: '첨부파일', key: 'files', minWidth: 40 },
 ]
+
+/**
+ * 메일 제목 칸 — 제목에 마우스를 올리면 본문 요약이 말풍선으로 뜬다.
+ * 본문 요약이 없으면 말풍선 대신 제목 전체를 기본 title 로 보여 준다.
+ */
+function SubjectWithTooltip({ subject, bodySummary }) {
+  const anchorRef = useRef(null)
+  const [open, setOpen] = useState(false)
+  const [position, setPosition] = useState(null)
+  const hasSummary = Boolean(bodySummary)
+
+  const updatePosition = useCallback(() => {
+    if (!anchorRef.current) return
+    setPosition(
+      computeFixedPortalPosition(anchorRef.current, {
+        gap: 8,
+        minWidth: 240,
+        maxHeight: 280,
+        preferBelowMinSpace: 96,
+      })
+    )
+  }, [])
+
+  useLayoutEffect(() => {
+    if (!open) return
+    updatePosition()
+    window.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [open, updatePosition])
+
+  const tooltip =
+    open && hasSummary && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            className="sales-contacts-linked-more-tooltip sales-contacts-linked-more-tooltip--portal email-export-body-tooltip"
+            role="tooltip"
+            style={fixedPortalStyle(position, { zIndex: 12000, matchWidth: false, minWidth: 240 })}
+          >
+            <span className="email-export-body-tooltip-label">본문 요약</span>
+            <span className="email-export-body-tooltip-text">{bodySummary}</span>
+          </div>,
+          document.body
+        )
+      : null
+
+  return (
+    <>
+      <span
+        ref={anchorRef}
+        className={`email-export-subject${hasSummary ? ' has-summary' : ''}`}
+        title={hasSummary ? undefined : subject}
+        tabIndex={hasSummary ? 0 : undefined}
+        aria-label={hasSummary ? `${subject}. 본문 요약: ${bodySummary}` : undefined}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+      >
+        {subject}
+      </span>
+      {tooltip}
+    </>
+  )
+}
 
 /**
  * 첨부파일 칸 — 연락처의 '연계 사업'과 같은 모양.
@@ -165,6 +234,7 @@ export default function QuoteDesignExportPage() {
         formatSentAt(row.sentAt),
         row.sender,
         resolveSenderName(row.sender),
+        row.recipient,
         row.subject,
         ...row.attachments,
       ]
@@ -184,8 +254,9 @@ export default function QuoteDesignExportPage() {
         rows: visibleRows.map((row, index) => ({
           seq: index + 1,
           sentAt: formatSentAt(row.sentAt),
-          sender: row.sender,
           name: resolveSenderName(row.sender),
+          sender: row.sender,
+          recipient: row.recipient,
           subject: row.subject,
           files: row.attachments.join(', '),
         })),
@@ -206,7 +277,7 @@ export default function QuoteDesignExportPage() {
           type="search"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="보낸사람, 성명, 제목, 첨부파일 등 검색"
+          placeholder="성명, 발신자, 수신자, 메일 제목, 첨부파일 등 검색"
           aria-label="견적 · 설계 반출 현황 검색"
         />
       </div>
@@ -226,18 +297,20 @@ export default function QuoteDesignExportPage() {
           <colgroup>
             <col className="email-export-col--seq" />
             <col className="email-export-col--sent" />
-            <col className="email-export-col--sender" />
             <col className="email-export-col--name" />
+            <col className="email-export-col--sender" />
+            <col className="email-export-col--recipient" />
             <col className="email-export-col--subject" />
             <col className="email-export-col--files" />
           </colgroup>
           <thead>
             <tr>
               <th className="th-align-center">구분</th>
-              <th className="th-align-center">보낸일시</th>
-              <th className="th-align-center">보낸사람</th>
+              <th className="th-align-center">발신일시</th>
               <th className="th-align-center">성명</th>
-              <th className="th-align-center">제목</th>
+              <th className="th-align-center">발신자</th>
+              <th className="th-align-center">수신자</th>
+              <th className="th-align-center">메일 제목</th>
               <th className="th-align-center">첨부파일</th>
             </tr>
           </thead>
@@ -247,13 +320,16 @@ export default function QuoteDesignExportPage() {
                 <tr key={row.id} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
                   <td className="email-export-cell--center">{index + 1}</td>
                   <td className="email-export-cell--center">{formatSentAt(row.sentAt)}</td>
+                  <td className="email-export-cell--center">{resolveSenderName(row.sender)}</td>
                   <td className="email-export-cell--center">
                     {/* 링크가 아닌 일반 텍스트: 클릭 불가 */}
                     <span className="pointer-events-none select-none">{row.sender}</span>
                   </td>
-                  <td className="email-export-cell--center">{resolveSenderName(row.sender)}</td>
-                  <td className="email-export-cell--text" title={row.subject}>
-                    {row.subject}
+                  <td className="email-export-cell--center" title={row.recipient || undefined}>
+                    <span className="pointer-events-none select-none">{row.recipient}</span>
+                  </td>
+                  <td className="email-export-cell--text">
+                    <SubjectWithTooltip subject={row.subject} bodySummary={row.bodySummary} />
                   </td>
                   <td className="email-export-cell--files">
                     <AttachmentChips files={row.attachments} />
@@ -263,7 +339,7 @@ export default function QuoteDesignExportPage() {
             })}
             {!loading && visibleRows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="email-export-cell--empty">
+                <td colSpan={7} className="email-export-cell--empty">
                   {searchQuery.trim() ? '검색 결과가 없습니다.' : '반출 내역이 없습니다.'}
                 </td>
               </tr>

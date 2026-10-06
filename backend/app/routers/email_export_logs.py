@@ -12,7 +12,7 @@ import hmac
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from email.utils import parseaddr
+from email.utils import getaddresses, parseaddr
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
@@ -30,6 +30,8 @@ MAX_BATCH_ITEMS = 200
 MAX_ATTACHMENTS_PER_MAIL = 100
 MAX_MESSAGE_ID_LEN = 200
 MAX_SENDER_LEN = 320
+MAX_RECIPIENT_LEN = 2000
+MAX_BODY_SUMMARY_LEN = 500
 MAX_SUBJECT_LEN = 1000
 MAX_FILENAME_LEN = 255
 
@@ -68,6 +70,26 @@ def _normalize_sender(value: Any) -> str:
     raw = _clean_text(value, MAX_SENDER_LEN * 2)
     _name, address = parseaddr(raw)
     return (address or raw).strip().lower()[:MAX_SENDER_LEN]
+
+
+def _normalize_recipients(value: Any) -> str:
+    """수신자 목록('A <a@x.com>, b@y.com' 또는 배열)에서 이메일 주소만 뽑아 '), '로 이어 붙인다."""
+    if value is None:
+        return ""
+    parts = value if isinstance(value, list) else [value]
+    raw_parts = [str(part) for part in parts if part is not None and str(part).strip()]
+    addresses: list[str] = []
+    for _name, address in getaddresses(raw_parts):
+        cleaned = address.strip().lower()
+        if cleaned and cleaned not in addresses:
+            addresses.append(cleaned)
+    return ", ".join(addresses)[:MAX_RECIPIENT_LEN]
+
+
+def _summarize_body(value: Any) -> str:
+    """본문 요약: 연속 공백·줄바꿈을 한 칸으로 줄이고 앞부분만 남긴다."""
+    text = " ".join(str("" if value is None else value).split())
+    return text[:MAX_BODY_SUMMARY_LEN]
 
 
 def _parse_sent_at(value: Any) -> datetime | None:
@@ -122,7 +144,13 @@ def _normalize_item(raw: Any) -> dict[str, Any]:
         "message_id": message_id,
         "sent_at": sent_at,
         "sender": _normalize_sender(raw.get("sender") if "sender" in raw else raw.get("from")),
+        "recipient": _normalize_recipients(
+            raw.get("recipient") if "recipient" in raw else raw.get("to")
+        ),
         "subject": _clean_text(raw.get("subject"), MAX_SUBJECT_LEN),
+        "body_summary": _summarize_body(
+            raw.get("bodySummary") if "bodySummary" in raw else raw.get("body_summary")
+        ),
         "attachments": attachments[:MAX_ATTACHMENTS_PER_MAIL],
     }
 
@@ -151,7 +179,9 @@ def _row_to_out(row: dict) -> dict[str, Any]:
         "id": row["id"],
         "sentAt": sent_at.isoformat() if sent_at else "",
         "sender": row.get("sender") or "",
+        "recipient": row.get("recipient") or "",
         "subject": row.get("subject") or "",
+        "bodySummary": row.get("body_summary") or "",
         "attachments": [str(name) for name in attachments] if isinstance(attachments, list) else [],
     }
 
@@ -163,7 +193,7 @@ def list_email_export_logs(limit: int = Query(default=1000, ge=1, le=5000)):
         with connection.cursor() as cursor:
             cursor.execute(
                 """
-                select id::text as id, sent_at, sender, subject, attachments
+                select id::text as id, sent_at, sender, recipient, subject, body_summary, attachments
                 from email_export_logs
                 order by sent_at desc nulls last, created_at desc
                 limit %(limit)s
@@ -200,12 +230,20 @@ def ingest_email_export_logs(body: Any = Body(...)):
                 for item in valid:
                     cursor.execute(
                         """
-                        insert into email_export_logs (message_id, sent_at, sender, subject, attachments)
-                        values (%(message_id)s, %(sent_at)s, %(sender)s, %(subject)s, %(attachments)s)
+                        insert into email_export_logs
+                          (message_id, sent_at, sender, recipient, subject, body_summary, attachments)
+                        values
+                          (%(message_id)s, %(sent_at)s, %(sender)s, %(recipient)s, %(subject)s,
+                           %(body_summary)s, %(attachments)s)
                         on conflict (message_id) do update set
                           sent_at = excluded.sent_at,
                           sender = excluded.sender,
+                          -- 옛 스크립트가 수신자·본문을 안 보내도(빈 값) 이미 저장된 값을 지우지 않는다
+                          recipient = case when excluded.recipient <> ''
+                            then excluded.recipient else email_export_logs.recipient end,
                           subject = excluded.subject,
+                          body_summary = case when excluded.body_summary <> ''
+                            then excluded.body_summary else email_export_logs.body_summary end,
                           attachments = excluded.attachments,
                           updated_at = now()
                         returning (xmax = 0) as inserted

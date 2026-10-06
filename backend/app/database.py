@@ -649,11 +649,26 @@ def init_db():
                   message_id text not null,
                   sent_at timestamptz,
                   sender text not null default '',
+                  recipient text not null default '',
                   subject text not null default '',
+                  body_summary text not null default '',
                   attachments jsonb not null default '[]'::jsonb,
                   created_at timestamptz not null default now(),
                   updated_at timestamptz not null default now()
                 )
+                """
+            )
+            # 이미 만들어진 테이블에는 컬럼만 추가한다(데이터 유지). 기존 행은 빈 값으로 채워진다.
+            cursor.execute(
+                """
+                alter table email_export_logs
+                  add column if not exists recipient text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table email_export_logs
+                  add column if not exists body_summary text not null default ''
                 """
             )
             cursor.execute(
