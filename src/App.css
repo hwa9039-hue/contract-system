@@ -14167,6 +14167,72 @@ body.work-report-manager-menu-open .work-report-board-section {
   }
 }
 
+/* ── 문서관리 > 견적 · 설계 반출 현황 (표 스타일은 excel-table / registry-table 공용) ── */
+table.email-export-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+table.email-export-table .email-export-col--seq {
+  width: 70px;
+}
+
+table.email-export-table .email-export-col--sent {
+  width: 150px;
+}
+
+table.email-export-table .email-export-col--sender {
+  width: 220px;
+}
+
+table.email-export-table .email-export-col--name {
+  width: 110px;
+}
+
+/* 제목·첨부파일은 너비를 지정하지 않는다: 고정 컬럼을 뺀 남는 가로 폭을 반반 나눠 가장 넓게(스크롤 방지) */
+table.email-export-table .email-export-col--subject,
+table.email-export-table .email-export-col--files {
+  width: auto;
+}
+
+table.email-export-table thead th {
+  text-align: center;
+}
+
+table.email-export-table tbody td {
+  padding: 8px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+table.email-export-table .email-export-cell--center {
+  text-align: center;
+}
+
+table.email-export-table .email-export-cell--text {
+  text-align: left;
+}
+
+/* 첨부파일: 연락처 '연계 사업'과 같은 칩 + (+N) 배지. 칩은 파일명이 보이도록 더 넓게 */
+table.email-export-table tbody td.email-export-cell--files {
+  text-align: left;
+  overflow: visible;
+}
+
+table.email-export-table .sales-contacts-linked-chip {
+  max-width: 24rem;
+}
+
+table.email-export-table .email-export-cell--empty {
+  padding: 28px 10px;
+  text-align: center;
+  color: #94a3b8;
+}
+
 /* ── 영업정보 > 연락처 ───────────────────────────────────────────────── */
 .sales-contacts-page {
   display: flex !important;

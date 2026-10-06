@@ -74,6 +74,8 @@ import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import OrderManagementPlaceholder from './pages/OrderManagementPlaceholder.jsx'
 import BitHistoryPage from './pages/sales/BitHistoryPage.jsx'
 import PreparingPlaceholder from './pages/PreparingPlaceholder.jsx'
+import QuoteDesignExportPage from './pages/QuoteDesignExportPage.jsx'
+import { useAppVersionPolling } from './useAppVersionPolling.js'
 import AccessDeniedPlaceholder from './pages/AccessDeniedPlaceholder.jsx'
 import PaymentReportPage from './pages/PaymentReportPage.jsx'
 import SalesContactsPage from './pages/SalesContactsPage.jsx'
@@ -1687,6 +1689,11 @@ const BIT_HISTORY_MENU_PATH = '/sales/bit-history'
 /** 준비 중 화면을 쓰는 신규 메뉴의 URL (북마크·새로고침 시에도 같은 화면으로 들어온다) */
 const SALES_INTEGRATED_MENU_PATH = '/sales/integrated'
 const QUOTE_DESIGN_DOCS_MENU_PATH = '/documents/quote-design'
+/**
+ * 견적 · 설계 반출 현황 공개 여부. 백엔드 API(GET /api/emails/export-logs)가 배포되면 true 로 바꾼다.
+ * false 인 동안은 사이드바에서 숨기고, 주소로 직접 들어와도 '준비 중입니다.'만 보인다(예시 데이터 노출 방지).
+ */
+const QUOTE_DESIGN_EXPORT_READY = false
 /** URL 경로로 직접 열리는 메뉴 키 ↔ 경로 */
 const MENU_KEY_BY_PATH = {
   [ORDER_MANAGEMENT_MENU_PATH]: 'orderManagement',
@@ -1858,7 +1865,8 @@ const SIDEBAR_MENU_TREE = [
     id: 'documents',
     label: '문서관리',
     items: [
-      { key: 'quoteDesignDocs', label: '견적 · 설계 반출 현황' },
+      // 백엔드(GET /api/emails/export-logs) 완성 전에는 사이드바에서 숨긴다.
+      ...(QUOTE_DESIGN_EXPORT_READY ? [{ key: 'quoteDesignDocs', label: '견적 · 설계 반출 현황' }] : []),
       { key: 'documents', label: '문서수발신대장' },
     ],
   },
@@ -6294,6 +6302,8 @@ function splitDashboardRecentTitleLabel(fullLabel) {
 function App() {
   const { role, roleLabel, accountId, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
     useAuth()
+  // 화면이 켜져 있는 동안 새 버전 배포를 감지해 자동으로 재로그인시킨다.
+  useAppVersionPolling()
   const canViewAuditLogs = roleLabel === '정화영' || accountId === 'hy9039'
   // 권한이 없는 단독 메뉴·하위 메뉴는 빼고, 하위가 모두 빠진 그룹도 숨긴다.
   const sidebarVisibleTree = SIDEBAR_MENU_TREE.reduce((acc, node) => {
@@ -18494,7 +18504,12 @@ function App() {
         {/* 신규 메뉴 — 발주관리와 같은 '준비 중입니다.' 공용 화면 재사용 */}
         {menu === 'salesIntegrated' && <PreparingPlaceholder label="영업관리(통합)" />}
 
-        {menu === 'quoteDesignDocs' && <PreparingPlaceholder label="견적 · 설계 반출 현황" />}
+        {menu === 'quoteDesignDocs' &&
+          (QUOTE_DESIGN_EXPORT_READY ? (
+            <QuoteDesignExportPage />
+          ) : (
+            <PreparingPlaceholder label="견적 · 설계 반출 현황" />
+          ))}
 
         {menu === BIT_HISTORY_MENU_KEY && canAccessMenu(BIT_HISTORY_MENU_KEY, role, accountId) && (
           <BitHistoryPage contracts={contracts} />
