@@ -7219,6 +7219,25 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
   scrollbar-gutter: stable;
 }
 
+/* 사이드바 메뉴 밀도: 버튼 크기(높이·패딩·글자)는 그대로 두고 메뉴 사이 빈 공간만 줄인다 */
+.company-logo-box {
+  margin-bottom: 8px;
+}
+
+.menu {
+  gap: 3px;
+}
+
+.menu-group {
+  gap: 2px;
+}
+
+.menu-group-items {
+  gap: 2px;
+  margin: 0 0 2px 14px;
+  padding: 2px 0 2px 12px;
+}
+
 .menu-btn,
 .menu-group-btn {
   min-width: 0;
