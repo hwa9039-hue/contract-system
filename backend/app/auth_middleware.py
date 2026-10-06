@@ -50,6 +50,9 @@ def _is_public_api_path(path: str, method: str = "GET") -> bool:
     # 외부 공유용 설치사례 목록: 읽기(GET/HEAD)만 로그인 없이 연다.
     if path == "/api/public/install-cases":
         return method in ("GET", "HEAD")
+    # Google Apps Script 수신: 사용자 JWT 대신 라우터에서 X-Ingest-Token 으로 직접 검증한다.
+    if path == "/api/emails/export-logs/ingest":
+        return method == "POST"
     if path == "/api/auth/login":
         return True
     if path == "/api/auth/refresh":

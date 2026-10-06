@@ -24,6 +24,8 @@ services:
       AUTH_ADMIN_ACCOUNTS: ${AUTH_ADMIN_ACCOUNTS:-hy9039!:정화영,jhjoung!:정주희,kk2331!:전기웅,nov1st!:유영무,sskim!:김성수,yongja_lee!:이용자,pjb9878!:박재범,jslee!:이재승,wizard1221!:전재우,ssj8845!:신상준}
       AUTH_MANAGER_ACCOUNTS: ${AUTH_MANAGER_ACCOUNTS:-}
       AUTH_DISABLED: ${AUTH_DISABLED:-false}
+      # 견적 · 설계 반출 현황: Google Apps Script 수신용 비밀 토큰. 비워 두면 수신 API 가 꺼진다(503).
+      EMAIL_INGEST_TOKEN: ${EMAIL_INGEST_TOKEN:-}
       UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
       CONTRACT_IMPORT_EXCEL_BACKUP_DIR: ${CONTRACT_IMPORT_EXCEL_BACKUP_DIR:-/data/contract_excel_backup}
       BACKUP_DIR: ${BACKUP_DIR:-/app/backups}

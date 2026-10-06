@@ -641,6 +641,33 @@ def init_db():
                   on audit_logs (occurred_at desc)
                 """
             )
+            # 견적 · 설계 반출 현황 — Google Apps Script 가 Gmail 에서 읽어 보내 주는 메일 기록
+            cursor.execute(
+                """
+                create table if not exists email_export_logs (
+                  id uuid primary key default gen_random_uuid(),
+                  message_id text not null,
+                  sent_at timestamptz,
+                  sender text not null default '',
+                  subject text not null default '',
+                  attachments jsonb not null default '[]'::jsonb,
+                  created_at timestamptz not null default now(),
+                  updated_at timestamptz not null default now()
+                )
+                """
+            )
+            cursor.execute(
+                """
+                create unique index if not exists email_export_logs_message_id_uidx
+                  on email_export_logs (message_id)
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists email_export_logs_sent_at_idx
+                  on email_export_logs (sent_at desc nulls last)
+                """
+            )
             cursor.execute(
                 """
                 create table if not exists contracts_rows (
