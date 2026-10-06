@@ -1,45 +1,16 @@
-import { StrictMode, useEffect } from 'react'
-import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.jsx'
-import LoginPage from './LoginPage.jsx'
-import { AuthProvider, useAuth } from './AuthContext.jsx'
-import { bootstrapCmsApiProbe } from './cmsApiProbe.js'
-import { installProductionGuard } from './productionGuard.js'
-import { Watermark } from './Watermark.jsx'
+import { isPublicSharePath } from './publicShare/publicSharePaths.js'
 
-bootstrapCmsApiProbe()
-installProductionGuard()
+const rootElement = document.getElementById('root')
 
-const LOGIN_PATH = '/login'
-
-function AppRoot() {
-  const { isAuthenticated, authHydrated, accessGranted } = useAuth()
-
-  useEffect(() => {
-    if (!authHydrated) return
-    if (!isAuthenticated) {
-      if (window.location.pathname !== LOGIN_PATH) {
-        window.history.replaceState(null, '', LOGIN_PATH)
-      }
-      return
-    }
-    if (!accessGranted) return
-    if (window.location.pathname === LOGIN_PATH) {
-      window.history.replaceState(null, '', '/')
-    }
-  }, [authHydrated, isAuthenticated, accessGranted])
-
-  if (!authHydrated) return null
-  if (!isAuthenticated) return <LoginPage />
-  return <App />
+// 진입 주소로 먼저 갈라서, 외부 공유 주소에서는 관리자 시스템 코드를 아예 불러오지 않는다.
+// (인증 예외는 이 목록에 있는 주소에만 적용된다. 그 외 모든 주소는 기존처럼 로그인이 필요하다.)
+if (isPublicSharePath(window.location.pathname)) {
+  import('./publicShare/mountPublicShare.jsx').then(({ mountPublicShare }) => {
+    mountPublicShare(rootElement)
+  })
+} else {
+  import('./mountAdminApp.jsx').then(({ mountAdminApp }) => {
+    mountAdminApp(rootElement)
+  })
 }
-
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <AuthProvider>
-      <Watermark />
-      <AppRoot />
-    </AuthProvider>
-  </StrictMode>
-)

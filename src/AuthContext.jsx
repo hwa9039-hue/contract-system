@@ -28,6 +28,7 @@ import {
 import {
   hasAdminPrivileges,
   writeClientAccessFlags,
+  readClientAccessFlagsSnapshot,
   normalizeAccountId,
   normalizeRole,
   ROLE_LABELS,
@@ -52,6 +53,7 @@ export function AuthProvider({ children }) {
   const [sharedSessionExpiresAt, setSharedSessionExpiresAt] = useState(hydrated.expiresAt)
   const [authHydrated, setAuthHydrated] = useState(true)
   const [accessGranted, setAccessGranted] = useState(false)
+  const [accessFlagsVersion, setAccessFlagsVersion] = useState(0)
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState('')
 
   // isAdmin = "관리자급 권한 보유 여부". 부서장(manager)도 현재는 true.
@@ -92,9 +94,14 @@ export function AuthProvider({ children }) {
 
   /** @returns {'ok' | 'auth_fail' | 'network_fail'} */
   const refreshAccessToken = useCallback(async (persistence) => {
+    const flagsBefore = readClientAccessFlagsSnapshot()
     const result = await refreshAccessTokenFromStorage()
     if (result === 'ok' && persistence) {
       syncAuthTokenToActiveStorage(persistence === 'persistent' ? 'persistent' : 'session')
+    }
+    // 새로 받은 메뉴 권한이 달라졌을 때만 화면을 다시 그린다.
+    if (result === 'ok' && readClientAccessFlagsSnapshot() !== flagsBefore) {
+      setAccessFlagsVersion((version) => version + 1)
     }
     return result
   }, [])
@@ -389,6 +396,8 @@ export function AuthProvider({ children }) {
       // roleLabel: 화면 표시용 한글 라벨('관리자' | '전기웅' | '이용자' 등)
       roleLabel,
       accountId,
+      // 메뉴 권한 플래그가 서버 값으로 갱신되면 올라가는 값 — 구독한 화면이 다시 그려지게 한다
+      accessFlagsVersion,
       // isAdmin: 관리자급 권한 여부(admin·manager 공통) — 기존 코드 하위 호환용
       isAdmin,
       sharedSessionExpiresAt,
@@ -405,6 +414,7 @@ export function AuthProvider({ children }) {
       role,
       roleLabel,
       accountId,
+      accessFlagsVersion,
       isAdmin,
       sharedSessionExpiresAt,
       authHydrated,

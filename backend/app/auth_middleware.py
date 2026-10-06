@@ -44,9 +44,12 @@ def _cors_headers_for_request(request: Request) -> dict[str, str]:
     }
 
 
-def _is_public_api_path(path: str) -> bool:
+def _is_public_api_path(path: str, method: str = "GET") -> bool:
     if path == "/api/health":
         return True
+    # 외부 공유용 설치사례 목록: 읽기(GET/HEAD)만 로그인 없이 연다.
+    if path == "/api/public/install-cases":
+        return method in ("GET", "HEAD")
     if path == "/api/auth/login":
         return True
     if path == "/api/auth/refresh":
@@ -74,7 +77,7 @@ class ApiJwtAuthMiddleware(BaseHTTPMiddleware):
         if is_auth_disabled():
             return await call_next(request)
 
-        if _is_public_api_path(path):
+        if _is_public_api_path(path, request.method):
             return await call_next(request)
 
         if not get_jwt_secret():

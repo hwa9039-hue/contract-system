@@ -11,6 +11,7 @@ import {
   restoreAuthSessionFromStorages,
   syncAuthTokenToActiveStorage,
 } from './authSession.js'
+import { writeClientAccessFlags } from './permissions.js'
 
 export const SESSION_EXPIRED_USER_MESSAGE = '안전을 위해 로그인이 만료되었습니다.'
 
@@ -91,6 +92,15 @@ export async function refreshAccessTokenFromStorage() {
     if (data.access_token) {
       setAuthToken(data.access_token, { persistent: persistence === 'persistent' })
       syncAuthTokenToActiveStorage(persistence)
+      // 새로고침으로 이어받은 세션도 서버가 계산한 메뉴 권한을 다시 받는다.
+      // (권한이 생기기 전에 만든 세션이나 로그인 이후 바뀐 권한이 사이드바에 반영되게 한다)
+      writeClientAccessFlags(
+        {
+          canAccessBitHistory: Boolean(data.can_access_bit_history),
+          canViewAllInactiveContacts: Boolean(data.can_view_all_inactive_contacts),
+        },
+        persistence,
+      )
       return 'ok'
     }
     return 'auth_fail'

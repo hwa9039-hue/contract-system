@@ -3,8 +3,9 @@ import re
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.access_guards import require_bit_history_access
 from app.database import get_connection
 from app.schemas import (
     BitHistoryBulkDelete,
@@ -22,7 +23,11 @@ from app.schemas import (
 logger = logging.getLogger(__name__)
 
 BIT_HISTORY_API_PATH = "/api/bit-history"
-router = APIRouter(prefix=BIT_HISTORY_API_PATH, tags=["bit-history"])
+router = APIRouter(
+    prefix=BIT_HISTORY_API_PATH,
+    tags=["bit-history"],
+    dependencies=[Depends(require_bit_history_access)],
+)
 
 UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",

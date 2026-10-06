@@ -4,7 +4,7 @@ import { AutoGrowTextarea } from '../AutoGrowTextarea.jsx'
 import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { EditableTextCell } from '../EditableTextCell.jsx'
 import { computeFixedPortalPosition, fixedPortalStyle } from '../portalMenuPosition.js'
-import { ROLES, canViewAllInactiveContacts, hasAdminPrivileges, normalizeAccountId, normalizeRole } from '../permissions.js'
+import { ROLES, canViewAllContacts, hasAdminPrivileges, normalizeAccountId, normalizeRole } from '../permissions.js'
 import { MobileDataCardList } from '../MobileDataCardList.jsx'
 import { normalizeSalesContactRow, salesContactsApi } from '../salesContactsApi.js'
 import { useAuth } from '../AuthContext.jsx'
@@ -57,10 +57,14 @@ function getContactAuthorId(row) {
   )
 }
 
-/** 활성은 전원 공개. 비활성은 작성자 본인 또는 정화영·정주희만. */
+/**
+ * 활성 연락처는 전원 공개.
+ * 비활성은 전체 열람자(전기웅·정주희·정화영)와 등록자 본인만 본다.
+ * 서버가 같은 규칙으로 먼저 거르고 내려주므로, 여기는 화면 쪽 이중 안전장치다.
+ */
 function canShowContactRow(row, accountId) {
   if (normalizeContactStatus(row?.status) !== CONTACT_STATUS.INACTIVE) return true
-  if (canViewAllInactiveContacts(accountId)) return true
+  if (canViewAllContacts()) return true
   const currentId = normalizeAccountId(accountId)
   const authorId = getContactAuthorId(row)
   return Boolean(currentId) && Boolean(authorId) && currentId === authorId
@@ -475,7 +479,7 @@ function ContactLinkedProjectCell({ row, tdClassName = '', onCommit }) {
 /**
  * 영업관리 > 연락처
  * - 수기 입력 표 (입력 후 자동 저장)
- * - 활성: 전원 표시 / 비활성: 작성자 본인 + 정화영·정주희만
+ * - 활성: 전원 표시 / 비활성: 등록자 본인 + 전기웅·정주희·정화영만
  * - 행 복사 → 클립보드
  */
 export default function SalesContactsPage({ role = ROLES.USER }) {

@@ -72,6 +72,11 @@ export function writeClientAccessFlags(flags, persistence = 'session') {
   }
 }
 
+/** 저장된 메뉴 권한 플래그의 현재 값 (바뀌었는지 비교해 화면을 다시 그릴 때 쓴다) */
+export function readClientAccessFlagsSnapshot() {
+  return `${readAccessFlag(BIT_HISTORY_ACCESS_KEY) ? 1 : 0}${readAccessFlag(INACTIVE_CONTACTS_ACCESS_KEY) ? 1 : 0}`
+}
+
 export function clearClientAccessFlags() {
   try {
     for (const key of [BIT_HISTORY_ACCESS_KEY, INACTIVE_CONTACTS_ACCESS_KEY]) {
@@ -90,12 +95,49 @@ export function normalizeAccountId(value) {
     .replace(/!+$/g, '')
 }
 
-export function canAccessBitHistory() {
-  return readAccessFlag(BIT_HISTORY_ACCESS_KEY)
+/**
+ * BIT 이력관리를 볼 수 있는 사람(표시 이름). 이름은 비밀이 아니라 화면에 이미 보이는 값이다.
+ * 서버가 내려준 권한 플래그(로그인 응답)와 이 이름 목록을 둘 다 만족해야 열린다.
+ */
+export const BIT_HISTORY_ALLOWED_NAMES = Object.freeze([
+  '전기웅',
+  '유영무',
+  '김성수',
+  '정주희',
+  '정화영',
+])
+
+/** authSession.js 의 ROLE_LABEL_SESSION_KEY 와 같은 값 (순환 import 를 피하려고 문자열을 둔다) */
+const ROLE_LABEL_STORAGE_KEY = 'contract_manager_role_label_session_v1'
+
+function readStoredDisplayName() {
+  try {
+    return String(
+      sessionStorage.getItem(ROLE_LABEL_STORAGE_KEY) ||
+        localStorage.getItem(ROLE_LABEL_STORAGE_KEY) ||
+        '',
+    ).trim()
+  } catch {
+    return ''
+  }
 }
 
-export function canViewAllInactiveContacts() {
+export function canAccessBitHistory() {
+  if (!readAccessFlag(BIT_HISTORY_ACCESS_KEY)) return false
+  return BIT_HISTORY_ALLOWED_NAMES.includes(readStoredDisplayName())
+}
+
+/**
+ * 비활성 연락처까지 전체 열람(전기웅·정주희·정화영). 서버가 로그인 응답으로 내려준 플래그다.
+ * 이 플래그가 없어도 활성 연락처는 모두 보이고, 비활성은 본인이 등록한 것만 보인다.
+ */
+export function canViewAllContacts() {
   return readAccessFlag(INACTIVE_CONTACTS_ACCESS_KEY)
+}
+
+/** @deprecated canViewAllContacts 로 바꿔 쓴다 (하위 호환) */
+export function canViewAllInactiveContacts() {
+  return canViewAllContacts()
 }
 
 /** 문자열 role 을 안전하게 정규화 (알 수 없는 값 → user) */
@@ -130,7 +172,9 @@ export const FULL_ACCESS_MENUS = new Set([
   'workReports',
   'meetingMinutes',
   'calendar',
+  'salesIntegrated',
   'sales',
+  'quoteDesignDocs',
   'discovery',
   'excluded',
   'documents',

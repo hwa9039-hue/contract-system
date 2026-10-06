@@ -74,6 +74,7 @@ import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 import OrderManagementPlaceholder from './pages/OrderManagementPlaceholder.jsx'
 import BitHistoryPage from './pages/sales/BitHistoryPage.jsx'
 import PreparingPlaceholder from './pages/PreparingPlaceholder.jsx'
+import AccessDeniedPlaceholder from './pages/AccessDeniedPlaceholder.jsx'
 import PaymentReportPage from './pages/PaymentReportPage.jsx'
 import SalesContactsPage from './pages/SalesContactsPage.jsx'
 import { MobileDataCardList, mobileCardAmount, mobileCardText } from './MobileDataCardList.jsx'
@@ -1657,7 +1658,9 @@ const PAGE_TITLE_MAP = {
   contracts: '계약현황',
   bitHistory: 'BIT 이력관리',
   calendar: '캘린더',
+  salesIntegrated: '영업관리(통합)',
   sales: '영업관리대장',
+  quoteDesignDocs: '견적 · 설계 반출 현황',
   discovery: '건축정보',
   excluded: '사업공유',
   documents: '문서수발신대장',
@@ -1681,6 +1684,19 @@ const UNIT_PRICE_MENU_PATH = '/unit-price'
 const PROJECT_MANAGEMENT_MENU_PATH = '/project-management'
 const ORDER_MANAGEMENT_MENU_PATH = '/order-management'
 const BIT_HISTORY_MENU_PATH = '/sales/bit-history'
+/** 준비 중 화면을 쓰는 신규 메뉴의 URL (북마크·새로고침 시에도 같은 화면으로 들어온다) */
+const SALES_INTEGRATED_MENU_PATH = '/sales/integrated'
+const QUOTE_DESIGN_DOCS_MENU_PATH = '/documents/quote-design'
+/** URL 경로로 직접 열리는 메뉴 키 ↔ 경로 */
+const MENU_KEY_BY_PATH = {
+  [ORDER_MANAGEMENT_MENU_PATH]: 'orderManagement',
+  [BIT_HISTORY_MENU_PATH]: BIT_HISTORY_MENU_KEY,
+  [SALES_INTEGRATED_MENU_PATH]: 'salesIntegrated',
+  [QUOTE_DESIGN_DOCS_MENU_PATH]: 'quoteDesignDocs',
+}
+const MENU_PATH_BY_KEY = Object.fromEntries(
+  Object.entries(MENU_KEY_BY_PATH).map(([path, key]) => [key, path])
+)
 function isWorkReportRelatedMenu(menuKey) {
   return menuKey === 'workReports' || menuKey === 'meetingMinutes'
 }
@@ -1794,8 +1810,17 @@ function applyExcludedHiddenState(row, hiddenIds) {
   }
 }
 
-const SIDEBAR_MENU_GROUPS = [
+/**
+ * 사이드바 메뉴 트리 (위에서 아래 순서 그대로 화면에 그려진다).
+ * - type 'item'  : 하위 없는 1 Depth 단독 메뉴
+ * - type 'group' : 펼침/접힘이 있는 1 Depth + items(2 Depth)
+ * 사이드바에 보이지 않는 메뉴(BIT 이력관리)는 여기 넣지 않고
+ * SIDEBAR_EXTRA_MENU_ITEMS 로 따로 둔다. 화면 컴포넌트·URL 은 그대로 살아 있다.
+ */
+const SIDEBAR_MENU_TREE = [
+  { type: 'item', key: 'dashboard', label: '대시보드' },
   {
+    type: 'group',
     id: 'work',
     label: '업무관리',
     items: [
@@ -1804,28 +1829,41 @@ const SIDEBAR_MENU_GROUPS = [
       { key: 'calendar', label: '캘린더' },
     ],
   },
+  { type: 'item', key: 'contracts', label: '계약현황' },
+  // 권한자(전기웅·전재우·정화영·정주희)에게만 보인다. 판정은 permissions.js 의 canAccessBitHistory.
+  { type: 'item', key: BIT_HISTORY_MENU_KEY, label: 'BIT 이력관리' },
   {
+    type: 'group',
     id: 'sales',
     label: '영업관리',
     items: [
-      { key: 'contracts', label: '계약현황' },
-      { key: BIT_HISTORY_MENU_KEY, label: 'BIT 이력관리' },
+      { key: 'salesIntegrated', label: '영업관리(통합)' },
       { key: 'sales', label: '영업관리대장' },
       { key: 'discovery', label: '건축정보' },
       { key: 'excluded', label: '사업공유' },
-      { key: 'documents', label: '문서수발신대장' },
-      { key: 'salesContacts', label: '연락처' },
     ],
   },
   {
+    type: 'group',
+    id: 'documents',
+    label: '문서관리',
+    items: [
+      { key: 'quoteDesignDocs', label: '견적 · 설계 반출 현황' },
+      { key: 'documents', label: '문서수발신대장' },
+    ],
+  },
+  {
+    type: 'group',
     id: 'salesInfo',
     label: '영업정보',
     items: [
+      { key: 'salesContacts', label: '연락처' },
       { key: 'paymentReport', label: '결제보고' },
       { key: 'orderManagement', label: '발주관리' },
     ],
   },
   {
+    type: 'group',
     id: 'monitoring',
     label: '모니터링',
     items: [
@@ -1833,14 +1871,16 @@ const SIDEBAR_MENU_GROUPS = [
       { key: 'newsMonitor', label: '각종뉴스' },
     ],
   },
+  { type: 'item', key: 'materialsBoard', label: '게시판' },
+  { type: 'item', key: 'installCases', label: '설치사례' },
 ]
 
-const ALL_MENU_KEYS = [
-  'dashboard',
-  ...SIDEBAR_MENU_GROUPS.flatMap((group) => group.items.map((item) => item.key)),
-  'materialsBoard',
-  'installCases',
-]
+/** 펼침/접힘 그룹만 뽑은 목록 (그룹 찾기·권한 필터에 사용) */
+const SIDEBAR_MENU_GROUPS = SIDEBAR_MENU_TREE.filter((node) => node.type === 'group')
+
+const ALL_MENU_KEYS = SIDEBAR_MENU_TREE.flatMap((node) =>
+  node.type === 'group' ? node.items.map((item) => item.key) : [node.key]
+)
 
 function resolveInitialMenu() {
   try {
@@ -1853,10 +1893,8 @@ function resolveInitialMenu() {
         window.history.replaceState(null, '', '/')
         return 'dashboard'
       }
-      if (window.location.pathname === ORDER_MANAGEMENT_MENU_PATH) return 'orderManagement'
-      if (window.location.pathname === BIT_HISTORY_MENU_PATH) {
-        return BIT_HISTORY_MENU_KEY
-      }
+      const pathMenuKey = MENU_KEY_BY_PATH[window.location.pathname]
+      if (pathMenuKey) return pathMenuKey
     }
   } catch {
     /* ignore */
@@ -1886,7 +1924,7 @@ function loadStoredMenu() {
 }
 
 function loadExpandedMenuGroups(menuKey) {
-  const expanded = { work: true, sales: true, salesInfo: true, monitoring: true }
+  const expanded = { work: true, sales: true, documents: true, salesInfo: true, monitoring: true }
   try {
     const raw = localStorage.getItem(SIDEBAR_GROUPS_EXPANDED_KEY)
     if (raw) {
@@ -6257,6 +6295,16 @@ function App() {
   const { role, roleLabel, accountId, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
     useAuth()
   const canViewAuditLogs = roleLabel === '정화영' || accountId === 'hy9039'
+  // 권한이 없는 단독 메뉴·하위 메뉴는 빼고, 하위가 모두 빠진 그룹도 숨긴다.
+  const sidebarVisibleTree = SIDEBAR_MENU_TREE.reduce((acc, node) => {
+    if (node.type === 'item') {
+      if (canAccessMenu(node.key, role, accountId)) acc.push(node)
+      return acc
+    }
+    const [group] = filterSidebarMenuGroups([node], role, accountId)
+    if (group) acc.push({ ...group, type: 'group' })
+    return acc
+  }, [])
   const [isAuditLogOpen, setIsAuditLogOpen] = useState(false)
   const canEditContracts = canEditMenu('contracts', role)
   // const canEditProjectManagement = canEditMenu('projectManagement', role) // 메뉴 제거
@@ -6292,6 +6340,9 @@ function App() {
   const workReportRowsRef = useRef([])
   const initialMenu = resolveInitialMenu()
   const [menu, setMenu] = useState(initialMenu)
+  const lastAllowedMenuRef = useRef(null)
+  // menu 상태가 선언된 뒤에 계산해야 한다 (먼저 쓰면 초기화 전 접근 오류로 화면이 비어 버린다).
+  const isMenuAccessDenied = authHydrated && !canAccessMenu(menu, role, accountId)
   const { onlineUsers } = usePresence(PAGE_TITLE_MAP[menu] || '')
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const [expandedMenuGroups, setExpandedMenuGroups] = useState(() =>
@@ -6523,16 +6574,21 @@ function App() {
 
   useEffect(() => {
     if (!authHydrated) return
-    if (canAccessMenu(menu, role, accountId)) return
+    if (canAccessMenu(menu, role, accountId)) {
+      // 열람 가능한 화면은 "이전 화면"으로 기억해 둔다.
+      lastAllowedMenuRef.current = menu
+      return
+    }
 
+    // 권한 없는 메뉴(주소창 직접 입력·저장된 메뉴 포함): 알림 → 직전 화면, 없으면 대시보드
     showAppAlert('접근 권한이 없습니다.', '권한 없음')
-    setMenu('dashboard')
+    const fallbackMenu = lastAllowedMenuRef.current
+    setMenu(fallbackMenu && fallbackMenu !== menu ? fallbackMenu : 'dashboard')
     try {
       if (
         window.location.pathname === UNIT_PRICE_MENU_PATH ||
         window.location.pathname === PROJECT_MANAGEMENT_MENU_PATH ||
-        window.location.pathname === ORDER_MANAGEMENT_MENU_PATH ||
-        window.location.pathname === BIT_HISTORY_MENU_PATH
+        MENU_KEY_BY_PATH[window.location.pathname]
       ) {
         window.history.replaceState(null, '', '/')
       }
@@ -6911,19 +6967,16 @@ function App() {
 
   useEffect(() => {
     try {
-      if (menu === 'orderManagement') {
-        if (window.location.pathname !== ORDER_MANAGEMENT_MENU_PATH) {
-          window.history.replaceState(null, '', ORDER_MANAGEMENT_MENU_PATH)
-        }
-      } else if (menu === BIT_HISTORY_MENU_KEY) {
-        if (window.location.pathname !== BIT_HISTORY_MENU_PATH) {
-          window.history.replaceState(null, '', BIT_HISTORY_MENU_PATH)
+      const menuPath = MENU_PATH_BY_KEY[menu]
+      if (menuPath) {
+        // 전용 URL 이 있는 메뉴(발주관리·BIT·영업관리(통합)·견적 · 설계 반출 현황)
+        if (window.location.pathname !== menuPath) {
+          window.history.replaceState(null, '', menuPath)
         }
       } else if (
         window.location.pathname === UNIT_PRICE_MENU_PATH ||
         window.location.pathname === PROJECT_MANAGEMENT_MENU_PATH ||
-        window.location.pathname === ORDER_MANAGEMENT_MENU_PATH ||
-        window.location.pathname === BIT_HISTORY_MENU_PATH
+        MENU_KEY_BY_PATH[window.location.pathname]
       ) {
         // 제거된 메뉴·전용 URL 메뉴 외로 이동 시 URL 정리
         window.history.replaceState(null, '', '/')
@@ -16025,15 +16078,20 @@ function App() {
           </div>
 
           <div className="menu">
-            <button
-              type="button"
-              className={menu === 'dashboard' ? 'menu-btn active' : 'menu-btn'}
-              onClick={() => setMenu('dashboard')}
-            >
-              대시보드
-            </button>
-
-            {filterSidebarMenuGroups(SIDEBAR_MENU_GROUPS, role, accountId).map((group) => {
+            {sidebarVisibleTree.map((node) => {
+              if (node.type === 'item') {
+                return (
+                  <button
+                    key={node.key}
+                    type="button"
+                    className={menu === node.key ? 'menu-btn active' : 'menu-btn'}
+                    onClick={() => setMenu(node.key)}
+                  >
+                    {node.label}
+                  </button>
+                )
+              }
+              const group = node
               const isExpanded = Boolean(expandedMenuGroups[group.id])
               const hasActiveChild = group.items.some((item) => item.key === menu)
               return (
@@ -16070,22 +16128,6 @@ function App() {
                 </div>
               )
             })}
-
-            <button
-              type="button"
-              className={menu === 'materialsBoard' ? 'menu-btn active' : 'menu-btn'}
-              onClick={() => setMenu('materialsBoard')}
-            >
-              게시판
-            </button>
-
-            <button
-              type="button"
-              className={menu === 'installCases' ? 'menu-btn active' : 'menu-btn'}
-              onClick={() => setMenu('installCases')}
-            >
-              설치사례
-            </button>
 
             {/* 발주관리 — 단독 메뉴에서 '영업정보' 그룹 하위로 이동 */}
             {/* 사업관리 / 단가관리 — 사이드바에서 제거됨 (레거시 페이지 컴포넌트는 보관) */}
@@ -18438,11 +18480,19 @@ function App() {
           </section>
         )}
 
-        {menu === 'paymentReport' && <PaymentReportPage contracts={contracts} />}
+        {/* 권한 없는 메뉴는 화면을 그리지 않고 안내만 보여 준다 (곧바로 이전 화면으로 되돌린다) */}
+        {isMenuAccessDenied && <AccessDeniedPlaceholder />}
 
-        {menu === 'salesContacts' && <SalesContactsPage role={role} />}
+        {menu === 'paymentReport' && !isMenuAccessDenied && <PaymentReportPage contracts={contracts} />}
 
-        {menu === 'orderManagement' && <OrderManagementPlaceholder />}
+        {menu === 'salesContacts' && !isMenuAccessDenied && <SalesContactsPage role={role} />}
+
+        {menu === 'orderManagement' && !isMenuAccessDenied && <OrderManagementPlaceholder />}
+
+        {/* 신규 메뉴 — 발주관리와 같은 '준비 중입니다.' 공용 화면 재사용 */}
+        {menu === 'salesIntegrated' && <PreparingPlaceholder label="영업관리(통합)" />}
+
+        {menu === 'quoteDesignDocs' && <PreparingPlaceholder label="견적 · 설계 반출 현황" />}
 
         {menu === BIT_HISTORY_MENU_KEY && canAccessMenu(BIT_HISTORY_MENU_KEY, role, accountId) && (
           <BitHistoryPage contracts={contracts} />

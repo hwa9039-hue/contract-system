@@ -160,8 +160,18 @@ def normalize_token_role(role: str | None) -> str:
 
 
 # 브라우저 번들에 계정 목록을 넣지 않기 위해 서버에서만 권한을 계산한다.
-_BIT_HISTORY_ACCOUNT_IDS = frozenset({"kk2331", "wizard1221", "hy9039", "jhjoung"})
+# BIT 이력관리: 전기웅·유영무·김성수·정주희·정화영
+_BIT_HISTORY_ACCOUNT_IDS = frozenset({"kk2331", "nov1st", "sskim", "jhjoung", "hy9039"})
+# 비활성 연락처까지 전체 열람: 전기웅·정주희·정화영. 그 외 계정은 활성 연락처 + 본인이 등록한 연락처만 본다.
 _INACTIVE_CONTACTS_ACCOUNT_IDS = frozenset({"hy9039", "jhjoung", "kk2331"})
+
+
+def can_access_bit_history_account(account_id: str) -> bool:
+    return (account_id or "").strip().lower() in _BIT_HISTORY_ACCOUNT_IDS
+
+
+def can_view_all_contacts_account(account_id: str) -> bool:
+    return (account_id or "").strip().lower() in _INACTIVE_CONTACTS_ACCOUNT_IDS
 
 
 def account_id_from_login_password(password: str) -> str:
