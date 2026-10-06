@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import LoginPage from './LoginPage.jsx'
 import { AuthProvider, useAuth } from './AuthContext.jsx'
+import { enforceAppVersion } from './appVersion.js'
 import { bootstrapCmsApiProbe } from './cmsApiProbe.js'
 import { installProductionGuard } from './productionGuard.js'
 import { Watermark } from './Watermark.jsx'
@@ -33,6 +34,9 @@ function AppRoot() {
 
 /** 관리자 시스템 진입점 (로그인·워터마크·보안 가드 포함) */
 export function mountAdminApp(rootElement) {
+  // 버전이 다르면 저장소를 비우고 /login 으로 보낸다. 세션 복원(AuthProvider)보다 먼저 실행해야 한다.
+  if (enforceAppVersion()) return
+
   bootstrapCmsApiProbe()
   installProductionGuard()
 
