@@ -142,15 +142,48 @@ function postBatch_(url, token, batch) {
   }
 }
 
-/** 본문 요약: 인용(>로 시작하는 줄)을 빼고, 공백·줄바꿈을 한 칸으로 줄여 앞부분만 남긴다. */
+/**
+ * 본문 요약 만들기.
+ *  1) 인용(>로 시작하는 줄) 제거
+ *  2) HTML 엔티티를 실제 문자로 바꾸기 (&nbsp; → 공백, &lt; → <, &gt; → >, &amp; → & ...)
+ *  3) 연속 공백·줄바꿈·보이지 않는 문자 정리, 앞뒤 구분선(|) 정리
+ *  4) 앞부분만 남기기
+ */
 function summarizeBody_(plainBody) {
   var text = String(plainBody || '')
     .split(/\r?\n/)
     .filter(function (line) { return line.trim().charAt(0) !== '>'; })
-    .join(' ')
+    .join('\n');
+  return cleanText_(text).substring(0, BODY_SUMMARY_LENGTH);
+}
+
+/** 엔티티 치환 + 공백 정돈. 메일 서명(명함)의 '&nbsp;|&nbsp;' 같은 찌꺼기를 없앤다. */
+function cleanText_(raw) {
+  var named = { nbsp: ' ', lt: '<', gt: '>', quot: '"', apos: "'", ensp: ' ', emsp: ' ', thinsp: ' ' };
+  var text = String(raw || '')
+    // &nbsp; &lt; &gt; &quot; &apos; … (대소문자 무관). &amp; 는 이중 해석을 막으려고 맨 마지막에 처리한다.
+    .replace(/&(nbsp|lt|gt|quot|apos|ensp|emsp|thinsp);/gi, function (_all, name) {
+      return named[name.toLowerCase()];
+    })
+    // 숫자 엔티티: &#160;  &#xA0;
+    .replace(/&#(\d+);/g, function (_all, code) { return safeFromCodePoint_(parseInt(code, 10)); })
+    .replace(/&#x([0-9a-f]+);/gi, function (_all, code) { return safeFromCodePoint_(parseInt(code, 16)); })
+    .replace(/&amp;/gi, '&')
+    // 줄바꿈 없는 공백(U+00A0)·전각 공백 등 특수 공백 → 일반 공백, 보이지 않는 문자 제거
+    .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, ' ')
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
+    // 연속 공백·줄바꿈 → 한 칸
     .replace(/\s+/g, ' ')
+    // ' |  | ' 처럼 비어 있는 구분선 정리
+    .replace(/(\|\s*){2,}/g, '| ')
     .trim();
-  return text.substring(0, BODY_SUMMARY_LENGTH);
+  // 앞뒤에 남은 구분선 제거
+  return text.replace(/^[|\s]+/, '').replace(/[|\s]+$/, '');
+}
+
+function safeFromCodePoint_(code) {
+  if (!isFinite(code) || code <= 0 || code > 0x10FFFF) return '';
+  return code === 0xA0 ? ' ' : String.fromCodePoint(code);
 }
 
 /** '"홍길동" <a@b.com>' 또는 'a@b.com' → 'a@b.com' (소문자) */
