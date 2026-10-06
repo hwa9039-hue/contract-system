@@ -1690,10 +1690,10 @@ const BIT_HISTORY_MENU_PATH = '/sales/bit-history'
 const SALES_INTEGRATED_MENU_PATH = '/sales/integrated'
 const QUOTE_DESIGN_DOCS_MENU_PATH = '/documents/quote-design'
 /**
- * 견적 · 설계 반출 현황 공개 여부. 백엔드 API(GET /api/emails/export-logs)가 배포되면 true 로 바꾼다.
- * false 인 동안은 사이드바에서 숨기고, 주소로 직접 들어와도 '준비 중입니다.'만 보인다(예시 데이터 노출 방지).
+ * 견적 · 설계 반출 현황 공개 여부. 백엔드 API(GET /api/emails/export-logs)가 배포되어 true 로 공개했다.
+ * false 로 되돌리면 사이드바에서 숨기고, 주소로 직접 들어와도 '준비 중입니다.'만 보인다.
  */
-const QUOTE_DESIGN_EXPORT_READY = false
+const QUOTE_DESIGN_EXPORT_READY = true
 /** URL 경로로 직접 열리는 메뉴 키 ↔ 경로 */
 const MENU_KEY_BY_PATH = {
   [ORDER_MANAGEMENT_MENU_PATH]: 'orderManagement',

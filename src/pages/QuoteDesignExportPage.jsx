@@ -117,6 +117,7 @@ export default function QuoteDesignExportPage() {
   const [usingMock, setUsingMock] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [excelError, setExcelError] = useState('')
+  const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -127,10 +128,16 @@ export default function QuoteDesignExportPage() {
         setRows(list)
         setUsingMock(false)
       } catch {
-        // 백엔드 미완성(404 등)·연결 실패 → 화면 확인용 예시 데이터로 대체
         if (cancelled) return
-        setRows(MOCK_EMAIL_EXPORT_LOGS.map(normalizeEmailExportLog))
-        setUsingMock(true)
+        if (import.meta.env.DEV) {
+          // 로컬 개발에서만: 백엔드가 없을 때 화면 확인용 예시 데이터로 대체
+          setRows(MOCK_EMAIL_EXPORT_LOGS.map(normalizeEmailExportLog))
+          setUsingMock(true)
+        } else {
+          // 운영에서는 가짜 데이터를 보여 주지 않고 오류를 알린다.
+          setRows([])
+          setLoadError('반출 현황을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -203,9 +210,9 @@ export default function QuoteDesignExportPage() {
           aria-label="견적 · 설계 반출 현황 검색"
         />
       </div>
-      {excelError ? (
+      {loadError || excelError ? (
         <p className="sales-contacts-save-status is-error" role="alert">
-          {excelError}
+          {loadError || excelError}
         </p>
       ) : null}
       {usingMock ? (
