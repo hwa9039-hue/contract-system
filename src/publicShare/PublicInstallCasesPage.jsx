@@ -59,17 +59,11 @@ function formatShareExpiryLabel(date) {
   return `${year}년 ${month}월 ${day}일 ${hour}:${minute}`
 }
 
-const PUBLIC_SHARE_WATERMARK_COUNT = 72
-
-function PublicShareWatermark() {
+function PhotoSign() {
   return (
-    <div className="public-share-sign-mark" aria-hidden="true">
-      <div className="public-share-sign-mark-pattern">
-        {Array.from({ length: PUBLIC_SHARE_WATERMARK_COUNT }, (_, index) => (
-          <span key={index}>SIGNTELECOM</span>
-        ))}
-      </div>
-    </div>
+    <span className="public-share-photo-sign" aria-hidden="true">
+      SIGNTELECOM
+    </span>
   )
 }
 
@@ -123,6 +117,7 @@ function CardMedia({ sources }) {
           ▶
         </div>
       ) : null}
+      <PhotoSign />
       <div className="install-case-card-media-overlay" aria-hidden />
     </div>
   )
@@ -165,6 +160,7 @@ function DetailModal({ row, onClose }) {
                 <InstallCaseMediaCarousel
                   sources={row.heroImages.length > 0 ? row.heroImages : [row.heroImage].filter(Boolean)}
                   fallbackHeroImage={row.heroImage}
+                  photoSign={<PhotoSign />}
                 />
               </div>
             </div>
@@ -305,7 +301,6 @@ export default function PublicInstallCasesPage() {
   if (status === 'expired') {
     return (
       <main className="public-share-root">
-        <PublicShareWatermark />
         <section className="public-share-expired" role="alert">
           <p>이 공유 링크는 유효 기간이 만료되었거나 잘못된 접근입니다.</p>
         </section>
@@ -315,7 +310,6 @@ export default function PublicInstallCasesPage() {
 
   return (
     <main className="public-share-root">
-      <PublicShareWatermark />
       {expiryLabel ? (
         <p className="public-share-expiry-banner" role="status">
           안내: 이 공유 링크는 {expiryLabel}까지 유효합니다.

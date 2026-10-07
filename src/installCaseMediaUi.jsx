@@ -232,7 +232,7 @@ export function InstallCaseMultiMediaField({
 }
 
 /** 상세 모달: 다중 미디어 캐러셀 (currentIndex로 슬라이드) */
-export function InstallCaseMediaCarousel({ sources, fallbackHeroImage = '' }) {
+export function InstallCaseMediaCarousel({ sources, fallbackHeroImage = '', photoSign = null }) {
   const urls = useMemo(() => {
     const list = normalizeHeroImagesList(sources, fallbackHeroImage)
     const out = []
@@ -328,6 +328,7 @@ export function InstallCaseMediaCarousel({ sources, fallbackHeroImage = '' }) {
             alt={`설치사례 사진 ${safeIndex + 1}`}
           />
         )}
+        {photoSign}
 
         {showNav ? (
           <>
