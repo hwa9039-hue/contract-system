@@ -8,6 +8,7 @@ import {
 } from '../emailExportLogsApi.js'
 import { computeFixedPortalPosition, fixedPortalStyle } from '../portalMenuPosition.js'
 import { buildStyledExcelFilename, downloadStyledExcel } from '../styledExcelDownload.js'
+import { MobileDataCardList } from '../MobileDataCardList.jsx'
 import { resolveSenderName } from '../userNameMap.js'
 
 const EXPORT_EXCEL_COLUMNS = [
@@ -53,6 +54,8 @@ function SubjectWithTooltip({ subject, bodySummary }) {
     }
   }, [open, updatePosition])
 
+  const pinnedByTouch = useRef(false)
+
   const tooltip =
     open && hasSummary && typeof document !== 'undefined'
       ? createPortal(
@@ -75,11 +78,31 @@ function SubjectWithTooltip({ subject, bodySummary }) {
         className={`email-export-subject${hasSummary ? ' has-summary' : ''}`}
         title={hasSummary ? undefined : subject}
         tabIndex={hasSummary ? 0 : undefined}
-        aria-label={hasSummary ? `${subject}. 본문 요약: ${bodySummary}` : undefined}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
+        aria-expanded={hasSummary ? open : undefined}
+        aria-label={hasSummary ? `${subject}. 본문 요약을 보려면 누르세요.` : undefined}
+        onMouseEnter={() => {
+          if (pinnedByTouch.current) return
+          setOpen(true)
+        }}
+        onMouseLeave={() => {
+          if (pinnedByTouch.current) return
+          setOpen(false)
+        }}
         onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
+        onBlur={() => {
+          if (pinnedByTouch.current) return
+          setOpen(false)
+        }}
+        onPointerUp={(event) => {
+          if (!hasSummary || event.pointerType === 'mouse') return
+          if (pinnedByTouch.current && open) {
+            pinnedByTouch.current = false
+            setOpen(false)
+            return
+          }
+          pinnedByTouch.current = true
+          setOpen(true)
+        }}
       >
         {subject}
       </span>
@@ -172,6 +195,37 @@ function AttachmentChips({ files }) {
       </span>
       {tooltip}
     </span>
+  )
+}
+
+/** 모바일 카드에서 메일 제목을 누르면 본문 요약 말풍선이 열린다. */
+function MobileBodySummary({ bodySummary }) {
+  const [open, setOpen] = useState(false)
+  if (!bodySummary) return null
+  return (
+    <div className="email-export-mobile-summary">
+      <button
+        type="button"
+        className="email-export-mobile-summary-btn"
+        aria-expanded={open}
+        onClick={(event) => {
+          event.stopPropagation()
+          setOpen((prev) => !prev)
+        }}
+      >
+        {open ? '본문 요약 닫기' : '본문 요약 보기'}
+      </button>
+      {open ? (
+        <div
+          className="sales-contacts-linked-more-tooltip sales-contacts-linked-more-tooltip--portal email-export-body-tooltip email-export-body-tooltip--inline"
+          role="dialog"
+          aria-label="본문 요약"
+        >
+          <span className="email-export-body-tooltip-label">본문 요약</span>
+          <span className="email-export-body-tooltip-text">{bodySummary}</span>
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -292,7 +346,7 @@ export default function QuoteDesignExportPage() {
         </p>
       ) : null}
 
-      <div className="sales-contacts-table-wrap">
+      <div className="sales-contacts-table-wrap desktop-table-only hidden md:block">
         <table className="excel-table registry-table email-export-table">
           <colgroup>
             <col className="email-export-col--seq" />
@@ -347,6 +401,34 @@ export default function QuoteDesignExportPage() {
           </tbody>
         </table>
       </div>
+
+      <MobileDataCardList
+        rows={visibleRows}
+        getRowKey={(row, index) => row.id || `export-${index}`}
+        getTitle={(row) => row.subject}
+        getBadge={(row) => {
+          const name = resolveSenderName(row.sender)
+          return name ? { label: name, tone: 'blue' } : null
+        }}
+        summaryFields={[
+          { label: '발신일시', getValue: (row) => formatSentAt(row.sentAt) },
+          { label: '성명', getValue: (row) => resolveSenderName(row.sender) },
+        ]}
+        detailFields={[
+          { label: '발신자', getValue: (row) => row.sender },
+          { label: '수신자', getValue: (row) => row.recipient },
+          { label: '첨부파일', getValue: (row) => (row.attachments || []).join(', ') },
+          { label: '본문 요약', getValue: (row) => row.bodySummary },
+        ]}
+        renderHeaderExtra={(row) => <MobileBodySummary bodySummary={row.bodySummary} />}
+        emptyText={
+          loading
+            ? '불러오는 중...'
+            : searchQuery.trim()
+              ? '검색 결과가 없습니다.'
+              : '반출 내역이 없습니다.'
+        }
+      />
     </section>
   )
 }

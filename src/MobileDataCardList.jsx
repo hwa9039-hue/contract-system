@@ -48,6 +48,7 @@ export function MobileDataCardList({
   emptyText = '표시할 데이터가 없습니다.',
   className = '',
   onCardClick,
+  renderHeaderExtra,
 }) {
   const [expandedIds, setExpandedIds] = useState(() => new Set())
 
@@ -87,6 +88,8 @@ export function MobileDataCardList({
                   <span className={`mobile-data-card-badge is-${tone}`}>{badgeLabel}</span>
                 ) : null}
               </header>
+
+              {typeof renderHeaderExtra === 'function' ? renderHeaderExtra(row, index) : null}
 
               {summary.length > 0 ? (
                 <dl className="mobile-data-card-summary">
