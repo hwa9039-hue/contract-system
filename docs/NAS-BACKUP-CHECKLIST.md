@@ -83,6 +83,7 @@ ls -lh /volume1/docker/contract-backend/backups/$(ls -t /volume1/docker/contract
 | 연락처·결제보고 | ✅ | ✅ `.xlsx` | — |
 | **설치사례** | ✅ | ✅ 요약 `.xlsx` | ✅ `.jpg` |
 | **게시판** | ✅ | ✅ 목록 `.xlsx` | ✅ 첨부 원본 |
+| **견적 · 설계 반출 현황** | ✅ 전체 덤프에 포함 | ✅ `견적설계반출현황_백업_*.xlsx` | — |
 
 - [ ] 캘린더: API `/api/calendar-events` 배포 후 기타 일정이 DB에 저장되는지 확인
 - [ ] 설치사례·게시판: files 백업에 실제 첨부/이미지 포함 확인

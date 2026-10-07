@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -34,6 +34,20 @@ from app.schemas import (
 )
 
 MEETING_MINUTES_SECTION = "회의록"
+KST = timezone(timedelta(hours=9))
+# 화면 src/userNameMap.js 와 같은 아이디 → 성명. 엑셀 '성명' 칸이 화면 다운로드와 같게 나오게 한다.
+_EMAIL_EXPORT_NAME_BY_ID = {
+    "kk2331": "전기웅",
+    "nov1st": "유영무",
+    "sskim": "김성수",
+    "yongja_lee": "이용자",
+    "pjb9878": "박재범",
+    "jslee": "이재승",
+    "wizard1221": "전재우",
+    "ssj8845": "신상준",
+    "hy9039": "정화영",
+    "jhjoung": "정주희",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -294,6 +308,64 @@ def _project_install_case(row: dict) -> dict[str, Any]:
     }
 
 
+def _format_email_export_sent_at(value: Any) -> str:
+    """화면 formatSentAt 과 같이 YYYY-MM-DD HH:MM. 서버 시간대와 상관없이 한국 시간으로 맞춘다."""
+    if isinstance(value, datetime):
+        local = value if value.tzinfo is not None else value.replace(tzinfo=KST)
+        return local.astimezone(KST).strftime("%Y-%m-%d %H:%M")
+    return _normalize_cell(value)
+
+
+def _email_export_sender_name(sender: Any) -> str:
+    raw = str(sender or "").strip()
+    if not raw:
+        return ""
+    local = raw.split("@", 1)[0].strip().lower()
+    if not local:
+        return ""
+    return _EMAIL_EXPORT_NAME_BY_ID.get(local, f"({local})")
+
+
+def _join_email_export_files(value: Any) -> str:
+    items = value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return ""
+        if text.startswith("["):
+            import json
+
+            try:
+                items = json.loads(text)
+            except json.JSONDecodeError:
+                return _normalize_cell(text)
+        else:
+            return _normalize_cell(text)
+    if not isinstance(items, list):
+        return ""
+    names: list[str] = []
+    for item in items:
+        if isinstance(item, str) and item.strip():
+            names.append(item.strip())
+        elif isinstance(item, dict):
+            name = str(item.get("filename") or item.get("fileName") or item.get("name") or "").strip()
+            if name:
+                names.append(name)
+    return ", ".join(names)
+
+
+def _project_email_export(row: dict) -> dict[str, Any]:
+    """화면 견적 · 설계 반출 현황 엑셀과 같은 헤더. 구분(순번)은 내보낼 때 앞에 붙인다."""
+    return {
+        "발신일시": _format_email_export_sent_at(row.get("sent_at")),
+        "성명": _email_export_sender_name(row.get("sender")),
+        "발신자": _normalize_cell(row.get("sender")),
+        "수신자": _normalize_cell(row.get("recipient")),
+        "메일 제목": _normalize_cell(row.get("subject")),
+        "첨부파일": _join_email_export_files(row.get("attachments")),
+    }
+
+
 def _project_materials_board(row: dict) -> dict[str, Any]:
     item = row_to_materials_board_post(row)
     files = item.get("files") if isinstance(item.get("files"), list) else []
@@ -401,6 +473,14 @@ MENU_EXPORT_SPECS: tuple[dict[str, Any], ...] = (
         "order_by": '"registeredAt" desc nulls last, "createdAt" desc nulls last',
         "project": _project_materials_board,
     },
+    {
+        "file_prefix": "견적설계반출현황",
+        "sheet_title": "견적 · 설계 반출 현황",
+        "table": "email_export_logs",
+        "order_by": "sent_at desc nulls last, created_at desc nulls last",
+        "project": _project_email_export,
+        "seq_header": "구분",
+    },
 )
 
 
@@ -473,6 +553,11 @@ def export_all_menu_excel_backups(output_dir: Path, stamp: str | None = None) ->
                     if include_row is not None:
                         db_rows = [row for row in db_rows if include_row(row)]
                     projected = [spec["project"](row) for row in db_rows]
+                    seq_header = spec.get("seq_header")
+                    if seq_header:
+                        projected = [
+                            {seq_header: index, **row} for index, row in enumerate(projected, start=1)
+                        ]
                     out_path = output_dir / f"{spec['file_prefix']}_백업_{stamp}.xlsx"
                     _write_workbook(out_path, spec["sheet_title"], projected)
                     written.append(out_path)
