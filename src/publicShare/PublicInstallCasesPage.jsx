@@ -63,8 +63,8 @@ const PUBLIC_SHARE_WATERMARK_COUNT = 72
 
 function PublicShareWatermark() {
   return (
-    <div className="public-share-watermark" aria-hidden="true">
-      <div className="public-share-watermark-pattern">
+    <div className="public-share-sign-mark" aria-hidden="true">
+      <div className="public-share-sign-mark-pattern">
         {Array.from({ length: PUBLIC_SHARE_WATERMARK_COUNT }, (_, index) => (
           <span key={index}>SIGNTELECOM</span>
         ))}

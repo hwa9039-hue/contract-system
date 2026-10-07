@@ -1,7 +1,8 @@
 /* 외부 공유용 설치사례 — 관리자 레이아웃 없이 화면 전체를 채운다 */
 
-/* 사진 위 SIGNTELECOM 반복. 클릭·스크롤은 통과한다. */
-.public-share-watermark {
+/* 사진 위 SIGNTELECOM 반복. 클래스명에 watermark 를 넣지 않는다.
+   App.css 가 div[class*='watermark'] 를 통째로 숨긴다. */
+.public-share-sign-mark {
   position: fixed;
   inset: 0;
   z-index: 80;
@@ -10,7 +11,7 @@
   user-select: none;
 }
 
-.public-share-watermark-pattern {
+.public-share-sign-mark-pattern {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -21,7 +22,7 @@
   transform: translate(-50%, -50%) rotate(-30deg);
 }
 
-.public-share-watermark-pattern span {
+.public-share-sign-mark-pattern span {
   color: rgba(15, 23, 42, 0.22);
   font-size: 26px;
   font-weight: 800;
