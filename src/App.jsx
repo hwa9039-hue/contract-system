@@ -158,7 +158,7 @@ import {
   calendarManualEventToPayload,
   normalizeCalendarManualEvent,
 } from './calendarEventsApi'
-import { API_BASE_URL, apiFetchInit, getAuthHeaders } from './apiClient.js'
+import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { isBitContractType } from './bitHistoryApi.js'
 import { formatExcelUploadErrorMessage } from './apiErrors.js'
 import { useAuth } from './AuthContext.jsx'
@@ -6376,6 +6376,9 @@ function App() {
   const [installCaseDetailModal, setInstallCaseDetailModal] = useState(null)
   const [installCases, setInstallCases] = useState([])
   const [installCaseRegisterOpen, setInstallCaseRegisterOpen] = useState(false)
+  const [installShareModalOpen, setInstallShareModalOpen] = useState(false)
+  const [installShareDays, setInstallShareDays] = useState(7)
+  const [installShareBusy, setInstallShareBusy] = useState(false)
   const [installCaseFormDraft, setInstallCaseFormDraft] = useState(() => getDefaultInstallCaseForm())
   const [installCaseEditingId, setInstallCaseEditingId] = useState(null)
   const [installCaseSubmitting, setInstallCaseSubmitting] = useState(false)
@@ -7567,16 +7570,38 @@ function App() {
     setInstallCaseRegisterOpen(true)
   }, [])
 
-  const handleCopyInstallCaseShareLink = useCallback(async () => {
-    const url = `${window.location.origin}${PUBLIC_INSTALL_CASES_SHARE_PATH}`
-    const copied = await copyTextToClipboard(url)
-    showAppAlert(
-      copied
-        ? '외부 공유용 링크가 클립보드에 복사되었습니다.'
-        : '링크 복사에 실패했습니다. 주소를 직접 복사해 주세요.',
-      copied ? '복사 완료' : '복사 실패',
-    )
-  }, [showAppAlert])
+  const handleCreateInstallCaseShareLink = useCallback(async () => {
+    if (installShareBusy) return
+    setInstallShareBusy(true)
+    try {
+      const response = await apiFetch(
+        `${API_BASE_URL}/api/shared-links/generate`,
+        apiFetchInit({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({ days: installShareDays }),
+        }),
+      )
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || !data?.token) {
+        showAppAlert('공유 링크를 만들지 못했습니다. 다시 로그인한 뒤 시도해 주세요.', '링크 생성 실패')
+        return
+      }
+      const url = `${window.location.origin}${PUBLIC_INSTALL_CASES_SHARE_PATH}?token=${encodeURIComponent(data.token)}`
+      const copied = await copyTextToClipboard(url)
+      setInstallShareModalOpen(false)
+      showAppAlert(
+        copied
+          ? `${installShareDays}일짜리 공유 링크가 복사되었습니다.`
+          : '링크 복사에 실패했습니다. 주소를 직접 복사해 주세요.',
+        copied ? '복사 완료' : '복사 실패',
+      )
+    } catch {
+      showAppAlert('공유 링크를 만들지 못했습니다. 잠시 후 다시 시도해 주세요.', '링크 생성 실패')
+    } finally {
+      setInstallShareBusy(false)
+    }
+  }, [installShareBusy, installShareDays, showAppAlert])
 
   const handleOpenInstallCaseRegister = useCallback(() => {
     const stored = loadInstallCaseFormDraftFromStorage()
@@ -18448,7 +18473,7 @@ function App() {
                 <button
                   className="secondary-btn"
                   type="button"
-                  onClick={handleCopyInstallCaseShareLink}
+                  onClick={() => setInstallShareModalOpen(true)}
                 >
                   🔗 외부 공유 링크 복사
                 </button>
@@ -19756,6 +19781,67 @@ function App() {
           </div>
         </div>
       )}
+
+      {installShareModalOpen ? (
+        <div
+          className="modal-backdrop contract-confirm-backdrop"
+          onClick={() => {
+            if (!installShareBusy) setInstallShareModalOpen(false)
+          }}
+        >
+          <div
+            className="confirm-dialog-shell"
+            style={{
+              maxWidth: 420,
+              width: 'min(420px, calc(100vw - 40px))',
+              boxSizing: 'border-box',
+              flex: '0 0 auto',
+            }}
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="install-share-title"
+          >
+            <h3 id="install-share-title" className="confirm-dialog-title">
+              외부 공유 링크
+            </h3>
+            <p className="confirm-dialog-message">링크를 열어 볼 수 있는 기간을 선택해 주세요.</p>
+            <div className="install-share-days" role="group" aria-label="공유 기간">
+              {[1, 3, 7, 30].map((days) => (
+                <button
+                  key={days}
+                  type="button"
+                  className={
+                    installShareDays === days ? 'secondary-btn install-share-day is-selected' : 'secondary-btn install-share-day'
+                  }
+                  aria-pressed={installShareDays === days}
+                  onClick={() => setInstallShareDays(days)}
+                >
+                  {days}일
+                </button>
+              ))}
+            </div>
+            <div className="confirm-dialog-actions">
+              <button
+                type="button"
+                className="secondary-btn"
+                disabled={installShareBusy}
+                onClick={() => setInstallShareModalOpen(false)}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="primary-btn"
+                disabled={installShareBusy}
+                onClick={handleCreateInstallCaseShareLink}
+              >
+                {installShareBusy ? '생성 중...' : '링크 생성'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isDeleteConfirmDialog(contractConfirmDialog) ? (
         <DeleteConfirmModal

@@ -113,6 +113,14 @@ class ApiJwtAuthMiddleware(BaseHTTPMiddleware):
                 headers=_cors_headers_for_request(request),
             )
 
+        # 설치사례 공유 링크 토큰은 로그인 세션이 아니다. 다른 API 에 쓰지 못하게 막는다.
+        if payload.get("sub") != "contract-app":
+            return JSONResponse(
+                {"detail": "Invalid or expired token"},
+                status_code=401,
+                headers=_cors_headers_for_request(request),
+            )
+
         role = normalize_token_role(payload.get("role"))
         request.state.auth_role = role
         request.state.auth_display_name = str(payload.get("display_name") or "").strip()

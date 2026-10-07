@@ -1,13 +1,13 @@
-/** 외부에 복사해 주는 대표 주소. 로그인 없이 설치사례만 보인다. */
-export const PUBLIC_INSTALL_CASES_SHARE_PATH = '/share/installations'
+/** 외부에 복사해 주는 대표 주소. 뒤에 ?token= 이 붙는다. 로그인 없이 설치사례만 보인다. */
+export const PUBLIC_INSTALL_CASES_SHARE_PATH = '/shared/installations'
 
 /**
  * 로그인 없이 열리는 외부 공유 주소. 목록에 없는 경로는 모두 기존처럼 로그인이 필요하다.
- * `/share` 는 예전 share.html 때문에 브라우저가 기억한 308 리다이렉트 목적지다.
- * 그 주소로 열려도 로그인 화면으로 보내지 않는다.
+ * `/share` 와 `/share/installations` 는 예전에 쓰던 주소다. 토큰이 없으면 만료 안내만 보여 준다.
  */
 export const PUBLIC_INSTALL_CASES_PATHS = Object.freeze([
   '/public/install-cases',
+  '/share/installations',
   PUBLIC_INSTALL_CASES_SHARE_PATH,
   '/share',
 ])

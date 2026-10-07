@@ -1894,6 +1894,19 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
   white-space: pre-wrap;
 }
 
+.install-share-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 16px;
+}
+
+.install-share-day.is-selected {
+  border-color: #434c5e;
+  background: #434c5e;
+  color: #ffffff;
+}
+
 .confirm-dialog-actions {
   display: flex;
   justify-content: flex-end;

@@ -178,7 +178,7 @@ function DetailModal({ row, onClose }) {
  */
 export default function PublicInstallCasesPage() {
   const [rows, setRows] = useState([])
-  const [status, setStatus] = useState('loading') // loading | ready | error
+  const [status, setStatus] = useState('loading') // loading | ready | error | expired
   const [majorFilter, setMajorFilter] = useState('')
   const [middleFilter, setMiddleFilter] = useState('')
   const [minorFilter, setMinorFilter] = useState('')
@@ -186,14 +186,30 @@ export default function PublicInstallCasesPage() {
   const [detailRow, setDetailRow] = useState(null)
 
   useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('token')?.trim() || ''
+    if (!token) {
+      setRows([])
+      setStatus('expired')
+      return undefined
+    }
     let cancelled = false
     ;(async () => {
       try {
-        const response = await fetch(PUBLIC_INSTALL_CASES_URL, {
-          method: 'GET',
-          credentials: 'omit',
-          headers: { Accept: 'application/json' },
-        })
+        const response = await fetch(
+          `${PUBLIC_INSTALL_CASES_URL}?token=${encodeURIComponent(token)}`,
+          {
+            method: 'GET',
+            credentials: 'omit',
+            headers: { Accept: 'application/json' },
+          },
+        )
+        if (response.status === 401 || response.status === 403) {
+          if (!cancelled) {
+            setRows([])
+            setStatus('expired')
+          }
+          return
+        }
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const data = await response.json()
         if (cancelled) return
@@ -229,6 +245,16 @@ export default function PublicInstallCasesPage() {
         : rows.length === 0 && !hasFilter
           ? '조회된 설치사례가 없습니다.'
           : '조건에 맞는 설치사례가 없습니다.'
+
+  if (status === 'expired') {
+    return (
+      <main className="public-share-root">
+        <section className="public-share-expired" role="alert">
+          <p>이 공유 링크는 유효 기간이 만료되었거나 잘못된 접근입니다.</p>
+        </section>
+      </main>
+    )
+  }
 
   return (
     <main className="public-share-root">
