@@ -59,8 +59,18 @@ function formatShareExpiryLabel(date) {
   return `${year}년 ${month}월 ${day}일 ${hour}:${minute}`
 }
 
+const PUBLIC_SHARE_WATERMARK_COUNT = 72
+
 function PublicShareWatermark() {
-  return <div className="public-share-watermark" aria-hidden="true" />
+  return (
+    <div className="public-share-watermark" aria-hidden="true">
+      <div className="public-share-watermark-pattern">
+        {Array.from({ length: PUBLIC_SHARE_WATERMARK_COUNT }, (_, index) => (
+          <span key={index}>SIGNTELECOM</span>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function CardMedia({ sources }) {
