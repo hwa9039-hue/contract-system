@@ -35,37 +35,37 @@ from app.database import get_connection  # noqa: E402
 DEFAULT_INPUT_DIR = BACKEND_DIR.parent / "data" / "input"
 
 # DB 컬럼 → 엑셀 헤더 후보. 정규화(공백·괄호 제거) 후 비교한다.
+# 화면 컬럼 순서와 같다. 계약방식·계약분류·비고(1)·사업완료는 화면에서 뺐으므로 읽지 않는다.
 COLUMN_HEADER_CANDIDATES = {
-    "seq_no": ["순번", "번호", "no"],
+    "seq_no": ["참고번호", "순번", "번호", "no"],
     "client": ["발주처", "발주기관", "고객사", "수요기관"],
     "department": ["담당부서", "부서", "담당부서명"],
-    "contract_method": ["계약방식", "계약방법"],
-    "contract_class": ["계약분류", "물품분류번호"],
-    "ident_no": ["식별번호", "식별no", "관리번호"],
     "contract_date": ["계약일자", "계약일"],
-    "due_date": ["납기일", "납기일자", "납기", "납품기한"],
+    "due_date": ["준공일자", "납기일", "납기일자", "납기", "납품기한"],
     "project_name": ["사업명", "사업명칭", "과업명", "건명"],
     "contract_amount": ["계약금액", "금액", "계약액"],
+    "ident_no": ["식별번호", "식별no", "관리번호"],
     "quantity": ["수량"],
-    "board_applied": ["보드적용", "통신모뎀", "모뎀"],
-    "program_item": ["프로그램"],
-    "manufacturing": ["제작"],
-    "shipping_inspection": ["출하검사", "출하"],
-    "note1": ["비고1"],
     "module_item": ["모듈"],
     "module_array": ["배열"],
     "module_kind": ["종류"],
     "etc_item": ["기타"],
-    "project_complete": ["사업완료", "완료"],
+    "manufacturing": ["제작"],
+    "board_applied": ["보드적용", "통신모뎀", "모뎀"],
+    "program_item": ["프로그램"],
+    "shipping_inspection": ["출하검사", "출하"],
     "defect": ["불량발생", "불량"],
-    "note2": ["비고2"],
+    "note2": ["비고", "비고2", "비고(2)"],
 }
+
+# insert 문은 컬럼을 유지한다. 화면에서 뺀 값은 엑셀에서 읽지 않고 빈 문자열로 둔다.
+IGNORED_DB_COLUMNS = ("contract_method", "contract_class", "note1", "project_complete")
 
 DATE_COLUMNS = {"contract_date", "due_date"}
 AMOUNT_COLUMNS = {"contract_amount"}
-# 수식 오류(#VALUE! 등)를 같은 열의 최빈값으로 보정할 컬럼
-ERROR_FIXUP_COLUMNS = {"contract_class"}
-ALL_COLUMNS = list(COLUMN_HEADER_CANDIDATES.keys())
+# 화면에서 뺀 계약분류는 더 이상 엑셀에서 읽지 않는다.
+ERROR_FIXUP_COLUMNS: set[str] = set()
+ALL_COLUMNS = [*COLUMN_HEADER_CANDIDATES.keys(), *IGNORED_DB_COLUMNS]
 
 
 def normalize_header(value) -> str:
@@ -86,18 +86,11 @@ HEADER_LOOKUP = build_header_lookup()
 
 
 def map_header_row(cells: list) -> dict[int, str]:
-    """헤더 행 → {열 인덱스: DB 컬럼}. 번호 없는 '비고'는 나온 순서대로 note1, note2."""
+    """헤더 행 → {열 인덱스: DB 컬럼}. '비고'는 note2 한 칸으로만 받는다."""
     mapping: dict[int, str] = {}
-    plain_note_seen = 0
     for index, cell in enumerate(cells):
         key = normalize_header(cell)
         if not key:
-            continue
-        if key == "비고":
-            plain_note_seen += 1
-            column = "note1" if plain_note_seen == 1 else "note2"
-            if column not in mapping.values():
-                mapping[index] = column
             continue
         column = HEADER_LOOKUP.get(key)
         if column and column not in mapping.values():
