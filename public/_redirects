@@ -1,6 +1,0 @@
-# 메신저 크롤러가 og:title 이 들어 있는 share.html 을 받도록 공유 주소만 다시 쓴다.
-# 그 외 주소는 기존처럼 index.html(내부 시스템)을 쓴다.
-/share/installations    /share.html   200
-/share/installations/   /share.html   200
-/public/install-cases   /share.html   200
-/public/install-cases/  /share.html   200

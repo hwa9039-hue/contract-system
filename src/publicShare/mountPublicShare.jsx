@@ -4,7 +4,7 @@ import '../App.css'
 import { installProductionGuard } from '../productionGuard.js'
 import PublicInstallCasesPage from './PublicInstallCasesPage.jsx'
 
-/** 카카오톡·메신저 미리보기와 브라우저 탭에 쓰는 제목. share.html 의 og:title 과 같아야 한다. */
+/** 카카오톡·메신저 미리보기와 브라우저 탭에 쓰는 제목. functions 의 og:title 과 같아야 한다. */
 export const PUBLIC_SHARE_PAGE_TITLE = '(주)싸인텔레콤 설치사례'
 
 function ensureMeta(attrName, attrValue, content) {
