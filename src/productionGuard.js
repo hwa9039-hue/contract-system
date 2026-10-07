@@ -20,7 +20,13 @@ function isBlockedShortcut(event) {
   const ctrl = event.ctrlKey || event.metaKey
   const shift = event.shiftKey
   if (key === 'F12' || event.keyCode === 123) return true
-  if (ctrl && shift && (key === 'I' || key === 'i' || key === 'J' || key === 'j')) return true
+  if (
+    ctrl &&
+    shift &&
+    (key === 'I' || key === 'i' || key === 'J' || key === 'j' || key === 'C' || key === 'c')
+  ) {
+    return true
+  }
   if (ctrl && !shift && (key === 'U' || key === 'u')) return true
   return false
 }
