@@ -1,4 +1,17 @@
 /* 외부 공유용 설치사례 — 관리자 레이아웃 없이 화면 전체를 채운다 */
+
+/* 사진 위 SIGNTELECOM 반복. 클릭·스크롤은 통과한다. */
+.public-share-watermark {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.08;
+  background-repeat: repeat;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='380' height='240' viewBox='0 0 380 240'%3E%3Cg transform='rotate(-30 190 120)'%3E%3Ctext x='190' y='120' text-anchor='middle' dominant-baseline='middle' fill='%230f172a' font-size='20' font-family='sans-serif' font-weight='700' letter-spacing='3'%3ESIGNTELECOM%3C/text%3E%3C/g%3E%3C/svg%3E");
+}
+
 .public-share-root {
   flex: 1 1 auto;
   min-height: 0;

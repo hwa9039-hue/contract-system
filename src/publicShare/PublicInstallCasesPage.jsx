@@ -59,6 +59,10 @@ function formatShareExpiryLabel(date) {
   return `${year}년 ${month}월 ${day}일 ${hour}:${minute}`
 }
 
+function PublicShareWatermark() {
+  return <div className="public-share-watermark" aria-hidden="true" />
+}
+
 function CardMedia({ sources }) {
   const candidates = useMemo(() => {
     const out = []
@@ -291,6 +295,7 @@ export default function PublicInstallCasesPage() {
   if (status === 'expired') {
     return (
       <main className="public-share-root">
+        <PublicShareWatermark />
         <section className="public-share-expired" role="alert">
           <p>이 공유 링크는 유효 기간이 만료되었거나 잘못된 접근입니다.</p>
         </section>
@@ -300,6 +305,7 @@ export default function PublicInstallCasesPage() {
 
   return (
     <main className="public-share-root">
+      <PublicShareWatermark />
       {expiryLabel ? (
         <p className="public-share-expiry-banner" role="status">
           안내: 이 공유 링크는 {expiryLabel}까지 유효합니다.
