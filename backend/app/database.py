@@ -1334,6 +1334,14 @@ def init_db():
                   on calendar_manual_events ("dateStart" desc)
                 """
             )
+            cursor.execute(
+                """
+                create table if not exists shared_links (
+                  short_code varchar(6) primary key,
+                  expires_at timestamptz not null
+                )
+                """
+            )
         try:
             repair_contract_row_ids(connection)
         except Exception:

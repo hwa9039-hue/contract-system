@@ -23,6 +23,7 @@ from app.routers.shared_links import (
     SHARE_SCOPE,
     SHARE_SUBJECT,
     format_share_expiry,
+    load_active_share_expiry,
     resolve_share_app_origin,
 )
 
@@ -112,6 +113,19 @@ def _share_preview_html(token: str) -> str:
 """
 
 
+@router.get("/meta")
+def public_install_cases_share_meta(code: str = Query(default="")):
+    """짧은 코드의 만료 문구. 카카오톡 미리보기처럼 로그인 없이 읽는다."""
+    try:
+        expires_at = load_active_share_expiry(code)
+    except HTTPException:
+        return {"description": _EXPIRED_SHARE_MESSAGE, "expiresAt": None}
+    return {
+        "description": f"열람 만료일: {format_share_expiry(expires_at)}",
+        "expiresAt": expires_at.isoformat(),
+    }
+
+
 @router.get("/share", response_class=HTMLResponse)
 def public_install_cases_share_preview(token: str = Query(default="")):
     """카카오톡 미리보기용 HTML. HTTP 리다이렉트는 쓰지 않는다.
@@ -122,8 +136,16 @@ def public_install_cases_share_preview(token: str = Query(default="")):
 
 
 @router.get("")
-def list_public_install_cases(response: Response, token: str = Query(default="")):
-    """공유 링크의 token 이 서명이 맞고 만료 전일 때만 목록을 준다."""
+def list_public_install_cases(
+    response: Response,
+    token: str = Query(default=""),
+    code: str = Query(default=""),
+):
+    """짧은 코드 또는 예전에 발급한 token 이 만료 전일 때만 목록을 준다."""
+    if str(code or "").strip():
+        expires_at = load_active_share_expiry(code)
+        response.headers["X-Share-Expires-At"] = str(int(expires_at.timestamp()))
+        return [{key: row.get(key) for key in _PUBLIC_FIELDS} for row in list_install_case_rows()]
     payload = _verified_share_payload(token)
     exp = payload.get("exp")
     if isinstance(exp, (int, float)):

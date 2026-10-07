@@ -1,21 +1,25 @@
-"""설치사례 외부 공유 링크 토큰.
+"""설치사례 외부 공유 링크.
 
-DB 에 링크를 저장하지 않는다. 선택한 기간을 JWT exp 에 넣어 서명만 한다.
-이 토큰은 로그인 세션(sub=contract-app)과 다르다.
+새 링크는 6자리 코드를 shared_links 에 저장하고, 주소에는 그 코드만 넣는다.
+예전에 발급한 JWT 토큰 검증은 public_install_cases 에 남아 있다.
 """
 
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, status
+from psycopg.errors import UniqueViolation
 
-from app.auth_utils import ALGORITHM, get_jwt_secret
-from jwt import encode as jwt_encode
+from app.database import get_connection
 
 SHARED_LINKS_API_PATH = "/api/shared-links"
 SHARE_SUBJECT = "install-cases-share"
 SHARE_SCOPE = "install-cases"
 SHARE_PAGE_PATH = "/shared/installations"
+SHARE_SHORT_PATH = "/shared/s"
+_SHORT_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+_SHORT_CODE_LENGTH = 6
 ALLOWED_SHARE_DAYS = (1, 3, 7, 30)
 KST = timezone(timedelta(hours=9))
 DEFAULT_SHARE_APP_ORIGIN = "https://contract.signtelecom-smartdi.com"
@@ -48,6 +52,57 @@ def format_share_expiry(expires_at: datetime) -> str:
     return f"{local.year}년 {local.month:02d}월 {local.day:02d}일 {local.hour:02d}:{local.minute:02d}"
 
 
+def new_short_code() -> str:
+    return "".join(secrets.choice(_SHORT_CODE_ALPHABET) for _ in range(_SHORT_CODE_LENGTH))
+
+
+def insert_shared_link(expires_at: datetime) -> str:
+    """짧은 코드를 저장한다. 같은 코드가 있으면 다시 뽑는다."""
+    for _ in range(8):
+        code = new_short_code()
+        try:
+            with get_connection() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        insert into shared_links (short_code, expires_at)
+                        values (%s, %s)
+                        """,
+                        (code, expires_at),
+                    )
+            return code
+        except UniqueViolation:
+            continue
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Could not allocate a share code",
+    )
+
+
+def load_active_share_expiry(code: str) -> datetime:
+    """코드가 있고 만료 전이면 만료 시각을 돌려준다."""
+    raw = str(code or "").strip().upper()
+    if len(raw) != _SHORT_CODE_LENGTH or any(char not in _SHORT_CODE_ALPHABET for char in raw):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired link")
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "select expires_at from shared_links where short_code = %s",
+                (raw,),
+            )
+            row = cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired link")
+    expires_at = row.get("expires_at")
+    if not isinstance(expires_at, datetime):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired link")
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired link")
+    return expires_at
+
+
 @router.post("/generate")
 def generate_shared_link(body: dict | None = None):
     """로그인한 사용자만 호출한다. 미들웨어가 로그인 JWT 를 먼저 검사한다."""
@@ -62,28 +117,11 @@ def generate_shared_link(body: dict | None = None):
             detail="days must be one of 1, 3, 7, 30",
         )
 
-    secret = get_jwt_secret()
-    if not secret:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="JWT_SECRET is not set on the server",
-        )
-
     expires_at = datetime.now(timezone.utc) + timedelta(days=days)
-    app_origin = resolve_share_app_origin(source.get("appOrigin"))
-    token = jwt_encode(
-        {
-            "sub": SHARE_SUBJECT,
-            "scope": SHARE_SCOPE,
-            "days": days,
-            "app": app_origin,
-            "exp": expires_at,
-        },
-        secret,
-        algorithm=ALGORITHM,
-    )
+    code = insert_shared_link(expires_at)
     return {
-        "token": token,
+        "shortCode": code,
+        "path": f"{SHARE_SHORT_PATH}/{code}",
         "days": days,
         "expiresAt": expires_at.isoformat(),
     }

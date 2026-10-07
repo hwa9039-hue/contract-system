@@ -19,6 +19,7 @@ import {
   sortInstallCases,
   withSelectPlaceholder,
 } from './installCaseView.js'
+import { readPublicShareCode } from './publicSharePaths.js'
 import './PublicInstallCases.css'
 
 /** 로그인 없이 읽는 전용 API. 인증 헤더·쿠키를 일부러 보내지 않는다. */
@@ -62,7 +63,7 @@ function formatShareExpiryLabel(date) {
 function PhotoSign() {
   return (
     <span className="public-share-photo-sign" aria-hidden="true">
-      SIGNTELECOM
+      (주)싸인텔레콤
     </span>
   )
 }
@@ -232,18 +233,22 @@ export default function PublicInstallCasesPage() {
   const [detailRow, setDetailRow] = useState(null)
 
   useEffect(() => {
+    const code = readPublicShareCode(window.location.pathname)
     const token = new URLSearchParams(window.location.search).get('token')?.trim() || ''
-    if (!token) {
+    if (!code && !token) {
       setRows([])
       setExpiryLabel('')
       setStatus('expired')
       return undefined
     }
+    const listUrl = code
+      ? `${PUBLIC_INSTALL_CASES_URL}?code=${encodeURIComponent(code)}`
+      : `${PUBLIC_INSTALL_CASES_URL}?token=${encodeURIComponent(token)}`
     let cancelled = false
     ;(async () => {
       try {
         const response = await fetch(
-          `${PUBLIC_INSTALL_CASES_URL}?token=${encodeURIComponent(token)}`,
+          listUrl,
           {
             method: 'GET',
             credentials: 'omit',

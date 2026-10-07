@@ -1,5 +1,6 @@
 /** 공유 주소의 첫 HTML 에 메신저 미리보기 제목·만료일을 넣는다. 자바스크립트 실행 전에도 읽힌다. */
 const PUBLIC_SHARE_PAGE_TITLE = '(주)싸인텔레콤 설치사례'
+const PUBLIC_API_BASE = 'https://api.signtelecom-smartdi.com'
 
 function escapeAttr(value) {
   return String(value)
@@ -39,9 +40,27 @@ function readShareExpiryDescription(token) {
   }
 }
 
-export async function renderInstallCasePreview(context) {
+async function readShortLinkDescription(code) {
+  const normalized = String(code || '').trim()
+  if (!/^[A-Za-z0-9]{6}$/.test(normalized)) return ''
+  try {
+    const response = await fetch(
+      `${PUBLIC_API_BASE}/api/public/install-cases/meta?code=${encodeURIComponent(normalized)}`,
+    )
+    if (!response.ok) return ''
+    const data = await response.json()
+    return String(data?.description || '')
+  } catch {
+    return ''
+  }
+}
+
+export async function renderInstallCasePreview(context, options = {}) {
   const requestUrl = new URL(context.request.url)
-  const description = readShareExpiryDescription(requestUrl.searchParams.get('token') || '')
+  let description = readShareExpiryDescription(requestUrl.searchParams.get('token') || '')
+  if (!description && options.shortCode) {
+    description = await readShortLinkDescription(options.shortCode)
+  }
   const assetUrl = new URL(context.request.url)
   assetUrl.pathname = '/index.html'
   assetUrl.search = ''

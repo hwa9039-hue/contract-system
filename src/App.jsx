@@ -7590,11 +7590,12 @@ function App() {
         }),
       )
       const data = await response.json().catch(() => ({}))
-      if (!response.ok || !data?.token) {
+      const shortCode = String(data?.shortCode || '').trim()
+      if (!response.ok || !shortCode) {
         showAppAlert('공유 링크를 만들지 못했습니다. 다시 로그인한 뒤 시도해 주세요.', '링크 생성 실패')
         return
       }
-      const url = `${API_BASE_URL}/api/public/install-cases/share?token=${encodeURIComponent(data.token)}`
+      const url = `${window.location.origin}/shared/s/${encodeURIComponent(shortCode)}`
       const copied = await copyTextToClipboard(url)
       setInstallShareModalOpen(false)
       showAppAlert(
