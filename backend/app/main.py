@@ -15,6 +15,7 @@ from app.routers import document_register
 from app.routers import excluded_projects
 from app.routers import project_management
 from app.routers import project_discovery
+from app.routers import sales_integrated
 from app.routers import sales_register
 from app.routers import sales_transfer
 from app.routers import weekly_work_reports
@@ -211,6 +212,7 @@ app.include_router(contracts.router)
 app.include_router(unit_prices_router)
 app.include_router(project_management.router)
 app.include_router(sales_register.router)
+app.include_router(sales_integrated.router)
 app.include_router(sales_transfer.router)
 app.include_router(project_discovery.router)
 app.include_router(excluded_projects.router)

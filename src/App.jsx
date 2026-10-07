@@ -73,6 +73,7 @@ import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 // import ProjectManagement from './pages/ProjectManagement.jsx'
 import OrderManagementPlaceholder from './pages/OrderManagementPlaceholder.jsx'
 import BitHistoryPage from './pages/sales/BitHistoryPage.jsx'
+import SalesIntegratedPage from './pages/sales/SalesIntegratedPage.jsx'
 import PreparingPlaceholder from './pages/PreparingPlaceholder.jsx'
 import QuoteDesignExportPage from './pages/QuoteDesignExportPage.jsx'
 import { useAppVersionPolling } from './useAppVersionPolling.js'
@@ -18547,7 +18548,7 @@ function App() {
         {menu === 'orderManagement' && !isMenuAccessDenied && <OrderManagementPlaceholder />}
 
         {/* 신규 메뉴 — 발주관리와 같은 '준비 중입니다.' 공용 화면 재사용 */}
-        {menu === 'salesIntegrated' && <PreparingPlaceholder label="영업관리(통합)" />}
+        {menu === 'salesIntegrated' && !isMenuAccessDenied && <SalesIntegratedPage />}
 
         {menu === 'quoteDesignDocs' &&
           (QUOTE_DESIGN_EXPORT_READY ? (

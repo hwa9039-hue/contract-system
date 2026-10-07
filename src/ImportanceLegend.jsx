@@ -14,9 +14,12 @@ export function ImportanceLegend({
   className = '',
   selectedImportance = null,
   onSelect = null,
+  items = IMPORTANCE_LEGEND_ITEMS,
+  allLabel = '',
 }) {
   const interactive = typeof onSelect === 'function'
   const isFiltered = Boolean(selectedImportance)
+  const allActive = !selectedImportance
 
   return (
     <div
@@ -24,7 +27,23 @@ export function ImportanceLegend({
       aria-label="상태 중요도 범례"
       role={interactive ? 'toolbar' : undefined}
     >
-      {IMPORTANCE_LEGEND_ITEMS.map((item) => {
+      {allLabel && interactive ? (
+        <button
+          type="button"
+          className={[
+            'dashboard-importance-legend-item',
+            'dashboard-importance-legend-item--button',
+            allActive ? 'is-active' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          aria-pressed={allActive}
+          onClick={() => onSelect(null)}
+        >
+          {allLabel}
+        </button>
+      ) : null}
+      {items.map((item) => {
         const isActive = selectedImportance === item.tone
         const classNameItem = [
           'dashboard-importance-legend-item',
