@@ -75,6 +75,7 @@ import OrderManagementPlaceholder from './pages/OrderManagementPlaceholder.jsx'
 import BitHistoryPage from './pages/sales/BitHistoryPage.jsx'
 import PreparingPlaceholder from './pages/PreparingPlaceholder.jsx'
 import QuoteDesignExportPage from './pages/QuoteDesignExportPage.jsx'
+import { PUBLIC_INSTALL_CASES_SHARE_PATH } from './publicShare/publicSharePaths.js'
 import { useAppVersionPolling } from './useAppVersionPolling.js'
 import AccessDeniedPlaceholder from './pages/AccessDeniedPlaceholder.jsx'
 import PaymentReportPage from './pages/PaymentReportPage.jsx'
@@ -7565,6 +7566,17 @@ function App() {
     setInstallCaseFormDraft(getDefaultInstallCaseForm())
     setInstallCaseRegisterOpen(true)
   }, [])
+
+  const handleCopyInstallCaseShareLink = useCallback(async () => {
+    const url = `${window.location.origin}${PUBLIC_INSTALL_CASES_SHARE_PATH}`
+    const copied = await copyTextToClipboard(url)
+    showAppAlert(
+      copied
+        ? '외부 공유용 링크가 클립보드에 복사되었습니다.'
+        : '링크 복사에 실패했습니다. 주소를 직접 복사해 주세요.',
+      copied ? '복사 완료' : '복사 실패',
+    )
+  }, [showAppAlert])
 
   const handleOpenInstallCaseRegister = useCallback(() => {
     const stored = loadInstallCaseFormDraftFromStorage()
@@ -18432,11 +18444,20 @@ function App() {
                   title="사업명·사업년도·대분류·중분류·소분류·용도·발주처·표출부 사이즈·해상도·LED Pitch·설치유형 통합 검색"
                 />
               </div>
-              {canEditInstallCases && (
-                <button className="primary-btn" type="button" onClick={handleOpenInstallCaseRegister}>
-                  등록
+              <div className="install-cases-toolbar-actions">
+                <button
+                  className="secondary-btn"
+                  type="button"
+                  onClick={handleCopyInstallCaseShareLink}
+                >
+                  🔗 외부 공유 링크 복사
                 </button>
-              )}
+                {canEditInstallCases && (
+                  <button className="primary-btn" type="button" onClick={handleOpenInstallCaseRegister}>
+                    등록
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="install-cases-gallery">

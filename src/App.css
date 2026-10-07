@@ -13683,9 +13683,19 @@ body.work-report-manager-menu-open .work-report-board-section {
   width: auto;
 }
 
-.install-cases-toolbar > .primary-btn {
+.install-cases-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex: 0 0 auto;
   flex-shrink: 0;
+}
+
+.install-cases-toolbar-actions > .primary-btn,
+.install-cases-toolbar-actions > .secondary-btn {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .install-cases-select {
@@ -18755,7 +18765,14 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     max-width: 100% !important;
   }
 
-  .install-cases-toolbar > .primary-btn {
+  .install-cases-toolbar-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .install-cases-toolbar-actions > .primary-btn,
+  .install-cases-toolbar-actions > .secondary-btn {
     flex: none !important;
     width: 100% !important;
     min-width: 0 !important;
