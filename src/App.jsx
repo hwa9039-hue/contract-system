@@ -185,6 +185,7 @@ import {
   normalizePermitDateDisplay,
 } from './excelSheetUtils.js'
 import {
+  MeetingMinutesSearchResults,
   WorkReportMeetingMinutesSection,
   buildMeetingMinutesPdfMarkup,
   clearMeetingMinutesSessionBackup,
@@ -6485,6 +6486,12 @@ function App() {
   const [selectedWorkWeek, setSelectedWorkWeek] = useState(() =>
     buildWorkReportWeekMeta(new Date()).weekStartDate
   )
+  const [meetingSearchInput, setMeetingSearchInput] = useState('')
+  const [meetingSearchActive, setMeetingSearchActive] = useState('')
+  const [meetingSearchRows, setMeetingSearchRows] = useState([])
+  const [meetingSearchLoading, setMeetingSearchLoading] = useState(false)
+  const [meetingSearchError, setMeetingSearchError] = useState('')
+  const meetingSearchSeqRef = useRef(0)
   const [manualEvents, setManualEvents] = useState([])
   const [search, setSearch] = useState('')
   const [contractDateRange, setContractDateRange] = useState({ startDate: '', endDate: '' })
@@ -11443,6 +11450,46 @@ function App() {
     )
     trackWorkWeek(nextWeek)
   }
+
+  const runMeetingMinutesSearch = async (rawQuery) => {
+    const query = safeString(rawQuery).trim()
+    const seq = meetingSearchSeqRef.current + 1
+    meetingSearchSeqRef.current = seq
+    if (!query) {
+      setMeetingSearchActive('')
+      setMeetingSearchRows([])
+      setMeetingSearchError('')
+      setMeetingSearchLoading(false)
+      return
+    }
+    setMeetingSearchLoading(true)
+    setMeetingSearchError('')
+    setMeetingSearchActive(query)
+    try {
+      const found = await weeklyWorkReportsApi.searchMeetingMinutes(query)
+      if (seq !== meetingSearchSeqRef.current) return
+      setMeetingSearchRows(Array.isArray(found) ? found : [])
+    } catch (error) {
+      if (seq !== meetingSearchSeqRef.current) return
+      setMeetingSearchRows([])
+      setMeetingSearchError(error?.message || '회의록 검색에 실패했습니다.')
+    } finally {
+      if (seq === meetingSearchSeqRef.current) setMeetingSearchLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (menu !== 'meetingMinutes') return undefined
+    const query = safeString(meetingSearchInput).trim()
+    if (!query) {
+      void runMeetingMinutesSearch('')
+      return undefined
+    }
+    const timer = window.setTimeout(() => {
+      void runMeetingMinutesSearch(query)
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [meetingSearchInput, menu])
 
   const getWorkReportCellKey = (date, section, orderIndex = 1) =>
     `${normalizeWorkReportDateKey(date)}__${safeString(section).trim()}__${Number(orderIndex || 1)}`
@@ -16668,44 +16715,80 @@ function App() {
                 <button className="secondary-btn" type="button" onClick={handleMeetingMinutesPdfDownload}>
                   PDF 다운로드
                 </button>
-                <button
-                  className="primary-btn"
-                  type="button"
-                  onClick={() => {
-                    void handleManualWorkReportSave('회의록이 성공적으로 저장되었습니다.', {
-                      date: selectedWorkWeekMeta.weekStartDate,
-                      section: WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                      orderIndex: 1,
-                    })
+                <form
+                  className="meeting-minutes-search"
+                  onSubmit={(event) => {
+                    event.preventDefault()
                   }}
                 >
-                  저장
-                </button>
+                  <input
+                    className="table-search-input meeting-minutes-search-input"
+                    type="search"
+                    value={meetingSearchInput}
+                    onChange={(event) => setMeetingSearchInput(event.target.value)}
+                    placeholder="전체 회의록 검색"
+                    aria-label="전체 회의록 검색"
+                  />
+                  {meetingSearchActive ? (
+                    <button
+                      className="secondary-btn"
+                      type="button"
+                      onClick={() => {
+                        setMeetingSearchInput('')
+                        setMeetingSearchActive('')
+                        setMeetingSearchRows([])
+                        setMeetingSearchError('')
+                      }}
+                    >
+                      주차 보기
+                    </button>
+                  ) : null}
+                </form>
               </div>
 
-              <div className="work-report-summary-card">
-                <div className="work-report-summary-title">
-                  {getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)}
-                </div>
-                <div className="work-report-summary-meta">
-                  <span>주차 {selectedWorkWeekMeta.weekNumber}주차</span>
-                  <span>시작일 {selectedWorkWeekMeta.weekStartDate}</span>
-                  <span>입력 후 자동 저장 · 새로고침 전 「저장」 버튼 권장</span>
-                </div>
-              </div>
-
-              <div className="work-report-meeting-minutes-block">
-                <WorkReportMeetingMinutesSection
-                  weekStartDate={selectedWorkWeekMeta.weekStartDate}
-                  getEntry={getWorkReportBoardEntry}
-                  updateEntry={updateWorkReportBoardEntry}
-                  onEntryBlur={handleWorkReportBoardBlur(
-                    selectedWorkWeekMeta.weekStartDate,
-                    WORK_REPORT_SECTION_KEYS.meetingMinutes,
-                    1
-                  )}
+              {meetingSearchActive ? (
+                <MeetingMinutesSearchResults
+                  query={meetingSearchActive}
+                  rows={meetingSearchRows}
+                  loading={meetingSearchLoading}
+                  error={meetingSearchError}
+                  onOpenWeek={(weekStartDate) => {
+                    trackWorkWeek(weekStartDate)
+                    setMeetingSearchInput('')
+                    setMeetingSearchActive('')
+                    setMeetingSearchRows([])
+                    setMeetingSearchError('')
+                  }}
                 />
-              </div>
+              ) : (
+                <>
+                  <div className="work-report-summary-card">
+                    <div className="work-report-summary-title">
+                      {getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)}
+                    </div>
+                    <div className="work-report-summary-meta">
+                      <span>
+                        {selectedWorkWeekMeta.month}월 {selectedWorkWeekMeta.weekNumber}주차
+                      </span>
+                      <span>시작일 {selectedWorkWeekMeta.weekStartDate}</span>
+                      <span>입력 후 자동 저장</span>
+                    </div>
+                  </div>
+
+                  <div className="work-report-meeting-minutes-block">
+                    <WorkReportMeetingMinutesSection
+                      weekStartDate={selectedWorkWeekMeta.weekStartDate}
+                      getEntry={getWorkReportBoardEntry}
+                      updateEntry={updateWorkReportBoardEntry}
+                      onEntryBlur={handleWorkReportBoardBlur(
+                        selectedWorkWeekMeta.weekStartDate,
+                        WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                        1
+                      )}
+                    />
+                  </div>
+                </>
+              )}
 
               {isSavingWorkReports && (
                 <div className="work-report-saving-indicator">업무보고 내용을 저장하고 있습니다.</div>

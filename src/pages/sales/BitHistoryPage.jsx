@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../AuthContext.jsx'
 import {
+  bitMatchesColumnFilters,
+  buildBitColumnFilterOptions,
+  filterBitRowsByActiveFilters,
+  normalizeBitColumnFilterSelection,
+} from '../../bitColumnFilter.js'
+import { ContractColumnHeaderFilter } from '../../ContractColumnHeaderFilter.jsx'
+import {
   BIT_EXTRA_KEYS,
   BIT_FROM_CONTRACT_KEYS,
   bitHistoryApi,
@@ -388,6 +395,8 @@ export default function BitHistoryPage({ contracts = [] }) {
   const [syncNotice, setSyncNotice] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' })
+  const [columnFilters, setColumnFilters] = useState({})
+  const [openColumnFilterKey, setOpenColumnFilterKey] = useState(null)
   const [selectedIds, setSelectedIds] = useState([])
   const [openYears, setOpenYears] = useState({})
   const { itemToDelete, isModalOpen, requestDelete, cancelDelete } = useDeleteConfirm()
@@ -458,16 +467,40 @@ export default function BitHistoryPage({ contracts = [] }) {
     setRows(joinRows(contractList, extrasRef.current))
   }, [allowed, isLoading, contracts, joinRows])
 
-  const filteredRows = useMemo(
+  const toolbarFilteredRows = useMemo(
     () =>
-      sortBitRows(
-        rows.filter(
-          (row) =>
-            matchesBitSearch(row, searchQuery) &&
-            inContractDateRange(row, dateRange.startDate, dateRange.endDate)
-        )
+      rows.filter(
+        (row) =>
+          matchesBitSearch(row, searchQuery) &&
+          inContractDateRange(row, dateRange.startDate, dateRange.endDate),
       ),
-    [rows, searchQuery, dateRange]
+    [rows, searchQuery, dateRange],
+  )
+
+  const columnFilterOptionsMap = useMemo(() => {
+    const map = {}
+    BIT_COLUMNS.forEach((column) => {
+      const pool = toolbarFilteredRows.filter((row) =>
+        bitMatchesColumnFilters(row, columnFilters, column.key),
+      )
+      map[column.key] = buildBitColumnFilterOptions(pool, column.key)
+    })
+    return map
+  }, [columnFilters, toolbarFilteredRows])
+
+  const handleColumnFiltersApply = useCallback((columnKey, selected) => {
+    setColumnFilters((prev) => {
+      const next = { ...prev }
+      const values = Array.isArray(selected) ? [...selected] : []
+      if (values.length === 0) delete next[columnKey]
+      else next[columnKey] = values
+      return next
+    })
+  }, [])
+
+  const filteredRows = useMemo(
+    () => sortBitRows(filterBitRowsByActiveFilters(toolbarFilteredRows, columnFilters)),
+    [toolbarFilteredRows, columnFilters],
   )
 
   const yearGroups = useMemo(() => groupBitRowsByYear(filteredRows), [filteredRows])
@@ -834,10 +867,21 @@ export default function BitHistoryPage({ contracts = [] }) {
                   />
                 </th>
                 {BIT_COLUMNS.map((column) => {
-                  const props = stickyCellProps(column, 'th-align-center')
+                  const props = stickyCellProps(column, 'th-align-center contract-th-filterable')
                   return (
                     <th key={column.key} {...props}>
-                      {column.label}
+                      <div className="contract-th-filter-wrap">
+                        <span className="contract-th-label">{column.label}</span>
+                        <ContractColumnHeaderFilter
+                          columnKey={column.key}
+                          options={columnFilterOptionsMap[column.key] ?? []}
+                          selected={columnFilters[column.key] ?? []}
+                          onApply={handleColumnFiltersApply}
+                          isOpen={openColumnFilterKey === column.key}
+                          onOpenChange={setOpenColumnFilterKey}
+                          normalizeSelection={normalizeBitColumnFilterSelection}
+                        />
+                      </div>
                     </th>
                   )
                 })}

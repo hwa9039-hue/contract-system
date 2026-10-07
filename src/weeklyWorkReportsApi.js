@@ -77,6 +77,11 @@ export const weeklyWorkReportsApi = {
   list() {
     return requestJson('/api/weekly-work-reports')
   },
+  /** 저장된 모든 주차의 회의록에서 내용·담당자·기한을 찾는다. */
+  searchMeetingMinutes(query) {
+    const q = encodeURIComponent(safeString(query).trim())
+    return requestJson(`/api/weekly-work-reports/meeting-minutes/search?q=${q}`)
+  },
   create(payload, options = {}) {
     return requestJsonWithWireVariants('/api/weekly-work-reports', 'POST', payload, options)
   },

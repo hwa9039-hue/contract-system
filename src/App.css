@@ -20606,6 +20606,71 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
   color: #a16207;
 }
 
+.meeting-minutes-search {
+  display: flex;
+  flex: 1 1 280px;
+  align-items: center;
+  gap: 8px;
+  min-width: 240px;
+  margin-left: auto;
+}
+
+.meeting-minutes-search .meeting-minutes-search-input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 160px;
+  height: 36px;
+  min-height: 36px;
+}
+
+.meeting-minutes-search-col-week {
+  width: 248px;
+  min-width: 248px;
+  max-width: 248px;
+}
+
+.meeting-minutes-search-assignee,
+.meeting-minutes-search-due {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.meeting-minutes-search-row {
+  cursor: pointer;
+}
+
+.meeting-minutes-search-row:hover td {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.meeting-minutes-search-week {
+  white-space: nowrap;
+  text-align: center;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.meeting-minutes-search-week-chip {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border: 1.5px solid #2563eb;
+  border-radius: 999px;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+  background: #eff6ff;
+}
+
+.meeting-minutes-search-content {
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .sales-integrated-filters {
   display: flex;
   flex-wrap: wrap;

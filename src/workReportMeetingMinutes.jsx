@@ -957,3 +957,157 @@ export function WorkReportMeetingMinutesSection({
     </section>
   )
 }
+
+function parseMeetingDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(safeString(value).trim())
+  if (!match) return null
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function mondayOfMeetingDate(date) {
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const day = monday.getDay()
+  monday.setDate(monday.getDate() + (day === 0 ? -6 : 1 - day))
+  return monday
+}
+
+function meetingWeekNumberInMonth(monday) {
+  const firstOfMonth = new Date(monday.getFullYear(), monday.getMonth(), 1)
+  const firstMonday = mondayOfMeetingDate(firstOfMonth)
+  return Math.floor((monday.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+}
+
+function formatMeetingYmd(date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+function meetingSearchWeekParts(row) {
+  const parsed = parseMeetingDate(row?.weekStartDate)
+  if (parsed) {
+    const monday = mondayOfMeetingDate(parsed)
+    return {
+      date: formatMeetingYmd(monday),
+      week: `${monday.getMonth() + 1}월 ${meetingWeekNumberInMonth(monday)}주차`,
+    }
+  }
+  const month = Number(safeString(row?.reportMonth).trim())
+  const week = Number(safeString(row?.weekNumber).trim())
+  if (month > 0 && week > 0) return { date: '', week: `${month}월 ${week}주차` }
+  return { date: '', week: '' }
+}
+
+function meetingSearchWeekLabel(row) {
+  const parts = meetingSearchWeekParts(row)
+  if (parts.date && parts.week) return `${parts.date} ${parts.week}`
+  return parts.date || parts.week || '주차 미상'
+}
+
+/** 전체 기간 회의록 검색 결과. 행을 누르면 그 주차 편집 화면으로 돌아간다. */
+export function MeetingMinutesSearchResults({ query, rows, loading, error, onOpenWeek }) {
+  const list = Array.isArray(rows) ? rows : []
+
+  return (
+    <section className="meeting-minutes-search-results" aria-label="회의록 검색 결과">
+      <div className="work-report-summary-card">
+        <div className="work-report-summary-title">전체 회의록 검색</div>
+        <div className="work-report-summary-meta">
+          <span>검색어 {query}</span>
+          <span>{loading ? '검색 중' : `${list.length.toLocaleString('ko-KR')}건`}</span>
+          <span>행을 누르면 해당 주차 회의록으로 이동합니다.</span>
+        </div>
+      </div>
+
+      {error ? (
+        <p className="sales-contacts-save-status is-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="contract-table-panel meeting-minutes-doc__table-panel">
+        <div className="table-wrap meeting-minutes-table-wrap overflow-x-auto desktop-table-only hidden md:block">
+          <table className="meeting-minutes-doc__table contract-table excel-table registry-table meeting-minutes-search-table">
+            <colgroup>
+              <col className="meeting-minutes-search-col-week" />
+              <col className="meeting-minutes-doc__col-content" />
+              <col className="meeting-minutes-doc__col-assignee" />
+              <col className="meeting-minutes-doc__col-due" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th className="th-align-center meeting-minutes-search-col-week">주차</th>
+                <th className="th-align-center meeting-minutes-doc__col-content">회의 내용</th>
+                <th className="th-align-center meeting-minutes-doc__col-assignee">담당자</th>
+                <th className="th-align-center meeting-minutes-doc__col-due">기한</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && list.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="empty-cell">
+                    검색 중입니다.
+                  </td>
+                </tr>
+              ) : list.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="empty-cell">
+                    검색 결과가 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                list.map((row) => {
+                  const weekParts = meetingSearchWeekParts(row)
+                  return (
+                  <tr
+                    key={row.id}
+                    className="meeting-minutes-search-row"
+                    tabIndex={0}
+                    onClick={() => onOpenWeek?.(row.weekStartDate)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        onOpenWeek?.(row.weekStartDate)
+                      }
+                    }}
+                  >
+                    <td className="meeting-minutes-search-week">
+                      {weekParts.date || weekParts.week ? (
+                        <>
+                          {weekParts.date ? <span>{weekParts.date}</span> : null}
+                          {weekParts.week ? (
+                            <span className="meeting-minutes-search-week-chip">{weekParts.week}</span>
+                          ) : null}
+                        </>
+                      ) : (
+                        '주차 미상'
+                      )}
+                    </td>
+                    <td className="meeting-minutes-search-content">{row.content || '—'}</td>
+                    <td className="meeting-minutes-search-assignee">{row.assignee || '—'}</td>
+                    <td className="meeting-minutes-search-due">{row.dueDate || '—'}</td>
+                  </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        <MobileDataCardList
+          rows={list}
+          getRowKey={(row) => row.id}
+          getTitle={(row) => row.content}
+          getBadge={(row) => ({ label: meetingSearchWeekLabel(row), tone: 'blue' })}
+          summaryFields={[
+            { label: '담당자', getValue: (row) => row.assignee },
+            { label: '기한', getValue: (row) => row.dueDate },
+            { label: '시작일', getValue: (row) => row.weekStartDate },
+          ]}
+          emptyText={loading ? '검색 중입니다.' : '검색 결과가 없습니다.'}
+          onCardClick={(row) => onOpenWeek?.(row.weekStartDate)}
+        />
+      </div>
+    </section>
+  )
+}
