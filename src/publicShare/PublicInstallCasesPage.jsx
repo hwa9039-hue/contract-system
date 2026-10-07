@@ -24,6 +24,41 @@ import './PublicInstallCases.css'
 /** 로그인 없이 읽는 전용 API. 인증 헤더·쿠키를 일부러 보내지 않는다. */
 const PUBLIC_INSTALL_CASES_URL = `${API_BASE_URL}/api/public/install-cases`
 
+function decodeShareExpiryDate(token) {
+  try {
+    const part = String(token || '').split('.')[1]
+    if (!part) return null
+    const padded = part.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (part.length % 4)) % 4)
+    const json = JSON.parse(atob(padded))
+    const exp = Number(json.exp)
+    if (!Number.isFinite(exp)) return null
+    return new Date(exp * 1000)
+  } catch {
+    return null
+  }
+}
+
+function formatShareExpiryLabel(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return ''
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const pick = (type) => parts.find((part) => part.type === type)?.value || ''
+  const year = pick('year')
+  const month = pick('month')
+  const day = pick('day')
+  const hour = pick('hour')
+  const minute = pick('minute')
+  if (!year || !month || !day || !hour || !minute) return ''
+  return `${year}년 ${month}월 ${day}일 ${hour}:${minute}`
+}
+
 function CardMedia({ sources }) {
   const candidates = useMemo(() => {
     const out = []
@@ -179,6 +214,7 @@ function DetailModal({ row, onClose }) {
 export default function PublicInstallCasesPage() {
   const [rows, setRows] = useState([])
   const [status, setStatus] = useState('loading') // loading | ready | error | expired
+  const [expiryLabel, setExpiryLabel] = useState('')
   const [majorFilter, setMajorFilter] = useState('')
   const [middleFilter, setMiddleFilter] = useState('')
   const [minorFilter, setMinorFilter] = useState('')
@@ -189,6 +225,7 @@ export default function PublicInstallCasesPage() {
     const token = new URLSearchParams(window.location.search).get('token')?.trim() || ''
     if (!token) {
       setRows([])
+      setExpiryLabel('')
       setStatus('expired')
       return undefined
     }
@@ -206,6 +243,7 @@ export default function PublicInstallCasesPage() {
         if (response.status === 401 || response.status === 403) {
           if (!cancelled) {
             setRows([])
+            setExpiryLabel('')
             setStatus('expired')
           }
           return
@@ -213,8 +251,12 @@ export default function PublicInstallCasesPage() {
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const data = await response.json()
         if (cancelled) return
+        const headerExp = Number(response.headers.get('X-Share-Expires-At'))
+        const expiryDate =
+          Number.isFinite(headerExp) && headerExp > 0 ? new Date(headerExp * 1000) : decodeShareExpiryDate(token)
         const list = Array.isArray(data) ? data : []
         setRows(sortInstallCases(list.map(normalizePublicInstallCase)))
+        setExpiryLabel(formatShareExpiryLabel(expiryDate))
         setStatus('ready')
       } catch {
         if (!cancelled) setStatus('error')
@@ -258,6 +300,11 @@ export default function PublicInstallCasesPage() {
 
   return (
     <main className="public-share-root">
+      {expiryLabel ? (
+        <p className="public-share-expiry-banner" role="status">
+          안내: 이 공유 링크는 {expiryLabel}까지 유효합니다.
+        </p>
+      ) : null}
       <section className="stat-card stat-card--install-cases public-share-card" aria-label="설치사례">
         <div className="install-cases-toolbar">
           <div className="install-cases-filters">

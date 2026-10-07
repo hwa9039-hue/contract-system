@@ -82,7 +82,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Download-Count"],
+    expose_headers=["X-Download-Count", "X-Share-Expires-At"],
 )
 # 가장 바깥: OPTIONS 프리플라이트에 CORS 헤더를 직접 붙임 (Nginx/프록시와 CORSMiddleware 조합 이슈 완화)
 app.add_middleware(

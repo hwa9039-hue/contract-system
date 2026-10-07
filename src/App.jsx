@@ -75,7 +75,6 @@ import OrderManagementPlaceholder from './pages/OrderManagementPlaceholder.jsx'
 import BitHistoryPage from './pages/sales/BitHistoryPage.jsx'
 import PreparingPlaceholder from './pages/PreparingPlaceholder.jsx'
 import QuoteDesignExportPage from './pages/QuoteDesignExportPage.jsx'
-import { PUBLIC_INSTALL_CASES_SHARE_PATH } from './publicShare/publicSharePaths.js'
 import { useAppVersionPolling } from './useAppVersionPolling.js'
 import AccessDeniedPlaceholder from './pages/AccessDeniedPlaceholder.jsx'
 import PaymentReportPage from './pages/PaymentReportPage.jsx'
@@ -7579,7 +7578,7 @@ function App() {
         apiFetchInit({
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          body: JSON.stringify({ days: installShareDays }),
+          body: JSON.stringify({ days: installShareDays, appOrigin: window.location.origin }),
         }),
       )
       const data = await response.json().catch(() => ({}))
@@ -7587,7 +7586,7 @@ function App() {
         showAppAlert('공유 링크를 만들지 못했습니다. 다시 로그인한 뒤 시도해 주세요.', '링크 생성 실패')
         return
       }
-      const url = `${window.location.origin}${PUBLIC_INSTALL_CASES_SHARE_PATH}?token=${encodeURIComponent(data.token)}`
+      const url = `${API_BASE_URL}/api/public/install-cases/share?token=${encodeURIComponent(data.token)}`
       const copied = await copyTextToClipboard(url)
       setInstallShareModalOpen(false)
       showAppAlert(
