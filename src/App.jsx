@@ -17379,38 +17379,48 @@ function App() {
         )}
 
         {menu === 'sales' && (
-          <section className="stat-card">
-            <div className="contracts-header-actions">
-              <button className="primary-btn" type="button" onClick={handleAddSalesRow}>
-                등록
-              </button>
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={deleteSelectedSalesRows}
-                disabled={selectedSalesIds.length === 0}
-              >
-                선택 삭제
-              </button>
-              {selectedSalesIds.length > 0 && (
-                <button
-                  type="button"
-                  className="secondary-btn registry-selection-count"
-                  tabIndex={-1}
-                  aria-disabled="true"
-                  role="status"
-                  aria-live="polite"
-                >
-                  총 {selectedSalesIds.length}건 선택됨
+          <section className="stat-card registry-control-stack">
+            <div className="contracts-header-actions registry-control-row flex flex-wrap items-center gap-x-4">
+              <div className="registry-control-actions flex shrink-0 flex-wrap items-center gap-2">
+                <button className="primary-btn" type="button" onClick={handleAddSalesRow}>
+                  등록
                 </button>
-              )}
-              <button className="secondary-btn" type="button" onClick={handleSalesExcelDownload}>
-                엑셀 다운로드
-              </button>
+                <button
+                  className="secondary-btn"
+                  type="button"
+                  onClick={deleteSelectedSalesRows}
+                  disabled={selectedSalesIds.length === 0}
+                >
+                  선택 삭제
+                </button>
+                {selectedSalesIds.length > 0 && (
+                  <button
+                    type="button"
+                    className="secondary-btn registry-selection-count"
+                    tabIndex={-1}
+                    aria-disabled="true"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    총 {selectedSalesIds.length}건 선택됨
+                  </button>
+                )}
+                <button className="secondary-btn" type="button" onClick={handleSalesExcelDownload}>
+                  엑셀 다운로드
+                </button>
+              </div>
+              <span className="registry-control-divider" aria-hidden="true" />
+              <ImportanceLegend
+                className="registry-header-legend"
+                items={SALES_STATUS_LEGEND_ITEMS}
+                allLabel="전체보기"
+                selectedImportance={selectedSalesImportance}
+                onSelect={setSelectedSalesImportance}
+              />
             </div>
 
-            <div className="table-toolbar registry-toolbar-date-range">
-              <div className="registry-search-toolbar-split">
+            <div className="table-toolbar registry-toolbar-date-range registry-control-filters">
+              <div className="registry-search-toolbar-split flex items-center">
                 <input
                   className="table-search-input"
                   placeholder="검색어를 입력하세요"
@@ -17445,12 +17455,6 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <ImportanceLegend
-                items={SALES_STATUS_LEGEND_ITEMS}
-                allLabel="전체보기"
-                selectedImportance={selectedSalesImportance}
-                onSelect={setSelectedSalesImportance}
-              />
               <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
                 <table className="contract-table excel-table registry-table sales-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
@@ -17636,46 +17640,56 @@ function App() {
         )}
 
         {menu === 'discovery' && (
-          <section className="stat-card">
-            <div className="contracts-header-actions">
-              <button className="primary-btn" type="button" onClick={handleAddDiscoveryRow}>
-                등록
-              </button>
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={deleteSelectedDiscoveryRows}
-                disabled={selectedDiscoveryIds.length === 0}
-              >
-                선택 삭제
-              </button>
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={transferSelectedDiscoveryToSales}
-                disabled={!canEditDiscovery || selectedDiscoveryIds.length === 0}
-              >
-                영업관리대장으로 이동
-              </button>
-              {selectedDiscoveryIds.length > 0 && (
-                <button
-                  type="button"
-                  className="secondary-btn registry-selection-count"
-                  tabIndex={-1}
-                  aria-disabled="true"
-                  role="status"
-                  aria-live="polite"
-                >
-                  총 {selectedDiscoveryIds.length}건 선택됨
+          <section className="stat-card registry-control-stack">
+            <div className="contracts-header-actions registry-control-row flex flex-wrap items-center gap-x-4">
+              <div className="registry-control-actions flex shrink-0 flex-wrap items-center gap-2">
+                <button className="primary-btn" type="button" onClick={handleAddDiscoveryRow}>
+                  등록
                 </button>
-              )}
-              <button className="secondary-btn" type="button" onClick={handleDiscoveryExcelDownload}>
-                엑셀 다운로드
-              </button>
+                <button
+                  className="secondary-btn"
+                  type="button"
+                  onClick={deleteSelectedDiscoveryRows}
+                  disabled={selectedDiscoveryIds.length === 0}
+                >
+                  선택 삭제
+                </button>
+                <button
+                  className="secondary-btn"
+                  type="button"
+                  onClick={transferSelectedDiscoveryToSales}
+                  disabled={!canEditDiscovery || selectedDiscoveryIds.length === 0}
+                >
+                  영업관리대장으로 이동
+                </button>
+                {selectedDiscoveryIds.length > 0 && (
+                  <button
+                    type="button"
+                    className="secondary-btn registry-selection-count"
+                    tabIndex={-1}
+                    aria-disabled="true"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    총 {selectedDiscoveryIds.length}건 선택됨
+                  </button>
+                )}
+                <button className="secondary-btn" type="button" onClick={handleDiscoveryExcelDownload}>
+                  엑셀 다운로드
+                </button>
+              </div>
+              <span className="registry-control-divider" aria-hidden="true" />
+              <ImportanceLegend
+                className="registry-header-legend"
+                items={SALES_STATUS_LEGEND_ITEMS}
+                allLabel="전체보기"
+                selectedImportance={selectedDiscoveryImportance}
+                onSelect={setSelectedDiscoveryImportance}
+              />
             </div>
 
-            <div className="table-toolbar registry-toolbar-date-range">
-              <div className="registry-search-toolbar-split">
+            <div className="table-toolbar registry-toolbar-date-range registry-control-filters">
+              <div className="registry-search-toolbar-split flex items-center">
                 <input
                   className="table-search-input"
                   placeholder="검색어를 입력하세요"
@@ -17710,12 +17724,6 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <ImportanceLegend
-                items={SALES_STATUS_LEGEND_ITEMS}
-                allLabel="전체보기"
-                selectedImportance={selectedDiscoveryImportance}
-                onSelect={setSelectedDiscoveryImportance}
-              />
               <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
                 <table className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
@@ -17900,46 +17908,56 @@ function App() {
         )}
 
         {menu === 'excluded' && (
-          <section className="stat-card">
-            <div className="contracts-header-actions">
-              <button className="primary-btn" type="button" onClick={handleAddExcludedRow}>
-                등록
-              </button>
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={deleteSelectedExcludedRows}
-                disabled={selectedExcludedIds.length === 0}
-              >
-                선택 삭제
-              </button>
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={transferSelectedExcludedToSales}
-                disabled={!canEditExcluded || selectedExcludedIds.length === 0}
-              >
-                영업관리대장으로 이동
-              </button>
-              {selectedExcludedIds.length > 0 && (
-                <button
-                  type="button"
-                  className="secondary-btn registry-selection-count"
-                  tabIndex={-1}
-                  aria-disabled="true"
-                  role="status"
-                  aria-live="polite"
-                >
-                  총 {selectedExcludedIds.length}건 선택됨
+          <section className="stat-card registry-control-stack">
+            <div className="contracts-header-actions registry-control-row flex flex-wrap items-center gap-x-4">
+              <div className="registry-control-actions flex shrink-0 flex-wrap items-center gap-2">
+                <button className="primary-btn" type="button" onClick={handleAddExcludedRow}>
+                  등록
                 </button>
-              )}
-              <button className="secondary-btn" type="button" onClick={handleExcludedExcelDownload}>
-                엑셀 다운로드
-              </button>
+                <button
+                  className="secondary-btn"
+                  type="button"
+                  onClick={deleteSelectedExcludedRows}
+                  disabled={selectedExcludedIds.length === 0}
+                >
+                  선택 삭제
+                </button>
+                <button
+                  className="secondary-btn"
+                  type="button"
+                  onClick={transferSelectedExcludedToSales}
+                  disabled={!canEditExcluded || selectedExcludedIds.length === 0}
+                >
+                  영업관리대장으로 이동
+                </button>
+                {selectedExcludedIds.length > 0 && (
+                  <button
+                    type="button"
+                    className="secondary-btn registry-selection-count"
+                    tabIndex={-1}
+                    aria-disabled="true"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    총 {selectedExcludedIds.length}건 선택됨
+                  </button>
+                )}
+                <button className="secondary-btn" type="button" onClick={handleExcludedExcelDownload}>
+                  엑셀 다운로드
+                </button>
+              </div>
+              <span className="registry-control-divider" aria-hidden="true" />
+              <ImportanceLegend
+                className="registry-header-legend"
+                items={SALES_STATUS_LEGEND_ITEMS}
+                allLabel="전체보기"
+                selectedImportance={selectedExcludedImportance}
+                onSelect={setSelectedExcludedImportance}
+              />
             </div>
 
-            <div className="table-toolbar registry-toolbar-date-range">
-              <div className="registry-search-toolbar-split">
+            <div className="table-toolbar registry-toolbar-date-range registry-control-filters">
+              <div className="registry-search-toolbar-split flex items-center">
                 <input
                   className="table-search-input"
                   placeholder="검색어를 입력하세요"
@@ -17974,12 +17992,6 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <ImportanceLegend
-                items={SALES_STATUS_LEGEND_ITEMS}
-                allLabel="전체보기"
-                selectedImportance={selectedExcludedImportance}
-                onSelect={setSelectedExcludedImportance}
-              />
               <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
                 <table className="contract-table excel-table registry-table excluded-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>

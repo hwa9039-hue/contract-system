@@ -571,6 +571,12 @@ textarea {
   flex-wrap: wrap;
 }
 
+.contracts-header-actions > .registry-header-legend {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* 그리드 체크박스 선택 건수 실시간 표시 배지 (계약현황·영업관리대장·건축정보·사업검색이력·문서수발신대장·연락처 공용)
    양옆 '선택 삭제/엑셀 다운로드'와 100% 동일한 <button class="secondary-btn">를 그대로 사용하고,
    이 클래스는 크기 관련 속성(패딩·폰트·라운드·높이)을 절대 재정의하지 않아 1px 오차 없이 칼각을 맞춘다.
@@ -11005,6 +11011,154 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.contracts-header-actions.flex {
+  column-gap: 1rem;
+}
+
+/* 영업관리대장 · 건축정보 · 사업공유 상단만 40px, 테두리 8px로 맞춘다. */
+.registry-control-stack {
+  --registry-control-h: 40px;
+  --registry-control-radius: 8px;
+  --registry-control-border: 1px solid #e5e7eb;
+}
+
+.registry-control-stack .contracts-header-actions.flex {
+  column-gap: 12px;
+  row-gap: 8px;
+  margin-bottom: 10px;
+}
+
+@media (min-width: 769px) {
+  .registry-control-stack .contracts-header-actions.flex,
+  .registry-control-stack .registry-control-filters .registry-search-toolbar-split {
+    align-items: center;
+  }
+}
+
+.registry-control-stack .registry-control-actions {
+  align-items: center;
+  gap: 8px;
+}
+
+.registry-control-stack .registry-control-divider {
+  flex: 0 0 1px;
+  width: 1px;
+  height: 22px;
+  align-self: center;
+  background: rgba(156, 163, 175, 0.8);
+}
+
+.registry-control-stack .primary-btn,
+.registry-control-stack .secondary-btn,
+.registry-control-stack .registry-header-legend .dashboard-importance-legend-item--button,
+.registry-control-stack .registry-control-filters .table-search-input,
+.registry-control-stack .registry-control-filters .registry-date-range-picker,
+.registry-control-stack .registry-control-filters .sales-hidden-toggle {
+  box-sizing: border-box;
+  height: var(--registry-control-h) !important;
+  min-height: var(--registry-control-h) !important;
+  max-height: var(--registry-control-h) !important;
+  border: var(--registry-control-border);
+  border-radius: var(--registry-control-radius);
+  box-shadow: none;
+}
+
+.registry-control-stack .primary-btn,
+.registry-control-stack .secondary-btn,
+.registry-control-stack .registry-header-legend .dashboard-importance-legend-item--button,
+.registry-control-stack .registry-control-filters .sales-hidden-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.registry-control-stack .primary-btn {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--color-on-dark-strong);
+  font-weight: 800;
+}
+
+.registry-control-stack .secondary-btn {
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.registry-control-stack .primary-btn:hover,
+.registry-control-stack .secondary-btn:hover,
+.registry-control-stack .registry-header-legend .dashboard-importance-legend-item--button:hover {
+  transform: none;
+}
+
+.registry-control-stack .registry-header-legend.dashboard-importance-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.registry-control-stack .registry-header-legend .dashboard-importance-legend-item--button {
+  background: #ffffff;
+  color: #374151;
+}
+
+.registry-control-stack .registry-header-legend .dashboard-importance-legend-item--button:hover {
+  background: #f3f4f6;
+  filter: none;
+}
+
+.registry-control-stack .registry-header-legend .dashboard-importance-legend-item--button.is-active {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+  color: #111827;
+  font-weight: 800;
+}
+
+.registry-control-stack .registry-control-filters {
+  margin-bottom: 12px;
+}
+
+.registry-control-stack .registry-control-filters .registry-search-toolbar-split {
+  gap: 8px;
+}
+
+.registry-control-stack .registry-control-filters .table-search-input {
+  padding: 0 14px;
+  background: #ffffff;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.registry-control-stack .registry-control-filters .registry-date-range-picker {
+  padding: 0 10px 0 14px;
+  background: #ffffff;
+}
+
+.registry-control-stack .registry-control-filters .sales-hidden-toggle {
+  gap: 8px;
+  background: #ffffff;
+  color: #374151;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .registry-control-stack .registry-control-divider {
+    width: 100%;
+    height: 1px;
+    flex-basis: auto;
+  }
 }
 
 .auth-screen {

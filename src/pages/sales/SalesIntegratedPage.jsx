@@ -158,10 +158,10 @@ export default function SalesIntegratedPage() {
       : '검색 결과가 없습니다.'
 
   return (
-    <section className="stat-card sales-contacts-page sales-integrated-page" aria-label="영업관리(통합)">
-      <div className="sales-integrated-filters" aria-label="상태 필터">
+    <section className="stat-card sales-contacts-page sales-integrated-page registry-control-stack" aria-label="영업관리(통합)">
+      <div className="sales-integrated-filters registry-control-filters flex flex-wrap items-center" aria-label="상태 필터">
         <ImportanceLegend
-          className="sales-integrated-legend"
+          className="sales-integrated-legend registry-header-legend"
           items={INTEGRATED_LEGEND_ITEMS}
           allLabel="전체보기"
           selectedImportance={tone}
