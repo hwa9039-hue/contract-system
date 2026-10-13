@@ -11,7 +11,7 @@ import {
 export function isEditableTextColumn(column) {
   if (!column) return false
   const type = column.type
-  if (type === 'date' || type === 'amount' || type === 'select' || type === 'importance') {
+  if (type === 'date' || type === 'amount' || type === 'select' || type === 'statusBadge' || type === 'importance') {
     return false
   }
   return type === 'text' || type === 'textarea'

@@ -1,6 +1,7 @@
 /** 건축정보 테이블 헤더 다중 필터 — 공통 로직 */
 
 import { compareYearMonthDesc, toYearMonthFilterValue } from './dateFieldUtils.js'
+import { salesStatusBadgeLabel } from './salesStatusBadge.jsx'
 
 export const DISCOVERY_FILTERABLE_COLUMN_KEYS = Object.freeze([
   'permitDate',
@@ -50,6 +51,11 @@ function compareNumericColumnValues(a, b) {
 /** 행·컬럼 → 필터 비교용 표시값 (테이블 셀 표시와 동일 기준) */
 export function getDiscoveryColumnFilterCellValue(item, columnKey) {
   const row = item && typeof item === 'object' ? item : {}
+
+  if (columnKey === 'projectStage') {
+    const stage = salesStatusBadgeLabel(row.projectStage)
+    return stage || DISCOVERY_COLUMN_FILTER_BLANK
+  }
 
   if (columnKey === 'projectAmount') {
     const displayed = formatAmountForFilter(row.projectAmount)

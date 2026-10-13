@@ -44,6 +44,7 @@ export function normalizeIntegratedRow(raw) {
     id: asText(raw?.id),
     statusColor: asText(raw?.status_color) || 'empty',
     statusLabel: asText(raw?.status_label),
+    stage: asText(raw?.stage),
     sourceMenu: asText(raw?.source_menu),
     sourceKey: asText(raw?.source_key),
     date: asText(raw?.date),
@@ -75,6 +76,7 @@ export const salesIntegratedApi = {
       sourceMenu: asText(data?.source_menu),
       statusColor: asText(data?.status_color) || 'empty',
       statusLabel: asText(data?.status_label),
+      stage: asText(data?.stage),
       columns: columns.map((column) => ({
         label: asText(column?.label),
         value: asText(column?.value),

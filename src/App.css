@@ -7486,6 +7486,94 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
   box-sizing: border-box;
 }
 
+.registry-importance-dot--orange {
+  background: #ea580c;
+}
+
+.registry-importance-dot--fuchsia {
+  background: #c026d3;
+}
+
+.registry-importance-dot--emerald {
+  background: #059669;
+}
+
+.sales-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.cell-display--status-badge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 32px;
+}
+
+.sales-status-badge-hit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.sales-status-badge--red {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.sales-status-badge--yellow {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.sales-status-badge--orange {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.sales-status-badge--fuchsia {
+  background: #fae8ff;
+  color: #86198f;
+}
+
+.sales-status-badge--emerald {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.sales-status-badge--blue {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.sales-status-badge--green {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.sales-status-badge--gray,
+.sales-status-badge--empty {
+  background: #f3f4f6;
+  color: #374151;
+}
+
 /* 중요도 컬럼 — 색상 점만 들어갈 타이트한 너비 */
 .sales-registry-table col.sales-col-importance,
 .sales-registry-table th.registry-importance-cell,
@@ -7902,6 +7990,14 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
   min-width: 460px !important;
 }
 
+.sales-registry-table col.sales-col-salesNote,
+.sales-registry-table th.sales-note-cell,
+.sales-registry-table td.sales-note-cell {
+  width: 21% !important;
+  min-width: 230px !important;
+  max-width: none !important;
+}
+
 .sales-registry-table col.sales-col-projectName {
   width: 22% !important;
 }
@@ -7918,7 +8014,7 @@ table[data-contract-table-row-key] td.editable-cell > textarea.registry-cell-aut
 table.sales-registry-table.excel-table.registry-table {
   --sales-sticky-w-check: 44px;
   --sales-sticky-w-archive: 56px;
-  --sales-sticky-w-importance: 64px;
+  --sales-sticky-w-importance: 140px;
   --sales-sticky-w-record: 56px;
   --sales-sticky-w-client: 150px;
   --sales-sticky-w-project: 260px;
@@ -7949,7 +8045,7 @@ table.sales-registry-table.excel-table.registry-table {
 }
 
 /* 고정 열은 폭이 흔들리면 left 좌표가 어긋나므로 col·th·td 를 같은 값으로 못 박는다 */
-table.sales-registry-table.excel-table.registry-table col.sales-col-importance,
+table.sales-registry-table.excel-table.registry-table col.sales-col-projectStage,
 table.sales-registry-table.excel-table.registry-table th.sales-sticky-col--importance,
 table.sales-registry-table.excel-table.registry-table td.sales-sticky-col--importance {
   width: var(--sales-sticky-w-importance) !important;
@@ -7976,7 +8072,6 @@ table.sales-registry-table.excel-table.registry-table td.sales-sticky-col--proje
   box-sizing: border-box;
 }
 
-table.sales-registry-table.excel-table.registry-table col.sales-col-projectStage,
 table.sales-registry-table.excel-table.registry-table th.sales-sticky-col--stage,
 table.sales-registry-table.excel-table.registry-table td.sales-sticky-col--stage {
   width: var(--sales-sticky-w-stage) !important;
@@ -8135,7 +8230,7 @@ table.sales-registry-table.excel-table.registry-table td.sales-sticky-col--last:
 table.discovery-registry-table.excel-table.registry-table {
   --discovery-sticky-w-check: 44px;
   --discovery-sticky-w-archive: 56px;
-  --discovery-sticky-w-importance: 64px;
+  --discovery-sticky-w-importance: 140px;
   --discovery-sticky-w-record: 56px;
   --discovery-sticky-w-client: 150px;
   --discovery-sticky-w-project: 260px;
@@ -8970,7 +9065,7 @@ table.discovery-registry-table.excel-table.registry-table td.discovery-sticky-co
 table.excluded-registry-table.excel-table.registry-table {
   --excluded-sticky-w-check: 44px;
   --excluded-sticky-w-archive: 56px;
-  --excluded-sticky-w-importance: 64px;
+  --excluded-sticky-w-importance: 140px;
   --excluded-sticky-w-client: 150px;
   --excluded-sticky-w-project: 240px;
   --excluded-sticky-w-category: 108px;
@@ -20247,6 +20342,21 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
   color: #dc2626;
 }
 
+.mobile-data-card-badge.is-orange {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.mobile-data-card-badge.is-fuchsia {
+  background: #fae8ff;
+  color: #86198f;
+}
+
+.mobile-data-card-badge.is-emerald {
+  background: #d1fae5;
+  color: #065f46;
+}
+
 .mobile-data-card-badge.is-purple {
   background: #ede9fe;
   color: #7c3aed;
@@ -20691,16 +20801,6 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
   margin-left: auto;
 }
 
-.sales-integrated-page .sales-integrated-click-hint {
-  margin: 0;
-  padding: 11px 0;
-  color: #ef4444;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.25;
-  white-space: nowrap;
-}
-
 .sales-integrated-page .sales-contacts-table-wrap {
   flex: 1 1 auto;
   min-height: 0;
@@ -20713,12 +20813,12 @@ table.sales-integrated-table.excel-table.registry-table {
   table-layout: fixed;
 }
 
-table.sales-integrated-table col.sales-integrated-col-dot {
-  width: 6%;
-}
-
-table.sales-integrated-table col.sales-integrated-col-status {
-  width: 8%;
+table.sales-integrated-table col.sales-integrated-col-status,
+table.sales-integrated-table th.sales-integrated-col-status,
+table.sales-integrated-table td.sales-integrated-col-status {
+  width: 140px !important;
+  min-width: 140px !important;
+  max-width: 140px !important;
 }
 
 table.sales-integrated-table col.sales-integrated-col-source {

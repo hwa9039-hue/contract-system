@@ -4,16 +4,16 @@ import {
   getImportanceStyle,
   resolveRegistryImportanceStatus,
 } from './registryImportance.jsx'
+import { salesStatusBadgeLabel } from './salesStatusBadge.jsx'
 import { compareYearMonthDesc, toYearMonthFilterValue } from './dateFieldUtils.js'
 
 export const SALES_FILTERABLE_COLUMN_KEYS = Object.freeze([
-  'importance',
+  'projectStage',
   'registerDate',
   'client',
   'projectName',
   'projectAmount',
   'manager',
-  'projectStage',
   'department',
   'detail',
   'source',
@@ -28,11 +28,6 @@ const YEAR_MONTH_FILTER_COLUMN_KEYS = new Set(['registerDate'])
 function safeString(value) {
   if (value === null || value === undefined) return ''
   return String(value)
-}
-
-function normalizeSalesProjectStage(stage) {
-  const trimmed = safeString(stage).trim()
-  return trimmed === '완료' ? '마감' : trimmed
 }
 
 function formatAmountForFilter(value) {
@@ -78,7 +73,7 @@ export function getSalesColumnFilterCellValue(item, columnKey) {
   }
 
   if (columnKey === 'projectStage') {
-    const stage = normalizeSalesProjectStage(row.projectStage)
+    const stage = salesStatusBadgeLabel(row.projectStage)
     return stage || SALES_COLUMN_FILTER_BLANK
   }
 

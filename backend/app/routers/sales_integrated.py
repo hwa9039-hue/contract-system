@@ -110,6 +110,7 @@ def _sales_columns(row: dict, tone_label: str) -> list[dict]:
         _column("사업금액", row.get("projectAmount"), amount=True),
         _column("담당자", row.get("manager")),
         _column("세부내용", row.get("detail")),
+        _column("비고", row.get("salesNote")),
         _column("담당부서", row.get("department")),
         _column("출처", row.get("source")),
     ]
@@ -126,7 +127,7 @@ def _discovery_columns(row: dict, tone_label: str) -> list[dict]:
         _column("세부내용", row.get("note")),
         _column("사업구분", row.get("projectCategory")),
         _column("준공시기", row.get("completionPeriod")),
-        _column("담당자", row.get("manager")),
+        _column("담당부서", row.get("manager")),
     ]
 
 
@@ -167,6 +168,7 @@ def _item(
         "title": _text(title),
         "amount": _amount_text(amount),
         "manager": _text(manager),
+        "stage": _text(raw_status),
     }
     if not item["id"]:
         return None
@@ -210,7 +212,7 @@ def _collect_rows() -> list[dict]:
             title=row.get("projectName"),
             client=row.get("client"),
             amount=row.get("projectAmount"),
-            manager=row.get("manager"),
+            manager="-",
         )
         if item:
             rows.append(item)
@@ -299,5 +301,6 @@ def get_sales_integrated_detail(source_key: str, row_id: str):
         "source_menu": SOURCES[source_key],
         "status_color": status_color,
         "status_label": status_label,
+        "stage": _text(raw_status),
         "columns": columns(row, status_label),
     }

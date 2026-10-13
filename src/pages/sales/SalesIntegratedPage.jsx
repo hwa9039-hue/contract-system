@@ -1,38 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { IMPORTANCE_LEGEND_ITEMS, ImportanceLegend } from '../../ImportanceLegend.jsx'
+import { ImportanceLegend } from '../../ImportanceLegend.jsx'
 import { MobileDataCardList } from '../../MobileDataCardList.jsx'
+import { salesIntegratedApi } from '../../salesIntegratedApi.js'
 import {
-  SALES_INTEGRATED_STATUS_BY_TONE,
-  salesIntegratedApi,
-} from '../../salesIntegratedApi.js'
+  SALES_STATUS_LEGEND_ITEMS,
+  SalesStatusBadge,
+  salesStatusBadgeLabel,
+  salesStatusBadgeTone,
+  salesStatusMatchesLegend,
+} from '../../salesStatusBadge.jsx'
 
-const DOT_TONES = new Set(['red', 'yellow', 'blue', 'green', 'gray', 'empty'])
-
-const INTEGRATED_LEGEND_ITEMS = [
-  ...IMPORTANCE_LEGEND_ITEMS,
-  { tone: 'gray', label: '종료' },
-]
+const INTEGRATED_LEGEND_ITEMS = SALES_STATUS_LEGEND_ITEMS
 
 function rowSearchText(row) {
   const amountDigits = String(row?.amount || '').replace(/[^\d]/g, '')
-  return [row?.statusLabel, row?.sourceMenu, row?.date, row?.client, row?.title, row?.amount, amountDigits, row?.manager]
+  return [row?.stage, row?.statusLabel, row?.sourceMenu, row?.date, row?.client, row?.title, row?.amount, amountDigits, row?.manager]
     .join(' ')
     .toLowerCase()
     .replace(/\s+/g, '')
-}
-
-function statusDotClass(tone) {
-  const safe = DOT_TONES.has(tone) ? tone : 'empty'
-  return `registry-importance-dot registry-importance-dot--${safe} registry-importance-dot--size-md`
-}
-
-function StatusDot({ tone, label }) {
-  return (
-    <span className="registry-importance-dot-only" title={label || '상태 없음'} aria-label={label || '상태 없음'}>
-      <span className={statusDotClass(tone)} aria-hidden="true" />
-    </span>
-  )
 }
 
 function IntegratedDetailModal({ detail, loading, error, onClose }) {
@@ -88,11 +74,8 @@ function IntegratedDetailModal({ detail, loading, error, onClose }) {
               <div key={column.label} className="sales-integrated-detail-row">
                 <dt>{column.label}</dt>
                 <dd>
-                  {column.label === '중요도' ? (
-                    <span className="sales-integrated-importance-value">
-                      <StatusDot tone={detail.statusColor} label={column.value || detail.statusLabel} />
-                      <span>{column.value || '없음'}</span>
-                    </span>
+                  {column.label === '중요도' || column.label === '상태' ? (
+                    <SalesStatusBadge status={column.label === '상태' ? column.value : detail.stage || column.value} />
                   ) : (
                     column.value || '—'
                   )}
@@ -118,12 +101,11 @@ export default function SalesIntegratedPage() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState('')
 
-  const loadRows = useCallback(async (nextTone) => {
+  const loadRows = useCallback(async () => {
     setLoading(true)
     setLoadError('')
     try {
-      const status = nextTone ? SALES_INTEGRATED_STATUS_BY_TONE[nextTone] || '' : ''
-      const nextRows = await salesIntegratedApi.list(status)
+      const nextRows = await salesIntegratedApi.list()
       setRows(nextRows)
     } catch (err) {
       setRows([])
@@ -134,8 +116,8 @@ export default function SalesIntegratedPage() {
   }, [])
 
   useEffect(() => {
-    loadRows(tone)
-  }, [tone, loadRows])
+    loadRows()
+  }, [loadRows])
 
   const openDetail = useCallback(async (row) => {
     if (!row?.id || !row?.sourceKey) return
@@ -161,10 +143,11 @@ export default function SalesIntegratedPage() {
   }, [])
 
   const visibleRows = useMemo(() => {
+    const matched = rows.filter((row) => salesStatusMatchesLegend(row.stage || row.statusLabel, tone))
     const query = searchQuery.trim().toLowerCase().replace(/\s+/g, '')
-    if (!query) return rows
-    return rows.filter((row) => rowSearchText(row).includes(query))
-  }, [rows, searchQuery])
+    if (!query) return matched
+    return matched.filter((row) => rowSearchText(row).includes(query))
+  }, [rows, searchQuery, tone])
 
   const emptyText = loading
     ? '불러오는 중입니다.'
@@ -184,7 +167,6 @@ export default function SalesIntegratedPage() {
           selectedImportance={tone}
           onSelect={setTone}
         />
-        <p className="sales-integrated-click-hint">상태 또는 해당 사업 클릭 시 상세정보 확인 가능</p>
         <input
           className="table-search-input sales-integrated-search"
           type="search"
@@ -204,7 +186,6 @@ export default function SalesIntegratedPage() {
       <div className="sales-contacts-table-wrap desktop-table-only hidden md:block">
         <table className="excel-table registry-table sales-integrated-table">
           <colgroup>
-            <col className="sales-integrated-col-dot" />
             <col className="sales-integrated-col-status" />
             <col className="sales-integrated-col-source" />
             <col className="sales-integrated-col-date" />
@@ -215,8 +196,7 @@ export default function SalesIntegratedPage() {
           </colgroup>
           <thead>
             <tr>
-              <th className="sales-integrated-col-dot">중요도</th>
-              <th className="sales-integrated-col-status">상태</th>
+              <th className="sales-integrated-col-status">중요도(상태)</th>
               <th className="sales-integrated-col-source">출처</th>
               <th className="sales-integrated-col-date">등록일</th>
               <th className="sales-integrated-col-client">발주처</th>
@@ -228,7 +208,7 @@ export default function SalesIntegratedPage() {
           <tbody>
             {visibleRows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="sales-integrated-empty">
+                <td colSpan={7} className="sales-integrated-empty">
                   {emptyText}
                 </td>
               </tr>
@@ -246,10 +226,9 @@ export default function SalesIntegratedPage() {
                     }
                   }}
                 >
-                  <td className="sales-integrated-col-dot">
-                    <StatusDot tone={row.statusColor} label={row.statusLabel} />
+                  <td className="sales-integrated-col-status">
+                    <SalesStatusBadge status={row.stage || row.statusLabel} />
                   </td>
-                  <td className="sales-integrated-col-status">{row.statusLabel || '—'}</td>
                   <td className="sales-integrated-col-source">{row.sourceMenu}</td>
                   <td className="sales-integrated-col-date">{row.date || '—'}</td>
                   <td className="sales-integrated-col-client">{row.client || '—'}</td>
@@ -267,7 +246,10 @@ export default function SalesIntegratedPage() {
         rows={visibleRows}
         getRowKey={(row) => `${row.sourceKey}:${row.id}`}
         getTitle={(row) => row.title}
-        getBadge={(row) => ({ label: row.statusLabel || row.sourceMenu, tone: row.statusColor })}
+        getBadge={(row) => ({
+          label: salesStatusBadgeLabel(row.stage || row.statusLabel),
+          tone: salesStatusBadgeTone(row.stage || row.statusLabel),
+        })}
         summaryFields={[
           { label: '출처', getValue: (row) => row.sourceMenu },
           { label: '등록일', getValue: (row) => row.date },

@@ -101,6 +101,15 @@ import {
 } from './registryImportance.jsx'
 import { ImportanceLegend } from './ImportanceLegend.jsx'
 import {
+  SALES_STAGE_OPTIONS,
+  SALES_STATUS_LEGEND_ITEMS,
+  SalesStatusBadge,
+  resolveSalesStageOptions,
+  salesStatusBadgeLabel,
+  salesStatusBadgeTone,
+  salesStatusMatchesLegend,
+} from './salesStatusBadge.jsx'
+import {
   CONTRACT_TABLE_DATA_TD_CLASS,
   CONTRACT_TABLE_HEADER_TH_CLASS,
   ContractTableCellShell,
@@ -553,16 +562,6 @@ async function copyTextToClipboard(text) {
   }
 }
 
-const SALES_STAGE_OPTIONS = [
-  '보고',
-  '대응중',
-  '확인필요',
-  '마감',
-  '계약',
-  '발주계획',
-  '사전규격',
-  '입찰공고',
-]
 const SALES_MANAGER_OPTIONS = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범', '신상준']
 const SALES_REGISTER_MANAGER_OPTIONS = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범']
 /** 영업관리대장: 연도 하위 접이 그룹(마감·계약) 표시명 */
@@ -607,18 +606,20 @@ const DISCOVERY_CATEGORY_TONE_MAP = {
 
 /**
  * 영업관리대장 표 컬럼 — 배열 순서가 헤더·데이터 행·colgroup 순서를 함께 결정한다.
- * stickyClass 가 붙은 컬럼(중요도·등록일·발주처·사업명·상태)은 체크박스·숨김·요약과 함께
- * 가로 스크롤 시 좌측에 고정된다. 요약은 컬럼이 아니라 중요도 뒤에 끼워 넣는 셀이라
+ * 중요도와 상태는 projectStage 한 칸(중요도(상태))으로 본다.
+ * stickyClass 가 붙은 컬럼(중요도(상태)·등록일·발주처·사업명)은 체크박스·숨김·요약과 함께
+ * 가로 스크롤 시 좌측에 고정된다. 요약은 컬럼이 아니라 상태 뒤에 끼워 넣는 셀이라
  * CSS 에서 기존 클래스(.sales-record-*)로 함께 고정한다.
  */
 const SALES_COLUMNS = [
   {
-    key: 'importance',
-    label: '중요도',
+    key: 'projectStage',
+    label: '중요도(상태)',
     align: 'center',
-    type: 'importance',
-    statusKey: 'projectStage',
-    width: 72,
+    type: 'statusBadge',
+    options: SALES_STAGE_OPTIONS,
+    width: 140,
+    recordAfter: true,
     stickyClass: 'sales-sticky-col sales-sticky-col--importance',
   },
   {
@@ -644,16 +645,7 @@ const SALES_COLUMNS = [
     align: 'left',
     type: 'textarea',
     width: 340,
-    stickyClass: 'sales-sticky-col sales-sticky-col--project',
-  },
-  {
-    key: 'projectStage',
-    label: '상태',
-    align: 'center',
-    type: 'select',
-    options: SALES_STAGE_OPTIONS,
-    width: 102,
-    stickyClass: 'sales-sticky-col sales-sticky-col--stage sales-sticky-col--last',
+    stickyClass: 'sales-sticky-col sales-sticky-col--project sales-sticky-col--last',
   },
   {
     key: 'projectAmount',
@@ -682,31 +674,28 @@ const SALES_COLUMNS = [
     cellClass: 'sales-department-cell',
   },
   { key: 'source', label: '출처', align: 'center', type: 'text', width: 140 },
+  {
+    key: 'salesNote',
+    label: '비고',
+    align: 'left',
+    type: 'textarea',
+    width: 230,
+    cellClass: 'sales-detail-cell sales-note-cell',
+  },
 ]
 
 const DISCOVERY_CATEGORY_OPTIONS = ['장기 사업', '단기 사업']
-// 건축정보 상태 옵션 — 영업관리대장 규칙(빨강 검토 / 노랑 대응중 / 파랑 보고)만 이식.
-// 초록색(사업공고: 발주계획·사전규격·입찰공고·정보공개) 계열은 의도적으로 제외한다.
-const DISCOVERY_STAGE_OPTIONS = ['확인필요', '대응중', '보고']
-/**
- * 건축정보 표 컬럼 — 배열 순서가 헤더·데이터 행·colgroup 순서를 함께 결정한다.
- * stickyClass 가 붙은 컬럼(중요도·등록일·발주처·사업명·상태)은 체크박스·숨김·요약과
- * 함께 가로 스크롤 시 좌측에 고정된다. 요약은 컬럼이 아니라 중요도 뒤에 끼워 넣는 셀이라
- * CSS 에서 기존 클래스(.sales-record-*)로 함께 고정한다.
- */
 const DISCOVERY_COLUMNS = [
   {
-    key: 'importance',
-    label: '중요도',
+    key: 'projectStage',
+    label: '중요도(상태)',
     align: 'center',
-    type: 'importance',
-    // 중요도는 상태(projectStage)에 종속되는 읽기 전용 컬럼. 사용자가 직접 편집할 수 없다.
-    // 상태 변경 시 색상(빨강/노랑/파랑)이 자동으로 재계산된다.
-    statusKey: 'projectStage',
-    editable: false,
-    width: 72,
-    widthClass: 'registry-importance-col',
-    cellClass: 'discovery-col-tight registry-importance-col',
+    type: 'statusBadge',
+    options: SALES_STAGE_OPTIONS,
+    width: 140,
+    recordAfter: true,
+    widthClass: 'discovery-w-stage',
+    cellClass: 'discovery-col-tight discovery-w-stage',
     stickyClass: 'discovery-sticky-col discovery-sticky-col--importance',
   },
   {
@@ -736,17 +725,7 @@ const DISCOVERY_COLUMNS = [
     type: 'text',
     widthClass: 'discovery-w-p14',
     cellClass: 'discovery-col-project discovery-w-p14',
-    stickyClass: 'discovery-sticky-col discovery-sticky-col--project',
-  },
-  {
-    key: 'projectStage',
-    label: '상태',
-    align: 'center',
-    type: 'select',
-    options: DISCOVERY_STAGE_OPTIONS,
-    widthClass: 'discovery-w-24',
-    cellClass: 'discovery-col-tight discovery-w-24',
-    stickyClass: 'discovery-sticky-col discovery-sticky-col--stage discovery-sticky-col--last',
+    stickyClass: 'discovery-sticky-col discovery-sticky-col--project discovery-sticky-col--last',
   },
   {
     key: 'projectAmount',
@@ -784,7 +763,7 @@ const DISCOVERY_COLUMNS = [
   },
   {
     key: 'manager',
-    label: '담당자',
+    label: '담당부서',
     align: 'center',
     type: 'text',
     widthClass: 'discovery-w-58',
@@ -836,7 +815,6 @@ const DISCOVERY_IMPORT_COLUMNS = [
   return DISCOVERY_COLUMNS.find((column) => column.key === key)
 })
 
-const EXCLUDED_CATEGORY_OPTIONS = ['발주계획', '사전규격', '입찰공고', '정보공개']
 const EXCLUDED_KEYWORD_OPTIONS = [
   '(N)안내전광판',
   '(N)기상전광판',
@@ -888,14 +866,15 @@ const EXCLUDED_WRITER_TONE_MAP = {
  */
 const EXCLUDED_COLUMNS = [
   {
-    key: 'importance',
-    label: '중요도',
+    key: 'category',
+    label: '중요도(상태)',
     align: 'center',
-    type: 'importance',
-    statusKey: 'category',
-    width: 72,
-    widthClass: 'registry-importance-col',
-    cellClass: 'excluded-col-tight registry-importance-col',
+    type: 'statusBadge',
+    options: SALES_STAGE_OPTIONS,
+    width: 140,
+    importLabels: ['상태'],
+    widthClass: 'excluded-w-24',
+    cellClass: 'excluded-col-tight excluded-w-24',
     stickyClass: 'excluded-sticky-col excluded-sticky-col--importance',
   },
   {
@@ -923,17 +902,7 @@ const EXCLUDED_COLUMNS = [
     type: 'text',
     widthClass: 'excluded-w-p18',
     cellClass: 'excluded-col-project excluded-w-p18',
-    stickyClass: 'excluded-sticky-col excluded-sticky-col--project',
-  },
-  {
-    key: 'category',
-    label: '상태',
-    align: 'center',
-    type: 'select',
-    options: EXCLUDED_CATEGORY_OPTIONS,
-    widthClass: 'excluded-w-24',
-    cellClass: 'excluded-col-tight excluded-w-24',
-    stickyClass: 'excluded-sticky-col excluded-sticky-col--category excluded-sticky-col--last',
+    stickyClass: 'excluded-sticky-col excluded-sticky-col--project excluded-sticky-col--last',
   },
   {
     key: 'projectAmount',
@@ -5100,6 +5069,10 @@ function toExcludedPayload(row, timestamp) {
 }
 
 function getRegistryCellSearchValue(column, row) {
+  if (column.type === 'statusBadge') {
+    return salesStatusBadgeLabel(row[column.key]).toLowerCase()
+  }
+
   if (column.type === 'importance') {
     const normalized = resolveRegistryImportanceStatus(row, column)
     const { label } = getImportanceStyle(normalized)
@@ -8311,7 +8284,7 @@ function App() {
         )
     )
     return filterSalesRowsByActiveFilters(toolbarFiltered, salesActiveFilters).filter((row) =>
-      matchesSelectedImportance(row.projectStage, selectedSalesImportance)
+      salesStatusMatchesLegend(row.projectStage, selectedSalesImportance)
     )
   }, [
     salesActiveFilters,
@@ -8334,7 +8307,7 @@ function App() {
         )
     )
     return filterDiscoveryRowsByActiveFilters(toolbarFiltered, discoveryActiveFilters).filter((row) =>
-      matchesSelectedImportance(row.projectStage, selectedDiscoveryImportance)
+      salesStatusMatchesLegend(row.projectStage, selectedDiscoveryImportance)
     )
   }, [
     discoveryActiveFilters,
@@ -8420,7 +8393,7 @@ function App() {
         )
     )
     return filterExcludedRowsByActiveFilters(toolbarFiltered, excludedActiveFilters).filter((row) =>
-      matchesSelectedImportance(row.category, selectedExcludedImportance)
+      salesStatusMatchesLegend(row.category, selectedExcludedImportance)
     )
   }, [
     excludedActiveFilters,
@@ -11123,6 +11096,7 @@ function App() {
   const getRegistryExcelHeaderCandidates = (column) => [
     column.label,
     column.key,
+    ...(column.importLabels || []),
     ...(REGISTRY_EXCEL_HEADER_ALIASES[column.key] || []),
   ]
 
@@ -11190,7 +11164,12 @@ function App() {
           return
         }
 
-        if (column.type === 'select' || column.type === 'text' || column.type === 'textarea') {
+        if (
+          column.type === 'select' ||
+          column.type === 'statusBadge' ||
+          column.type === 'text' ||
+          column.type === 'textarea'
+        ) {
           const text = safeString(rawValue).trim()
           nextRow[column.key] =
             column.key === 'projectStage' ? normalizeSalesProjectStage(text) : text
@@ -13835,8 +13814,12 @@ function App() {
         />
       )
     }
-    if (column.type === 'select') {
-      const commitSelectValue = async (nextValue) => {
+    if (column.type === 'select' || column.type === 'statusBadge') {
+      const selectOptions =
+        column.type === 'statusBadge'
+          ? resolveSalesStageOptions(registryCellEditDraft, column.options)
+          : column.options || []
+      const commitSelectValue = (nextValue) => {
         if (!scope || !rowId) return
         const snap = registryCellEditRef.current
         const originalValue =
@@ -13846,11 +13829,19 @@ function App() {
             ? snap.originalValue
             : undefined
 
-        try {
-          await persistRegistryCellPatch(scope, rowId, column, nextValue, originalValue)
-        } finally {
+        if (column.type === 'statusBadge') {
           cancelRegistryCellEdit()
+          void persistRegistryCellPatch(scope, rowId, column, nextValue, originalValue)
+          return
         }
+
+        void (async () => {
+          try {
+            await persistRegistryCellPatch(scope, rowId, column, nextValue, originalValue)
+          } finally {
+            cancelRegistryCellEdit()
+          }
+        })()
       }
 
       return (
@@ -13896,7 +13887,7 @@ function App() {
           }}
         >
           <option value="">선택</option>
-          {(column.options || []).map((option) => (
+          {selectOptions.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
@@ -14015,7 +14006,11 @@ function App() {
       )
     }
 
-    if (column.type === 'select') {
+    if (column.type === 'select' || column.type === 'statusBadge') {
+      const selectOptions =
+        column.type === 'statusBadge'
+          ? resolveSalesStageOptions(row[column.key], column.options)
+          : column.options || []
       return (
         <select
           className={inputClassName}
@@ -14026,7 +14021,7 @@ function App() {
           onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
         >
           <option value="">선택</option>
-          {column.options.map((option) => (
+          {selectOptions.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
@@ -14311,7 +14306,7 @@ function App() {
                     : ''
               }`}
               onClick={() => {
-                if (isImportanceCell || isEditableText) return
+                if (isImportanceCell || isEditableText || column.type === 'statusBadge') return
                 if (isHistoryDetailCell) {
                   if (!isAdminForRegistry || row.isDraft) return
                   if (useCellMode && onRegistryCellStart) {
@@ -14506,6 +14501,38 @@ function App() {
                       draftFocusColumnKey === column.key,
                   })
                 )
+              ) : column.type === 'statusBadge' ? (
+                <div className="cell-display cell-display--status-badge">
+                  {plainDisplay.isEmpty ? (
+                    <span className="table-cell-empty-placeholder">{plainDisplay.text}</span>
+                  ) : (
+                    <SalesStatusBadge status={row[column.key]} />
+                  )}
+                  {isAdminForRegistry && !row.isDraft ? (
+                    <select
+                      className="sales-status-badge-hit"
+                      value={row[column.key] ?? ''}
+                      aria-label="중요도(상태)"
+                      onChange={(event) => {
+                        const value = event.target.value
+                        void persistRegistryCellPatch(
+                          cellEditScope,
+                          rowId,
+                          column,
+                          value,
+                          row[column.key]
+                        )
+                      }}
+                    >
+                      <option value="">선택</option>
+                      {resolveSalesStageOptions(row[column.key], column.options).map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                </div>
               ) : (
                 <div
                   className={`cell-display${
@@ -14528,7 +14555,7 @@ function App() {
               )}
             </td>,
           ]
-          if (isImportanceCell && renderAfterImportanceCell) {
+          if ((isImportanceCell || column.recordAfter) && renderAfterImportanceCell) {
             cells.push(
               <td
                 key={`${column.key}-record`}
@@ -17419,6 +17446,8 @@ function App() {
 
             <div className="contract-table-panel">
               <ImportanceLegend
+                items={SALES_STATUS_LEGEND_ITEMS}
+                allLabel="전체보기"
                 selectedImportance={selectedSalesImportance}
                 onSelect={setSelectedSalesImportance}
               />
@@ -17431,7 +17460,7 @@ function App() {
                       const cols = [
                         <col key={column.key} className={`sales-col-${column.key}`} />,
                       ]
-                      if (column.key === 'importance') {
+                      if (column.recordAfter) {
                         cols.push(<col key="sales-record" className="sales-record-col" />)
                       }
                       return cols
@@ -17476,7 +17505,7 @@ function App() {
                             </div>
                           </th>,
                         ]
-                        if (column.key === 'importance') {
+                        if (column.recordAfter) {
                           headerCells.push(
                             <th
                               key="sales-record"
@@ -17585,8 +17614,8 @@ function App() {
                 getRowKey={(row, index) => row.id || `sales-${index}`}
                 getTitle={(row) => row.projectName}
                 getBadge={(row) => ({
-                  label: row.projectStage,
-                  tone: getImportanceStyle(row.projectStage).tone,
+                  label: salesStatusBadgeLabel(row.projectStage),
+                  tone: salesStatusBadgeTone(row.projectStage),
                 })}
                 summaryFields={[
                   { label: '발주처', getValue: (row) => row.client },
@@ -17597,6 +17626,7 @@ function App() {
                   { label: '담당자', getValue: (row) => row.manager },
                   { label: '담당부서', getValue: (row) => row.department },
                   { label: '세부내용', getValue: (row) => row.detail },
+                  { label: '비고', getValue: (row) => row.salesNote },
                   { label: '출처', getValue: (row) => row.source },
                 ]}
                 emptyText="표시할 영업 건이 없습니다."
@@ -17681,6 +17711,8 @@ function App() {
 
             <div className="contract-table-panel">
               <ImportanceLegend
+                items={SALES_STATUS_LEGEND_ITEMS}
+                allLabel="전체보기"
                 selectedImportance={selectedDiscoveryImportance}
                 onSelect={setSelectedDiscoveryImportance}
               />
@@ -17696,7 +17728,7 @@ function App() {
                           className={`${column.widthClass || ''} ${column.stickyClass || ''}`}
                         />,
                       ]
-                      if (column.key === 'importance') {
+                      if (column.recordAfter) {
                         cols.push(<col key="discovery-record" className="sales-record-col" />)
                       }
                       return cols
@@ -17741,7 +17773,7 @@ function App() {
                             </div>
                           </th>,
                         ]
-                        if (column.key === 'importance') {
+                        if (column.recordAfter) {
                           headerCells.push(
                             <th
                               key="discovery-record"
@@ -17847,8 +17879,8 @@ function App() {
                 getRowKey={(row, index) => row.id || `discovery-${index}`}
                 getTitle={(row) => row.projectName}
                 getBadge={(row) => ({
-                  label: row.projectStage,
-                  tone: getImportanceStyle(row.projectStage).tone,
+                  label: salesStatusBadgeLabel(row.projectStage),
+                  tone: salesStatusBadgeTone(row.projectStage),
                 })}
                 summaryFields={[
                   { label: '발주처', getValue: (row) => row.client },
@@ -17859,7 +17891,7 @@ function App() {
                   { label: '세부내용', getValue: (row) => row.note },
                   { label: '사업구분', getValue: (row) => row.projectCategory },
                   { label: '준공시기', getValue: (row) => row.completionPeriod },
-                  { label: '담당자', getValue: (row) => row.manager },
+                  { label: '담당부서', getValue: (row) => row.manager },
                 ]}
                 emptyText="표시할 건축정보가 없습니다."
               />
@@ -17943,6 +17975,8 @@ function App() {
 
             <div className="contract-table-panel">
               <ImportanceLegend
+                items={SALES_STATUS_LEGEND_ITEMS}
+                allLabel="전체보기"
                 selectedImportance={selectedExcludedImportance}
                 onSelect={setSelectedExcludedImportance}
               />
@@ -18090,8 +18124,8 @@ function App() {
                 getRowKey={(row, index) => row.id || `excluded-${index}`}
                 getTitle={(row) => row.projectName}
                 getBadge={(row) => ({
-                  label: row.category,
-                  tone: getImportanceStyle(row.category).tone,
+                  label: salesStatusBadgeLabel(row.category),
+                  tone: salesStatusBadgeTone(row.category),
                 })}
                 summaryFields={[
                   { label: '발주처', getValue: (row) => row.client },

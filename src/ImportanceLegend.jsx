@@ -44,7 +44,8 @@ export function ImportanceLegend({
         </button>
       ) : null}
       {items.map((item) => {
-        const isActive = selectedImportance === item.tone
+        const itemKey = item.id || item.tone
+        const isActive = selectedImportance === itemKey
         const classNameItem = [
           'dashboard-importance-legend-item',
           interactive ? 'dashboard-importance-legend-item--button' : '',
@@ -65,7 +66,7 @@ export function ImportanceLegend({
 
         if (!interactive) {
           return (
-            <span key={item.tone} className={classNameItem}>
+            <span key={itemKey} className={classNameItem}>
               {body}
             </span>
           )
@@ -73,12 +74,12 @@ export function ImportanceLegend({
 
         return (
           <button
-            key={item.tone}
+            key={itemKey}
             type="button"
             className={classNameItem}
             aria-pressed={isActive}
             aria-label={`${item.label} 필터`}
-            onClick={() => onSelect(toggleSelectedImportance(selectedImportance, item.tone))}
+            onClick={() => onSelect(toggleSelectedImportance(selectedImportance, itemKey))}
           >
             {body}
           </button>

@@ -5,9 +5,10 @@ import {
   resolveRegistryImportanceStatus,
 } from './registryImportance.jsx'
 import { compareYearMonthDesc, toYearMonthFilterValue } from './dateFieldUtils.js'
+import { salesStatusBadgeLabel } from './salesStatusBadge.jsx'
 
 export const EXCLUDED_FILTERABLE_COLUMN_KEYS = Object.freeze([
-  'importance',
+  'category',
   'writeDate',
   'category',
   'writer',
@@ -65,6 +66,11 @@ export function getExcludedColumnFilterCellValue(item, columnKey) {
       resolveRegistryImportanceStatus(row, EXCLUDED_IMPORTANCE_COLUMN)
     )
     return label || EXCLUDED_COLUMN_FILTER_BLANK
+  }
+
+  if (columnKey === 'category') {
+    const stage = salesStatusBadgeLabel(row.category)
+    return stage || EXCLUDED_COLUMN_FILTER_BLANK
   }
 
   if (columnKey === 'projectAmount') {

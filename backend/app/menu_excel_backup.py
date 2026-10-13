@@ -113,12 +113,13 @@ def _project_sales(row: dict) -> dict[str, Any]:
         "등록일": _normalize_cell(item.get("registerDate")),
         "발주처": _normalize_cell(item.get("client")),
         "사업명": _normalize_cell(item.get("projectName")),
+        "상태": _normalize_cell(stage),
         "사업금액": _amount_display(item.get("projectAmount")),
         "담당자": _normalize_cell(item.get("manager")),
-        "상태": _normalize_cell(stage),
-        "담당부서": _normalize_cell(item.get("department")),
         "세부내용": _normalize_cell(item.get("detail")),
+        "담당부서": _normalize_cell(item.get("department")),
         "출처": _normalize_cell(item.get("source")),
+        "비고": _normalize_cell(item.get("salesNote")),
     }
 
 
@@ -149,7 +150,7 @@ def _project_discovery(row: dict) -> dict[str, Any]:
         "사업명": _normalize_cell(item.get("projectName")),
         "사업금액": _amount_display(item.get("projectAmount")),
         "준공시기": _normalize_cell(item.get("completionPeriod")),
-        "담당자": _normalize_cell(item.get("manager")),
+        "담당부서": _normalize_cell(item.get("manager")),
         "세부내용": _normalize_cell(item.get("note")),
     }
 

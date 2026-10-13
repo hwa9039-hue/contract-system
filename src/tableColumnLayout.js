@@ -84,6 +84,7 @@ export function isLongTextTableColumn(column) {
     column.type === 'date' ||
     column.type === 'amount' ||
     column.type === 'select' ||
+    column.type === 'statusBadge' ||
     column.type === 'importance' ||
     column.type === 'salesDetailHistory'
   ) {
