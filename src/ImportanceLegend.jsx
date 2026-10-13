@@ -16,6 +16,8 @@ export function ImportanceLegend({
   onSelect = null,
   items = IMPORTANCE_LEGEND_ITEMS,
   allLabel = '',
+  allIcon = '',
+  allClassName = '',
 }) {
   const interactive = typeof onSelect === 'function'
   const isFiltered = Boolean(selectedImportance)
@@ -33,6 +35,7 @@ export function ImportanceLegend({
           className={[
             'dashboard-importance-legend-item',
             'dashboard-importance-legend-item--button',
+            allClassName,
             allActive ? 'is-active' : '',
           ]
             .filter(Boolean)
@@ -40,6 +43,11 @@ export function ImportanceLegend({
           aria-pressed={allActive}
           onClick={() => onSelect(null)}
         >
+          {allIcon ? (
+            <span className="text-[13px] leading-none" aria-hidden="true">
+              {allIcon}
+            </span>
+          ) : null}
           {allLabel}
         </button>
       ) : null}
@@ -49,6 +57,7 @@ export function ImportanceLegend({
         const classNameItem = [
           'dashboard-importance-legend-item',
           interactive ? 'dashboard-importance-legend-item--button' : '',
+          item.badgeClass || '',
           isActive ? 'is-active' : '',
         ]
           .filter(Boolean)
@@ -56,10 +65,16 @@ export function ImportanceLegend({
 
         const body = (
           <>
-            <span
-              className={`registry-importance-dot registry-importance-dot--${item.tone} registry-importance-dot--size-legend`}
-              aria-hidden="true"
-            />
+            {item.icon ? (
+              <span className="text-[13px] leading-none" aria-hidden="true">
+                {item.icon}
+              </span>
+            ) : (
+              <span
+                className={`registry-importance-dot registry-importance-dot--${item.tone} registry-importance-dot--size-legend`}
+                aria-hidden="true"
+              />
+            )}
             <span>{item.label}</span>
           </>
         )

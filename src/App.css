@@ -5272,31 +5272,37 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
   white-space: nowrap;
   line-height: 1.25;
 }
 
+.dashboard-importance-legend:not(.registry-header-legend) .dashboard-importance-legend-item {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
 .dashboard-importance-legend-item--button {
   margin: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background-color 0.15s ease, filter 0.15s ease;
+}
+
+.dashboard-importance-legend:not(.registry-header-legend) .dashboard-importance-legend-item--button {
   padding: 3px 8px;
   border: 0;
   border-radius: 999px;
   background: transparent;
   font: inherit;
   color: inherit;
-  cursor: pointer;
-  transition: opacity 0.15s ease, background-color 0.15s ease, filter 0.15s ease;
 }
 
-.dashboard-importance-legend-item--button:hover {
+.dashboard-importance-legend:not(.registry-header-legend) .dashboard-importance-legend-item--button:hover {
   background: #f3f4f6;
   filter: brightness(0.92);
 }
 
-.dashboard-importance-legend-item--button.is-active {
+.dashboard-importance-legend:not(.registry-header-legend) .dashboard-importance-legend-item--button.is-active {
   background: #eef2ff;
   font-weight: 800;
   color: #111827;
@@ -7508,6 +7514,7 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   max-width: 100%;
   padding: 4px 8px;
   border-radius: 6px;
@@ -7515,6 +7522,11 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
   font-weight: 500;
   line-height: 1.25;
   white-space: nowrap;
+}
+
+.sales-status-badge-icon {
+  font-size: 12px;
+  line-height: 1;
 }
 
 .cell-display--status-badge {
@@ -11052,7 +11064,6 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
 
 .registry-control-stack .primary-btn,
 .registry-control-stack .secondary-btn,
-.registry-control-stack .registry-header-legend .dashboard-importance-legend-item--button,
 .registry-control-stack .registry-control-filters .table-search-input,
 .registry-control-stack .registry-control-filters .registry-date-range-picker,
 .registry-control-stack .registry-control-filters .sales-hidden-toggle {
@@ -11065,9 +11076,17 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
   box-shadow: none;
 }
 
+.registry-control-stack .registry-header-legend .dashboard-importance-legend-item--button {
+  box-sizing: border-box;
+  height: var(--registry-control-h) !important;
+  min-height: var(--registry-control-h) !important;
+  max-height: var(--registry-control-h) !important;
+  line-height: 1;
+  box-shadow: none;
+}
+
 .registry-control-stack .primary-btn,
 .registry-control-stack .secondary-btn,
-.registry-control-stack .registry-header-legend .dashboard-importance-legend-item--button,
 .registry-control-stack .registry-control-filters .sales-hidden-toggle {
   display: inline-flex;
   align-items: center;
@@ -11094,6 +11113,7 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
 .registry-control-stack .secondary-btn:hover,
 .registry-control-stack .registry-header-legend .dashboard-importance-legend-item--button:hover {
   transform: none;
+  filter: none;
 }
 
 .registry-control-stack .registry-header-legend.dashboard-importance-legend {
@@ -11109,21 +11129,9 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
   box-shadow: none;
 }
 
-.registry-control-stack .registry-header-legend .dashboard-importance-legend-item--button {
-  background: #ffffff;
-  color: #374151;
-}
-
-.registry-control-stack .registry-header-legend .dashboard-importance-legend-item--button:hover {
-  background: #f3f4f6;
-  filter: none;
-}
-
 .registry-control-stack .registry-header-legend .dashboard-importance-legend-item--button.is-active {
-  border-color: #c7d2fe;
-  background: #eef2ff;
-  color: #111827;
-  font-weight: 800;
+  font-weight: 700;
+  box-shadow: 0 0 0 2px rgba(49, 46, 129, 0.16);
 }
 
 .registry-control-stack .registry-control-filters {

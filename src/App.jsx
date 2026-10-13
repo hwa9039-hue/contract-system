@@ -102,11 +102,13 @@ import {
 import { ImportanceLegend } from './ImportanceLegend.jsx'
 import {
   SALES_STAGE_OPTIONS,
+  SALES_STATUS_ALL_BADGE_CLASS,
   SALES_STATUS_LEGEND_ITEMS,
   SalesStatusBadge,
   resolveSalesStageOptions,
   salesStatusBadgeLabel,
-  salesStatusBadgeTone,
+  salesStatusMobileBadge,
+  salesStatusSelectValue,
   salesStatusMatchesLegend,
 } from './salesStatusBadge.jsx'
 import {
@@ -864,6 +866,8 @@ const EXCLUDED_WRITER_TONE_MAP = {
  * stickyClass 가 붙은 컬럼(중요도·등록일·발주처·사업명·상태)은 체크박스·숨김과 함께
  * 가로 스크롤 시 좌측에 고정된다.
  */
+const EXCLUDED_STATUS_LEGEND_ITEMS = SALES_STATUS_LEGEND_ITEMS.filter((item) => item.id === '사업공고')
+
 const EXCLUDED_COLUMNS = [
   {
     key: 'category',
@@ -13855,7 +13859,11 @@ function App() {
                 }
               : { textAlign: column.align || 'left' }
           }
-          value={registryCellEditDraft}
+          value={
+            column.type === 'statusBadge'
+              ? salesStatusSelectValue(registryCellEditDraft, selectOptions)
+              : registryCellEditDraft
+          }
           autoFocus
           onMouseDown={(e) => {
             e.stopPropagation()
@@ -13889,7 +13897,7 @@ function App() {
           <option value="">선택</option>
           {selectOptions.map((option) => (
             <option key={option} value={option}>
-              {option}
+              {column.type === 'statusBadge' ? salesStatusBadgeLabel(option) : option}
             </option>
           ))}
         </select>
@@ -14015,7 +14023,11 @@ function App() {
         <select
           className={inputClassName}
           style={{ ...(extraStyle || {}), textAlign: 'center' }}
-          value={row[column.key] ?? ''}
+          value={
+            column.type === 'statusBadge'
+              ? salesStatusSelectValue(row[column.key], selectOptions)
+              : row[column.key] ?? ''
+          }
           autoFocus={autoFocus}
           onChange={(e) => onChange(row.id, column.key, e.target.value)}
           onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
@@ -14023,7 +14035,7 @@ function App() {
           <option value="">선택</option>
           {selectOptions.map((option) => (
             <option key={option} value={option}>
-              {option}
+              {column.type === 'statusBadge' ? salesStatusBadgeLabel(option) : option}
             </option>
           ))}
         </select>
@@ -14511,7 +14523,7 @@ function App() {
                   {isAdminForRegistry && !row.isDraft ? (
                     <select
                       className="sales-status-badge-hit"
-                      value={row[column.key] ?? ''}
+                      value={salesStatusSelectValue(row[column.key], resolveSalesStageOptions(row[column.key], column.options))}
                       aria-label="중요도(상태)"
                       onChange={(event) => {
                         const value = event.target.value
@@ -14527,7 +14539,7 @@ function App() {
                       <option value="">선택</option>
                       {resolveSalesStageOptions(row[column.key], column.options).map((option) => (
                         <option key={option} value={option}>
-                          {option}
+                          {salesStatusBadgeLabel(option)}
                         </option>
                       ))}
                     </select>
@@ -17414,6 +17426,8 @@ function App() {
                 className="registry-header-legend"
                 items={SALES_STATUS_LEGEND_ITEMS}
                 allLabel="전체보기"
+                allIcon="🌐"
+                allClassName={SALES_STATUS_ALL_BADGE_CLASS}
                 selectedImportance={selectedSalesImportance}
                 onSelect={setSelectedSalesImportance}
               />
@@ -17617,10 +17631,7 @@ function App() {
                 )}
                 getRowKey={(row, index) => row.id || `sales-${index}`}
                 getTitle={(row) => row.projectName}
-                getBadge={(row) => ({
-                  label: salesStatusBadgeLabel(row.projectStage),
-                  tone: salesStatusBadgeTone(row.projectStage),
-                })}
+                getBadge={(row) => salesStatusMobileBadge(row.projectStage)}
                 summaryFields={[
                   { label: '발주처', getValue: (row) => row.client },
                   { label: '사업금액', getValue: (row) => mobileCardAmount(row.projectAmount) || mobileCardText(row.projectAmount) },
@@ -17683,6 +17694,8 @@ function App() {
                 className="registry-header-legend"
                 items={SALES_STATUS_LEGEND_ITEMS}
                 allLabel="전체보기"
+                allIcon="🌐"
+                allClassName={SALES_STATUS_ALL_BADGE_CLASS}
                 selectedImportance={selectedDiscoveryImportance}
                 onSelect={setSelectedDiscoveryImportance}
               />
@@ -17886,10 +17899,7 @@ function App() {
                 rows={sortedDiscoveryRows}
                 getRowKey={(row, index) => row.id || `discovery-${index}`}
                 getTitle={(row) => row.projectName}
-                getBadge={(row) => ({
-                  label: salesStatusBadgeLabel(row.projectStage),
-                  tone: salesStatusBadgeTone(row.projectStage),
-                })}
+                getBadge={(row) => salesStatusMobileBadge(row.projectStage)}
                 summaryFields={[
                   { label: '발주처', getValue: (row) => row.client },
                   { label: '사업금액', getValue: (row) => mobileCardAmount(row.projectAmount) || mobileCardText(row.projectAmount) },
@@ -17949,8 +17959,10 @@ function App() {
               <span className="registry-control-divider" aria-hidden="true" />
               <ImportanceLegend
                 className="registry-header-legend"
-                items={SALES_STATUS_LEGEND_ITEMS}
+                items={EXCLUDED_STATUS_LEGEND_ITEMS}
                 allLabel="전체보기"
+                allIcon="🌐"
+                allClassName={SALES_STATUS_ALL_BADGE_CLASS}
                 selectedImportance={selectedExcludedImportance}
                 onSelect={setSelectedExcludedImportance}
               />
@@ -18135,10 +18147,7 @@ function App() {
                 )}
                 getRowKey={(row, index) => row.id || `excluded-${index}`}
                 getTitle={(row) => row.projectName}
-                getBadge={(row) => ({
-                  label: salesStatusBadgeLabel(row.category),
-                  tone: salesStatusBadgeTone(row.category),
-                })}
+                getBadge={(row) => salesStatusMobileBadge(row.category)}
                 summaryFields={[
                   { label: '발주처', getValue: (row) => row.client },
                   { label: '사업금액', getValue: (row) => mobileCardAmount(row.projectAmount) || mobileCardText(row.projectAmount) },

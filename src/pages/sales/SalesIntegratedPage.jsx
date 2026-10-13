@@ -4,10 +4,10 @@ import { ImportanceLegend } from '../../ImportanceLegend.jsx'
 import { MobileDataCardList } from '../../MobileDataCardList.jsx'
 import { salesIntegratedApi } from '../../salesIntegratedApi.js'
 import {
+  SALES_STATUS_ALL_BADGE_CLASS,
   SALES_STATUS_LEGEND_ITEMS,
   SalesStatusBadge,
-  salesStatusBadgeLabel,
-  salesStatusBadgeTone,
+  salesStatusMobileBadge,
   salesStatusMatchesLegend,
 } from '../../salesStatusBadge.jsx'
 
@@ -164,6 +164,8 @@ export default function SalesIntegratedPage() {
           className="sales-integrated-legend registry-header-legend"
           items={INTEGRATED_LEGEND_ITEMS}
           allLabel="전체보기"
+          allIcon="🌐"
+          allClassName={SALES_STATUS_ALL_BADGE_CLASS}
           selectedImportance={tone}
           onSelect={setTone}
         />
@@ -246,10 +248,7 @@ export default function SalesIntegratedPage() {
         rows={visibleRows}
         getRowKey={(row) => `${row.sourceKey}:${row.id}`}
         getTitle={(row) => row.title}
-        getBadge={(row) => ({
-          label: salesStatusBadgeLabel(row.stage || row.statusLabel),
-          tone: salesStatusBadgeTone(row.stage || row.statusLabel),
-        })}
+        getBadge={(row) => salesStatusMobileBadge(row.stage || row.statusLabel)}
         summaryFields={[
           { label: '출처', getValue: (row) => row.sourceMenu },
           { label: '등록일', getValue: (row) => row.date },
