@@ -3,7 +3,7 @@ import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders, getAuthToken } fr
 export const MATERIALS_BOARD_API_PATH = '/api/materials-board'
 
 export function resolveMaterialsBoardFolderValue({ folder, folderId } = {}) {
-  return String(folderId ?? folder ?? '기타').trim() || '기타'
+  return String(folderId ?? folder ?? '').trim()
 }
 
 function withMaterialsBoardFolderFallback(row, folderValue) {
@@ -171,7 +171,16 @@ export const materialsBoardApi = {
   listFolders() {
     return requestJson(`${MATERIALS_BOARD_API_PATH}/folders`, {
       headers: { 'Content-Type': 'application/json' },
-    }).then((data) => (Array.isArray(data) ? data.map((item) => String(item?.name || '').trim()).filter(Boolean) : []))
+    }).then((data) =>
+      Array.isArray(data)
+        ? data
+            .map((item) => ({
+              name: String(item?.name || (typeof item === 'string' ? item : '')).trim(),
+              count: Number(item?.count) || 0,
+            }))
+            .filter((item) => item.name)
+        : []
+    )
   },
 
   createFolder(name) {
@@ -179,6 +188,14 @@ export const materialsBoardApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
+    })
+  },
+
+  renameFolder(name, nextName) {
+    return requestJson(`${MATERIALS_BOARD_API_PATH}/folders/${encodeURIComponent(name)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: nextName }),
     })
   },
 

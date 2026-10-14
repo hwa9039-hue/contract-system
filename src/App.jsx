@@ -1985,7 +1985,7 @@ const MATERIALS_BOARD_SEED = [
 ]
 
 function getDefaultMaterialsBoardForm() {
-  return { title: '', content: '', folder: '기타' }
+  return { title: '', content: '', folder: '' }
 }
 
 function formatMaterialsBoardFileSize(bytes) {
@@ -2025,7 +2025,7 @@ function normalizeMaterialsBoardPost(row) {
     downloadUrls,
     downloadCount: Number(row?.downloadCount) || 0,
     registeredAt: safeString(row?.registeredAt).trim() || formatMaterialsBoardRegisteredAt(),
-    folder: safeString(row?.folder ?? row?.folderId).trim() || '기타',
+    folder: safeString(row?.folder ?? row?.folderId).trim(),
   }
 }
 
@@ -4224,22 +4224,21 @@ function safeString(value) {
   return String(value)
 }
 
-function uniqueMaterialsBoardFolderNames(names) {
-  const seen = new Set()
-  const result = []
-  for (const raw of names) {
+function syncMaterialsBoardFolderCounts(posts, folders) {
+  const counts = new Map()
+  for (const raw of folders || []) {
     const name = safeString(typeof raw === 'object' && raw ? raw.name : raw).trim()
-    if (!name || seen.has(name)) continue
-    seen.add(name)
-    result.push(name)
+    if (!name || counts.has(name)) continue
+    counts.set(name, 0)
   }
-  const etcIndex = result.indexOf('기타')
-  if (etcIndex < 0) result.unshift('기타')
-  else if (etcIndex > 0) {
-    result.splice(etcIndex, 1)
-    result.unshift('기타')
+  for (const post of posts || []) {
+    const name = safeString(post?.folder).trim()
+    if (!name) continue
+    counts.set(name, (counts.get(name) || 0) + 1)
   }
-  return result
+  return [...counts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
 }
 
 /** 메모장 복붙: NUL·CR 제거. PostgreSQL text / JSON 저장 실패 방지 */
@@ -6410,7 +6409,7 @@ function App() {
   const [materialsBoardEditingId, setMaterialsBoardEditingId] = useState(null)
   const [materialsBoardSubmitting, setMaterialsBoardSubmitting] = useState(false)
   const [materialsBoardSearch, setMaterialsBoardSearch] = useState('')
-  const [materialsBoardFolders, setMaterialsBoardFolders] = useState(['기타'])
+  const [materialsBoardFolders, setMaterialsBoardFolders] = useState([])
   const [materialsBoardFolderFilter, setMaterialsBoardFolderFilter] = useState('')
   const [materialsBoardFolderDraft, setMaterialsBoardFolderDraft] = useState('')
   const [materialsBoardDownloadingId, setMaterialsBoardDownloadingId] = useState('')
@@ -6845,12 +6844,11 @@ function App() {
     try {
       const [rows, folders] = await Promise.all([
         materialsBoardApi.list(),
-        materialsBoardApi.listFolders().catch(() => ['기타']),
+        materialsBoardApi.listFolders().catch(() => []),
       ])
       const normalized = Array.isArray(rows) ? rows.map(normalizeMaterialsBoardPost) : []
-      const names = uniqueMaterialsBoardFolderNames(Array.isArray(folders) ? folders : [])
       setMaterialsBoardPosts(normalized)
-      setMaterialsBoardFolders(names)
+      setMaterialsBoardFolders(syncMaterialsBoardFolderCounts(normalized, Array.isArray(folders) ? folders : []))
       return normalized
     } catch (error) {
       console.error('[게시판] API fetch failed', error)
@@ -7826,7 +7824,7 @@ function App() {
     setMaterialsBoardEditingId(null)
     setMaterialsBoardFormDraft({
       ...getDefaultMaterialsBoardForm(),
-      folder: materialsBoardFolderFilter || '기타',
+      folder: materialsBoardFolderFilter || '',
     })
     setMaterialsBoardFile([])
     setMaterialsBoardRegisterOpen(true)
@@ -7838,7 +7836,7 @@ function App() {
     setMaterialsBoardFormDraft({
       title: safeString(row.title).trim(),
       content: safeString(row.content),
-      folder: safeString(row.folder).trim() || '기타',
+      folder: safeString(row.folder).trim(),
     })
     setMaterialsBoardFile(buildMaterialsBoardFileEntriesFromRow(row))
     setMaterialsBoardRegisterOpen(true)
@@ -7854,30 +7852,68 @@ function App() {
     try {
       await materialsBoardApi.createFolder(name)
       setMaterialsBoardFolderDraft('')
-      setMaterialsBoardFolders((prev) => uniqueMaterialsBoardFolderNames([...prev, name]))
+      setMaterialsBoardFolders((prev) => syncMaterialsBoardFolderCounts(materialsBoardPosts, [...prev, { name, count: 0 }]))
     } catch (error) {
       showAppAlert(error?.message || '폴더를 만들지 못했습니다.', '알림')
     }
-  }, [canEditMaterialsBoard, materialsBoardFolderDraft, showAppAlert])
+  }, [canEditMaterialsBoard, materialsBoardFolderDraft, materialsBoardPosts, showAppAlert])
 
-  const handleDeleteMaterialsBoardFolder = useCallback(async (name) => {
-    if (!canEditMaterialsBoard || !name || name === '기타') return
+  const handleRenameMaterialsBoardFolder = useCallback((name) => {
+    if (!canEditMaterialsBoard || !name) return
+    setContractConfirmDialog({
+      title: '폴더 이름 수정',
+      message: '새 폴더 이름을 입력하세요.',
+      confirmLabel: '저장',
+      prompt: { value: name, placeholder: '폴더 이름' },
+      onConfirm: async (nextRaw) => {
+        const next = safeString(nextRaw).trim()
+        if (!next || next === name) return
+        try {
+          await materialsBoardApi.renameFolder(name, next)
+          setMaterialsBoardPosts((prev) => {
+            const updated = prev.map((post) => (post.folder === name ? { ...post, folder: next } : post))
+            setMaterialsBoardFolders((folders) => syncMaterialsBoardFolderCounts(updated, folders.map((folder) => (
+              folder.name === name ? { ...folder, name: next } : folder
+            ))))
+            return updated
+          })
+          setMaterialsBoardFolderFilter((prev) => (prev === name ? next : prev))
+          setMaterialsBoardFormDraft((prev) => (prev.folder === name ? { ...prev, folder: next } : prev))
+        } catch (error) {
+          showAppAlert(error?.message || '폴더 이름을 바꾸지 못했습니다.', '알림')
+        }
+      },
+    })
+  }, [canEditMaterialsBoard, showAppAlert])
+
+  const handleDeleteMaterialsBoardFolder = useCallback((name) => {
+    if (!canEditMaterialsBoard || !name) return
+    const count = materialsBoardFolders.find((folder) => folder.name === name)?.count || 0
     setContractConfirmDialog({
       title: '폴더 삭제',
-      message: `"${name}" 폴더를 삭제할까요? 글이 있으면 지울 수 없습니다.`,
+      message: count
+        ? `"${name}" 폴더를 삭제할까요? 안의 글 ${count}건은 삭제되지 않고 전체 목록에만 남습니다.`
+        : `"${name}" 폴더를 삭제할까요?`,
       destructive: true,
       confirmLabel: '삭제',
       onConfirm: async () => {
         try {
           await materialsBoardApi.deleteFolder(name)
           if (materialsBoardFolderFilter === name) setMaterialsBoardFolderFilter('')
-          setMaterialsBoardFolders((prev) => prev.filter((folder) => folder !== name))
+          setMaterialsBoardPosts((prev) => {
+            const updated = prev.map((post) => (post.folder === name ? { ...post, folder: '' } : post))
+            setMaterialsBoardFolders((folders) =>
+              syncMaterialsBoardFolderCounts(updated, folders.filter((folder) => folder.name !== name))
+            )
+            return updated
+          })
+          setMaterialsBoardFormDraft((prev) => (prev.folder === name ? { ...prev, folder: '' } : prev))
         } catch (error) {
           showAppAlert(error?.message || '폴더를 지우지 못했습니다.', '알림')
         }
       },
     })
-  }, [canEditMaterialsBoard, materialsBoardFolderFilter, showAppAlert])
+  }, [canEditMaterialsBoard, materialsBoardFolderFilter, materialsBoardFolders, showAppAlert])
 
   const handleCloseMaterialsBoardRegister = useCallback(() => {
     setMaterialsBoardRegisterOpen(false)
@@ -7899,7 +7935,11 @@ function App() {
         try {
           await materialsBoardApi.remove(row.id)
           revokeMaterialsBoardPostUrls(row)
-          setMaterialsBoardPosts((prev) => prev.filter((p) => p.id !== row.id))
+          setMaterialsBoardPosts((prev) => {
+            const updated = prev.filter((post) => post.id !== row.id)
+            setMaterialsBoardFolders((folders) => syncMaterialsBoardFolderCounts(updated, folders))
+            return updated
+          })
           setToastMessage('삭제되었습니다.')
         } catch (error) {
           logApiOperationError('게시판 삭제', error)
@@ -7924,8 +7964,8 @@ function App() {
       const payload = {
         title,
         content,
-        folder: safeString(materialsBoardFormDraft.folder).trim() || '기타',
-        folderId: safeString(materialsBoardFormDraft.folder).trim() || '기타',
+        folder: safeString(materialsBoardFormDraft.folder).trim(),
+        folderId: safeString(materialsBoardFormDraft.folder).trim(),
         // 신규 업로드만 전송하고, 남겨둔 기존 첨부는 id 목록으로 알린다
         files: getMaterialsBoardNewFileEntries(materialsBoardFile),
         keepFileIds: getMaterialsBoardKeepFileIds(materialsBoardFile),
@@ -7934,14 +7974,22 @@ function App() {
       if (editingId) {
         const saved = await materialsBoardApi.update(editingId, payload)
         const normalized = normalizeMaterialsBoardPost(saved)
-        setMaterialsBoardPosts((prev) => prev.map((post) => (post.id === editingId ? normalized : post)))
+        setMaterialsBoardPosts((prev) => {
+          const updated = prev.map((post) => (post.id === editingId ? normalized : post))
+          setMaterialsBoardFolders((folders) => syncMaterialsBoardFolderCounts(updated, folders))
+          return updated
+        })
         setMaterialsBoardFile([])
         handleCloseMaterialsBoardRegister()
         setToastMessage('저장되었습니다.')
       } else {
         const saved = await materialsBoardApi.create(payload)
         const normalized = normalizeMaterialsBoardPost(saved)
-        setMaterialsBoardPosts((prev) => [normalized, ...prev])
+        setMaterialsBoardPosts((prev) => {
+          const updated = [normalized, ...prev]
+          setMaterialsBoardFolders((folders) => syncMaterialsBoardFolderCounts(updated, folders))
+          return updated
+        })
         setMaterialsBoardFile([])
         handleCloseMaterialsBoardRegister()
         setToastMessage('저장되었습니다.')
@@ -18869,35 +18917,47 @@ function App() {
           <section className="stat-card stat-card--materials-board">
             <div className="materials-board-layout materials-board-layout--list-only">
               <div className="materials-board-main">
-                <div className="materials-board-folders" aria-label="게시판 폴더">
+                <div className="materials-board-folders flex flex-wrap items-center gap-2" aria-label="게시판 폴더">
                   <button
                     type="button"
-                    className={`secondary-btn materials-board-folder-chip${materialsBoardFolderFilter ? '' : ' is-active'}`}
+                    className={`materials-board-folder-chip rounded-md px-3 py-1.5${materialsBoardFolderFilter ? '' : ' is-active'}`}
                     onClick={() => setMaterialsBoardFolderFilter('')}
                   >
                     전체
+                    <span className="materials-board-folder-count">({materialsBoardPosts.length})</span>
                   </button>
-                  {materialsBoardFolders.map((name) => (
-                    <span key={name} className="materials-board-folder-item">
+                  {materialsBoardFolders.map((folder) => (
+                    <span key={folder.name} className="materials-board-folder-item group">
                       <button
                         type="button"
-                        className={`secondary-btn materials-board-folder-chip${
-                          materialsBoardFolderFilter === name ? ' is-active' : ''
+                        className={`materials-board-folder-chip rounded-md px-3 py-1.5${
+                          materialsBoardFolderFilter === folder.name ? ' is-active' : ''
                         }`}
-                        onClick={() => setMaterialsBoardFolderFilter(name)}
+                        onClick={() => setMaterialsBoardFolderFilter(folder.name)}
                       >
                         <span className="materials-board-folder-emoji" aria-hidden="true">📁</span>
-                        {name}
+                        {folder.name}
+                        <span className="materials-board-folder-count">({folder.count})</span>
                       </button>
-                      {canEditMaterialsBoard && name !== '기타' ? (
-                        <button
-                          type="button"
-                          className="materials-board-folder-delete"
-                          aria-label={`${name} 폴더 삭제`}
-                          onClick={() => handleDeleteMaterialsBoardFolder(name)}
-                        >
-                          삭제
-                        </button>
+                      {canEditMaterialsBoard ? (
+                        <span className="materials-board-folder-actions opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
+                          <button
+                            type="button"
+                            className="materials-board-folder-icon-btn"
+                            aria-label={`${folder.name} 폴더 이름 수정`}
+                            onClick={() => handleRenameMaterialsBoardFolder(folder.name)}
+                          >
+                            <span aria-hidden="true">✏️</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="materials-board-folder-icon-btn"
+                            aria-label={`${folder.name} 폴더 삭제`}
+                            onClick={() => handleDeleteMaterialsBoardFolder(folder.name)}
+                          >
+                            <span aria-hidden="true">🗑️</span>
+                          </button>
+                        </span>
                       ) : null}
                     </span>
                   ))}
@@ -18916,8 +18976,8 @@ function App() {
                           }
                         }}
                       />
-                      <button type="button" className="secondary-btn" onClick={() => void handleAddMaterialsBoardFolder()}>
-                        폴더 추가
+                      <button type="button" className="materials-board-folder-add-btn" onClick={() => void handleAddMaterialsBoardFolder()}>
+                        추가
                       </button>
                     </span>
                   ) : null}
@@ -19987,14 +20047,19 @@ function App() {
                 <select
                   id="materials-board-folder"
                   className="table-search-input install-case-form-input"
-                  value={materialsBoardFormDraft.folder || '기타'}
+                  value={materialsBoardFormDraft.folder || ''}
                   onChange={(e) =>
                     setMaterialsBoardFormDraft((prev) => ({ ...prev, folder: e.target.value }))
                   }
                 >
-                  {materialsBoardFolders.map((name) => (
-                    <option key={name} value={name}>
-                      📁 {name}
+                  <option value="">폴더 없음</option>
+                  {materialsBoardFormDraft.folder &&
+                  !materialsBoardFolders.some((folder) => folder.name === materialsBoardFormDraft.folder) ? (
+                    <option value={materialsBoardFormDraft.folder}>{materialsBoardFormDraft.folder}</option>
+                  ) : null}
+                  {materialsBoardFolders.map((folder) => (
+                    <option key={folder.name} value={folder.name}>
+                      📁 {folder.name}
                     </option>
                   ))}
                 </select>

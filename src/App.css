@@ -17399,6 +17399,7 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   margin-bottom: 10px;
 }
@@ -17407,18 +17408,44 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
 .materials-board-folder-add {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .materials-board-folder-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  box-shadow: none;
+  transform: none;
+}
+
+.materials-board-folder-chip:hover,
+.materials-board-folder-chip:active {
+  transform: none;
+  box-shadow: none;
+  background: #f1f5f9;
 }
 
 .materials-board-folder-emoji {
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1;
+}
+
+.materials-board-folder-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
 }
 
 .materials-board-folder-chip.is-active {
@@ -17427,19 +17454,50 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   color: #312e81;
 }
 
-.materials-board-folder-delete {
+.materials-board-folder-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.materials-board-folder-item:hover .materials-board-folder-actions,
+.materials-board-folder-item:focus-within .materials-board-folder-actions {
+  max-width: 4.5rem;
+  pointer-events: auto;
+}
+
+.materials-board-folder-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  padding: 0;
   border: 0;
+  border-radius: 4px;
   background: transparent;
-  color: #b91c1c;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
   cursor: pointer;
+  box-shadow: none;
+  transform: none;
+}
+
+.materials-board-folder-icon-btn:hover,
+.materials-board-folder-icon-btn:active {
+  background: #ffffff;
+  box-shadow: none;
+  transform: none;
 }
 
 .materials-board-folder-add .table-search-input {
-  width: 140px;
-  height: 36px;
-  min-height: 36px;
+  width: 112px;
+  height: 32px;
+  min-height: 32px;
 }
 
 .materials-board-toolbar {

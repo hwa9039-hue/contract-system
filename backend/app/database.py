@@ -1280,7 +1280,7 @@ def init_db():
             cursor.execute(
                 """
                 alter table materials_board_posts
-                  add column if not exists folder text not null default '기타'
+                  add column if not exists folder text not null default ''
                 """
             )
             cursor.execute(
@@ -1293,9 +1293,8 @@ def init_db():
             )
             cursor.execute(
                 """
-                insert into materials_board_folders (name)
-                values ('기타')
-                on conflict (name) do nothing
+                alter table materials_board_posts
+                  alter column folder set default ''
                 """
             )
             cursor.execute(

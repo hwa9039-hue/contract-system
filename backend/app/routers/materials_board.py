@@ -26,8 +26,6 @@ RETURNING_COLUMNS = """
   id, title, content, folder, files, "registeredAt", "downloadCount", "createdAt", "updatedAt"
 """
 
-DEFAULT_MATERIALS_BOARD_FOLDER = "기타"
-
 
 def _str(value) -> str:
     """문자열이 아닌 값(UploadFile 포함)은 빈 문자열로 변환합니다."""
@@ -47,7 +45,7 @@ def _resolve_folder(request: Request, form) -> str:
     1) URL 쿼리 ?folder=xxx / ?folderId=xxx  (프론트가 항상 붙여 보냄 — 가장 신뢰)
     2) multipart payload JSON  { folder: xxx, folderId: xxx }
     3) multipart 텍스트 필드   folder / folderId
-    4) 기본값 '기타'
+    4) 값이 없으면 빈 문자열. 글은 전체 목록에만 남는다.
     """
     # 1) 쿼리 파라미터
     for key in ("folder", "folderId"):
@@ -77,8 +75,7 @@ def _resolve_folder(request: Request, form) -> str:
             logger.info("folder from form field %r: %r", key, ff)
             return ff
 
-    logger.warning("folder not found in request — falling back to default")
-    return DEFAULT_MATERIALS_BOARD_FOLDER
+    return ""
 
 
 def parse_materials_board_submit(request: Request, form) -> tuple[str, str, str]:
@@ -107,9 +104,8 @@ def materials_board_out(row: dict | None, folder_hint: str | None = None) -> dic
     if not row:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Save failed")
     result = row_to_materials_board_post(row)
-    # DB 반환값 우선 → folder_hint(저장 시 사용한 값) → 기본값
     db_folder = _str(row.get("folder"))
-    result["folder"] = db_folder or _str(folder_hint) or DEFAULT_MATERIALS_BOARD_FOLDER
+    result["folder"] = db_folder or _str(folder_hint)
     return result
 
 
@@ -349,18 +345,47 @@ async def api_create_materials_board_post(request: Request):
 def _clean_folder_name(name: str) -> str:
     cleaned = " ".join(str(name or "").split())
     if not cleaned or len(cleaned) > 40 or any(ch in cleaned for ch in "/\\"):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Folder name is invalid")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="폴더 이름을 확인해 주세요.")
     return cleaned
+
+
+def _folder_name_taken(cursor, name: str) -> bool:
+    cursor.execute(
+        """
+        select 1
+        from materials_board_folders
+        where name = %(name)s
+        union
+        select 1
+        from materials_board_posts
+        where trim(folder) = %(name)s
+        limit 1
+        """,
+        {"name": name},
+    )
+    return cursor.fetchone() is not None
+
+
+def _folder_post_count(cursor, name: str) -> int:
+    cursor.execute(
+        """
+        select count(*)::int as count
+        from materials_board_posts
+        where trim(folder) = %(name)s
+        """,
+        {"name": name},
+    )
+    return int(cursor.fetchone()["count"])
 
 
 @router.get("/folders")
 def list_materials_board_folders():
-    """저장된 폴더와, 글에만 남아 있는 폴더 이름을 함께 돌려준다."""
+    """폴더 이름과 그 폴더에 들어 있는 글 수를 함께 돌려준다."""
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
-                select name
+                select folders.name, coalesce(counts.post_count, 0)::int as count
                 from (
                   select distinct trim(name) as name
                   from (
@@ -372,21 +397,25 @@ def list_materials_board_folders():
                   ) raw_names
                   where coalesce(trim(name), '') <> ''
                 ) folders
-                order by case when name = '기타' then 0 else 1 end, name
+                left join (
+                  select trim(folder) as name, count(*)::int as post_count
+                  from materials_board_posts
+                  where coalesce(trim(folder), '') <> ''
+                  group by trim(folder)
+                ) counts on counts.name = folders.name
+                order by folders.name
                 """
             )
             rows = cursor.fetchall()
-    names: list[str] = []
+    folders: list[dict] = []
     seen: set[str] = set()
     for row in rows:
         name = " ".join(str(row.get("name") or "").split())
         if not name or name in seen:
             continue
         seen.add(name)
-        names.append(name)
-    if "기타" not in seen:
-        names.insert(0, "기타")
-    return [{"name": name} for name in names]
+        folders.append({"name": name, "count": int(row.get("count") or 0)})
+    return folders
 
 
 @router.post("/folders", status_code=status.HTTP_201_CREATED)
@@ -406,26 +435,66 @@ async def create_materials_board_folder(request: Request):
             )
             created = cursor.fetchone()
         connection.commit()
-    return {"name": name, "created": bool(created)}
+    return {"name": name, "count": 0, "created": bool(created)}
+
+
+@router.patch("/folders/{folder_name}")
+async def rename_materials_board_folder(folder_name: str, request: Request):
+    old_name = _clean_folder_name(folder_name)
+    body = await request.json()
+    new_name = _clean_folder_name((body or {}).get("name") if isinstance(body, dict) else "")
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            if new_name != old_name and _folder_name_taken(cursor, new_name):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="같은 이름의 폴더가 이미 있습니다.",
+                )
+            cursor.execute(
+                """
+                update materials_board_folders
+                set name = %(new_name)s
+                where name = %(old_name)s
+                """,
+                {"new_name": new_name, "old_name": old_name},
+            )
+            if cursor.rowcount == 0 and new_name != old_name:
+                cursor.execute(
+                    """
+                    insert into materials_board_folders (name)
+                    values (%(name)s)
+                    on conflict (name) do nothing
+                    """,
+                    {"name": new_name},
+                )
+            if new_name != old_name:
+                cursor.execute(
+                    """
+                    update materials_board_posts
+                    set folder = %(new_name)s, "updatedAt" = now()
+                    where trim(folder) = %(old_name)s
+                    """,
+                    {"new_name": new_name, "old_name": old_name},
+                )
+            count = _folder_post_count(cursor, new_name)
+        connection.commit()
+    return {"name": new_name, "count": count}
 
 
 @router.delete("/folders/{folder_name}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_materials_board_folder(folder_name: str):
+    """폴더만 지운다. 안의 글은 남기고 전체 목록으로 옮긴다."""
     name = _clean_folder_name(folder_name)
-    if name == "기타":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="기본 폴더는 지울 수 없습니다.")
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
-                "select count(*) as count from materials_board_posts where folder = %(name)s",
+                """
+                update materials_board_posts
+                set folder = '', "updatedAt" = now()
+                where trim(folder) = %(name)s
+                """,
                 {"name": name},
             )
-            count = int(cursor.fetchone()["count"])
-            if count:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="글이 있는 폴더는 지울 수 없습니다. 글을 다른 폴더로 옮긴 뒤 삭제하세요.",
-                )
             cursor.execute("delete from materials_board_folders where name = %(name)s", {"name": name})
         connection.commit()
 
