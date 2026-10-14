@@ -15,8 +15,8 @@
  *     (처음에는 아래 DRY_RUN 을 true 로 두고 "실행 로그"에서 대상 메일이 맞는지 확인한 뒤 false 로 바꾼다)
  *  4) installTrigger 를 한 번 실행 → 이후 10분마다 자동 실행
  *
- * 이미 저장된 메일에 수신자·본문 요약을 채우려면: resetLastRun 실행 → collectExportMails 실행
- * (서버는 같은 메일을 중복 저장하지 않고 빈 칸만 채운다)
+ * 이미 저장된 메일의 첨부를 다시 채우려면: resyncRecentMails 실행
+ * (일반 첨부 이름과 대용량 링크를 함께 보내고, 서버는 이미 있는 이름을 지우지 않은 채 합친다)
  *
  * 토큰은 코드에 쓰지 말고 반드시 스크립트 속성에만 둔다.
  */
@@ -90,10 +90,9 @@ function collectExportMails() {
       var htmlBody = '';
       try { plainBody = message.getPlainBody(); } catch (e) { plainBody = ''; }
       try { htmlBody = message.getBody(); } catch (e2) { htmlBody = ''; }
-      var mimeFiles = message
-        .getAttachments({ includeInlineImages: false, includeAttachments: true })
-        .map(function (file) { return { name: file.getName(), url: '' }; });
-      var driveFiles = extractDriveLinks_(htmlBody, plainBody);
+      var mimeFiles = listMimeAttachments_(message);
+      var driveFiles = [];
+      try { driveFiles = extractDriveLinks_(htmlBody, plainBody) || []; } catch (e3) { driveFiles = []; }
       var attachments = mergeAttachmentRecords_(mimeFiles, driveFiles);
       if (REQUIRE_ATTACHMENT && attachments.length === 0) { skipped++; continue; }
 
@@ -282,14 +281,36 @@ function extractDriveLinks_(html, plain) {
   return found;
 }
 
+/** Gmail MIME 첨부. 이름에 공백·괄호가 있어도 확장자로 걸러 내지 않는다. */
+function listMimeAttachments_(message) {
+  var files = [];
+  var raw = [];
+  try {
+    raw = message.getAttachments({ includeInlineImages: false, includeAttachments: true }) || [];
+  } catch (e) {
+    raw = [];
+  }
+  for (var i = 0; i < raw.length; i++) {
+    var name = '';
+    try { name = raw[i].getName(); } catch (e2) { name = ''; }
+    name = plainLabel_(name);
+    if (!name) continue;
+    files.push({ name: name, url: '' });
+  }
+  return files;
+}
+
 function mergeAttachmentRecords_(mimeFiles, driveFiles) {
   var merged = [];
   var indexByName = {};
   var seenUrl = {};
 
   function push(item) {
-    var name = plainLabel_(item && item.name) || '대용량 첨부';
-    var url = unwrapDriveUrl_(item && item.url) || '';
+    if (!item) return;
+    var name = plainLabel_(item.name);
+    var url = unwrapDriveUrl_(item.url) || '';
+    if (!name && !url) return;
+    if (!name) name = '대용량 첨부';
     var nameKey = name.toLowerCase();
     var urlKey = url ? driveIdentity_(url) : '';
     if (urlKey && seenUrl[urlKey]) return;
@@ -299,15 +320,19 @@ function mergeAttachmentRecords_(mimeFiles, driveFiles) {
       return;
     }
     if (!url && Object.prototype.hasOwnProperty.call(indexByName, nameKey)) return;
-    if (urlKey) seenUrl[urlKey] = true;
     var record = { name: name };
-    if (url) record.url = url;
+    if (url) {
+      record.url = url;
+      seenUrl[urlKey] = true;
+    }
     indexByName[nameKey] = merged.length;
     merged.push(record);
   }
 
-  (mimeFiles || []).forEach(push);
-  (driveFiles || []).forEach(push);
+  var mime = mimeFiles || [];
+  var drive = driveFiles || [];
+  for (var i = 0; i < mime.length; i++) push(mime[i]);
+  for (var j = 0; j < drive.length; j++) push(drive[j]);
   return merged.slice(0, 100);
 }
 
@@ -360,4 +385,10 @@ function installTrigger() {
 function resetLastRun() {
   PropertiesService.getScriptProperties().deleteProperty(LAST_RUN_KEY);
   Logger.log('마지막 실행 시각을 지웠습니다. 다음 실행은 최근 %s일부터 다시 봅니다.', INITIAL_LOOKBACK_DAYS);
+}
+
+/** 최근 INITIAL_LOOKBACK_DAYS 메일을 일반 첨부 + 대용량 링크까지 다시 보낸다. */
+function resyncRecentMails() {
+  resetLastRun();
+  collectExportMails();
 }

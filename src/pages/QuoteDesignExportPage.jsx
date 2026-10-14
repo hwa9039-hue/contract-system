@@ -117,12 +117,12 @@ function SubjectWithTooltip({ subject, bodySummary }) {
  */
 function attachmentLabel(file) {
   if (typeof file === 'string') return file
-  return file?.name || '대용량 첨부'
+  return file?.name || file?.filename || '대용량 첨부'
 }
 
 function attachmentSearchText(file) {
   if (!file || typeof file === 'string') return attachmentLabel(file)
-  return [file.name, file.url].filter(Boolean).join(' ')
+  return [attachmentLabel(file), file.url || file.link || file.href || ''].filter(Boolean).join(' ')
 }
 
 function AttachmentChips({ files }) {
@@ -153,14 +153,16 @@ function AttachmentChips({ files }) {
     }
   }, [open, updatePosition])
 
-  if (files.length === 0) return null
+  const list = Array.isArray(files) ? files.filter(Boolean) : []
+  if (list.length === 0) return null
 
-  const fileName = (file) => (typeof file === 'string' ? file : file?.name || '대용량 첨부')
-  const fileUrl = (file) => (typeof file === 'string' ? '' : file?.url || '')
+  const fileName = (file) => (typeof file === 'string' ? file : file?.name || file?.filename || '대용량 첨부')
+  const fileUrl = (file) =>
+    typeof file === 'string' ? '' : file?.url || file?.link || file?.href || file?.downloadUrl || ''
 
-  if (files.length === 1) {
-    const name = fileName(files[0])
-    const url = fileUrl(files[0])
+  if (list.length === 1) {
+    const name = fileName(list[0])
+    const url = fileUrl(list[0])
     const chip = url ? (
       <a className="sales-contacts-linked-chip" href={url} target="_blank" rel="noreferrer" title={name}>
         {name}
@@ -185,8 +187,8 @@ function AttachmentChips({ files }) {
             role="tooltip"
             style={fixedPortalStyle(position, { zIndex: 12000, matchWidth: false, minWidth: 160 })}
           >
-            {files.map((file, index) => {
-              const name = fileName(files[index])
+            {list.map((file, index) => {
+              const name = fileName(list[index])
               const url = fileUrl(file)
               return (
                 <span key={`${name}-${index}`} className="sales-contacts-linked-more-tooltip-item">
@@ -209,33 +211,33 @@ function AttachmentChips({ files }) {
       : null
 
   return (
-    <span className="sales-contacts-linked-chips" aria-label={files.map(attachmentLabel).join(', ')}>
-      {fileUrl(files[0]) ? (
+    <span className="sales-contacts-linked-chips" aria-label={list.map(attachmentLabel).join(', ')}>
+      {fileUrl(list[0]) ? (
         <a
           className="sales-contacts-linked-chip"
-          href={fileUrl(files[0])}
+          href={fileUrl(list[0])}
           target="_blank"
           rel="noreferrer"
-          title={attachmentLabel(files[0])}
+          title={attachmentLabel(list[0])}
         >
-          {attachmentLabel(files[0])}
+          {attachmentLabel(list[0])}
         </a>
       ) : (
-        <span className="sales-contacts-linked-chip" title={attachmentLabel(files[0])}>
-          {attachmentLabel(files[0])}
+        <span className="sales-contacts-linked-chip" title={attachmentLabel(list[0])}>
+          {attachmentLabel(list[0])}
         </span>
       )}
       <span
         ref={moreRef}
         className="sales-contacts-linked-more"
         tabIndex={0}
-        aria-label={`첨부파일 ${files.length}개: ${files.map(attachmentLabel).join(', ')}`}
+        aria-label={`첨부파일 ${list.length}개: ${list.map(attachmentLabel).join(', ')}`}
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
       >
-        +{files.length - 1}
+        +{list.length - 1}
       </span>
       {tooltip}
     </span>

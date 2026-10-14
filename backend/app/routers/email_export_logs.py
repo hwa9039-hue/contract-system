@@ -9,6 +9,7 @@
 """
 
 import hmac
+import json
 import logging
 import os
 import re
@@ -129,6 +130,7 @@ _TAG_RE = re.compile(r"<[^>]+>")
 
 
 def _looks_like_filename(text: str) -> bool:
+    """본문에서 파일명을 추정할 때만 쓴다. 일반 첨부 이름을 거를 때는 쓰지 않는다."""
     return bool(_FILE_NAME_RE.fullmatch(text.strip()))
 
 
@@ -166,19 +168,30 @@ def _attachment_name_from_url(url: str) -> str:
     return "대용량 첨부"
 
 
-def _attachment_record(name: str, url: str = "") -> dict[str, str] | None:
-    cleaned_url = _unwrap_drive_url(url) or _clean_text(url, 2000)
-    if cleaned_url and not _DRIVE_URL_RE.match(cleaned_url):
-        cleaned_url = _clean_text(url, 2000)
-    cleaned_name = _plain_label(name)
-    if not _looks_like_filename(cleaned_name):
-        cleaned_name = ""
-    cleaned_name = _clean_text(cleaned_name, MAX_FILENAME_LEN)
+def _http_url(url: str) -> str:
+    cleaned = _clean_text(unescape(url), 2000)
+    if cleaned.lower().startswith(("http://", "https://")):
+        return cleaned
+    return ""
+
+
+def _explicit_attachment(name: str, url: str = "") -> dict[str, str] | None:
+    """메일에서 받은 첨부 이름·주소. 확장자나 공백으로 이름을 버리지 않는다.
+
+    확장자 화이트리스트는 본문에서 파일명을 추정할 때만 쓴다.
+    일반 MIME 첨부(url 없음)는 예전에 보이던 파일명을 그대로 남긴다.
+    """
+    raw_url = _clean_text(url, 2000)
+    cleaned_url = _unwrap_drive_url(raw_url) or _http_url(raw_url)
+    cleaned_name = _clean_text(_plain_label(str(name or "")), MAX_FILENAME_LEN)
+    if cleaned_name and not cleaned_url and _DRIVE_URL_RE.match(cleaned_name):
+        cleaned_url = _unwrap_drive_url(cleaned_name) or _http_url(cleaned_name)
+        cleaned_name = _attachment_name_from_url(cleaned_url) if cleaned_url else ""
+        if cleaned_name == "대용량 첨부":
+            cleaned_name = ""
     if cleaned_url and not cleaned_name:
-        cleaned_name = _attachment_name_from_url(cleaned_url)
-    if _DRIVE_URL_RE.fullmatch(cleaned_name) and not cleaned_url:
-        cleaned_url = _unwrap_drive_url(cleaned_name)
-        cleaned_name = _attachment_name_from_url(cleaned_url)
+        guessed = _attachment_name_from_url(cleaned_url)
+        cleaned_name = "" if guessed == "대용량 첨부" else guessed
     if not cleaned_name and not cleaned_url:
         return None
     record = {"name": cleaned_name or "대용량 첨부"}
@@ -189,7 +202,7 @@ def _attachment_record(name: str, url: str = "") -> dict[str, str] | None:
 
 def _attachment_from_item(item: Any) -> dict[str, str] | None:
     if isinstance(item, str):
-        return _attachment_record(item)
+        return _explicit_attachment(item)
     if not isinstance(item, dict):
         return None
     name = item.get("filename") or item.get("fileName") or item.get("name") or item.get("title") or ""
@@ -201,7 +214,7 @@ def _attachment_from_item(item: Any) -> dict[str, str] | None:
         or item.get("driveUrl")
         or ""
     )
-    return _attachment_record(str(name), str(url))
+    return _explicit_attachment(str(name), str(url))
 
 
 def _anchor_attrs(attrs: str) -> dict[str, str]:
@@ -237,7 +250,7 @@ def _drive_links_from_text(text: str) -> list[dict[str, str]]:
         label = _plain_label(name)
         if not _looks_like_filename(label):
             label = ""
-        record = _attachment_record(label, cleaned_url)
+        record = _explicit_attachment(label, cleaned_url)
         if not record:
             return
         seen.add(identity)
@@ -261,15 +274,27 @@ def _drive_links_from_text(text: str) -> list[dict[str, str]]:
     return found
 
 
-def _merge_attachments(*groups: list[dict[str, str]]) -> list[dict[str, str]]:
-    """파일명이 같은 MIME 첨부와 드라이브 링크는 한 칸으로 합친다."""
+def _merge_attachments(*groups: list[dict[str, str]] | None) -> list[dict[str, str]]:
+    """일반 첨부 배열과 대용량 링크 배열을 한 목록으로 합친다.
+
+    어느 쪽이 None 이거나 빈 배열이어도 나머지를 그대로 남긴다.
+    같은 드라이브 파일은 한 번만 넣고, 파일명이 같은 일반 첨부에 링크만 나중에 붙인다.
+    """
     merged: list[dict[str, str]] = []
     index_by_name: dict[str, int] = {}
     seen_urls: set[str] = set()
     for group in groups:
+        if not group:
+            continue
         for item in group:
+            if not isinstance(item, dict):
+                continue
             url = (item.get("url") or "").strip()
-            name = (item.get("name") or "").strip() or "대용량 첨부"
+            name = (item.get("name") or "").strip()
+            if not name and not url:
+                continue
+            if not name:
+                name = "대용량 첨부"
             url_key = _drive_identity(url) if url else ""
             name_key = name.lower()
             if url_key and url_key in seen_urls:
@@ -280,13 +305,12 @@ def _merge_attachments(*groups: list[dict[str, str]]) -> list[dict[str, str]]:
                     existing["url"] = url
                     seen_urls.add(url_key)
                     continue
-            if url_key:
-                seen_urls.add(url_key)
+            if not url and name_key in index_by_name:
+                continue
             record = {"name": name}
             if url:
                 record["url"] = url
-            if name_key in index_by_name and not url:
-                continue
+                seen_urls.add(url_key)
             merged.append(record)
             index_by_name.setdefault(name_key, len(merged) - 1)
             if len(merged) >= MAX_ATTACHMENTS_PER_MAIL:
@@ -310,6 +334,15 @@ def _normalize_item(raw: Any) -> dict[str, Any]:
     attachments_raw = raw.get("attachments")
     if attachments_raw is None:
         attachments_raw = raw.get("files") or raw.get("largeAttachments") or raw.get("driveLinks") or []
+    if isinstance(attachments_raw, str):
+        text = attachments_raw.strip()
+        if text.startswith("["):
+            try:
+                attachments_raw = json.loads(text)
+            except json.JSONDecodeError:
+                attachments_raw = [text] if text else []
+        else:
+            attachments_raw = [text] if text else []
     if not isinstance(attachments_raw, list):
         raise ValueError("attachments must be an array")
     named = [item for item in (_attachment_from_item(entry) for entry in attachments_raw) if item]
@@ -355,10 +388,26 @@ def _extract_items(body: Any) -> list[Any]:
 # ── API ───────────────────────────────────────────────────────────────────────
 
 
+def _stored_attachments(value: Any) -> list[dict[str, str]]:
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return []
+        if text.startswith("["):
+            try:
+                value = json.loads(text)
+            except json.JSONDecodeError:
+                return [item for item in (_attachment_from_item(text),) if item]
+        else:
+            value = [text]
+    if not isinstance(value, list):
+        return []
+    return [item for item in (_attachment_from_item(entry) for entry in value) if item]
+
+
 def _row_to_out(row: dict) -> dict[str, Any]:
     sent_at = row.get("sent_at")
-    stored = row.get("attachments")
-    named = [item for item in (_attachment_from_item(entry) for entry in stored) if item] if isinstance(stored, list) else []
+    named = _stored_attachments(row.get("attachments"))
     # 이미 저장된 메일도 본문 요약에 드라이브 링크가 남아 있으면 첨부 목록에 다시 붙인다.
     linked = _drive_links_from_text(str(row.get("body_summary") or ""))
     return {
@@ -414,6 +463,18 @@ def ingest_email_export_logs(body: Any = Body(...)):
         with get_connection() as connection:
             with connection.cursor() as cursor:
                 for item in valid:
+                    cursor.execute(
+                        """
+                        select attachments
+                        from email_export_logs
+                        where message_id = %(message_id)s
+                        """,
+                        {"message_id": item["message_id"]},
+                    )
+                    existing = cursor.fetchone()
+                    # 다시 수집한 목록이 짧아도, 이미 저장된 일반 첨부 이름은 지우지 않는다.
+                    stored = _stored_attachments(existing.get("attachments") if existing else [])
+                    item["attachments"] = _merge_attachments(stored, item["attachments"])
                     cursor.execute(
                         """
                         insert into email_export_logs

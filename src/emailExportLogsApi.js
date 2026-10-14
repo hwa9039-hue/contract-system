@@ -69,10 +69,27 @@ function normalizeAttachment(item) {
   return { name: name || '대용량 첨부', url }
 }
 
+function attachmentList(value) {
+  if (Array.isArray(value)) return value
+  if (value && typeof value === 'object') return [value]
+  if (typeof value !== 'string') return []
+  const text = value.trim()
+  if (!text) return []
+  if (text.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(text)
+      return Array.isArray(parsed) ? parsed : [text]
+    } catch {
+      return [text]
+    }
+  }
+  return [text]
+}
+
 /** 서버 행(camelCase / snake_case 모두 허용)을 화면용 형태로 맞춘다. */
 export function normalizeEmailExportLog(row, index = 0) {
   const source = row && typeof row === 'object' ? row : {}
-  const rawAttachments = Array.isArray(source.attachments) ? source.attachments : []
+  const rawAttachments = attachmentList(source.attachments ?? source.files)
   return {
     id: safeString(source.id ?? `row-${index}`),
     sentAt: safeString(source.sentAt ?? source.sent_at ?? source.date),
