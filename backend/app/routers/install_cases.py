@@ -7,11 +7,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
+from app.access_guards import require_install_case_editor
 from app.database import get_connection
 from app.schemas import (
     InstallCaseCreate,
@@ -49,8 +50,8 @@ MAX_HERO_VIDEO_BYTES = 100 * 1024 * 1024
 MAX_HERO_MEDIA_COUNT = 10
 
 RETURNING_COLUMNS = """
-  id, "projectName", "heroImage", "heroImages", environment, "middleCategory", audience, year,
-  purpose, client, specs, "createdAt", "updatedAt"
+  id, "projectName", "heroImage", "heroImages", environment, "middleCategory", audience,
+  "shareVisibility", year, purpose, client, specs, "createdAt", "updatedAt"
 """
 
 
@@ -692,7 +693,7 @@ def api_list_install_cases():
     return list_install_case_rows()
 
 
-@router.post("", response_model=InstallCaseOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=InstallCaseOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_install_case_editor)])
 def api_create_install_case(row: InstallCaseCreate):
     images = sanitize_hero_images_value(row.heroImages)
     single = sanitize_hero_image_value(row.heroImage)
@@ -702,7 +703,7 @@ def api_create_install_case(row: InstallCaseCreate):
     return create_install_case_row(row)
 
 
-@router.post("/form", response_model=InstallCaseOut, status_code=status.HTTP_201_CREATED)
+@router.post("/form", response_model=InstallCaseOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_install_case_editor)])
 async def api_create_install_case_with_image(request: Request):
     row_id = None
     try:
@@ -745,7 +746,7 @@ async def api_create_install_case_with_image(request: Request):
         ) from exc
 
 
-@router.patch("/{row_id}", response_model=InstallCaseOut)
+@router.patch("/{row_id}", response_model=InstallCaseOut, dependencies=[Depends(require_install_case_editor)])
 def api_update_install_case(row_id: str, patch: InstallCasePatch):
     updates = {}
     if patch.heroImages is not None:
@@ -759,7 +760,7 @@ def api_update_install_case(row_id: str, patch: InstallCasePatch):
     return update_install_case_row(row_id, patch)
 
 
-@router.patch("/{row_id}/form", response_model=InstallCaseOut)
+@router.patch("/{row_id}/form", response_model=InstallCaseOut, dependencies=[Depends(require_install_case_editor)])
 async def api_update_install_case_with_image(row_id: str, request: Request):
     try:
         form = await request.form()
@@ -907,6 +908,6 @@ def api_get_install_case_gallery_media(row_id: str, filename: str, request: Requ
     )
 
 
-@router.delete("/{row_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{row_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_install_case_editor)])
 def api_delete_install_case(row_id: str):
     delete_install_case_row(row_id)

@@ -4,6 +4,7 @@ from fastapi import HTTPException, Request, status
 
 from app.auth_utils import (
     can_access_bit_history_account,
+    can_edit_install_cases_account,
     can_view_all_contacts_account,
     is_auth_disabled,
 )
@@ -18,6 +19,14 @@ def require_bit_history_access(request: Request) -> None:
     if is_auth_disabled():
         return
     if not can_access_bit_history_account(_request_account_id(request)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
+def require_install_case_editor(request: Request) -> None:
+    """설치사례 등록·수정·삭제·숨김은 정주희·정화영만. 인증을 끈 로컬 개발은 통과시킨다."""
+    if is_auth_disabled():
+        return
+    if not can_edit_install_cases_account(_request_account_id(request)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
 

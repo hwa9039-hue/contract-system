@@ -608,10 +608,18 @@ export default function UnitPriceManagement({ canEdit = true }) {
         savingItemIdsRef.current.add(rowId)
         try {
           if (!contractId) throw new Error('계약 ID가 없습니다.')
-          await unitPricesApi.createItem(contractId, payload)
+          const created = await unitPricesApi.createItem(contractId, payload)
+          setContracts((prev) => {
+            const next = prev.map((contract) => {
+              if (safeString(contract.id).trim() !== contractId) return contract
+              const items = Array.isArray(contract.items) ? contract.items : []
+              return { ...contract, items: [...items, created] }
+            })
+            syncSavedSnapshots(flattenContractsToRows(next))
+            return next
+          })
           setSaveError(null)
           showSaveSuccess()
-          void fetchTree({ silent: true })
           return true
         } catch (saveErr) {
           if (isAuthSessionExpiredError(saveErr)) return false
@@ -648,7 +656,7 @@ export default function UnitPriceManagement({ canEdit = true }) {
         savingItemIdsRef.current.delete(rowId)
       }
     },
-    [canEdit, fetchTree, showSaveSuccess]
+    [canEdit, showSaveSuccess, syncSavedSnapshots]
   )
 
   const handleItemFieldSave = useCallback(
@@ -674,8 +682,16 @@ export default function UnitPriceManagement({ canEdit = true }) {
       setTableBusy(true)
       setSaveError(null)
       try {
-        await unitPricesApi.createItem(cid, { ...EMPTY_ITEM_PAYLOAD })
-        await fetchTree({ silent: true })
+        const created = await unitPricesApi.createItem(cid, { ...EMPTY_ITEM_PAYLOAD })
+        setContracts((prev) => {
+          const next = prev.map((contract) => {
+            if (safeString(contract.id).trim() !== cid) return contract
+            const items = Array.isArray(contract.items) ? contract.items : []
+            return { ...contract, items: [...items, created] }
+          })
+          syncSavedSnapshots(flattenContractsToRows(next))
+          return next
+        })
       } catch (err) {
         if (!isAuthSessionExpiredError(err)) {
           setSaveError(err?.message || '품목 추가에 실패했습니다.')
@@ -684,7 +700,7 @@ export default function UnitPriceManagement({ canEdit = true }) {
         setTableBusy(false)
       }
     },
-    [canEdit, fetchTree, tableBusy]
+    [canEdit, syncSavedSnapshots, tableBusy]
   )
 
   const handleDeleteItem = useCallback(
@@ -697,7 +713,16 @@ export default function UnitPriceManagement({ canEdit = true }) {
       try {
         await unitPricesApi.removeItem(id)
         delete savedByItemIdRef.current[id]
-        await fetchTree({ silent: true })
+        setContracts((prev) => {
+          const next = prev.map((contract) => ({
+            ...contract,
+            items: (Array.isArray(contract.items) ? contract.items : []).filter(
+              (item) => safeString(item?.id).trim() !== id
+            ),
+          }))
+          syncSavedSnapshots(flattenContractsToRows(next))
+          return next
+        })
       } catch (err) {
         if (!isAuthSessionExpiredError(err)) {
           setSaveError(err?.message || '품목 삭제에 실패했습니다.')
@@ -706,7 +731,7 @@ export default function UnitPriceManagement({ canEdit = true }) {
         setTableBusy(false)
       }
     },
-    [canEdit, fetchTree, tableBusy]
+    [canEdit, syncSavedSnapshots, tableBusy]
   )
 
   const showEmpty = !loading && !error && flatRows.length === 0

@@ -135,6 +135,12 @@ def public_install_cases_share_preview(token: str = Query(default="")):
     return HTMLResponse(_share_preview_html(token))
 
 
+def _is_external_install_case(row: dict) -> bool:
+    """외부 공유는 가시성이 내부용인 사례를 절대 내려주지 않는다. 값이 없으면 기존 데이터라 외부용으로 본다."""
+    text = str(row.get("shareVisibility") or "external").strip().lower()
+    return text not in {"internal", "내부", "내부용"}
+
+
 @router.get("")
 def list_public_install_cases(
     response: Response,
@@ -145,9 +151,17 @@ def list_public_install_cases(
     if str(code or "").strip():
         expires_at = load_active_share_expiry(code)
         response.headers["X-Share-Expires-At"] = str(int(expires_at.timestamp()))
-        return [{key: row.get(key) for key in _PUBLIC_FIELDS} for row in list_install_case_rows()]
+        return [
+            {key: row.get(key) for key in _PUBLIC_FIELDS}
+            for row in list_install_case_rows()
+            if _is_external_install_case(row)
+        ]
     payload = _verified_share_payload(token)
     exp = payload.get("exp")
     if isinstance(exp, (int, float)):
         response.headers["X-Share-Expires-At"] = str(int(exp))
-    return [{key: row.get(key) for key in _PUBLIC_FIELDS} for row in list_install_case_rows()]
+    return [
+        {key: row.get(key) for key in _PUBLIC_FIELDS}
+        for row in list_install_case_rows()
+        if _is_external_install_case(row)
+    ]

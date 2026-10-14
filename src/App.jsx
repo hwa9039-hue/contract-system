@@ -101,6 +101,7 @@ import {
 } from './registryImportance.jsx'
 import { ImportanceLegend } from './ImportanceLegend.jsx'
 import {
+  DASHBOARD_STATUS_LEGEND_ITEMS,
   SALES_STAGE_OPTIONS,
   SALES_STATUS_ALL_BADGE_CLASS,
   SALES_STATUS_LEGEND_ITEMS,
@@ -1984,7 +1985,7 @@ const MATERIALS_BOARD_SEED = [
 ]
 
 function getDefaultMaterialsBoardForm() {
-  return { title: '', content: '' }
+  return { title: '', content: '', folder: '기타' }
 }
 
 function formatMaterialsBoardFileSize(bytes) {
@@ -2588,6 +2589,7 @@ function normalizeInstallCaseRow(row) {
     environment: migrateInstallCaseMajorCategory(row?.environment),
     middleCategory: migrateInstallCaseMiddleCategory(row?.middleCategory, row?.environment),
     audience: migrateInstallCaseMinorCategory(row?.audience),
+    shareVisibility: safeString(row?.shareVisibility).trim().toLowerCase() === 'internal' ? 'internal' : 'external',
     year: safeString(row?.year).trim() || '-',
     purpose: safeString(row?.purpose).trim() || '-',
     client: safeString(row?.client).trim() || '-',
@@ -4220,6 +4222,24 @@ function getDashboardWeekMeetingMinutesRows(weekStartDate, workReportRows, workR
 function safeString(value) {
   if (value === null || value === undefined) return ''
   return String(value)
+}
+
+function uniqueMaterialsBoardFolderNames(names) {
+  const seen = new Set()
+  const result = []
+  for (const raw of names) {
+    const name = safeString(typeof raw === 'object' && raw ? raw.name : raw).trim()
+    if (!name || seen.has(name)) continue
+    seen.add(name)
+    result.push(name)
+  }
+  const etcIndex = result.indexOf('기타')
+  if (etcIndex < 0) result.unshift('기타')
+  else if (etcIndex > 0) {
+    result.splice(etcIndex, 1)
+    result.unshift('기타')
+  }
+  return result
 }
 
 /** 메모장 복붙: NUL·CR 제거. PostgreSQL text / JSON 저장 실패 방지 */
@@ -6187,7 +6207,7 @@ function getDashboardRecentItems(rows, config) {
     .slice(0, DASHBOARD_RECENT_ITEM_LIMIT)
     .map((row) => {
       const statusRaw = typeof config.getStatus === 'function' ? config.getStatus(row) : ''
-      const status = normalizeStatusForImportance(statusRaw)
+      const status = safeString(statusRaw).trim()
       return {
         id: row.id,
         date: getDashboardDisplayDate(row[config.dateKey] || row.createdAt),
@@ -6298,7 +6318,7 @@ function App() {
   const canEditContracts = canEditMenu('contracts', role)
   // const canEditProjectManagement = canEditMenu('projectManagement', role) // 메뉴 제거
   const canEditMaterialsBoard = canEditMenu('materialsBoard', role)
-  const canEditInstallCases = canEditMenu('installCases', role)
+  const canEditInstallCases = ['jhjoung', 'hy9039'].includes(String(accountId || '').trim().toLowerCase())
   const canEditContactsManage = canEditMenu('contactsManage', role)
   // const canEditUnitPrice = canEditMenu('unitPrice', role) // 메뉴 제거
   const canEditSales = canEditMenu('sales', role)
@@ -6350,6 +6370,7 @@ function App() {
   const [installCaseEnvFilter, setInstallCaseEnvFilter] = useState('')
   const [installCaseMiddleFilter, setInstallCaseMiddleFilter] = useState('')
   const [installCaseAudienceFilter, setInstallCaseAudienceFilter] = useState('')
+  const [installCaseVisibilityFilter, setInstallCaseVisibilityFilter] = useState('')
   const [installCaseSearch, setInstallCaseSearch] = useState('')
   const [installCaseDetailModal, setInstallCaseDetailModal] = useState(null)
   const [installCases, setInstallCases] = useState([])
@@ -6389,6 +6410,9 @@ function App() {
   const [materialsBoardEditingId, setMaterialsBoardEditingId] = useState(null)
   const [materialsBoardSubmitting, setMaterialsBoardSubmitting] = useState(false)
   const [materialsBoardSearch, setMaterialsBoardSearch] = useState('')
+  const [materialsBoardFolders, setMaterialsBoardFolders] = useState(['기타'])
+  const [materialsBoardFolderFilter, setMaterialsBoardFolderFilter] = useState('')
+  const [materialsBoardFolderDraft, setMaterialsBoardFolderDraft] = useState('')
   const [materialsBoardDownloadingId, setMaterialsBoardDownloadingId] = useState('')
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
@@ -6819,9 +6843,14 @@ function App() {
 
   const fetchMaterialsBoardPosts = async () => {
     try {
-      const rows = await materialsBoardApi.list()
+      const [rows, folders] = await Promise.all([
+        materialsBoardApi.list(),
+        materialsBoardApi.listFolders().catch(() => ['기타']),
+      ])
       const normalized = Array.isArray(rows) ? rows.map(normalizeMaterialsBoardPost) : []
+      const names = uniqueMaterialsBoardFolderNames(Array.isArray(folders) ? folders : [])
       setMaterialsBoardPosts(normalized)
+      setMaterialsBoardFolders(names)
       return normalized
     } catch (error) {
       console.error('[게시판] API fetch failed', error)
@@ -7516,12 +7545,15 @@ function App() {
         const midOk =
           !installCaseMiddleFilter || row.middleCategory === installCaseMiddleFilter
         const audOk = !installCaseAudienceFilter || row.audience === installCaseAudienceFilter
+        const visibility = row.shareVisibility === 'internal' ? 'internal' : 'external'
+        const visibilityOk = !installCaseVisibilityFilter || visibility === installCaseVisibilityFilter
         const searchOk = installCaseMatchesSearch(row, installCaseSearch)
-        return envOk && midOk && audOk && searchOk
+        return envOk && midOk && audOk && visibilityOk && searchOk
       })
     )
   }, [
     installCaseAudienceFilter,
+    installCaseVisibilityFilter,
     installCaseEnvFilter,
     installCaseMiddleFilter,
     installCaseSearch,
@@ -7546,6 +7578,28 @@ function App() {
       },
     })
   }, [])
+
+  const hideInstallCaseById = useCallback((row, event) => {
+    event?.preventDefault()
+    event?.stopPropagation()
+    if (!canEditInstallCases || !row?.id) return
+    setContractConfirmDialog({
+      title: '설치사례 숨김',
+      message: '이 사례를 내부용으로 바꿀까요? 외부 공유 링크에서는 더 이상 보이지 않습니다.',
+      confirmLabel: '숨김',
+      onConfirm: async () => {
+        try {
+          const updated = await installCasesApi.update(row.id, { shareVisibility: 'internal' })
+          const next = normalizeInstallCaseRow(updated)
+          setInstallCases((prev) => prev.map((item) => (item.id === row.id ? next : item)))
+          setInstallCaseDetailModal((cur) => (cur && cur.id === row.id ? next : cur))
+        } catch (error) {
+          logApiOperationError('설치사례 숨김', error)
+          showAppAlert(error?.message || '숨김에 실패했습니다.', '알림')
+        }
+      },
+    })
+  }, [canEditInstallCases, showAppAlert])
 
   const openInstallCaseRegisterEmpty = useCallback(() => {
     setInstallCaseEditingId(null)
@@ -7685,7 +7739,9 @@ function App() {
 
   const filteredMaterialsBoardPosts = useMemo(() => {
     const query = safeString(materialsBoardSearch).trim().toLowerCase()
-    const rows = [...materialsBoardPosts].sort(compareMaterialsBoardPosts)
+    const rows = [...materialsBoardPosts]
+      .filter((row) => !materialsBoardFolderFilter || row.folder === materialsBoardFolderFilter)
+      .sort(compareMaterialsBoardPosts)
 
     if (!query) return rows
     return rows.filter((row) => {
@@ -7698,7 +7754,7 @@ function App() {
         title.includes(query) || content.includes(query) || fileNames.includes(query)
       )
     })
-  }, [materialsBoardPosts, materialsBoardSearch])
+  }, [materialsBoardFolderFilter, materialsBoardPosts, materialsBoardSearch])
 
   const handleDownloadMaterialsBoardFile = useCallback(
     async (row, event) => {
@@ -7768,10 +7824,13 @@ function App() {
   const handleOpenMaterialsBoardRegister = useCallback(() => {
     if (!canEditMaterialsBoard) return
     setMaterialsBoardEditingId(null)
-    setMaterialsBoardFormDraft(getDefaultMaterialsBoardForm())
+    setMaterialsBoardFormDraft({
+      ...getDefaultMaterialsBoardForm(),
+      folder: materialsBoardFolderFilter || '기타',
+    })
     setMaterialsBoardFile([])
     setMaterialsBoardRegisterOpen(true)
-  }, [canEditMaterialsBoard])
+  }, [canEditMaterialsBoard, materialsBoardFolderFilter])
 
   const handleOpenMaterialsBoardEdit = useCallback((row) => {
     if (!row || !canEditMaterialsBoard) return
@@ -7779,10 +7838,46 @@ function App() {
     setMaterialsBoardFormDraft({
       title: safeString(row.title).trim(),
       content: safeString(row.content),
+      folder: safeString(row.folder).trim() || '기타',
     })
     setMaterialsBoardFile(buildMaterialsBoardFileEntriesFromRow(row))
     setMaterialsBoardRegisterOpen(true)
   }, [canEditMaterialsBoard])
+
+  const handleAddMaterialsBoardFolder = useCallback(async () => {
+    if (!canEditMaterialsBoard) return
+    const name = safeString(materialsBoardFolderDraft).trim()
+    if (!name) {
+      showAppAlert('폴더 이름을 입력해 주세요.', '알림')
+      return
+    }
+    try {
+      await materialsBoardApi.createFolder(name)
+      setMaterialsBoardFolderDraft('')
+      setMaterialsBoardFolders((prev) => uniqueMaterialsBoardFolderNames([...prev, name]))
+    } catch (error) {
+      showAppAlert(error?.message || '폴더를 만들지 못했습니다.', '알림')
+    }
+  }, [canEditMaterialsBoard, materialsBoardFolderDraft, showAppAlert])
+
+  const handleDeleteMaterialsBoardFolder = useCallback(async (name) => {
+    if (!canEditMaterialsBoard || !name || name === '기타') return
+    setContractConfirmDialog({
+      title: '폴더 삭제',
+      message: `"${name}" 폴더를 삭제할까요? 글이 있으면 지울 수 없습니다.`,
+      destructive: true,
+      confirmLabel: '삭제',
+      onConfirm: async () => {
+        try {
+          await materialsBoardApi.deleteFolder(name)
+          if (materialsBoardFolderFilter === name) setMaterialsBoardFolderFilter('')
+          setMaterialsBoardFolders((prev) => prev.filter((folder) => folder !== name))
+        } catch (error) {
+          showAppAlert(error?.message || '폴더를 지우지 못했습니다.', '알림')
+        }
+      },
+    })
+  }, [canEditMaterialsBoard, materialsBoardFolderFilter, showAppAlert])
 
   const handleCloseMaterialsBoardRegister = useCallback(() => {
     setMaterialsBoardRegisterOpen(false)
@@ -7829,22 +7924,24 @@ function App() {
       const payload = {
         title,
         content,
-        folder: '기타',
-        folderId: '기타',
+        folder: safeString(materialsBoardFormDraft.folder).trim() || '기타',
+        folderId: safeString(materialsBoardFormDraft.folder).trim() || '기타',
         // 신규 업로드만 전송하고, 남겨둔 기존 첨부는 id 목록으로 알린다
         files: getMaterialsBoardNewFileEntries(materialsBoardFile),
         keepFileIds: getMaterialsBoardKeepFileIds(materialsBoardFile),
       }
 
       if (editingId) {
-        await materialsBoardApi.update(editingId, payload)
-        await fetchMaterialsBoardPosts()
+        const saved = await materialsBoardApi.update(editingId, payload)
+        const normalized = normalizeMaterialsBoardPost(saved)
+        setMaterialsBoardPosts((prev) => prev.map((post) => (post.id === editingId ? normalized : post)))
         setMaterialsBoardFile([])
         handleCloseMaterialsBoardRegister()
         setToastMessage('저장되었습니다.')
       } else {
-        await materialsBoardApi.create(payload)
-        await fetchMaterialsBoardPosts()
+        const saved = await materialsBoardApi.create(payload)
+        const normalized = normalizeMaterialsBoardPost(saved)
+        setMaterialsBoardPosts((prev) => [normalized, ...prev])
         setMaterialsBoardFile([])
         handleCloseMaterialsBoardRegister()
         setToastMessage('저장되었습니다.')
@@ -7987,9 +8084,11 @@ function App() {
         }
         clearInstallCaseFormDraftStorage()
         handleCloseInstallCaseRegister({ discardDraft: true })
-        const refreshed = await fetchInstallCases()
-        const found = refreshed.find((row) => row.id === editingId)
-        if (found) setInstallCaseDetailModal(found)
+        const normalized = normalizeInstallCaseRow(updated)
+        setInstallCases((prev) =>
+          sortInstallCasesForDisplay(prev.map((row) => (row.id === editingId ? normalized : row)))
+        )
+        setInstallCaseDetailModal(normalized)
         setToastMessage('저장되었습니다.')
       } else {
         const created = await installCasesApi.create(rowPayload, newFiles)
@@ -8005,7 +8104,8 @@ function App() {
         setInstallCaseEnvFilter('')
         setInstallCaseMiddleFilter('')
         setInstallCaseAudienceFilter('')
-        await fetchInstallCases()
+        const normalized = normalizeInstallCaseRow(created)
+        setInstallCases((prev) => sortInstallCasesForDisplay([normalized, ...prev]))
         setToastMessage('저장되었습니다.')
       }
     } catch (error) {
@@ -9028,13 +9128,19 @@ function App() {
         }
 
         setContactsManageRows((prev) =>
-          prev.filter((row) => !(row.isDraft && validSelectedIds.includes(row.id)))
+          prev.filter((row) => {
+            if (validSelectedIds.includes(row.id)) return false
+            const dbId = safeString(row._original_db_id).trim()
+            return !(dbId && persistedIds.includes(dbId))
+          })
         )
+        contactsManageRawRowsRef.current = (
+          Array.isArray(contactsManageRawRowsRef.current) ? contactsManageRawRowsRef.current : []
+        ).filter((row) => !persistedIds.includes(safeString(row?.id).trim()))
         setSelectedContactsIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
         setContactsDraftFocusRowId((prev) =>
           prev && validSelectedIds.includes(prev) ? null : prev
         )
-        await fetchContactsManageRows(true)
         setToastMessage('삭제되었습니다.')
       },
     })
@@ -9385,8 +9491,8 @@ function App() {
       }
       setIsSavingSales(true)
       try {
-        await salesRegisterApi.create({ ...toSalesPayload(draft, timestamp), createdAt: timestamp })
-        await fetchSalesRows(false)
+        const created = await salesRegisterApi.create({ ...toSalesPayload(draft, timestamp), createdAt: timestamp })
+        setSalesRows((prev) => [normalizeSalesRow(created), ...prev])
         setToastMessage('저장되었습니다.')
         closeRegistryCreateModal()
       } catch (error) {
@@ -9404,11 +9510,16 @@ function App() {
       }
       setIsSavingDiscovery(true)
       try {
-        await projectDiscoveryApi.create({
+        const created = await projectDiscoveryApi.create({
           ...toDiscoveryPayload(draft, timestamp),
           createdAt: timestamp,
         })
-        await fetchDiscoveryRows(false)
+        const normalized = normalizeDiscoveryRow(created)
+        setDiscoveryRows((prev) => {
+          const next = [normalized, ...prev]
+          setDiscoveryTableData(next.filter((row) => !row.isDraft).map(discoveryRowToExcelTableItem))
+          return next
+        })
         setToastMessage('저장되었습니다.')
         closeRegistryCreateModal()
       } catch (error) {
@@ -9426,11 +9537,11 @@ function App() {
       }
       setIsSavingExcluded(true)
       try {
-        await excludedProjectsApi.create({
+        const created = await excludedProjectsApi.create({
           ...toExcludedPayload(draft, timestamp),
           createdAt: timestamp,
         })
-        await fetchExcludedRows(false)
+        setExcludedRows((prev) => [normalizeExcludedRow(created), ...prev])
         setToastMessage('저장되었습니다.')
         closeRegistryCreateModal()
       } catch (error) {
@@ -9522,7 +9633,8 @@ function App() {
 
         setEditingDocumentIds((prev) => prev.filter((id) => id !== rowId))
         setDocumentEditSnapshots((prev) => removeObjectKey(prev, rowId))
-        await fetchDocuments(false)
+        setDocuments((prev) => prev.filter((row) => row.id !== rowId))
+        setSelectedDocumentIds((prev) => prev.filter((id) => id !== rowId))
       },
     })
   }
@@ -9604,9 +9716,6 @@ function App() {
           .filter((id) => safeString(id).trim() !== '')
 
         if (persistedIds.length > 0) {
-          const remainingDrafts = documents.filter(
-            (row) => row.isDraft && !validSelectedIds.includes(row.id)
-          )
           try {
             await documentRegisterApi.bulkDelete(persistedIds)
           } catch (error) {
@@ -9614,10 +9723,9 @@ function App() {
             return
           }
 
-          setDocuments(remainingDrafts)
+          setDocuments((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
           setSelectedDocumentIds([])
           setEditingDocumentIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
-          await fetchDocuments(true)
           return
         }
 
@@ -10216,8 +10324,9 @@ function App() {
 
         setEditingSalesIds((prev) => prev.filter((id) => id !== rowId))
         setSalesEditSnapshots((prev) => removeObjectKey(prev, rowId))
+        setSalesRows((prev) => prev.filter((row) => row.id !== rowId))
+        setSelectedSalesIds((prev) => prev.filter((id) => id !== rowId))
         sendAuditLog('DATA_ACTION', '영업관리대장 삭제')
-        await fetchSalesRows(false)
       },
     })
   }
@@ -10246,8 +10355,11 @@ function App() {
         setSelectedSalesIds((prev) => prev.map((id) => (id === rowId ? normalized.id : id)))
         setSalesDraftFocusRowId((prev) => (prev === rowId ? null : prev))
       } else {
-        await salesRegisterApi.update(rowId, toSalesPayload(targetRow, timestamp))
-        await fetchSalesRows(false)
+        const updated = await salesRegisterApi.update(rowId, toSalesPayload(targetRow, timestamp))
+        const normalized = normalizeSalesRow(
+          updated && typeof updated === 'object' ? { ...targetRow, ...updated } : targetRow
+        )
+        setSalesRows((prev) => prev.map((row) => (row.id === rowId ? normalized : row)))
       }
 
       setEditingSalesIds((prev) => prev.filter((id) => id !== rowId))
@@ -10292,9 +10404,6 @@ function App() {
           .filter((id) => safeString(id).trim() !== '')
 
         if (persistedIds.length > 0) {
-          const remainingDrafts = salesRows.filter(
-            (row) => row.isDraft && !validSelectedIds.includes(row.id)
-          )
           try {
             await salesRegisterApi.bulkDelete(persistedIds)
           } catch (error) {
@@ -10302,11 +10411,10 @@ function App() {
             return
           }
 
-          setSalesRows(remainingDrafts)
+          setSalesRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
           setSelectedSalesIds([])
           setEditingSalesIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
           sendAuditLog('DATA_ACTION', `영업관리대장 ${persistedIds.length}건 삭제`)
-          await fetchSalesRows(true)
           return
         }
 
@@ -10464,7 +10572,12 @@ function App() {
 
         setEditingDiscoveryIds((prev) => prev.filter((id) => id !== rowId))
         setDiscoveryEditSnapshots((prev) => removeObjectKey(prev, rowId))
-        await fetchDiscoveryRows(false)
+        setDiscoveryRows((prev) => {
+          const next = prev.filter((row) => row.id !== rowId)
+          setDiscoveryTableData(next.filter((row) => !row.isDraft).map(discoveryRowToExcelTableItem))
+          return next
+        })
+        setSelectedDiscoveryIds((prev) => prev.filter((id) => id !== rowId))
       },
     })
   }
@@ -10499,8 +10612,15 @@ function App() {
         setSelectedDiscoveryIds((prev) => prev.map((id) => (id === rowId ? normalized.id : id)))
         setDiscoveryDraftFocusRowId((prev) => (prev === rowId ? null : prev))
       } else {
-        await projectDiscoveryApi.update(rowId, toDiscoveryPayload(targetRow, timestamp))
-        await fetchDiscoveryRows(false)
+        const updated = await projectDiscoveryApi.update(rowId, toDiscoveryPayload(targetRow, timestamp))
+        const normalized = normalizeDiscoveryRow(
+          updated && typeof updated === 'object' ? { ...targetRow, ...updated } : targetRow
+        )
+        setDiscoveryRows((prev) => {
+          const next = prev.map((row) => (row.id === rowId ? normalized : row))
+          setDiscoveryTableData(next.filter((row) => !row.isDraft).map(discoveryRowToExcelTableItem))
+          return next
+        })
       }
 
       setEditingDiscoveryIds((prev) => prev.filter((id) => id !== rowId))
@@ -10775,7 +10895,8 @@ function App() {
 
         setEditingExcludedIds((prev) => prev.filter((id) => id !== rowId))
         setExcludedEditSnapshots((prev) => removeObjectKey(prev, rowId))
-        await fetchExcludedRows(false)
+        setExcludedRows((prev) => prev.filter((row) => row.id !== rowId))
+        setSelectedExcludedIds((prev) => prev.filter((id) => id !== rowId))
       },
     })
   }
@@ -10852,9 +10973,6 @@ function App() {
           .filter((id) => safeString(id).trim() !== '')
 
         if (persistedIds.length > 0) {
-          const remainingDrafts = excludedRows.filter(
-            (row) => row.isDraft && !validSelectedIds.includes(row.id)
-          )
           try {
             await excludedProjectsApi.bulkDelete(persistedIds)
           } catch (error) {
@@ -10862,10 +10980,9 @@ function App() {
             return
           }
 
-          setExcludedRows(remainingDrafts)
+          setExcludedRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
           setSelectedExcludedIds([])
           setEditingExcludedIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
-          await fetchExcludedRows(true)
           return
         }
 
@@ -11567,31 +11684,29 @@ function App() {
     const targetRow = editingWorkCellData
     if (!targetRow) return
 
-    if (isWorkReportRowEmpty(targetRow)) {
-      if (!targetRow.isDraft && targetRow.id) {
-        const ok = await deleteWorkReportRowById(targetRow.id)
-        if (!ok) return
-        await fetchWorkReportRows()
+      if (isWorkReportRowEmpty(targetRow)) {
+        if (!targetRow.isDraft && targetRow.id) {
+          const ok = await deleteWorkReportRowById(targetRow.id)
+          if (!ok) return
+        }
+        cancelWorkReportEdit()
+        return
       }
-      cancelWorkReportEdit()
-      return
-    }
 
     setIsSavingWorkReports(true)
 
     try {
       const timestamp = new Date().toISOString()
 
-      if (targetRow.isDraft) {
-        await weeklyWorkReportsApi.create({
-          ...toWorkReportPayload(targetRow, timestamp),
-          createdAt: timestamp,
-        })
-      } else {
-        await weeklyWorkReportsApi.update(targetRow.id, toWorkReportPayload(targetRow, timestamp))
-      }
-
-      await fetchWorkReportRows()
+      const savedRow = targetRow.isDraft
+        ? await weeklyWorkReportsApi.create({
+            ...toWorkReportPayload(targetRow, timestamp),
+            createdAt: timestamp,
+          })
+        : await weeklyWorkReportsApi.update(targetRow.id, toWorkReportPayload(targetRow, timestamp))
+      const normalizedSaved = normalizeWorkReportRow(savedRow)
+      workReportRowsRef.current = upsertWorkReportRowInList(workReportRowsRef.current, normalizedSaved)
+      setWorkReportRows(workReportRowsRef.current)
       trackWorkWeek(targetRow.date)
       cancelWorkReportEdit()
     } catch (error) {
@@ -11889,7 +12004,6 @@ function App() {
             const ok = await deleteWorkReportRowById(id)
             if (!ok) return
           }
-          await fetchWorkReportRows()
           setWorkReportDrafts(() => {
             const next = { ...workReportDraftsRef.current }
             for (let idx = 1; idx <= WORK_REPORT_MAIN_CHECK_COUNT; idx += 1) {
@@ -11908,7 +12022,6 @@ function App() {
           setWorkReportDrafts(nextDrafts)
           const ok = await deleteWorkReportRowById(targetRow.id)
           if (!ok) return
-          await fetchWorkReportRows()
           return
         }
 
@@ -12563,7 +12676,18 @@ function App() {
     const savedRows = await saveContractToApi(newRow)
     if (!savedRows || savedRows.length === 0) return
 
-    await fetchContracts()
+    const created = savedRows[0]
+    const serverId = firstUsableContractPathId(created.id, created._id, created.contract_id, created.ID)
+    const normalized = normalizeContractListRow(
+      {
+        ...created,
+        id: serverId,
+        key: serverId,
+        selectKey: serverId,
+      },
+      0
+    )
+    setContracts((prev) => [normalized, ...prev])
     closeContractRegisterModal()
     setToastMessage('저장되었습니다.')
   }
@@ -12661,18 +12785,15 @@ function App() {
         await contractsApi.bulkRemove(ids)
       }
       deleteSucceeded = true
+      const idSet = new Set(ids)
+      setContracts((prev) =>
+        prev.filter((row) => !idSet.has(firstUsableContractPathId(row.id, row.key, row._id, row.contract_id)))
+      )
     } catch (error) {
       console.error('[계약현황 삭제] 요청 실패 (전문)', error)
       console.error('[계약현황 삭제] stack:', error?.stack)
       logApiOperationError(dialog.single ? '계약현황 삭제' : '계약현황 선택 삭제', error)
       setToastMessage(`삭제 중 오류가 발생했습니다. ${safeString(error?.message)}`)
-    } finally {
-      try {
-        await fetchContracts()
-      } catch (reloadErr) {
-        console.error('[계약현황] 삭제 후 목록 갱신 실패 (전문)', reloadErr)
-        console.error('[계약현황] 삭제 후 목록 갱신 stack:', reloadErr?.stack)
-      }
     }
 
     if (!deleteSucceeded) return
@@ -12774,6 +12895,13 @@ function App() {
 
     try {
       await contractsApi.update(id, { [snap.key]: value })
+      setContracts((prev) =>
+        prev.map((row) => {
+          const rowId = firstUsableContractPathId(row.id, row.key, row._id, row.contract_id)
+          if (rowId !== id) return row
+          return { ...row, [snap.key]: value }
+        })
+      )
     } catch (error) {
       console.error('[계약현황 PATCH] 요청 실패 (전문)', error)
       console.error('[계약현황 PATCH] stack:', error?.stack)
@@ -12784,8 +12912,6 @@ function App() {
       )
       return
     }
-
-    await fetchContracts()
 
     if (
       contractEditRef.current?.rowKey === snap.rowKey &&
@@ -13752,9 +13878,6 @@ function App() {
         const value = column.type === 'amount' ? normalizeAmountValue(e.target.value) : e.target.value
         setRegistryCellEditDraft(value)
         registryCellEditDraftRef.current = value
-        if (scope && rowId && !isRegistrySmartDetailColumn(column, scope)) {
-          applyRegistryRowFieldPatch(scope, rowId, column, value)
-        }
       },
       onBlur: () => {
         void saveRegistryCellEdit()
@@ -16581,7 +16704,7 @@ function App() {
 
               <div className="dashboard-surface-card">
                 <div className="dashboard-panel">
-                  <ImportanceLegend />
+                  <ImportanceLegend items={DASHBOARD_STATUS_LEGEND_ITEMS} />
                   <div className="dashboard-recent-grid">
                     {dashboardData.recentGroups.map((group) => {
                       const { base, counts } = splitDashboardRecentTitleLabel(group.label)
@@ -18556,72 +18679,88 @@ function App() {
         {menu === 'installCases' && (
           <section className="stat-card stat-card--install-cases">
             <div className="install-cases-toolbar">
-              <div className="install-cases-filters">
-                <select
-                  className="contract-filter-select install-cases-select"
-                  value={installCaseEnvFilter}
-                  onChange={(e) => setInstallCaseEnvFilter(e.target.value)}
-                  aria-label="대분류 필터"
-                >
-                  {withInstallCaseSelectPlaceholder(INSTALL_CASE_MAJOR_CATEGORY_OPTIONS, '대분류').map(
-                    (opt) => (
-                      <option key={opt.value || 'major-all'} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    )
-                  )}
-                </select>
-                <select
-                  className="contract-filter-select install-cases-select"
-                  value={installCaseMiddleFilter}
-                  onChange={(e) => setInstallCaseMiddleFilter(e.target.value)}
-                  aria-label="중분류 필터"
-                >
-                  {withInstallCaseSelectPlaceholder(INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS, '중분류').map(
-                    (opt) => (
-                      <option key={opt.value || 'middle-all'} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    )
-                  )}
-                </select>
-                <select
-                  className="contract-filter-select install-cases-select"
-                  value={installCaseAudienceFilter}
-                  onChange={(e) => setInstallCaseAudienceFilter(e.target.value)}
-                  aria-label="소분류 필터"
-                >
-                  {withInstallCaseSelectPlaceholder(INSTALL_CASE_MINOR_CATEGORY_OPTIONS, '소분류').map(
-                    (opt) => (
-                      <option key={opt.value || 'minor-all'} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    )
-                  )}
-                </select>
-                <input
-                  className="table-search-input install-cases-search-input"
-                  placeholder="사업년도/대분류/중분류/소분류/용도/발주처/표출부 사이즈/해상도/LED Pitch/설치유형 입력"
-                  value={installCaseSearch}
-                  onChange={(e) => setInstallCaseSearch(e.target.value)}
-                  aria-label="설치사례 검색"
-                  title="사업명·사업년도·대분류·중분류·소분류·용도·발주처·표출부 사이즈·해상도·LED Pitch·설치유형 통합 검색"
-                />
-              </div>
-              <div className="install-cases-toolbar-actions">
-                <button
-                  className="secondary-btn"
-                  type="button"
-                  onClick={() => setInstallShareModalOpen(true)}
-                >
-                  🔗 외부 공유 링크 복사
-                </button>
-                {canEditInstallCases && (
-                  <button className="primary-btn" type="button" onClick={handleOpenInstallCaseRegister}>
-                    등록
-                  </button>
+              <select
+                className="contract-filter-select install-cases-select"
+                value={installCaseEnvFilter}
+                onChange={(e) => setInstallCaseEnvFilter(e.target.value)}
+                aria-label="대분류 필터"
+              >
+                {withInstallCaseSelectPlaceholder(INSTALL_CASE_MAJOR_CATEGORY_OPTIONS, '대분류').map(
+                  (opt) => (
+                    <option key={opt.value || 'major-all'} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  )
                 )}
+              </select>
+              <select
+                className="contract-filter-select install-cases-select"
+                value={installCaseMiddleFilter}
+                onChange={(e) => setInstallCaseMiddleFilter(e.target.value)}
+                aria-label="중분류 필터"
+              >
+                {withInstallCaseSelectPlaceholder(INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS, '중분류').map(
+                  (opt) => (
+                    <option key={opt.value || 'middle-all'} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  )
+                )}
+              </select>
+              <select
+                className="contract-filter-select install-cases-select"
+                value={installCaseAudienceFilter}
+                onChange={(e) => setInstallCaseAudienceFilter(e.target.value)}
+                aria-label="소분류 필터"
+              >
+                {withInstallCaseSelectPlaceholder(INSTALL_CASE_MINOR_CATEGORY_OPTIONS, '소분류').map(
+                  (opt) => (
+                    <option key={opt.value || 'minor-all'} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  )
+                )}
+              </select>
+              {canEditInstallCases && (
+                <button className="primary-btn install-cases-register-btn" type="button" onClick={handleOpenInstallCaseRegister}>
+                  등록
+                </button>
+              )}
+              <div className="install-cases-visibility-tabs" role="tablist" aria-label="설치사례 가시성">
+                {[
+                  { id: '', label: '전체보기' },
+                  { id: 'external', label: '외부용' },
+                  { id: 'internal', label: '내부용' },
+                ].map((tab) => (
+                  <button
+                    key={tab.label}
+                    type="button"
+                    role="tab"
+                    aria-selected={installCaseVisibilityFilter === tab.id}
+                    className={`secondary-btn install-cases-visibility-tab${
+                      installCaseVisibilityFilter === tab.id ? ' is-active' : ''
+                    }`}
+                    onClick={() => setInstallCaseVisibilityFilter(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
+              <input
+                className="table-search-input install-cases-search-input"
+                placeholder="사업명, 발주처, 용도 검색"
+                value={installCaseSearch}
+                onChange={(e) => setInstallCaseSearch(e.target.value)}
+                aria-label="설치사례 검색"
+                title="사업명·사업년도·대분류·중분류·소분류·용도·발주처·표출부 사이즈·해상도·LED Pitch·설치유형 통합 검색"
+              />
+              <button
+                className="secondary-btn install-cases-share-btn"
+                type="button"
+                onClick={() => setInstallShareModalOpen(true)}
+              >
+                🔗 외부 공유 링크 복사
+              </button>
             </div>
 
             <div className="install-cases-gallery">
@@ -18645,6 +18784,15 @@ function App() {
                       <div className="install-case-card-meta">{formatInstallCaseCardSubline(row)}</div>
                     </div>
                   </button>
+                  {canEditInstallCases && row.shareVisibility !== 'internal' && (
+                    <button
+                      type="button"
+                      className="secondary-btn install-case-card-hide"
+                      onClick={(e) => hideInstallCaseById(row, e)}
+                    >
+                      숨김
+                    </button>
+                  )}
                   {canEditInstallCases && (
                     <button
                       type="button"
@@ -18721,6 +18869,59 @@ function App() {
           <section className="stat-card stat-card--materials-board">
             <div className="materials-board-layout materials-board-layout--list-only">
               <div className="materials-board-main">
+                <div className="materials-board-folders" aria-label="게시판 폴더">
+                  <button
+                    type="button"
+                    className={`secondary-btn materials-board-folder-chip${materialsBoardFolderFilter ? '' : ' is-active'}`}
+                    onClick={() => setMaterialsBoardFolderFilter('')}
+                  >
+                    전체
+                  </button>
+                  {materialsBoardFolders.map((name) => (
+                    <span key={name} className="materials-board-folder-item">
+                      <button
+                        type="button"
+                        className={`secondary-btn materials-board-folder-chip${
+                          materialsBoardFolderFilter === name ? ' is-active' : ''
+                        }`}
+                        onClick={() => setMaterialsBoardFolderFilter(name)}
+                      >
+                        <span className="materials-board-folder-emoji" aria-hidden="true">📁</span>
+                        {name}
+                      </button>
+                      {canEditMaterialsBoard && name !== '기타' ? (
+                        <button
+                          type="button"
+                          className="materials-board-folder-delete"
+                          aria-label={`${name} 폴더 삭제`}
+                          onClick={() => handleDeleteMaterialsBoardFolder(name)}
+                        >
+                          삭제
+                        </button>
+                      ) : null}
+                    </span>
+                  ))}
+                  {canEditMaterialsBoard ? (
+                    <span className="materials-board-folder-add">
+                      <input
+                        className="table-search-input"
+                        value={materialsBoardFolderDraft}
+                        placeholder="새 폴더"
+                        aria-label="새 폴더 이름"
+                        onChange={(event) => setMaterialsBoardFolderDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault()
+                            void handleAddMaterialsBoardFolder()
+                          }
+                        }}
+                      />
+                      <button type="button" className="secondary-btn" onClick={() => void handleAddMaterialsBoardFolder()}>
+                        폴더 추가
+                      </button>
+                    </span>
+                  ) : null}
+                </div>
                 <div className="materials-board-toolbar">
                   <input
                     className="table-search-input"
@@ -19104,6 +19305,15 @@ function App() {
               <div className="install-case-detail-modal-actions">
                 {canEditInstallCases && (
                   <>
+                    {installCaseDetailModal.shareVisibility !== 'internal' && (
+                      <button
+                        type="button"
+                        className="secondary-btn"
+                        onClick={(event) => hideInstallCaseById(installCaseDetailModal, event)}
+                      >
+                        숨김
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="secondary-btn install-case-modal-edit-btn"
@@ -19770,6 +19980,25 @@ function App() {
               </button>
             </div>
             <div className="install-case-form-modal-body materials-board-register-modal-body">
+              <div className="materials-board-register-field">
+                <label className="install-case-form-label" htmlFor="materials-board-folder">
+                  폴더
+                </label>
+                <select
+                  id="materials-board-folder"
+                  className="table-search-input install-case-form-input"
+                  value={materialsBoardFormDraft.folder || '기타'}
+                  onChange={(e) =>
+                    setMaterialsBoardFormDraft((prev) => ({ ...prev, folder: e.target.value }))
+                  }
+                >
+                  {materialsBoardFolders.map((name) => (
+                    <option key={name} value={name}>
+                      📁 {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="materials-board-register-field">
                 <label className="install-case-form-label" htmlFor="materials-board-title">
                   제목

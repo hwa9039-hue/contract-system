@@ -11,9 +11,12 @@
 import hmac
 import logging
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from email.utils import getaddresses, parseaddr
+from html import unescape
 from typing import Any
+from urllib.parse import parse_qs, unquote, urlparse
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from psycopg.types.json import Jsonb
@@ -110,14 +113,185 @@ def _parse_sent_at(value: Any) -> datetime | None:
     return parsed
 
 
-def _attachment_filename(item: Any) -> str:
+# Gmail 은 25MB 를 넘는 첨부를 MIME 첨부가 아니라 본문 HTML 의 드라이브 링크로 넣는다.
+_ANCHOR_RE = re.compile(r"<a\b(?P<attrs>[^>]*)>(?P<label>.*?)</a>", re.IGNORECASE | re.DOTALL)
+_ATTR_RE = re.compile(r"""\b(?P<name>href|download|aria-label|title)\s*=\s*(?P<q>['"])(?P<value>.*?)\2""", re.IGNORECASE | re.DOTALL)
+_DRIVE_URL_RE = re.compile(r"https?://(?:drive|docs)\.google\.com/[^\s<>\"']+", re.IGNORECASE)
+_DRIVE_ID_RE = re.compile(
+    r"(?:/(?:file|document|spreadsheets|presentation|drawings)/d/|[?&]id=)([A-Za-z0-9_-]{10,})",
+    re.IGNORECASE,
+)
+_FILE_NAME_RE = re.compile(
+    r"([^\s/\\<>\"']{1,180}\.(?:pdf|hwp|hwpx|doc|docx|xls|xlsx|xlsm|ppt|pptx|dwg|dxf|zip|jpe?g|png|gif|tiff?|csv|txt|rvt|skp|ifc|mp4|7z|rar|bmp|webp|svg|xml|msg|eml))",
+    re.IGNORECASE,
+)
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _looks_like_filename(text: str) -> bool:
+    return bool(_FILE_NAME_RE.fullmatch(text.strip()))
+
+
+def _plain_label(value: str) -> str:
+    return unescape(re.sub(r"\s+", " ", _TAG_RE.sub(" ", value or ""))).strip()
+
+
+def _unwrap_drive_url(url: str) -> str:
+    """구글 리다이렉트(google.com/url?q=)를 풀고 드라이브 주소만 남긴다."""
+    cleaned = unescape(unquote(url or "")).strip().rstrip(").,;")
+    if not cleaned:
+        return ""
+    parsed = urlparse(cleaned)
+    if "google." in parsed.netloc and parsed.path.rstrip("/").endswith("/url"):
+        target = parse_qs(parsed.query).get("q", [""])[0]
+        if target:
+            cleaned = unescape(unquote(target)).strip().rstrip(").,;")
+    if not _DRIVE_URL_RE.match(cleaned):
+        return ""
+    return cleaned
+
+
+def _drive_identity(url: str) -> str:
+    match = _DRIVE_ID_RE.search(url)
+    if match:
+        return f"id:{match.group(1)}"
+    return url.lower()
+
+
+def _attachment_name_from_url(url: str) -> str:
+    path = urlparse(url).path
+    match = _FILE_NAME_RE.search(unquote(path))
+    if match:
+        return _clean_text(match.group(1), MAX_FILENAME_LEN)
+    return "대용량 첨부"
+
+
+def _attachment_record(name: str, url: str = "") -> dict[str, str] | None:
+    cleaned_url = _unwrap_drive_url(url) or _clean_text(url, 2000)
+    if cleaned_url and not _DRIVE_URL_RE.match(cleaned_url):
+        cleaned_url = _clean_text(url, 2000)
+    cleaned_name = _plain_label(name)
+    if not _looks_like_filename(cleaned_name):
+        cleaned_name = ""
+    cleaned_name = _clean_text(cleaned_name, MAX_FILENAME_LEN)
+    if cleaned_url and not cleaned_name:
+        cleaned_name = _attachment_name_from_url(cleaned_url)
+    if _DRIVE_URL_RE.fullmatch(cleaned_name) and not cleaned_url:
+        cleaned_url = _unwrap_drive_url(cleaned_name)
+        cleaned_name = _attachment_name_from_url(cleaned_url)
+    if not cleaned_name and not cleaned_url:
+        return None
+    record = {"name": cleaned_name or "대용량 첨부"}
+    if cleaned_url:
+        record["url"] = cleaned_url
+    return record
+
+
+def _attachment_from_item(item: Any) -> dict[str, str] | None:
     if isinstance(item, str):
-        return _clean_text(item, MAX_FILENAME_LEN)
-    if isinstance(item, dict):
-        return _clean_text(
-            item.get("filename") or item.get("fileName") or item.get("name"), MAX_FILENAME_LEN
-        )
-    return ""
+        return _attachment_record(item)
+    if not isinstance(item, dict):
+        return None
+    name = item.get("filename") or item.get("fileName") or item.get("name") or item.get("title") or ""
+    url = (
+        item.get("url")
+        or item.get("link")
+        or item.get("href")
+        or item.get("downloadUrl")
+        or item.get("driveUrl")
+        or ""
+    )
+    return _attachment_record(str(name), str(url))
+
+
+def _anchor_attrs(attrs: str) -> dict[str, str]:
+    found: dict[str, str] = {}
+    for match in _ATTR_RE.finditer(attrs or ""):
+        found[match.group("name").lower()] = unescape(match.group("value") or "")
+    return found
+
+
+def _nearby_filename(text: str, end: int) -> str:
+    before = _plain_label(text[max(0, end - 220):end])
+    names = _FILE_NAME_RE.findall(before)
+    return names[-1] if names else ""
+
+
+def _drive_links_from_text(text: str) -> list[dict[str, str]]:
+    """본문 HTML에서 대용량 파일용 드라이브 다운로드 링크와 파일명을 뽑는다.
+
+    일반 MIME 첨부가 없어도 링크만 있으면 첨부 항목이 된다.
+    """
+    if not text:
+        return []
+    found: list[dict[str, str]] = []
+    seen: set[str] = set()
+
+    def add(name: str, url: str) -> None:
+        cleaned_url = _unwrap_drive_url(url)
+        if not cleaned_url:
+            return
+        identity = _drive_identity(cleaned_url)
+        if identity in seen:
+            return
+        label = _plain_label(name)
+        if not _looks_like_filename(label):
+            label = ""
+        record = _attachment_record(label, cleaned_url)
+        if not record:
+            return
+        seen.add(identity)
+        found.append(record)
+
+    for match in _ANCHOR_RE.finditer(text):
+        attrs = _anchor_attrs(match.group("attrs") or "")
+        href = attrs.get("href") or ""
+        if not _unwrap_drive_url(href):
+            continue
+        label = attrs.get("download") or attrs.get("aria-label") or attrs.get("title") or match.group("label") or ""
+        if not _looks_like_filename(_plain_label(label)):
+            nearby = _nearby_filename(text, match.start())
+            if nearby:
+                label = nearby
+        add(label, href)
+
+    plain = _plain_label(text)
+    for match in _DRIVE_URL_RE.finditer(plain):
+        add(_nearby_filename(plain, match.start()), match.group(0))
+    return found
+
+
+def _merge_attachments(*groups: list[dict[str, str]]) -> list[dict[str, str]]:
+    """파일명이 같은 MIME 첨부와 드라이브 링크는 한 칸으로 합친다."""
+    merged: list[dict[str, str]] = []
+    index_by_name: dict[str, int] = {}
+    seen_urls: set[str] = set()
+    for group in groups:
+        for item in group:
+            url = (item.get("url") or "").strip()
+            name = (item.get("name") or "").strip() or "대용량 첨부"
+            url_key = _drive_identity(url) if url else ""
+            name_key = name.lower()
+            if url_key and url_key in seen_urls:
+                continue
+            if url and name_key in index_by_name:
+                existing = merged[index_by_name[name_key]]
+                if not existing.get("url"):
+                    existing["url"] = url
+                    seen_urls.add(url_key)
+                    continue
+            if url_key:
+                seen_urls.add(url_key)
+            record = {"name": name}
+            if url:
+                record["url"] = url
+            if name_key in index_by_name and not url:
+                continue
+            merged.append(record)
+            index_by_name.setdefault(name_key, len(merged) - 1)
+            if len(merged) >= MAX_ATTACHMENTS_PER_MAIL:
+                return merged
+    return merged
 
 
 def _normalize_item(raw: Any) -> dict[str, Any]:
@@ -135,10 +309,19 @@ def _normalize_item(raw: Any) -> dict[str, Any]:
 
     attachments_raw = raw.get("attachments")
     if attachments_raw is None:
-        attachments_raw = []
+        attachments_raw = raw.get("files") or raw.get("largeAttachments") or raw.get("driveLinks") or []
     if not isinstance(attachments_raw, list):
         raise ValueError("attachments must be an array")
-    attachments = [name for name in (_attachment_filename(a) for a in attachments_raw) if name]
+    named = [item for item in (_attachment_from_item(entry) for entry in attachments_raw) if item]
+    body_sources = [
+        raw.get("bodyHtml"),
+        raw.get("htmlBody"),
+        raw.get("html"),
+        raw.get("body"),
+        raw.get("rawBody"),
+        raw.get("bodySummary") if "bodySummary" in raw else raw.get("body_summary"),
+    ]
+    linked = _drive_links_from_text("\n".join(str(part) for part in body_sources if part))
 
     return {
         "message_id": message_id,
@@ -149,9 +332,9 @@ def _normalize_item(raw: Any) -> dict[str, Any]:
         ),
         "subject": _clean_text(raw.get("subject"), MAX_SUBJECT_LEN),
         "body_summary": _summarize_body(
-            raw.get("bodySummary") if "bodySummary" in raw else raw.get("body_summary")
+            raw.get("bodySummary") if "bodySummary" in raw else raw.get("body_summary") or raw.get("body")
         ),
-        "attachments": attachments[:MAX_ATTACHMENTS_PER_MAIL],
+        "attachments": _merge_attachments(named, linked),
     }
 
 
@@ -174,7 +357,10 @@ def _extract_items(body: Any) -> list[Any]:
 
 def _row_to_out(row: dict) -> dict[str, Any]:
     sent_at = row.get("sent_at")
-    attachments = row.get("attachments")
+    stored = row.get("attachments")
+    named = [item for item in (_attachment_from_item(entry) for entry in stored) if item] if isinstance(stored, list) else []
+    # 이미 저장된 메일도 본문 요약에 드라이브 링크가 남아 있으면 첨부 목록에 다시 붙인다.
+    linked = _drive_links_from_text(str(row.get("body_summary") or ""))
     return {
         "id": row["id"],
         "sentAt": sent_at.isoformat() if sent_at else "",
@@ -182,7 +368,7 @@ def _row_to_out(row: dict) -> dict[str, Any]:
         "recipient": row.get("recipient") or "",
         "subject": row.get("subject") or "",
         "bodySummary": row.get("body_summary") or "",
-        "attachments": [str(name) for name in attachments] if isinstance(attachments, list) else [],
+        "attachments": _merge_attachments(named, linked),
     }
 
 

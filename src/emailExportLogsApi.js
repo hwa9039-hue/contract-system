@@ -56,11 +56,17 @@ function safeString(value) {
   return String(value)
 }
 
-/** 첨부 항목(문자열 또는 {filename|fileName|name})에서 파일명만 뽑는다. */
-function attachmentToFilename(item) {
-  if (typeof item === 'string') return item.trim()
-  if (!item || typeof item !== 'object') return ''
-  return safeString(item.filename ?? item.fileName ?? item.name).trim()
+/** 첨부 항목을 { name, url } 로 맞춘다. 드라이브 링크만 있는 대용량 첨부도 남긴다. */
+function normalizeAttachment(item) {
+  if (typeof item === 'string') {
+    const name = item.trim()
+    return name ? { name, url: '' } : null
+  }
+  if (!item || typeof item !== 'object') return null
+  const name = safeString(item.filename ?? item.fileName ?? item.name ?? item.title).trim()
+  const url = safeString(item.url ?? item.link ?? item.href ?? item.downloadUrl ?? item.driveUrl).trim()
+  if (!name && !url) return null
+  return { name: name || '대용량 첨부', url }
 }
 
 /** 서버 행(camelCase / snake_case 모두 허용)을 화면용 형태로 맞춘다. */
@@ -74,7 +80,7 @@ export function normalizeEmailExportLog(row, index = 0) {
     recipient: safeString(source.recipient ?? source.to).trim(),
     subject: safeString(source.subject ?? source.title),
     bodySummary: safeString(source.bodySummary ?? source.body_summary).trim(),
-    attachments: rawAttachments.map(attachmentToFilename).filter(Boolean),
+    attachments: rawAttachments.map(normalizeAttachment).filter(Boolean),
   }
 }
 

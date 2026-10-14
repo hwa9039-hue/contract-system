@@ -350,8 +350,11 @@ def _join_email_export_files(value: Any) -> str:
             names.append(item.strip())
         elif isinstance(item, dict):
             name = str(item.get("filename") or item.get("fileName") or item.get("name") or "").strip()
-            if name:
-                names.append(name)
+            url = str(item.get("url") or item.get("link") or "").strip()
+            if name and url:
+                names.append(f"{name} ({url})")
+            elif name or url:
+                names.append(name or url)
     return ", ".join(names)
 
 

@@ -1,3 +1,5 @@
+import { salesStatusBadgeLabel, salesStatusBadgeTone } from './salesStatusBadge.jsx'
+
 /** 상태값 → 중요도 색상 (영업관리대장·사업검색이력 공통) */
 
 // '보류'는 상태 옵션에서 삭제되었으나(신규 선택 불가), 레거시 DB 데이터 호환을 위해
@@ -84,21 +86,15 @@ export function resolveRegistryImportanceStatus(row, column) {
 }
 
 export function RegistryImportanceDot({ status, size = 'md' }) {
-  const normalized = normalizeStatusForImportance(status)
-  if (!normalized) return null
-
-  let tone = 'empty'
-  try {
-    tone = getImportanceStyle(status).tone
-  } catch {
-    return null
-  }
-
-  if (tone === 'empty') return null
+  const label = salesStatusBadgeLabel(status)
+  if (!label) return null
+  const tone = salesStatusBadgeTone(status)
+  if (!tone || tone === 'empty') return null
 
   return (
     <span
       className={`registry-importance-dot registry-importance-dot--${tone} registry-importance-dot--size-${size}`}
+      title={label}
       aria-hidden="true"
     />
   )
@@ -106,19 +102,8 @@ export function RegistryImportanceDot({ status, size = 'md' }) {
 
 /** 테이블 중요도 셀 — 색상 점만 표시(범례로 상태 구분, 텍스트 미표시) */
 export function RegistryImportanceBadge({ status }) {
-  let title = ''
-  let tone = 'empty'
-
-  try {
-    title = normalizeStatusForImportance(status)
-    tone = getImportanceStyle(status).tone || 'empty'
-  } catch {
-    return (
-      <span className="registry-importance-dot-only" aria-label="중요도 없음">
-        <span className="registry-importance-dot registry-importance-dot--empty" aria-hidden="true" />
-      </span>
-    )
-  }
+  const title = salesStatusBadgeLabel(status)
+  const tone = title ? salesStatusBadgeTone(status) : 'empty'
 
   return (
     <span

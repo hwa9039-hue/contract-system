@@ -3,7 +3,8 @@
  *
  * 받은 편지함(Inbox)으로 들어온 메일 중 "보낸 사람 아이디(@ 앞부분)"가 아래 10명 중 하나인 메일만
  * 서버 수신 API(POST /api/emails/export-logs/ingest)로 보낸다. 나머지(외부·광고 메일)는 건너뛴다.
- * 보내는 항목: 메일 ID, 발신일시, 발신자, 수신자(To), 제목, 본문 요약, 첨부파일명
+ * 보내는 항목: 메일 ID, 발신일시, 발신자, 수신자(To), 제목, 본문 요약, 첨부
+ * 25MB 를 넘는 파일은 MIME 첨부가 아니라 본문 안 구글 드라이브 링크이므로, HTML 에서 링크와 파일명을 뽑아 함께 보낸다.
  *
  * 설치 순서
  *  1) https://script.google.com → 새 프로젝트 → 이 파일 내용을 붙여넣기
@@ -85,9 +86,15 @@ function collectExportMails() {
       if (myEmail && email === myEmail) { skipped++; continue; }
       if (!isAllowedSender_(email)) { skipped++; continue; }           // 외부·광고 메일 건너뜀
 
-      var attachments = message
+      var plainBody = '';
+      var htmlBody = '';
+      try { plainBody = message.getPlainBody(); } catch (e) { plainBody = ''; }
+      try { htmlBody = message.getBody(); } catch (e2) { htmlBody = ''; }
+      var mimeFiles = message
         .getAttachments({ includeInlineImages: false, includeAttachments: true })
-        .map(function (a) { return a.getName(); });
+        .map(function (file) { return { name: file.getName(), url: '' }; });
+      var driveFiles = extractDriveLinks_(htmlBody, plainBody);
+      var attachments = mergeAttachmentRecords_(mimeFiles, driveFiles);
       if (REQUIRE_ATTACHMENT && attachments.length === 0) { skipped++; continue; }
 
       items.push({
@@ -96,7 +103,8 @@ function collectExportMails() {
         sender: from,
         recipient: message.getTo(),
         subject: message.getSubject(),
-        bodySummary: summarizeBody_(message.getPlainBody()),
+        bodySummary: summarizeBody_(plainBody),
+        bodyHtml: compactHtml_(htmlBody),
         attachments: attachments,
       });
     }
@@ -184,6 +192,132 @@ function cleanText_(raw) {
 function safeFromCodePoint_(code) {
   if (!isFinite(code) || code <= 0 || code > 0x10FFFF) return '';
   return code === 0xA0 ? ' ' : String.fromCodePoint(code);
+}
+
+/**
+ * 대용량 첨부는 Gmail 이 본문 HTML 에 드라이브 링크로 넣는다.
+ * 앵커의 href / download / aria-label 과, 링크 앞의 파일명을 첨부 항목으로 만든다.
+ */
+var DRIVE_FILE_NAME_RE = /([^\s\/\\<>"']{1,180}\.(?:pdf|hwp|hwpx|doc|docx|xls|xlsx|xlsm|ppt|pptx|dwg|dxf|zip|jpe?g|png|gif|tiff?|csv|txt|rvt|skp|ifc|mp4|7z|rar|bmp|webp|svg|xml|msg|eml))/i;
+
+function unwrapDriveUrl_(url) {
+  var text = String(url || '').replace(/&amp;/gi, '&').trim().replace(/[).,;]+$/, '');
+  if (!text) return '';
+  if (/https?:\/\/(?:www\.)?google\.[^/]+\/url/i.test(text)) {
+    var wrapped = text.match(/[?&]q=([^&]+)/i);
+    if (wrapped) {
+      try { text = decodeURIComponent(wrapped[1]).replace(/[).,;]+$/, ''); } catch (e) {}
+    }
+  }
+  if (!/^https?:\/\/(?:drive|docs)\.google\.com\//i.test(text)) return '';
+  return text;
+}
+
+function driveIdentity_(url) {
+  var match = String(url || '').match(/(?:\/(?:file|document|spreadsheets|presentation|drawings)\/d\/|[?&]id=)([A-Za-z0-9_-]{10,})/i);
+  return match ? 'id:' + match[1] : String(url || '').toLowerCase();
+}
+
+function looksLikeFileName_(text) {
+  var value = String(text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  var match = value.match(DRIVE_FILE_NAME_RE);
+  return Boolean(match && match[1] === value);
+}
+
+function plainLabel_(value) {
+  return String(value || '').replace(/<[^>]+>/g, ' ').replace(/&amp;/gi, '&').replace(/\s+/g, ' ').trim();
+}
+
+function attrValue_(attrs, name) {
+  var re = new RegExp('\\b' + name + '\\s*=\\s*("|\')([\\s\\S]*?)\\1', 'i');
+  var found = String(attrs || '').match(re);
+  return found ? found[2].replace(/&amp;/gi, '&').trim() : '';
+}
+
+function nearbyFileName_(text, index) {
+  var before = plainLabel_(String(text || '').slice(Math.max(0, index - 220), index));
+  var flags = 'gi';
+  var re = new RegExp(DRIVE_FILE_NAME_RE.source, flags);
+  var names = [];
+  var found;
+  while ((found = re.exec(before))) names.push(found[1]);
+  return names.length ? names[names.length - 1] : '';
+}
+
+function extractDriveLinks_(html, plain) {
+  var found = [];
+  var seen = {};
+
+  function add(name, url) {
+    var cleaned = unwrapDriveUrl_(url);
+    if (!cleaned) return;
+    var identity = driveIdentity_(cleaned);
+    if (seen[identity]) return;
+    var label = plainLabel_(name);
+    if (!looksLikeFileName_(label)) label = '';
+    seen[identity] = true;
+    found.push({ name: label || '대용량 첨부', url: cleaned });
+  }
+
+  var source = String(html || '');
+  var anchorRe = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
+  var anchor;
+  while ((anchor = anchorRe.exec(source))) {
+    var href = attrValue_(anchor[1], 'href');
+    if (!unwrapDriveUrl_(href)) continue;
+    var label = attrValue_(anchor[1], 'download') || attrValue_(anchor[1], 'aria-label') || attrValue_(anchor[1], 'title') || anchor[2];
+    if (!looksLikeFileName_(plainLabel_(label))) {
+      var nearby = nearbyFileName_(source, anchor.index);
+      if (nearby) label = nearby;
+    }
+    add(label, href);
+  }
+
+  var plainText = plainLabel_(String(plain || '') + ' ' + source);
+  var urlRe = /https?:\/\/(?:drive|docs)\.google\.com\/[^\s<>"']+/gi;
+  var urlMatch;
+  while ((urlMatch = urlRe.exec(plainText))) {
+    add(nearbyFileName_(plainText, urlMatch.index), urlMatch[0]);
+  }
+  return found;
+}
+
+function mergeAttachmentRecords_(mimeFiles, driveFiles) {
+  var merged = [];
+  var indexByName = {};
+  var seenUrl = {};
+
+  function push(item) {
+    var name = plainLabel_(item && item.name) || '대용량 첨부';
+    var url = unwrapDriveUrl_(item && item.url) || '';
+    var nameKey = name.toLowerCase();
+    var urlKey = url ? driveIdentity_(url) : '';
+    if (urlKey && seenUrl[urlKey]) return;
+    if (url && Object.prototype.hasOwnProperty.call(indexByName, nameKey) && !merged[indexByName[nameKey]].url) {
+      merged[indexByName[nameKey]].url = url;
+      seenUrl[urlKey] = true;
+      return;
+    }
+    if (!url && Object.prototype.hasOwnProperty.call(indexByName, nameKey)) return;
+    if (urlKey) seenUrl[urlKey] = true;
+    var record = { name: name };
+    if (url) record.url = url;
+    indexByName[nameKey] = merged.length;
+    merged.push(record);
+  }
+
+  (mimeFiles || []).forEach(push);
+  (driveFiles || []).forEach(push);
+  return merged.slice(0, 100);
+}
+
+/** 본문 HTML 은 링크 추출용으로만 보내고, 용량을 줄이기 위해 스크립트·인라인 이미지를 뺀다. */
+function compactHtml_(html) {
+  return String(html || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/\s(?:src|href)=["']data:[^"']+["']/gi, '')
+    .substring(0, 120000);
 }
 
 /** '"홍길동" <a@b.com>' 또는 'a@b.com' → 'a@b.com' (소문자) */

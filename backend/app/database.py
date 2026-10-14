@@ -1248,6 +1248,12 @@ def init_db():
             )
             cursor.execute(
                 """
+                alter table install_cases_rows
+                  add column if not exists "shareVisibility" text not null default 'external'
+                """
+            )
+            cursor.execute(
+                """
                 create table if not exists materials_board_posts (
                   id uuid primary key default gen_random_uuid(),
                   title text not null default '',
@@ -1275,6 +1281,52 @@ def init_db():
                 """
                 alter table materials_board_posts
                   add column if not exists folder text not null default '기타'
+                """
+            )
+            cursor.execute(
+                """
+                create table if not exists materials_board_folders (
+                  name text primary key,
+                  "createdAt" timestamptz not null default now()
+                )
+                """
+            )
+            cursor.execute(
+                """
+                insert into materials_board_folders (name)
+                values ('기타')
+                on conflict (name) do nothing
+                """
+            )
+            cursor.execute(
+                """
+                update materials_board_posts
+                set folder = trim(folder)
+                where folder is not null and folder <> trim(folder)
+                """
+            )
+            cursor.execute(
+                """
+                insert into materials_board_folders (name)
+                select distinct trim(folder)
+                from materials_board_posts
+                where coalesce(trim(folder), '') <> ''
+                on conflict (name) do nothing
+                """
+            )
+            cursor.execute(
+                """
+                insert into materials_board_folders (name)
+                select distinct trim(name)
+                from materials_board_folders
+                where coalesce(trim(name), '') <> ''
+                on conflict (name) do nothing
+                """
+            )
+            cursor.execute(
+                """
+                delete from materials_board_folders
+                where name <> trim(name)
                 """
             )
             cursor.execute(

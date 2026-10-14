@@ -86,7 +86,14 @@ async function requestJson(path, options = {}) {
 
   if (!response.ok) {
     const message = await response.text()
-    throw new Error(message || `Request failed with status ${response.status}`)
+    let detail = message
+    try {
+      const parsed = JSON.parse(message)
+      if (typeof parsed?.detail === 'string' && parsed.detail.trim()) detail = parsed.detail.trim()
+    } catch {
+      /* 본문이 JSON이 아니면 원문을 그대로 보여 준다 */
+    }
+    throw new Error(detail || `Request failed with status ${response.status}`)
   }
 
   if (response.status === 204) return null
@@ -159,6 +166,26 @@ export const materialsBoardApi = {
     return requestJson(MATERIALS_BOARD_API_PATH, {
       headers: { 'Content-Type': 'application/json' },
     }).then((data) => (Array.isArray(data) ? data : []))
+  },
+
+  listFolders() {
+    return requestJson(`${MATERIALS_BOARD_API_PATH}/folders`, {
+      headers: { 'Content-Type': 'application/json' },
+    }).then((data) => (Array.isArray(data) ? data.map((item) => String(item?.name || '').trim()).filter(Boolean) : []))
+  },
+
+  createFolder(name) {
+    return requestJson(`${MATERIALS_BOARD_API_PATH}/folders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+  },
+
+  deleteFolder(name) {
+    return requestJson(`${MATERIALS_BOARD_API_PATH}/folders/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    })
   },
 
   create({ title, content, folder, folderId, files }) {

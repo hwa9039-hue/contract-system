@@ -28,25 +28,37 @@ export const SALES_STATUS_LEGEND_ITEMS = [
 
 export const SALES_STATUS_ALL_BADGE_CLASS = `${SALES_LEGEND_CHIP_CLASS} bg-indigo-50 text-indigo-700 border-indigo-200`
 
+/** 대시보드 범례. 이모지 없이 색 점과 글자만 쓰고, 점 색은 표 뱃지와 같다. */
+export const DASHBOARD_STATUS_LEGEND_ITEMS = [
+  { id: '긴급대응', tone: 'red', label: '긴급대응' },
+  { id: '초기접촉', tone: 'amber', label: '초기접촉' },
+  { id: '미팅진행', tone: 'orange', label: '미팅진행' },
+  { id: '견적단계', tone: 'purple', label: '견적단계' },
+  { id: '설계단계', tone: 'sky', label: '설계단계' },
+  { id: '보고', tone: 'blue', label: '보고' },
+  { id: '사업공고', tone: 'emerald', label: '사업공고' },
+  { id: '계약&마감', tone: 'slate', label: '계약&마감' },
+]
+
 const BADGE_TONE_BY_LABEL = {
   긴급대응: 'red',
-  초기접촉: 'yellow',
+  초기접촉: 'amber',
   미팅진행: 'orange',
-  견적단계: 'fuchsia',
-  설계단계: 'emerald',
+  견적단계: 'purple',
+  설계단계: 'sky',
   보고: 'blue',
-  사업공고: 'green',
+  사업공고: 'emerald',
   확인필요: 'red',
   보류: 'red',
-  대응중: 'yellow',
-  대기중: 'yellow',
-  발주계획: 'green',
-  사전규격: 'green',
-  입찰공고: 'green',
-  정보공개: 'green',
-  계약: 'gray',
-  마감: 'gray',
-  완료: 'gray',
+  대응중: 'amber',
+  대기중: 'amber',
+  발주계획: 'emerald',
+  사전규격: 'emerald',
+  입찰공고: 'emerald',
+  정보공개: 'emerald',
+  계약: 'slate',
+  마감: 'slate',
+  완료: 'slate',
 }
 
 const BADGE_ICON_BY_LABEL = {

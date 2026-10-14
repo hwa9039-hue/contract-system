@@ -984,6 +984,7 @@ class InstallCaseBase(BaseModel):
     environment: Optional[Any] = "indoor"
     middleCategory: Optional[Any] = ""
     audience: Optional[Any] = "public"
+    shareVisibility: Optional[Any] = "external"
     year: Optional[Any] = ""
     purpose: Optional[Any] = ""
     client: Optional[Any] = ""
@@ -1004,6 +1005,7 @@ class InstallCasePatch(BaseModel):
     environment: Optional[Any] = None
     middleCategory: Optional[Any] = None
     audience: Optional[Any] = None
+    shareVisibility: Optional[Any] = None
     year: Optional[Any] = None
     purpose: Optional[Any] = None
     client: Optional[Any] = None
@@ -1371,6 +1373,7 @@ def row_to_install_case(row) -> dict:
         "environment": to_response_value(row["environment"]),
         "middleCategory": to_response_value(row.get("middleCategory", "")),
         "audience": to_response_value(row["audience"]),
+        "shareVisibility": to_response_value(row.get("shareVisibility")) or "external",
         "year": to_response_value(row["year"]),
         "purpose": to_response_value(row["purpose"]),
         "client": to_response_value(row["client"]),
@@ -1613,6 +1616,7 @@ TABLE_COLUMN_MAPPINGS = {
         "environment": "environment",
         "middleCategory": "middleCategory",
         "audience": "audience",
+        "shareVisibility": "shareVisibility",
         "year": "year",
         "purpose": "purpose",
         "client": "client",
@@ -2158,6 +2162,9 @@ def install_case_to_db_values(row: InstallCaseBase) -> dict:
             values[db_key] = data[api_key]
     if "specs" in values and values["specs"] is None:
         values["specs"] = {}
+    if "shareVisibility" in values:
+        text = str(values["shareVisibility"] or "").strip().lower()
+        values["shareVisibility"] = "internal" if text in {"internal", "내부", "내부용"} else "external"
     return values
 
 

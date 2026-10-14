@@ -346,6 +346,90 @@ async def api_create_materials_board_post(request: Request):
     return materials_board_out(created, folder_hint=folder_value)
 
 
+def _clean_folder_name(name: str) -> str:
+    cleaned = " ".join(str(name or "").split())
+    if not cleaned or len(cleaned) > 40 or any(ch in cleaned for ch in "/\\"):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Folder name is invalid")
+    return cleaned
+
+
+@router.get("/folders")
+def list_materials_board_folders():
+    """저장된 폴더와, 글에만 남아 있는 폴더 이름을 함께 돌려준다."""
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select name
+                from (
+                  select distinct trim(name) as name
+                  from (
+                    select name from materials_board_folders
+                    union
+                    select folder as name
+                    from materials_board_posts
+                    where coalesce(trim(folder), '') <> ''
+                  ) raw_names
+                  where coalesce(trim(name), '') <> ''
+                ) folders
+                order by case when name = '기타' then 0 else 1 end, name
+                """
+            )
+            rows = cursor.fetchall()
+    names: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        name = " ".join(str(row.get("name") or "").split())
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        names.append(name)
+    if "기타" not in seen:
+        names.insert(0, "기타")
+    return [{"name": name} for name in names]
+
+
+@router.post("/folders", status_code=status.HTTP_201_CREATED)
+async def create_materials_board_folder(request: Request):
+    body = await request.json()
+    name = _clean_folder_name((body or {}).get("name") if isinstance(body, dict) else "")
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                insert into materials_board_folders (name)
+                values (%(name)s)
+                on conflict (name) do nothing
+                returning name
+                """,
+                {"name": name},
+            )
+            created = cursor.fetchone()
+        connection.commit()
+    return {"name": name, "created": bool(created)}
+
+
+@router.delete("/folders/{folder_name}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_materials_board_folder(folder_name: str):
+    name = _clean_folder_name(folder_name)
+    if name == "기타":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="기본 폴더는 지울 수 없습니다.")
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "select count(*) as count from materials_board_posts where folder = %(name)s",
+                {"name": name},
+            )
+            count = int(cursor.fetchone()["count"])
+            if count:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="글이 있는 폴더는 지울 수 없습니다. 글을 다른 폴더로 옮긴 뒤 삭제하세요.",
+                )
+            cursor.execute("delete from materials_board_folders where name = %(name)s", {"name": name})
+        connection.commit()
+
+
 @router.patch("/{post_id}", response_model=MaterialsBoardOut)
 async def api_update_materials_board_post(post_id: str, request: Request):
     existing = get_post_row(post_id)

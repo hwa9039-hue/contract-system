@@ -7506,8 +7506,24 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
   background: #c026d3;
 }
 
+.registry-importance-dot--amber {
+  background: #d97706;
+}
+
+.registry-importance-dot--purple {
+  background: #7e22ce;
+}
+
+.registry-importance-dot--sky {
+  background: #0284c7;
+}
+
 .registry-importance-dot--emerald {
-  background: #059669;
+  background: #047857;
+}
+
+.registry-importance-dot--slate {
+  background: #64748b;
 }
 
 .sales-status-badge {
@@ -7517,7 +7533,8 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
   gap: 4px;
   max-width: 100%;
   padding: 4px 8px;
-  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
   line-height: 1.25;
@@ -7552,44 +7569,56 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
 }
 
 .sales-status-badge--red {
-  background: #fee2e2;
-  color: #991b1b;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
 }
 
+.sales-status-badge--amber,
 .sales-status-badge--yellow {
-  background: #fef9c3;
-  color: #854d0e;
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
 }
 
 .sales-status-badge--orange {
-  background: #ffedd5;
-  color: #9a3412;
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fed7aa;
 }
 
+.sales-status-badge--purple,
 .sales-status-badge--fuchsia {
-  background: #fae8ff;
-  color: #86198f;
+  background: #faf5ff;
+  color: #7e22ce;
+  border-color: #e9d5ff;
 }
 
-.sales-status-badge--emerald {
-  background: #d1fae5;
-  color: #065f46;
+.sales-status-badge--sky {
+  background: #f0f9ff;
+  color: #0369a1;
+  border-color: #bae6fd;
 }
 
 .sales-status-badge--blue {
-  background: #dbeafe;
-  color: #1e40af;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
 }
 
+.sales-status-badge--emerald,
 .sales-status-badge--green {
-  background: #dcfce7;
-  color: #166534;
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
 }
 
+.sales-status-badge--slate,
 .sales-status-badge--gray,
 .sales-status-badge--empty {
-  background: #f3f4f6;
-  color: #374151;
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #e2e8f0;
 }
 
 /* 중요도 컬럼 — 색상 점만 들어갈 타이트한 너비 */
@@ -9417,16 +9446,42 @@ table.excluded-registry-table.excel-table.registry-table td.excluded-sticky-col-
   background-color: transparent !important;
 }
 
-.excluded-registry-table input[type='date']::-webkit-calendar-picker-indicator,
-.documents-registry-table input[type='date']::-webkit-calendar-picker-indicator {
-  display: block;
-  opacity: 1;
-  cursor: pointer;
-  background: transparent;
-  width: 1.1em;
-  height: 1.1em;
+/* 사업공유는 옆 달력 버튼 하나만 쓴다. 기본 인디케이터까지 그리면 아이콘이 두 개로 겹친다. */
+.excluded-registry-table input[type='date']::-webkit-calendar-picker-indicator {
+  display: none;
+  opacity: 0;
+  width: 0;
+  height: 0;
   margin: 0;
   padding: 0;
+  pointer-events: none;
+  background: none;
+}
+
+/* 문서수발신대장 날짜 칸만: 빈 값에서도 기본 달력 아이콘이 보이게 한다. */
+.documents-registry-table input[type='date']::-webkit-calendar-picker-indicator {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  position: relative;
+  z-index: 2;
+  cursor: pointer;
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 0 0 2px;
+  padding: 0;
+  color: #334155;
+  -webkit-appearance: menulist;
+  appearance: menulist;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px 16px;
+}
+
+.documents-registry-table .registry-table-date-input-icon {
+  display: none !important;
 }
 
 /* 사업공유·문서수발신 — 등록일 date 입력 래퍼 (공통) */
@@ -9437,19 +9492,17 @@ table.excluded-registry-table.excel-table.registry-table td.excluded-sticky-col-
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 4px;
-  width: max-content;
+  gap: 0;
+  width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 8px 6px !important;
+  padding: 8px 4px !important;
   vertical-align: top;
   overflow: visible;
 }
 
 .excluded-registry-table .registry-table-date-input .registry-table-date-input-field,
-.excluded-registry-table .registry-table-date-input .excluded-inline-editor,
-.documents-registry-table .registry-table-date-input .registry-table-date-input-field,
-.documents-registry-table .registry-table-date-input .excluded-inline-editor {
+.excluded-registry-table .registry-table-date-input .excluded-inline-editor {
   display: block;
   width: 135px !important;
   max-width: 135px !important;
@@ -9462,11 +9515,27 @@ table.excluded-registry-table.excel-table.registry-table td.excluded-sticky-col-
   box-sizing: border-box;
 }
 
+.documents-registry-table .registry-table-date-input .registry-table-date-input-field,
+.documents-registry-table .registry-table-date-input .excluded-inline-editor {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 auto;
+  padding: 0 2px 0 0 !important;
+  margin: 0;
+  min-height: 0 !important;
+  height: auto;
+  box-sizing: border-box;
+}
+
 .excluded-registry-table .registry-table-date-input-icon,
 .documents-registry-table .registry-table-date-input-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  z-index: 3;
   flex: 0 0 auto;
   width: 22px;
   height: 22px;
@@ -9475,7 +9544,8 @@ table.excluded-registry-table.excel-table.registry-table td.excluded-sticky-col-
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: #2563eb;
+  color: #1e293b;
+  opacity: 1;
   cursor: pointer;
   line-height: 0;
 }
@@ -9998,7 +10068,7 @@ table.excluded-registry-table.excel-table.registry-table td.excluded-sticky-col-
 table.documents-registry-table.excel-table.registry-table {
   --documents-sticky-w-check: 44px;
   /* 편집 모드의 날짜 입력 + 달력 아이콘이 잘리지 않는 최소 폭 */
-  --documents-sticky-w-date: 118px;
+  --documents-sticky-w-date: 148px;
   /* `SIGN-DI-A1-260818-01` 같은 긴 식별자가 줄바꿈되지 않는 폭 */
   --documents-sticky-w-no: 168px;
   --documents-sticky-w-party: 150px;
@@ -13902,55 +13972,88 @@ body.work-report-manager-menu-open .work-report-board-section {
   flex-shrink: 0;
 }
 
+.install-cases-visibility-tabs {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.install-cases-visibility-tab.is-active {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+  color: #312e81;
+}
+
+.install-case-card-hide {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
 .install-cases-toolbar {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 8px;
   min-width: 0;
   width: 100%;
+  padding: 4px 0 2px;
+  overflow: visible;
 }
 
-.install-cases-filters {
-  display: flex;
-  /* 검색창 안내 문구가 길어 폭이 모자라면 검색창만 다음 줄로 내려간다 */
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-/* 대분류·중분류·소분류·검색창 — 동일 높이·테두리·box-sizing */
-.install-cases-filters > .table-search-input,
-.install-cases-filters > .install-cases-select {
+.install-cases-toolbar > .install-cases-select,
+.install-cases-toolbar > .install-cases-search-input,
+.install-cases-toolbar > .primary-btn,
+.install-cases-toolbar > .secondary-btn,
+.install-cases-toolbar .install-cases-visibility-tab {
   height: 42px;
   min-height: 42px;
-  max-height: 42px;
+  box-sizing: border-box;
+}
+
+.install-cases-toolbar > .install-cases-select,
+.install-cases-toolbar > .install-cases-search-input {
   padding: 0 12px;
   border: 1px solid var(--line, #d1d5db);
   border-radius: 8px;
-  box-sizing: border-box;
   font-size: 13px;
   line-height: 1.25;
   background: #ffffff;
 }
 
-/* 드롭다운·등록: 축소 방지 / 검색창: 남는 폭 채우며 유연 축소 */
-.install-cases-filters > .install-cases-select {
-  flex: 0 0 auto;
-  flex-shrink: 0;
-  min-width: 140px;
-  width: auto;
+.install-cases-toolbar > .install-cases-select {
+  flex: 0 0 118px;
+  width: 118px;
+  min-width: 108px;
+  max-width: 140px;
 }
 
-/* 긴 안내 문구가 잘리지 않도록 넉넉한 기본 폭을 잡아둔다 */
-.install-cases-filters > .table-search-input {
-  flex: 1 1 480px;
-  min-width: 320px;
-  max-width: none;
+.install-cases-toolbar > .install-cases-search-input {
+  flex: 1 1 auto;
   width: auto;
+  min-width: 160px;
+  max-width: none;
+}
+
+.install-cases-toolbar .primary-btn:hover,
+.install-cases-toolbar .secondary-btn:hover,
+.install-cases-toolbar .primary-btn:active,
+.install-cases-toolbar .secondary-btn:active {
+  transform: none;
+}
+
+.install-cases-toolbar > .install-cases-register-btn,
+.install-cases-toolbar > .install-cases-share-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .install-cases-toolbar-actions {
@@ -13969,7 +14072,7 @@ body.work-report-manager-menu-open .work-report-board-section {
 }
 
 .install-cases-select {
-  min-width: 140px;
+  min-width: 108px;
 }
 
 .install-cases-gallery {
@@ -17292,6 +17395,53 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   gap: 12px;
 }
 
+.materials-board-folders {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.materials-board-folder-item,
+.materials-board-folder-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.materials-board-folder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.materials-board-folder-emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.materials-board-folder-chip.is-active {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+  color: #312e81;
+}
+
+.materials-board-folder-delete {
+  border: 0;
+  background: transparent;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.materials-board-folder-add .table-search-input {
+  width: 140px;
+  height: 36px;
+  min-height: 36px;
+}
+
 .materials-board-toolbar {
   margin: 0 0 20px;
   display: flex;
@@ -18993,24 +19143,11 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   }
 
   .install-cases-toolbar {
-    flex-direction: column !important;
+    flex-direction: row !important;
     flex-wrap: nowrap !important;
-    align-items: stretch !important;
+    align-items: center !important;
     gap: 8px !important;
-  }
-
-  .install-cases-filters {
-    display: grid !important;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    flex-wrap: nowrap !important;
-    align-items: stretch !important;
-    gap: 8px !important;
-    width: 100%;
-  }
-
-  .install-cases-filters > .install-cases-search-input,
-  .install-cases-filters > .table-search-input {
-    grid-column: 1 / -1;
+    overflow: visible;
   }
 
   .table-search-input,
@@ -19029,11 +19166,11 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     box-sizing: border-box;
   }
 
-  .install-cases-filters > .table-search-input {
-    flex: none !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
+  .install-cases-toolbar > .install-cases-search-input {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-width: 120px !important;
+    max-width: none !important;
   }
 
   .payment-report-toolbar {
@@ -19055,23 +19192,17 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     max-width: none !important;
   }
 
-  .install-cases-filters > .install-cases-select {
-    flex: none !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
+  .install-cases-toolbar > .install-cases-select {
+    flex: 0 0 108px !important;
+    width: 108px !important;
+    min-width: 96px !important;
+    max-width: 120px !important;
   }
 
-  .install-cases-toolbar-actions {
-    flex-direction: column;
-    align-items: stretch;
-    width: 100%;
-  }
-
-  .install-cases-toolbar-actions > .primary-btn,
-  .install-cases-toolbar-actions > .secondary-btn {
-    flex: none !important;
-    width: 100% !important;
+  .install-cases-toolbar > .install-cases-register-btn,
+  .install-cases-toolbar > .install-cases-share-btn {
+    flex: 0 0 auto !important;
+    width: auto !important;
     min-width: 0 !important;
   }
 
@@ -20515,8 +20646,13 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
 }
 
 .mobile-data-card-badge.is-emerald {
-  background: #d1fae5;
-  color: #065f46;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.mobile-data-card-badge.is-sky {
+  background: #f0f9ff;
+  color: #0369a1;
 }
 
 .mobile-data-card-badge.is-purple {

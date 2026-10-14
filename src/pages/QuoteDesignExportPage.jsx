@@ -115,6 +115,16 @@ function SubjectWithTooltip({ subject, bodySummary }) {
  * 첨부파일 칸 — 연락처의 '연계 사업'과 같은 모양.
  * 첫 파일은 파란 칩, 2개 이상이면 '+N' 배지가 붙고 배지에 마우스를 올리면 전체 파일 목록이 뜬다.
  */
+function attachmentLabel(file) {
+  if (typeof file === 'string') return file
+  return file?.name || '대용량 첨부'
+}
+
+function attachmentSearchText(file) {
+  if (!file || typeof file === 'string') return attachmentLabel(file)
+  return [file.name, file.url].filter(Boolean).join(' ')
+}
+
 function AttachmentChips({ files }) {
   const moreRef = useRef(null)
   const [open, setOpen] = useState(false)
@@ -145,12 +155,24 @@ function AttachmentChips({ files }) {
 
   if (files.length === 0) return null
 
+  const fileName = (file) => (typeof file === 'string' ? file : file?.name || '대용량 첨부')
+  const fileUrl = (file) => (typeof file === 'string' ? '' : file?.url || '')
+
   if (files.length === 1) {
+    const name = fileName(files[0])
+    const url = fileUrl(files[0])
+    const chip = url ? (
+      <a className="sales-contacts-linked-chip" href={url} target="_blank" rel="noreferrer" title={name}>
+        {name}
+      </a>
+    ) : (
+      <span className="sales-contacts-linked-chip" title={name}>
+        {name}
+      </span>
+    )
     return (
-      <span className="sales-contacts-linked-chips" aria-label={files[0]}>
-        <span className="sales-contacts-linked-chip" title={files[0]}>
-          {files[0]}
-        </span>
+      <span className="sales-contacts-linked-chips" aria-label={name}>
+        {chip}
       </span>
     )
   }
@@ -163,29 +185,51 @@ function AttachmentChips({ files }) {
             role="tooltip"
             style={fixedPortalStyle(position, { zIndex: 12000, matchWidth: false, minWidth: 160 })}
           >
-            {files.map((name, index) => (
-              <span key={`${name}-${index}`} className="sales-contacts-linked-more-tooltip-item">
-                <span className="sales-contacts-linked-dot" aria-hidden="true">
-                  ·
+            {files.map((file, index) => {
+              const name = fileName(files[index])
+              const url = fileUrl(file)
+              return (
+                <span key={`${name}-${index}`} className="sales-contacts-linked-more-tooltip-item">
+                  <span className="sales-contacts-linked-dot" aria-hidden="true">
+                    ·
+                  </span>
+                  {url ? (
+                    <a href={url} target="_blank" rel="noreferrer">
+                      {name}
+                    </a>
+                  ) : (
+                    <span>{name}</span>
+                  )}
                 </span>
-                <span>{name}</span>
-              </span>
-            ))}
+              )
+            })}
           </div>,
           document.body
         )
       : null
 
   return (
-    <span className="sales-contacts-linked-chips" aria-label={files.join(', ')}>
-      <span className="sales-contacts-linked-chip" title={files[0]}>
-        {files[0]}
-      </span>
+    <span className="sales-contacts-linked-chips" aria-label={files.map(attachmentLabel).join(', ')}>
+      {fileUrl(files[0]) ? (
+        <a
+          className="sales-contacts-linked-chip"
+          href={fileUrl(files[0])}
+          target="_blank"
+          rel="noreferrer"
+          title={attachmentLabel(files[0])}
+        >
+          {attachmentLabel(files[0])}
+        </a>
+      ) : (
+        <span className="sales-contacts-linked-chip" title={attachmentLabel(files[0])}>
+          {attachmentLabel(files[0])}
+        </span>
+      )}
       <span
         ref={moreRef}
         className="sales-contacts-linked-more"
         tabIndex={0}
-        aria-label={`첨부파일 ${files.length}개: ${files.join(', ')}`}
+        aria-label={`첨부파일 ${files.length}개: ${files.map(attachmentLabel).join(', ')}`}
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
         onFocus={() => setOpen(true)}
@@ -290,7 +334,7 @@ export default function QuoteDesignExportPage() {
         resolveSenderName(row.sender),
         row.recipient,
         row.subject,
-        ...row.attachments,
+        ...row.attachments.map(attachmentSearchText),
       ]
         .join('\n')
         .toLowerCase()
@@ -312,7 +356,7 @@ export default function QuoteDesignExportPage() {
           sender: row.sender,
           recipient: row.recipient,
           subject: row.subject,
-          files: row.attachments.join(', '),
+          files: row.attachments.map(attachmentSearchText).join(', '),
         })),
       })
     } catch {
@@ -417,7 +461,7 @@ export default function QuoteDesignExportPage() {
         detailFields={[
           { label: '발신자', getValue: (row) => row.sender },
           { label: '수신자', getValue: (row) => row.recipient },
-          { label: '첨부파일', getValue: (row) => (row.attachments || []).join(', ') },
+          { label: '첨부파일', getValue: (row) => (row.attachments || []).map(attachmentSearchText).join(', ') },
           { label: '본문 요약', getValue: (row) => row.bodySummary },
         ]}
         renderHeaderExtra={(row) => <MobileBodySummary bodySummary={row.bodySummary} />}
