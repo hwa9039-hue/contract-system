@@ -415,6 +415,7 @@ def list_materials_board_folders():
             continue
         seen.add(name)
         folders.append({"name": name, "count": int(row.get("count") or 0)})
+    folders.sort(key=lambda item: item["name"])
     return folders
 
 

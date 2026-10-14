@@ -17400,6 +17400,7 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
+  width: 100%;
   gap: 8px;
   margin-bottom: 10px;
 }
@@ -17408,7 +17409,14 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
 .materials-board-folder-add {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
   gap: 2px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .materials-board-folder-chip {

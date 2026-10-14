@@ -4238,7 +4238,7 @@ function syncMaterialsBoardFolderCounts(posts, folders) {
   }
   return [...counts.entries()]
     .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'))
 }
 
 /** 메모장 복붙: NUL·CR 제거. PostgreSQL text / JSON 저장 실패 방지 */
@@ -18926,7 +18926,9 @@ function App() {
                     전체
                     <span className="materials-board-folder-count">({materialsBoardPosts.length})</span>
                   </button>
-                  {materialsBoardFolders.map((folder) => (
+                  {[...materialsBoardFolders]
+                    .sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'))
+                    .map((folder) => (
                     <span key={folder.name} className="materials-board-folder-item group">
                       <button
                         type="button"
@@ -20057,7 +20059,9 @@ function App() {
                   !materialsBoardFolders.some((folder) => folder.name === materialsBoardFormDraft.folder) ? (
                     <option value={materialsBoardFormDraft.folder}>{materialsBoardFormDraft.folder}</option>
                   ) : null}
-                  {materialsBoardFolders.map((folder) => (
+                  {[...materialsBoardFolders]
+                    .sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'))
+                    .map((folder) => (
                     <option key={folder.name} value={folder.name}>
                       📁 {folder.name}
                     </option>
