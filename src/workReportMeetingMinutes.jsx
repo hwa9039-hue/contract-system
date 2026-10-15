@@ -1123,7 +1123,10 @@ export function WorkReportSearchResults({ query, rows, loading, error, onOpenWee
   const list = Array.isArray(rows) ? rows : []
 
   return (
-    <section className="meeting-minutes-search-results" aria-label="주간업무보고서 검색 결과">
+    <section
+      className="meeting-minutes-search-results work-report-search-results flex min-h-0 flex-1 flex-col overflow-y-auto"
+      aria-label="주간업무보고서 검색 결과"
+    >
       <div className="work-report-summary-card">
         <div className="work-report-summary-title">전체 주간업무보고서 검색</div>
         <div className="work-report-summary-meta">
