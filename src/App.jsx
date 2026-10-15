@@ -17096,7 +17096,7 @@ function App() {
                 </div>
                 <div className="work-report-summary-meta">
                   <span className="meeting-minutes-search-week-chip">
-                    {getIsoWeekNumber(selectedWorkWeekMeta.weekStartDate)}주차
+                    {selectedWorkWeekMeta.month}월 {selectedWorkWeekMeta.weekNumber}주차
                   </span>
                   <span>시작일 {selectedWorkWeekMeta.weekStartDate}</span>
                   <span>입력 후 자동 저장 · 새로고침 전 「저장」 버튼 권장</span>

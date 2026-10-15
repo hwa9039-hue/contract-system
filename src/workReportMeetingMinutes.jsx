@@ -1112,9 +1112,15 @@ export function MeetingMinutesSearchResults({ query, rows, loading, error, onOpe
   )
 }
 
-function workReportYearWeekLabel(row) {
-  const week = Number(row?.yearWeek)
-  if (week > 0) return `${week}주차`
+function workReportMonthWeekLabel(row) {
+  const parsed = parseMeetingDate(row?.weekStartDate || row?.reportDate)
+  if (parsed) {
+    const monday = mondayOfMeetingDate(parsed)
+    return `${monday.getMonth() + 1}월 ${meetingWeekNumberInMonth(monday)}주차`
+  }
+  const month = Number(safeString(row?.reportMonth).trim())
+  const week = Number(safeString(row?.weekNumber).trim())
+  if (month > 0 && week > 0) return `${month}월 ${week}주차`
   return '주차 미상'
 }
 
@@ -1188,7 +1194,7 @@ export function WorkReportSearchResults({ query, rows, loading, error, onOpenWee
                   >
                     <td className="meeting-minutes-search-week">
                       {row.reportDate ? <span>{row.reportDate}</span> : null}
-                      <span className="meeting-minutes-search-week-chip">{workReportYearWeekLabel(row)}</span>
+                      <span className="meeting-minutes-search-week-chip">{workReportMonthWeekLabel(row)}</span>
                     </td>
                     <td className="meeting-minutes-search-assignee">{row.section || '—'}</td>
                     <td className="meeting-minutes-search-content">{row.content || '—'}</td>
@@ -1203,7 +1209,7 @@ export function WorkReportSearchResults({ query, rows, loading, error, onOpenWee
           rows={list}
           getRowKey={(row) => row.id}
           getTitle={(row) => row.content || row.section}
-          getBadge={(row) => ({ label: workReportYearWeekLabel(row), tone: 'blue' })}
+          getBadge={(row) => ({ label: workReportMonthWeekLabel(row), tone: 'blue' })}
           summaryFields={[
             { label: '구분', getValue: (row) => row.section },
             { label: '작성자', getValue: (row) => row.user },

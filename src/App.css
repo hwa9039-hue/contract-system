@@ -4212,15 +4212,28 @@ textarea:focus-visible {
   height: 100%;
 }
 
-/* 검색 결과만 남은 높이 안에서 세로 스크롤. 주간 보드는 기존 dual-scroll을 유지한다. */
+/* 검색 결과만 툴바 아래 남은 칸을 끝까지 채우고, 그 안에서 세로 스크롤. */
 .main-area > section.stat-card.stat-card--work-reports .work-report-search-results {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
+  overflow: hidden;
+}
+
+.main-area > section.stat-card.stat-card--work-reports .work-report-search-results .contract-table-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-area > section.stat-card.stat-card--work-reports .work-report-search-results .meeting-minutes-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
   overflow-y: auto;
-  max-height: calc(100vh - 250px);
   -webkit-overflow-scrolling: touch;
 }
 
