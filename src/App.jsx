@@ -4185,7 +4185,7 @@ function buildDashboardUpcomingItems(contracts, manualEvents, anchorDate = new D
     .map(({ event, range }) => {
       const title = safeString(event.title).trim() || '일정'
       return {
-        id: `cal-${event.id}`,
+        id: `calendar-${event.id}`,
         source: 'calendar',
         variant: 'schedule',
         title,
@@ -4209,25 +4209,23 @@ function buildDashboardUpcomingItems(contracts, manualEvents, anchorDate = new D
 
 function DashboardDueWatchItem({ item, variant }) {
   const isSchedule = variant === 'schedule'
-  const scheduleMeta = [item.salesManager, item.fieldPM, item.note].filter(Boolean).join(' · ')
   const dateLabel =
     item.dateEnd && item.date && item.dateEnd !== item.date
       ? `${item.date} ~ ${item.dateEnd}`
       : item.dueDate || item.date
   return (
     <li className={`dashboard-briefing-due-item dashboard-briefing-due-item--${variant}`}>
-      <div className="dashboard-briefing-due-title">
-        {isSchedule ? <span className="dashboard-briefing-due-kind">일정</span> : null}
-        {item.projectName || item.title || '—'}
-      </div>
-      <p className="dashboard-briefing-due-sub">
-        {isSchedule
-          ? scheduleMeta || '수기 일정'
-          : `${item.client || '—'} | 영업: ${item.salesManager || '—'} | PM: ${item.fieldPM || '—'}`}
-      </p>
+      <div className="dashboard-briefing-due-title">{item.projectName || item.title || '—'}</div>
+      {isSchedule ? null : (
+        <p className="dashboard-briefing-due-sub">
+          {`${item.client || '—'} | 영업: ${item.salesManager || '—'} | PM: ${item.fieldPM || '—'}`}
+        </p>
+      )}
       <div className="dashboard-briefing-due-meta">
         <span>{dateLabel}</span>
-        {item.dday ? (
+        {isSchedule ? (
+          <span className="dashboard-briefing-due-dday dashboard-briefing-due-dday--schedule">일정</span>
+        ) : item.dday ? (
           <span className={`dashboard-briefing-due-dday dashboard-briefing-due-dday--${variant}`}>
             {item.dday}
           </span>
@@ -4562,6 +4560,61 @@ function getWeekStartMonday(dateInput = new Date()) {
   const diff = day === 0 ? -6 : 1 - day
   normalizedDate.setDate(normalizedDate.getDate() + diff)
   return normalizedDate
+}
+
+function workReportSearchPlain(content) {
+  let text = safeString(content).trim()
+  if (text.startsWith('mm3\n')) text = text.slice(4).trim()
+  if (text.startsWith('mm2\n')) text = text.slice(4).trim()
+  if (!text || (text[0] !== '{' && text[0] !== '[')) return text
+  try {
+    const parsed = JSON.parse(text)
+    const parts = []
+    const walk = (node) => {
+      if (Array.isArray(node)) {
+        node.forEach(walk)
+        return
+      }
+      if (node && typeof node === 'object') {
+        Object.values(node).forEach(walk)
+        return
+      }
+      if (typeof node === 'string') {
+        const piece = node.trim()
+        if (piece && piece !== 'completed') parts.push(piece)
+      }
+    }
+    walk(parsed)
+    return parts.join(' ')
+  } catch {
+    return text
+  }
+}
+
+function searchLoadedWorkReports(rows, query) {
+  const needle = safeString(query).trim().toLowerCase()
+  if (!needle) return []
+  return (Array.isArray(rows) ? rows : []).flatMap((row) => {
+    const section = safeString(row.section || row.category).trim()
+    if (section === '회의록') return []
+    const author = safeString(row.user || row.assignee).trim()
+    const content = workReportSearchPlain(row.content)
+    if (!content && !author) return []
+    const haystack = `${section} ${author} ${content}`.toLowerCase()
+    if (!haystack.includes(needle)) return []
+    const anchor = safeString(row.date || row.reportDate || row.weekStartDate).slice(0, 10)
+    return [
+      {
+        id: safeString(row.id) || `${anchor}-${section}-${author}`,
+        weekStartDate: safeString(row.weekStartDate || row.date).slice(0, 10),
+        reportDate: anchor,
+        yearWeek: getIsoWeekNumber(anchor),
+        section,
+        content,
+        user: author,
+      },
+    ]
+  })
 }
 
 function getIsoWeekNumber(dateInput) {
@@ -6556,8 +6609,6 @@ function App() {
   const [workReportSearchRows, setWorkReportSearchRows] = useState([])
   const [workReportSearchLoading, setWorkReportSearchLoading] = useState(false)
   const [workReportSearchError, setWorkReportSearchError] = useState('')
-  const workReportSearchSeqRef = useRef(0)
-  const [dashboardUpcomingFromApi, setDashboardUpcomingFromApi] = useState(null)
   const [manualEvents, setManualEvents] = useState([])
   const [search, setSearch] = useState('')
   const [contractDateRange, setContractDateRange] = useState({ startDate: '', endDate: '' })
@@ -9046,11 +9097,10 @@ function App() {
     })
   }, [calendarCursor])
 
-  const dashboardUpcomingLocal = useMemo(
+  const dashboardUpcomingItems = useMemo(
     () => buildDashboardUpcomingItems(contracts, manualEvents),
     [contracts, manualEvents]
   )
-  const dashboardUpcomingItems = dashboardUpcomingFromApi ?? dashboardUpcomingLocal
 
   const monthDays = useMemo(() => {
     const year = calendarCursor.getFullYear()
@@ -11711,10 +11761,8 @@ function App() {
     return () => window.clearTimeout(timer)
   }, [meetingSearchInput, menu])
 
-  const runWorkReportSearch = async (rawQuery) => {
+  const runWorkReportSearch = (rawQuery) => {
     const query = safeString(rawQuery).trim()
-    const seq = workReportSearchSeqRef.current + 1
-    workReportSearchSeqRef.current = seq
     if (!query) {
       setWorkReportSearchActive('')
       setWorkReportSearchRows([])
@@ -11722,58 +11770,24 @@ function App() {
       setWorkReportSearchLoading(false)
       return
     }
-    setWorkReportSearchLoading(true)
+    setWorkReportSearchLoading(false)
     setWorkReportSearchError('')
     setWorkReportSearchActive(query)
-    try {
-      const found = await weeklyWorkReportsApi.search(query)
-      if (seq !== workReportSearchSeqRef.current) return
-      setWorkReportSearchRows(Array.isArray(found) ? found : [])
-    } catch (error) {
-      if (seq !== workReportSearchSeqRef.current) return
-      setWorkReportSearchRows([])
-      setWorkReportSearchError(error?.message || '주간업무보고서 검색에 실패했습니다.')
-    } finally {
-      if (seq === workReportSearchSeqRef.current) setWorkReportSearchLoading(false)
-    }
+    setWorkReportSearchRows(searchLoadedWorkReports(workReportRows, query))
   }
 
   useEffect(() => {
     if (menu !== 'workReports') return undefined
     const query = safeString(workReportSearchInput).trim()
     if (!query) {
-      void runWorkReportSearch('')
+      runWorkReportSearch('')
       return undefined
     }
     const timer = window.setTimeout(() => {
-      void runWorkReportSearch(query)
+      runWorkReportSearch(query)
     }, 250)
     return () => window.clearTimeout(timer)
-  }, [workReportSearchInput, menu])
-
-  useEffect(() => {
-    if (menu !== 'dashboard') return undefined
-    let cancelled = false
-    apiFetch(
-      `${API_BASE_URL}/api/dashboard/upcoming`,
-      apiFetchInit({ headers: getAuthHeaders() })
-    )
-      .then(async (response) => {
-        if (!response.ok) throw new Error('upcoming failed')
-        return response.json()
-      })
-      .then((data) => {
-        if (cancelled) return
-        const items = Array.isArray(data?.items) ? data.items : []
-        setDashboardUpcomingFromApi(items)
-      })
-      .catch(() => {
-        if (!cancelled) setDashboardUpcomingFromApi(null)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [menu, contracts, manualEvents])
+  }, [workReportSearchInput, workReportRows, menu])
 
   const getWorkReportCellKey = (date, section, orderIndex = 1) =>
     `${normalizeWorkReportDateKey(date)}__${safeString(section).trim()}__${Number(orderIndex || 1)}`
@@ -16812,7 +16826,7 @@ function App() {
                           <ul className="dashboard-briefing-due-list">
                             {dashboardUpcomingItems.map((item) => (
                               <DashboardDueWatchItem
-                                key={`${item.source || 'item'}-${item.variant}-${item.id}`}
+                                key={item.id}
                                 item={item}
                                 variant={item.variant}
                               />
@@ -19399,18 +19413,16 @@ function App() {
                                         <>
                                           <div className={dayNumberClass}>{dayNum}</div>
                                           <div className="day-events">
-                                            {getCalendarItemsOnDay(calendarItems, day)
-                                              .slice(0, 3)
-                                              .map((item) => (
-                                                <button
-                                                  key={item.id}
-                                                  type="button"
-                                                  className={`event-pill event-pill-button ${getCalendarEventPillTypeClass(item.type)} ${getCalendarDueStatusClass(item)}`}
-                                                  onClick={() => openCalendarDetail(item)}
-                                                >
-                                                  {item.text}
-                                                </button>
-                                              ))}
+                                            {getCalendarItemsOnDay(calendarItems, day).map((item) => (
+                                              <button
+                                                key={item.id}
+                                                type="button"
+                                                className={`event-pill event-pill-button ${getCalendarEventPillTypeClass(item.type)} ${getCalendarDueStatusClass(item)}`}
+                                                onClick={() => openCalendarDetail(item)}
+                                              >
+                                                {item.text}
+                                              </button>
+                                            ))}
                                           </div>
                                         </>
                                       )}
