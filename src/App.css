@@ -3621,7 +3621,8 @@ a.record-file-name:hover {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  /* 헤더(.top-system-bar, 80)보다 위. 시스템 로그(10050)·확인창(99999)보다는 아래. */
+  z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -19833,7 +19834,7 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   }
 
   .modal-backdrop {
-    z-index: 120;
+    z-index: 200;
     align-items: flex-start;
     padding: 12px;
   }
