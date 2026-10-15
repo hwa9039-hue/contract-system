@@ -263,6 +263,8 @@ textarea {
 }
 
 .top-system-bar {
+  position: relative;
+  z-index: 30;
   width: 100%;
   margin-bottom: 8px;
 }
@@ -415,6 +417,8 @@ textarea {
 
 /* 헤더 우측 — 구글 시트 스타일 접속자 아바타 */
 .presence-cluster {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -426,22 +430,9 @@ textarea {
   flex-direction: row;
   align-items: center;
   margin: 0;
-  padding: 0 2px 0 0;
+  padding: 0;
   list-style: none;
   flex-shrink: 0;
-}
-
-.presence-count {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 9999px;
-  background: #e8eef9;
-  color: #1f4fd1;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 20px;
-  text-align: center;
 }
 
 .presence-avatar-item {
@@ -449,50 +440,42 @@ textarea {
   margin: 0;
 }
 
-.presence-avatar-item + .presence-avatar-item {
-  margin-left: -8px;
-}
-
 .presence-avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 9999px;
-  border: 2px solid #ffffff;
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  box-sizing: border-box;
   line-height: 1;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
   cursor: default;
+  box-shadow: none;
 }
 
 .presence-avatar-tooltip {
   position: absolute;
-  left: 50%;
+  right: 0;
   top: calc(100% + 8px);
-  transform: translateX(-50%);
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: #1f2937;
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 96px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #111827;
+  color: #f9fafb;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
   z-index: 40;
-  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
 }
 
-.presence-avatar-item:hover {
-  z-index: 5;
+.presence-avatar-tooltip-row {
+  display: block;
+  font-weight: 600;
 }
 
-.presence-avatar-item:hover .presence-avatar-tooltip {
+.presence-cluster:hover .presence-avatar-tooltip,
+.presence-cluster:focus-within .presence-avatar-tooltip {
   opacity: 1;
 }
 

@@ -1,23 +1,27 @@
-const AVATAR_COLORS = [
-  '#2563eb',
-  '#7c3aed',
-  '#db2777',
-  '#ea580c',
-  '#059669',
-  '#0891b2',
-  '#4f46e5',
-  '#c026d3',
-  '#ca8a04',
-  '#0f766e',
+const AVATAR_TONES = [
+  'bg-slate-100 text-slate-700',
+  'bg-blue-50 text-blue-800',
+  'bg-indigo-50 text-indigo-800',
+  'bg-violet-50 text-violet-800',
+  'bg-emerald-50 text-emerald-800',
+  'bg-amber-50 text-amber-800',
+  'bg-rose-50 text-rose-800',
+  'bg-cyan-50 text-cyan-800',
 ]
 
-export function colorForPresenceId(id) {
+const MAX_AVATAR_CIRCLES = 4
+
+function hashPresenceId(id) {
   const text = String(id || '')
   let hash = 0
   for (let i = 0; i < text.length; i += 1) {
     hash = (hash * 31 + text.charCodeAt(i)) >>> 0
   }
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length]
+  return hash
+}
+
+export function colorForPresenceId(id) {
+  return AVATAR_TONES[hashPresenceId(id) % AVATAR_TONES.length]
 }
 
 /** 예전 역할 기본 라벨 → 실제 표시명 */
@@ -38,13 +42,18 @@ export function isGenericAccountLabel(displayName) {
 
 const PRESENCE_MENU_CACHE_KEY = 'cms-presence-last-menus-v1'
 
-/** '전기웅(영업)' → '전기웅' — 화면에는 이름 세 글자만. */
-export function formatPersonDisplayName(displayName) {
+/** '전기웅(영업)' → '전기웅'. 괄호·직함은 빼고 이름만 남긴다. */
+export function presenceNameCore(displayName) {
   const stripped = String(displayName || '')
     .replace(/\s+/g, '')
     .replace(/[\(\（][^\)\）]*[\)\）]/g, '')
     .replace(/영업$/g, '')
-  const aliased = PERSON_DISPLAY_ALIASES[stripped] || stripped
+  return PERSON_DISPLAY_ALIASES[stripped] || stripped
+}
+
+/** 화면 식별용. 세 글자를 넘기지 않는다. */
+export function formatPersonDisplayName(displayName) {
+  const aliased = presenceNameCore(displayName)
   if (!aliased) return ''
   return aliased.slice(0, 3)
 }
@@ -96,9 +105,9 @@ export function getPresenceInitials(displayName) {
   return formatPersonGivenName(displayName) || '?'
 }
 
-/** '전기웅(영업)' → '기웅' — 원 안에는 성 빼고 두 글자. */
+/** '정화영' → '화영', '김성수' → '성수'. 성 대신 이름 뒤 두 글자. */
 export function formatPersonGivenName(displayName) {
-  const full = formatPersonDisplayName(displayName)
+  const full = presenceNameCore(displayName)
   if (!full) return ''
   return full.slice(-2)
 }
@@ -117,7 +126,7 @@ export function PresenceAvatars({ users = [] }) {
     if (menuTitle) rememberPresenceMenuTitle(fullName, menuTitle)
     const next = {
       ...user,
-      fullName,
+      fullName: presenceNameCore(raw) || fullName,
       shortName: formatPersonGivenName(raw) || fullName,
       menuTitle,
     }
@@ -131,44 +140,53 @@ export function PresenceAvatars({ users = [] }) {
     }
     if (menuTitle) existing.menuTitle = menuTitle
     if (fullName.length > existing.fullName.length) {
-      existing.fullName = fullName
-      existing.shortName = formatPersonGivenName(fullName) || existing.shortName
+      existing.fullName = presenceNameCore(fullName) || existing.fullName
+      existing.shortName = formatPersonGivenName(existing.fullName) || existing.shortName
       seen.set(fullName, existing)
     }
   })
 
+  if (unique.length === 0) return null
+
+  const namedCount = unique.length > MAX_AVATAR_CIRCLES ? MAX_AVATAR_CIRCLES - 1 : unique.length
+  const visible = unique.slice(0, namedCount)
+  const overflow = unique.length - visible.length
+
   return (
-    <div className="presence-cluster">
+    <div className="presence-cluster group relative">
       <ul
-        className="presence-avatar-list flex"
+        className="presence-avatar-list flex -space-x-2"
         aria-label={`접속 중 ${unique.length}명`}
       >
-        {unique.map((user, index) => (
+        {visible.map((user, index) => (
           <li
             key={user.fullName}
             className="presence-avatar-item relative"
-            style={{ zIndex: index + 1 }}
+            style={{ zIndex: visible.length - index }}
           >
             <span
-              className="presence-avatar w-8 h-8 rounded-full ring-2 ring-white shadow-sm"
-              style={{ backgroundColor: colorForPresenceId(user.fullName) }}
-              title={user.menuTitle ? `${user.fullName} · ${user.menuTitle}` : user.fullName}
-              aria-label={user.menuTitle ? `${user.fullName} · ${user.menuTitle}` : user.fullName}
+              className={`presence-avatar inline-flex w-8 h-8 items-center justify-center rounded-full text-[11px] font-bold tracking-tighter ring-2 ring-white ${colorForPresenceId(user.fullName)}`}
+              aria-label={user.fullName}
             >
               {user.shortName || '?'}
             </span>
-            <span className="presence-avatar-tooltip" role="tooltip">
-              {user.fullName}
-              {user.menuTitle ? ` · ${user.menuTitle}` : ''}
-            </span>
           </li>
         ))}
+        {overflow > 0 ? (
+          <li className="presence-avatar-item relative" style={{ zIndex: 0 }}>
+            <span className="presence-avatar inline-flex w-8 h-8 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold tracking-tighter text-slate-600 ring-2 ring-white">
+              +{overflow}
+            </span>
+          </li>
+        ) : null}
       </ul>
-      {unique.length > 1 ? (
-        <span className="presence-count" aria-hidden="true">
-          {unique.length}
-        </span>
-      ) : null}
+      <div className="presence-avatar-tooltip" role="tooltip">
+        {unique.map((user) => (
+          <span key={user.fullName} className="presence-avatar-tooltip-row">
+            {user.fullName} · {user.menuTitle || '메뉴 확인 중'}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }

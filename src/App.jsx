@@ -16497,13 +16497,6 @@ function App() {
                   자동 로그인
                 </span>
               ) : null}
-              <button
-                className="secondary-btn top-system-session-extend-btn"
-                type="button"
-                onClick={handleExtendLogin}
-              >
-                로그인 연장
-              </button>
             </div>
           </div>
         </div>
