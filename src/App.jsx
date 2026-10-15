@@ -16508,11 +16508,6 @@ function App() {
                   <LogOut size={18} strokeWidth={2} aria-hidden="true" />
                 </button>
               </div>
-              {isLongLivedSession ? (
-                <span className="top-system-session-badge top-system-session-badge--auto">
-                  자동 로그인
-                </span>
-              ) : null}
             </div>
           </div>
         </div>
