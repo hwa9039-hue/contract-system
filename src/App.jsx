@@ -4171,21 +4171,32 @@ function collectDashboardDueWatchGroups(contracts, anchorDate = new Date()) {
   return { delayed, thisWeek, inProgress }
 }
 
-function buildDashboardUpcomingItems(contracts, manualEvents, anchorDate = new Date()) {
+function sortDashboardUpcomingByDate(a, b) {
+  const ad = a.date || a.dueDate || '9999-12-31'
+  const bd = b.date || b.dueDate || '9999-12-31'
+  return ad.localeCompare(bd) || safeString(a.title || a.projectName).localeCompare(safeString(b.title || b.projectName), 'ko')
+}
+
+function buildDashboardUpcomingSections(contracts, manualEvents, anchorDate = new Date()) {
   const groups = collectDashboardDueWatchGroups(contracts, anchorDate)
-  const contractItems = [
-    ...groups.delayed.map((row) => ({ ...row, source: 'contract', variant: 'delayed', title: row.projectName, date: row.dueDate })),
-    ...groups.thisWeek.map((row) => ({ ...row, source: 'contract', variant: 'week', title: row.projectName, date: row.dueDate })),
-    ...groups.inProgress.map((row) => ({ ...row, source: 'contract', variant: 'inProgress', title: row.projectName, date: row.dueDate })),
-  ]
+  const asContractItem = (row, variant) => ({
+    ...row,
+    id: `contract-${safeString(row.id)}`,
+    source: 'contract',
+    variant,
+    title: row.projectName,
+    date: row.dueDate,
+  })
   const todayYmd = formatDateInput(anchorDate)
-  const calendarItems = (Array.isArray(manualEvents) ? manualEvents : [])
+  const scheduleItems = (Array.isArray(manualEvents) ? manualEvents : [])
     .map((event) => ({ event, range: normalizeManualEventRangeInPlace(event) }))
     .filter(({ range }) => range.dateEnd && range.dateEnd >= todayYmd)
     .map(({ event, range }) => {
       const title = safeString(event.title).trim() || '일정'
+      const eventId = safeString(event.id).trim()
+      const stableId = eventId || `${range.dateStart}|${range.dateEnd}|${title}|${safeString(event.owner)}|${safeString(event.pm)}`
       return {
-        id: `calendar-${event.id}`,
+        id: `calendar-${stableId}`,
         source: 'calendar',
         variant: 'schedule',
         title,
@@ -4200,11 +4211,14 @@ function buildDashboardUpcomingItems(contracts, manualEvents, anchorDate = new D
         dday: '',
       }
     })
-  return [...contractItems, ...calendarItems].sort((a, b) => {
-    const ad = a.date || '9999-12-31'
-    const bd = b.date || '9999-12-31'
-    return ad.localeCompare(bd) || safeString(a.title).localeCompare(safeString(b.title), 'ko')
-  })
+    .sort(sortDashboardUpcomingByDate)
+
+  return [
+    { key: 'delayed', title: '준공지연', variant: 'delayed', items: groups.delayed.map((row) => asContractItem(row, 'delayed')).sort(sortDashboardUpcomingByDate) },
+    { key: 'week', title: '금주 임박', variant: 'week', items: groups.thisWeek.map((row) => asContractItem(row, 'week')).sort(sortDashboardUpcomingByDate) },
+    { key: 'inProgress', title: '준공진행', variant: 'inProgress', items: groups.inProgress.map((row) => asContractItem(row, 'inProgress')).sort(sortDashboardUpcomingByDate) },
+    { key: 'schedule', title: '수기 일정', variant: 'schedule', items: scheduleItems },
+  ].filter((section) => section.items.length > 0)
 }
 
 function DashboardDueWatchItem({ item, variant }) {
@@ -4562,7 +4576,22 @@ function getWeekStartMonday(dateInput = new Date()) {
   return normalizedDate
 }
 
-function workReportSearchPlain(content) {
+function isWorkReportStatusToken(value) {
+  const token = safeString(value).trim().toLowerCase()
+  return token === 'completed' || token === 'complete' || token === 'done' || token === 'true' || token === 'false'
+}
+
+const WORK_REPORT_AUTHOR_KEYS = new Set([
+  'user',
+  'user_name',
+  'username',
+  'author',
+  'assignee',
+  'writer',
+  'manager',
+])
+
+function workReportSearchPlain(content, authorBucket) {
   let text = safeString(content).trim()
   if (text.startsWith('mm3\n')) text = text.slice(4).trim()
   if (text.startsWith('mm2\n')) text = text.slice(4).trim()
@@ -4570,25 +4599,48 @@ function workReportSearchPlain(content) {
   try {
     const parsed = JSON.parse(text)
     const parts = []
-    const walk = (node) => {
+    const walk = (node, parentKey) => {
       if (Array.isArray(node)) {
-        node.forEach(walk)
+        node.forEach((item) => walk(item, parentKey))
         return
       }
       if (node && typeof node === 'object') {
-        Object.values(node).forEach(walk)
+        Object.entries(node).forEach(([key, value]) => walk(value, key))
         return
       }
-      if (typeof node === 'string') {
-        const piece = node.trim()
-        if (piece && piece !== 'completed') parts.push(piece)
+      if (typeof node !== 'string') return
+      const piece = node.trim()
+      if (!piece || isWorkReportStatusToken(piece)) return
+      if (WORK_REPORT_AUTHOR_KEYS.has(safeString(parentKey).trim().toLowerCase())) {
+        if (authorBucket) authorBucket.push(piece)
+        return
       }
+      parts.push(piece)
     }
-    walk(parsed)
+    walk(parsed, '')
     return parts.join(' ')
   } catch {
     return text
   }
+}
+
+function resolveWorkReportSearchAuthor(row, contentAuthors) {
+  const section = safeString(row.section || row.category).trim()
+  const orderIndex = Number(row.orderIndex || row.order_index || 1)
+  const candidates = [
+    row.assignee,
+    row.writer,
+    row.user_name,
+    row.userName,
+    getWorkReportFixedManagerName(section, orderIndex),
+    ...(Array.isArray(contentAuthors) ? contentAuthors : []),
+    row.user,
+  ]
+  for (const candidate of candidates) {
+    const name = safeString(candidate).trim()
+    if (name && !isWorkReportStatusToken(name)) return name
+  }
+  return ''
 }
 
 function searchLoadedWorkReports(rows, query) {
@@ -4597,8 +4649,9 @@ function searchLoadedWorkReports(rows, query) {
   return (Array.isArray(rows) ? rows : []).flatMap((row) => {
     const section = safeString(row.section || row.category).trim()
     if (section === '회의록') return []
-    const author = safeString(row.user || row.assignee).trim()
-    const content = workReportSearchPlain(row.content)
+    const contentAuthors = []
+    const content = workReportSearchPlain(row.content, contentAuthors)
+    const author = resolveWorkReportSearchAuthor(row, contentAuthors)
     if (!content && !author) return []
     const haystack = `${section} ${author} ${content}`.toLowerCase()
     if (!haystack.includes(needle)) return []
@@ -5863,6 +5916,7 @@ function normalizeWorkReportRow(item) {
       item.date ?? item.reportDate ?? item.reportdate ?? item.weekStartDate ?? item.weekstartdate
     ),
     user: safeString(item.user ?? item.assignee).trim(),
+    assignee: safeString(item.assignee).trim(),
     section,
     content: isWorkReportJournalSection(section)
       ? parsedJournalContent.content
@@ -7292,10 +7346,9 @@ function App() {
   }, [contactsDraftFocusRowId, menu])
 
   useLayoutEffect(() => {
-    if (menu === 'dashboard') {
-      setIsDashboardLoading(true)
-    }
-  }, [menu])
+    if (menu !== 'dashboard') return
+    if (contracts.length === 0) setIsDashboardLoading(true)
+  }, [menu, contracts.length])
 
   useEffect(() => {
     if (!authHydrated || !isAuthenticated) return
@@ -7305,7 +7358,8 @@ function App() {
     let cancelled = false
 
     const loadDashboardData = async () => {
-      setIsDashboardLoading(true)
+      const showLoader = contracts.length === 0
+      if (showLoader) setIsDashboardLoading(true)
       try {
         const [
           contractData,
@@ -7314,6 +7368,7 @@ function App() {
           discoveryApiRows,
           excludedApiRows,
           workApiRows,
+          calendarApiRows,
         ] = await Promise.all([
           contractsApi.list(),
           documentRegisterApi.list(),
@@ -7321,6 +7376,7 @@ function App() {
           projectDiscoveryApi.list({ allowCacheFallback: false }),
           excludedProjectsApi.list(),
           weeklyWorkReportsApi.list(),
+          calendarEventsApi.list(),
         ])
 
         if (cancelled || fetchId !== dashboardFetchIdRef.current) return
@@ -7360,6 +7416,11 @@ function App() {
         setExcludedRows((Array.isArray(excludedApiRows) ? excludedApiRows : []).map(normalizeExcludedRow))
         workReportRowsRef.current = normalizedWorkRows
         setWorkReportRows(normalizedWorkRows)
+        const normalizedCalendar = (Array.isArray(calendarApiRows) ? calendarApiRows : [])
+          .map(normalizeCalendarManualEvent)
+          .filter(Boolean)
+          .map((row) => ({ ...row, ...normalizeManualEventRangeInPlace(row) }))
+        setManualEvents(normalizedCalendar)
       } catch (error) {
         console.error('[대시보드] 데이터 일괄 조회 실패 — 기존 화면 유지', error)
       } finally {
@@ -9097,8 +9158,8 @@ function App() {
     })
   }, [calendarCursor])
 
-  const dashboardUpcomingItems = useMemo(
-    () => buildDashboardUpcomingItems(contracts, manualEvents),
+  const dashboardUpcomingSections = useMemo(
+    () => buildDashboardUpcomingSections(contracts, manualEvents),
     [contracts, manualEvents]
   )
 
@@ -16820,18 +16881,32 @@ function App() {
                     <div className="dashboard-briefing-box">
                       <h3 className="dashboard-briefing-box-title">다가오는 일정</h3>
                       <div className="dashboard-briefing-box-body">
-                        {dashboardUpcomingItems.length === 0 ? (
+                        {dashboardUpcomingSections.length === 0 ? (
                           <p className="dashboard-briefing-box-empty">다가오는 일정이 없습니다.</p>
                         ) : (
-                          <ul className="dashboard-briefing-due-list">
-                            {dashboardUpcomingItems.map((item) => (
-                              <DashboardDueWatchItem
-                                key={item.id}
-                                item={item}
-                                variant={item.variant}
-                              />
+                          <div className="dashboard-briefing-due-sections">
+                            {dashboardUpcomingSections.map((section) => (
+                              <section key={section.key} className="dashboard-briefing-due-section">
+                                <h4
+                                  className={`dashboard-briefing-due-section-title dashboard-briefing-due-section-title--${section.variant}`}
+                                >
+                                  {section.title}
+                                  <span className="dashboard-briefing-due-section-count">
+                                    {section.items.length.toLocaleString('ko-KR')}
+                                  </span>
+                                </h4>
+                                <ul className="dashboard-briefing-due-list">
+                                  {section.items.map((item) => (
+                                    <DashboardDueWatchItem
+                                      key={item.id}
+                                      item={item}
+                                      variant={item.variant}
+                                    />
+                                  ))}
+                                </ul>
+                              </section>
                             ))}
-                          </ul>
+                          </div>
                         )}
                       </div>
                     </div>

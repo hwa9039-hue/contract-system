@@ -179,6 +179,18 @@ def _search_plain(content) -> str:
     return " ".join(parts)
 
 
+_WORK_REPORT_STATUS_TOKENS = {"completed", "complete", "done", "true", "false"}
+
+
+def _work_report_person_name(*values) -> str:
+    """작성자 칸. user에 들어간 completed 같은 상태값은 이름으로 쓰지 않는다."""
+    for value in values:
+        text = _text(value).strip()
+        if text and text.lower() not in _WORK_REPORT_STATUS_TOKENS:
+            return text
+    return ""
+
+
 def _iso_week(value) -> int:
     text = _text(value)[:10]
     try:
@@ -212,7 +224,7 @@ def search_weekly_work_reports(q: str = Query(default="")):
     hits = []
     for stored in stored_rows:
         section = _text(stored.get("section") or stored.get("category"))
-        author = _text(stored.get("user") or stored.get("assignee"))
+        author = _work_report_person_name(stored.get("assignee"), stored.get("user"))
         content = _search_plain(stored.get("content"))
         if not content and not author:
             continue

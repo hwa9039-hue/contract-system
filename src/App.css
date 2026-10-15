@@ -3303,12 +3303,17 @@ a.record-file-name:hover {
 
 .calendar-grid.calendar-grid--week {
   flex: 0 0 auto;
-  min-height: 120px;
+  height: auto;
+  min-height: 168px;
+  grid-auto-rows: minmax(168px, auto);
+  overflow: visible;
+  align-content: start;
 }
 
 .calendar-grid--week .day-box {
   height: auto;
-  min-height: 120px;
+  min-height: 168px;
+  overflow: visible;
 }
 
 .calendar-grid--week .day-events {
@@ -4461,6 +4466,21 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
+.main-area > section.stat-card.stat-card--calendar .calendar-grid.calendar-grid--week {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 168px;
+  grid-auto-rows: minmax(168px, auto);
+  overflow: visible;
+  align-content: start;
+}
+
+.main-area > section.stat-card.stat-card--calendar .calendar-grid.calendar-grid--week .day-box {
+  height: auto;
+  min-height: 168px;
+  overflow: visible;
+}
+
 .main-area > section.stat-card .selected-events-wrap {
   flex: 1 1 auto;
   min-height: 0;
@@ -4751,6 +4771,12 @@ textarea:focus-visible {
 /* ── 대시보드 준공임박 카드 ─────────────────────────────────────────
    delayed = 전주 월~일 · 미완료 (보라 = 준공지연)
    week    = 금주 월~일 · 미완료 (빨강 = 준공임박) */
+.dashboard-briefing-due-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .dashboard-briefing-due-section {
   display: flex;
   flex-direction: column;
@@ -4776,6 +4802,14 @@ textarea:focus-visible {
   color: var(--status-imminent-fg);
 }
 
+.dashboard-briefing-due-section-title--inProgress {
+  color: var(--status-due-fg);
+}
+
+.dashboard-briefing-due-section-title--schedule {
+  color: var(--status-manual-fg);
+}
+
 .dashboard-briefing-due-section-count {
   display: inline-flex;
   align-items: center;
@@ -4795,6 +4829,16 @@ textarea:focus-visible {
 .dashboard-briefing-due-section-title--week .dashboard-briefing-due-section-count {
   background: var(--status-imminent-bg);
   color: var(--status-imminent-fg);
+}
+
+.dashboard-briefing-due-section-title--inProgress .dashboard-briefing-due-section-count {
+  background: var(--status-due-bg);
+  color: var(--status-due-fg);
+}
+
+.dashboard-briefing-due-section-title--schedule .dashboard-briefing-due-section-count {
+  background: var(--status-manual-bg);
+  color: var(--status-manual-fg);
 }
 
 .dashboard-briefing-due-divider {
