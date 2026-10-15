@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from jwt.exceptions import InvalidTokenError
 from pydantic import BaseModel
 
+from app.audit_log import write_audit_log
 from app.auth_utils import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
@@ -74,6 +75,22 @@ def login(body: LoginBody):
         "role_label": display_name or None,
         **claims,
     }
+
+
+class SessionResumeBody(BaseModel):
+    ipAddress: str = ""
+
+
+@router.post("/session-resume")
+def session_resume(body: SessionResumeBody, request: Request):
+    """저장된 토큰으로 다시 들어온 접속을 로그인 로그로 남긴다."""
+    write_audit_log(
+        request,
+        "LOGIN",
+        "시스템 접속 (자동 로그인)",
+        ip_address=body.ipAddress,
+    )
+    return {"ok": True}
 
 
 @router.post("/refresh")

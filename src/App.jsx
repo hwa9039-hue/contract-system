@@ -185,7 +185,6 @@ import {
   filterSidebarMenuGroups,
 } from './permissions.js'
 import { CONTRACT_SHARED_WARNING_MS, formatRemainingSessionLabel, hydrateAuthSessionFromStorage } from './authSession.js'
-import { sendAuditLog } from './utils/logger.js'
 import AuditLogPage from './pages/admin/AuditLogPage.jsx'
 import {
   CONTRACT_EXCEL_HEADER_KEYWORDS,
@@ -10374,7 +10373,6 @@ function App() {
         setSalesEditSnapshots((prev) => removeObjectKey(prev, rowId))
         setSalesRows((prev) => prev.filter((row) => row.id !== rowId))
         setSelectedSalesIds((prev) => prev.filter((id) => id !== rowId))
-        sendAuditLog('DATA_ACTION', '영업관리대장 삭제')
       },
     })
   }
@@ -10413,7 +10411,6 @@ function App() {
       setEditingSalesIds((prev) => prev.filter((id) => id !== rowId))
       setSalesEditSnapshots((prev) => removeObjectKey(prev, rowId))
       setToastMessage('저장되었습니다.')
-      sendAuditLog('DATA_ACTION', '영업관리대장 저장')
     } catch (error) {
       if (targetRow.isDraft) {
         setSalesRows((prev) => prev.filter((row) => row.id !== rowId))
@@ -10462,7 +10459,6 @@ function App() {
           setSalesRows((prev) => prev.filter((row) => !validSelectedIds.includes(row.id)))
           setSelectedSalesIds([])
           setEditingSalesIds((prev) => prev.filter((id) => !validSelectedIds.includes(id)))
-          sendAuditLog('DATA_ACTION', `영업관리대장 ${persistedIds.length}건 삭제`)
           return
         }
 
@@ -10517,7 +10513,6 @@ function App() {
       setSelectedSalesIds([])
       setEditingSalesIds([])
       setToastMessage('저장되었습니다.')
-      sendAuditLog('DATA_ACTION', '영업관리대장 저장')
     } catch (error) {
       logApiOperationError('영업관리대장 일괄 저장', error)
     } finally {
@@ -11717,9 +11712,6 @@ function App() {
     removeWorkReportRowLocallyById(id)
     try {
       await weeklyWorkReportsApi.remove(id)
-      if (errorLabel === '주간업무보고서 삭제') {
-        sendAuditLog('DATA_ACTION', '주간업무보고서 삭제')
-      }
       return true
     } catch (error) {
       if (isWorkReportNotFoundError(error)) return true
@@ -12275,8 +12267,6 @@ function App() {
       }
       if (!workReportManualSaveFailedRef.current) {
         setToastMessage(notifyMessage)
-        const savedMeetingMinutes = String(notifyMessage || '').includes('회의록')
-        sendAuditLog('DATA_ACTION', savedMeetingMinutes ? '회의록 저장' : '주간업무보고서 저장')
       }
     } finally {
       setIsSavingWorkReports(false)

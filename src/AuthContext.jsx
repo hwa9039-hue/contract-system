@@ -36,7 +36,14 @@ import {
   VALID_ROLES,
 } from './permissions.js'
 import { isGenericAccountLabel } from './PresenceAvatars.jsx'
-import { sendAuditLog } from './utils/logger.js'
+import {
+  clearSessionResumeLogged,
+  hasSessionResumeLogged,
+  markSessionResumeLogged,
+  notifySessionResume,
+  sendAuditLog,
+} from './utils/logger.js'
+import { useIdleLogout } from './useIdleLogout.js'
 
 const AuthContext = createContext(null)
 
@@ -345,6 +352,7 @@ export function AuthProvider({ children }) {
       setAccountId(resolvedAccountId)
       setAccessGranted(true)
       setSharedSessionExpiresAt(expiresAt)
+      markSessionResumeLogged()
       sendAuditLog('LOGIN', '시스템 로그인')
 
       logCmsApiLogin('success', {
@@ -362,6 +370,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   const logout = useCallback(() => {
+    clearSessionResumeLogged()
     clearSharedAuthSession()
     clearRole()
     clearAuthToken()
@@ -380,6 +389,26 @@ export function AuthProvider({ children }) {
       logout()
     }
   }, [authHydrated, isAuthenticated, roleLabel, logout])
+
+  useEffect(() => {
+    if (!authHydrated || !accessGranted) return
+    if (hasSessionResumeLogged()) return
+    markSessionResumeLogged()
+    void notifySessionResume()
+  }, [authHydrated, accessGranted])
+
+  const logoutForIdle = useCallback(async () => {
+    const message = '보안을 위해 장시간 활동이 없어 자동 로그아웃 되었습니다.'
+    await sendAuditLog('SECURITY_VIOLATION', '장시간 미사용 자동 로그아웃')
+    logout()
+    setSessionExpiredNotice(message)
+    window.alert(message)
+  }, [logout])
+
+  useIdleLogout({
+    enabled: authHydrated && isAuthenticated && accessGranted,
+    onIdle: logoutForIdle,
+  })
 
   const extendLogin = useCallback(async () => {
     const persistence = authPersistence === 'persistent' ? 'persistent' : 'session'

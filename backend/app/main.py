@@ -1,3 +1,4 @@
+from app.audit_mutation_middleware import AuditMutationMiddleware
 from app.middleware import ApiJwtAuthMiddleware
 import logging
 import os
@@ -75,6 +76,8 @@ app.mount("/uploads", StaticFiles(directory=_UPLOAD_DIR), name="uploads")
 
 _EFFECTIVE_CORS_ORIGINS = get_cors_origins()
 
+# JWT 보다 안쪽에 두어, 인증이 끝난 뒤의 사용자 정보로 등록·수정·삭제를 기록한다.
+app.add_middleware(AuditMutationMiddleware)
 app.add_middleware(ApiJwtAuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
