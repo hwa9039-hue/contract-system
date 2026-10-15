@@ -341,11 +341,50 @@ textarea {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: nowrap;
   flex-shrink: 0;
   justify-content: flex-end;
   overflow: visible;
+}
+
+.top-system-account {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.top-system-account-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.top-system-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #4b5563;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.top-system-icon-btn:hover {
+  background: #f3f4f6;
+  color: #111827;
+  transform: none;
 }
 
 /* 자동 로그인(상태) · 로그인 연장 — 동일 사각형 크기, 위계만 분리 */
@@ -13978,6 +14017,7 @@ body.work-report-manager-menu-open .work-report-board-section {
   min-height: 28px;
   padding: 4px 8px;
   font-size: 12px;
+  white-space: nowrap;
 }
 
 .install-cases-toolbar {

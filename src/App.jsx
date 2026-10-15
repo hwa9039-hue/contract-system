@@ -2,13 +2,16 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   AlertTriangle,
   ChevronRight,
+  ClipboardList,
   Copy,
   Download,
   Eye,
   EyeOff,
   FileText,
+  LogOut,
   Pencil,
   Trash2,
+  User,
 } from 'lucide-react'
 import { ContractColumnHeaderFilter } from './ContractColumnHeaderFilter.jsx'
 import {
@@ -7576,23 +7579,31 @@ function App() {
     })
   }, [])
 
-  const hideInstallCaseById = useCallback((row, event) => {
+  const changeInstallCaseVisibility = useCallback((row, event, nextVisibility) => {
     event?.preventDefault()
     event?.stopPropagation()
     if (!canEditInstallCases || !row?.id) return
+    const makeInternal = nextVisibility === 'internal'
     setContractConfirmDialog({
-      title: '설치사례 숨김',
-      message: '이 사례를 내부용으로 바꿀까요? 외부 공유 링크에서는 더 이상 보이지 않습니다.',
-      confirmLabel: '숨김',
+      title: makeInternal ? '설치사례 숨김' : '설치사례 숨김 취소',
+      message: makeInternal
+        ? '이 사례를 내부용으로 바꿀까요? 외부 공유 링크에서는 더 이상 보이지 않습니다.'
+        : '이 사례를 다시 외부용으로 공개할까요? 외부 공유 링크에서 보이게 됩니다.',
+      confirmLabel: makeInternal ? '숨김' : '숨김 취소',
       onConfirm: async () => {
         try {
-          const updated = await installCasesApi.update(row.id, { shareVisibility: 'internal' })
+          const updated = await installCasesApi.update(row.id, {
+            shareVisibility: makeInternal ? 'internal' : 'external',
+          })
           const next = normalizeInstallCaseRow(updated)
           setInstallCases((prev) => prev.map((item) => (item.id === row.id ? next : item)))
           setInstallCaseDetailModal((cur) => (cur && cur.id === row.id ? next : cur))
         } catch (error) {
-          logApiOperationError('설치사례 숨김', error)
-          showAppAlert(error?.message || '숨김에 실패했습니다.', '알림')
+          logApiOperationError(makeInternal ? '설치사례 숨김' : '설치사례 숨김 취소', error)
+          showAppAlert(
+            error?.message || (makeInternal ? '숨김에 실패했습니다.' : '숨김 취소에 실패했습니다.'),
+            '알림',
+          )
         }
       },
     })
@@ -16431,27 +16442,6 @@ function App() {
           </div>
         </div>
 
-        <div className="sidebar-bottom">
-          <div className="viewer-badge">{formatPersonDisplayName(roleLabel) || roleLabel}</div>
-          {canViewAuditLogs ? (
-            <button
-              className="logout-btn audit-log-open-btn"
-              type="button"
-              onClick={() => setIsAuditLogOpen(true)}
-              style={{ width: '100%' }}
-            >
-              시스템 로그
-            </button>
-          ) : null}
-          <button
-            className="logout-btn"
-            type="button"
-            onClick={handleAppLogout}
-            style={{ width: '100%' }}
-          >
-            로그아웃
-          </button>
-        </div>
       </aside>
 
       {canViewAuditLogs && isAuditLogOpen ? (
@@ -16490,8 +16480,34 @@ function App() {
               />
               <h1 className="top-system-page-title">{PAGE_TITLE_MAP[menu] || ''}</h1>
             </div>
-            <div className="top-system-session-actions">
+            <div className="top-system-session-actions flex items-center gap-4">
               <PresenceAvatars users={onlineUsers} />
+              <div className="top-system-account flex items-center gap-4">
+                <span className="top-system-account-name">
+                  <User size={16} strokeWidth={2} aria-hidden="true" />
+                  <span>{(formatPersonDisplayName(roleLabel) || roleLabel || '사용자')}님</span>
+                </span>
+                {canViewAuditLogs ? (
+                  <button
+                    className="top-system-icon-btn"
+                    type="button"
+                    title="시스템 로그"
+                    aria-label="시스템 로그"
+                    onClick={() => setIsAuditLogOpen(true)}
+                  >
+                    <ClipboardList size={18} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                ) : null}
+                <button
+                  className="top-system-icon-btn"
+                  type="button"
+                  title="로그아웃"
+                  aria-label="로그아웃"
+                  onClick={handleAppLogout}
+                >
+                  <LogOut size={18} strokeWidth={2} aria-hidden="true" />
+                </button>
+              </div>
               {isLongLivedSession ? (
                 <span className="top-system-session-badge top-system-session-badge--auto">
                   자동 로그인
@@ -18815,15 +18831,24 @@ function App() {
                       <div className="install-case-card-meta">{formatInstallCaseCardSubline(row)}</div>
                     </div>
                   </button>
-                  {canEditInstallCases && row.shareVisibility !== 'internal' && (
-                    <button
-                      type="button"
-                      className="secondary-btn install-case-card-hide"
-                      onClick={(e) => hideInstallCaseById(row, e)}
-                    >
-                      숨김
-                    </button>
-                  )}
+                  {canEditInstallCases &&
+                    (row.shareVisibility === 'internal' || installCaseVisibilityFilter === 'internal' ? (
+                      <button
+                        type="button"
+                        className="secondary-btn install-case-card-hide"
+                        onClick={(e) => changeInstallCaseVisibility(row, e, 'external')}
+                      >
+                        숨김 취소
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="secondary-btn install-case-card-hide"
+                        onClick={(e) => changeInstallCaseVisibility(row, e, 'internal')}
+                      >
+                        숨김
+                      </button>
+                    ))}
                   {canEditInstallCases && (
                     <button
                       type="button"
@@ -19350,11 +19375,19 @@ function App() {
               <div className="install-case-detail-modal-actions">
                 {canEditInstallCases && (
                   <>
-                    {installCaseDetailModal.shareVisibility !== 'internal' && (
+                    {installCaseDetailModal.shareVisibility === 'internal' ? (
                       <button
                         type="button"
                         className="secondary-btn"
-                        onClick={(event) => hideInstallCaseById(installCaseDetailModal, event)}
+                        onClick={(event) => changeInstallCaseVisibility(installCaseDetailModal, event, 'external')}
+                      >
+                        숨김 취소
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="secondary-btn"
+                        onClick={(event) => changeInstallCaseVisibility(installCaseDetailModal, event, 'internal')}
                       >
                         숨김
                       </button>
