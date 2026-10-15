@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -147,6 +147,90 @@ def search_meeting_minutes(q: str = Query(default="")):
                     "dueDate": item["dueDate"],
                 }
             )
+    return hits
+
+
+def _search_plain(content) -> str:
+    text = _text(decode_work_report_wire_content(content))
+    for prefix in ("mm3\n", "mm2\n"):
+        if text.startswith(prefix):
+            text = text[len(prefix) :].strip()
+    if not text or text[:1] not in "[{":
+        return text
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return text
+    parts: list[str] = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+        elif isinstance(node, str):
+            piece = node.strip()
+            if piece and piece != "completed":
+                parts.append(piece)
+
+    walk(parsed)
+    return " ".join(parts)
+
+
+def _iso_week(value) -> int:
+    text = _text(value)[:10]
+    try:
+        year, month, day = (int(part) for part in text.split("-"))
+        return date(year, month, day).isocalendar().week
+    except (TypeError, ValueError):
+        return 0
+
+
+@router.get("/search")
+def search_weekly_work_reports(q: str = Query(default="")):
+    """회의록을 뺀 주간업무보고서 전체에서 구분·내용·작성자를 찾는다."""
+    query = _text(q).lower()
+    if not query:
+        return []
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                select {RETURNING_COLUMNS}
+                from weekly_work_reports_rows
+                where coalesce(section, '') <> %(section)s
+                  and coalesce(category, '') <> %(section)s
+                order by "weekStartDate" desc nulls last, date desc nulls last, order_index asc nulls last
+                """,
+                {"section": MEETING_MINUTES_SECTION},
+            )
+            stored_rows = [row_to_weekly_work_report(row) for row in cursor.fetchall()]
+
+    hits = []
+    for stored in stored_rows:
+        section = _text(stored.get("section") or stored.get("category"))
+        author = _text(stored.get("user") or stored.get("assignee"))
+        content = _search_plain(stored.get("content"))
+        if not content and not author:
+            continue
+        haystack = " ".join((section, author, content)).lower()
+        if query not in haystack:
+            continue
+        anchor = _text(stored.get("date") or stored.get("reportDate") or stored.get("weekStartDate"))
+        hits.append(
+            {
+                "id": stored.get("id"),
+                "weekStartDate": _text(stored.get("weekStartDate") or stored.get("date")),
+                "reportDate": anchor[:10],
+                "yearWeek": _iso_week(anchor or stored.get("weekStartDate")),
+                "section": section,
+                "content": content,
+                "user": author,
+            }
+        )
     return hits
 
 

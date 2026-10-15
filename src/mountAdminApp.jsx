@@ -8,6 +8,9 @@ import { isPublicSharePath } from './publicShare/publicSharePaths.js'
 import { bootstrapCmsApiProbe } from './cmsApiProbe.js'
 import { installProductionGuard } from './productionGuard.js'
 import { Watermark } from './Watermark.jsx'
+import { applyScheduleStatusTheme } from './scheduleStatusTheme.js'
+
+applyScheduleStatusTheme()
 
 const LOGIN_PATH = '/login'
 

@@ -82,6 +82,11 @@ export const weeklyWorkReportsApi = {
     const q = encodeURIComponent(safeString(query).trim())
     return requestJson(`/api/weekly-work-reports/meeting-minutes/search?q=${q}`)
   },
+  /** 회의록을 뺀 주간업무보고서에서 구분·내용·작성자를 찾는다. */
+  search(query) {
+    const q = encodeURIComponent(safeString(query).trim())
+    return requestJson(`/api/weekly-work-reports/search?q=${q}`)
+  },
   create(payload, options = {}) {
     return requestJsonWithWireVariants('/api/weekly-work-reports', 'POST', payload, options)
   },

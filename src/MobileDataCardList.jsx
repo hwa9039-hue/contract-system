@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { getImportanceStyle } from './registryImportance.jsx'
+import { scheduleStatusMobileTone } from './scheduleStatusTheme.js'
 
 export function mobileCardText(value) {
   if (value === null || value === undefined) return ''
@@ -15,9 +16,8 @@ export function mobileCardAmount(value) {
 export function mobileCardBadgeTone(label) {
   const text = mobileCardText(label)
   if (!text) return 'slate'
-  if (text === '준공지연') return 'purple'
-  if (text === '준공임박') return 'red'
-  if (text === '준공진행') return 'blue'
+  const scheduleTone = scheduleStatusMobileTone(text)
+  if (scheduleTone) return scheduleTone
   if (text === '준공완료' || text === '진행중') return 'slate'
   const importance = getImportanceStyle(text)
   if (importance.tone && importance.tone !== 'empty' && importance.tone !== 'gray') {

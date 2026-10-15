@@ -1111,3 +1111,105 @@ export function MeetingMinutesSearchResults({ query, rows, loading, error, onOpe
     </section>
   )
 }
+
+function workReportYearWeekLabel(row) {
+  const week = Number(row?.yearWeek)
+  if (week > 0) return `${week}주차`
+  return '주차 미상'
+}
+
+/** 전체 기간 주간업무보고서 검색 결과. 행을 누르면 그 주로 돌아간다. */
+export function WorkReportSearchResults({ query, rows, loading, error, onOpenWeek }) {
+  const list = Array.isArray(rows) ? rows : []
+
+  return (
+    <section className="meeting-minutes-search-results" aria-label="주간업무보고서 검색 결과">
+      <div className="work-report-summary-card">
+        <div className="work-report-summary-title">전체 주간업무보고서 검색</div>
+        <div className="work-report-summary-meta">
+          <span>검색어 {query}</span>
+          <span>{loading ? '검색 중' : `${list.length.toLocaleString('ko-KR')}건`}</span>
+          <span>행을 누르면 해당 주 보고서로 이동합니다.</span>
+        </div>
+      </div>
+
+      {error ? (
+        <p className="sales-contacts-save-status is-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="contract-table-panel meeting-minutes-doc__table-panel">
+        <div className="table-wrap meeting-minutes-table-wrap overflow-x-auto desktop-table-only hidden md:block">
+          <table className="meeting-minutes-doc__table contract-table excel-table registry-table meeting-minutes-search-table">
+            <colgroup>
+              <col className="meeting-minutes-search-col-week" />
+              <col className="meeting-minutes-doc__col-assignee" />
+              <col className="meeting-minutes-doc__col-content" />
+              <col className="meeting-minutes-doc__col-assignee" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th className="th-align-center meeting-minutes-search-col-week">주차</th>
+                <th className="th-align-center">구분</th>
+                <th className="th-align-center meeting-minutes-doc__col-content">내용</th>
+                <th className="th-align-center">작성자</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && list.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="empty-cell">
+                    검색 중입니다.
+                  </td>
+                </tr>
+              ) : list.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="empty-cell">
+                    검색 결과가 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                list.map((row) => (
+                  <tr
+                    key={row.id}
+                    className="meeting-minutes-search-row"
+                    tabIndex={0}
+                    onClick={() => onOpenWeek?.(row.weekStartDate)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        onOpenWeek?.(row.weekStartDate)
+                      }
+                    }}
+                  >
+                    <td className="meeting-minutes-search-week">
+                      {row.reportDate ? <span>{row.reportDate}</span> : null}
+                      <span className="meeting-minutes-search-week-chip">{workReportYearWeekLabel(row)}</span>
+                    </td>
+                    <td className="meeting-minutes-search-assignee">{row.section || '—'}</td>
+                    <td className="meeting-minutes-search-content">{row.content || '—'}</td>
+                    <td className="meeting-minutes-search-assignee">{row.user || '—'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <MobileDataCardList
+          rows={list}
+          getRowKey={(row) => row.id}
+          getTitle={(row) => row.content || row.section}
+          getBadge={(row) => ({ label: workReportYearWeekLabel(row), tone: 'blue' })}
+          summaryFields={[
+            { label: '구분', getValue: (row) => row.section },
+            { label: '작성자', getValue: (row) => row.user },
+            { label: '날짜', getValue: (row) => row.reportDate },
+          ]}
+          emptyText={loading ? '검색 중입니다.' : '검색 결과가 없습니다.'}
+          onCardClick={(row) => onOpenWeek?.(row.weekStartDate)}
+        />
+      </div>
+    </section>
+  )
+}

@@ -32,6 +32,7 @@ from app.routers.audit_logs import router as audit_logs_router
 from app.routers.public_install_cases import router as public_install_cases_router
 from app.routers.email_export_logs import router as email_export_logs_router
 from app.routers.shared_links import router as shared_links_router
+from app.routers.dashboard import router as dashboard_router
 
 
 DEFAULT_CORS_ORIGINS = (
@@ -228,6 +229,7 @@ app.include_router(payment_reports_router)
 app.include_router(install_cases_router)
 app.include_router(materials_board_router)
 app.include_router(calendar_events_router)
+app.include_router(dashboard_router)
 app.include_router(presence.router)
 app.include_router(audit_logs_router)
 app.include_router(public_install_cases_router)

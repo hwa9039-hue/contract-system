@@ -43,6 +43,33 @@
   --accent-soft: #e5e9f0;
   --blue: #2e3440;
   --red: #dc2626;
+
+  /* 캘린더 · 계약현황 · 대시보드 공통 상태색. 값은 scheduleStatusTheme.js 와 같다. */
+  --status-contract-bg: #fef9c3;
+  --status-contract-fg: #713f12;
+  --status-contract-border: #eab308;
+  --status-contract-solid: #eab308;
+  --status-contract-pulse: #fef08a;
+  --status-due-bg: #dbeafe;
+  --status-due-fg: #1e40af;
+  --status-due-border: #2563eb;
+  --status-due-solid: #2563eb;
+  --status-due-pulse: #93c5fd;
+  --status-manual-bg: #dcfce7;
+  --status-manual-fg: #14532d;
+  --status-manual-border: #22c55e;
+  --status-manual-solid: #22c55e;
+  --status-manual-pulse: #bbf7d0;
+  --status-imminent-bg: #fee2e2;
+  --status-imminent-fg: #b91c1c;
+  --status-imminent-border: #ef4444;
+  --status-imminent-solid: #dc2626;
+  --status-imminent-pulse: #fca5a5;
+  --status-delayed-bg: #f3e8ff;
+  --status-delayed-fg: #6b21a8;
+  --status-delayed-border: #a855f7;
+  --status-delayed-solid: #7c3aed;
+  --status-delayed-pulse: #d8b4fe;
   --shadow-sm: 0 1px 2px rgba(46, 52, 64, 0.06), 0 1px 3px rgba(46, 52, 64, 0.08);
   --shadow-md: 0 10px 28px rgba(46, 52, 64, 0.1);
   --shadow-lg: 0 24px 60px rgba(46, 52, 64, 0.16);
@@ -3368,21 +3395,21 @@ a.record-file-name:hover {
 }
 
 .contract-event {
-  background: #fef9c3;
-  color: #713f12;
-  border-color: #eab308;
+  background: var(--status-contract-bg);
+  color: var(--status-contract-fg);
+  border-color: var(--status-contract-border);
 }
 
 .due-event {
-  background: #dbeafe;
-  color: #1e40af;
-  border-color: #2563eb;
+  background: var(--status-due-bg);
+  color: var(--status-due-fg);
+  border-color: var(--status-due-border);
 }
 
 .manual-event {
-  background: #dcfce7;
-  color: #14532d;
-  border-color: #22c55e;
+  background: var(--status-manual-bg);
+  color: var(--status-manual-fg);
+  border-color: var(--status-manual-border);
 }
 
 .selected-events-wrap {
@@ -3541,15 +3568,15 @@ a.record-file-name:hover {
 }
 
 .stat-card--calendar .calendar-month-list-panel .selected-event-card.selected-event-type--contract {
-  border-left: 5px solid #eab308;
+  border-left: 5px solid var(--status-contract-border);
 }
 
 .stat-card--calendar .calendar-month-list-panel .selected-event-card.selected-event-type--due {
-  border-left: 5px solid #2563eb;
+  border-left: 5px solid var(--status-due-border);
 }
 
 .stat-card--calendar .calendar-month-list-panel .selected-event-card.selected-event-type--manual {
-  border-left: 5px solid #22c55e;
+  border-left: 5px solid var(--status-manual-border);
 }
 
 .selected-event-card.clickable {
@@ -4732,11 +4759,11 @@ textarea:focus-visible {
 }
 
 .dashboard-briefing-due-section-title--delayed {
-  color: #6b21a8;
+  color: var(--status-delayed-fg);
 }
 
 .dashboard-briefing-due-section-title--week {
-  color: #b91c1c;
+  color: var(--status-imminent-fg);
 }
 
 .dashboard-briefing-due-section-count {
@@ -4751,13 +4778,13 @@ textarea:focus-visible {
 }
 
 .dashboard-briefing-due-section-title--delayed .dashboard-briefing-due-section-count {
-  background: #f3e8ff;
-  color: #6b21a8;
+  background: var(--status-delayed-bg);
+  color: var(--status-delayed-fg);
 }
 
 .dashboard-briefing-due-section-title--week .dashboard-briefing-due-section-count {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--status-imminent-bg);
+  color: var(--status-imminent-fg);
 }
 
 .dashboard-briefing-due-divider {
@@ -4767,39 +4794,65 @@ textarea:focus-visible {
 }
 
 .dashboard-briefing-due-item--delayed {
-  border-color: #e9d5ff;
-  border-left: 4px solid #a855f7;
-  background: #faf5ff;
+  border-color: var(--status-delayed-border);
+  border-left: 4px solid var(--status-delayed-solid);
+  background: var(--status-delayed-bg);
 }
 
 .dashboard-briefing-due-item--delayed .dashboard-briefing-due-title,
 .dashboard-briefing-due-item--delayed .dashboard-briefing-due-sub,
 .dashboard-briefing-due-item--delayed .dashboard-briefing-due-meta {
-  color: #6b21a8;
+  color: var(--status-delayed-fg);
 }
 
 .dashboard-briefing-due-item--week {
-  border-color: #fecaca;
-  border-left: 4px solid #ef4444;
-  background: #fef2f2;
+  border-color: var(--status-imminent-border);
+  border-left: 4px solid var(--status-imminent-solid);
+  background: var(--status-imminent-bg);
 }
 
 .dashboard-briefing-due-item--week .dashboard-briefing-due-title,
 .dashboard-briefing-due-item--week .dashboard-briefing-due-sub,
 .dashboard-briefing-due-item--week .dashboard-briefing-due-meta {
-  color: #b91c1c;
+  color: var(--status-imminent-fg);
 }
 
 .dashboard-briefing-due-item--inProgress {
-  border-color: #bfdbfe;
-  border-left: 4px solid #3b82f6;
-  background: #eff6ff;
+  border-color: var(--status-due-border);
+  border-left: 4px solid var(--status-due-solid);
+  background: var(--status-due-bg);
 }
 
 .dashboard-briefing-due-item--inProgress .dashboard-briefing-due-title,
 .dashboard-briefing-due-item--inProgress .dashboard-briefing-due-sub,
 .dashboard-briefing-due-item--inProgress .dashboard-briefing-due-meta {
-  color: #1d4ed8;
+  color: var(--status-due-fg);
+}
+
+.dashboard-briefing-due-item--schedule {
+  border-color: var(--status-manual-border);
+  border-left: 4px solid var(--status-manual-solid);
+  background: var(--status-manual-bg);
+}
+
+.dashboard-briefing-due-item--schedule .dashboard-briefing-due-title,
+.dashboard-briefing-due-item--schedule .dashboard-briefing-due-sub,
+.dashboard-briefing-due-item--schedule .dashboard-briefing-due-meta {
+  color: var(--status-manual-fg);
+}
+
+.dashboard-briefing-due-kind {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--status-manual-solid);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  vertical-align: 1px;
 }
 
 .dashboard-briefing-due-dday--delayed {
@@ -4807,8 +4860,8 @@ textarea:focus-visible {
   align-items: center;
   padding: 2px 10px;
   border-radius: 999px;
-  background: #f3e8ff;
-  color: #7c3aed;
+  background: var(--status-delayed-bg);
+  color: var(--status-delayed-fg);
   font-weight: 800;
   letter-spacing: 0.02em;
   animation: dashboard-due-overdue-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -4817,11 +4870,11 @@ textarea:focus-visible {
 @keyframes dashboard-due-overdue-pulse {
   0%,
   100% {
-    background-color: #f3e8ff;
+    background-color: var(--status-delayed-bg);
     box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.55);
   }
   50% {
-    background-color: #d8b4fe;
+    background-color: var(--status-delayed-pulse);
     box-shadow: 0 0 0 6px rgba(168, 85, 247, 0);
   }
 }
@@ -4831,8 +4884,8 @@ textarea:focus-visible {
   align-items: center;
   padding: 2px 10px;
   border-radius: 999px;
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--status-imminent-bg);
+  color: var(--status-imminent-fg);
   font-weight: 800;
   letter-spacing: 0.02em;
   animation: dashboard-due-urgent-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -4843,8 +4896,8 @@ textarea:focus-visible {
   align-items: center;
   padding: 2px 10px;
   border-radius: 999px;
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--status-due-bg);
+  color: var(--status-due-fg);
   font-weight: 800;
   letter-spacing: 0.02em;
   animation: dashboard-due-in-progress-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -4853,23 +4906,23 @@ textarea:focus-visible {
 @keyframes dashboard-due-in-progress-pulse {
   0%,
   100% {
-    background-color: #dbeafe;
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.55);
+    background-color: var(--status-due-bg);
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.45);
   }
   50% {
-    background-color: #93c5fd;
-    box-shadow: 0 0 0 6px rgba(59, 130, 246, 0);
+    background-color: var(--status-due-pulse);
+    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0);
   }
 }
 
 @keyframes dashboard-due-urgent-pulse {
   0%,
   100% {
-    background-color: #fee2e2;
+    background-color: var(--status-imminent-bg);
     box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.6);
   }
   50% {
-    background-color: #fca5a5;
+    background-color: var(--status-imminent-pulse);
     box-shadow: 0 0 0 6px rgba(248, 113, 113, 0);
   }
 }
@@ -5770,7 +5823,7 @@ button.dashboard-year-card {
 }
 
 /*
- * 준공 임박(D-14 ~ D-Day) — 빨간 알약 뱃지 + 링 펄스.
+ * 준공 임박(D-14 ~ D-Day) — 빨간 알약 뱃지.
  * 셀 컨테이너가 contractTableCell.css 에서 display:block 으로 덮이므로,
  * 뱃지 모양을 내려면 그보다 높은 특이도(4 클래스)로 inline-block 을 되돌려야 한다.
  */
@@ -5780,8 +5833,8 @@ table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-ce
   width: auto;
   padding: 8px 16px;
   border-radius: 999px;
-  background: #fee2e2;
-  color: #dc2626 !important;
+  background: var(--status-imminent-bg);
+  color: var(--status-imminent-fg) !important;
   font-size: 14px !important;
   font-weight: 800 !important;
   letter-spacing: 0.02em;
@@ -5790,7 +5843,7 @@ table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-ce
 }
 
 /*
- * 준공지연 — 보라 알약 뱃지 + 링 펄스 (계약일 노란색과 구분)
+ * 준공지연 — 보라 알약 뱃지 (계약일 노란색과 구분)
  */
 .dday-cell.dday-cell--overdue,
 table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-cell--overdue {
@@ -5798,8 +5851,8 @@ table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-ce
   width: auto;
   padding: 8px 16px;
   border-radius: 999px;
-  background: #f3e8ff;
-  color: #7c3aed !important;
+  background: var(--status-delayed-bg);
+  color: var(--status-delayed-fg) !important;
   font-size: 14px !important;
   font-weight: 800 !important;
   letter-spacing: 0.02em;
@@ -5815,11 +5868,11 @@ table[data-contract-table-row-key] tbody td.col-dday {
 @keyframes dday-due-soon-pulse {
   0%,
   100% {
-    background-color: #fee2e2;
+    background-color: var(--status-imminent-bg);
     box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.6);
   }
   50% {
-    background-color: #fca5a5;
+    background-color: var(--status-imminent-pulse);
     box-shadow: 0 0 0 9px rgba(248, 113, 113, 0);
   }
 }
@@ -5827,11 +5880,11 @@ table[data-contract-table-row-key] tbody td.col-dday {
 @keyframes dday-overdue-pulse {
   0%,
   100% {
-    background-color: #f3e8ff;
+    background-color: var(--status-delayed-bg);
     box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.55);
   }
   50% {
-    background-color: #d8b4fe;
+    background-color: var(--status-delayed-pulse);
     box-shadow: 0 0 0 9px rgba(168, 85, 247, 0);
   }
 }
@@ -5845,8 +5898,8 @@ table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-ce
   width: auto;
   padding: 8px 16px;
   border-radius: 999px;
-  background: #dbeafe;
-  color: #2563eb !important;
+  background: var(--status-due-bg);
+  color: var(--status-due-fg) !important;
   font-size: 14px !important;
   font-weight: 800 !important;
   letter-spacing: 0.02em;
@@ -5857,7 +5910,7 @@ table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-ce
 @keyframes dday-in-progress-pulse {
   0%,
   100% {
-    background-color: #dbeafe;
+    background-color: var(--status-due-bg);
     box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.55);
   }
   50% {
@@ -6461,33 +6514,33 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
 }
 
 .contract-event {
-  background: #fef9c3;
-  color: #713f12;
-  border-color: #eab308;
+  background: var(--status-contract-bg);
+  color: var(--status-contract-fg);
+  border-color: var(--status-contract-border);
 }
 
 .due-event {
-  background: #dbeafe;
-  color: #1e40af;
-  border-color: #2563eb;
+  background: var(--status-due-bg);
+  color: var(--status-due-fg);
+  border-color: var(--status-due-border);
 }
 
 .manual-event {
-  background: #dcfce7;
-  color: #14532d;
-  border-color: #22c55e;
+  background: var(--status-manual-bg);
+  color: var(--status-manual-fg);
+  border-color: var(--status-manual-border);
 }
 
 .stat-card--calendar .calendar-month-list-panel .selected-event-card.selected-event-type--contract {
-  border-left: 5px solid #eab308;
+  border-left: 5px solid var(--status-contract-border);
 }
 
 .stat-card--calendar .calendar-month-list-panel .selected-event-card.selected-event-type--due {
-  border-left: 5px solid #2563eb;
+  border-left: 5px solid var(--status-due-border);
 }
 
 .stat-card--calendar .calendar-month-list-panel .selected-event-card.selected-event-type--manual {
-  border-left: 5px solid #22c55e;
+  border-left: 5px solid var(--status-manual-border);
 }
 
 .selected-events-wrap {
@@ -6940,36 +6993,36 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
 }
 
 .contract-event {
-  background: #fef9c3;
-  color: #713f12;
-  border-color: #eab308;
+  background: var(--status-contract-bg);
+  color: var(--status-contract-fg);
+  border-color: var(--status-contract-border);
 }
 
 .contract-event.event-pill-button:hover {
-  background: #fef08a;
-  border-color: #ca8a04;
+  background: var(--status-contract-pulse);
+  border-color: var(--status-contract-border);
 }
 
 .due-event {
-  background: #dbeafe;
-  color: #1e40af;
-  border-color: #2563eb;
+  background: var(--status-due-bg);
+  color: var(--status-due-fg);
+  border-color: var(--status-due-border);
 }
 
 .due-event.event-pill-button:hover {
-  background: #bfdbfe;
-  border-color: #1d4ed8;
+  background: var(--status-due-pulse);
+  border-color: var(--status-due-border);
 }
 
 .manual-event {
-  background: #dcfce7;
-  color: #14532d;
-  border-color: #22c55e;
+  background: var(--status-manual-bg);
+  color: var(--status-manual-fg);
+  border-color: var(--status-manual-border);
 }
 
 .manual-event.event-pill-button:hover {
-  background: #bbf7d0;
-  border-color: #16a34a;
+  background: var(--status-manual-pulse);
+  border-color: var(--status-manual-border);
 }
 
 /* calendar spacing refinement */
@@ -7097,11 +7150,11 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
 }
 
 /* 도트 색상: 실제 이벤트 필 색상과 동일 */
-.calendar-legend-dot--contract { background: #eab308; }
-.calendar-legend-dot--due      { background: #2563eb; }
-.calendar-legend-dot--manual   { background: #22c55e; }
-.calendar-legend-dot--due-soon { background: #dc2626; }
-.calendar-legend-dot--due-delayed { background: #7c3aed; }
+.calendar-legend-dot--contract { background: var(--status-contract-solid); }
+.calendar-legend-dot--due      { background: var(--status-due-solid); }
+.calendar-legend-dot--manual   { background: var(--status-manual-solid); }
+.calendar-legend-dot--due-soon { background: var(--status-imminent-solid); }
+.calendar-legend-dot--due-delayed { background: var(--status-delayed-solid); }
 
 .calendar-grid {
   margin-top: 0;
@@ -19648,23 +19701,23 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   }
 
   .day-events .event-pill.contract-event {
-    background: #eab308 !important;
+    background: var(--status-contract-solid) !important;
   }
 
   .day-events .event-pill.due-event {
-    background: #2563eb !important;
+    background: var(--status-due-solid) !important;
   }
 
   .day-events .event-pill.manual-event {
-    background: #22c55e !important;
+    background: var(--status-manual-solid) !important;
   }
 
   .day-events .event-pill.calendar-due-soon {
-    background: #dc2626 !important;
+    background: var(--status-imminent-solid) !important;
   }
 
   .day-events .event-pill.calendar-due-delayed {
-    background: #7c3aed !important;
+    background: var(--status-delayed-solid) !important;
   }
 
   .calendar-span-bar.event-pill {
@@ -20505,64 +20558,64 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
    배경색이 번갈아 바뀌는 경광등식 깜빡임 + 안쪽 링으로 강조한다.
    배경을 !important 로 고정하면 애니메이션이 무시되므로 특이도로만 이긴다. */
 .event-pill.due-event.calendar-due-soon {
-  background: #fecaca;
-  border-color: #f87171;
-  color: #9f1239;
+  background: var(--status-imminent-bg);
+  border-color: var(--status-imminent-border);
+  color: var(--status-imminent-fg);
   font-weight: 800;
   animation: calendar-due-soon-blink 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .event-pill.due-event.calendar-due-soon:hover {
-  background: #fca5a5;
-  border-color: #ef4444;
+  background: var(--status-imminent-pulse);
+  border-color: var(--status-imminent-border);
 }
 
 @keyframes calendar-due-soon-blink {
   0%,
   100% {
-    background-color: #fee2e2;
+    background-color: var(--status-imminent-bg);
     box-shadow: inset 0 0 0 0 rgba(248, 113, 113, 0);
   }
   50% {
-    background-color: #fca5a5;
+    background-color: var(--status-imminent-pulse);
     box-shadow: inset 0 0 0 2px rgba(248, 113, 113, 0.85);
   }
 }
 
 /* 준공지연 — 보라 깜빡임 (계약일 노란색과 구분) */
 .event-pill.due-event.calendar-due-delayed {
-  background: #e9d5ff;
-  border-color: #a855f7;
-  color: #6b21a8;
+  background: var(--status-delayed-bg);
+  border-color: var(--status-delayed-border);
+  color: var(--status-delayed-fg);
   font-weight: 800;
   animation: calendar-due-delayed-blink 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .event-pill.due-event.calendar-due-delayed:hover {
-  background: #d8b4fe;
-  border-color: #9333ea;
+  background: var(--status-delayed-pulse);
+  border-color: var(--status-delayed-border);
 }
 
 .event-pill.due-event.calendar-due-in-progress {
-  background: #dbeafe;
-  border-color: #60a5fa;
-  color: #1d4ed8;
+  background: var(--status-due-bg);
+  border-color: var(--status-due-border);
+  color: var(--status-due-fg);
   font-weight: 800;
 }
 
 .event-pill.due-event.calendar-due-in-progress:hover {
-  background: #bfdbfe;
-  border-color: #3b82f6;
+  background: var(--status-due-pulse);
+  border-color: var(--status-due-border);
 }
 
 @keyframes calendar-due-delayed-blink {
   0%,
   100% {
-    background-color: #f3e8ff;
+    background-color: var(--status-delayed-bg);
     box-shadow: inset 0 0 0 0 rgba(168, 85, 247, 0);
   }
   50% {
-    background-color: #d8b4fe;
+    background-color: var(--status-delayed-pulse);
     box-shadow: inset 0 0 0 2px rgba(126, 58, 237, 0.75);
   }
 }
@@ -20704,8 +20757,8 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
 }
 
 .mobile-data-card-badge.is-blue {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--status-due-bg);
+  color: var(--status-due-fg);
 }
 
 .mobile-data-card-badge.is-green {
@@ -20720,8 +20773,8 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
 }
 
 .mobile-data-card-badge.is-red {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--status-imminent-bg);
+  color: var(--status-imminent-fg);
 }
 
 .mobile-data-card-badge.is-orange {
@@ -20745,8 +20798,8 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
 }
 
 .mobile-data-card-badge.is-purple {
-  background: #ede9fe;
-  color: #7c3aed;
+  background: var(--status-delayed-bg);
+  color: var(--status-delayed-fg);
 }
 
 .mobile-data-card-badge.is-slate,
@@ -20886,33 +20939,39 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
 }
 
 .calendar-mobile-agenda-item.contract-event {
-  background: #fef9c3;
-  border-color: #eab308;
-  color: #713f12;
+  background: var(--status-contract-bg);
+  border-color: var(--status-contract-border);
+  color: var(--status-contract-fg);
 }
 
 .calendar-mobile-agenda-item.due-event {
-  background: #dbeafe;
-  border-color: #2563eb;
-  color: #1e40af;
+  background: var(--status-due-bg);
+  border-color: var(--status-due-border);
+  color: var(--status-due-fg);
 }
 
 .calendar-mobile-agenda-item.manual-event {
-  background: #dcfce7;
-  border-color: #22c55e;
-  color: #14532d;
+  background: var(--status-manual-bg);
+  border-color: var(--status-manual-border);
+  color: var(--status-manual-fg);
 }
 
 .calendar-mobile-agenda-item.calendar-due-soon {
-  background: #fee2e2;
-  border-color: #f87171;
-  color: #dc2626;
+  background: var(--status-imminent-bg);
+  border-color: var(--status-imminent-border);
+  color: var(--status-imminent-fg);
 }
 
 .calendar-mobile-agenda-item.calendar-due-delayed {
-  background: #ede9fe;
-  border-color: #a855f7;
-  color: #7c3aed;
+  background: var(--status-delayed-bg);
+  border-color: var(--status-delayed-border);
+  color: var(--status-delayed-fg);
+}
+
+.calendar-mobile-agenda-item.calendar-due-in-progress {
+  background: var(--status-due-bg);
+  border-color: var(--status-due-border);
+  color: var(--status-due-fg);
 }
 
 .calendar-mobile-agenda-kind,
@@ -21146,6 +21205,10 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
   color: #334155;
   font-size: 13px;
   font-weight: 600;
+}
+
+.work-report-summary-meta > .meeting-minutes-search-week-chip {
+  margin-left: 0;
 }
 
 .meeting-minutes-search-week-chip {

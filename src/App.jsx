@@ -200,6 +200,7 @@ import {
 } from './excelSheetUtils.js'
 import {
   MeetingMinutesSearchResults,
+  WorkReportSearchResults,
   WorkReportMeetingMinutesSection,
   buildMeetingMinutesPdfMarkup,
   clearMeetingMinutesSessionBackup,
@@ -1450,12 +1451,11 @@ function getCalendarItemKindLabel(type) {
 
 function getCalendarDueStatusClass(item) {
   if (item?.type !== 'due') return ''
-  if (
-    normalizeContractProcessStatus(item?.contract?.processStatus) ===
-    CONTRACT_PROCESS_STATUS_COMPLETE
-  ) {
-    return ''
-  }
+  const stored = normalizeContractProcessStatus(item?.contract?.processStatus)
+  if (stored === CONTRACT_PROCESS_STATUS_COMPLETE) return ''
+  if (stored === '준공진행') return 'calendar-due-in-progress'
+  if (stored === '준공지연') return 'calendar-due-delayed'
+  if (stored === '준공임박') return 'calendar-due-soon'
   const status = getContractDueStatus(item?.date)
   if (status === 'due-soon') return 'calendar-due-soon'
   if (status === 'overdue') return 'calendar-due-delayed'
@@ -4171,15 +4171,62 @@ function collectDashboardDueWatchGroups(contracts, anchorDate = new Date()) {
   return { delayed, thisWeek, inProgress }
 }
 
+function buildDashboardUpcomingItems(contracts, manualEvents, anchorDate = new Date()) {
+  const groups = collectDashboardDueWatchGroups(contracts, anchorDate)
+  const contractItems = [
+    ...groups.delayed.map((row) => ({ ...row, source: 'contract', variant: 'delayed', title: row.projectName, date: row.dueDate })),
+    ...groups.thisWeek.map((row) => ({ ...row, source: 'contract', variant: 'week', title: row.projectName, date: row.dueDate })),
+    ...groups.inProgress.map((row) => ({ ...row, source: 'contract', variant: 'inProgress', title: row.projectName, date: row.dueDate })),
+  ]
+  const todayYmd = formatDateInput(anchorDate)
+  const calendarItems = (Array.isArray(manualEvents) ? manualEvents : [])
+    .map((event) => ({ event, range: normalizeManualEventRangeInPlace(event) }))
+    .filter(({ range }) => range.dateEnd && range.dateEnd >= todayYmd)
+    .map(({ event, range }) => {
+      const title = safeString(event.title).trim() || '일정'
+      return {
+        id: `cal-${event.id}`,
+        source: 'calendar',
+        variant: 'schedule',
+        title,
+        projectName: title,
+        date: range.dateStart,
+        dateEnd: range.dateEnd,
+        dueDate: range.dateStart,
+        client: '',
+        salesManager: safeString(event.owner).trim(),
+        fieldPM: safeString(event.pm).trim(),
+        note: safeString(event.note).trim(),
+        dday: '',
+      }
+    })
+  return [...contractItems, ...calendarItems].sort((a, b) => {
+    const ad = a.date || '9999-12-31'
+    const bd = b.date || '9999-12-31'
+    return ad.localeCompare(bd) || safeString(a.title).localeCompare(safeString(b.title), 'ko')
+  })
+}
+
 function DashboardDueWatchItem({ item, variant }) {
+  const isSchedule = variant === 'schedule'
+  const scheduleMeta = [item.salesManager, item.fieldPM, item.note].filter(Boolean).join(' · ')
+  const dateLabel =
+    item.dateEnd && item.date && item.dateEnd !== item.date
+      ? `${item.date} ~ ${item.dateEnd}`
+      : item.dueDate || item.date
   return (
     <li className={`dashboard-briefing-due-item dashboard-briefing-due-item--${variant}`}>
-      <div className="dashboard-briefing-due-title">{item.projectName || '—'}</div>
+      <div className="dashboard-briefing-due-title">
+        {isSchedule ? <span className="dashboard-briefing-due-kind">일정</span> : null}
+        {item.projectName || item.title || '—'}
+      </div>
       <p className="dashboard-briefing-due-sub">
-        {item.client || '—'} | 영업: {item.salesManager || '—'} | PM: {item.fieldPM || '—'}
+        {isSchedule
+          ? scheduleMeta || '수기 일정'
+          : `${item.client || '—'} | 영업: ${item.salesManager || '—'} | PM: ${item.fieldPM || '—'}`}
       </p>
       <div className="dashboard-briefing-due-meta">
-        <span>{item.dueDate}</span>
+        <span>{dateLabel}</span>
         {item.dday ? (
           <span className={`dashboard-briefing-due-dday dashboard-briefing-due-dday--${variant}`}>
             {item.dday}
@@ -4515,6 +4562,16 @@ function getWeekStartMonday(dateInput = new Date()) {
   const diff = day === 0 ? -6 : 1 - day
   normalizedDate.setDate(normalizedDate.getDate() + diff)
   return normalizedDate
+}
+
+function getIsoWeekNumber(dateInput) {
+  const sourceDate = typeof dateInput === 'string' ? parseDateOnly(dateInput) : dateInput
+  if (!sourceDate) return 0
+  const target = new Date(sourceDate.getFullYear(), sourceDate.getMonth(), sourceDate.getDate())
+  const day = target.getDay() || 7
+  target.setDate(target.getDate() + 4 - day)
+  const yearStart = new Date(target.getFullYear(), 0, 1)
+  return Math.ceil(((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
 }
 
 function getWeekNumberInMonth(dateInput) {
@@ -6494,6 +6551,13 @@ function App() {
   const [meetingSearchLoading, setMeetingSearchLoading] = useState(false)
   const [meetingSearchError, setMeetingSearchError] = useState('')
   const meetingSearchSeqRef = useRef(0)
+  const [workReportSearchInput, setWorkReportSearchInput] = useState('')
+  const [workReportSearchActive, setWorkReportSearchActive] = useState('')
+  const [workReportSearchRows, setWorkReportSearchRows] = useState([])
+  const [workReportSearchLoading, setWorkReportSearchLoading] = useState(false)
+  const [workReportSearchError, setWorkReportSearchError] = useState('')
+  const workReportSearchSeqRef = useRef(0)
+  const [dashboardUpcomingFromApi, setDashboardUpcomingFromApi] = useState(null)
   const [manualEvents, setManualEvents] = useState([])
   const [search, setSearch] = useState('')
   const [contractDateRange, setContractDateRange] = useState({ startDate: '', endDate: '' })
@@ -8982,10 +9046,11 @@ function App() {
     })
   }, [calendarCursor])
 
-  const dashboardDueWatchGroups = useMemo(
-    () => collectDashboardDueWatchGroups(contracts),
-    [contracts]
+  const dashboardUpcomingLocal = useMemo(
+    () => buildDashboardUpcomingItems(contracts, manualEvents),
+    [contracts, manualEvents]
   )
+  const dashboardUpcomingItems = dashboardUpcomingFromApi ?? dashboardUpcomingLocal
 
   const monthDays = useMemo(() => {
     const year = calendarCursor.getFullYear()
@@ -11645,6 +11710,70 @@ function App() {
     }, 250)
     return () => window.clearTimeout(timer)
   }, [meetingSearchInput, menu])
+
+  const runWorkReportSearch = async (rawQuery) => {
+    const query = safeString(rawQuery).trim()
+    const seq = workReportSearchSeqRef.current + 1
+    workReportSearchSeqRef.current = seq
+    if (!query) {
+      setWorkReportSearchActive('')
+      setWorkReportSearchRows([])
+      setWorkReportSearchError('')
+      setWorkReportSearchLoading(false)
+      return
+    }
+    setWorkReportSearchLoading(true)
+    setWorkReportSearchError('')
+    setWorkReportSearchActive(query)
+    try {
+      const found = await weeklyWorkReportsApi.search(query)
+      if (seq !== workReportSearchSeqRef.current) return
+      setWorkReportSearchRows(Array.isArray(found) ? found : [])
+    } catch (error) {
+      if (seq !== workReportSearchSeqRef.current) return
+      setWorkReportSearchRows([])
+      setWorkReportSearchError(error?.message || '주간업무보고서 검색에 실패했습니다.')
+    } finally {
+      if (seq === workReportSearchSeqRef.current) setWorkReportSearchLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (menu !== 'workReports') return undefined
+    const query = safeString(workReportSearchInput).trim()
+    if (!query) {
+      void runWorkReportSearch('')
+      return undefined
+    }
+    const timer = window.setTimeout(() => {
+      void runWorkReportSearch(query)
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [workReportSearchInput, menu])
+
+  useEffect(() => {
+    if (menu !== 'dashboard') return undefined
+    let cancelled = false
+    apiFetch(
+      `${API_BASE_URL}/api/dashboard/upcoming`,
+      apiFetchInit({ headers: getAuthHeaders() })
+    )
+      .then(async (response) => {
+        if (!response.ok) throw new Error('upcoming failed')
+        return response.json()
+      })
+      .then((data) => {
+        if (cancelled) return
+        const items = Array.isArray(data?.items) ? data.items : []
+        setDashboardUpcomingFromApi(items)
+      })
+      .catch(() => {
+        if (!cancelled) setDashboardUpcomingFromApi(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [menu, contracts, manualEvents])
 
   const getWorkReportCellKey = (date, section, orderIndex = 1) =>
     `${normalizeWorkReportDateKey(date)}__${safeString(section).trim()}__${Number(orderIndex || 1)}`
@@ -16675,68 +16804,20 @@ function App() {
                     </div>
 
                     <div className="dashboard-briefing-box">
-                      <h3 className="dashboard-briefing-box-title">
-                        준공현황{' '}
-                        <span className="dashboard-briefing-box-title-note">
-                          (준공 지연 · 금주 임박 · 준공 진행)
-                        </span>
-                      </h3>
+                      <h3 className="dashboard-briefing-box-title">다가오는 일정</h3>
                       <div className="dashboard-briefing-box-body">
-                        {dashboardDueWatchGroups.delayed.length === 0 &&
-                        dashboardDueWatchGroups.thisWeek.length === 0 &&
-                        dashboardDueWatchGroups.inProgress.length === 0 ? (
-                          <p className="dashboard-briefing-box-empty">
-                            현재 준공 지연·금주 임박·준공 진행 건이 없습니다.
-                          </p>
+                        {dashboardUpcomingItems.length === 0 ? (
+                          <p className="dashboard-briefing-box-empty">다가오는 일정이 없습니다.</p>
                         ) : (
-                          <>
-                            {dashboardDueWatchGroups.delayed.length > 0 ? (
-                              <ul className="dashboard-briefing-due-list">
-                                {dashboardDueWatchGroups.delayed.map((item) => (
-                                  <DashboardDueWatchItem
-                                    key={`due-delayed-${item.id}`}
-                                    item={item}
-                                    variant="delayed"
-                                  />
-                                ))}
-                              </ul>
-                            ) : null}
-
-                            {dashboardDueWatchGroups.delayed.length > 0 &&
-                            dashboardDueWatchGroups.thisWeek.length > 0 ? (
-                              <hr className="dashboard-briefing-due-divider" />
-                            ) : null}
-
-                            {dashboardDueWatchGroups.thisWeek.length > 0 ? (
-                              <ul className="dashboard-briefing-due-list">
-                                {dashboardDueWatchGroups.thisWeek.map((item) => (
-                                  <DashboardDueWatchItem
-                                    key={`due-week-${item.id}`}
-                                    item={item}
-                                    variant="week"
-                                  />
-                                ))}
-                              </ul>
-                            ) : null}
-
-                            {(dashboardDueWatchGroups.delayed.length > 0 ||
-                              dashboardDueWatchGroups.thisWeek.length > 0) &&
-                            dashboardDueWatchGroups.inProgress.length > 0 ? (
-                              <hr className="dashboard-briefing-due-divider" />
-                            ) : null}
-
-                            {dashboardDueWatchGroups.inProgress.length > 0 ? (
-                              <ul className="dashboard-briefing-due-list">
-                                {dashboardDueWatchGroups.inProgress.map((item) => (
-                                  <DashboardDueWatchItem
-                                    key={`due-in-progress-${item.id}`}
-                                    item={item}
-                                    variant="inProgress"
-                                  />
-                                ))}
-                              </ul>
-                            ) : null}
-                          </>
+                          <ul className="dashboard-briefing-due-list">
+                            {dashboardUpcomingItems.map((item) => (
+                              <DashboardDueWatchItem
+                                key={`${item.source || 'item'}-${item.variant}-${item.id}`}
+                                item={item}
+                                variant={item.variant}
+                              />
+                            ))}
+                          </ul>
                         )}
                       </div>
                     </div>
@@ -16873,14 +16954,61 @@ function App() {
                 >
                   저장
                 </button>
+                <form
+                  className="meeting-minutes-search"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                  }}
+                >
+                  <input
+                    className="table-search-input meeting-minutes-search-input"
+                    type="search"
+                    value={workReportSearchInput}
+                    onChange={(event) => setWorkReportSearchInput(event.target.value)}
+                    placeholder="전체 주간업무보고서 검색"
+                    aria-label="전체 주간업무보고서 검색"
+                  />
+                  {workReportSearchActive ? (
+                    <button
+                      className="secondary-btn"
+                      type="button"
+                      onClick={() => {
+                        setWorkReportSearchInput('')
+                        setWorkReportSearchActive('')
+                        setWorkReportSearchRows([])
+                        setWorkReportSearchError('')
+                      }}
+                    >
+                      주차 보기
+                    </button>
+                  ) : null}
+                </form>
               </div>
 
+              {workReportSearchActive ? (
+                <WorkReportSearchResults
+                  query={workReportSearchActive}
+                  rows={workReportSearchRows}
+                  loading={workReportSearchLoading}
+                  error={workReportSearchError}
+                  onOpenWeek={(weekStartDate) => {
+                    trackWorkWeek(weekStartDate)
+                    setWorkReportSearchInput('')
+                    setWorkReportSearchActive('')
+                    setWorkReportSearchRows([])
+                    setWorkReportSearchError('')
+                  }}
+                />
+              ) : (
+                <>
               <div className="work-report-summary-card">
                 <div className="work-report-summary-title">
                   {getWorkReportWeekLabel(selectedWorkWeekMeta.weekStartDate)}
                 </div>
                 <div className="work-report-summary-meta">
-                  <span>주차 {selectedWorkWeekMeta.weekNumber}주차</span>
+                  <span className="meeting-minutes-search-week-chip">
+                    {getIsoWeekNumber(selectedWorkWeekMeta.weekStartDate)}주차
+                  </span>
                   <span>시작일 {selectedWorkWeekMeta.weekStartDate}</span>
                   <span>입력 후 자동 저장 · 새로고침 전 「저장」 버튼 권장</span>
                 </div>
@@ -16888,6 +17016,8 @@ function App() {
 
               {renderWorkReportMobileDayStack()}
               {renderWorkReportWeekBoardV5()}
+                </>
+              )}
 
               {isSavingWorkReports && (
                 <div className="work-report-saving-indicator">업무보고 내용을 저장하고 있습니다.</div>
