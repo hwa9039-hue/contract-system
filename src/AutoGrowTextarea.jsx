@@ -70,11 +70,13 @@ export function AutoGrowTextarea({
   ...rest
 }) {
   const ref = useRef(null)
+  const uncontrolled = value === undefined
+  const [localValue, setLocalValue] = useState(() => checklistText(rest.defaultValue ?? ''))
   const [draft, setDraft] = useState(() => checklistText(value))
   const draftRef = useRef(draft)
   const focusedRef = useRef(false)
   const dirtyRef = useRef(false)
-  const shownValue = buffered ? draft : value
+  const shownValue = uncontrolled ? localValue : buffered ? draft : value
 
   useEffect(() => {
     if (!buffered) return
@@ -180,6 +182,11 @@ export function AutoGrowTextarea({
   }
 
   const handleChange = (event) => {
+    if (uncontrolled) {
+      setLocalValue(event.target.value)
+      onChange?.(event)
+      return
+    }
     const rawNext = event.target.value
     const next = checklistBullets ? applyChecklistBullet(draftRef.current, rawNext) : rawNext
     publish(next, event)
@@ -223,6 +230,8 @@ export function AutoGrowTextarea({
     }
   }
 
+  const { defaultValue: _defaultValue, ...domRest } = rest
+
   return (
     <textarea
       ref={ref}
@@ -234,7 +243,7 @@ export function AutoGrowTextarea({
       onKeyDown={handleKeyDown}
       // 콘텐츠 높이에 정확히 맞추므로 내부 스크롤은 숨긴다.
       style={{ overflowY: 'hidden', resize: 'none', ...style }}
-      {...rest}
+      {...domRest}
     />
   )
 }

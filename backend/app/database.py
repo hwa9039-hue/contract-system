@@ -1387,6 +1387,72 @@ def init_db():
             )
             cursor.execute(
                 """
+                create index if not exists sales_register_rows_stage_idx
+                  on sales_register_rows ("projectStage")
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists sales_register_rows_register_date_idx
+                  on sales_register_rows ("registerDate" desc)
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists sales_register_rows_project_name_idx
+                  on sales_register_rows ("projectName")
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists excluded_projects_rows_category_idx
+                  on excluded_projects_rows (category)
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists excluded_projects_rows_write_date_idx
+                  on excluded_projects_rows ("writeDate" desc)
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists excluded_projects_rows_project_name_idx
+                  on excluded_projects_rows ("projectName")
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists project_discovery_rows_stage_idx
+                  on project_discovery_rows ("projectStage")
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists project_discovery_rows_project_name_idx
+                  on project_discovery_rows ("projectName")
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists contracts_rows_project_name_idx
+                  on contracts_rows ("projectName")
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists contracts_rows_due_date_idx
+                  on contracts_rows ("dueDate" desc)
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists contracts_rows_process_status_idx
+                  on contracts_rows ("processStatus")
+                """
+            )
+            cursor.execute(
+                """
                 create table if not exists shared_links (
                   short_code varchar(6) primary key,
                   expires_at timestamptz not null

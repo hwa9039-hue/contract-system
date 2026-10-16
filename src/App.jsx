@@ -15,6 +15,12 @@ import {
 } from 'lucide-react'
 import { ContractColumnHeaderFilter } from './ContractColumnHeaderFilter.jsx'
 import {
+  clearContractCellEdit,
+  ContractTableEditableCell,
+  findAdjacentContractEditColumn,
+  setContractCellEdit,
+} from './ContractTableEditableCell.jsx'
+import {
   buildContractColumnFilterOptions,
   contractMatchesColumnFilters,
   contractMatchesSearch,
@@ -133,6 +139,7 @@ import {
 } from './contractAggregation.js'
 import { EditableTextCell, isEditableTextColumn } from './EditableTextCell.jsx'
 import { AutoGrowTextarea } from './AutoGrowTextarea.jsx'
+import { QuietField } from './DraftField.jsx'
 import { RegistryTableDateInput } from './RegistryTableDateInput.jsx'
 import {
   TABLE_CELL_EMPTY_LABEL,
@@ -6686,7 +6693,6 @@ function App() {
   const [registryCreateModal, setRegistryCreateModal] = useState(null)
   const [calendarEventRegisterOpen, setCalendarEventRegisterOpen] = useState(false)
   /** 계약 셀 편집: UI 행 키(rowKey) + 컬럼 + PATCH용 serverRowId(행의 서버 PK) */
-  const [contractEdit, setContractEdit] = useState(null)
   const [contractEditDraft, setContractEditDraft] = useState('')
   /** 영업·건축·사업공유·문서 — 계약현황과 동일한 셀 단위 인라인 편집 */
   const [registryCellEdit, setRegistryCellEdit] = useState(null)
@@ -6729,17 +6735,22 @@ function App() {
   const registryUploadInProgressRef = useRef(false)
   const contractEditRef = useRef(null)
   const contractEditDraftRef = useRef('')
+  const contractCellActionsRef = useRef({})
+  const calendarManualDetailDraftRef = useRef(null)
+  const eventFormRef = useRef(null)
   const registryCellEditRef = useRef(null)
   const registryCellEditDraftRef = useRef('')
+  const contractCellTabbingRef = useRef(false)
+  const registryCellTabbingRef = useRef(false)
   const remoteListsSyncRef = useRef(() => {})
 
   useEffect(() => {
-    contractEditRef.current = contractEdit
-  }, [contractEdit])
+    eventFormRef.current = eventForm
+  }, [eventForm])
 
   useEffect(() => {
-    contractEditDraftRef.current = contractEditDraft
-  }, [contractEditDraft])
+    calendarManualDetailDraftRef.current = calendarManualDetailDraft
+  }, [calendarManualDetailDraft])
 
   useEffect(() => {
     registryCellEditRef.current = registryCellEdit
@@ -9180,8 +9191,7 @@ function App() {
   const calendarTodayYmd = formatDateInput(new Date())
 
   const resetAppUiOnLogout = () => {
-    setContractEdit(null)
-    setContractEditDraft('')
+    cancelEdit()
     setSelectedContractRowKeys(new Set())
     setContractConfirmDialog(null)
     setContractRegisterModalOpen(false)
@@ -12821,8 +12831,7 @@ function App() {
       return [draft, ...withoutEmptyDrafts]
     })
     setSelectedContractRowKeys(new Set())
-    setContractEdit(null)
-    setContractEditDraft('')
+    cancelEdit()
     setContractDraftFocusRowId(draft.id)
   }
 
@@ -12838,8 +12847,7 @@ function App() {
       const withoutEmptyDrafts = prev.filter((row) => !(row.isDraft && isContractDraftRowEmpty(row)))
       return [draft, ...withoutEmptyDrafts]
     })
-    setContractEdit(null)
-    setContractEditDraft('')
+    cancelEdit()
     setContractDraftFocusRowId(draft.id)
     setToastMessage('선택한 계약 내용을 신규 행에 복사했습니다.')
   }
@@ -13050,11 +13058,12 @@ function App() {
 
     if (!deleteSucceeded) return
 
+    const editingSnap = contractEditRef.current
     const editingServerId =
-      normalizeRegistryRowId(contractEdit?.serverRowId) ||
-      normalizeRegistryRowId(getContractRowBySelectKey(contractEdit?.rowKey || '')?.key) ||
-      normalizeRegistryRowId(getContractRowBySelectKey(contractEdit?.rowKey || '')?.id) ||
-      normalizeRegistryRowId(contractEdit?.rowKey)
+      normalizeRegistryRowId(editingSnap?.serverRowId) ||
+      normalizeRegistryRowId(getContractRowBySelectKey(editingSnap?.rowKey || '')?.key) ||
+      normalizeRegistryRowId(getContractRowBySelectKey(editingSnap?.rowKey || '')?.id) ||
+      normalizeRegistryRowId(editingSnap?.rowKey)
     if (editingServerId && ids.some((id) => normalizeRegistryRowId(id) === normalizeRegistryRowId(editingServerId))) {
       cancelEdit()
     }
@@ -13094,20 +13103,17 @@ function App() {
     if (!rowKey) return
 
     const serverRowId = firstUsableContractPathId(row?.id, row?.key) || null
-
-    setContractEdit({ rowKey, key, serverRowId })
-
-    if (key === 'amount') {
-      setContractEditDraft(normalizeAmountValue(value))
-      return
-    }
-
-    setContractEditDraft(safeString(value))
+    const nextEdit = { rowKey, key, serverRowId }
+    contractEditRef.current = nextEdit
+    const nextDraft = key === 'amount' ? normalizeAmountValue(value) : safeString(value)
+    contractEditDraftRef.current = nextDraft
+    setContractCellEdit(nextEdit)
   }
 
   const cancelEdit = () => {
-    setContractEdit(null)
-    setContractEditDraft('')
+    contractEditRef.current = null
+    contractEditDraftRef.current = ''
+    clearContractCellEdit()
   }
 
   const saveEdit = async () => {
@@ -13121,18 +13127,6 @@ function App() {
     /** PATCH `/api/contracts/{id}` — DB PK 만 (계약번호·UI 키 사용 금지) */
     const id = firstUsableContractPathId(record?.id, snap.serverRowId, record?.key)
 
-    console.log('[계약현황 saveEdit] editingRow (full row):', record ? { ...record } : null, {
-      contractEdit: snap,
-      draft: snapDraft,
-      recordKey: record?.key,
-      recordId: record?.id,
-    })
-
-    console.log('Final ID for PATCH /api/contracts/{id}:', id)
-    if (import.meta.env.DEV && id && /^\d+$/.test(String(id))) {
-      console.info('[계약현황 수정] 숫자형 id 사용:', id)
-    }
-
     if (!isUsableContractPathId(id)) {
       console.error('Failed to find ID for record:', record ?? { rowKey: snap.rowKey })
       setToastMessage('유효한 ID가 없습니다')
@@ -13140,10 +13134,17 @@ function App() {
     }
 
     const value = normalizeEditValue(snap.key, snapDraft)
-
-    setContractEdit((prev) =>
-      prev?.rowKey === snap.rowKey && prev?.key === snap.key ? { ...prev, saving: true } : prev
-    )
+    const previous = normalizeEditValue(snap.key, record?.[snap.key])
+    if (String(value ?? '') === String(previous ?? '')) {
+      if (
+        !contractCellTabbingRef.current &&
+        contractEditRef.current?.rowKey === snap.rowKey &&
+        contractEditRef.current?.key === snap.key
+      ) {
+        cancelEdit()
+      }
+      return
+    }
 
     try {
       await contractsApi.update(id, { [snap.key]: value })
@@ -13159,9 +13160,6 @@ function App() {
       console.error('[계약현황 PATCH] stack:', error?.stack)
       logApiOperationError('계약현황 수정', error)
       setToastMessage(`저장에 실패했습니다. ${safeString(error?.message)}`)
-      setContractEdit((prev) =>
-        prev?.rowKey === snap.rowKey && prev?.key === snap.key ? { ...prev, saving: false } : prev
-      )
       return
     }
 
@@ -13169,9 +13167,27 @@ function App() {
       contractEditRef.current?.rowKey === snap.rowKey &&
       contractEditRef.current?.key === snap.key
     ) {
-      setContractEdit(null)
-      setContractEditDraft('')
+      cancelEdit()
     }
+  }
+
+  const moveContractCellEdit = (direction) => {
+    const snap = contractEditRef.current
+    if (!snap?.rowKey || !snap.key) return
+    const index = CONTRACT_COLUMNS.findIndex((column) => column.key === snap.key)
+    const nextColumn = findAdjacentContractEditColumn(CONTRACT_COLUMNS, index, direction)
+    if (!nextColumn) return
+    const row = getContractRowBySelectKey(snap.rowKey)
+    startEdit(snap.rowKey, nextColumn.key, row?.[nextColumn.key], row)
+  }
+
+  contractCellActionsRef.current = {
+    draftRef: contractEditDraftRef,
+    tabbingRef: contractCellTabbingRef,
+    startEdit,
+    saveEdit,
+    cancelEdit,
+    moveContractCellEdit,
   }
 
   const getContractCellShellAlign = (column, bodyAlignClass) => {
@@ -13285,14 +13301,19 @@ function App() {
     const commonProps = {
       className: `${TABLE_INLINE_INPUT_STANDARD_CLASS} min-h-[2.5rem] py-2`,
       style: { textAlign: column.align || 'left' },
-      value: contractEditDraft,
+      defaultValue: contractEditDraft,
       autoFocus: true,
       onChange: (e) => {
         const value =
           column.key === 'amount' ? normalizeAmountValue(e.target.value) : e.target.value
-        setContractEditDraft(value)
+        if (e.target.value !== value) e.target.value = value
+        contractEditDraftRef.current = value
       },
       onBlur: () => {
+        if (contractCellTabbingRef.current) {
+          contractCellTabbingRef.current = false
+          return
+        }
         void saveEdit()
       },
       onClick: (e) => e.stopPropagation(),
@@ -13300,6 +13321,18 @@ function App() {
         if (e.key === 'Escape') {
           e.preventDefault()
           cancelEdit()
+          return
+        }
+        if (e.key === 'Tab') {
+          const direction = e.shiftKey ? 'prev' : 'next'
+          const index = CONTRACT_COLUMNS.findIndex((item) => item.key === column.key)
+          const nextColumn = CONTRACT_COLUMNS[index + (direction === 'prev' ? -1 : 1)]
+          if (!nextColumn) return
+          e.preventDefault()
+          contractCellTabbingRef.current = true
+          contractEditDraftRef.current = e.currentTarget.value
+          void saveEdit()
+          moveContractCellEdit(direction)
           return
         }
         const allowMultiline =
@@ -13311,6 +13344,7 @@ function App() {
         }
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault()
+          contractEditDraftRef.current = e.currentTarget.value
           void saveEdit()
         }
       },
@@ -13395,9 +13429,10 @@ function App() {
   )
 
   const addManualEvent = async () => {
-    const title = eventForm.title.trim()
-    const ds = safeString(eventForm.dateStart).trim()
-    const deRaw = safeString(eventForm.dateEnd).trim()
+    const form = eventFormRef.current || eventForm
+    const title = form.title.trim()
+    const ds = safeString(form.dateStart).trim()
+    const deRaw = safeString(form.dateEnd).trim()
     const de = deRaw || ds
     if (!ds || !title) {
       showAppAlert('시작일과 일정 내용을 입력해주세요.')
@@ -13421,9 +13456,9 @@ function App() {
       dateStart: startYmd,
       dateEnd: endYmd,
       title,
-      owner: safeString(eventForm.owner).trim(),
-      pm: safeString(eventForm.pm).trim(),
-      note: safeString(eventForm.note).trim(),
+      owner: safeString(form.owner).trim(),
+      pm: safeString(form.pm).trim(),
+      note: safeString(form.note).trim(),
     })
 
     try {
@@ -13486,28 +13521,32 @@ function App() {
 
   const beginCalendarManualDetailInlineEdit = () => {
     if (detailModal?.manualEventId == null) return
-    setCalendarManualDetailDraft({
+    const nextDraft = {
       dateStart: detailModal.manualDateStart || '',
       dateEnd: detailModal.manualDateEnd || detailModal.manualDateStart || '',
       projectName: safeString(detailModal.projectName).trim(),
       salesOwner: safeString(detailModal.salesOwner).trim(),
       pm: safeString(detailModal.pm).trim(),
       note: safeString(detailModal.note).trim(),
-    })
+    }
+    calendarManualDetailDraftRef.current = nextDraft
+    setCalendarManualDetailDraft(nextDraft)
     setCalendarManualDetailEditMode(true)
   }
 
   const cancelCalendarManualDetailInlineEdit = () => {
     setCalendarManualDetailEditMode(false)
+    calendarManualDetailDraftRef.current = null
     setCalendarManualDetailDraft(null)
   }
 
   const saveCalendarManualDetailInlineEdit = async () => {
-    if (detailModal?.manualEventId == null || calendarManualDetailDraft == null) return
+    const detailDraft = calendarManualDetailDraftRef.current || calendarManualDetailDraft
+    if (detailModal?.manualEventId == null || detailDraft == null) return
     const id = detailModal.manualEventId
-    const title = safeString(calendarManualDetailDraft.projectName).trim()
-    const ds = safeString(calendarManualDetailDraft.dateStart).trim()
-    const deRaw = safeString(calendarManualDetailDraft.dateEnd).trim()
+    const title = safeString(detailDraft.projectName).trim()
+    const ds = safeString(detailDraft.dateStart).trim()
+    const deRaw = safeString(detailDraft.dateEnd).trim()
     const de = deRaw || ds
     if (!ds || !title) {
       showAppAlert('시작일과 일정 내용을 입력해주세요.')
@@ -13526,9 +13565,9 @@ function App() {
       startYmd = endYmd
       endYmd = t
     }
-    const ownerVal = safeString(calendarManualDetailDraft.salesOwner).trim()
-    const pmVal = safeString(calendarManualDetailDraft.pm).trim()
-    const noteVal = safeString(calendarManualDetailDraft.note).trim()
+    const ownerVal = safeString(detailDraft.salesOwner).trim()
+    const pmVal = safeString(detailDraft.pm).trim()
+    const noteVal = safeString(detailDraft.note).trim()
 
     if (!manualEvents.some((e) => String(e.id) === String(id))) {
       showAppAlert('수정 중인 일정을 찾을 수 없습니다.')
@@ -13623,14 +13662,16 @@ function App() {
       }
       if (startManualInlineEdit) {
         setDetailModal(baseModal)
-        setCalendarManualDetailDraft({
+        const nextDraft = {
           dateStart: r.dateStart,
           dateEnd: r.dateEnd,
           projectName: safeString(item.text || item.title).trim(),
           salesOwner: safeString(item.owner).trim(),
           pm: safeString(item.pm).trim(),
           note: safeString(item.note).trim(),
-        })
+        }
+        calendarManualDetailDraftRef.current = nextDraft
+        setCalendarManualDetailDraft(nextDraft)
         setCalendarManualDetailEditMode(true)
         return
       }
@@ -14029,7 +14070,8 @@ function App() {
     [salesRows, discoveryRows, excludedRows, documents, contactsManageRows]
   )
 
-  const saveRegistryCellEdit = async (draftOverride) => {
+  const saveRegistryCellEdit = async (draftOverride, options = {}) => {
+    const closeIfCurrent = options.closeIfCurrent !== false
     const snap = registryCellEditRef.current
     const draft = draftOverride !== undefined ? draftOverride : registryCellEditDraftRef.current
     if (!snap?.scope || !snap.rowId || !snap.columnKey) return
@@ -14038,17 +14080,14 @@ function App() {
     const colDef = columns.find((c) => c.key === snap.columnKey)
     if (!colDef) return
 
-    const saved = await persistRegistryCellPatch(
+    await persistRegistryCellPatch(
       snap.scope,
       snap.rowId,
       colDef,
       draft,
       snap.originalValue
     )
-    if (!saved) {
-      cancelRegistryCellEdit()
-      return
-    }
+    if (!closeIfCurrent) return
 
     if (
       registryCellEditRef.current?.scope === snap.scope &&
@@ -14124,14 +14163,18 @@ function App() {
     const commonProps = {
       className: inlineEditorClass,
       style: inlineEditorStyle,
-      value: registryCellEditDraft,
+      defaultValue: registryCellEditDraft,
       autoFocus: true,
       onChange: (e) => {
         const value = column.type === 'amount' ? normalizeAmountValue(e.target.value) : e.target.value
-        setRegistryCellEditDraft(value)
+        if (e.target.value !== value) e.target.value = value
         registryCellEditDraftRef.current = value
       },
       onBlur: () => {
+        if (registryCellTabbingRef.current) {
+          registryCellTabbingRef.current = false
+          return
+        }
         void saveRegistryCellEdit()
       },
       onKeyDown: (e) => {
@@ -14141,8 +14184,16 @@ function App() {
           return
         }
         if (e.key === 'Tab') {
+          const direction = e.shiftKey ? 'prev' : 'next'
+          const columns = getRegistryColumnsByScope(scope)
+          const index = columns.findIndex((item) => item.key === column.key)
+          const nextColumn = findAdjacentEditableRegistryColumn(columns, index, direction)
+          if (!nextColumn) return
           e.preventDefault()
-          moveRegistryCellEdit(e.shiftKey ? 'prev' : 'next')
+          registryCellTabbingRef.current = true
+          registryCellEditDraftRef.current = e.currentTarget.value
+          void saveRegistryCellEdit(e.currentTarget.value, { closeIfCurrent: false })
+          moveRegistryCellEdit(direction)
           return
         }
         if (isMultilineColumn && e.shiftKey && e.key === 'Enter') {
@@ -14150,7 +14201,8 @@ function App() {
         }
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault()
-          void saveRegistryCellEdit()
+          registryCellEditDraftRef.current = e.currentTarget.value
+          void saveRegistryCellEdit(e.currentTarget.value)
         }
       },
     }
@@ -17594,12 +17646,7 @@ function App() {
                                     ? 'td-align-right'
                                     : getTableBodyAlignClass(column)
                                   const shellAlign = getContractCellShellAlign(column, bodyAlignClass)
-                                  const cellAlign = shellAlign
                                   const isLongCell = isLongTextTableColumn(column)
-                                  const isThisContractCell =
-                                    !isProcessStatusColumn &&
-                                    contractEdit?.rowKey === rowSelectKey &&
-                                    contractEdit?.key === column.key
                                   const contractDisplay = getContractCellDisplayState(item, column)
                                   // 계약현황 기준 날짜(계약일자) 셀에 금주/전주 뱃지 표시 — 영업관리대장과 동일 로직/UI
                                   const contractWeekTag =
@@ -17678,51 +17725,26 @@ function App() {
                                   }
 
                                   return (
-                                    <td
+                                    <ContractTableEditableCell
                                       key={column.key}
                                       className={`${column.className} ${bodyAlignClass} ${CONTRACT_TABLE_DATA_TD_CLASS} ${
                                         isLongCell ? 'multiline-cell' : ''
                                       } ${column.key === 'note' ? 'note-cell' : ''} ${getTableColumnLayoutClass(column)} ${
                                         canEditContracts ? 'editable-cell' : ''
                                       } ${contractWeekTag ? 'registry-week-badge-cell' : ''} ${tableCellStateClass(contractDisplay.isEmpty)} ${getContractStickyColumnClass(column.key)}`}
-                                      onClick={
-                                        canEditContracts && !isThisContractCell
-                                          ? () =>
-                                              startEdit(rowSelectKey, column.key, item[column.key], item)
-                                          : undefined
-                                      }
-                                    >
-                                      {isThisContractCell ? (
-                                        renderContractCellInlineEditor(column, shellAlign)
-                                      ) : (
-                                        <ContractTableCellShell align={shellAlign} multiline={isLongCell}>
-                                          <div
-                                            className={`cell-display editable-text-cell-display editable-text-cell-display--${cellAlign}${
-                                              isLongCell ? ' registry-cell-text-wrap' : ''
-                                            }${contractDisplay.isEmpty ? ' table-cell-empty-placeholder' : ''}${
-                                              contractWeekHighlightClass ? ` ${contractWeekHighlightClass}` : ''
-                                            }`}
-                                            role={canEditContracts ? 'button' : undefined}
-                                            tabIndex={canEditContracts ? 0 : undefined}
-                                            onClick={(e) => {
-                                              if (!canEditContracts) return
-                                              e.stopPropagation()
-                                              startEdit(rowSelectKey, column.key, item[column.key], item)
-                                            }}
-                                            onKeyDown={(e) => {
-                                              if (!canEditContracts) return
-                                              if (e.key === 'Enter' || e.key === ' ') {
-                                                e.preventDefault()
-                                                startEdit(rowSelectKey, column.key, item[column.key], item)
-                                              }
-                                            }}
-                                          >
-                                            {contractDisplay.text}
-                                            {contractWeekBadge}
-                                          </div>
-                                        </ContractTableCellShell>
-                                      )}
-                                    </td>
+                                      item={item}
+                                      column={column}
+                                      columns={CONTRACT_COLUMNS}
+                                      rowSelectKey={rowSelectKey}
+                                      canEdit={canEditContracts}
+                                      shellAlign={shellAlign}
+                                      isLongCell={isLongCell}
+                                      displayText={contractDisplay.text}
+                                      isEmpty={contractDisplay.isEmpty}
+                                      weekHighlightClass={contractWeekHighlightClass}
+                                      weekBadge={contractWeekBadge}
+                                      actionsRef={contractCellActionsRef}
+                                    />
                                   )
                                 })}
                               </tr>
@@ -20158,8 +20180,12 @@ function App() {
                   <input
                     type="date"
                     className="table-search-input install-case-form-input calendar-input-date"
-                    value={eventForm.dateStart}
-                    onChange={(e) => setEventForm((prev) => ({ ...prev, dateStart: e.target.value }))}
+                    value={(eventFormRef.current || eventForm).dateStart}
+                    onChange={(e) => {
+                      const next = { ...(eventFormRef.current || eventForm), dateStart: e.target.value }
+                      eventFormRef.current = next
+                      setEventForm(next)
+                    }}
                   />
                   <span className="calendar-date-range-sep" aria-hidden>
                     ~
@@ -20168,21 +20194,27 @@ function App() {
                   <input
                     type="date"
                     className="table-search-input install-case-form-input calendar-input-date"
-                    value={eventForm.dateEnd}
-                    onChange={(e) => setEventForm((prev) => ({ ...prev, dateEnd: e.target.value }))}
+                    value={(eventFormRef.current || eventForm).dateEnd}
+                    onChange={(e) => {
+                      const next = { ...(eventFormRef.current || eventForm), dateEnd: e.target.value }
+                      eventFormRef.current = next
+                      setEventForm(next)
+                    }}
                   />
                 </div>
                 <div className="calendar-register-section">
                   <label className="install-case-form-label" htmlFor="calendar-reg-title">
                     일정 내용
                   </label>
-                  <input
+                  <QuietField
                     id="calendar-reg-title"
                     type="text"
                     className="table-search-input install-case-form-input"
                     placeholder="예: OO시청 현장 미팅"
                     value={eventForm.title}
-                    onChange={(e) => setEventForm((prev) => ({ ...prev, title: e.target.value }))}
+                    onValue={(next) => {
+                      eventFormRef.current = { ...(eventFormRef.current || eventForm), title: next }
+                    }}
                   />
                 </div>
                 <div className="calendar-register-section calendar-register-assignees">
@@ -20190,26 +20222,30 @@ function App() {
                     <label className="install-case-form-label" htmlFor="calendar-reg-owner">
                       영업담당자
                     </label>
-                    <input
+                    <QuietField
                       id="calendar-reg-owner"
                       type="text"
                       className="table-search-input install-case-form-input"
                       placeholder="예: OOO"
                       value={eventForm.owner}
-                      onChange={(e) => setEventForm((prev) => ({ ...prev, owner: e.target.value }))}
+                      onValue={(next) => {
+                        eventFormRef.current = { ...(eventFormRef.current || eventForm), owner: next }
+                      }}
                     />
                   </div>
                   <div className="calendar-register-split-field">
                     <label className="install-case-form-label" htmlFor="calendar-reg-pm">
                       현장 PM
                     </label>
-                    <input
+                    <QuietField
                       id="calendar-reg-pm"
                       type="text"
                       className="table-search-input install-case-form-input"
                       placeholder="예: OOO"
                       value={eventForm.pm}
-                      onChange={(e) => setEventForm((prev) => ({ ...prev, pm: e.target.value }))}
+                      onValue={(next) => {
+                        eventFormRef.current = { ...(eventFormRef.current || eventForm), pm: next }
+                      }}
                     />
                   </div>
                 </div>
@@ -20217,13 +20253,16 @@ function App() {
                   <label className="install-case-form-label" htmlFor="calendar-reg-note">
                     비고
                   </label>
-                  <textarea
+                  <QuietField
                     id="calendar-reg-note"
                     className="table-search-input install-case-form-input"
                     rows={4}
                     placeholder="비고를 입력하세요 (선택)"
                     value={eventForm.note}
-                    onChange={(e) => setEventForm((prev) => ({ ...prev, note: e.target.value }))}
+                    multiline
+                    onValue={(next) => {
+                      eventFormRef.current = { ...(eventFormRef.current || eventForm), note: next }
+                    }}
                   />
                 </div>
               </div>
@@ -20687,15 +20726,15 @@ function App() {
                 <span className="detail-label">사업명</span>
                 {inManualInlineEdit && md ? (
                   <div className="detail-value detail-value--edit-cell">
-                    <input
+                    <QuietField
                       type="text"
                       className="detail-inline-field"
                       value={md.projectName}
-                      onChange={(e) =>
-                        setCalendarManualDetailDraft((prev) =>
-                          prev ? { ...prev, projectName: e.target.value } : prev
-                        )
-                      }
+                      onValue={(next) => {
+                        const base = calendarManualDetailDraftRef.current
+                        if (!base) return
+                        calendarManualDetailDraftRef.current = { ...base, projectName: next }
+                      }}
                     />
                   </div>
                 ) : (
@@ -20706,16 +20745,16 @@ function App() {
                 <span className="detail-label">영업담당자</span>
                 {inManualInlineEdit && md ? (
                   <div className="detail-value detail-value--edit-cell">
-                    <input
+                    <QuietField
                       type="text"
                       className="detail-inline-field"
                       placeholder="예: OOO"
                       value={md.salesOwner}
-                      onChange={(e) =>
-                        setCalendarManualDetailDraft((prev) =>
-                          prev ? { ...prev, salesOwner: e.target.value } : prev
-                        )
-                      }
+                      onValue={(next) => {
+                        const base = calendarManualDetailDraftRef.current
+                        if (!base) return
+                        calendarManualDetailDraftRef.current = { ...base, salesOwner: next }
+                      }}
                     />
                   </div>
                 ) : (
@@ -20726,16 +20765,16 @@ function App() {
                 <span className="detail-label">현장 PM</span>
                 {inManualInlineEdit && md ? (
                   <div className="detail-value detail-value--edit-cell">
-                    <input
+                    <QuietField
                       type="text"
                       className="detail-inline-field"
                       placeholder="예: OOO"
                       value={md.pm}
-                      onChange={(e) =>
-                        setCalendarManualDetailDraft((prev) =>
-                          prev ? { ...prev, pm: e.target.value } : prev
-                        )
-                      }
+                      onValue={(next) => {
+                        const base = calendarManualDetailDraftRef.current
+                        if (!base) return
+                        calendarManualDetailDraftRef.current = { ...base, pm: next }
+                      }}
                     />
                   </div>
                 ) : (
@@ -20753,11 +20792,13 @@ function App() {
                         type="date"
                         className="detail-inline-field calendar-input calendar-input-date"
                         value={md.dateStart}
-                        onChange={(e) =>
-                          setCalendarManualDetailDraft((prev) =>
-                            prev ? { ...prev, dateStart: e.target.value } : prev
-                          )
-                        }
+                        onChange={(e) => {
+                          const base = calendarManualDetailDraftRef.current
+                          if (!base) return
+                          const next = { ...base, dateStart: e.target.value }
+                          calendarManualDetailDraftRef.current = next
+                          setCalendarManualDetailDraft(next)
+                        }}
                       />
                       <span className="calendar-detail-modal-date-sep" aria-hidden>
                         ~
@@ -20766,11 +20807,13 @@ function App() {
                         type="date"
                         className="detail-inline-field calendar-input calendar-input-date"
                         value={md.dateEnd}
-                        onChange={(e) =>
-                          setCalendarManualDetailDraft((prev) =>
-                            prev ? { ...prev, dateEnd: e.target.value } : prev
-                          )
-                        }
+                        onChange={(e) => {
+                          const base = calendarManualDetailDraftRef.current
+                          if (!base) return
+                          const next = { ...base, dateEnd: e.target.value }
+                          calendarManualDetailDraftRef.current = next
+                          setCalendarManualDetailDraft(next)
+                        }}
                       />
                     </div>
                   </div>
@@ -20830,15 +20873,16 @@ function App() {
                 <div className="detail-item detail-item-full detail-item-note-row">
                   <span className="detail-label">비고</span>
                   <div className="detail-value detail-value--edit-cell detail-value--textarea-wrap">
-                    <textarea
+                    <QuietField
                       className="detail-inline-field detail-inline-textarea"
                       rows={4}
                       value={md.note}
-                      onChange={(e) =>
-                        setCalendarManualDetailDraft((prev) =>
-                          prev ? { ...prev, note: e.target.value } : prev
-                        )
-                      }
+                      multiline
+                      onValue={(next) => {
+                        const base = calendarManualDetailDraftRef.current
+                        if (!base) return
+                        calendarManualDetailDraftRef.current = { ...base, note: next }
+                      }}
                     />
                   </div>
                 </div>
