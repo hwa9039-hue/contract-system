@@ -1,5 +1,8 @@
 /** 영업관리대장 상태 뱃지. 저장값을 새 이름으로 바꾸지 않고, 있는 글자 그대로 색만 입힌다. */
 
+/** 상단 '사업공고' 필터가 한 번에 잡는 세부 단계. 예전에 저장된 '사업공고'도 포함한다. */
+export const SALES_ANNOUNCEMENT_STAGES = ['발주계획', '사전규격', '입찰공고', '사업공고']
+
 export const SALES_STAGE_OPTIONS = [
   '긴급대응',
   '초기접촉',
@@ -7,7 +10,9 @@ export const SALES_STAGE_OPTIONS = [
   '견적단계',
   '설계단계',
   '보고',
-  '사업공고',
+  '발주계획',
+  '사전규격',
+  '입찰공고',
   '계약',
   '마감',
 ]
@@ -27,6 +32,15 @@ export const SALES_STATUS_LEGEND_ITEMS = [
 ]
 
 export const SALES_STATUS_ALL_BADGE_CLASS = `${SALES_LEGEND_CHIP_CLASS} bg-indigo-50 text-indigo-700 border-indigo-200`
+
+const EXCLUDED_ANNOUNCEMENT_BADGE_CLASS = `${SALES_LEGEND_CHIP_CLASS} bg-emerald-50 text-emerald-700 border-emerald-200`
+
+/** 사업공유 범례. 묶음 '사업공고' 대신 세부 단계만 보여 준다. */
+export const EXCLUDED_STATUS_LEGEND_ITEMS = [
+  { id: '입찰공고', tone: 'green', label: '입찰공고', icon: '📢', badgeClass: EXCLUDED_ANNOUNCEMENT_BADGE_CLASS },
+  { id: '사전규격', tone: 'green', label: '사전규격', icon: '📢', badgeClass: EXCLUDED_ANNOUNCEMENT_BADGE_CLASS },
+  { id: '발주계획', tone: 'green', label: '발주계획', icon: '📢', badgeClass: EXCLUDED_ANNOUNCEMENT_BADGE_CLASS },
+]
 
 /** 대시보드 범례. 이모지 없이 색 점과 글자만 쓰고, 점 색은 표 뱃지와 같다. */
 export const DASHBOARD_STATUS_LEGEND_ITEMS = [
@@ -111,6 +125,7 @@ export function salesStatusMatchesLegend(stage, selectedId) {
   if (!selectedId) return true
   const label = salesStatusBadgeLabel(stage)
   if (selectedId === '계약&마감') return label === '계약' || label === '마감'
+  if (selectedId === '사업공고') return SALES_ANNOUNCEMENT_STAGES.includes(label)
   return label === selectedId
 }
 

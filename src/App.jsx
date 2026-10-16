@@ -105,6 +105,7 @@ import {
 import { ImportanceLegend } from './ImportanceLegend.jsx'
 import {
   DASHBOARD_STATUS_LEGEND_ITEMS,
+  EXCLUDED_STATUS_LEGEND_ITEMS,
   SALES_STAGE_OPTIONS,
   SALES_STATUS_ALL_BADGE_CLASS,
   SALES_STATUS_LEGEND_ITEMS,
@@ -870,8 +871,6 @@ const EXCLUDED_WRITER_TONE_MAP = {
  * stickyClass 가 붙은 컬럼(중요도·등록일·발주처·사업명·상태)은 체크박스·숨김과 함께
  * 가로 스크롤 시 좌측에 고정된다.
  */
-const EXCLUDED_STATUS_LEGEND_ITEMS = SALES_STATUS_LEGEND_ITEMS.filter((item) => item.id === '사업공고')
-
 const EXCLUDED_COLUMNS = [
   {
     key: 'category',
