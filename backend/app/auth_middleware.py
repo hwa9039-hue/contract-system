@@ -7,6 +7,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from app.auth_utils import decode_token, get_jwt_secret, is_auth_disabled, normalize_token_role
+from app.login_accounts import RESTRICTED_ACCOUNT_MESSAGE, is_login_account_blocked
 from app.rbac import is_rbac_allowed
 
 _DEFAULT_CORS_ORIGINS = (
@@ -129,6 +130,15 @@ class ApiJwtAuthMiddleware(BaseHTTPMiddleware):
         request.state.auth_role = role
         request.state.auth_display_name = str(payload.get("display_name") or "").strip()
         request.state.auth_account_id = str(payload.get("account_id") or "").strip()
+        if is_login_account_blocked(
+            request.state.auth_account_id,
+            request.state.auth_display_name,
+        ):
+            return JSONResponse(
+                {"detail": RESTRICTED_ACCOUNT_MESSAGE},
+                status_code=403,
+                headers=_cors_headers_for_request(request),
+            )
 
         # RBAC 도입 이전 JWT(role 클레임 없음)는 만료될 때까지 기존과 동일하게 전체 허용
         if "role" in payload and not is_rbac_allowed(path, request.method, role):

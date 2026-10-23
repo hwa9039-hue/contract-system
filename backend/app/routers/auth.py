@@ -3,6 +3,7 @@ from jwt.exceptions import InvalidTokenError
 from pydantic import BaseModel
 
 from app.audit_log import write_audit_log
+from app.login_accounts import RESTRICTED_ACCOUNT_MESSAGE, is_login_account_blocked
 from app.auth_utils import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
@@ -64,7 +65,14 @@ def login(body: LoginBody):
     if is_generic_account_label(display_name):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
 
-    claims = access_claims_for_account(account_id_from_login_password(body.password))
+    account_id = account_id_from_login_password(body.password)
+    if is_login_account_blocked(account_id, display_name):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=RESTRICTED_ACCOUNT_MESSAGE,
+        )
+
+    claims = access_claims_for_account(account_id)
     token = create_access_token(login_role, display_name=display_name, **claims)
     return {
         "access_token": token,
@@ -131,7 +139,13 @@ def refresh(request: Request):
     display_name = str(payload.get("display_name") or "").strip()
     if not display_name or is_generic_account_label(display_name):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
-    claims = access_claims_for_account(str(payload.get("account_id") or ""))
+    account_id = str(payload.get("account_id") or "")
+    if is_login_account_blocked(account_id, display_name):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=RESTRICTED_ACCOUNT_MESSAGE,
+        )
+    claims = access_claims_for_account(account_id)
     new_token = create_access_token(role, display_name=display_name, **claims)
     return {
         "access_token": new_token,
@@ -164,6 +178,12 @@ def me(request: Request):
         display_name = str(payload.get("display_name") or "").strip()
         if not display_name or is_generic_account_label(display_name):
             return {"valid": False, "auth_disabled": False}
+        if is_login_account_blocked(str(payload.get("account_id") or ""), display_name):
+            return {
+                "valid": False,
+                "auth_disabled": False,
+                "detail": RESTRICTED_ACCOUNT_MESSAGE,
+            }
         return {
             "valid": True,
             "auth_disabled": False,

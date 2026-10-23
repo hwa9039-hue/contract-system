@@ -1453,6 +1453,33 @@ def init_db():
             )
             cursor.execute(
                 """
+                create table if not exists app_login_accounts (
+                  account_id text primary key,
+                  display_name text not null default '',
+                  is_active boolean not null default true,
+                  updated_at timestamptz not null default now()
+                )
+                """
+            )
+            cursor.execute(
+                """
+                alter table app_login_accounts
+                  add column if not exists is_active boolean not null default true
+                """
+            )
+            # 퇴사 계정은 행을 지우지 않고 로그인만 막는다. 영업 담당자 이름은 다른 테이블에 그대로 둔다.
+            cursor.execute(
+                """
+                insert into app_login_accounts (account_id, display_name, is_active)
+                values ('nov1st', '유영무', false)
+                on conflict (account_id) do update
+                  set display_name = excluded.display_name,
+                      is_active = false,
+                      updated_at = now()
+                """
+            )
+            cursor.execute(
+                """
                 create table if not exists shared_links (
                   short_code varchar(6) primary key,
                   expires_at timestamptz not null

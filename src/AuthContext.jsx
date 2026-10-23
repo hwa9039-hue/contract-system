@@ -36,6 +36,8 @@ import {
   VALID_ROLES,
 } from './permissions.js'
 import { isGenericAccountLabel } from './PresenceAvatars.jsx'
+
+export const RESTRICTED_LOGIN_MESSAGE = '퇴사 처리 등 접근이 제한된 계정입니다.'
 import {
   clearSessionResumeLogged,
   hasSessionResumeLogged,
@@ -304,8 +306,9 @@ export function AuthProvider({ children }) {
             : Array.isArray(detail)
               ? detail.map((item) => item.msg || item).join(', ')
               : ''
-        const message =
-          response.status === 401 || /invalid password/i.test(raw)
+        const message = raw.includes(RESTRICTED_LOGIN_MESSAGE)
+          ? RESTRICTED_LOGIN_MESSAGE
+          : response.status === 401 || /invalid password/i.test(raw)
             ? '계정이 올바르지 않습니다.'
             : raw || '로그인에 실패했습니다.'
         logCmsApiLogin('rejected', { status: response.status, message })

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useAuth } from './AuthContext.jsx'
+import { RESTRICTED_LOGIN_MESSAGE, useAuth } from './AuthContext.jsx'
 import { readRememberMePreference } from './authSession.js'
 import { purgeSavedAdminPassword } from './loginCredentials.js'
 import './LoginPage.css'
@@ -42,7 +42,11 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
-      {sessionExpiredNotice ? (
+      {error === RESTRICTED_LOGIN_MESSAGE ? (
+        <div className="login-page-session-toast" role="alert">
+          {error}
+        </div>
+      ) : sessionExpiredNotice ? (
         <div className="login-page-session-toast" role="status">
           {sessionExpiredNotice}
         </div>
@@ -82,7 +86,11 @@ export default function LoginPage() {
             <span className="login-page-remember-label">자동 로그인 (30일)</span>
           </label>
 
-          {error ? <div className="login-page-error">{error}</div> : null}
+          {error ? (
+            <div className="login-page-error" role="alert">
+              {error}
+            </div>
+          ) : null}
 
           <button type="submit" className="login-page-submit primary-btn" disabled={submitting}>
             {submitting ? '로그인 중…' : '로그인'}
