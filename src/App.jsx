@@ -90,6 +90,7 @@ import AccessDeniedPlaceholder from './pages/AccessDeniedPlaceholder.jsx'
 import PaymentReportPage from './pages/PaymentReportPage.jsx'
 import SalesContactsPage from './pages/SalesContactsPage.jsx'
 import { MobileDataCardList, mobileCardAmount, mobileCardText } from './MobileDataCardList.jsx'
+import { useDesktopTableLayout } from './useDesktopTableLayout.js'
 import NaraMarket from './pages/NaraMarket.jsx'
 import NewsMonitor from './pages/NewsMonitor.jsx'
 import { decodeWorkReportWireText } from './workReportWire.js'
@@ -6474,6 +6475,7 @@ function App() {
     useAuth()
   // 화면이 켜져 있는 동안 새 버전 배포를 감지해 자동으로 재로그인시킨다.
   useAppVersionPolling()
+  const isDesktopTable = useDesktopTableLayout()
   const canViewAuditLogs = roleLabel === '정화영' || accountId === 'hy9039'
   // 권한이 없는 단독 메뉴·하위 메뉴는 빼고, 하위가 모두 빠진 그룹도 숨긴다.
   const sidebarVisibleTree = SIDEBAR_MENU_TREE.reduce((acc, node) => {
@@ -16740,7 +16742,9 @@ function App() {
               <div className="top-system-account flex items-center gap-4">
                 <span className="top-system-account-name">
                   <User size={16} strokeWidth={2} aria-hidden="true" />
-                  <span>{(formatPersonDisplayName(roleLabel) || roleLabel || '사용자')}님</span>
+                  <span className="top-system-account-label hidden md:inline">
+                    {(formatPersonDisplayName(roleLabel) || roleLabel || '사용자')}님
+                  </span>
                 </span>
                 {canViewAuditLogs ? (
                   <button
@@ -17154,8 +17158,7 @@ function App() {
                 </div>
               </div>
 
-              {renderWorkReportMobileDayStack()}
-              {renderWorkReportWeekBoardV5()}
+              {isDesktopTable ? renderWorkReportWeekBoardV5() : renderWorkReportMobileDayStack()}
                 </>
               )}
 
@@ -17405,7 +17408,8 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
+              {isDesktopTable ? (
+              <div className="table-wrap contracts-only-scroll overflow-x-auto w-full">
                 <table
                   ref={contractTableRef}
                   className={`contract-table excel-table registry-table ledger-table-ui contracts-fixed-table table-w-full-min table-layout-auto${
@@ -17760,24 +17764,27 @@ function App() {
                   </tbody>
                 </table>
               </div>
+              ) : (
               <MobileDataCardList
                 rows={sortRegistryRowsByDateDesc(categoryFilteredData, 'contractDate')}
                 getRowKey={(row, index) => row.key || row.id || `contract-${index}`}
                 getTitle={(row) => row.projectName}
                 getBadge={(row) => {
-                  const dday = getDdayText(row.dueDate, row.processStatus)
                   const modifier = getDdayCellModifierClass(row.dueDate, row.processStatus)
                   let tone = 'slate'
                   if (modifier.includes('in-progress')) tone = 'blue'
                   else if (modifier.includes('overdue')) tone = 'purple'
                   else if (modifier.includes('due-soon')) tone = 'red'
-                  return { label: dday || row.processStatus, tone }
+                  else if (row.processStatus) tone = 'yellow'
+                  return { label: row.processStatus || '계약', tone }
                 }}
-                summaryFields={[
-                  { label: '발주처', getValue: (row) => row.client },
-                  { label: '계약금액', getValue: (row) => formatAmountWithWon(row.amount).replace(/^-/, '') },
-                  { label: '준공일자', getValue: (row) => row.dueDate },
-                ]}
+                getDday={(row) => getDdayText(row.dueDate, row.processStatus)}
+                getClient={(row) => row.client}
+                getAmount={(row) => formatAmountWithWon(row.amount).replace(/^-/, '')}
+                getDateText={(row) =>
+                  [row.contractDate, row.dueDate].filter((value) => mobileCardText(value)).join(' ~ ')
+                }
+                summaryFields={[]}
                 detailFields={[
                   { label: '사업년도', getValue: (row) => row.year },
                   { label: '참고번호', getValue: (row) => row.refNo },
@@ -17791,6 +17798,7 @@ function App() {
                 ]}
                 emptyText="표시할 계약이 없습니다."
               />
+              )}
             </div>
           </section>
         )}
@@ -17874,7 +17882,8 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
+              {isDesktopTable ? (
+              <div className="table-wrap contracts-only-scroll overflow-x-auto w-full">
                 <table className="contract-table excel-table registry-table sales-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
                     <col className="sales-registry-check-col" />
@@ -18029,6 +18038,7 @@ function App() {
                   </tbody>
                 </table>
               </div>
+              ) : (
               <MobileDataCardList
                 rows={sortRegistryRowsByDateDesc(
                   filteredSalesRows.filter((row) => !row.isDraft),
@@ -18037,11 +18047,10 @@ function App() {
                 getRowKey={(row, index) => row.id || `sales-${index}`}
                 getTitle={(row) => row.projectName}
                 getBadge={(row) => salesStatusMobileBadge(row.projectStage)}
-                summaryFields={[
-                  { label: '발주처', getValue: (row) => row.client },
-                  { label: '사업금액', getValue: (row) => mobileCardAmount(row.projectAmount) || mobileCardText(row.projectAmount) },
-                  { label: '등록일', getValue: (row) => row.registerDate },
-                ]}
+                getClient={(row) => row.client}
+                getAmount={(row) => mobileCardAmount(row.projectAmount) || mobileCardText(row.projectAmount)}
+                getDateText={(row) => row.registerDate}
+                summaryFields={[]}
                 detailFields={[
                   { label: '담당자', getValue: (row) => row.manager },
                   { label: '담당부서', getValue: (row) => row.department },
@@ -18051,6 +18060,7 @@ function App() {
                 ]}
                 emptyText="표시할 영업 건이 없습니다."
               />
+              )}
             </div>
           </section>
         )}
@@ -18142,7 +18152,8 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
+              {isDesktopTable ? (
+              <div className="table-wrap contracts-only-scroll overflow-x-auto w-full">
                 <table className="contract-table excel-table registry-table discovery-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
                     <col className="registry-check-col" />
@@ -18300,16 +18311,16 @@ function App() {
                   </tbody>
                 </table>
               </div>
+              ) : (
               <MobileDataCardList
                 rows={sortedDiscoveryRows}
                 getRowKey={(row, index) => row.id || `discovery-${index}`}
                 getTitle={(row) => row.projectName}
                 getBadge={(row) => salesStatusMobileBadge(row.projectStage)}
-                summaryFields={[
-                  { label: '발주처', getValue: (row) => row.client },
-                  { label: '사업금액', getValue: (row) => mobileCardAmount(row.projectAmount) || mobileCardText(row.projectAmount) },
-                  { label: '등록일', getValue: (row) => row.permitDate },
-                ]}
+                getClient={(row) => row.client}
+                getAmount={(row) => mobileCardAmount(row.projectAmount) || mobileCardText(row.projectAmount)}
+                getDateText={(row) => row.permitDate}
+                summaryFields={[]}
                 detailFields={[
                   { label: '세부내용', getValue: (row) => row.note },
                   { label: '사업구분', getValue: (row) => row.projectCategory },
@@ -18318,6 +18329,7 @@ function App() {
                 ]}
                 emptyText="표시할 건축정보가 없습니다."
               />
+              )}
             </div>
           </section>
         )}
@@ -18409,7 +18421,8 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
+              {isDesktopTable ? (
+              <div className="table-wrap contracts-only-scroll overflow-x-auto w-full">
                 <table className="contract-table excel-table registry-table excluded-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
                     <col className="registry-check-col" />
@@ -18545,6 +18558,7 @@ function App() {
                   </tbody>
                 </table>
               </div>
+              ) : (
               <MobileDataCardList
                 rows={sortRegistryRowsByDateDesc(
                   filteredExcludedRows.filter((row) => !row.isDraft),
@@ -18553,11 +18567,10 @@ function App() {
                 getRowKey={(row, index) => row.id || `excluded-${index}`}
                 getTitle={(row) => row.projectName}
                 getBadge={(row) => salesStatusMobileBadge(row.category)}
-                summaryFields={[
-                  { label: '발주처', getValue: (row) => row.client },
-                  { label: '사업금액', getValue: (row) => mobileCardAmount(row.projectAmount) || mobileCardText(row.projectAmount) },
-                  { label: '등록일', getValue: (row) => row.writeDate },
-                ]}
+                getClient={(row) => row.client}
+                getAmount={(row) => mobileCardAmount(row.projectAmount) || mobileCardText(row.projectAmount)}
+                getDateText={(row) => row.writeDate}
+                summaryFields={[]}
                 detailFields={[
                   { label: '세부내용', getValue: (row) => row.exclusionReason },
                   { label: '작성자', getValue: (row) => row.writer },
@@ -18565,6 +18578,7 @@ function App() {
                 ]}
                 emptyText="표시할 사업공유 건이 없습니다."
               />
+              )}
             </div>
           </section>
         )}
@@ -18622,7 +18636,8 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
+              {isDesktopTable ? (
+              <div className="table-wrap contracts-only-scroll overflow-x-auto w-full">
                 <table className="contract-table excel-table registry-table documents-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
                     <col className="registry-check-col" />
@@ -18743,6 +18758,7 @@ function App() {
                   </tbody>
                 </table>
               </div>
+              ) : (
               <MobileDataCardList
                 rows={sortRegistryRowsByDateDesc(
                   filteredDocuments.filter((row) => !row.isDraft),
@@ -18751,17 +18767,17 @@ function App() {
                 getRowKey={(row, index) => row.id || `document-${index}`}
                 getTitle={(row) => row.title}
                 getBadge={(row) => ({ label: row.method })}
-                summaryFields={[
-                  { label: '수신/발신', getValue: (row) => row.senderReceiver },
-                  { label: '등록일', getValue: (row) => row.docDate },
-                  { label: '문서번호', getValue: (row) => row.docNo },
-                ]}
+                getClient={(row) => row.senderReceiver}
+                getDateText={(row) => row.docDate}
+                summaryFields={[]}
                 detailFields={[
+                  { label: '문서번호', getValue: (row) => row.docNo },
                   { label: '작성자', getValue: (row) => row.writer },
                   { label: '비고', getValue: (row) => row.note },
                 ]}
                 emptyText="표시할 문서가 없습니다."
               />
+              )}
             </div>
           </section>
         )}
@@ -18811,7 +18827,8 @@ function App() {
             </div>
 
             <div className="contract-table-panel">
-              <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
+              {isDesktopTable ? (
+              <div className="table-wrap contracts-only-scroll overflow-x-auto w-full">
                 <table className="contract-table excel-table registry-table contacts-registry-table ledger-table-ui table-w-full-min table-layout-auto">
                   <colgroup>
                     {canEditContactsManage ? <col className="registry-check-col" /> : null}
@@ -18938,6 +18955,7 @@ function App() {
                   </tbody>
                 </table>
               </div>
+              ) : (
               <MobileDataCardList
                 rows={filteredPersistedContactsRows}
                 getRowKey={(row, index) => row.id || `legacy-contact-${index}`}
@@ -18954,13 +18972,14 @@ function App() {
                 ]}
                 emptyText="표시할 연락처가 없습니다."
               />
+              )}
             </div>
           </section>
         )}
 
         {menu === 'installCases' && (
           <section className="stat-card stat-card--install-cases">
-            <div className="install-cases-toolbar">
+            <div className="install-cases-toolbar flex w-full flex-col items-stretch gap-2 md:flex-row md:flex-nowrap md:items-center">
               <select
                 className="contract-filter-select install-cases-select"
                 value={installCaseEnvFilter}
@@ -19247,7 +19266,8 @@ function App() {
                   </div>
                 </div>
 
-                <div className="materials-board-table-panel desktop-table-only hidden md:block">
+                {isDesktopTable ? (
+                <div className="materials-board-table-panel">
                   <table className="contract-table excel-table registry-table materials-board-table">
                     <thead>
                       <tr>
@@ -19359,6 +19379,7 @@ function App() {
                     </tbody>
                   </table>
                 </div>
+                ) : (
                 <MobileDataCardList
                   rows={filteredMaterialsBoardPosts}
                   getRowKey={(row) => row.id}
@@ -19367,11 +19388,13 @@ function App() {
                     const attach = getMaterialsBoardAttachSummary(row)
                     return attach ? { label: `첨부 ${attach.count}`, tone: 'blue' } : { label: '첨부 없음', tone: 'slate' }
                   }}
-                  summaryFields={[
-                    { label: '등록일', getValue: (row) => row.registeredAt },
-                    { label: '다운로드', getValue: (row) => String(Number(row.downloadCount) || 0) },
-                  ]}
+                  getDateText={(row) => row.registeredAt}
+                  summaryFields={[]}
                   detailFields={[
+                    {
+                      label: '다운로드',
+                      getValue: (row) => String(Number(row.downloadCount) || 0),
+                    },
                     {
                       label: '첨부파일',
                       getValue: (row) => getMaterialsBoardAttachSummary(row)?.title || '',
@@ -19384,6 +19407,7 @@ function App() {
                     void handleDownloadMaterialsBoardFile(row)
                   }}
                 />
+                )}
               </div>
             </div>
           </section>

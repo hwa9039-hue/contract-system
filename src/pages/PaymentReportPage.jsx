@@ -4,6 +4,7 @@ import { jsPDF } from 'jspdf'
 import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { EditableTextCell } from '../EditableTextCell.jsx'
 import { MobileDataCardList, mobileCardAmount, mobileCardText } from '../MobileDataCardList.jsx'
+import { useDesktopTableLayout } from '../useDesktopTableLayout.js'
 import { PAYMENT_REPORTS_API_PATH, normalizePaymentReportRow, paymentReportsApi } from '../paymentReportsApi.js'
 import { RecordAttachmentChip, RecordFileAttachments } from '../RecordFileAttachments.jsx'
 import {
@@ -1211,6 +1212,7 @@ function renumberRowsByMonthCycle(rows) {
  * - 분류 입력 시 사업명·계약금액·사업기간·발주처를 계약현황에서 채워 잠금
  */
 export default function PaymentReportPage({ contracts = [] }) {
+  const isDesktopTable = useDesktopTableLayout()
   const [activeMonth, setActiveMonth] = useState(() => formatPaymentMonth())
   const selectedMonth = getPaymentMonthNumber(activeMonth)
   const [activeTab, setActiveTab] = useState('15')
@@ -1815,7 +1817,8 @@ export default function PaymentReportPage({ contracts = [] }) {
         </p>
       ) : null}
 
-      <div className="payment-report-table-wrap desktop-table-only hidden md:block">
+      {isDesktopTable ? (
+      <div className="payment-report-table-wrap">
         <table className="payment-report-table excel-table registry-table">
           <thead>
             <tr>
@@ -1999,7 +2002,7 @@ export default function PaymentReportPage({ contracts = [] }) {
           </tbody>
         </table>
       </div>
-
+      ) : (
       <MobileDataCardList
         rows={visibleRows}
         getRowKey={(row) => row.id}
@@ -2008,11 +2011,10 @@ export default function PaymentReportPage({ contracts = [] }) {
           label: normalizePaymentCycle(row.paymentCycle) === '31' ? '31일' : '15일',
           tone: 'blue',
         })}
-        summaryFields={[
-          { label: '발주처', getValue: (row) => row.client },
-          { label: '계약금액', getValue: (row) => mobileCardAmount(row.contractAmount) || mobileCardText(row.contractAmount) },
-          { label: '사업기간', getValue: (row) => row.projectPeriod },
-        ]}
+        getClient={(row) => row.client}
+        getAmount={(row) => mobileCardAmount(row.contractAmount) || mobileCardText(row.contractAmount)}
+        getDateText={(row) => row.projectPeriod}
+        summaryFields={[]}
         detailFields={[
           { label: '분류', getValue: (row) => row.classification },
           { label: '결제업체', getValue: (row) => row.vendorInfo },
@@ -2022,6 +2024,7 @@ export default function PaymentReportPage({ contracts = [] }) {
         ]}
         emptyText="해당 월에 표시할 결제보고가 없습니다."
       />
+      )}
 
       <DeleteConfirmModal
         open={isModalOpen}

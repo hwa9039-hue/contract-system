@@ -21,6 +21,7 @@ import { EditableDateCell } from '../../EditableDateCell.jsx'
 import { EditableTextCell } from '../../EditableTextCell.jsx'
 import { formatDateDisplay, toDateInputValue } from '../../dateFieldUtils.js'
 import { MobileDataCardList, mobileCardText } from '../../MobileDataCardList.jsx'
+import { useDesktopTableLayout } from '../../useDesktopTableLayout.js'
 import { canAccessBitHistory } from '../../permissions.js'
 import { buildStyledExcelFilename, downloadStyledExcel } from '../../styledExcelDownload.js'
 import {
@@ -386,6 +387,7 @@ function BitDataCell({ column, row, onCommit }) {
 }
 
 export default function BitHistoryPage({ contracts = [] }) {
+  const isDesktopTable = useDesktopTableLayout()
   const { accountId } = useAuth()
   const allowed = canAccessBitHistory(accountId)
 
@@ -828,8 +830,8 @@ export default function BitHistoryPage({ contracts = [] }) {
       ) : null}
 
       <div className="contract-table-panel bit-history-table-panel">
-        {/* PC: 가로 스크롤 + 사업명까지 좌측 틀 고정 — 모바일에서는 desktop-table-only 로 감춘다 */}
-        <div className="table-wrap contracts-only-scroll overflow-x-auto desktop-table-only hidden md:block">
+        {isDesktopTable ? (
+        <div className="table-wrap contracts-only-scroll overflow-x-auto w-full">
           <table className="contract-table excel-table registry-table bit-history-table table-w-full-min table-layout-auto">
             <colgroup>
               <col
@@ -968,19 +970,18 @@ export default function BitHistoryPage({ contracts = [] }) {
             </tbody>
           </table>
         </div>
-
-        {/* 모바일: 사업명·발주처·수량만 보이는 카드 + [▼ 상세 정보 펼치기] 아코디언 */}
+        ) : (
         <MobileDataCardList
           rows={filteredRows}
           getRowKey={(row, index) => row.id || `bit-${index}`}
           getTitle={(row) => row.projectName}
-          summaryFields={[
-            { label: '발주처', getValue: (row) => row.client },
-            { label: '수량', getValue: (row) => mobileCardText(row.quantity) },
-          ]}
+          getClient={(row) => row.client}
+          getAmount={(row) => mobileCardText(row.quantity)}
+          summaryFields={[]}
           detailFields={mobileDetailFields}
           emptyText={isLoading ? '불러오는 중...' : '표시할 데이터가 없습니다.'}
         />
+        )}
       </div>
 
       <DeleteConfirmModal

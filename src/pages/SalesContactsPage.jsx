@@ -6,6 +6,7 @@ import { EditableTextCell } from '../EditableTextCell.jsx'
 import { computeFixedPortalPosition, fixedPortalStyle } from '../portalMenuPosition.js'
 import { ROLES, canViewAllContacts, hasAdminPrivileges, normalizeAccountId, normalizeRole } from '../permissions.js'
 import { MobileDataCardList } from '../MobileDataCardList.jsx'
+import { useDesktopTableLayout } from '../useDesktopTableLayout.js'
 import { normalizeSalesContactRow, salesContactsApi } from '../salesContactsApi.js'
 import { useAuth } from '../AuthContext.jsx'
 import {
@@ -483,6 +484,7 @@ function ContactLinkedProjectCell({ row, tdClassName = '', onCommit }) {
  * - 행 복사 → 클립보드
  */
 export default function SalesContactsPage({ role = ROLES.USER }) {
+  const isDesktopTable = useDesktopTableLayout()
   const normalizedRole = normalizeRole(role)
   const { accountId } = useAuth()
   const canViewSensitive = hasAdminPrivileges(normalizedRole)
@@ -728,7 +730,8 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
         </p>
       ) : null}
 
-      <div className="sales-contacts-table-wrap desktop-table-only hidden md:block">
+      {isDesktopTable ? (
+      <div className="sales-contacts-table-wrap">
         <table className="sales-contacts-table excel-table registry-table">
           <thead>
             <tr>
@@ -872,7 +875,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
           </tbody>
         </table>
       </div>
-
+      ) : (
       <MobileDataCardList
         rows={visibleRows}
         getRowKey={(row) => row.id}
@@ -896,6 +899,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
         ]}
         emptyText="표시할 연락처가 없습니다."
       />
+      )}
 
       {toast.message ? (
         <div

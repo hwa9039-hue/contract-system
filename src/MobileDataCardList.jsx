@@ -49,6 +49,10 @@ export function MobileDataCardList({
   className = '',
   onCardClick,
   renderHeaderExtra,
+  getDday,
+  getClient,
+  getAmount,
+  getDateText,
 }) {
   const [expandedIds, setExpandedIds] = useState(() => new Set())
 
@@ -75,23 +79,46 @@ export function MobileDataCardList({
           const summary = fieldEntries(summaryFields, row)
           const details = fieldEntries(detailFields, row)
           const tone = badge?.tone || mobileCardBadgeTone(badgeLabel)
+          const dday = mobileCardText(typeof getDday === 'function' ? getDday(row, index) : '')
+          const client = mobileCardText(typeof getClient === 'function' ? getClient(row, index) : '')
+          const amount = mobileCardText(typeof getAmount === 'function' ? getAmount(row, index) : '')
+          const dateText = mobileCardText(typeof getDateText === 'function' ? getDateText(row, index) : '')
+          const structured = Boolean(client || amount || dateText || dday)
 
           return (
             <article
               key={key}
-              className={`mobile-data-card${open ? ' is-open' : ''}${onCardClick ? ' is-clickable' : ''}`}
+              className={`mobile-data-card flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm${
+                open ? ' is-open' : ''
+              }${onCardClick ? ' is-clickable' : ''}`}
               onClick={onCardClick ? () => onCardClick(row) : undefined}
             >
-              <header className="mobile-data-card-header">
+              {badgeLabel || dday ? (
+                <div className="mobile-data-card-topline flex items-center justify-between gap-2">
+                  {badgeLabel ? (
+                    <span className={`mobile-data-card-badge is-${tone}`}>{badgeLabel}</span>
+                  ) : (
+                    <span />
+                  )}
+                  {dday ? <span className="mobile-data-card-dday">{dday}</span> : null}
+                </div>
+              ) : null}
+
+              <div className="mobile-data-card-main flex flex-col gap-1">
                 <h3 className="mobile-data-card-title">{title}</h3>
-                {badgeLabel ? (
-                  <span className={`mobile-data-card-badge is-${tone}`}>{badgeLabel}</span>
-                ) : null}
-              </header>
+                {client ? <p className="mobile-data-card-client">{client}</p> : null}
+              </div>
+
+              {amount || dateText ? (
+                <div className="mobile-data-card-foot flex items-end justify-between gap-2">
+                  {amount ? <strong className="mobile-data-card-amount">{amount}</strong> : <span />}
+                  {dateText ? <span className="mobile-data-card-date">{dateText}</span> : null}
+                </div>
+              ) : null}
 
               {typeof renderHeaderExtra === 'function' ? renderHeaderExtra(row, index) : null}
 
-              {summary.length > 0 ? (
+              {!structured && summary.length > 0 ? (
                 <dl className="mobile-data-card-summary">
                   {summary.map((item) => (
                     <div key={item.label} className="mobile-data-card-field">

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ImportanceLegend } from '../../ImportanceLegend.jsx'
 import { MobileDataCardList } from '../../MobileDataCardList.jsx'
+import { useDesktopTableLayout } from '../../useDesktopTableLayout.js'
 import { salesIntegratedApi } from '../../salesIntegratedApi.js'
 import {
   SALES_STATUS_ALL_BADGE_CLASS,
@@ -91,6 +92,7 @@ function IntegratedDetailModal({ detail, loading, error, onClose }) {
 }
 
 export default function SalesIntegratedPage() {
+  const isDesktopTable = useDesktopTableLayout()
   const [tone, setTone] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [rows, setRows] = useState([])
@@ -185,7 +187,8 @@ export default function SalesIntegratedPage() {
         </p>
       ) : null}
 
-      <div className="sales-contacts-table-wrap desktop-table-only hidden md:block">
+      {isDesktopTable ? (
+      <div className="sales-contacts-table-wrap">
         <table className="excel-table registry-table sales-integrated-table">
           <colgroup>
             <col className="sales-integrated-col-status" />
@@ -243,22 +246,24 @@ export default function SalesIntegratedPage() {
           </tbody>
         </table>
       </div>
-
+      ) : (
       <MobileDataCardList
         rows={visibleRows}
         getRowKey={(row) => `${row.sourceKey}:${row.id}`}
         getTitle={(row) => row.title}
         getBadge={(row) => salesStatusMobileBadge(row.stage || row.statusLabel)}
-        summaryFields={[
+        getClient={(row) => row.client}
+        getAmount={(row) => row.amount}
+        getDateText={(row) => row.date}
+        summaryFields={[]}
+        detailFields={[
           { label: '출처', getValue: (row) => row.sourceMenu },
-          { label: '등록일', getValue: (row) => row.date },
-          { label: '발주처', getValue: (row) => row.client },
-          { label: '사업금액', getValue: (row) => row.amount },
           { label: '담당자', getValue: (row) => row.manager },
         ]}
         emptyText={emptyText}
         onCardClick={openDetail}
       />
+      )}
 
       {selected ? (
         <IntegratedDetailModal

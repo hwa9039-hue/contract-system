@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 const AVATAR_TONES = [
   'bg-slate-100 text-slate-700',
   'bg-blue-50 text-blue-800',
@@ -10,6 +12,7 @@ const AVATAR_TONES = [
 ]
 
 const MAX_AVATAR_CIRCLES = 4
+const MOBILE_AVATAR_CIRCLES = 2
 
 function hashPresenceId(id) {
   const text = String(id || '')
@@ -113,6 +116,16 @@ export function formatPersonGivenName(displayName) {
 }
 
 export function PresenceAvatars({ users = [] }) {
+  const [maxCircles, setMaxCircles] = useState(MAX_AVATAR_CIRCLES)
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)')
+    const apply = () => setMaxCircles(media.matches ? MOBILE_AVATAR_CIRCLES : MAX_AVATAR_CIRCLES)
+    apply()
+    media.addEventListener('change', apply)
+    return () => media.removeEventListener('change', apply)
+  }, [])
+
   if (!Array.isArray(users) || users.length === 0) return null
 
   const unique = []
@@ -148,7 +161,8 @@ export function PresenceAvatars({ users = [] }) {
 
   if (unique.length === 0) return null
 
-  const namedCount = unique.length > MAX_AVATAR_CIRCLES ? MAX_AVATAR_CIRCLES - 1 : unique.length
+  const namedCount =
+    unique.length > maxCircles ? (maxCircles <= 2 ? maxCircles : maxCircles - 1) : unique.length
   const visible = unique.slice(0, namedCount)
   const overflow = unique.length - visible.length
 

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders } from '../../apiClient.js'
+import { MobileDataCardList } from '../../MobileDataCardList.jsx'
+import { useDesktopTableLayout } from '../../useDesktopTableLayout.js'
 
 const ACTION_LABELS = {
   SECURITY_VIOLATION: '보안경고',
@@ -21,6 +23,7 @@ function formatOccurredAt(value) {
 }
 
 export default function AuditLogPage({ onClose }) {
+  const isDesktopTable = useDesktopTableLayout()
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [nameQuery, setNameQuery] = useState('')
@@ -105,6 +108,7 @@ export default function AuditLogPage({ onClose }) {
       {loadError ? <p className="audit-log-error">{loadError}</p> : null}
       {isLoading ? <p className="audit-log-muted">불러오는 중...</p> : null}
 
+      {isDesktopTable ? (
       <div className="audit-log-table-wrap">
         <table className="audit-log-table">
           <thead>
@@ -139,6 +143,22 @@ export default function AuditLogPage({ onClose }) {
           </tbody>
         </table>
       </div>
+      ) : (
+      <MobileDataCardList
+        rows={rows}
+        getRowKey={(row, index) => row.id || `audit-${index}`}
+        getTitle={(row) => row.description}
+        getBadge={(row) => ({
+          label: ACTION_LABELS[row.actionType] || row.actionType,
+          tone: row.actionType === 'SECURITY_VIOLATION' ? 'red' : row.actionType === 'LOGIN' ? 'blue' : 'slate',
+        })}
+        getClient={(row) => row.actorName || row.actorId}
+        getDateText={(row) => formatOccurredAt(row.occurredAt)}
+        summaryFields={[]}
+        detailFields={[{ label: '접속 IP', getValue: (row) => row.ipAddress }]}
+        emptyText={isLoading ? '불러오는 중...' : '기록된 로그가 없습니다.'}
+      />
+      )}
     </section>
   )
 }

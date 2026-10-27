@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { MobileDataCardList, mobileCardText } from '../MobileDataCardList.jsx'
+import { useDesktopTableLayout } from '../useDesktopTableLayout.js'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.js'
 import { EditableTextCell } from '../EditableTextCell.jsx'
@@ -61,6 +63,8 @@ const PROJECT_MANAGEMENT_EDITABLE_FIELDS = Object.freeze([
 ])
 
 /** 단가관리와 동일 colgroup·colgroup 클래스 패턴 (열 정의만 사업관리용) */
+const PROJECT_MOBILE_FACE_FIELDS = new Set(['year', 'client', 'contractDate', 'dueDate', 'projectName'])
+
 const columns = [
   {
     field: 'year',
@@ -176,6 +180,18 @@ const columns = [
     colClass: 'unit-price-col-performance-cert',
   },
 ]
+
+const projectMobileDetailFields = columns
+  .filter((column) => !PROJECT_MOBILE_FACE_FIELDS.has(column.field))
+  .map((column) => ({
+    label: column.headerName,
+    getValue: (row) => {
+      const value = row[column.field]
+      if (column.type === 'commencementCert') return formatCommencementCertDisplay(value)
+      if (column.type === 'date') return formatDateDisplay(value)
+      return value
+    },
+  }))
 
 function safeString(value) {
   if (value === null || value === undefined) return ''
@@ -363,6 +379,7 @@ const PROJECT_MANAGEMENT_EXCEL_COLUMNS = columnsFromExcelRowKeys([
 ])
 
 export default function ProjectManagement({ canEdit = true }) {
+  const isDesktopTable = useDesktopTableLayout()
   const [contracts, setContracts] = useState([])
   const [loading, setLoading] = useState(true)
   const [refetching, setRefetching] = useState(false)
@@ -771,6 +788,7 @@ export default function ProjectManagement({ canEdit = true }) {
               />
             </div>
 
+            {isDesktopTable ? (
             <div className={unitPriceTableWrapClass({ refetching, tableBusy })}>
               <table
                 className={`${UNIT_PRICE_TABLE_CLASS} ${UNIT_PRICE_TABLE_PROJECT_MODIFIER}`}
@@ -830,6 +848,30 @@ export default function ProjectManagement({ canEdit = true }) {
                 </tbody>
               </table>
             </div>
+            ) : (
+            <MobileDataCardList
+              rows={isTableFilterResultEmpty ? [] : filteredRows}
+              getRowKey={(row, index) => row.id || `project-${index}`}
+              getTitle={(row) => row.projectName}
+              getBadge={(row) => {
+                const year = mobileCardText(row.year)
+                return year ? { label: year, tone: 'slate' } : null
+              }}
+              getClient={(row) => row.client}
+              getDateText={(row) =>
+                [formatDateDisplay(row.contractDate), formatDateDisplay(row.dueDate)]
+                  .filter((value) => mobileCardText(value))
+                  .join(' ~ ')
+              }
+              summaryFields={[]}
+              detailFields={projectMobileDetailFields}
+              emptyText={
+                isTableFilterResultEmpty
+                  ? '필터 조건에 맞는 데이터가 없습니다.'
+                  : '표시할 계약 데이터가 없습니다.'
+              }
+            />
+            )}
           </div>
         )}
       </div>

@@ -321,8 +321,8 @@ export default function PublicInstallCasesPage() {
         </p>
       ) : null}
       <section className="stat-card stat-card--install-cases public-share-card" aria-label="설치사례">
-        <div className="install-cases-toolbar">
-          <div className="install-cases-filters">
+        <div className="install-cases-toolbar flex w-full flex-col items-stretch gap-2 md:flex-row md:flex-nowrap md:items-center">
+          <div className="install-cases-filters flex w-full flex-col items-stretch gap-2 md:flex-row md:flex-nowrap md:items-center md:min-w-0">
             <select
               className="contract-filter-select install-cases-select"
               value={majorFilter}

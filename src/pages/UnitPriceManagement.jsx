@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { MobileDataCardList, mobileCardAmount, mobileCardText } from '../MobileDataCardList.jsx'
+import { useDesktopTableLayout } from '../useDesktopTableLayout.js'
 import { Plus, Trash2 } from 'lucide-react'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.js'
@@ -464,6 +466,7 @@ const UNIT_PRICE_EXCEL_COLUMNS = columnsFromExcelRowKeys([
 ])
 
 export default function UnitPriceManagement({ canEdit = true }) {
+  const isDesktopTable = useDesktopTableLayout()
   const [contracts, setContracts] = useState([])
   const [loading, setLoading] = useState(true)
   const [refetching, setRefetching] = useState(false)
@@ -564,6 +567,21 @@ export default function UnitPriceManagement({ canEdit = true }) {
   const visibleColumns = useMemo(
     () => (canEdit ? columns : columns.filter((column) => column.field !== 'actions')),
     [canEdit]
+  )
+  const mobileDetailFields = useMemo(
+    () =>
+      visibleColumns
+        .filter(
+          (column) =>
+            !['actions', 'projectName', 'client', 'quotePrice', 'designUnitPrice', 'replacementType'].includes(
+              column.field
+            )
+        )
+        .map((column) => ({
+          label: column.headerName,
+          getValue: (row) => row[column.field],
+        })),
+    [visibleColumns]
   )
 
   const handleExcelDownload = useCallback(() => {
@@ -900,6 +918,7 @@ export default function UnitPriceManagement({ canEdit = true }) {
               />
             </div>
 
+            {isDesktopTable ? (
             <div className={unitPriceTableWrapClass({ refetching, tableBusy })}>
                 <table className={UNIT_PRICE_TABLE_CLASS}>
                   <colgroup>
@@ -957,6 +976,31 @@ export default function UnitPriceManagement({ canEdit = true }) {
                 </tbody>
               </table>
             </div>
+            ) : (
+            <MobileDataCardList
+              rows={isTableFilterResultEmpty ? [] : filteredFlatRows}
+              getRowKey={(row, index) => row.id || `unit-price-${index}`}
+              getTitle={(row) => row.projectName || row.itemName}
+              getBadge={(row) => {
+                const label = mobileCardText(row.replacementType)
+                return label ? { label, tone: 'blue' } : null
+              }}
+              getClient={(row) => row.client}
+              getAmount={(row) =>
+                mobileCardAmount(row.quotePrice) ||
+                mobileCardAmount(row.designUnitPrice) ||
+                mobileCardText(row.quotePrice) ||
+                mobileCardText(row.designUnitPrice)
+              }
+              summaryFields={[]}
+              detailFields={mobileDetailFields}
+              emptyText={
+                isTableFilterResultEmpty
+                  ? '필터 조건에 맞는 데이터가 없습니다.'
+                  : '표시할 단가 데이터가 없습니다.'
+              }
+            />
+            )}
             {!canEdit ? (
               <p className="unit-price-grid-hint">
                 일반 사용자는 단가관리 내용을 조회만 할 수 있습니다.

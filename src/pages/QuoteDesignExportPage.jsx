@@ -9,6 +9,7 @@ import {
 import { computeFixedPortalPosition, fixedPortalStyle } from '../portalMenuPosition.js'
 import { buildStyledExcelFilename, downloadStyledExcel } from '../styledExcelDownload.js'
 import { MobileDataCardList } from '../MobileDataCardList.jsx'
+import { useDesktopTableLayout } from '../useDesktopTableLayout.js'
 import { resolveSenderName } from '../userNameMap.js'
 
 const EXPORT_EXCEL_COLUMNS = [
@@ -281,6 +282,7 @@ function MobileBodySummary({ bodySummary }) {
  * 백엔드(GET /api/emails/export-logs)가 아직 없으면 예시 데이터로 화면을 채운다.
  */
 export default function QuoteDesignExportPage() {
+  const isDesktopTable = useDesktopTableLayout()
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [usingMock, setUsingMock] = useState(false)
@@ -392,7 +394,8 @@ export default function QuoteDesignExportPage() {
         </p>
       ) : null}
 
-      <div className="sales-contacts-table-wrap desktop-table-only hidden md:block">
+      {isDesktopTable ? (
+      <div className="sales-contacts-table-wrap">
         <table className="excel-table registry-table email-export-table">
           <colgroup>
             <col className="email-export-col--seq" />
@@ -447,7 +450,7 @@ export default function QuoteDesignExportPage() {
           </tbody>
         </table>
       </div>
-
+      ) : (
       <MobileDataCardList
         rows={visibleRows}
         getRowKey={(row, index) => row.id || `export-${index}`}
@@ -456,10 +459,9 @@ export default function QuoteDesignExportPage() {
           const name = resolveSenderName(row.sender)
           return name ? { label: name, tone: 'blue' } : null
         }}
-        summaryFields={[
-          { label: '발신일시', getValue: (row) => formatSentAt(row.sentAt) },
-          { label: '성명', getValue: (row) => resolveSenderName(row.sender) },
-        ]}
+        getClient={(row) => row.recipient}
+        getDateText={(row) => formatSentAt(row.sentAt)}
+        summaryFields={[]}
         detailFields={[
           { label: '발신자', getValue: (row) => row.sender },
           { label: '수신자', getValue: (row) => row.recipient },
@@ -475,6 +477,7 @@ export default function QuoteDesignExportPage() {
               : '반출 내역이 없습니다.'
         }
       />
+      )}
     </section>
   )
 }

@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useRef, useState } from 'react'
 import { AutoGrowTextarea } from './AutoGrowTextarea.jsx'
 import { MobileDataCardList, mobileCardText } from './MobileDataCardList.jsx'
+import { useDesktopTableLayout } from './useDesktopTableLayout.js'
 import { decodeWorkReportWireText } from './workReportWire.js'
 import {
   WORK_REPORT_MANAGER_OPTIONS,
@@ -779,6 +780,7 @@ export function WorkReportMeetingMinutesSection({
   updateEntry,
   onEntryBlur,
 }) {
+  const isDesktopTable = useDesktopTableLayout()
   const boardEntry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
   const agendaRowsRef = useRef(getDefaultMeetingMinutesAgenda())
   const [agendaRows, setAgendaRows] = useState(() => getDefaultMeetingMinutesAgenda())
@@ -847,7 +849,8 @@ export function WorkReportMeetingMinutesSection({
   return (
     <section className="work-report-meeting-minutes-panel meeting-minutes-doc">
       <div className="contract-table-panel meeting-minutes-doc__table-panel">
-        <div className="table-wrap meeting-minutes-table-wrap overflow-x-auto desktop-table-only hidden md:block">
+        {isDesktopTable ? (
+        <div className="table-wrap meeting-minutes-table-wrap overflow-x-auto w-full">
           <table className="meeting-minutes-doc__table contract-table excel-table registry-table">
             <colgroup>
               <col className="meeting-minutes-doc__col-num" />
@@ -923,6 +926,7 @@ export function WorkReportMeetingMinutesSection({
             </tbody>
           </table>
         </div>
+        ) : (
         <MobileDataCardList
           rows={agendaRows.filter((row) => {
             const assignees = Array.isArray(row.assignees)
@@ -934,25 +938,19 @@ export function WorkReportMeetingMinutesSection({
           })}
           getRowKey={(row, index) => `meeting-card-${index}-${mobileCardText(row.content).slice(0, 12)}`}
           getTitle={(row) => row.content}
-          getBadge={(row) => {
-            const due = mobileCardText(row.dueDate)
-            return due ? { label: due, tone: 'blue' } : null
+          getBadge={() => ({ label: '회의', tone: 'blue' })}
+          getClient={(row) => {
+            const assignees = Array.isArray(row.assignees)
+              ? row.assignees
+              : parseManagerMultiSelectValue(row.assignee)
+            return assignees.join(', ')
           }}
-          summaryFields={[
-            {
-              label: '담당자',
-              getValue: (row) => {
-                const assignees = Array.isArray(row.assignees)
-                  ? row.assignees
-                  : parseManagerMultiSelectValue(row.assignee)
-                return assignees.join(', ')
-              },
-            },
-            { label: '기한', getValue: (row) => row.dueDate },
-          ]}
+          getDateText={(row) => row.dueDate}
+          summaryFields={[]}
           detailFields={[{ label: '회의내용', getValue: (row) => row.content }]}
           emptyText="이번 주 회의록이 없습니다."
         />
+        )}
       </div>
     </section>
   )
@@ -1007,6 +1005,7 @@ function meetingSearchWeekLabel(row) {
 
 /** 전체 기간 회의록 검색 결과. 행을 누르면 그 주차 편집 화면으로 돌아간다. */
 export function MeetingMinutesSearchResults({ query, rows, loading, error, onOpenWeek }) {
+  const isDesktopTable = useDesktopTableLayout()
   const list = Array.isArray(rows) ? rows : []
 
   return (
@@ -1027,7 +1026,8 @@ export function MeetingMinutesSearchResults({ query, rows, loading, error, onOpe
       ) : null}
 
       <div className="contract-table-panel meeting-minutes-doc__table-panel">
-        <div className="table-wrap meeting-minutes-table-wrap overflow-x-auto desktop-table-only hidden md:block">
+        {isDesktopTable ? (
+        <div className="table-wrap meeting-minutes-table-wrap overflow-x-auto w-full">
           <table className="meeting-minutes-doc__table contract-table excel-table registry-table meeting-minutes-search-table">
             <colgroup>
               <col className="meeting-minutes-search-col-week" />
@@ -1094,19 +1094,20 @@ export function MeetingMinutesSearchResults({ query, rows, loading, error, onOpe
             </tbody>
           </table>
         </div>
+        ) : (
         <MobileDataCardList
           rows={list}
           getRowKey={(row) => row.id}
           getTitle={(row) => row.content}
           getBadge={(row) => ({ label: meetingSearchWeekLabel(row), tone: 'blue' })}
-          summaryFields={[
-            { label: '담당자', getValue: (row) => row.assignee },
-            { label: '기한', getValue: (row) => row.dueDate },
-            { label: '시작일', getValue: (row) => row.weekStartDate },
-          ]}
+          getClient={(row) => row.assignee}
+          getDateText={(row) => row.dueDate}
+          summaryFields={[]}
+          detailFields={[{ label: '시작일', getValue: (row) => row.weekStartDate }]}
           emptyText={loading ? '검색 중입니다.' : '검색 결과가 없습니다.'}
           onCardClick={(row) => onOpenWeek?.(row.weekStartDate)}
         />
+        )}
       </div>
     </section>
   )
@@ -1126,6 +1127,7 @@ function workReportMonthWeekLabel(row) {
 
 /** 전체 기간 주간업무보고서 검색 결과. 행을 누르면 그 주로 돌아간다. */
 export function WorkReportSearchResults({ query, rows, loading, error, onOpenWeek }) {
+  const isDesktopTable = useDesktopTableLayout()
   const list = Array.isArray(rows) ? rows : []
 
   return (
@@ -1149,7 +1151,8 @@ export function WorkReportSearchResults({ query, rows, loading, error, onOpenWee
       ) : null}
 
       <div className="contract-table-panel meeting-minutes-doc__table-panel">
-        <div className="table-wrap meeting-minutes-table-wrap overflow-x-auto desktop-table-only hidden md:block">
+        {isDesktopTable ? (
+        <div className="table-wrap meeting-minutes-table-wrap overflow-x-auto w-full">
           <table className="meeting-minutes-doc__table contract-table excel-table registry-table meeting-minutes-search-table">
             <colgroup>
               <col className="meeting-minutes-search-col-week" />
@@ -1205,19 +1208,20 @@ export function WorkReportSearchResults({ query, rows, loading, error, onOpenWee
             </tbody>
           </table>
         </div>
+        ) : (
         <MobileDataCardList
           rows={list}
           getRowKey={(row) => row.id}
           getTitle={(row) => row.content || row.section}
           getBadge={(row) => ({ label: workReportMonthWeekLabel(row), tone: 'blue' })}
-          summaryFields={[
-            { label: '구분', getValue: (row) => row.section },
-            { label: '작성자', getValue: (row) => row.user },
-            { label: '날짜', getValue: (row) => row.reportDate },
-          ]}
+          getClient={(row) => row.user}
+          getDateText={(row) => row.reportDate}
+          summaryFields={[]}
+          detailFields={[{ label: '구분', getValue: (row) => row.section }]}
           emptyText={loading ? '검색 중입니다.' : '검색 결과가 없습니다.'}
           onCardClick={(row) => onOpenWeek?.(row.weekStartDate)}
         />
+        )}
       </div>
     </section>
   )
