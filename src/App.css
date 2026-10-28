@@ -11959,7 +11959,7 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
   --work-report-day-col-width: 520px;
   width: max-content;
   min-width: 100%;
-  /* 맨 아래 섹션(영업지원 15번)이 스크롤 끝에서 잘리지 않도록 여유 */
+  /* 맨 아래 영업지원 추가 버튼이 스크롤 끝에서 잘리지 않도록 여유 */
   padding-bottom: 32px;
 }
 
@@ -12420,7 +12420,7 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
 }
 
 .work-report-board-row-todo {
-  grid-template-columns: 30px 28px minmax(0, 1fr);
+  grid-template-columns: 30px 28px minmax(0, 1fr) 28px;
   align-items: stretch;
 }
 
@@ -20567,7 +20567,81 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
 }
 
 .work-report-week-board-inner .work-report-board-row-todo {
-  grid-template-columns: 56px 56px minmax(0, 1fr);
+  grid-template-columns: 56px 56px minmax(0, 1fr) 28px;
+}
+
+.work-report-support-remove {
+  align-self: center;
+  justify-self: center;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.45;
+}
+
+.work-report-support-remove:hover,
+.work-report-support-remove:focus-visible {
+  background: #f1f5f9;
+  color: #b91c1c;
+  opacity: 1;
+  outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .work-report-support-remove {
+    opacity: 0;
+  }
+
+  .work-report-board-row-todo:hover .work-report-support-remove,
+  .work-report-support-remove:focus-visible {
+    opacity: 1;
+  }
+}
+
+.work-report-support-add-row {
+  margin-top: 8px;
+}
+
+.work-report-week-board-inner .work-report-support-add-row .work-report-week-data-cell {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  border: 0;
+  background: transparent;
+}
+
+.work-report-support-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px dashed #d6dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.work-report-support-add:hover,
+.work-report-support-add:focus-visible {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+  outline: none;
 }
 
 /* 요일 칸은 520px 아래로 줄지 않는다. shrink 되면 글자가 한 글자씩 세로로 끊긴다. */

@@ -836,6 +836,21 @@ def _join_report_payload_parts(parts: Any) -> str:
     return "".join("" if p is None else str(p) for p in parts)
 
 
+def coerce_open_ended_order_index(value: Any) -> Any:
+    """영업지원 등 행 번호. 상한 없이 1 이상이면 저장한다."""
+    if value is None:
+        return None
+    if isinstance(value, str) and not value.strip():
+        return None
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return value
+    if number < 1:
+        raise ValueError("order_index는 1 이상의 정수여야 합니다.")
+    return number
+
+
 class WeeklyWorkReportBase(BaseModel):
     date: Optional[Any] = None
     user: Optional[Any] = ""
@@ -878,6 +893,11 @@ class WeeklyWorkReportBase(BaseModel):
     def decode_wire_content_field(cls, value: Any):
         return decode_work_report_wire_content(value)
 
+    @field_validator("order_index", "orderIndex", mode="before")
+    @classmethod
+    def open_ended_order_index(cls, value: Any):
+        return coerce_open_ended_order_index(value)
+
 
 class WeeklyWorkReportCreate(WeeklyWorkReportBase):
     pass
@@ -907,6 +927,11 @@ class WeeklyWorkReportPatch(BaseModel):
     @classmethod
     def merge_wire_body_into_content(cls, data: Any):
         return WeeklyWorkReportBase.merge_wire_body_into_content(data)
+
+    @field_validator("order_index", "orderIndex", mode="before")
+    @classmethod
+    def open_ended_order_index(cls, value: Any):
+        return coerce_open_ended_order_index(value)
 
 
 class WeeklyWorkReportOut(WeeklyWorkReportBase):

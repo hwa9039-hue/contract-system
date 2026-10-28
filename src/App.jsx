@@ -967,11 +967,6 @@ const WORK_REPORT_ROAD_ROW_COUNT = 2
 const WORK_REPORT_DI_FIXED_MANAGERS = Object.freeze(['전기웅', '유영무', '김성수', '이재승'])
 /** 도로사업 담당자 — 행 번호별 고정 */
 const WORK_REPORT_ROAD_FIXED_MANAGERS = Object.freeze(['이용자', '박재범'])
-const WORK_REPORT_SUPPORT_ITEM_COUNT = 15
-const WORK_REPORT_SUPPORT_NUMBER_GUIDE = Array.from(
-  { length: WORK_REPORT_SUPPORT_ITEM_COUNT },
-  (_, index) => String(index + 1)
-)
 /** 영업지원 To-Do 완료 플래그 — journal user 필드에 저장 (담당자 UI 없음) */
 const WORK_REPORT_SUPPORT_COMPLETED_USER = 'completed'
 const WORK_REPORT_EXTERNAL_USER_OPTIONS = WORK_REPORT_MANAGER_OPTIONS
@@ -6644,6 +6639,8 @@ function App() {
   const [editingWorkCellKey, setEditingWorkCellKey] = useState('')
   const [editingWorkCellData, setEditingWorkCellData] = useState(null)
   const [workReportDrafts, setWorkReportDrafts] = useState({})
+  const [supportPinnedByWeek, setSupportPinnedByWeek] = useState({})
+  const [supportStarterHiddenByWeek, setSupportStarterHiddenByWeek] = useState({})
   const workReportDraftsRef = useRef({})
   const workReportSaveChainRef = useRef(Promise.resolve())
   const saveWorkReportBoardEntryRef = useRef(() => Promise.resolve())
@@ -12631,6 +12628,124 @@ function App() {
     }
   }
 
+  const supportWeekKey = normalizeWorkReportDateKey(selectedWorkWeekMeta.weekStartDate)
+
+  const supportOrderIndexHasValue = (date, orderIndex, draftsMap = workReportDraftsRef.current) => {
+    const todo = getSupportTodoBoardEntry(date, orderIndex, draftsMap)
+    return Boolean(
+      safeString(todo.content).trim() || safeString(todo.deadline).trim() || todo.completed
+    )
+  }
+
+  const getWorkReportSupportOrderIndexes = () => {
+    const indexes = new Set(
+      (supportPinnedByWeek[supportWeekKey] || [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value >= 1)
+    )
+    for (const day of selectedWorkWeekDays) {
+      const dateKey = normalizeWorkReportDateKey(day.date)
+      for (const row of workReportRowsRef.current || []) {
+        const section = safeString(row?.section).trim()
+        if (
+          section !== WORK_REPORT_SECTION_KEYS.supportProgress &&
+          section !== WORK_REPORT_SECTION_KEYS.supportDone
+        ) {
+          continue
+        }
+        if (normalizeWorkReportDateKey(row?.date) !== dateKey) continue
+        const orderIndex = Number(row?.orderIndex || row?.order_index || 0)
+        if (!Number.isInteger(orderIndex) || orderIndex < 1) continue
+        if (supportOrderIndexHasValue(day.date, orderIndex)) indexes.add(orderIndex)
+      }
+      for (const [cellKey, draft] of Object.entries(workReportDraftsRef.current || {})) {
+        if (!cellKey.startsWith(`${dateKey}__`)) continue
+        const meta = parseWorkReportCellKey(cellKey)
+        if (!meta) continue
+        if (
+          meta.section !== WORK_REPORT_SECTION_KEYS.supportProgress &&
+          meta.section !== WORK_REPORT_SECTION_KEYS.supportDone
+        ) {
+          continue
+        }
+        const orderIndex = Number(meta.orderIndex || 0)
+        if (!Number.isInteger(orderIndex) || orderIndex < 1) continue
+        if (
+          safeString(draft?.content).trim() ||
+          safeString(draft?.deadline).trim() ||
+          isWorkReportSupportCompletedUser(draft?.user)
+        ) {
+          indexes.add(orderIndex)
+        }
+      }
+    }
+    const sorted = [...indexes].sort((left, right) => left - right)
+    if (sorted.length === 0 && !supportStarterHiddenByWeek[supportWeekKey]) return [1]
+    return sorted
+  }
+
+  const addWorkReportSupportItem = () => {
+    const current = getWorkReportSupportOrderIndexes()
+    const next = current.length ? Math.max(...current) + 1 : 1
+    setSupportStarterHiddenByWeek((prev) => ({ ...prev, [supportWeekKey]: false }))
+    setSupportPinnedByWeek((prev) => {
+      const merged = new Set(
+        [...(prev[supportWeekKey] || []), ...current, next]
+          .map((value) => Number(value))
+          .filter((value) => Number.isInteger(value) && value >= 1)
+      )
+      return { ...prev, [supportWeekKey]: [...merged] }
+    })
+  }
+
+  const removeWorkReportSupportItem = async (date, orderIndex) => {
+    const oi = Number(orderIndex || 0)
+    if (!Number.isInteger(oi) || oi < 1) return
+    const sections = [WORK_REPORT_SECTION_KEYS.supportProgress, WORK_REPORT_SECTION_KEYS.supportDone]
+    for (const section of sections) {
+      const cellKey = getWorkReportCellKey(date, section, oi)
+      const timers = workReportSaveTimersRef.current
+      if (timers[cellKey]) {
+        window.clearTimeout(timers[cellKey])
+        delete timers[cellKey]
+      }
+      const stored = getStoredWorkReportEntry(date, section, oi)
+      const draft = workReportDraftsRef.current[cellKey]
+      const persistedId =
+        stored?.id || (!isWorkReportDraftRowId(draft?.id) ? safeString(draft?.id).trim() : '')
+      const nextDrafts = removeObjectKey(workReportDraftsRef.current, cellKey)
+      workReportDraftsRef.current = nextDrafts
+      setWorkReportDrafts(nextDrafts)
+      if (persistedId) await deleteWorkReportRowById(persistedId)
+    }
+
+    const stillUsed = selectedWorkWeekDays.some((day) => supportOrderIndexHasValue(day.date, oi))
+    if (stillUsed) return
+
+    setSupportPinnedByWeek((prev) => ({
+      ...prev,
+      [supportWeekKey]: (prev[supportWeekKey] || []).filter((value) => Number(value) !== oi),
+    }))
+    const othersRemain = selectedWorkWeekDays.some((day) =>
+      (workReportRowsRef.current || []).some((row) => {
+        const section = safeString(row?.section).trim()
+        if (
+          section !== WORK_REPORT_SECTION_KEYS.supportProgress &&
+          section !== WORK_REPORT_SECTION_KEYS.supportDone
+        ) {
+          return false
+        }
+        if (normalizeWorkReportDateKey(row?.date) !== normalizeWorkReportDateKey(day.date)) return false
+        const rowIndex = Number(row?.orderIndex || row?.order_index || 0)
+        return rowIndex !== oi && supportOrderIndexHasValue(day.date, rowIndex)
+      })
+    )
+    const pinsRemain = (supportPinnedByWeek[supportWeekKey] || []).some((value) => Number(value) !== oi)
+    if (!othersRemain && !pinsRemain) {
+      setSupportStarterHiddenByWeek((prev) => ({ ...prev, [supportWeekKey]: true }))
+    }
+  }
+
   const getWorkReportDayLabel = (dateYmd) => {
     const dateKey = normalizeWorkReportDateKey(dateYmd)
     const days = getWorkReportWeekDays(selectedWorkWeekMeta.weekStartDate)
@@ -12687,20 +12802,29 @@ function App() {
           .map((line) => `<li>${escapeHtml(line) || '&nbsp;'}</li>`)
           .join('')
 
-        const renderPdfSupportTodoRows = () =>
-          Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
-            const todo = getSupportTodoBoardEntry(day.date, index + 1)
-            const contentCell = todo.completed
-              ? `<span class="pdf-support-done">${renderPdfText(todo.content || '-')}</span>`
-              : renderPdfText(todo.content || '-')
-            return `
+        const renderPdfSupportTodoRows = () => {
+          const filled = getWorkReportSupportOrderIndexes().filter((orderIndex) =>
+            supportOrderIndexHasValue(day.date, orderIndex)
+          )
+          if (!filled.length) {
+            return '<tr><td class="pdf-index">-</td><td>-</td><td class="pdf-deadline">-</td></tr>'
+          }
+          return filled
+            .map((orderIndex, index) => {
+              const todo = getSupportTodoBoardEntry(day.date, orderIndex)
+              const contentCell = todo.completed
+                ? `<span class="pdf-support-done">${renderPdfText(todo.content || '-')}</span>`
+                : renderPdfText(todo.content || '-')
+              return `
               <tr>
                 <td class="pdf-index">${index + 1}</td>
                 <td>${contentCell}</td>
                 <td class="pdf-deadline">${escapeHtml(todo.deadline || '-')}</td>
               </tr>
             `
-          }).join('')
+            })
+            .join('')
+        }
 
         return `
           <section class="pdf-day-card">
@@ -15667,7 +15791,7 @@ function App() {
         <div className="work-report-board-support-title">{title}</div>
         <div className="work-report-board-support-row">
           <div className="work-report-board-support-number">
-            {WORK_REPORT_SUPPORT_NUMBER_GUIDE.map((numberLabel) => (
+            {getWorkReportSupportOrderIndexes().map((numberLabel) => (
               <span key={`${section}-${numberLabel}`}>{numberLabel}</span>
             ))}
           </div>
@@ -15697,8 +15821,7 @@ function App() {
     <div className="work-report-board-support-block">
       <div className="work-report-board-support-title">{title}</div>
       <div className="work-report-board-table">
-        {Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
-          const orderIndex = index + 1
+        {getWorkReportSupportOrderIndexes().map((orderIndex) => {
           const entry = getWorkReportBoardEntry(date, section, orderIndex)
 
           return (
@@ -15875,8 +15998,7 @@ function App() {
     <div className="work-report-board-support-block">
       <div className="work-report-board-support-title">{title}</div>
       <div className="work-report-board-table">
-        {Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
-          const orderIndex = index + 1
+        {getWorkReportSupportOrderIndexes().map((orderIndex) => {
           const entry = getWorkReportBoardEntry(date, section, orderIndex)
 
           return (
@@ -15962,8 +16084,7 @@ function App() {
     <div className="work-report-board-support-block">
       <div className="work-report-board-support-title">{title}</div>
       <div className="work-report-board-table">
-        {Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
-          const orderIndex = index + 1
+        {getWorkReportSupportOrderIndexes().map((orderIndex) => {
           const entry = getWorkReportBoardEntry(date, section, orderIndex)
 
           return (
@@ -16191,11 +16312,24 @@ function App() {
     </section>
   )
 
+  const renderWorkReportSupportRemoveButton = (date, orderIndex) => (
+    <button
+      type="button"
+      className="work-report-support-remove"
+      aria-label={`${orderIndex}번 항목 삭제`}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={() => {
+        void removeWorkReportSupportItem(date, orderIndex)
+      }}
+    >
+      ×
+    </button>
+  )
+
   const renderWorkReportSupportAreaListV4 = (date) => (
-    <div className="work-report-board-support-block shrink-0 min-h-[150px]">
+    <div className="work-report-board-support-block shrink-0">
       <div className="work-report-board-table">
-        {Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
-          const orderIndex = index + 1
+        {getWorkReportSupportOrderIndexes().map((orderIndex) => {
           const todo = getSupportTodoBoardEntry(date, orderIndex)
           const activeSection = WORK_REPORT_SECTION_KEYS.supportProgress
 
@@ -16235,15 +16369,19 @@ function App() {
                 }}
                 onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
+              {renderWorkReportSupportRemoveButton(date, orderIndex)}
             </div>
           )
         })}
       </div>
+      <button type="button" className="work-report-support-add" onClick={addWorkReportSupportItem}>
+        + 항목 추가
+      </button>
     </div>
   )
 
   const renderWorkReportSupportSectionV4 = (date) => (
-    <section className="work-report-board-section shrink-0 min-h-[150px]">
+    <section className="work-report-board-section shrink-0">
       <div className="work-report-board-section-title">영업지원</div>
       <div className="work-report-board-support-wrap shrink-0">
         {renderWorkReportSupportAreaListV4(date)}
@@ -16479,9 +16617,8 @@ function App() {
   }
 
   const renderWorkReportSupportRows = () =>
-    Array.from({ length: WORK_REPORT_SUPPORT_ITEM_COUNT }, (_, index) => {
-      const orderIndex = index + 1
-      return renderWorkReportWeekDataRow(`support-${orderIndex}`, (date) => {
+    getWorkReportSupportOrderIndexes().map((orderIndex) =>
+      renderWorkReportWeekDataRow(`support-${orderIndex}`, (date) => {
         const todo = getSupportTodoBoardEntry(date, orderIndex)
         const activeSection = WORK_REPORT_SECTION_KEYS.supportProgress
         return (
@@ -16534,10 +16671,11 @@ function App() {
               }}
               onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
             />
+            {renderWorkReportSupportRemoveButton(date, orderIndex)}
           </div>
         )
       })
-    })
+    )
 
   const renderWorkReportMobileDayStack = () => (
     <div className="work-report-mobile-day-stack mobile-card-only">
@@ -16615,7 +16753,16 @@ function App() {
           )}
           {renderWorkReportWeekSection(
             '영업지원',
-            renderWorkReportSupportRows(),
+            <>
+              {renderWorkReportSupportRows()}
+              <div className="work-report-week-data-row work-report-support-add-row">
+                <div className="work-report-week-data-cell">
+                  <button type="button" className="work-report-support-add" onClick={addWorkReportSupportItem}>
+                    + 항목 추가
+                  </button>
+                </div>
+              </div>
+            </>,
             'work-report-week-section-support'
           )}
         </div>
