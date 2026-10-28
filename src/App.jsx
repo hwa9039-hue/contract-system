@@ -969,6 +969,8 @@ const WORK_REPORT_DI_FIXED_MANAGERS = Object.freeze(['전기웅', '유영무', '
 const WORK_REPORT_ROAD_FIXED_MANAGERS = Object.freeze(['이용자', '박재범'])
 /** 영업지원 To-Do 완료 플래그 — journal user 필드에 저장 (담당자 UI 없음) */
 const WORK_REPORT_SUPPORT_COMPLETED_USER = 'completed'
+/** 내용 없이 추가만 한 영업지원 칸. team 에만 두고, 검색·PDF 에는 올리지 않는다. */
+const WORK_REPORT_SUPPORT_SLOT_TEAM = 'slot'
 const WORK_REPORT_EXTERNAL_USER_OPTIONS = WORK_REPORT_MANAGER_OPTIONS
 const WORK_REPORT_SECTION_KEYS = {
   checklist: '주요확인사항',
@@ -997,6 +999,17 @@ function getWorkReportFixedManagerName(section, orderIndex) {
 
 function isWorkReportSupportCompletedUser(user) {
   return safeString(user).trim() === WORK_REPORT_SUPPORT_COMPLETED_USER
+}
+
+function isWorkReportSupportSlotRow(row) {
+  const section = safeString(row?.section).trim()
+  if (
+    section !== WORK_REPORT_SECTION_KEYS.supportProgress &&
+    section !== WORK_REPORT_SECTION_KEYS.supportDone
+  ) {
+    return false
+  }
+  return safeString(row?.team).trim() === WORK_REPORT_SUPPORT_SLOT_TEAM
 }
 
 /** 주간업무보고서 PDF/인쇄 팝업 공통 스타일 */
@@ -5925,6 +5938,7 @@ function normalizeWorkReportRow(item) {
       : parsedExternalContent.content,
     destination: parsedExternalContent.destination,
     deadline: parsedJournalContent.deadline,
+    team: safeString(item.team).trim(),
     orderIndex,
     createdAt: safeString(item.createdAt ?? item.createdat),
     updatedAt: safeString(item.updatedAt ?? item.updatedat),
@@ -5943,6 +5957,7 @@ function isWorkReportRowEmpty(row) {
   }
 
   if (isWorkReportJournalSection(normalizedSection)) {
+    if (isWorkReportSupportSlotRow(row)) return false
     const hasContent = safeString(row.content).trim() !== ''
     const hasDeadline = safeString(row.deadline).trim() !== ''
     if (isWorkReportManagedJournalSection(normalizedSection)) {
@@ -6648,6 +6663,7 @@ function App() {
   const workReportManualSaveFailedRef = useRef(false)
   const workReportWeekBoardRef = useRef(null)
   const skipWorkReportWeekFlushRef = useRef(true)
+  const supportAddLockRef = useRef(false)
   useLayoutEffect(() => {
     workReportRowsRef.current = workReportRows
   }, [workReportRows])
@@ -12637,12 +12653,8 @@ function App() {
     )
   }
 
-  const getWorkReportSupportOrderIndexes = () => {
-    const indexes = new Set(
-      (supportPinnedByWeek[supportWeekKey] || [])
-        .map((value) => Number(value))
-        .filter((value) => Number.isInteger(value) && value >= 1)
-    )
+  const supportStoredOrderIndexes = () => {
+    const indexes = new Set()
     for (const day of selectedWorkWeekDays) {
       const dateKey = normalizeWorkReportDateKey(day.date)
       for (const row of workReportRowsRef.current || []) {
@@ -12656,8 +12668,23 @@ function App() {
         if (normalizeWorkReportDateKey(row?.date) !== dateKey) continue
         const orderIndex = Number(row?.orderIndex || row?.order_index || 0)
         if (!Number.isInteger(orderIndex) || orderIndex < 1) continue
-        if (supportOrderIndexHasValue(day.date, orderIndex)) indexes.add(orderIndex)
+        if (isWorkReportSupportSlotRow(row) || supportOrderIndexHasValue(day.date, orderIndex)) {
+          indexes.add(orderIndex)
+        }
       }
+    }
+    return indexes
+  }
+
+  const getWorkReportSupportOrderIndexes = () => {
+    const indexes = new Set([
+      ...supportStoredOrderIndexes(),
+      ...(supportPinnedByWeek[supportWeekKey] || [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value >= 1),
+    ])
+    for (const day of selectedWorkWeekDays) {
+      const dateKey = normalizeWorkReportDateKey(day.date)
       for (const [cellKey, draft] of Object.entries(workReportDraftsRef.current || {})) {
         if (!cellKey.startsWith(`${dateKey}__`)) continue
         const meta = parseWorkReportCellKey(cellKey)
@@ -12673,7 +12700,8 @@ function App() {
         if (
           safeString(draft?.content).trim() ||
           safeString(draft?.deadline).trim() ||
-          isWorkReportSupportCompletedUser(draft?.user)
+          isWorkReportSupportCompletedUser(draft?.user) ||
+          isWorkReportSupportSlotRow(draft)
         ) {
           indexes.add(orderIndex)
         }
@@ -12684,62 +12712,121 @@ function App() {
     return sorted
   }
 
-  const addWorkReportSupportItem = () => {
-    const current = getWorkReportSupportOrderIndexes()
-    const next = current.length ? Math.max(...current) + 1 : 1
-    setSupportStarterHiddenByWeek((prev) => ({ ...prev, [supportWeekKey]: false }))
-    setSupportPinnedByWeek((prev) => {
-      const merged = new Set(
-        [...(prev[supportWeekKey] || []), ...current, next]
-          .map((value) => Number(value))
-          .filter((value) => Number.isInteger(value) && value >= 1)
-      )
-      return { ...prev, [supportWeekKey]: [...merged] }
+  const persistSupportSlot = async (date, orderIndex) => {
+    const section = WORK_REPORT_SECTION_KEYS.supportProgress
+    const existing = getStoredWorkReportEntry(date, section, orderIndex)
+    if (existing?.id && (isWorkReportSupportSlotRow(existing) || supportOrderIndexHasValue(date, orderIndex))) {
+      return existing
+    }
+    const timestamp = new Date().toISOString()
+    const row = {
+      ...createWorkReportDraftRow({
+        reportDate: date,
+        section,
+        orderIndex,
+      }),
+      date: normalizeWorkReportDateKey(date),
+      section,
+      orderIndex,
+      content: '',
+      deadline: '',
+      user: '',
+      team: WORK_REPORT_SUPPORT_SLOT_TEAM,
+    }
+    const savedRow = await weeklyWorkReportsApi.create({
+      ...toWorkReportPayload(row, timestamp),
+      team: WORK_REPORT_SUPPORT_SLOT_TEAM,
+      createdAt: timestamp,
     })
+    const normalizedSaved = {
+      ...normalizeWorkReportRow(savedRow),
+      team: WORK_REPORT_SUPPORT_SLOT_TEAM,
+    }
+    workReportRowsRef.current = upsertWorkReportRowInList(workReportRowsRef.current, normalizedSaved)
+    setWorkReportRows(workReportRowsRef.current)
+    return normalizedSaved
+  }
+
+  const addWorkReportSupportItem = async () => {
+    if (supportAddLockRef.current) return
+    supportAddLockRef.current = true
+    try {
+      const current = getWorkReportSupportOrderIndexes()
+      const next = current.length ? Math.max(...current) + 1 : 1
+      const stored = supportStoredOrderIndexes()
+      const missing = [...current.filter((orderIndex) => !stored.has(orderIndex)), next]
+      setSupportStarterHiddenByWeek((prev) => ({ ...prev, [supportWeekKey]: false }))
+      setSupportPinnedByWeek((prev) => {
+        const merged = new Set(
+          [...(prev[supportWeekKey] || []), ...current, next]
+            .map((value) => Number(value))
+            .filter((value) => Number.isInteger(value) && value >= 1)
+        )
+        return { ...prev, [supportWeekKey]: [...merged] }
+      })
+      const anchorDate = selectedWorkWeekDays[0]?.date
+      if (!anchorDate) return
+      for (const orderIndex of missing) {
+        await persistSupportSlot(anchorDate, orderIndex)
+      }
+    } catch (error) {
+      logApiOperationError('영업지원 항목 추가', error)
+      showAppAlert('영업지원 항목을 저장하지 못했습니다. 다시 추가해 주세요.')
+    } finally {
+      supportAddLockRef.current = false
+    }
   }
 
   const removeWorkReportSupportItem = async (date, orderIndex) => {
     const oi = Number(orderIndex || 0)
     if (!Number.isInteger(oi) || oi < 1) return
     const sections = [WORK_REPORT_SECTION_KEYS.supportProgress, WORK_REPORT_SECTION_KEYS.supportDone]
-    for (const section of sections) {
-      const cellKey = getWorkReportCellKey(date, section, oi)
-      const timers = workReportSaveTimersRef.current
-      if (timers[cellKey]) {
-        window.clearTimeout(timers[cellKey])
-        delete timers[cellKey]
+    const deleteSupportCell = async (cellDate) => {
+      for (const section of sections) {
+        const cellKey = getWorkReportCellKey(cellDate, section, oi)
+        const timers = workReportSaveTimersRef.current
+        if (timers[cellKey]) {
+          window.clearTimeout(timers[cellKey])
+          delete timers[cellKey]
+        }
+        const stored = getStoredWorkReportEntry(cellDate, section, oi)
+        const draft = workReportDraftsRef.current[cellKey]
+        const persistedId =
+          stored?.id || (!isWorkReportDraftRowId(draft?.id) ? safeString(draft?.id).trim() : '')
+        const nextDrafts = removeObjectKey(workReportDraftsRef.current, cellKey)
+        workReportDraftsRef.current = nextDrafts
+        setWorkReportDrafts(nextDrafts)
+        if (persistedId) await deleteWorkReportRowById(persistedId)
       }
-      const stored = getStoredWorkReportEntry(date, section, oi)
-      const draft = workReportDraftsRef.current[cellKey]
-      const persistedId =
-        stored?.id || (!isWorkReportDraftRowId(draft?.id) ? safeString(draft?.id).trim() : '')
-      const nextDrafts = removeObjectKey(workReportDraftsRef.current, cellKey)
-      workReportDraftsRef.current = nextDrafts
-      setWorkReportDrafts(nextDrafts)
-      if (persistedId) await deleteWorkReportRowById(persistedId)
     }
 
-    const stillUsed = selectedWorkWeekDays.some((day) => supportOrderIndexHasValue(day.date, oi))
+    await deleteSupportCell(date)
+
+    const anyFilled = selectedWorkWeekDays.some((day) => supportOrderIndexHasValue(day.date, oi))
+    if (!anyFilled) {
+      for (const day of selectedWorkWeekDays) {
+        if (normalizeWorkReportDateKey(day.date) === normalizeWorkReportDateKey(date)) continue
+        await deleteSupportCell(day.date)
+      }
+    }
+
+    const stillUsed = selectedWorkWeekDays.some(
+      (day) =>
+        supportOrderIndexHasValue(day.date, oi) ||
+        (workReportRowsRef.current || []).some(
+          (row) =>
+            isWorkReportSupportSlotRow(row) &&
+            Number(row?.orderIndex || row?.order_index || 0) === oi &&
+            normalizeWorkReportDateKey(row?.date) === normalizeWorkReportDateKey(day.date)
+        )
+    )
     if (stillUsed) return
 
     setSupportPinnedByWeek((prev) => ({
       ...prev,
       [supportWeekKey]: (prev[supportWeekKey] || []).filter((value) => Number(value) !== oi),
     }))
-    const othersRemain = selectedWorkWeekDays.some((day) =>
-      (workReportRowsRef.current || []).some((row) => {
-        const section = safeString(row?.section).trim()
-        if (
-          section !== WORK_REPORT_SECTION_KEYS.supportProgress &&
-          section !== WORK_REPORT_SECTION_KEYS.supportDone
-        ) {
-          return false
-        }
-        if (normalizeWorkReportDateKey(row?.date) !== normalizeWorkReportDateKey(day.date)) return false
-        const rowIndex = Number(row?.orderIndex || row?.order_index || 0)
-        return rowIndex !== oi && supportOrderIndexHasValue(day.date, rowIndex)
-      })
-    )
+    const othersRemain = supportStoredOrderIndexes().size > 0
     const pinsRemain = (supportPinnedByWeek[supportWeekKey] || []).some((value) => Number(value) !== oi)
     if (!othersRemain && !pinsRemain) {
       setSupportStarterHiddenByWeek((prev) => ({ ...prev, [supportWeekKey]: true }))
