@@ -12777,62 +12777,6 @@ function App() {
     }
   }
 
-  const removeWorkReportSupportItem = async (date, orderIndex) => {
-    const oi = Number(orderIndex || 0)
-    if (!Number.isInteger(oi) || oi < 1) return
-    const sections = [WORK_REPORT_SECTION_KEYS.supportProgress, WORK_REPORT_SECTION_KEYS.supportDone]
-    const deleteSupportCell = async (cellDate) => {
-      for (const section of sections) {
-        const cellKey = getWorkReportCellKey(cellDate, section, oi)
-        const timers = workReportSaveTimersRef.current
-        if (timers[cellKey]) {
-          window.clearTimeout(timers[cellKey])
-          delete timers[cellKey]
-        }
-        const stored = getStoredWorkReportEntry(cellDate, section, oi)
-        const draft = workReportDraftsRef.current[cellKey]
-        const persistedId =
-          stored?.id || (!isWorkReportDraftRowId(draft?.id) ? safeString(draft?.id).trim() : '')
-        const nextDrafts = removeObjectKey(workReportDraftsRef.current, cellKey)
-        workReportDraftsRef.current = nextDrafts
-        setWorkReportDrafts(nextDrafts)
-        if (persistedId) await deleteWorkReportRowById(persistedId)
-      }
-    }
-
-    await deleteSupportCell(date)
-
-    const anyFilled = selectedWorkWeekDays.some((day) => supportOrderIndexHasValue(day.date, oi))
-    if (!anyFilled) {
-      for (const day of selectedWorkWeekDays) {
-        if (normalizeWorkReportDateKey(day.date) === normalizeWorkReportDateKey(date)) continue
-        await deleteSupportCell(day.date)
-      }
-    }
-
-    const stillUsed = selectedWorkWeekDays.some(
-      (day) =>
-        supportOrderIndexHasValue(day.date, oi) ||
-        (workReportRowsRef.current || []).some(
-          (row) =>
-            isWorkReportSupportSlotRow(row) &&
-            Number(row?.orderIndex || row?.order_index || 0) === oi &&
-            normalizeWorkReportDateKey(row?.date) === normalizeWorkReportDateKey(day.date)
-        )
-    )
-    if (stillUsed) return
-
-    setSupportPinnedByWeek((prev) => ({
-      ...prev,
-      [supportWeekKey]: (prev[supportWeekKey] || []).filter((value) => Number(value) !== oi),
-    }))
-    const othersRemain = supportStoredOrderIndexes().size > 0
-    const pinsRemain = (supportPinnedByWeek[supportWeekKey] || []).some((value) => Number(value) !== oi)
-    if (!othersRemain && !pinsRemain) {
-      setSupportStarterHiddenByWeek((prev) => ({ ...prev, [supportWeekKey]: true }))
-    }
-  }
-
   const getWorkReportDayLabel = (dateYmd) => {
     const dateKey = normalizeWorkReportDateKey(dateYmd)
     const days = getWorkReportWeekDays(selectedWorkWeekMeta.weekStartDate)
@@ -16399,20 +16343,6 @@ function App() {
     </section>
   )
 
-  const renderWorkReportSupportRemoveButton = (date, orderIndex) => (
-    <button
-      type="button"
-      className="work-report-support-remove"
-      aria-label={`${orderIndex}번 항목 삭제`}
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={() => {
-        void removeWorkReportSupportItem(date, orderIndex)
-      }}
-    >
-      ×
-    </button>
-  )
-
   const renderWorkReportSupportAreaListV4 = (date) => (
     <div className="work-report-board-support-block shrink-0">
       <div className="work-report-board-table">
@@ -16456,7 +16386,6 @@ function App() {
                 }}
                 onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
               />
-              {renderWorkReportSupportRemoveButton(date, orderIndex)}
             </div>
           )
         })}
@@ -16758,7 +16687,6 @@ function App() {
               }}
               onKeyDown={(e) => handleWorkReportTextEditKeyDown(e, { multiline: true })}
             />
-            {renderWorkReportSupportRemoveButton(date, orderIndex)}
           </div>
         )
       })
