@@ -10,7 +10,6 @@ import {
   SESSION_EXPIRED_USER_MESSAGE,
   setAuthToken,
 } from './apiClient.js'
-import { logCmsApiLogin } from './cmsApiProbe.js'
 import {
   CONTRACT_PERSISTENT_SESSION_DURATION_MS,
   CONTRACT_SHARED_SESSION_DURATION_MS,
@@ -263,114 +262,58 @@ export function AuthProvider({ children }) {
     setSessionExpiredNotice('')
   }, [])
 
-  const login = useCallback(async (password, rememberMe = false) => {
-    setSessionExpiredNotice('')
-    const trimmed = String(password).trim()
+  const applyAuthenticatedSession = useCallback((data, rememberMe) => {
+    const resolvedRole = data.role ? normalizeRole(data.role) : ROLES.ADMIN
+    const resolvedLabel =
+      String(data.role_label || '').trim() ||
+      ROLE_LABELS[resolvedRole] ||
+      ROLE_LABELS[ROLES.USER]
 
-    if (!trimmed) {
-      return { ok: false, error: '계정을 입력해 주세요.' }
+    if (!data.auth_disabled && isGenericAccountLabel(resolvedLabel)) {
+      clearAuthToken()
+      return { ok: false, error: '계정이 올바르지 않습니다.' }
     }
 
-    logCmsApiLogin('attempt', {
-      POST: `${API_BASE_URL}/api/auth/login`,
-      note: 'password is never logged',
-    })
+    const resolvedAccountId = normalizeAccountId(data.account_id)
+    const persistence = rememberMe ? 'persistent' : 'session'
+    const sessionDuration = rememberMe
+      ? CONTRACT_PERSISTENT_SESSION_DURATION_MS
+      : CONTRACT_SHARED_SESSION_DURATION_MS
+    const expiresAt = Date.now() + sessionDuration
+    writeSharedAuthSession(expiresAt, persistence)
+    writeRole(resolvedRole, persistence)
+    writeRoleLabel(resolvedLabel, persistence)
+    writeAccountId(resolvedAccountId, persistence)
+    writeClientAccessFlags(
+      {
+        canAccessBitHistory: Boolean(data.can_access_bit_history),
+        canViewAllInactiveContacts: Boolean(data.can_view_all_inactive_contacts),
+      },
+      persistence,
+    )
+    syncAuthTokenToActiveStorage(persistence)
 
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/login`,
-        apiFetchInit({
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            password: trimmed,
-          }),
-        })
-      )
-      const data = await response.json().catch(() => ({}))
+    setAuthPersistence(persistence)
+    setIsAuthenticated(true)
+    setRole(resolvedRole)
+    setRoleLabel(resolvedLabel)
+    setAccountId(resolvedAccountId)
+    setAccessGranted(true)
+    setSharedSessionExpiresAt(expiresAt)
+    markSessionResumeLogged()
+    sendAuditLog('LOGIN', '시스템 로그인')
 
-      logCmsApiLogin('http response', {
-        status: response.status,
-        ok: response.ok,
-        auth_disabled: Boolean(data.auth_disabled),
-        has_access_token: Boolean(data.access_token),
-      })
-
-      if (data.auth_disabled) {
-        clearAuthToken()
-      } else if (!response.ok) {
-        const detail = data.detail
-        const raw =
-          typeof detail === 'string'
-            ? detail
-            : Array.isArray(detail)
-              ? detail.map((item) => item.msg || item).join(', ')
-              : ''
-        const message = raw.includes(RESTRICTED_LOGIN_MESSAGE)
-          ? RESTRICTED_LOGIN_MESSAGE
-          : response.status === 401 || /invalid password/i.test(raw)
-            ? '계정이 올바르지 않습니다.'
-            : raw || '로그인에 실패했습니다.'
-        logCmsApiLogin('rejected', { status: response.status, message })
-        return { ok: false, error: message }
-      } else if (data.access_token) {
-        setAuthToken(data.access_token, { persistent: rememberMe })
-      }
-
-      const resolvedRole = data.role ? normalizeRole(data.role) : ROLES.ADMIN
-      const resolvedLabel =
-        String(data.role_label || '').trim() ||
-        ROLE_LABELS[resolvedRole] ||
-        ROLE_LABELS[ROLES.USER]
-
-      if (!data.auth_disabled && isGenericAccountLabel(resolvedLabel)) {
-        clearAuthToken()
-        return { ok: false, error: '계정이 올바르지 않습니다.' }
-      }
-
-      const resolvedAccountId = normalizeAccountId(data.account_id)
-
-      const persistence = rememberMe ? 'persistent' : 'session'
-      const sessionDuration = rememberMe
-        ? CONTRACT_PERSISTENT_SESSION_DURATION_MS
-        : CONTRACT_SHARED_SESSION_DURATION_MS
-      const expiresAt = Date.now() + sessionDuration
-      writeSharedAuthSession(expiresAt, persistence)
-      writeRole(resolvedRole, persistence)
-      writeRoleLabel(resolvedLabel, persistence)
-      writeAccountId(resolvedAccountId, persistence)
-      writeClientAccessFlags(
-        {
-          canAccessBitHistory: Boolean(data.can_access_bit_history),
-          canViewAllInactiveContacts: Boolean(data.can_view_all_inactive_contacts),
-        },
-        persistence,
-      )
-      syncAuthTokenToActiveStorage(persistence)
-
-      setAuthPersistence(persistence)
-      setIsAuthenticated(true)
-      setRole(resolvedRole)
-      setRoleLabel(resolvedLabel)
-      setAccountId(resolvedAccountId)
-      setAccessGranted(true)
-      setSharedSessionExpiresAt(expiresAt)
-      markSessionResumeLogged()
-      sendAuditLog('LOGIN', '시스템 로그인')
-
-      logCmsApiLogin('success', {
-        mode: data.auth_disabled ? 'auth_disabled' : 'jwt',
-        api: API_BASE_URL,
-        role: resolvedRole,
-        persistence,
-      })
-
-      return { ok: true, role: resolvedRole, password: trimmed }
-    } catch (err) {
-      logCmsApiLogin('error', { message: err?.message || String(err) })
-      return { ok: false, error: '서버에 연결할 수 없습니다. API 주소와 네트워크를 확인하세요.' }
-    }
+    return { ok: true, role: resolvedRole }
   }, [])
+
+  const acceptKakaoSession = useCallback((data, rememberMe = false) => {
+    if (data?.access_token) {
+      setAuthToken(data.access_token, { persistent: rememberMe })
+    } else if (!data?.auth_disabled) {
+      return { ok: false, error: '로그인에 실패했습니다.' }
+    }
+    return applyAuthenticatedSession(data, rememberMe)
+  }, [applyAuthenticatedSession])
 
   const logout = useCallback(() => {
     clearSessionResumeLogged()
@@ -436,7 +379,7 @@ export function AuthProvider({ children }) {
       authHydrated,
       sessionExpiredNotice,
       clearSessionExpiredNotice,
-      login,
+      acceptKakaoSession,
       logout,
       extendLogin,
     }),
@@ -452,7 +395,7 @@ export function AuthProvider({ children }) {
       authHydrated,
       sessionExpiredNotice,
       clearSessionExpiredNotice,
-      login,
+      acceptKakaoSession,
       logout,
       extendLogin,
     ]

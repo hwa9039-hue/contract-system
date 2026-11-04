@@ -158,6 +158,13 @@ export function hasAdminPrivileges(role) {
   return ADMIN_LEVEL_ROLES.has(normalizeRole(role))
 }
 
+/** 계정 연동 관리. 로그인 아이디 hy9039! 는 저장 시 hy9039 가 된다. DB 컬럼이 아니다. */
+export function canManageKakaoAccountLinks(accountId, roleLabel) {
+  const id = normalizeAccountId(accountId)
+  const name = String(roleLabel || '').replace(/\s/g, '')
+  return id === 'hy9039' || name === '정화영'
+}
+
 /** 접근 불가 — 메뉴 숨김 + API 전체 차단 (관리자급만 진입) */
 export const ADMIN_ONLY_MENUS = new Set([])
 
@@ -213,6 +220,9 @@ function toIsPrivileged(isAdminOrRole) {
 
 /** 특정 역할이 해당 메뉴에 접근(열람)할 수 있는지 */
 export function canAccessMenu(menuKey, isAdminOrRole, accountId) {
+  if (menuKey === 'kakaoAccountLinks') {
+    return canManageKakaoAccountLinks(accountId)
+  }
   if (menuKey === BIT_HISTORY_MENU_KEY) {
     return canAccessBitHistory(accountId)
   }

@@ -1467,6 +1467,30 @@ def init_db():
                   add column if not exists is_active boolean not null default true
                 """
             )
+            cursor.execute(
+                """
+                alter table app_login_accounts
+                  add column if not exists kakao_id text
+                """
+            )
+            cursor.execute(
+                """
+                create unique index if not exists app_login_accounts_kakao_id_uidx
+                  on app_login_accounts (kakao_id)
+                  where kakao_id is not null and btrim(kakao_id) <> ''
+                """
+            )
+            cursor.execute(
+                """
+                create table if not exists kakao_pending_users (
+                  kakao_id text primary key,
+                  nickname text not null default '',
+                  status text not null default 'pending',
+                  requested_at timestamptz not null default now(),
+                  updated_at timestamptz not null default now()
+                )
+                """
+            )
             # 퇴사 계정은 행을 지우지 않고 로그인만 막는다. 영업 담당자 이름은 다른 테이블에 그대로 둔다.
             cursor.execute(
                 """

@@ -26,6 +26,11 @@ services:
       AUTH_DISABLED: ${AUTH_DISABLED:-false}
       # 견적 · 설계 반출 현황: Google Apps Script 수신용 비밀 토큰. 비워 두면 수신 API 가 꺼진다(503).
       EMAIL_INGEST_TOKEN: ${EMAIL_INGEST_TOKEN:-}
+      # 카카오 로그인. 키는 카카오 콘솔의 REST API 키. 리다이렉트 주소는 콘솔에 등록한 값과 같아야 한다.
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
+      KAKAO_REDIRECT_URI: ${KAKAO_REDIRECT_URI:-}
+      KAKAO_REDIRECT_URIS: ${KAKAO_REDIRECT_URIS:-}
       UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
       CONTRACT_IMPORT_EXCEL_BACKUP_DIR: ${CONTRACT_IMPORT_EXCEL_BACKUP_DIR:-/data/contract_excel_backup}
       BACKUP_DIR: ${BACKUP_DIR:-/app/backups}

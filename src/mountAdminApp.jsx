@@ -2,9 +2,11 @@ import { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import LoginPage from './LoginPage.jsx'
+import KakaoCallbackPage from './KakaoCallbackPage.jsx'
 import { AuthProvider, useAuth } from './AuthContext.jsx'
 import { enforceAppVersion } from './appVersion.js'
 import { isPublicSharePath } from './publicShare/publicSharePaths.js'
+import { isKakaoCallbackPath } from './kakaoAuth.js'
 import { bootstrapCmsApiProbe } from './cmsApiProbe.js'
 import { installProductionGuard } from './productionGuard.js'
 import { Watermark } from './Watermark.jsx'
@@ -16,9 +18,10 @@ const LOGIN_PATH = '/login'
 
 function AppRoot() {
   const { isAuthenticated, authHydrated, accessGranted } = useAuth()
+  const kakaoCallback = isKakaoCallbackPath()
 
   useEffect(() => {
-    if (!authHydrated) return
+    if (!authHydrated || kakaoCallback) return
     if (!isAuthenticated) {
       if (window.location.pathname !== LOGIN_PATH) {
         window.history.replaceState(null, '', LOGIN_PATH)
@@ -29,9 +32,10 @@ function AppRoot() {
     if (window.location.pathname === LOGIN_PATH) {
       window.history.replaceState(null, '', '/')
     }
-  }, [authHydrated, isAuthenticated, accessGranted])
+  }, [authHydrated, isAuthenticated, accessGranted, kakaoCallback])
 
   if (!authHydrated) return null
+  if (kakaoCallback && !isAuthenticated) return <KakaoCallbackPage />
   if (!isAuthenticated) return <LoginPage />
   return <App />
 }

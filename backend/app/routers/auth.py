@@ -9,80 +9,14 @@ from app.auth_utils import (
     create_access_token,
     decode_token,
     decode_token_allow_expired,
-    get_auth_shared_password,
     get_jwt_secret,
     access_claims_for_account,
-    account_id_from_login_password,
-    has_admin_accounts_configured,
-    has_manager_accounts_configured,
     is_auth_disabled,
     is_generic_account_label,
-    is_retired_login_password,
     normalize_token_role,
-    resolve_login_account,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
-
-class LoginBody(BaseModel):
-    password: str
-    role: str | None = "user"
-
-
-@router.post("/login")
-def login(body: LoginBody):
-    if is_auth_disabled():
-        return {
-            "access_token": None,
-            "token_type": "bearer",
-            "expires_in": 0,
-            "auth_disabled": True,
-        }
-
-    if not get_jwt_secret():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="JWT_SECRET is not set on the server",
-        )
-    if not get_auth_shared_password():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AUTH_SHARED_PASSWORD is not set on the server",
-        )
-    if not has_admin_accounts_configured() and not has_manager_accounts_configured():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AUTH_ADMIN_ACCOUNTS / AUTH_MANAGER_ACCOUNTS is not set on the server",
-        )
-
-    if is_retired_login_password(body.password) or not resolve_login_account(body.password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
-
-    matched = resolve_login_account(body.password)
-
-    login_role, display_name = matched
-    if is_generic_account_label(display_name):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
-
-    account_id = account_id_from_login_password(body.password)
-    if is_login_account_blocked(account_id, display_name):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=RESTRICTED_ACCOUNT_MESSAGE,
-        )
-
-    claims = access_claims_for_account(account_id)
-    token = create_access_token(login_role, display_name=display_name, **claims)
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        "auth_disabled": False,
-        "role": login_role,
-        "role_label": display_name or None,
-        **claims,
-    }
 
 
 class SessionResumeBody(BaseModel):

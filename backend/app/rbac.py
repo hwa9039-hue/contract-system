@@ -7,6 +7,9 @@ user    — admin-only menus blocked; viewer-only menus GET-only; rest full acce
 
 ADMIN_ONLY_PREFIXES = (
     "/api/audit-logs",
+    "/api/auth/kakao/pending",
+    "/api/auth/kakao/employees",
+    "/api/auth/kakao/approve",
 )
 
 USER_READ_ONLY_PREFIXES = (

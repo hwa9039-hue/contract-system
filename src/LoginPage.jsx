@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react'
 import { RESTRICTED_LOGIN_MESSAGE, useAuth } from './AuthContext.jsx'
-import { readRememberMePreference } from './authSession.js'
 import { purgeSavedAdminPassword } from './loginCredentials.js'
+import { beginKakaoLogin } from './kakaoAuth.js'
 import './LoginPage.css'
 
 const LOGIN_PAGE_ACTIVE_CLASS = 'login-page-active'
 
 export default function LoginPage() {
-  const { login, sessionExpiredNotice, clearSessionExpiredNotice } = useAuth()
-  const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(() => readRememberMePreference())
+  const { acceptKakaoSession, sessionExpiredNotice, clearSessionExpiredNotice } = useAuth()
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -29,14 +27,19 @@ export default function LoginPage() {
     }
   }, [])
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const handleKakaoLogin = async () => {
     setError('')
     setSubmitting(true)
-    const result = await login(password, rememberMe)
-    setSubmitting(false)
+    const result = await beginKakaoLogin()
+    if (result.authDisabled) {
+      const applied = acceptKakaoSession(result.data, false)
+      setSubmitting(false)
+      if (!applied.ok) setError(applied.error || '로그인에 실패했습니다.')
+      return
+    }
     if (!result.ok) {
-      setError(result.error || '로그인에 실패했습니다.')
+      setSubmitting(false)
+      setError(result.error || '카카오 로그인을 시작하지 못했습니다.')
     }
   }
 
@@ -55,47 +58,23 @@ export default function LoginPage() {
         <div className="login-page-brand">
           <img className="login-page-logo" src="/logo.png" alt="스마트DI" />
           <h1 className="login-page-title">스마트DI사업부 통합관리 시스템</h1>
-          <p className="login-page-subtitle">본인 계정으로 로그인하세요.</p>
+          <p className="login-page-subtitle">카카오 계정으로 로그인하세요.</p>
         </div>
 
-        <form className="login-page-form" onSubmit={handleSubmit} autoComplete="off" method="post" action="/login">
-          <input
-            id="login-password"
-            name="password"
-            type="password"
-            className="login-page-input"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value)
-              if (error) setError('')
-            }}
-            placeholder="계정을 입력하세요"
-            aria-label="계정을 입력하세요"
-            autoComplete="current-password"
-            autoFocus
-          />
+        {error ? (
+          <div className="login-page-error" role="alert">
+            {error}
+          </div>
+        ) : null}
 
-          <label className="login-page-remember">
-            <input
-              type="checkbox"
-              className="login-page-remember-input"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-            />
-            <span className="login-page-remember-box" aria-hidden="true" />
-            <span className="login-page-remember-label">자동 로그인 (30일)</span>
-          </label>
-
-          {error ? (
-            <div className="login-page-error" role="alert">
-              {error}
-            </div>
-          ) : null}
-
-          <button type="submit" className="login-page-submit primary-btn" disabled={submitting}>
-            {submitting ? '로그인 중…' : '로그인'}
-          </button>
-        </form>
+        <button
+          type="button"
+          className="login-page-kakao"
+          onClick={handleKakaoLogin}
+          disabled={submitting}
+        >
+          {submitting ? '카카오 로그인 중…' : '카카오 로그인'}
+        </button>
       </div>
     </div>
   )

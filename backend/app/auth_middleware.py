@@ -58,11 +58,13 @@ def _is_public_api_path(path: str, method: str = "GET") -> bool:
     # Google Apps Script 수신: 사용자 JWT 대신 라우터에서 X-Ingest-Token 으로 직접 검증한다.
     if path == "/api/emails/export-logs/ingest":
         return method == "POST"
-    if path == "/api/auth/login":
-        return True
     if path == "/api/auth/refresh":
         return True
     if path == "/api/auth/me":
+        return True
+    if path == "/api/auth/kakao/authorize" and method == "GET":
+        return True
+    if path == "/api/auth/kakao" and method == "POST":
         return True
     # 설치사례 hero 미디어는 <img>/<video> 로딩 시 Authorization 헤더를 붙일 수 없어 공개 경로로 둡니다.
     if path.startswith("/api/install-cases/") and (

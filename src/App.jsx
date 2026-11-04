@@ -194,10 +194,12 @@ import {
   canAccessBitHistory,
   canAccessMenu,
   canEditMenu,
+  canManageKakaoAccountLinks,
   filterSidebarMenuGroups,
 } from './permissions.js'
 import { CONTRACT_SHARED_WARNING_MS, formatRemainingSessionLabel, hydrateAuthSessionFromStorage } from './authSession.js'
 import AuditLogPage from './pages/admin/AuditLogPage.jsx'
+import KakaoAccountLinkPage from './KakaoAccountLinkPage.jsx'
 import {
   CONTRACT_EXCEL_HEADER_KEYWORDS,
   sheetToJsonWithSmartHeader,
@@ -6540,9 +6542,14 @@ function App() {
   const workReportRowsRef = useRef([])
   const initialMenu = resolveInitialMenu()
   const [menu, setMenu] = useState(initialMenu)
+  const canManageKakaoLinks = canManageKakaoAccountLinks(accountId, roleLabel)
   const lastAllowedMenuRef = useRef(null)
   // menu 상태가 선언된 뒤에 계산해야 한다 (먼저 쓰면 초기화 전 접근 오류로 화면이 비어 버린다).
-  const isMenuAccessDenied = authHydrated && !canAccessMenu(menu, role, accountId)
+  const isMenuAccessDenied =
+    authHydrated &&
+    (menu === 'kakaoAccountLinks'
+      ? !canManageKakaoLinks
+      : !canAccessMenu(menu, role, accountId))
   const { onlineUsers } = usePresence(PAGE_TITLE_MAP[menu] || '')
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const [expandedMenuGroups, setExpandedMenuGroups] = useState(() =>
@@ -16864,6 +16871,17 @@ function App() {
               )
             })}
 
+            {canManageKakaoLinks ? (
+              <button
+                type="button"
+                className={menu === 'kakaoAccountLinks' ? 'menu-btn active' : 'menu-btn'}
+                onClick={() => setMenu('kakaoAccountLinks')}
+                title="계정 연동 관리"
+              >
+                <span className="block min-w-0 truncate">계정 연동 관리</span>
+              </button>
+            ) : null}
+
             {/* 발주관리 — 단독 메뉴에서 '영업정보' 그룹 하위로 이동 */}
             {/* 사업관리 / 단가관리 — 사이드바에서 제거됨 (레거시 페이지 컴포넌트는 보관) */}
           </div>
@@ -17007,6 +17025,8 @@ function App() {
             </button>
           </div>
         )}
+
+        {menu === 'kakaoAccountLinks' && !isMenuAccessDenied && <KakaoAccountLinkPage />}
 
         {menu === 'dashboard' && (
           <section className="stat-card stat-card--dashboard">

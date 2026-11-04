@@ -52,7 +52,11 @@ function isAuthExemptUrl(url) {
   const path = String(url || '')
     .replace(API_BASE_URL, '')
     .split('?')[0]
-  return path === '/api/auth/login' || path === '/api/auth/refresh'
+  return (
+    path === '/api/auth/refresh' ||
+    path === '/api/auth/kakao' ||
+    path === '/api/auth/kakao/authorize'
+  )
 }
 
 async function readResponseSnippet(response) {

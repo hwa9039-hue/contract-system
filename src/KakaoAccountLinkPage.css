@@ -1,0 +1,94 @@
+.kakao-link-page {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  box-sizing: border-box;
+  align-self: stretch;
+}
+
+.kakao-link-page-head h1 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.kakao-link-page-head p {
+  margin: 0 0 16px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.kakao-link-page-error,
+.kakao-link-page-notice {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.kakao-link-page-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.kakao-link-page-notice {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.kakao-link-page-empty {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.kakao-link-page-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.kakao-link-page-table th,
+.kakao-link-page-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.kakao-link-page-table th {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.kakao-link-page-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.kakao-link-page-id {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.kakao-link-page-select {
+  min-width: 180px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+.kakao-link-page-approve {
+  min-height: 36px;
+  padding: 0 14px;
+  white-space: nowrap;
+}
