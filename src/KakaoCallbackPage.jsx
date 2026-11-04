@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext.jsx'
 import {
   exchangeKakaoCode,
   isKakaoCallbackPath,
+  leaveKakaoCallback,
   readKakaoCallbackParams,
 } from './kakaoAuth.js'
 import './LoginPage.css'
@@ -46,6 +47,7 @@ export default function KakaoCallbackPage() {
           setError(applied.error || '로그인에 실패했습니다.')
           return
         }
+        leaveKakaoCallback()
         window.history.replaceState(null, '', '/')
         return
       }
@@ -83,7 +85,7 @@ export default function KakaoCallbackPage() {
             type="button"
             className="login-page-submit primary-btn"
             onClick={() => {
-              window.history.replaceState(null, '', '/login')
+              leaveKakaoCallback()
               window.location.assign('/login')
             }}
           >

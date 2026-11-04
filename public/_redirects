@@ -1,2 +1,2 @@
-/auth/kakao/callback /index.html 200
-/auth/kakao/callback/ /index.html 200
+# /auth/kakao/callback 을 /index.html 로 명시하면 주소가 / 로 308 되고 로그인 화면으로 돌아간다.
+# 다른 화면과 같이 이 경로도 주소 그대로 index 를 연다.
