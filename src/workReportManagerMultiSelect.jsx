@@ -2,9 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom'
 import { computeFixedPortalPosition, fixedPortalStyle } from './portalMenuPosition.js'
 
+/** 새로 고를 수 있는 담당자. 퇴사자는 넣지 않는다. */
 export const WORK_REPORT_MANAGER_OPTIONS = [
   '전기웅',
-  '유영무',
   '김성수',
   '이재승',
   '이용자',
@@ -46,13 +46,21 @@ export function parseManagerMultiSelectValue(value) {
     .filter(Boolean)
 }
 
-/** 담당자 배열 → API·DB용 CSV (옵션 순서 유지) */
+/**
+ * 담당자 배열 → API·DB용 CSV.
+ * 선택 목록에 있는 이름은 목록 순서를 유지하고,
+ * 목록에 없는 저장값(퇴사자 등)은 뒤에 그대로 붙여 지우지 않는다.
+ */
 export function serializeManagerMultiSelectValue(
   assignees,
   optionList = WORK_REPORT_MANAGER_OPTIONS
 ) {
-  const selected = new Set(parseManagerMultiSelectValue(assignees))
-  return optionList.filter((name) => selected.has(name)).join(', ')
+  const selected = parseManagerMultiSelectValue(assignees)
+  const selectedSet = new Set(selected)
+  const optionSet = new Set(optionList)
+  const known = optionList.filter((name) => selectedSet.has(name))
+  const kept = selected.filter((name) => !optionSet.has(name))
+  return [...known, ...kept].join(', ')
 }
 
 export function toggleManagerMultiSelectCsv(currentValue, managerName, optionList = WORK_REPORT_MANAGER_OPTIONS) {
@@ -60,7 +68,7 @@ export function toggleManagerMultiSelectCsv(currentValue, managerName, optionLis
   const set = new Set(parts)
   if (set.has(managerName)) set.delete(managerName)
   else set.add(managerName)
-  return optionList.filter((option) => set.has(option)).join(', ')
+  return serializeManagerMultiSelectValue([...set], optionList)
 }
 
 export function WorkReportExternalManagerMultiSelect({

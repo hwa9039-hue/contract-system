@@ -577,8 +577,8 @@ async function copyTextToClipboard(text) {
   }
 }
 
-const SALES_MANAGER_OPTIONS = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범', '신상준']
-const SALES_REGISTER_MANAGER_OPTIONS = ['전기웅', '유영무', '김성수', '이재승', '이용자', '박재범']
+const SALES_MANAGER_OPTIONS = ['전기웅', '김성수', '이재승', '이용자', '박재범', '신상준']
+const SALES_REGISTER_MANAGER_OPTIONS = ['전기웅', '김성수', '이재승', '이용자', '박재범']
 /** 영업관리대장: 연도 하위 접이 그룹(마감·계약) 표시명 */
 const SALES_CONTRACT_CLOSED_GROUP_LABEL = '계약&마감'
 const SALES_CONTRACT_CLOSED_STAGES = new Set(['마감', '계약'])
@@ -963,7 +963,7 @@ const WORK_REPORT_AUTOSAVE_DELAY_MS = 1000
 const WORK_REPORT_EXTERNAL_ROW_COUNT = 5
 const WORK_REPORT_DI_ROW_COUNT = 4
 const WORK_REPORT_ROAD_ROW_COUNT = 2
-/** DI사업 담당자 — 행 번호별 고정 (수기 선택 UI 없음) */
+/** DI사업 담당자 — 행 번호별 고정 (수기 선택 UI 없음). 행 순서가 과거 주차 표시라 여기서 이름을 빼면 아래 행이 밀린다. */
 const WORK_REPORT_DI_FIXED_MANAGERS = Object.freeze(['전기웅', '유영무', '김성수', '이재승'])
 /** 도로사업 담당자 — 행 번호별 고정 */
 const WORK_REPORT_ROAD_FIXED_MANAGERS = Object.freeze(['이용자', '박재범'])
@@ -4298,6 +4298,14 @@ function getDashboardWeekMeetingMinutesRows(weekStartDate, workReportRows, workR
 function safeString(value) {
   if (value === null || value === undefined) return ''
   return String(value)
+}
+
+/** 저장값이 선택 목록에 없어도 그 글자가 빈칸이 되지 않게 현재 값만 뒤에 붙인다. */
+function withStoredSelectOption(options, currentValue) {
+  const list = Array.isArray(options) ? [...options] : []
+  const current = safeString(currentValue).trim()
+  if (!current || list.includes(current)) return list
+  return [...list, current]
 }
 
 function syncMaterialsBoardFolderCounts(posts, folders) {
@@ -13524,7 +13532,7 @@ function App() {
           }}
         >
           <option value="">선택</option>
-          {(column.options || []).map((option) => (
+          {withStoredSelectOption(column.options, contractEditDraft).map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
@@ -14406,7 +14414,7 @@ function App() {
       const selectOptions =
         column.type === 'statusBadge'
           ? resolveSalesStageOptions(registryCellEditDraft, column.options)
-          : column.options || []
+          : withStoredSelectOption(column.options, registryCellEditDraft)
       const commitSelectValue = (nextValue) => {
         if (!scope || !rowId) return
         const snap = registryCellEditRef.current
@@ -14602,7 +14610,7 @@ function App() {
       const selectOptions =
         column.type === 'statusBadge'
           ? resolveSalesStageOptions(row[column.key], column.options)
-          : column.options || []
+          : withStoredSelectOption(column.options, row[column.key])
       return (
         <select
           className={inputClassName}
@@ -15582,7 +15590,7 @@ function App() {
               onChange={(e) => handleWorkReportEditorChange('user', e.target.value)}
             >
               <option value="">담당자</option>
-              {WORK_REPORT_EXTERNAL_USER_OPTIONS.map((option) => (
+              {withStoredSelectOption(WORK_REPORT_EXTERNAL_USER_OPTIONS, editingWorkCellData.user).map((option) => (
                 <option key={option} value={option}>
                   {option}
                 </option>
@@ -15704,7 +15712,7 @@ function App() {
                   }
                 >
                   <option value="">선택</option>
-                  {WORK_REPORT_MANAGER_OPTIONS.map((option) => (
+                  {withStoredSelectOption(WORK_REPORT_MANAGER_OPTIONS, entry.user).map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>
@@ -15779,7 +15787,7 @@ function App() {
                 }
               >
                 <option value="">선택</option>
-                {WORK_REPORT_MANAGER_OPTIONS.map((option) => (
+                {withStoredSelectOption(WORK_REPORT_MANAGER_OPTIONS, entry.user).map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
@@ -15944,7 +15952,7 @@ function App() {
                 }
               >
                 <option value="">선택</option>
-                {WORK_REPORT_MANAGER_OPTIONS.map((option) => (
+                {withStoredSelectOption(WORK_REPORT_MANAGER_OPTIONS, entry.user).map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
@@ -16597,7 +16605,7 @@ function App() {
                   }
                 >
                   <option value="">선택</option>
-                  {WORK_REPORT_MANAGER_OPTIONS.map((option) => (
+                  {withStoredSelectOption(WORK_REPORT_MANAGER_OPTIONS, entry.user).map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>
