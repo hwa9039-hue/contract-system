@@ -125,6 +125,7 @@ def _discovery_columns(row: dict, tone_label: str) -> list[dict]:
         _column("상태", normalize_status(row.get("projectStage"))),
         _column("사업금액", row.get("projectAmount"), amount=True),
         _column("세부내용", row.get("note")),
+        _column("비고", row.get("salesNote")),
         _column("사업구분", row.get("projectCategory")),
         _column("준공시기", row.get("completionPeriod")),
         _column("담당부서", row.get("manager")),
@@ -140,9 +141,17 @@ def _excluded_columns(row: dict, tone_label: str) -> list[dict]:
         _column("상태", normalize_status(row.get("category"))),
         _column("사업금액", row.get("projectAmount"), amount=True),
         _column("세부내용", row.get("exclusionReason")),
+        _column("비고", row.get("salesNote")),
         _column("작성자", row.get("writer")),
         _column("공유", row.get("shareStatus")),
     ]
+
+
+def _source_note(source_key: str, row: dict) -> str:
+    """세 출처 모두 화면의 비고 칸(salesNote)."""
+    if source_key in ("sales", "discovery", "excluded"):
+        return _text(row.get("salesNote"))
+    return ""
 
 
 def _item(
@@ -155,6 +164,7 @@ def _item(
     client: object,
     amount: object,
     manager: object,
+    note: object = "",
 ) -> dict | None:
     status_color, status_label = classify_status(raw_status)
     item = {
@@ -168,6 +178,7 @@ def _item(
         "title": _text(title),
         "amount": _amount_text(amount),
         "manager": _text(manager),
+        "note": _text(note),
         "stage": _text(raw_status),
     }
     if not item["id"]:
@@ -198,6 +209,7 @@ def _collect_rows() -> list[dict]:
             client=row.get("client"),
             amount=row.get("projectAmount"),
             manager=row.get("manager"),
+            note=_source_note("sales", row),
         )
         if item:
             rows.append(item)
@@ -213,6 +225,7 @@ def _collect_rows() -> list[dict]:
             client=row.get("client"),
             amount=row.get("projectAmount"),
             manager="-",
+            note=_source_note("discovery", row),
         )
         if item:
             rows.append(item)
@@ -228,6 +241,7 @@ def _collect_rows() -> list[dict]:
             client=row.get("client"),
             amount=row.get("projectAmount"),
             manager=row.get("writer"),
+            note=_source_note("excluded", row),
         )
         if item:
             rows.append(item)

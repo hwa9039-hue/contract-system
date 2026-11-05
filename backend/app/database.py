@@ -138,6 +138,12 @@ def _migrate_project_management_commencement_cert_to_text(cursor) -> None:
 
 def _migrate_project_discovery_text_columns(cursor) -> None:
     """구형 NAS DB: project_discovery_rows varchar(50) → text (긴 세부내용·사업명 보존)."""
+    cursor.execute(
+        """
+        alter table project_discovery_rows
+          add column if not exists "salesNote" text not null default ''
+        """
+    )
     text_columns = (
         "checkStatus",
         "salesTarget",
@@ -148,6 +154,7 @@ def _migrate_project_discovery_text_columns(cursor) -> None:
         "completionPeriod",
         "manager",
         "note",
+        "salesNote",
     )
     for col in text_columns:
         quoted = f'"{col}"'
@@ -285,6 +292,12 @@ def _migrate_sales_register_text_columns(cursor) -> None:
 
 def _migrate_excluded_projects_text_columns(cursor) -> None:
     """구형 NAS DB: 사업공유 varchar(50) → text (메모장 복붙·긴 세부내용 보존)."""
+    cursor.execute(
+        """
+        alter table excluded_projects_rows
+          add column if not exists "salesNote" text not null default ''
+        """
+    )
     text_columns = (
         "orderNo",
         "category",
@@ -294,6 +307,7 @@ def _migrate_excluded_projects_text_columns(cursor) -> None:
         "projectName",
         "client",
         "exclusionReason",
+        "salesNote",
     )
     for col in text_columns:
         quoted = f'"{col}"'
@@ -907,6 +921,7 @@ def init_db():
                   "completionPeriod" text not null default '',
                   manager text not null default '',
                   note text not null default '',
+                  "salesNote" text not null default '',
                   "reportMarkedAt" text,
                   "isHidden" boolean not null default false,
                   "createdAt" timestamptz not null default now(),
@@ -955,6 +970,7 @@ def init_db():
                   client text not null default '',
                   "projectAmount" numeric(18, 0) not null default 0,
                   "exclusionReason" text not null default '',
+                  "salesNote" text not null default '',
                   "isHidden" boolean not null default false,
                   "createdAt" timestamptz not null default now(),
                   "updatedAt" timestamptz not null default now()
@@ -1471,6 +1487,30 @@ def init_db():
                 """
                 alter table app_login_accounts
                   add column if not exists kakao_id text
+                """
+            )
+            cursor.execute(
+                """
+                alter table app_login_accounts
+                  add column if not exists pin_hash text
+                """
+            )
+            cursor.execute(
+                """
+                alter table app_login_accounts
+                  add column if not exists pin_fail_count integer not null default 0
+                """
+            )
+            cursor.execute(
+                """
+                alter table app_login_accounts
+                  add column if not exists pin_locked_until timestamptz
+                """
+            )
+            cursor.execute(
+                """
+                alter table app_login_accounts
+                  add column if not exists pin_sealed text
                 """
             )
             cursor.execute(

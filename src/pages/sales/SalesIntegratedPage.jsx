@@ -16,7 +16,7 @@ const INTEGRATED_LEGEND_ITEMS = SALES_STATUS_LEGEND_ITEMS
 
 function rowSearchText(row) {
   const amountDigits = String(row?.amount || '').replace(/[^\d]/g, '')
-  return [row?.stage, row?.statusLabel, row?.sourceMenu, row?.date, row?.client, row?.title, row?.amount, amountDigits, row?.manager]
+  return [row?.stage, row?.statusLabel, row?.sourceMenu, row?.date, row?.client, row?.title, row?.amount, amountDigits, row?.manager, row?.note]
     .join(' ')
     .toLowerCase()
     .replace(/\s+/g, '')
@@ -198,6 +198,7 @@ export default function SalesIntegratedPage() {
             <col className="sales-integrated-col-title" />
             <col className="sales-integrated-col-amount" />
             <col className="sales-integrated-col-manager" />
+            <col className="sales-integrated-col-note" />
           </colgroup>
           <thead>
             <tr>
@@ -208,12 +209,13 @@ export default function SalesIntegratedPage() {
               <th className="sales-integrated-col-title">사업명</th>
               <th className="sales-integrated-col-amount">사업금액</th>
               <th className="sales-integrated-col-manager">담당자</th>
+              <th className="sales-integrated-col-note">비고</th>
             </tr>
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="sales-integrated-empty">
+                <td colSpan={8} className="sales-integrated-empty">
                   {emptyText}
                 </td>
               </tr>
@@ -240,6 +242,7 @@ export default function SalesIntegratedPage() {
                   <td className="sales-integrated-col-title">{row.title || '—'}</td>
                   <td className="sales-integrated-col-amount">{row.amount || '—'}</td>
                   <td className="sales-integrated-col-manager">{row.manager || '—'}</td>
+                  <td className="sales-integrated-col-note">{row.note || '—'}</td>
                 </tr>
               ))
             )}
@@ -259,6 +262,7 @@ export default function SalesIntegratedPage() {
         detailFields={[
           { label: '출처', getValue: (row) => row.sourceMenu },
           { label: '담당자', getValue: (row) => row.manager },
+          { label: '비고', getValue: (row) => row.note },
         ]}
         emptyText={emptyText}
         onCardClick={openDetail}

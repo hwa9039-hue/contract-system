@@ -10,6 +10,10 @@ ADMIN_ONLY_PREFIXES = (
     "/api/auth/kakao/pending",
     "/api/auth/kakao/employees",
     "/api/auth/kakao/approve",
+    "/api/auth/kakao/linked",
+    "/api/auth/kakao/rejected",
+    "/api/auth/kakao/reject",
+    "/api/auth/kakao/unlink",
 )
 
 USER_READ_ONLY_PREFIXES = (

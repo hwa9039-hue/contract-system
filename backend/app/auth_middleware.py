@@ -66,6 +66,8 @@ def _is_public_api_path(path: str, method: str = "GET") -> bool:
         return True
     if path == "/api/auth/kakao" and method == "POST":
         return True
+    if path == "/api/auth/pin/verify" and method == "POST":
+        return True
     # 설치사례 hero 미디어는 <img>/<video> 로딩 시 Authorization 헤더를 붙일 수 없어 공개 경로로 둡니다.
     if path.startswith("/api/install-cases/") and (
         "/hero-image" in path or "/hero." in path or "/media/" in path

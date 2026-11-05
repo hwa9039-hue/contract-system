@@ -11,6 +11,7 @@ from app.cors_preflight_middleware import ApiPreflightCorsMiddleware
 from app.database import init_db
 from app.routers.auth import router as auth_router
 from app.routers.kakao_auth import router as kakao_auth_router
+from app.routers.pin_auth import router as pin_auth_router
 from app.routers import contracts
 from app.routers.unit_prices import router as unit_prices_router
 from app.routers import document_register
@@ -214,6 +215,7 @@ def health_check():
 # /api 프리픽스는 main 에서만 붙임 → /api/api/... 중복 방지
 app.include_router(auth_router)
 app.include_router(kakao_auth_router)
+app.include_router(pin_auth_router)
 app.include_router(contracts.router)
 app.include_router(unit_prices_router)
 app.include_router(project_management.router)

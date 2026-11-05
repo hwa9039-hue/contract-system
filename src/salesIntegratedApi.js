@@ -52,6 +52,7 @@ export function normalizeIntegratedRow(raw) {
     title: asText(raw?.title),
     amount: asText(raw?.amount),
     manager: asText(raw?.manager),
+    note: asText(raw?.note),
   }
 }
 

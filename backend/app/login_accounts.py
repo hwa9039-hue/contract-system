@@ -7,6 +7,8 @@ from app.database import get_connection
 logger = logging.getLogger(__name__)
 
 RESTRICTED_ACCOUNT_MESSAGE = "퇴사 처리 등 접근이 제한된 계정입니다."
+MAX_PIN_FAILS = 5
+PIN_LOCK_MINUTES = 15
 
 
 def is_login_account_blocked(account_id: str = "", display_name: str = "") -> bool:
@@ -141,7 +143,7 @@ def list_kakao_pending_users() -> list[dict]:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
-                select kakao_id, nickname, requested_at
+                select kakao_id, nickname, requested_at, updated_at
                 from kakao_pending_users
                 where status = 'pending'
                 order by requested_at asc, kakao_id asc
@@ -149,6 +151,195 @@ def list_kakao_pending_users() -> list[dict]:
             )
             rows = cursor.fetchall()
     return [dict(row) for row in rows]
+
+
+def list_kakao_rejected_users() -> list[dict]:
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select kakao_id, nickname, requested_at, updated_at
+                from kakao_pending_users
+                where status = 'rejected'
+                order by updated_at desc, kakao_id asc
+                """
+            )
+            rows = cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+def reject_kakao_pending_user(kakao_id: str) -> bool:
+    """대기 중인 요청만 거절한다. 이미 다른 상태면 False."""
+    kid = str(kakao_id or "").strip()
+    if not kid:
+        return False
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                update kakao_pending_users
+                set status = 'rejected',
+                    updated_at = now()
+                where kakao_id = %s
+                  and status = 'pending'
+                """,
+                (kid,),
+            )
+            return cursor.rowcount > 0
+
+
+def list_linked_kakao_accounts() -> list[dict]:
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select account_id, display_name, kakao_id, is_active, updated_at
+                from app_login_accounts
+                where kakao_id is not null
+                  and btrim(kakao_id) <> ''
+                order by display_name asc, account_id asc
+                """
+            )
+            rows = cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+def clear_login_account_kakao_id(account_id: str) -> str:
+    """연결된 카카오 ID 만 지운다. 직원 행은 남긴다.
+
+    반환: ok | missing | protected
+    """
+    aid = (account_id or "").strip().lower()
+    if not aid:
+        return "missing"
+    if aid == "hy9039":
+        return "protected"
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                update app_login_accounts
+                set kakao_id = null,
+                    updated_at = now()
+                where lower(account_id) = lower(%s)
+                  and kakao_id is not null
+                  and btrim(kakao_id) <> ''
+                """,
+                (aid,),
+            )
+            if cursor.rowcount == 0:
+                return "missing"
+    return "ok"
+
+
+def get_login_account_pin_state(account_id: str) -> dict | None:
+    aid = (account_id or "").strip().lower()
+    if not aid:
+        return None
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select account_id, display_name, is_active, kakao_id,
+                       pin_hash, pin_fail_count, pin_locked_until
+                from app_login_accounts
+                where lower(account_id) = lower(%s)
+                """,
+                (aid,),
+            )
+            row = cursor.fetchone()
+    return dict(row) if row else None
+
+
+def save_login_account_pin(account_id: str, pin_hash: str, pin_sealed: str) -> bool:
+    aid = (account_id or "").strip().lower()
+    if not aid or not str(pin_hash or "").strip():
+        return False
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                update app_login_accounts
+                set pin_hash = %s,
+                    pin_sealed = %s,
+                    pin_fail_count = 0,
+                    pin_locked_until = null,
+                    updated_at = now()
+                where lower(account_id) = lower(%s)
+                """,
+                (pin_hash, pin_sealed or None, aid),
+            )
+            return cursor.rowcount > 0
+
+
+def list_account_pin_seals(account_ids: list[str]) -> dict[str, dict]:
+    ids = [str(account_id or "").strip().lower() for account_id in account_ids if str(account_id or "").strip()]
+    if not ids:
+        return {}
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select lower(account_id) as account_id, pin_hash, pin_sealed
+                from app_login_accounts
+                where lower(account_id) = any(%s)
+                """,
+                (ids,),
+            )
+            rows = cursor.fetchall()
+    return {str(row.get("account_id") or ""): dict(row) for row in rows}
+
+
+def clear_pin_failures(account_id: str) -> None:
+    aid = (account_id or "").strip().lower()
+    if not aid:
+        return
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                update app_login_accounts
+                set pin_fail_count = 0,
+                    pin_locked_until = null,
+                    updated_at = now()
+                where lower(account_id) = lower(%s)
+                """,
+                (aid,),
+            )
+
+
+def record_pin_failure(account_id: str) -> str:
+    """mismatch | locked"""
+    aid = (account_id or "").strip().lower()
+    if not aid:
+        return "mismatch"
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                update app_login_accounts
+                set pin_fail_count = case
+                      when pin_fail_count + 1 >= %s then 0
+                      else pin_fail_count + 1
+                    end,
+                    pin_locked_until = case
+                      when pin_fail_count + 1 >= %s then now() + make_interval(mins => %s)
+                      else pin_locked_until
+                    end,
+                    updated_at = now()
+                where lower(account_id) = lower(%s)
+                returning pin_locked_until
+                """,
+                (MAX_PIN_FAILS, MAX_PIN_FAILS, PIN_LOCK_MINUTES, aid),
+            )
+            row = cursor.fetchone()
+    locked_until = (row or {}).get("pin_locked_until") if row else None
+    if locked_until is not None and getattr(locked_until, "timestamp", None):
+        from datetime import datetime, timezone
+
+        if locked_until > datetime.now(timezone.utc):
+            return "locked"
+    return "mismatch"
 
 
 def delete_kakao_pending_user(kakao_id: str) -> None:

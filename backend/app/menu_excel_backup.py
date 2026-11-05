@@ -152,6 +152,7 @@ def _project_discovery(row: dict) -> dict[str, Any]:
         "준공시기": _normalize_cell(item.get("completionPeriod")),
         "담당부서": _normalize_cell(item.get("manager")),
         "세부내용": _normalize_cell(item.get("note")),
+        "비고": _normalize_cell(item.get("salesNote")),
     }
 
 
@@ -169,6 +170,7 @@ def _project_excluded(row: dict) -> dict[str, Any]:
         "발주처": _normalize_cell(item.get("client")),
         "사업금액": _amount_display(item.get("projectAmount")),
         "세부내용": _normalize_cell(item.get("exclusionReason")),
+        "비고": _normalize_cell(item.get("salesNote")),
     }
 
 

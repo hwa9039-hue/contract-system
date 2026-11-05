@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import LoginPage from './LoginPage.jsx'
 import KakaoCallbackPage from './KakaoCallbackPage.jsx'
+import PinLockPage from './PinLockPage.jsx'
+import PinSetupDialog from './PinSetupDialog.jsx'
 import { AuthProvider, useAuth } from './AuthContext.jsx'
 import { enforceAppVersion } from './appVersion.js'
 import { isPublicSharePath } from './publicShare/publicSharePaths.js'
@@ -17,11 +19,11 @@ applyScheduleStatusTheme()
 const LOGIN_PATH = '/login'
 
 function AppRoot() {
-  const { isAuthenticated, authHydrated, accessGranted } = useAuth()
+  const { isAuthenticated, authHydrated, accessGranted, pinLockActive, pinSetupRequired, pinStatusPending } = useAuth()
   const kakaoCallback = isKakaoCallbackPath()
 
   useEffect(() => {
-    if (!authHydrated || kakaoCallback) return
+    if (!authHydrated || kakaoCallback || pinLockActive || pinSetupRequired || pinStatusPending) return
     if (!isAuthenticated) {
       if (window.location.pathname !== LOGIN_PATH) {
         window.history.replaceState(null, '', LOGIN_PATH)
@@ -32,12 +34,19 @@ function AppRoot() {
     if (window.location.pathname === LOGIN_PATH) {
       window.history.replaceState(null, '', '/')
     }
-  }, [authHydrated, isAuthenticated, accessGranted, kakaoCallback])
+  }, [authHydrated, isAuthenticated, accessGranted, kakaoCallback, pinLockActive, pinSetupRequired, pinStatusPending])
 
-  if (!authHydrated) return null
+  if (!authHydrated || pinStatusPending) return null
   if (kakaoCallback && !isAuthenticated) return <KakaoCallbackPage />
+  if (pinLockActive) return <PinLockPage />
   if (!isAuthenticated) return <LoginPage />
-  return <App />
+  if (pinSetupRequired) return <PinSetupDialog gate />
+  return (
+    <>
+      <App />
+      <PinSetupDialog />
+    </>
+  )
 }
 
 /** 관리자 시스템 진입점 (로그인·워터마크·보안 가드 포함) */

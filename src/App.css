@@ -7871,11 +7871,15 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
 .discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
   > td.discovery-col-detail,
 .discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.discovery-col-note,
+.discovery-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
   > td.discovery-col-manager,
 .excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
   > td.excluded-col-project,
 .excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
   > td.excluded-col-reason,
+.excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.excluded-col-note,
 .excluded-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
   > td.excluded-col-text,
 .documents-registry-table.excel-table.registry-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
@@ -9162,7 +9166,8 @@ table.discovery-registry-table.excel-table.registry-table td.discovery-sticky-co
   width: auto;
 }
 
-.discovery-registry-table .discovery-col-detail {
+.discovery-registry-table .discovery-col-detail,
+.discovery-registry-table .discovery-col-note {
   white-space: pre-wrap;
   word-break: keep-all;
   overflow-wrap: break-word;
@@ -9170,9 +9175,19 @@ table.discovery-registry-table.excel-table.registry-table td.discovery-sticky-co
   width: auto;
 }
 
+.discovery-registry-table col.discovery-w-note,
+.discovery-registry-table th.discovery-w-note,
+.discovery-registry-table td.discovery-w-note {
+  width: 220px;
+  min-width: 220px;
+}
+
 .discovery-registry-table .discovery-col-detail .cell-display,
 .discovery-registry-table .discovery-col-detail .sales-detail-preview,
-.discovery-registry-table .discovery-col-detail .editable-text-cell-display {
+.discovery-registry-table .discovery-col-detail .editable-text-cell-display,
+.discovery-registry-table .discovery-col-note .cell-display,
+.discovery-registry-table .discovery-col-note .sales-detail-preview,
+.discovery-registry-table .discovery-col-note .editable-text-cell-display {
   overflow-wrap: break-word !important;
   word-break: keep-all !important;
   white-space: pre-wrap !important;
@@ -9928,6 +9943,14 @@ table.excluded-registry-table.excel-table.registry-table td.excluded-sticky-col-
   max-width: none;
 }
 
+.excluded-registry-table col.excluded-w-note,
+.excluded-registry-table th.excluded-w-note,
+.excluded-registry-table td.excluded-w-note {
+  width: 220px;
+  min-width: 220px;
+  max-width: none;
+}
+
 .excluded-registry-table .excluded-col-tight,
 .excluded-registry-table .excluded-col-amount {
   width: 1%;
@@ -9952,6 +9975,7 @@ table.excluded-registry-table.excel-table.registry-table td.excluded-sticky-col-
 
 .excluded-registry-table .excluded-col-project,
 .excluded-registry-table .excluded-col-reason,
+.excluded-registry-table .excluded-col-note,
 .excluded-registry-table .excluded-col-text {
   white-space: pre-wrap !important;
   word-break: keep-all !important;
@@ -9960,9 +9984,11 @@ table.excluded-registry-table.excel-table.registry-table td.excluded-sticky-col-
 
 .excluded-registry-table .excluded-col-project .cell-display,
 .excluded-registry-table .excluded-col-reason .cell-display,
+.excluded-registry-table .excluded-col-note .cell-display,
 .excluded-registry-table .excluded-col-text .cell-display,
 .excluded-registry-table .excluded-col-project .editable-text-cell-display,
 .excluded-registry-table .excluded-col-reason .editable-text-cell-display,
+.excluded-registry-table .excluded-col-note .editable-text-cell-display,
 .excluded-registry-table .excluded-col-text .editable-text-cell-display {
   white-space: pre-wrap !important;
   word-break: keep-all !important;
@@ -9975,6 +10001,8 @@ table.excluded-registry-table.excel-table.registry-table td.excluded-sticky-col-
   > td.excluded-col-project,
 .excluded-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
   > td.excluded-col-reason,
+.excluded-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
+  > td.excluded-col-note,
 .excluded-registry-table.excel-table tbody tr:not(.contract-year-row):not(.contract-category-group-row)
   > td.excluded-col-text {
   overflow: visible;
@@ -11203,7 +11231,10 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
 .discovery-registry-table .discovery-col-project .cell-display,
 .discovery-registry-table .discovery-col-detail .cell-display,
 .discovery-registry-table .discovery-col-detail .sales-detail-preview,
-.discovery-registry-table .discovery-col-detail .editable-text-cell-display {
+.discovery-registry-table .discovery-col-detail .editable-text-cell-display,
+.discovery-registry-table .discovery-col-note .cell-display,
+.discovery-registry-table .discovery-col-note .sales-detail-preview,
+.discovery-registry-table .discovery-col-note .editable-text-cell-display {
   align-items: flex-start !important;
 }
 
@@ -21535,15 +21566,19 @@ table.sales-integrated-table col.sales-integrated-col-client {
 }
 
 table.sales-integrated-table col.sales-integrated-col-title {
-  width: 28%;
+  width: 22%;
 }
 
 table.sales-integrated-table col.sales-integrated-col-amount {
-  width: 14%;
+  width: 12%;
 }
 
 table.sales-integrated-table col.sales-integrated-col-manager {
-  width: 11%;
+  width: 9%;
+}
+
+table.sales-integrated-table col.sales-integrated-col-note {
+  width: 18%;
 }
 
 table.sales-integrated-table th.sales-integrated-col-dot,
@@ -21583,6 +21618,16 @@ table.sales-integrated-table th.sales-integrated-col-title {
 table.sales-integrated-table td.sales-integrated-col-title {
   text-align: left;
   white-space: normal;
+  word-break: break-word;
+}
+
+table.sales-integrated-table th.sales-integrated-col-note {
+  text-align: center;
+}
+
+table.sales-integrated-table td.sales-integrated-col-note {
+  text-align: left;
+  white-space: pre-wrap;
   word-break: break-word;
 }
 

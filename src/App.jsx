@@ -8,6 +8,7 @@ import {
   Eye,
   EyeOff,
   FileText,
+  KeyRound,
   LogOut,
   Pencil,
   Trash2,
@@ -786,6 +787,14 @@ const DISCOVERY_COLUMNS = [
     widthClass: 'discovery-w-58',
     cellClass: 'discovery-col-manager discovery-w-58',
   },
+  {
+    key: 'salesNote',
+    label: '비고',
+    align: 'left',
+    type: 'textarea',
+    widthClass: 'discovery-w-note',
+    cellClass: 'discovery-col-note discovery-w-note',
+  },
 ]
 
 /** 표에서는 감췄지만 엑셀 양식에는 남아 있는 '확인' — 업로드 매핑용으로만 유지한다. */
@@ -825,6 +834,7 @@ const DISCOVERY_IMPORT_COLUMNS = [
   'completionPeriod',
   'manager',
   'note',
+  'salesNote',
 ].map((key) => {
   if (key === 'permitDate') return DISCOVERY_PERMIT_DATE_IMPORT_COLUMN
   if (key === 'checkStatus') return DISCOVERY_CHECK_STATUS_COLUMN
@@ -954,6 +964,14 @@ const EXCLUDED_COLUMNS = [
     options: ['O', 'X'],
     widthClass: 'excluded-w-20',
     cellClass: 'excluded-col-tight excluded-w-20',
+  },
+  {
+    key: 'salesNote',
+    label: '비고',
+    align: 'left',
+    type: 'textarea',
+    widthClass: 'excluded-w-note',
+    cellClass: 'excluded-col-note excluded-w-note',
   },
 ]
 
@@ -1673,6 +1691,7 @@ const PAGE_TITLE_MAP = {
   naraMarket: '나라장터',
   newsMonitor: '각종뉴스',
   materialsBoard: '게시판',
+  kakaoAccountLinks: '계정 연동 관리',
 }
 
 /** @deprecated 사이드바에서 제거 — 북마크 진입 시 홈으로 되돌림 */
@@ -3570,6 +3589,7 @@ function createDiscoveryDraftRow() {
     completionPeriod: '',
     manager: '',
     note: '',
+    salesNote: '',
     summary: '',
     reportMarkedAt: '',
     createdAt: '',
@@ -3620,6 +3640,7 @@ function createExcludedDraftRow() {
     client: '',
     projectAmount: '',
     exclusionReason: '',
+    salesNote: '',
     isHidden: false,
     createdAt: '',
     updatedAt: '',
@@ -5098,6 +5119,7 @@ function normalizeDiscoveryRow(item, rowIndex = 0) {
     ),
     manager: safeString(item.manager),
     note: safeString(item.note),
+    salesNote: safeString(item.salesNote ?? item.salesnote),
     summary: safeString(item.summary).trim(),
     reportMarkedAt: safeString(item.reportMarkedAt ?? item.reportmarkedat),
     createdAt: safeString(item.createdAt ?? item.createdat),
@@ -5122,6 +5144,7 @@ const DISCOVERY_EXCEL_TABLE_FIELDS = [
   '준공시기',
   '담당자',
   '세부내용',
+  '비고',
 ]
 
 function discoveryRowToExcelTableItem(row) {
@@ -5136,6 +5159,7 @@ function discoveryRowToExcelTableItem(row) {
     준공시기: safeString(row.completionPeriod).trim(),
     담당자: safeString(row.manager).trim(),
     세부내용: safeString(row.note).trim(),
+    비고: safeString(row.salesNote).trim(),
   }
 }
 
@@ -5160,6 +5184,7 @@ function excelTableItemToDiscoveryRow(item, index) {
       completionPeriod: item.준공시기,
       manager: item.담당자,
       note: item.세부내용 ?? item.비고,
+      salesNote: item.세부내용 != null && item.세부내용 !== undefined ? item.비고 : '',
     },
     index
   )
@@ -5199,6 +5224,7 @@ function toDiscoveryPayload(row, timestamp) {
     completionPeriod: safeString(row.completionPeriod).trim(),
     manager: safeString(row.manager).trim(),
     note: safeString(row.note).trim(),
+    salesNote: safeString(row.salesNote).trim(),
     summary: safeString(row.summary).trim() || null,
     reportMarkedAt: normalizeSalesProjectStage(projectStage) === '보고' ? timestamp : null,
     createdAt: timestamp,
@@ -5225,6 +5251,7 @@ function normalizeExcludedRow(item) {
     client: safeString(item.client),
     projectAmount: safeString(item.projectAmount ?? item.projectamount),
     exclusionReason: safeString(item.exclusionReason ?? item.exclusionreason),
+    salesNote: safeString(item.salesNote ?? item.salesnote),
     isHidden: hasExcludedRowHiddenFlagFromApi(item),
     apiReportsHidden,
     files: Array.isArray(item.files) ? item.files : [],
@@ -5277,6 +5304,7 @@ function toExcludedPayload(row, timestamp) {
     client: sanitizeRegistryPastedText(row.client).trim(),
     projectAmount: parseAmount(row.projectAmount),
     exclusionReason: sanitizeRegistryPastedText(row.exclusionReason).trim(),
+    salesNote: sanitizeRegistryPastedText(row.salesNote).trim(),
     updatedAt: timestamp,
   }
 }
@@ -6491,8 +6519,17 @@ function splitDashboardRecentTitleLabel(fullLabel) {
 }
 
 function App() {
-  const { role, roleLabel, accountId, isAuthenticated, authHydrated, sharedSessionExpiresAt, logout, extendLogin } =
-    useAuth()
+  const {
+    role,
+    roleLabel,
+    accountId,
+    isAuthenticated,
+    authHydrated,
+    sharedSessionExpiresAt,
+    logout,
+    extendLogin,
+    openPinSetup,
+  } = useAuth()
   // 화면이 켜져 있는 동안 새 버전 배포를 감지해 자동으로 재로그인시킨다.
   useAppVersionPolling()
   const isDesktopTable = useDesktopTableLayout()
@@ -16934,6 +16971,15 @@ function App() {
                     {(formatPersonDisplayName(roleLabel) || roleLabel || '사용자')}님
                   </span>
                 </span>
+                <button
+                  className="top-system-icon-btn"
+                  type="button"
+                  title="간편 비밀번호"
+                  aria-label="간편 비밀번호"
+                  onClick={openPinSetup}
+                >
+                  <KeyRound size={18} strokeWidth={2} aria-hidden="true" />
+                </button>
                 {canViewAuditLogs ? (
                   <button
                     className="top-system-icon-btn"
@@ -18513,6 +18559,7 @@ function App() {
                 summaryFields={[]}
                 detailFields={[
                   { label: '세부내용', getValue: (row) => row.note },
+                  { label: '비고', getValue: (row) => row.salesNote },
                   { label: '사업구분', getValue: (row) => row.projectCategory },
                   { label: '준공시기', getValue: (row) => row.completionPeriod },
                   { label: '담당부서', getValue: (row) => row.manager },
@@ -18763,6 +18810,7 @@ function App() {
                 summaryFields={[]}
                 detailFields={[
                   { label: '세부내용', getValue: (row) => row.exclusionReason },
+                  { label: '비고', getValue: (row) => row.salesNote },
                   { label: '작성자', getValue: (row) => row.writer },
                   { label: '공유', getValue: (row) => row.shareStatus },
                 ]}

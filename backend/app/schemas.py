@@ -402,6 +402,7 @@ class ProjectDiscoveryBase(BaseModel):
     completionPeriod: Optional[Any] = ""
     manager: Optional[Any] = ""
     note: Optional[Any] = ""
+    salesNote: Optional[Any] = ""
     summary: Optional[Any] = ""
     reportMarkedAt: Optional[Any] = None
     isHidden: Optional[Any] = False
@@ -426,6 +427,7 @@ class ProjectDiscoveryPatch(BaseModel):
     completionPeriod: Optional[Any] = None
     manager: Optional[Any] = None
     note: Optional[Any] = None
+    salesNote: Optional[Any] = None
     summary: Optional[Any] = None
     reportMarkedAt: Optional[Any] = None
     isHidden: Optional[Any] = None
@@ -459,6 +461,7 @@ class ExcludedProjectBase(BaseModel):
     client: Optional[Any] = ""
     projectAmount: Optional[Any] = 0
     exclusionReason: Optional[Any] = ""
+    salesNote: Optional[Any] = ""
     isHidden: Optional[Any] = False
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
@@ -480,6 +483,7 @@ class ExcludedProjectPatch(BaseModel):
     client: Optional[Any] = None
     projectAmount: Optional[Any] = None
     exclusionReason: Optional[Any] = None
+    salesNote: Optional[Any] = None
     isHidden: Optional[Any] = None
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
@@ -1227,6 +1231,7 @@ def row_to_project_discovery(row) -> dict:
         "completionPeriod": to_response_value(row.get("completionPeriod") or row.get("completionperiod")),
         "manager": to_response_value(row["manager"]),
         "note": to_response_value(row["note"]),
+        "salesNote": to_response_value(row.get("salesNote") or row.get("salesnote") or ""),
         "summary": to_response_value(row.get("summary")),
         "reportMarkedAt": to_response_value(row.get("reportMarkedAt") or row.get("reportmarkedat")),
         "isHidden": bool(_contract_row_field(row, "isHidden", "ishidden", default=False)),
@@ -1249,6 +1254,7 @@ def row_to_excluded_project(row) -> dict:
         "client": to_response_value(row["client"]),
         "projectAmount": to_response_value(row["projectAmount"]),
         "exclusionReason": to_response_value(row["exclusionReason"]),
+        "salesNote": to_response_value(row.get("salesNote") or row.get("salesnote") or ""),
         "isHidden": bool(_contract_row_field(row, "isHidden", "ishidden", default=False)),
         "files": _files_to_response(row.get("files")),
         "createdAt": to_response_value(row["createdAt"]),
@@ -1594,6 +1600,7 @@ TABLE_COLUMN_MAPPINGS = {
         "completionPeriod": "completionPeriod",
         "manager": "manager",
         "note": "note",
+        "salesNote": "salesNote",
         "summary": "summary",
         "reportMarkedAt": "reportMarkedAt",
         "isHidden": "isHidden",
@@ -1612,6 +1619,7 @@ TABLE_COLUMN_MAPPINGS = {
         "client": "client",
         "projectAmount": "projectAmount",
         "exclusionReason": "exclusionReason",
+        "salesNote": "salesNote",
         "isHidden": "isHidden",
         "createdAt": "createdAt",
         "updatedAt": "updatedAt",

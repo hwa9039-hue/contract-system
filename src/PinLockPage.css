@@ -1,0 +1,100 @@
+.pin-lock-label {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.pin-lock-input {
+  width: 100%;
+  height: 52px;
+  margin-bottom: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.45em;
+  text-align: center;
+  -webkit-text-security: disc;
+}
+
+.pin-lock-kakao {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 10px;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pin-setup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.pin-setup-card {
+  width: min(420px, 100%);
+  padding: 28px 24px 22px;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+}
+
+.pin-setup-card h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.pin-setup-card p {
+  margin: 0 0 16px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pin-setup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.pin-setup-actions-gate {
+  flex-direction: column-reverse;
+}
+
+.pin-setup-actions-gate .pin-setup-save,
+.pin-setup-actions .pin-setup-save,
+.pin-setup-actions .pin-setup-later {
+  width: 100%;
+  min-height: 44px;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.pin-setup-later {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.2;
+  cursor: pointer;
+}

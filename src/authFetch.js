@@ -55,7 +55,8 @@ function isAuthExemptUrl(url) {
   return (
     path === '/api/auth/refresh' ||
     path === '/api/auth/kakao' ||
-    path === '/api/auth/kakao/authorize'
+    path === '/api/auth/kakao/authorize' ||
+    path === '/api/auth/pin/verify'
   )
 }
 

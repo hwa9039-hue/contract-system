@@ -34,6 +34,7 @@ DISCOVERY_SIGNATURE_KEYS: tuple[str, ...] = (
     "completionPeriod",
     "manager",
     "note",
+    "salesNote",
 )
 EXCLUDED_SIGNATURE_KEYS: tuple[str, ...] = (
     "writeDate",
@@ -45,6 +46,7 @@ EXCLUDED_SIGNATURE_KEYS: tuple[str, ...] = (
     "client",
     "projectAmount",
     "exclusionReason",
+    "salesNote",
 )
 DOCUMENT_SIGNATURE_KEYS: tuple[str, ...] = (
     "docDate",

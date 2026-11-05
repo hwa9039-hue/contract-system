@@ -196,6 +196,54 @@ export async function fetchKakaoEmployees() {
   return Array.isArray(data.items) ? data.items : []
 }
 
+export async function fetchKakaoRejected() {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/auth/kakao/rejected`,
+    apiFetchInit({ method: 'GET', headers: { ...getAuthHeaders() } })
+  )
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(readDetail(data, '거절 목록을 불러오지 못했습니다.'))
+  return Array.isArray(data.items) ? data.items : []
+}
+
+export async function fetchKakaoLinked() {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/auth/kakao/linked`,
+    apiFetchInit({ method: 'GET', headers: { ...getAuthHeaders() } })
+  )
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(readDetail(data, '연결된 직원 목록을 불러오지 못했습니다.'))
+  return Array.isArray(data.items) ? data.items : []
+}
+
+export async function rejectKakaoLink(kakaoId) {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/auth/kakao/reject`,
+    apiFetchInit({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ kakao_id: kakaoId }),
+    })
+  )
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(readDetail(data, '거절에 실패했습니다.'))
+  return data
+}
+
+export async function unlinkKakaoAccount(accountId) {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/auth/kakao/unlink`,
+    apiFetchInit({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ account_id: accountId }),
+    })
+  )
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(readDetail(data, '연동 해제에 실패했습니다.'))
+  return data
+}
+
 export async function approveKakaoLink(kakaoId, accountId) {
   const response = await apiFetch(
     `${API_BASE_URL}/api/auth/kakao/approve`,

@@ -604,12 +604,16 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
   }
 
   const headerRow = rawData[headerIndex]
+  const hasDetailColumn = (headerRow || []).some(
+    (key) => normalizeDiscoveryHeaderText(key) === '세부내용',
+  )
   const headers = (headerRow || []).map((key, colIndex) => {
     const raw = String(key ?? '').trim()
+    const keepRemark = hasDetailColumn && normalizeDiscoveryHeaderText(raw) === '비고'
     return {
       colIndex,
       raw,
-      canonical: resolveDiscoveryCanonicalHeader(raw),
+      canonical: keepRemark ? '비고' : resolveDiscoveryCanonicalHeader(raw),
     }
   })
 
@@ -632,7 +636,7 @@ export function sheetToJsonWithDiscoveryDynamicHeader(worksheet) {
         value = normalizeExcelCompletionPeriodCell(cell)
       } else if (isDiscoveryPermitDateHeader(canonical, raw)) {
         value = normalizeExcelPermitDateCell(cell)
-      } else if (canonical === '세부내용') {
+      } else if (canonical === '세부내용' || canonical === '비고') {
         value = getExcelCellLongText(cell)
       } else {
         const formatted = getExcelCellFormattedText(cell)

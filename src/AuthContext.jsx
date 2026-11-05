@@ -45,6 +45,18 @@ import {
   sendAuditLog,
 } from './utils/logger.js'
 import { useIdleLogout } from './useIdleLogout.js'
+import { isKakaoCallbackPath } from './kakaoAuth.js'
+import { fetchPinStatus } from './pinAuth.js'
+import {
+  clearPinPassed,
+  clearPinProfile,
+  hasPinPassed,
+  hasSkippedPinSetup,
+  markPinPassed,
+  readPinProfile,
+  skipPinSetup,
+  writePinProfile,
+} from './pinProfile.js'
 
 const AuthContext = createContext(null)
 
@@ -63,6 +75,20 @@ export function AuthProvider({ children }) {
   const [accessGranted, setAccessGranted] = useState(false)
   const [accessFlagsVersion, setAccessFlagsVersion] = useState(0)
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState('')
+  const [pinProfileVersion, setPinProfileVersion] = useState(0)
+  const [pinBypass, setPinBypass] = useState(false)
+  const [pinSetupOpen, setPinSetupOpen] = useState(false)
+  const [pinSetupDismissed, setPinSetupDismissed] = useState(() => hasSkippedPinSetup())
+  const [pinStatusReady, setPinStatusReady] = useState(false)
+  const pinProfile = useMemo(() => readPinProfile(), [pinProfileVersion])
+  const pinLockActive = Boolean(
+    pinProfile?.pinEnabled &&
+      pinProfile?.accountId &&
+      !hasPinPassed() &&
+      !pinBypass &&
+      !isKakaoCallbackPath() &&
+      (!accountId || accountId === pinProfile.accountId),
+  )
 
   // isAdmin = "관리자급 권한 보유 여부". 부서장(manager)도 현재는 true.
   // 관리자/부서장 통합 취급 스위치는 permissions.js 의 ADMIN_LEVEL_ROLES 하나뿐입니다.
@@ -95,6 +121,9 @@ export function AuthProvider({ children }) {
       setRoleLabel(ROLE_LABELS[ROLES.USER])
       setAccountId('')
       setSharedSessionExpiresAt(0)
+      clearPinPassed()
+      setPinBypass(false)
+      setPinProfileVersion((version) => version + 1)
       setSessionExpiredNotice(message || SESSION_EXPIRED_USER_MESSAGE)
     })
     return () => registerAuthSessionExpiredHandler(null)
@@ -312,11 +341,45 @@ export function AuthProvider({ children }) {
     } else if (!data?.auth_disabled) {
       return { ok: false, error: '로그인에 실패했습니다.' }
     }
-    return applyAuthenticatedSession(data, rememberMe)
+    const applied = applyAuthenticatedSession(data, rememberMe)
+    if (!applied.ok) return applied
+    const account = normalizeAccountId(data.account_id)
+    const previous = readPinProfile()
+    writePinProfile({
+      accountId: account,
+      displayName: String(data.role_label || previous?.displayName || '').trim(),
+      pinEnabled: previous?.accountId === account ? previous.pinEnabled : false,
+    })
+    markPinPassed()
+    setPinBypass(false)
+    setPinProfileVersion((version) => version + 1)
+    return applied
   }, [applyAuthenticatedSession])
 
-  const logout = useCallback(() => {
+  const markPinEnabled = useCallback((enabled) => {
+    const profile = readPinProfile()
+    const account = profile?.accountId || accountId
+    if (!account) return
+    const nextEnabled = Boolean(enabled)
+    const displayName = profile?.displayName || roleLabel || ''
+    if (
+      profile &&
+      profile.accountId === account &&
+      profile.displayName === displayName &&
+      profile.pinEnabled === nextEnabled
+    ) {
+      return
+    }
+    writePinProfile({ accountId: account, displayName, pinEnabled: nextEnabled })
+    setPinProfileVersion((version) => version + 1)
+  }, [accountId, roleLabel])
+
+  const logout = useCallback((options = {}) => {
     clearSessionResumeLogged()
+    clearPinPassed()
+    if (options.clearPinProfile) clearPinProfile()
+    setPinBypass(false)
+    setPinProfileVersion((version) => version + 1)
     clearSharedAuthSession()
     clearRole()
     clearAuthToken()
@@ -346,7 +409,7 @@ export function AuthProvider({ children }) {
   const logoutForIdle = useCallback(async () => {
     const message = '보안을 위해 장시간 활동이 없어 자동 로그아웃 되었습니다.'
     await sendAuditLog('SECURITY_VIOLATION', '장시간 미사용 자동 로그아웃')
-    logout()
+    logout({ keepPinProfile: true })
     setSessionExpiredNotice(message)
     window.alert(message)
   }, [logout])
@@ -355,6 +418,42 @@ export function AuthProvider({ children }) {
     enabled: authHydrated && isAuthenticated && accessGranted,
     onIdle: logoutForIdle,
   })
+
+  const preferKakaoLogin = useCallback(() => {
+    logout({ keepPinProfile: true })
+    setPinBypass(true)
+  }, [logout])
+
+  useEffect(() => {
+    if (!authHydrated || !accessGranted || !accountId) return undefined
+    if (!hasPinPassed()) markPinPassed()
+    let cancelled = false
+    fetchPinStatus()
+      .then((status) => {
+        if (!cancelled) markPinEnabled(status.enabled)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setPinStatusReady(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [authHydrated, accessGranted, accountId, pinProfileVersion, markPinEnabled])
+
+  const dismissPinSetup = useCallback(() => {
+    skipPinSetup()
+    setPinSetupDismissed(true)
+    setPinSetupOpen(false)
+  }, [])
+
+  const pinEnabled = Boolean(pinProfile?.pinEnabled)
+  const pinSetupRequired = Boolean(
+    accessGranted && pinStatusReady && !pinEnabled && !pinSetupDismissed && !pinLockActive,
+  )
+  const pinStatusPending = Boolean(
+    isAuthenticated && accessGranted && !pinStatusReady && !pinEnabled && !pinSetupDismissed && !pinLockActive,
+  )
 
   const extendLogin = useCallback(async () => {
     const persistence = authPersistence === 'persistent' ? 'persistent' : 'session'
@@ -382,6 +481,16 @@ export function AuthProvider({ children }) {
       acceptKakaoSession,
       logout,
       extendLogin,
+      pinLockActive,
+      pinEnabled,
+      pinSetupRequired,
+      pinStatusPending,
+      pinSetupOpen,
+      openPinSetup: () => setPinSetupOpen(true),
+      closePinSetup: () => setPinSetupOpen(false),
+      dismissPinSetup,
+      preferKakaoLogin,
+      markPinEnabled,
     }),
     [
       isAuthenticated,
@@ -398,6 +507,15 @@ export function AuthProvider({ children }) {
       acceptKakaoSession,
       logout,
       extendLogin,
+      pinLockActive,
+      pinEnabled,
+      pinSetupRequired,
+      pinStatusPending,
+      pinProfile,
+      pinSetupOpen,
+      dismissPinSetup,
+      preferKakaoLogin,
+      markPinEnabled,
     ]
   )
 

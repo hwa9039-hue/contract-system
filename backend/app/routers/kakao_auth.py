@@ -13,13 +13,19 @@ from app.auth_utils import (
     is_generic_account_label,
 )
 from app.kakao_auth import KAKAO_PENDING_CODE, build_kakao_authorize_url, kakao_identity_from_code
+from app.pin_auth import open_pin
 from app.login_accounts import (
     RESTRICTED_ACCOUNT_MESSAGE,
     bind_login_account_kakao_id,
+    clear_login_account_kakao_id,
     delete_kakao_pending_user,
     find_login_account_by_kakao_id,
     is_login_account_blocked,
+    list_account_pin_seals,
     list_kakao_pending_users,
+    list_kakao_rejected_users,
+    list_linked_kakao_accounts,
+    reject_kakao_pending_user,
     save_kakao_pending_user,
 )
 
@@ -34,6 +40,18 @@ class KakaoCodeBody(BaseModel):
 class KakaoApproveBody(BaseModel):
     kakao_id: str
     account_id: str
+
+
+class KakaoRejectBody(BaseModel):
+    kakao_id: str
+
+
+class KakaoUnlinkBody(BaseModel):
+    account_id: str
+
+
+def _iso(value) -> str:
+    return value.isoformat() if hasattr(value, "isoformat") else ""
 
 
 def _disabled_payload():
@@ -145,10 +163,80 @@ def kakao_pending(request: Request):
             {
                 "kakaoId": str(row.get("kakao_id") or ""),
                 "nickname": str(row.get("nickname") or ""),
-                "requestedAt": requested.isoformat() if hasattr(requested, "isoformat") else "",
+                "requestedAt": _iso(requested),
             }
         )
     return {"items": rows}
+
+
+@router.get("/kakao/rejected")
+def kakao_rejected(request: Request):
+    _require_link_admin(request)
+    rows = []
+    for row in list_kakao_rejected_users():
+        rows.append(
+            {
+                "kakaoId": str(row.get("kakao_id") or ""),
+                "nickname": str(row.get("nickname") or ""),
+                "requestedAt": _iso(row.get("requested_at")),
+                "rejectedAt": _iso(row.get("updated_at")),
+            }
+        )
+    return {"items": rows}
+
+
+@router.get("/kakao/linked")
+def kakao_linked(request: Request):
+    _require_link_admin(request)
+    linked_rows = list_linked_kakao_accounts()
+    seals = list_account_pin_seals([str(row.get("account_id") or "") for row in linked_rows])
+    rows = []
+    for row in linked_rows:
+        account_id = str(row.get("account_id") or "")
+        stored = seals.get(account_id.strip().lower()) or {}
+        pin = open_pin(str(stored.get("pin_sealed") or ""))
+        rows.append(
+            {
+                "accountId": account_id,
+                "displayName": str(row.get("display_name") or ""),
+                "kakaoId": str(row.get("kakao_id") or ""),
+                "active": row.get("is_active") is not False,
+                "linkedAt": _iso(row.get("updated_at")),
+                "pin": pin,
+                "pinSet": bool(str(stored.get("pin_hash") or "").strip()),
+            }
+        )
+    return {"items": rows}
+
+
+@router.post("/kakao/reject")
+def kakao_reject(body: KakaoRejectBody, request: Request):
+    """대기 요청을 지우지 않고 거절 목록으로 옮긴다."""
+    _require_link_admin(request)
+    kakao_id = str(body.kakao_id or "").strip()
+    if not kakao_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="거절할 카카오 계정을 선택해 주세요.")
+    if not reject_kakao_pending_user(kakao_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="대기 중인 카카오 계정이 아닙니다.")
+    return {"ok": True, "kakaoId": kakao_id}
+
+
+@router.post("/kakao/unlink")
+def kakao_unlink(body: KakaoUnlinkBody, request: Request):
+    """직원 행은 남기고 카카오 연결만 끊는다."""
+    _require_link_admin(request)
+    account_id = str(body.account_id or "").strip().lower()
+    if not account_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="연동을 해제할 직원을 선택해 주세요.")
+    cleared = clear_login_account_kakao_id(account_id)
+    if cleared == "protected":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="최고 관리자 계정의 카카오 연동은 해제할 수 없습니다.",
+        )
+    if cleared != "ok":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="연결된 카카오 계정이 없습니다.")
+    return {"ok": True, "accountId": account_id}
 
 
 @router.get("/kakao/employees")
