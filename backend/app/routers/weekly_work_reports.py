@@ -20,6 +20,11 @@ from app.schemas import (
 
 router = APIRouter(prefix="/api/weekly-work-reports", tags=["weekly-work-reports"])
 
+# DI사업 2번 칸은 퇴사자 유영무. 화면 입력 칸에서는 빼지만, 작성된 보고 행은 지우지 않는다.
+_RETAINED_DI_SECTION = "DI사업"
+_RETAINED_DI_MANAGER = "유영무"
+_RETAINED_DI_ORDER_INDEX = 2
+
 RETURNING_COLUMNS = """
   id, "reportYear", "reportMonth", "weekNumber", "weekStartDate",
   "reportDate", assignee, team, category, content,
@@ -339,10 +344,38 @@ def update_weekly_work_report_row(row_id: str, patch: WeeklyWorkReportPatch):
         ) from exc
 
 
+def _is_retained_resigned_report(row: dict) -> bool:
+    """내용이 있는 퇴사자 DI사업 행은 삭제하지 않는다. 계정 행도 지우지 않는다."""
+    if str(row.get("section") or "").strip() != _RETAINED_DI_SECTION:
+        return False
+    if not str(row.get("content") or "").strip():
+        return False
+    user = str(row.get("user") or "").strip()
+    assignee = str(row.get("assignee") or "").strip()
+    if user == _RETAINED_DI_MANAGER or assignee == _RETAINED_DI_MANAGER:
+        return True
+    try:
+        return int(row.get("order_index") or 0) == _RETAINED_DI_ORDER_INDEX
+    except (TypeError, ValueError):
+        return False
+
+
 @router.delete("/{row_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_weekly_work_report_row(row_id: str):
     with get_connection() as connection:
         with connection.cursor() as cursor:
+            cursor.execute(
+                f"select {RETURNING_COLUMNS} from weekly_work_reports_rows where id::text = %s",
+                (row_id,),
+            )
+            existing = cursor.fetchone()
+            if not existing:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly work report not found")
+            if _is_retained_resigned_report(existing):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="퇴사자의 주간업무 기록은 삭제할 수 없습니다.",
+                )
             cursor.execute("delete from weekly_work_reports_rows where id::text = %s", (row_id,))
             deleted_count = cursor.rowcount
         connection.commit()

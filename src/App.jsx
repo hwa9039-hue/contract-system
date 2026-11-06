@@ -983,8 +983,10 @@ const WORK_REPORT_AUTOSAVE_DELAY_MS = 1000
 const WORK_REPORT_EXTERNAL_ROW_COUNT = 5
 const WORK_REPORT_DI_ROW_COUNT = 4
 const WORK_REPORT_ROAD_ROW_COUNT = 2
-/** DI사업 담당자 — 행 번호별 고정 (수기 선택 UI 없음). 행 순서가 과거 주차 표시라 여기서 이름을 빼면 아래 행이 밀린다. */
+/** DI사업 담당자 — 행 번호별 고정 (수기 선택 UI 없음). 배열에서 이름을 빼면 order_index 가 밀려 과거 주차가 다른 사람 글과 섞인다. */
 const WORK_REPORT_DI_FIXED_MANAGERS = Object.freeze(['전기웅', '유영무', '김성수', '이재승'])
+/** 퇴사자. 입력 칸만 숨기고 order_index·저장된 보고 행은 유지한다. */
+const WORK_REPORT_INACTIVE_FIXED_MANAGERS = new Set(['유영무'])
 /** 도로사업 담당자 — 행 번호별 고정 */
 const WORK_REPORT_ROAD_FIXED_MANAGERS = Object.freeze(['이용자', '박재범'])
 /** 영업지원 To-Do 완료 플래그 — journal user 필드에 저장 (담당자 UI 없음) */
@@ -1015,6 +1017,27 @@ function getWorkReportFixedManagerName(section, orderIndex) {
   const idx = Number(orderIndex || 1) - 1
   if (idx < 0 || idx >= managers.length) return ''
   return safeString(managers[idx]).trim()
+}
+
+function isWorkReportFixedManagerActive(name) {
+  return !WORK_REPORT_INACTIVE_FIXED_MANAGERS.has(safeString(name).trim())
+}
+
+/** 화면에 그릴 담당자 칸. 고정 담당자는 원래 order_index 를 유지한 채 퇴사자만 뺀다. */
+function getWorkReportManagerSlots(section, rowCount) {
+  const managers = getWorkReportFixedManagersForSection(section)
+  if (!managers) {
+    return Array.from({ length: rowCount }, (_, index) => ({
+      name: '',
+      orderIndex: index + 1,
+    }))
+  }
+  return managers
+    .map((name, index) => ({
+      name: safeString(name).trim(),
+      orderIndex: index + 1,
+    }))
+    .filter((slot) => isWorkReportFixedManagerActive(slot.name))
 }
 
 function isWorkReportSupportCompletedUser(user) {
@@ -12853,21 +12876,21 @@ function App() {
 
     const renderPdfText = (value) => escapeHtml(value || '-').replaceAll('\n', '<br />')
     const renderPdfRows = (date, section, rowCount, includeDestination = false, includeDeadline = false) =>
-      Array.from({ length: rowCount }, (_, index) => {
-        const orderIndex = index + 1
-        const entry = getWorkReportBoardEntry(date, section, orderIndex)
-        const managerLabel =
-          getWorkReportFixedManagerName(section, orderIndex) || entry.user || '-'
-        return `
+      getWorkReportManagerSlots(section, rowCount)
+        .map((slot, index) => {
+          const entry = getWorkReportBoardEntry(date, section, slot.orderIndex)
+          const managerLabel = slot.name || entry.user || '-'
+          return `
           <tr>
-            <td class="pdf-index">${orderIndex}</td>
+            <td class="pdf-index">${index + 1}</td>
             <td class="pdf-manager">${escapeHtml(managerLabel)}</td>
             <td>${renderPdfText(entry.content || '-')}</td>
             ${includeDestination ? `<td class="pdf-destination">${renderPdfText(entry.destination || '-')}</td>` : ''}
             ${includeDeadline ? `<td class="pdf-deadline">${escapeHtml(entry.deadline || '-')}</td>` : ''}
           </tr>
         `
-      }).join('')
+        })
+        .join('')
 
     const cards = selectedWorkWeekDays
       .map((day) => {
@@ -15717,14 +15740,8 @@ function App() {
     title,
     section,
     rowCount,
-    contentClassName,
-    fixedManagers = null
+    contentClassName
   ) => {
-    const managers =
-      Array.isArray(fixedManagers) && fixedManagers.length > 0
-        ? fixedManagers
-        : getWorkReportFixedManagersForSection(section)
-
     return (
     <section className="work-report-board-section shrink-0 min-h-[150px]">
       <div className="work-report-board-section-title">{title}</div>
@@ -15734,10 +15751,10 @@ function App() {
           <div className="work-report-board-content-header">내용</div>
           <div className="work-report-board-deadline-header">기한</div>
         </div>
-        {Array.from({ length: rowCount }, (_, index) => {
-          const orderIndex = index + 1
+        {getWorkReportManagerSlots(section, rowCount).map((slot) => {
+          const orderIndex = slot.orderIndex
           const entry = getWorkReportBoardEntry(date, section, orderIndex)
-          const fixedName = managers ? safeString(managers[index] || '').trim() : ''
+          const fixedName = slot.name
 
           return (
             <div
@@ -16620,7 +16637,7 @@ function App() {
   ]
 
   const renderWorkReportManagedRows = (section, rowCount, contentClassName) => {
-    const fixedManagers = getWorkReportFixedManagersForSection(section)
+    const slots = getWorkReportManagerSlots(section, rowCount)
     return [
       renderWorkReportWeekDataRow(`${section}-header`, () => (
         <div className="work-report-board-header-row-no-index work-report-board-header-row-managed">
@@ -16628,9 +16645,9 @@ function App() {
           <div className="work-report-board-content-header">내용</div>
         </div>
       ), 'work-report-week-data-row-header'),
-      ...Array.from({ length: rowCount }, (_, index) => {
-        const orderIndex = index + 1
-        const fixedName = fixedManagers ? safeString(fixedManagers[index] || '').trim() : ''
+      ...slots.map((slot) => {
+        const orderIndex = slot.orderIndex
+        const fixedName = slot.name
         return renderWorkReportWeekDataRow(`${section}-${orderIndex}`, (date) => {
           const entry = getWorkReportBoardEntry(date, section, orderIndex)
           return (
