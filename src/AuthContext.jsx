@@ -89,6 +89,7 @@ export function AuthProvider({ children }) {
   const [kakaoLinkStatus, setKakaoLinkStatus] = useState(() =>
     hydrated.isAuthenticated ? 'pending' : 'anonymous',
   )
+  const [sessionEpoch, setSessionEpoch] = useState(0)
   const pinProfile = useMemo(() => readPinProfile(), [pinProfileVersion])
   const pinLockActive = Boolean(
     pinProfile?.pinEnabled &&
@@ -140,10 +141,14 @@ export function AuthProvider({ children }) {
 
   /** @returns {'ok' | 'auth_fail' | 'network_fail'} */
   const refreshAccessToken = useCallback(async (persistence) => {
+    const tokenBefore = getAuthToken()
     const flagsBefore = readClientAccessFlagsSnapshot()
     const result = await refreshAccessTokenFromStorage()
     if (result === 'ok' && persistence) {
       syncAuthTokenToActiveStorage(persistence === 'persistent' ? 'persistent' : 'session')
+    }
+    if (result === 'ok' && getAuthToken() && getAuthToken() !== tokenBefore) {
+      setSessionEpoch((epoch) => epoch + 1)
     }
     // 새로 받은 메뉴 권한이 달라졌을 때만 화면을 다시 그린다.
     if (result === 'ok' && readClientAccessFlagsSnapshot() !== flagsBefore) {
@@ -354,6 +359,7 @@ export function AuthProvider({ children }) {
     if (!applied.ok) return applied
     writeAuthProvider(KAKAO_AUTH_PROVIDER, rememberMe ? 'persistent' : 'session')
     setKakaoLinkStatus('approved')
+    setSessionEpoch((epoch) => epoch + 1)
     const account = normalizeAccountId(data.account_id)
     const previous = readPinProfile()
     writePinProfile({
@@ -425,9 +431,12 @@ export function AuthProvider({ children }) {
     if (!authHydrated || !isAuthenticated) return undefined
     const tokenAtStart = getAuthToken()
     let cancelled = false
+    let settled = false
 
     const finish = (approved) => {
-      if (cancelled || getAuthToken() !== tokenAtStart) return
+      if (cancelled || settled || getAuthToken() !== tokenAtStart) return
+      settled = true
+      window.clearTimeout(timer)
       if (approved) {
         setKakaoLinkStatus('approved')
         return
@@ -435,11 +444,20 @@ export function AuthProvider({ children }) {
       rejectUnapprovedKakaoSession()
     }
 
+    const timer = window.setTimeout(() => {
+      if (cancelled || settled) return
+      if (getAuthToken() !== tokenAtStart) return
+      finish(readAuthProvider() === KAKAO_AUTH_PROVIDER)
+    }, 8000)
+
     ;(async () => {
       try {
         const res = await apiFetch(
           `${API_BASE_URL}/api/auth/me`,
-          apiFetchInit({ headers: { ...getAuthHeaders() } }),
+          apiFetchInit({
+            headers: { ...getAuthHeaders() },
+            signal: AbortSignal.timeout(8000),
+          }),
         )
         const data = await res.json().catch(() => ({}))
         if (cancelled || getAuthToken() !== tokenAtStart) return
@@ -463,8 +481,9 @@ export function AuthProvider({ children }) {
 
     return () => {
       cancelled = true
+      window.clearTimeout(timer)
     }
-  }, [authHydrated, isAuthenticated, authPersistence, rejectUnapprovedKakaoSession])
+  }, [authHydrated, isAuthenticated, authPersistence, sessionEpoch, rejectUnapprovedKakaoSession])
 
   useEffect(() => {
     if (!authHydrated || !isAuthenticated) return
@@ -502,6 +521,9 @@ export function AuthProvider({ children }) {
     if (!authHydrated || !accessGranted || !accountId || kakaoLinkStatus !== 'approved') return undefined
     if (!hasPinPassed()) markPinPassed()
     let cancelled = false
+    const pinStatusTimeout = window.setTimeout(() => {
+      if (!cancelled) setPinStatusReady(true)
+    }, 8000)
     fetchPinStatus()
       .then((status) => {
         if (cancelled) return
@@ -513,10 +535,12 @@ export function AuthProvider({ children }) {
       })
       .catch(() => {})
       .finally(() => {
+        window.clearTimeout(pinStatusTimeout)
         if (!cancelled) setPinStatusReady(true)
       })
     return () => {
       cancelled = true
+      window.clearTimeout(pinStatusTimeout)
     }
   }, [authHydrated, accessGranted, accountId, kakaoLinkStatus, pinProfileVersion, markPinEnabled, rejectUnapprovedKakaoSession])
 
