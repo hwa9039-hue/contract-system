@@ -5,6 +5,7 @@ from app.login_accounts import (
     MAX_PIN_FAILS,
     clear_pin_failures,
     get_login_account_pin_state,
+    is_kakao_login_approved,
     record_pin_failure,
     save_login_account_pin,
 )
@@ -32,8 +33,9 @@ def _account_id_from_request(request: Request) -> str:
 def pin_status(request: Request):
     account_id = _account_id_from_request(request)
     state = get_login_account_pin_state(account_id)
-    enabled = bool(state and str(state.get("pin_hash") or "").strip() and str(state.get("kakao_id") or "").strip())
-    return {"enabled": enabled}
+    linked = is_kakao_login_approved(account_id)
+    enabled = bool(linked and state and str(state.get("pin_hash") or "").strip())
+    return {"enabled": enabled, "kakaoLinked": linked}
 
 
 @router.post("")

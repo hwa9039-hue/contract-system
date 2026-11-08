@@ -3,7 +3,11 @@ from jwt.exceptions import InvalidTokenError
 from pydantic import BaseModel
 
 from app.audit_log import write_audit_log
-from app.login_accounts import RESTRICTED_ACCOUNT_MESSAGE, is_login_account_blocked
+from app.login_accounts import (
+    RESTRICTED_ACCOUNT_MESSAGE,
+    is_kakao_login_approved,
+    is_login_account_blocked,
+)
 from app.auth_utils import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
@@ -112,7 +116,8 @@ def me(request: Request):
         display_name = str(payload.get("display_name") or "").strip()
         if not display_name or is_generic_account_label(display_name):
             return {"valid": False, "auth_disabled": False}
-        if is_login_account_blocked(str(payload.get("account_id") or ""), display_name):
+        account_id = str(payload.get("account_id") or "")
+        if is_login_account_blocked(account_id, display_name):
             return {
                 "valid": False,
                 "auth_disabled": False,
@@ -123,6 +128,7 @@ def me(request: Request):
             "auth_disabled": False,
             "role": role,
             "role_label": display_name or None,
+            "kakao_linked": is_kakao_login_approved(account_id),
         }
     except (InvalidTokenError, RuntimeError):
         return {"valid": False, "auth_disabled": False}

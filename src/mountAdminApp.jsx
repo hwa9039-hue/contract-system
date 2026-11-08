@@ -19,11 +19,19 @@ applyScheduleStatusTheme()
 const LOGIN_PATH = '/login'
 
 function AppRoot() {
-  const { isAuthenticated, authHydrated, accessGranted, pinLockActive, pinSetupRequired, pinStatusPending } = useAuth()
+  const {
+    isAuthenticated,
+    authHydrated,
+    accessGranted,
+    pinLockActive,
+    pinSetupRequired,
+    pinStatusPending,
+    kakaoLinkPending,
+  } = useAuth()
   const kakaoCallback = isKakaoCallbackPath()
 
   useEffect(() => {
-    if (!authHydrated || kakaoCallback || pinLockActive || pinSetupRequired || pinStatusPending) return
+    if (!authHydrated || kakaoCallback || pinLockActive || pinSetupRequired || pinStatusPending || kakaoLinkPending) return
     if (!isAuthenticated) {
       if (window.location.pathname !== LOGIN_PATH) {
         window.history.replaceState(null, '', LOGIN_PATH)
@@ -34,9 +42,9 @@ function AppRoot() {
     if (window.location.pathname === LOGIN_PATH) {
       window.history.replaceState(null, '', '/')
     }
-  }, [authHydrated, isAuthenticated, accessGranted, kakaoCallback, pinLockActive, pinSetupRequired, pinStatusPending])
+  }, [authHydrated, isAuthenticated, accessGranted, kakaoCallback, pinLockActive, pinSetupRequired, pinStatusPending, kakaoLinkPending])
 
-  if (!authHydrated || pinStatusPending) return null
+  if (!authHydrated || pinStatusPending || kakaoLinkPending) return null
   if (kakaoCallback && !isAuthenticated) return <KakaoCallbackPage />
   if (pinLockActive) return <PinLockPage />
   if (!isAuthenticated) return <LoginPage />

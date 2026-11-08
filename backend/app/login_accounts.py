@@ -251,6 +251,14 @@ def get_login_account_pin_state(account_id: str) -> dict | None:
     return dict(row) if row else None
 
 
+def is_kakao_login_approved(account_id: str) -> bool:
+    """관리자 승인으로 카카오가 연결되고, 아직 활성인 계정인지."""
+    state = get_login_account_pin_state(account_id)
+    if not state or state.get("is_active") is False:
+        return False
+    return bool(str(state.get("kakao_id") or "").strip())
+
+
 def save_login_account_pin(account_id: str, pin_hash: str, pin_sealed: str) -> bool:
     aid = (account_id or "").strip().lower()
     if not aid or not str(pin_hash or "").strip():

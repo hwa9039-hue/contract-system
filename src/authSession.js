@@ -5,6 +5,9 @@ export const ROLE_SESSION_KEY = 'contract_manager_role_session_v1'
 export const ROLE_LABEL_SESSION_KEY = 'contract_manager_role_label_session_v1'
 /** 로그인한 계정의 ID 저장 키. 값은 서버 로그인 응답으로만 채운다. */
 export const ACCOUNT_ID_SESSION_KEY = 'contract_manager_account_id_v1'
+/** 카카오 로그인으로 발급된 세션만 남긴다. 예전 비밀번호 세션에는 이 값이 없다. */
+export const AUTH_PROVIDER_KEY = 'cms_auth_provider'
+export const KAKAO_AUTH_PROVIDER = 'kakao'
 export const CONTRACT_SHARED_AUTH_KEY = 'CONTRACT_SHARED_AUTH'
 export const CONTRACT_SHARED_EXPIRES_AT_KEY = 'CONTRACT_SHARED_EXPIRES_AT'
 export const CONTRACT_REMEMBER_ME_FLAG_KEY = 'CONTRACT_REMEMBER_ME'
@@ -288,6 +291,40 @@ export function writeAccountId(accountId, persistence = 'session') {
     if (persistence === 'persistent') {
       sessionStorage.setItem(ACCOUNT_ID_SESSION_KEY, text)
     }
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readAuthProvider() {
+  try {
+    const value = sessionStorage.getItem(AUTH_PROVIDER_KEY) || localStorage.getItem(AUTH_PROVIDER_KEY) || ''
+    return value === KAKAO_AUTH_PROVIDER ? KAKAO_AUTH_PROVIDER : ''
+  } catch {
+    return ''
+  }
+}
+
+/** @param {'session' | 'persistent'} persistence */
+export function writeAuthProvider(provider, persistence = 'session') {
+  try {
+    localStorage.removeItem(AUTH_PROVIDER_KEY)
+    sessionStorage.removeItem(AUTH_PROVIDER_KEY)
+    if (provider !== KAKAO_AUTH_PROVIDER) return
+    const primary = persistence === 'persistent' ? localStorage : sessionStorage
+    primary.setItem(AUTH_PROVIDER_KEY, KAKAO_AUTH_PROVIDER)
+    if (persistence === 'persistent') {
+      sessionStorage.setItem(AUTH_PROVIDER_KEY, KAKAO_AUTH_PROVIDER)
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearAuthProvider() {
+  try {
+    localStorage.removeItem(AUTH_PROVIDER_KEY)
+    sessionStorage.removeItem(AUTH_PROVIDER_KEY)
   } catch {
     /* ignore */
   }

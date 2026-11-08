@@ -5,6 +5,7 @@ import {
   apiFetchInit,
   clearAuthToken,
   getAuthHeaders,
+  getAuthToken,
   registerAuthSessionExpiredHandler,
   refreshAccessTokenFromStorage,
   SESSION_EXPIRED_USER_MESSAGE,
@@ -22,7 +23,12 @@ import {
   writeSharedAuthSession,
   clearRole,
   clearSharedAuthSession,
+  clearAuthProvider,
+  clearSavedLoginPassword,
+  readAuthProvider,
+  writeAuthProvider,
   syncAuthTokenToActiveStorage,
+  KAKAO_AUTH_PROVIDER,
 } from './authSession.js'
 import {
   hasAdminPrivileges,
@@ -80,6 +86,9 @@ export function AuthProvider({ children }) {
   const [pinSetupOpen, setPinSetupOpen] = useState(false)
   const [pinSetupDismissed, setPinSetupDismissed] = useState(() => hasSkippedPinSetup())
   const [pinStatusReady, setPinStatusReady] = useState(false)
+  const [kakaoLinkStatus, setKakaoLinkStatus] = useState(() =>
+    hydrated.isAuthenticated ? 'pending' : 'anonymous',
+  )
   const pinProfile = useMemo(() => readPinProfile(), [pinProfileVersion])
   const pinLockActive = Boolean(
     pinProfile?.pinEnabled &&
@@ -343,6 +352,8 @@ export function AuthProvider({ children }) {
     }
     const applied = applyAuthenticatedSession(data, rememberMe)
     if (!applied.ok) return applied
+    writeAuthProvider(KAKAO_AUTH_PROVIDER, rememberMe ? 'persistent' : 'session')
+    setKakaoLinkStatus('approved')
     const account = normalizeAccountId(data.account_id)
     const previous = readPinProfile()
     writePinProfile({
@@ -390,7 +401,70 @@ export function AuthProvider({ children }) {
     setRoleLabel(ROLE_LABELS[ROLES.USER])
     setAccountId('')
     setSharedSessionExpiresAt(0)
+    setKakaoLinkStatus('anonymous')
   }, [])
+
+  const rejectUnapprovedKakaoSession = useCallback(() => {
+    clearAuthProvider()
+    clearSavedLoginPassword('user')
+    clearSavedLoginPassword('admin')
+    clearPinPassed()
+    try {
+      navigator.credentials?.preventSilentAccess?.()
+    } catch {
+      /* 브라우저 자격 증명이 없어도 세션 삭제는 계속한다. */
+    }
+    logout()
+    setPinBypass(true)
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login' && !isKakaoCallbackPath()) {
+      window.history.replaceState(null, '', '/login')
+    }
+  }, [logout])
+
+  useEffect(() => {
+    if (!authHydrated || !isAuthenticated) return undefined
+    const tokenAtStart = getAuthToken()
+    let cancelled = false
+
+    const finish = (approved) => {
+      if (cancelled || getAuthToken() !== tokenAtStart) return
+      if (approved) {
+        setKakaoLinkStatus('approved')
+        return
+      }
+      rejectUnapprovedKakaoSession()
+    }
+
+    ;(async () => {
+      try {
+        const res = await apiFetch(
+          `${API_BASE_URL}/api/auth/me`,
+          apiFetchInit({ headers: { ...getAuthHeaders() } }),
+        )
+        const data = await res.json().catch(() => ({}))
+        if (cancelled || getAuthToken() !== tokenAtStart) return
+        if (data?.kakao_linked === true) {
+          writeAuthProvider(
+            KAKAO_AUTH_PROVIDER,
+            authPersistence === 'persistent' ? 'persistent' : 'session',
+          )
+          finish(true)
+          return
+        }
+        if (data?.kakao_linked === false) {
+          finish(false)
+          return
+        }
+        finish(readAuthProvider() === KAKAO_AUTH_PROVIDER)
+      } catch {
+        finish(readAuthProvider() === KAKAO_AUTH_PROVIDER)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [authHydrated, isAuthenticated, authPersistence, rejectUnapprovedKakaoSession])
 
   useEffect(() => {
     if (!authHydrated || !isAuthenticated) return
@@ -425,12 +499,17 @@ export function AuthProvider({ children }) {
   }, [logout])
 
   useEffect(() => {
-    if (!authHydrated || !accessGranted || !accountId) return undefined
+    if (!authHydrated || !accessGranted || !accountId || kakaoLinkStatus !== 'approved') return undefined
     if (!hasPinPassed()) markPinPassed()
     let cancelled = false
     fetchPinStatus()
       .then((status) => {
-        if (!cancelled) markPinEnabled(status.enabled)
+        if (cancelled) return
+        if (status.kakaoLinked === false) {
+          rejectUnapprovedKakaoSession()
+          return
+        }
+        markPinEnabled(status.enabled)
       })
       .catch(() => {})
       .finally(() => {
@@ -439,7 +518,7 @@ export function AuthProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [authHydrated, accessGranted, accountId, pinProfileVersion, markPinEnabled])
+  }, [authHydrated, accessGranted, accountId, kakaoLinkStatus, pinProfileVersion, markPinEnabled, rejectUnapprovedKakaoSession])
 
   const dismissPinSetup = useCallback(() => {
     skipPinSetup()
@@ -448,8 +527,14 @@ export function AuthProvider({ children }) {
   }, [])
 
   const pinEnabled = Boolean(pinProfile?.pinEnabled)
+  const kakaoLinkPending = isAuthenticated && kakaoLinkStatus === 'pending'
   const pinSetupRequired = Boolean(
-    accessGranted && pinStatusReady && !pinEnabled && !pinSetupDismissed && !pinLockActive,
+    kakaoLinkStatus === 'approved' &&
+      accessGranted &&
+      pinStatusReady &&
+      !pinEnabled &&
+      !pinSetupDismissed &&
+      !pinLockActive,
   )
   const pinStatusPending = Boolean(
     isAuthenticated && accessGranted && !pinStatusReady && !pinEnabled && !pinSetupDismissed && !pinLockActive,
@@ -485,6 +570,7 @@ export function AuthProvider({ children }) {
       pinEnabled,
       pinSetupRequired,
       pinStatusPending,
+      kakaoLinkPending,
       pinSetupOpen,
       openPinSetup: () => setPinSetupOpen(true),
       closePinSetup: () => setPinSetupOpen(false),
@@ -511,6 +597,7 @@ export function AuthProvider({ children }) {
       pinEnabled,
       pinSetupRequired,
       pinStatusPending,
+      kakaoLinkPending,
       pinProfile,
       pinSetupOpen,
       dismissPinSetup,

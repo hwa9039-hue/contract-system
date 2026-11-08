@@ -13,7 +13,11 @@ export async function fetchPinStatus() {
   )
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(readDetail(data, '간편 비밀번호 상태를 확인하지 못했습니다.'))
-  return { enabled: Boolean(data?.enabled) }
+  const hasKakaoFlag = data != null && Object.prototype.hasOwnProperty.call(data, 'kakaoLinked')
+  return {
+    enabled: Boolean(data?.enabled),
+    kakaoLinked: hasKakaoFlag ? Boolean(data.kakaoLinked) : undefined,
+  }
 }
 
 export async function savePin(pin, currentPin = '') {
