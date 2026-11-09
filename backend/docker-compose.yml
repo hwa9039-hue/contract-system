@@ -20,7 +20,6 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://smartdi:Smartdi2025!@192.168.0.100:5433/smartdi}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://contract.smart-di.com,https://contract.signtelecom-smartdi.com,https://contract-system-2ev.pages.dev,http://localhost:5173,http://127.0.0.1:5173}
       JWT_SECRET: ${JWT_SECRET:-20262026signtelecomsmartdi20262026}
-      AUTH_SHARED_PASSWORD: ${AUTH_SHARED_PASSWORD:-smartdi2026!}
       AUTH_ADMIN_ACCOUNTS: ${AUTH_ADMIN_ACCOUNTS:-hy9039!:정화영,jhjoung!:정주희,kk2331!:전기웅,nov1st!:유영무,sskim!:김성수,yongja_lee!:이용자,pjb9878!:박재범,jslee!:이재승,wizard1221!:전재우,ssj8845!:신상준}
       AUTH_MANAGER_ACCOUNTS: ${AUTH_MANAGER_ACCOUNTS:-}
       AUTH_DISABLED: ${AUTH_DISABLED:-false}

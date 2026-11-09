@@ -63,20 +63,6 @@ def get_jwt_secret() -> str:
     return os.getenv("JWT_SECRET", "").strip()
 
 
-def get_auth_shared_password() -> str:
-    return os.getenv("AUTH_SHARED_PASSWORD", "").strip()
-
-
-def get_auth_admin_password() -> str:
-    """구버전 단일 관리자 비밀번호(하위 호환)."""
-    return os.getenv("AUTH_ADMIN_PASSWORD", "").strip()
-
-
-def get_auth_manager_password() -> str:
-    """구버전 단일 부서장 비밀번호(하위 호환)."""
-    return os.getenv("AUTH_MANAGER_PASSWORD", "").strip()
-
-
 def _parse_accounts_env(raw: str, fallback_label: str) -> list[tuple[str, str]]:
     """`password:라벨,password:라벨` 형식 파싱."""
     accounts: list[tuple[str, str]] = []
@@ -102,23 +88,6 @@ def get_admin_accounts() -> list[tuple[str, str]]:
     return _without_retired_passwords(list(_DEFAULT_ADMIN_ACCOUNTS))
 
 
-def has_admin_accounts_configured() -> bool:
-    return any(pwd for pwd, _ in get_admin_accounts())
-
-
-def match_admin_account(password: str) -> tuple[str, str] | None:
-    """비밀번호가 관리자 계정이면 (password, label) 반환."""
-    trimmed = (password or "").strip()
-    if not trimmed:
-        return None
-    for pwd, label in get_admin_accounts():
-        if not pwd:
-            continue
-        if secrets.compare_digest(trimmed.encode("utf-8"), pwd.encode("utf-8")):
-            return pwd, label
-    return None
-
-
 def get_manager_accounts() -> list[tuple[str, str]]:
     """부서장 계정 목록 (password, display_label)."""
     raw = os.getenv("AUTH_MANAGER_ACCOUNTS", "").strip()
@@ -127,23 +96,6 @@ def get_manager_accounts() -> list[tuple[str, str]]:
         if parsed:
             return _without_retired_passwords(parsed)
     return _without_retired_passwords(list(_DEFAULT_MANAGER_ACCOUNTS))
-
-
-def has_manager_accounts_configured() -> bool:
-    return any(pwd for pwd, _ in get_manager_accounts())
-
-
-def match_manager_account(password: str) -> tuple[str, str] | None:
-    """비밀번호가 부서장 계정이면 (password, label) 반환."""
-    trimmed = (password or "").strip()
-    if not trimmed:
-        return None
-    for pwd, label in get_manager_accounts():
-        if not pwd:
-            continue
-        if secrets.compare_digest(trimmed.encode("utf-8"), pwd.encode("utf-8")):
-            return pwd, label
-    return None
 
 
 def is_auth_disabled() -> bool:
@@ -231,39 +183,3 @@ def decode_token_allow_expired(token: str) -> dict:
     if not secret:
         raise RuntimeError("JWT_SECRET is not set")
     return jwt.decode(token, secret, algorithms=[ALGORITHM], options={"verify_exp": False})
-
-
-def verify_shared_password(password: str) -> bool:
-    expected = get_auth_shared_password()
-    if not expected:
-        return False
-    return secrets.compare_digest(password.encode("utf-8"), expected.encode("utf-8"))
-
-
-def resolve_login_account(password: str) -> tuple[str, str] | None:
-    """비밀번호만으로 (role, display_label) 을 찾는다. 관리자 → 부서장 순."""
-    trimmed = (password or "").strip()
-    if not trimmed or is_retired_login_password(trimmed):
-        return None
-    admin = match_admin_account(trimmed)
-    if admin:
-        return "admin", admin[1]
-    manager = match_manager_account(trimmed)
-    if manager:
-        return "admin", manager[1]
-    return None
-
-
-def verify_login_password(password: str, role: str = "user") -> bool:
-    """개인 계정만 통과. 공용 관리자·사용자 비밀번호는 거부한다."""
-    trimmed = (password or "").strip()
-    if not trimmed or is_retired_login_password(trimmed):
-        return False
-    if resolve_login_account(trimmed) is not None:
-        return True
-    normalized_role = normalize_token_role(role)
-    if normalized_role == "admin":
-        return match_admin_account(trimmed) is not None
-    if normalized_role == "manager":
-        return match_manager_account(trimmed) is not None
-    return False

@@ -164,58 +164,6 @@ html.login-page-active #root {
   cursor: not-allowed;
 }
 
-/* mt-6 p-4 rounded-lg bg-white/50 border border-gray-200 */
-.login-page-permissions {
-  margin-top: 24px;
-  padding: 14px 16px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid #e5e7eb;
-  text-align: left;
-  width: max-content;
-  max-width: 100%;
-  box-sizing: border-box;
-  align-self: stretch;
-}
-
-/* font-bold text-sm mb-3 text-gray-700 */
-.login-page-permissions-heading {
-  font-weight: 700;
-  font-size: 14px;
-  margin-bottom: 12px;
-  color: var(--text, #18181b);
-}
-
-/* font-bold text-sm mb-1 text-gray-800 */
-.login-page-permissions-role {
-  font-weight: 700;
-  font-size: 14px;
-  margin-bottom: 4px;
-  color: var(--text, #18181b);
-}
-
-/* pl-2 mb-3 text-[13px] text-gray-600 */
-.login-page-permissions-item {
-  padding-left: 8px;
-  margin-bottom: 12px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: #4b5563;
-}
-
-.login-page-permissions-item--single-line {
-  white-space: nowrap;
-}
-
-/* text-gray-400 text-xs mt-4 */
-.login-page-permissions-footnote {
-  color: #9ca3af;
-  font-size: 12px;
-  line-height: 1.45;
-  margin-top: 16px;
-  max-width: 100%;
-}
-
 @media (max-width: 700px) {
   .login-page-card {
     width: 100%;
@@ -223,14 +171,6 @@ html.login-page-active #root {
   }
 
   .login-page-title {
-    white-space: normal;
-  }
-
-  .login-page-permissions {
-    width: 100%;
-  }
-
-  .login-page-permissions-item--single-line {
     white-space: normal;
   }
 }
@@ -251,11 +191,6 @@ html.login-page-active #root {
 
   .login-page-title {
     font-size: 22px;
-  }
-
-  .login-page-permissions {
-    margin-top: 20px;
-    padding: 14px;
   }
 }
 

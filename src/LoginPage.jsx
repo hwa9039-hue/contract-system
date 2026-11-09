@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { RESTRICTED_LOGIN_MESSAGE, useAuth } from './AuthContext.jsx'
-import { purgeSavedAdminPassword } from './loginCredentials.js'
+import { clearSavedLoginPassword } from './authSession.js'
 import { beginKakaoLogin } from './kakaoAuth.js'
 import './LoginPage.css'
 
@@ -18,7 +18,7 @@ export default function LoginPage() {
   }, [sessionExpiredNotice, clearSessionExpiredNotice])
 
   useEffect(() => {
-    purgeSavedAdminPassword()
+    clearSavedLoginPassword('admin')
     document.documentElement.classList.add(LOGIN_PAGE_ACTIVE_CLASS)
     document.body.classList.add(LOGIN_PAGE_ACTIVE_CLASS)
     return () => {

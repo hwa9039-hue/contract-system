@@ -428,41 +428,8 @@ export function hydrateAuthSessionFromStorage() {
   return restoreAuthSessionFromStorages()
 }
 
-/** 이전에 「자동 로그인」을 켰는지 (로그인 화면 체크박스 기본값) */
-export function readRememberMePreference() {
-  try {
-    return localStorage.getItem(CONTRACT_REMEMBER_ME_FLAG_KEY) === 'true'
-  } catch {
-    return false
-  }
-}
-
 function savedPasswordStorageKey(role) {
   return role === 'admin' ? CONTRACT_SAVED_PASSWORD_ADMIN_KEY : CONTRACT_SAVED_PASSWORD_USER_KEY
-}
-
-/** 관리자 비밀번호는 저장·자동완성하지 않습니다. */
-export function canPersistLoginPassword(role) {
-  return role === 'user'
-}
-
-/** 자동 로그인 사용 시 저장해 둔 비밀번호 (로그인 화면 자동 채움용) */
-export function readSavedLoginPassword(role) {
-  if (!canPersistLoginPassword(role)) return ''
-  try {
-    return localStorage.getItem(savedPasswordStorageKey(role)) || ''
-  } catch {
-    return ''
-  }
-}
-
-export function writeSavedLoginPassword(role, password) {
-  if (!canPersistLoginPassword(role)) return
-  try {
-    localStorage.setItem(savedPasswordStorageKey(role), String(password))
-  } catch {
-    /* ignore */
-  }
 }
 
 export function clearSavedLoginPassword(role) {
