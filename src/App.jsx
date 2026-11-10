@@ -17398,6 +17398,20 @@ function App() {
                       weekStartDate={selectedWorkWeekMeta.weekStartDate}
                       getEntry={getWorkReportBoardEntry}
                       updateEntry={updateWorkReportBoardEntry}
+                      persistEntry={(weekStartDate) => {
+                        const { cellKey, sectionNorm, orderIndex: oi } =
+                          resolveWorkReportSaveCellMeta(
+                            weekStartDate,
+                            WORK_REPORT_SECTION_KEYS.meetingMinutes,
+                            1
+                          )
+                        const timers = workReportSaveTimersRef.current
+                        if (timers[cellKey]) {
+                          window.clearTimeout(timers[cellKey])
+                          delete timers[cellKey]
+                        }
+                        return flushWorkReportEntrySave(weekStartDate, sectionNorm, oi)
+                      }}
                       onEntryBlur={handleWorkReportBoardBlur(
                         selectedWorkWeekMeta.weekStartDate,
                         WORK_REPORT_SECTION_KEYS.meetingMinutes,

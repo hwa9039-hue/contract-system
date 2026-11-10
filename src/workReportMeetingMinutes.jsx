@@ -794,11 +794,13 @@ export function WorkReportMeetingMinutesSection({
   getEntry,
   updateEntry,
   onEntryBlur,
+  persistEntry,
 }) {
   const isDesktopTable = useDesktopTableLayout()
   const boardEntry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
   const agendaRowsRef = useRef(getDefaultMeetingMinutesAgenda())
   const pendingFocusIndexRef = useRef(null)
+  const getEntryRef = useRef(getEntry)
   const [agendaRows, setAgendaRows] = useState(() => getDefaultMeetingMinutesAgenda())
   const loadSyncKey = [
     weekStartDate,
@@ -807,14 +809,19 @@ export function WorkReportMeetingMinutesSection({
   ].join('|')
 
   useEffect(() => {
-    const doc = loadMeetingMinutesDocument(weekStartDate, getEntry)
+    getEntryRef.current = getEntry
+  }, [getEntry])
+
+  useEffect(() => {
+    const doc = loadMeetingMinutesDocument(weekStartDate, getEntryRef.current)
     const merged = mergeMeetingMinutesAgendaForState(doc.agenda)
     agendaRowsRef.current = merged
     setAgendaRows(merged)
-  }, [loadSyncKey, weekStartDate, getEntry])
+    // getEntry 참조가 매 렌더마다 바뀌어도 서버 동기화 키가 같을 때는 로컬 입력을 덮어쓰지 않는다.
+  }, [loadSyncKey, weekStartDate])
 
   const commitAgendaRows = useCallback(
-    (nextAgenda, { exact = false } = {}) => {
+    (nextAgenda, { exact = false, persist = true } = {}) => {
       const merged = exact
         ? normalizeMeetingMinutesAgenda(nextAgenda, { exact: true })
         : mergeMeetingMinutesAgendaForState(nextAgenda)
@@ -825,9 +832,12 @@ export function WorkReportMeetingMinutesSection({
         buildMeetingMinutesBoardEntry(weekStartDate, prevEntry, merged)
       )
       writeMeetingMinutesSessionBackup(weekStartDate, boardEntry.content)
+      if (persist && typeof persistEntry === 'function') {
+        void persistEntry(weekStartDate)
+      }
       return merged
     },
-    [updateEntry, weekStartDate]
+    [persistEntry, updateEntry, weekStartDate]
   )
 
   const patchAgendaRow = useCallback(
@@ -848,20 +858,22 @@ export function WorkReportMeetingMinutesSection({
           dueDate: patch.dueDate !== undefined ? patch.dueDate : row.dueDate,
         }
       })
-      commitAgendaRows(nextAgenda)
+      // 타이핑은 updateEntry 디바운스 자동저장에 맡기고, 항목 추가/삭제만 즉시 POST/PATCH 한다.
+      commitAgendaRows(nextAgenda, { persist: false })
     },
     [commitAgendaRows]
   )
 
   const removeAgendaRow = useCallback((index) => {
     const nextAgenda = agendaRowsRef.current.filter((_, rowIndex) => rowIndex !== index)
-    commitAgendaRows(nextAgenda, { exact: true })
+    commitAgendaRows(nextAgenda, { exact: true, persist: true })
   }, [commitAgendaRows])
 
   const addAgendaRow = useCallback(() => {
     const nextAgenda = [...agendaRowsRef.current, createEmptyMeetingMinutesAgendaRow()]
     pendingFocusIndexRef.current = nextAgenda.length - 1
-    commitAgendaRows(nextAgenda)
+    // exact:true 로 행 수 증가를 유지하고, persistEntry 로 POST/PATCH 를 바로 건다.
+    commitAgendaRows(nextAgenda, { exact: true, persist: true })
   }, [commitAgendaRows])
 
   useEffect(() => {

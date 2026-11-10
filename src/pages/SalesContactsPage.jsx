@@ -107,7 +107,14 @@ function leadingSortOrder(rows) {
     const value = Number(row?.sortOrder)
     return Number.isFinite(value) ? Math.min(acc, value) : acc
   }, 0)
-  return min - 1
+  // 기존 최소값보다 작고, 동시에 고유한 음수여야 새로고침 후에도 맨 위에 남는다.
+  return Math.min(min - 1, -Date.now())
+}
+
+function compareContactsBySortOrder(a, b) {
+  const sortDiff = Number(a?.sortOrder || 0) - Number(b?.sortOrder || 0)
+  if (sortDiff !== 0) return sortDiff
+  return safeString(a?.id).localeCompare(safeString(b?.id))
 }
 
 function isPersistedContactId(id) {
@@ -675,9 +682,10 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
       try {
         const list = await salesContactsApi.list()
         if (cancelled) return
-        const normalized = (Array.isArray(list) ? list : []).map((row, index) =>
-          normalizeSalesContactRow(row, index + 1)
-        )
+        const normalized = (Array.isArray(list) ? list : [])
+          .map((row) => normalizeSalesContactRow(row, 1))
+          .sort(compareContactsBySortOrder)
+          .map((row, index) => ({ ...row, seq: index + 1 }))
         setRows(normalized.length ? normalized : [createContactRow(1, 'draft-1', 1, accountId)])
       } catch (error) {
         if (cancelled) return
@@ -696,18 +704,27 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
   const handleAddRow = async () => {
     const sortOrder = leadingSortOrder(rowsRef.current)
     const draft = createContactRow(1, `draft-${Date.now()}`, sortOrder, accountId)
+    // 화면에는 즉시 맨 위에 올리고, 서버 저장 결과로 id만 맞춘다.
+    setRows((prev) => renumberContactRows([draft, ...prev.filter((row) => row.id !== draft.id)]))
     try {
       const created = await salesContactsApi.create(draft)
       const normalized = normalizeSalesContactRow(created, 1)
       setRows((prev) =>
-        renumberContactRows([
-          { ...normalized, authorId: normalized.authorId || draft.authorId, sortOrder },
-          ...prev,
-        ])
+        renumberContactRows(
+          [
+            {
+              ...normalized,
+              authorId: normalized.authorId || draft.authorId,
+              sortOrder: Number.isFinite(Number(normalized.sortOrder))
+                ? Number(normalized.sortOrder)
+                : sortOrder,
+            },
+            ...prev.filter((row) => row.id !== draft.id && row.id !== normalized.id),
+          ].sort(compareContactsBySortOrder)
+        )
       )
       setLoadError('')
     } catch (error) {
-      setRows((prev) => renumberContactRows([draft, ...prev]))
       scheduleSave(draft.id)
       setLoadError(`등록에 실패했습니다. ${safeString(error?.message)}`)
     }

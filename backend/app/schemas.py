@@ -1895,7 +1895,9 @@ def sales_contact_to_db_values(row: SalesContactBase) -> dict:
     }
     values["status"] = _normalize_sales_contact_status(values.get("status"))
     try:
-        values["sort_order"] = int(values.get("sort_order") or 0)
+        # 0도 유효한 정렬값. `or 0` 쓰면 음수 정렬(최상단)만 남기고 0을 깨뜨리지 않는다.
+        raw_sort = values.get("sort_order")
+        values["sort_order"] = 0 if raw_sort in (None, "") else int(raw_sort)
     except (TypeError, ValueError):
         values["sort_order"] = 0
     return values

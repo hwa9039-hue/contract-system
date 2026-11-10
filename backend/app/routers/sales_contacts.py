@@ -47,8 +47,26 @@ _INACTIVE_STATUS_SQL = "lower(coalesce(status, '')) in ('inactive', '비활성',
 _VISIBLE_TO_MEMBER_SQL = f"(not ({_INACTIVE_STATUS_SQL}) or lower(author_id) = %(scope)s)"
 
 
+def _leading_sort_order(cursor) -> int:
+    """목록 맨 위(sort_order ASC)에 오도록 현재 최소값보다 1 작은 값을 고른다."""
+    cursor.execute("select coalesce(min(sort_order), 0) as min_sort from sales_contacts_rows")
+    row = cursor.fetchone() or {}
+    try:
+        current_min = int(row.get("min_sort") if isinstance(row, dict) else row[0])
+    except (TypeError, ValueError, IndexError, KeyError):
+        current_min = 0
+    return current_min - 1
+
+
 def insert_sales_contact_row(cursor, row: SalesContactCreate, author_id: str | None = None) -> dict:
     values = sales_contact_to_db_values(row)
+    # 신규 행은 항상 목록 최상단. 클라이언트가 보낸 값이 더 작으면 그걸 쓰고, 아니면 DB 최소-1.
+    leading = _leading_sort_order(cursor)
+    try:
+        requested = int(values.get("sort_order"))
+    except (TypeError, ValueError):
+        requested = leading
+    values["sort_order"] = requested if requested < leading else leading
     # 등록자는 브라우저가 보낸 값이 아니라 로그인한 계정으로 서버가 찍는다.
     if author_id is not None:
         values["author_id"] = author_id
