@@ -757,8 +757,63 @@ textarea {
   grid-template-columns: minmax(260px, 1fr) 230px;
 }
 
-.contract-toolbar-with-date {
-  grid-template-columns: minmax(0, 1fr) 230px;
+/* 계약현황만: 등록·삭제·엑셀·준공임박과 검색·합계를 한 줄에 둔다. */
+.stat-card--contracts .contracts-page-toolbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+
+.stat-card--contracts .contracts-page-toolbar > .contracts-header-actions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  margin-bottom: 0;
+}
+
+.stat-card--contracts .contracts-page-toolbar > .table-toolbar.contract-toolbar-simple {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.stat-card--contracts .contracts-page-toolbar .registry-search-toolbar-split {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.stat-card--contracts .contracts-page-toolbar .registry-search-toolbar-split > .table-search-input {
+  min-width: 0;
+  width: 100%;
+}
+
+.stat-card--contracts .contracts-page-toolbar .table-summary-box {
+  flex: 0 0 280px;
+  width: 280px;
+}
+
+@media (max-width: 768px) {
+  .stat-card--contracts .contracts-page-toolbar,
+  .stat-card--contracts .contracts-page-toolbar > .contracts-header-actions,
+  .stat-card--contracts .contracts-page-toolbar > .table-toolbar.contract-toolbar-simple {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .stat-card--contracts .contracts-page-toolbar > .contracts-header-actions {
+    flex-wrap: wrap;
+  }
+
+  .stat-card--contracts .contracts-page-toolbar .table-summary-box {
+    flex: none;
+    width: 100%;
+  }
 }
 
 .registry-toolbar-date-range {
@@ -1342,7 +1397,6 @@ table[data-contract-table-row-key] th.table-col-long,
 table[data-contract-table-row-key] td.table-col-long,
 table[data-contract-table-row-key] col.table-col-long,
 table[data-contract-table-row-key] .col-client,
-table[data-contract-table-row-key] .col-dept,
 table[data-contract-table-row-key] .col-project,
 table[data-contract-table-row-key] .col-note {
   width: auto !important;
@@ -1353,7 +1407,7 @@ table[data-contract-table-row-key] .col-note {
 /* 긴 텍스트 열 — 남는 공간 흡수 */
 table[data-contract-table-row-key] .col-project,
 table[data-contract-table-row-key] col.contract-col-projectName {
-  width: 28% !important;
+  width: 46% !important;
 }
 
 table[data-contract-table-row-key] .col-note,
@@ -1362,10 +1416,40 @@ table[data-contract-table-row-key] col.contract-col-note {
 }
 
 table[data-contract-table-row-key] .col-client,
-table[data-contract-table-row-key] .col-dept,
-table[data-contract-table-row-key] col.contract-col-client,
-table[data-contract-table-row-key] col.contract-col-department {
+table[data-contract-table-row-key] col.contract-col-client {
   width: 12% !important;
+}
+
+/* 계약일자·준공일자 — 같은 고정 폭. 날짜 수정(달력 아이콘) 때 글자와 아이콘이 잘리지 않는다. */
+table[data-contract-table-row-key].contract-table col.contract-col-contractDate,
+table[data-contract-table-row-key].contract-table col.contract-col-dueDate,
+table[data-contract-table-row-key].contract-table th.col-contract-date,
+table[data-contract-table-row-key].contract-table th.col-due-date,
+table[data-contract-table-row-key].contract-table td.col-contract-date,
+table[data-contract-table-row-key].contract-table td.col-due-date {
+  width: var(--contract-col-w-date) !important;
+  min-width: var(--contract-col-w-date) !important;
+  max-width: var(--contract-col-w-date) !important;
+}
+
+/* 담당부서 — 발주처와 따로 144px. 더 긴 이름은 줄바꿈한다. */
+table[data-contract-table-row-key].contract-table col.contract-col-department,
+table[data-contract-table-row-key].contract-table th.col-dept,
+table[data-contract-table-row-key].contract-table td.col-dept {
+  width: var(--contract-col-w-department) !important;
+  min-width: var(--contract-col-w-department) !important;
+  max-width: var(--contract-col-w-department) !important;
+}
+
+table[data-contract-table-row-key].contract-table th.col-dept,
+table[data-contract-table-row-key].contract-table td.col-dept,
+table[data-contract-table-row-key].contract-table td.col-dept .cell-display,
+table[data-contract-table-row-key].contract-table td.col-dept .editable-text-cell-display,
+table[data-contract-table-row-key].contract-table td.col-dept .editable-text-cell-input,
+table[data-contract-table-row-key].contract-table td.col-dept .registry-cell-text-wrap {
+  white-space: normal !important;
+  word-break: keep-all !important;
+  overflow-wrap: break-word !important;
 }
 
 table[data-contract-table-row-key] thead th {
@@ -1653,7 +1737,7 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
 }
 
 .col-dept {
-  width: 130px;
+  width: 144px;
 }
 
 .col-method {
@@ -1672,7 +1756,7 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
 }
 
 .col-project {
-  width: 360px;
+  width: 520px;
 }
 
 .col-amount {
@@ -4102,6 +4186,13 @@ textarea:focus-visible {
   overflow: auto;
 }
 
+/* 계약현황 — 행이 적어도 세로 스크롤 칸을 남겨 표가 가로로 밀리지 않게 한다 */
+.main-area > section.stat-card.stat-card--contracts .table-wrap.contracts-only-scroll {
+  overflow-x: auto;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+}
+
 /* 나라장터 · 각종뉴스 — 하얀 카드·iframe 모두 화면 하단까지 stretch */
 .main-area > section.stat-card.stat-card--iframe-embed {
   flex: 1 1 auto;
@@ -5936,11 +6027,11 @@ button.dashboard-year-card {
 table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-cell--due-soon {
   display: inline-block;
   width: auto;
-  padding: 8px 16px;
+  padding: 2px 10px;
   border-radius: 999px;
   background: var(--status-imminent-bg);
   color: var(--status-imminent-fg) !important;
-  font-size: 14px !important;
+  font-size: 12px !important;
   font-weight: 800 !important;
   letter-spacing: 0.02em;
   line-height: 1.25;
@@ -5954,11 +6045,11 @@ table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-ce
 table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-cell--overdue {
   display: inline-block;
   width: auto;
-  padding: 8px 16px;
+  padding: 2px 10px;
   border-radius: 999px;
   background: var(--status-delayed-bg);
   color: var(--status-delayed-fg) !important;
-  font-size: 14px !important;
+  font-size: 12px !important;
   font-weight: 800 !important;
   letter-spacing: 0.02em;
   line-height: 1.25;
@@ -6001,11 +6092,11 @@ table[data-contract-table-row-key] tbody td.col-dday {
 table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-cell--in-progress {
   display: inline-block;
   width: auto;
-  padding: 8px 16px;
+  padding: 2px 10px;
   border-radius: 999px;
   background: var(--status-due-bg);
   color: var(--status-due-fg) !important;
-  font-size: 14px !important;
+  font-size: 12px !important;
   font-weight: 800 !important;
   letter-spacing: 0.02em;
   line-height: 1.25;
@@ -6048,8 +6139,10 @@ table[data-contract-table-row-key].contract-table {
   --contract-sticky-w-process: 100px;
   --contract-sticky-w-year: 84px;
   --contract-sticky-w-ref: 88px;
-  --contract-sticky-w-client: 144px;
-  --contract-sticky-w-project: 280px;
+  --contract-sticky-w-client: 168px;
+  --contract-sticky-w-project: 520px;
+  --contract-col-w-date: 148px;
+  --contract-col-w-department: 144px;
 
   --contract-sticky-left-check: 0px;
   --contract-sticky-left-copy: var(--contract-sticky-w-check);
@@ -6152,15 +6245,16 @@ table[data-contract-table-row-key].contract-table tbody td.contract-sticky-col {
 table[data-contract-table-row-key].contract-table .contract-process-status-select {
   display: block;
   width: 100%;
-  min-height: 2.5rem;
+  min-height: 0;
   margin: 0;
-  padding: 6px 4px;
+  padding: 0 4px;
   border: 0;
   border-radius: 0;
   background: transparent;
   text-align: center;
   text-align-last: center;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.25;
   color: #0f172a;
   cursor: pointer;
 }
@@ -6244,7 +6338,7 @@ table[data-contract-table-row-key].contract-table tbody tr.contracts-draft-row >
   box-shadow: inset 0 0 0 1px #3b82f6;
 }
 
-/* 신규 입력 행의 입력기 — 데이터 행 셸(px-3 py-2, 최소 높이 3rem)과 여백·높이를 맞춰
+/* 신규 입력 행의 입력기 — 데이터 행 셸(상하 2px, 최소 높이 36px)과 여백·높이를 맞춰
    글자 시작 위치와 행 높이가 위아래 행과 어긋나지 않게 한다.
    날짜 입력은 자체 래퍼(.registry-table-date-input)가 여백을 잡으므로 직계 자식만 대상으로 한다. */
 table[data-contract-table-row-key].contract-table tbody tr.contracts-draft-row > td.editable-cell > .excluded-inline-editor,
@@ -6254,8 +6348,8 @@ table[data-contract-table-row-key].contract-table tbody tr.contracts-draft-row >
   width: 100% !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
-  padding: 8px 12px !important;
-  min-height: 3rem !important;
+  padding: 2px 8px !important;
+  min-height: 32px !important;
 }
 
 /* 고정 영역 끝(사업명) — 경계선 + 오른쪽으로 떨어지는 그림자.
@@ -6779,8 +6873,7 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
     padding: 14px;
   }
 
-  .contract-toolbar-simple,
-  .contract-toolbar-with-date {
+  .contract-toolbar-simple {
     grid-template-columns: 1fr;
   }
 
@@ -19561,8 +19654,7 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     min-height: 42px;
   }
 
-  .contract-toolbar-simple,
-  .contract-toolbar-with-date {
+  .contract-toolbar-simple {
     grid-template-columns: 1fr !important;
   }
 

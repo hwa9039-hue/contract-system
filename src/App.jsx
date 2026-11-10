@@ -374,14 +374,14 @@ const CONTRACT_COLUMNS = [
   },
   { key: 'year', label: '사업년도', className: 'col-year', align: 'center', type: 'text', width: 112 },
   { key: 'refNo', label: '참고번호', className: 'col-ref', align: 'center', type: 'text', width: 110 },
-  { key: 'client', label: '발주처', className: 'col-client', align: 'center', type: 'textarea', width: 150 },
-  { key: 'projectName', label: '사업명', className: 'col-project', align: 'left', type: 'textarea', width: 360, widthGrow: true },
-  { key: 'contractDate', label: '계약일자', className: 'col-date', align: 'center', type: 'date', width: 175 },
-  { key: 'dueDate', label: '준공일자', className: 'col-date', align: 'center', type: 'date', width: 175 },
+  { key: 'client', label: '발주처', className: 'col-client', align: 'center', type: 'textarea', width: 168 },
+  { key: 'projectName', label: '사업명', className: 'col-project', align: 'left', type: 'textarea', width: 520, widthGrow: true },
+  { key: 'contractDate', label: '계약일자', className: 'col-date col-contract-date', align: 'center', type: 'date', width: 148 },
+  { key: 'dueDate', label: '준공일자', className: 'col-date col-due-date', align: 'center', type: 'date', width: 148 },
   { key: 'amount', label: '계약금액', className: 'col-amount', align: 'right', type: 'amount', width: 146 },
   { key: 'salesOwner', label: '영업담당자', className: 'col-owner', align: 'center', type: 'text', width: 136 },
   { key: 'pm', label: '현장 PM', className: 'col-pm', align: 'center', type: 'text', width: 124 },
-  { key: 'department', label: '담당부서', className: 'col-dept', align: 'center', type: 'textarea', width: 130 },
+  { key: 'department', label: '담당부서', className: 'col-dept', align: 'center', type: 'textarea', width: 144 },
   { key: 'contractMethod', label: '계약방식', className: 'col-method', align: 'center', type: 'text', width: 132 },
   { key: 'contractType', label: '계약분류', className: 'col-type', align: 'center', type: 'text', width: 122 },
   { key: 'note', label: '비고', className: 'col-note', align: 'left', type: 'textarea', width: 190, widthGrow: true },
@@ -6761,9 +6761,8 @@ function App() {
   const [workReportSearchError, setWorkReportSearchError] = useState('')
   const [manualEvents, setManualEvents] = useState([])
   const [search, setSearch] = useState('')
-  const [contractDateRange, setContractDateRange] = useState({ startDate: '', endDate: '' })
   const [activeFilters, setActiveFilters] = useState({})
-  /** 준공 임박 건만 모아보는 퀵 필터 — 검색·기간·열 필터 위에 겹쳐서 적용된다. */
+  /** 준공 임박 건만 모아보는 퀵 필터 — 검색·열 필터 위에 겹쳐서 적용된다. */
   const [isContractDueSoonOnly, setIsContractDueSoonOnly] = useState(false)
   /** 계약현황 상단 분야 카드 필터. null이면 전체. 값은 getCategory() 키(전광판·BIT·도로사업·유지보수·기타). */
   const [selectedCategory, setSelectedCategory] = useState(null)
@@ -7621,13 +7620,7 @@ function App() {
     const basePool = contractsRawData.filter(
       (item) =>
         !item.isDraft &&
-        contractMatchesSearch(item, search) &&
-        matchesDateRangeFilter(
-          item,
-          'contractDate',
-          contractDateRange.startDate,
-          contractDateRange.endDate
-        )
+        contractMatchesSearch(item, search)
     )
     const map = {}
     CONTRACT_COLUMNS.forEach(({ key: columnKey }) => {
@@ -7637,13 +7630,7 @@ function App() {
       map[columnKey] = buildContractColumnFilterOptions(pool, columnKey)
     })
     return map
-  }, [
-    activeFilters,
-    contractDateRange.endDate,
-    contractDateRange.startDate,
-    contractsRawData,
-    search,
-  ])
+  }, [activeFilters, contractsRawData, search])
 
   const handleActiveFiltersApply = useCallback((columnKey, selected) => {
     setActiveFilters((prev) => {
@@ -7655,28 +7642,14 @@ function App() {
     })
   }, [])
 
-  /** [1단계] rawData → 검색·기간·헤더 열 필터(AND) → 정렬 */
+  /** [1단계] rawData → 검색·헤더 열 필터(AND) → 정렬 */
   const contractRowsBeforeDueSoonFilter = useMemo(() => {
     const toolbarFiltered = contractsRawData.filter(
-      (item) =>
-        !item.isDraft &&
-        contractMatchesSearch(item, search) &&
-        matchesDateRangeFilter(
-          item,
-          'contractDate',
-          contractDateRange.startDate,
-          contractDateRange.endDate
-        )
+      (item) => !item.isDraft && contractMatchesSearch(item, search)
     )
     const columnFiltered = filterContractRowsByActiveFilters(toolbarFiltered, activeFilters)
     return sortContracts(columnFiltered)
-  }, [
-    activeFilters,
-    contractDateRange.endDate,
-    contractDateRange.startDate,
-    contractsRawData,
-    search,
-  ])
+  }, [activeFilters, contractsRawData, search])
 
   /** 준공 임박·준공지연(미완료) 퀵 필터 대상 */
   const contractDueSoonRows = useMemo(
@@ -7755,18 +7728,9 @@ function App() {
     () =>
       !safeString(search).trim() &&
       !hasActiveContractColumnFilters(activeFilters) &&
-      !safeString(contractDateRange.startDate).trim() &&
-      !safeString(contractDateRange.endDate).trim() &&
       !isContractDueSoonOnly &&
       !selectedCategory,
-    [
-      activeFilters,
-      contractDateRange.endDate,
-      contractDateRange.startDate,
-      isContractDueSoonOnly,
-      search,
-      selectedCategory,
-    ]
+    [activeFilters, isContractDueSoonOnly, search, selectedCategory]
   )
 
   const remainingSessionMinutes = useMemo(() => {
@@ -13531,7 +13495,7 @@ function App() {
 
   const renderContractCellInlineEditor = (column, shellAlign = 'left') => {
     const commonProps = {
-      className: `${TABLE_INLINE_INPUT_STANDARD_CLASS} min-h-[2.5rem] py-2`,
+      className: `${TABLE_INLINE_INPUT_STANDARD_CLASS} min-h-0 py-0`,
       style: { textAlign: column.align || 'left' },
       defaultValue: contractEditDraft,
       autoFocus: true,
@@ -13587,7 +13551,7 @@ function App() {
       control = (
         <select
           {...commonProps}
-          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} min-h-[2.5rem] py-2`}
+          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} min-h-0 py-0`}
           style={{ textAlign: 'center' }}
           onChange={(e) => {
             const value = e.target.value
@@ -13615,7 +13579,7 @@ function App() {
       control = (
         <AutoGrowTextarea
           {...commonProps}
-          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} registry-cell-autogrow-textarea resize-none min-h-[2.5rem] py-2`}
+          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} registry-cell-autogrow-textarea resize-none min-h-0 py-0`}
           rows={2}
         />
       )
@@ -17529,7 +17493,8 @@ function App() {
         )}
 
         {menu === 'contracts' && (
-          <section className="stat-card">
+          <section className="stat-card stat-card--contracts">
+            <div className="contracts-page-toolbar">
             <div className="contracts-header-actions">
               {canEditContracts && (
                 <>
@@ -17590,6 +17555,27 @@ function App() {
               />
             </div>
 
+            <div className="table-toolbar contract-toolbar-simple">
+              <div className="registry-search-toolbar-split">
+                <input
+                  className="table-search-input"
+                  placeholder="검색어를 입력하세요"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="table-summary-box">
+                <div className="table-summary-label">필터 결과 합계 금액</div>
+                <div className="table-summary-value">
+                  {isContractsTableDefaultFilterState
+                    ? '-원'
+                    : `${filteredTotalAmount.toLocaleString('ko-KR')}원`}
+                </div>
+              </div>
+            </div>
+            </div>
+
             {contractPageYearSummaryBlock && (
               <div className="contracts-year-summary-embed" aria-label="연도별 계약금액 현황 요약">
                 <div
@@ -17629,36 +17615,6 @@ function App() {
                 </div>
               </div>
             )}
-
-            <div className="table-toolbar contract-toolbar-simple contract-toolbar-with-date">
-              <div className="registry-search-toolbar-split">
-                <input
-                  className="table-search-input"
-                  placeholder="검색어를 입력하세요"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-                <RegistryDateRangeFilter
-                  startDate={contractDateRange.startDate}
-                  endDate={contractDateRange.endDate}
-                  onStartChange={(value) =>
-                    setContractDateRange((prev) => ({ ...prev, startDate: value }))
-                  }
-                  onEndChange={(value) =>
-                    setContractDateRange((prev) => ({ ...prev, endDate: value }))
-                  }
-                />
-              </div>
-
-              <div className="table-summary-box">
-                <div className="table-summary-label">필터 결과 합계 금액</div>
-                <div className="table-summary-value">
-                  {isContractsTableDefaultFilterState
-                    ? '-원'
-                    : `${filteredTotalAmount.toLocaleString('ko-KR')}원`}
-                </div>
-              </div>
-            </div>
 
             <div className="contract-table-panel">
               {isDesktopTable ? (

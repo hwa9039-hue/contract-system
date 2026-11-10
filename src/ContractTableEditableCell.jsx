@@ -81,7 +81,7 @@ function ContractCellEditor({ column, columns, shellAlign, isLongCell, actionsRe
   }
 
   const commonProps = {
-    className: `${TABLE_INLINE_INPUT_STANDARD_CLASS} min-h-[2.5rem] py-2`,
+    className: `${TABLE_INLINE_INPUT_STANDARD_CLASS} min-h-0 py-0`,
     style: { textAlign: column.align || 'left' },
     defaultValue: actionsRef.current.draftRef.current ?? '',
     onChange: (event) => {
@@ -124,7 +124,7 @@ function ContractCellEditor({ column, columns, shellAlign, isLongCell, actionsRe
     control = (
       <AutoGrowTextarea
         {...commonProps}
-        className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} registry-cell-autogrow-textarea resize-none min-h-[2.5rem] py-2`}
+        className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} registry-cell-autogrow-textarea resize-none min-h-0 py-0`}
         rows={2}
       />
     )
