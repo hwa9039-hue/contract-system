@@ -1,5 +1,6 @@
 import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders } from './apiClient.js'
 import { readApiErrorMessage } from './apiErrors.js'
+import { parseDateOnly } from './dateFieldUtils.js'
 
 export const BIT_HISTORY_API_PATH = '/api/bit-history'
 
@@ -60,6 +61,54 @@ export const BIT_EXTRA_KEYS = [
 ]
 
 const BIT_TEXT_KEYS = ['contractId', ...BIT_FROM_CONTRACT_KEYS, ...BIT_EXTRA_KEYS]
+
+/** 연결된 계약현황에서만 채워지는 표시 값. 저장 payload 에는 넣지 않는다. */
+export const BIT_LINKED_PROJECT_KEYS = ['dDay', 'processStatus', 'pm', 'year', 'salesOwner']
+
+function displayContractYear(contract, extra) {
+  const raw = safeString(contract?.year ?? extra?.year).trim().replace(/\.0$/, '')
+  if (/^\d{4}$/.test(raw) && raw !== '0000') return raw
+  const fromDate = safeString(contract?.contractDate || extra?.contractDate || extra?.dueDate)
+    .trim()
+    .slice(0, 4)
+  return /^\d{4}$/.test(fromDate) ? fromDate : ''
+}
+
+function normalizeProcessStatus(value) {
+  const raw = safeString(value).trim()
+  if (raw === '시공중') return '진행중'
+  if (raw === '준공') return '준공완료'
+  return raw
+}
+
+/** 계약현황 D-Day 칸과 같은 문구. */
+export function formatBitDday(dueDate, processStatus) {
+  if (normalizeProcessStatus(processStatus) === '준공완료') return '준공'
+  const target = parseDateOnly(dueDate)
+  if (!target) return ''
+  const today = new Date()
+  const current = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const diff = Math.round((target.getTime() - current.getTime()) / 86400000)
+  if (!Number.isFinite(diff)) return ''
+  if (diff < 0) return `D+${-diff}`
+  if (diff === 0) return 'D-Day'
+  return `D-${diff}`
+}
+
+function linkedProjectFields(contract, extra) {
+  const processStatus =
+    normalizeProcessStatus(contract?.processStatus) || normalizeProcessStatus(extra?.processStatus)
+  const pm = safeString(contract?.pm).trim() || safeString(extra?.pm).trim()
+  const dueDate = safeString(contract?.dueDate).trim() || safeString(extra?.dueDate).trim()
+  const dDay = formatBitDday(dueDate, processStatus) || safeString(extra?.dDay).trim()
+  return {
+    dDay,
+    processStatus,
+    pm,
+    year: displayContractYear(contract, extra),
+    salesOwner: safeString(contract?.salesOwner).trim() || safeString(extra?.salesOwner).trim(),
+  }
+}
 
 export function isManualBitRow(row) {
   return !normalizeBitContractId(row?.contractId)
@@ -126,6 +175,7 @@ export function normalizeBitHistoryRow(row, sortOrderFallback = 0) {
   for (const key of BIT_TEXT_KEYS) {
     normalized[key] = safeString(sourceRow[key])
   }
+  Object.assign(normalized, linkedProjectFields(sourceRow, sourceRow))
   if (contractId) normalized.contractId = contractId
   return normalized
 }
@@ -162,6 +212,7 @@ function buildLinkedBitRow(contract, extra, seqNo, lineNo) {
     dueDate: safeString(contract.dueDate).trim(),
     projectName: safeString(contract.projectName).trim(),
     contractAmount: formatAmountFromContract(contract.amount ?? extra?.contractAmount),
+    ...linkedProjectFields(contract, extra),
     createdAt: safeString(extra?.createdAt ?? extra?.created_at),
     updatedAt: safeString(extra?.updatedAt ?? extra?.updated_at),
   }

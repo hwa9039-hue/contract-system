@@ -750,6 +750,12 @@ class BitHistoryOut(BitHistoryBase):
     id: Optional[Any] = None
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
+    # 연결된 계약현황에서 읽어 온 표시값. BIT 추가 이력 테이블에는 저장하지 않는다.
+    dDay: str = ""
+    processStatus: str = ""
+    pm: str = ""
+    year: str = ""
+    salesOwner: str = ""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -2074,6 +2080,48 @@ def is_bit_contract_type(value) -> bool:
     return any(code in compact for code in _BIT_CONTRACT_TYPE_CODES)
 
 
+def normalize_bit_process_status(value) -> str:
+    """계약현황 공정상태 표시와 같은 구버전 표기 정리."""
+    raw = "" if value is None else str(value).strip()
+    if raw == "시공중":
+        return "진행중"
+    if raw == "준공":
+        return "준공완료"
+    return raw
+
+
+def format_bit_year(value, contract_date) -> str:
+    """계약현황 사업년도. 값이 없으면 계약일자 연도를 쓴다."""
+    text = "" if value is None else str(value).strip()
+    if text.endswith(".0"):
+        text = text[:-2]
+    if len(text) == 4 and text.isdigit() and text != "0000":
+        return text
+    date_text = "" if contract_date is None else str(contract_date).strip()
+    if len(date_text) >= 4 and date_text[:4].isdigit() and date_text[:4] != "0000":
+        return date_text[:4]
+    return ""
+
+
+def format_bit_dday(due_date, process_status) -> str:
+    """계약현황 D-Day 칸과 같은 문구. 준공완료는 날짜와 관계없이 '준공'."""
+    if normalize_bit_process_status(process_status) == "준공완료":
+        return "준공"
+    text = "" if due_date is None else str(due_date).strip()
+    if len(text) >= 10:
+        text = text[:10]
+    try:
+        target = datetime.strptime(text, "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return ""
+    diff = (target - datetime.now().date()).days
+    if diff < 0:
+        return f"D+{-diff}"
+    if diff == 0:
+        return "D-Day"
+    return f"D-{diff}"
+
+
 def format_bit_contract_amount(value) -> str:
     if value is None or value == "":
         return ""
@@ -2109,6 +2157,10 @@ def contract_snapshot_for_bit(row) -> dict:
         "dueDate": contract_date_to_response(row.get("dueDate")) or "",
         "projectName": to_response_value(row.get("projectName")) or "",
         "amount": to_response_value(row.get("amount")),
+        "processStatus": normalize_bit_process_status(row.get("processStatus")),
+        "pm": to_response_value(row.get("pm")) or "",
+        "year": format_bit_year(row.get("year"), row.get("contractDate")),
+        "salesOwner": to_response_value(row.get("salesOwner")) or "",
     }
 
 
@@ -2155,6 +2207,11 @@ def join_contract_and_bit_extra(contract: dict, extra_row=None, seq_no: int = 0)
         "dueDate": contract.get("dueDate") or "",
         "projectName": contract.get("projectName") or "",
         "contractAmount": format_bit_contract_amount(contract.get("amount")),
+        "processStatus": contract.get("processStatus") or "",
+        "pm": contract.get("pm") or "",
+        "year": contract.get("year") or "",
+        "salesOwner": contract.get("salesOwner") or "",
+        "dDay": format_bit_dday(contract.get("dueDate"), contract.get("processStatus")),
     }
     for key in BIT_EXTRA_API_KEYS:
         if key == "identNo":

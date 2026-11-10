@@ -77,7 +77,11 @@ CONTRACT_SNAPSHOT_SELECT = """
   "contractDate",
   "dueDate",
   "projectName",
-  amount
+  amount,
+  "processStatus",
+  pm,
+  year,
+  "salesOwner"
 """
 
 BIT_SNAPSHOT_COLUMNS = (

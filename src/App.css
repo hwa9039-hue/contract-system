@@ -14678,7 +14678,7 @@ body.work-report-manager-menu-open .work-report-board-section {
   vertical-align: middle !important;
 }
 
-/* ── 좌측 틀 고정: 체크박스 → 발주처 → … → 사업명 ──────────────────────
+/* ── 좌측 틀 고정: 체크박스 → D-Day → … → 현장 PM ─────────────────────
    left 좌표와 고정 폭은 BitHistoryPage 의 BIT_COLUMNS(width) 에서 계산해
    인라인 style 로 내려온다. 여기서는 sticky·배경·겹침 순서만 정의한다. */
 .bit-history-table th.bit-history-sticky,
@@ -14711,26 +14711,51 @@ body.work-report-manager-menu-open .work-report-board-section {
   background-color: #eff6ff !important;
 }
 
-/* 줄 추가 행 — 참고번호~계약금액은 회색, 수량부터는 기존처럼 활성 */
-.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--added-muted,
-.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--from-contract,
-.bit-history-table tbody tr.bit-history-data-row--added.row-odd > td.bit-history-td--added-muted,
-.bit-history-table tbody tr.bit-history-data-row--added.row-odd > td.bit-history-td--from-contract,
-.bit-history-table tbody tr.bit-history-data-row--added:hover > td.bit-history-td--added-muted,
-.bit-history-table tbody tr.bit-history-data-row--added:hover > td.bit-history-td--from-contract,
-.bit-history-table tbody tr.bit-history-data-row--added:focus-within > td.bit-history-td--added-muted,
-.bit-history-table tbody tr.bit-history-data-row--added:focus-within > td.bit-history-td--from-contract {
-  background-color: #eef2f6 !important;
-  color: #94a3b8 !important;
+/* 줄 추가 행 — 글자색은 일반 행(#334155)과 같고, 배경만 옅게 깔아 하위 줄을 구분한다 */
+.bit-history-table tbody tr.bit-history-data-row--added > td,
+.bit-history-table tbody tr.bit-history-data-row--added.row-odd > td,
+.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-sticky,
+.bit-history-table tbody tr.bit-history-data-row--added.row-odd > td.bit-history-sticky {
+  background-color: #f4f6f8 !important;
+  color: #334155 !important;
+  opacity: 1;
 }
 
-.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--added-muted .cell-display,
-.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--from-contract .cell-display,
-.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--added-muted .editable-text-cell-display,
-.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--from-contract .editable-text-cell-display,
-.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--added-muted .editable-date-cell-display,
-.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--from-contract .editable-date-cell-display {
-  color: #94a3b8 !important;
+.bit-history-table tbody tr.bit-history-data-row--added:hover > td,
+.bit-history-table tbody tr.bit-history-data-row--added:hover > td.bit-history-sticky {
+  background-color: #eef1f4 !important;
+  color: #334155 !important;
+}
+
+.bit-history-table tbody tr.bit-history-data-row--added:focus-within > td,
+.bit-history-table tbody tr.bit-history-data-row--added:focus-within > td.bit-history-sticky {
+  background-color: #e8eef6 !important;
+  color: #334155 !important;
+}
+
+.bit-history-table tbody tr.bit-history-data-row--added > td .cell-display,
+.bit-history-table tbody tr.bit-history-data-row--added > td .editable-text-cell-display,
+.bit-history-table tbody tr.bit-history-data-row--added > td .editable-date-cell-display,
+.bit-history-table tbody tr.bit-history-data-row--added > td input,
+.bit-history-table tbody tr.bit-history-data-row--added > td textarea {
+  color: #334155 !important;
+  opacity: 1;
+}
+
+.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--dDay {
+  padding-left: 16px;
+}
+
+.bit-history-table tbody tr.bit-history-data-row--added > td.bit-history-td--dDay::before {
+  content: '↳';
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #334155;
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none;
 }
 
 /* 긴 발주처·사업명이 고정 폭을 밀어내지 않게 예외를 준다 */

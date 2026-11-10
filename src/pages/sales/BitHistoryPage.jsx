@@ -10,6 +10,7 @@ import { ContractColumnHeaderFilter } from '../../ContractColumnHeaderFilter.jsx
 import {
   BIT_EXTRA_KEYS,
   BIT_FROM_CONTRACT_KEYS,
+  BIT_LINKED_PROJECT_KEYS,
   bitHistoryApi,
   isManualBitRow,
   mergeBitRowsFromContracts,
@@ -35,39 +36,43 @@ function safeString(value) {
 }
 
 /**
- * 엑셀 원본 헤더와 1:1로 맞춘 컬럼 정의.
- * 테이블 헤더·행 셀·검색·엑셀 다운로드·모바일 상세가 모두 이 배열만 보고 렌더링한다.
- * sticky 컬럼(발주처~사업명)은 폭이 흔들리면 left 좌표가 어긋나므로 width 를 고정값으로 쓴다.
+ * 앞쪽은 계약현황과 같은 순서이고, 영업담당자·담당부서·계약방식·계약분류는 보여 주지 않는다.
+ * D-Day → 공정상태 → 사업년도 → 참고번호 → 발주처 → 사업명 → 계약일자 → 준공일자 → 계약금액 → 현장 PM
+ * 그 뒤는 BIT 이력 열이고, 비고는 맨 오른쪽이다.
+ * 체크박스부터 현장 PM까지 sticky 이며, 폭이 흔들리면 left 좌표가 어긋난다.
  */
 const BIT_COLUMNS = [
-  { key: 'seqNo', label: '참고번호', type: 'text', width: 88, align: 'center', sticky: true, fromContract: true },
-  { key: 'client', label: '발주처', type: 'text', width: 130, align: 'center', sticky: true, fromContract: true },
-  { key: 'department', label: '담당부서', type: 'text', width: 96, align: 'center', sticky: true, fromContract: true },
+  { key: 'dDay', label: 'D-Day', type: 'text', width: 88, align: 'center', sticky: true, readOnly: true, fromContract: true },
+  { key: 'processStatus', label: '공정상태', type: 'text', width: 100, align: 'center', sticky: true, readOnly: true, fromContract: true },
+  { key: 'year', label: '사업년도', type: 'text', width: 96, align: 'center', sticky: true, readOnly: true, fromContract: true },
+  { key: 'seqNo', label: '참고번호', type: 'text', width: 110, align: 'center', sticky: true, fromContract: true },
+  { key: 'client', label: '발주처', type: 'text', width: 150, align: 'center', sticky: true, fromContract: true },
+  { key: 'projectName', label: '사업명', type: 'text', width: 280, align: 'left', sticky: true, fromContract: true },
   { key: 'contractDate', label: '계약일자', type: 'date', width: 140, align: 'center', sticky: true, fromContract: true },
   { key: 'dueDate', label: '준공일자', type: 'date', width: 140, align: 'center', sticky: true, fromContract: true },
-  { key: 'projectName', label: '사업명', type: 'text', width: 280, align: 'left', sticky: true, fromContract: true },
-  { key: 'contractAmount', label: '계약금액', type: 'amount', width: 150, align: 'right', fromContract: true },
+  { key: 'contractAmount', label: '계약금액', type: 'amount', width: 150, align: 'right', sticky: true, fromContract: true },
+  { key: 'pm', label: '현장 PM', type: 'text', width: 124, align: 'center', sticky: true, readOnly: true, fromContract: true },
   { key: 'identNo', label: '식별번호', type: 'text', width: 110, align: 'center' },
   { key: 'quantity', label: '수량', type: 'text', width: 80, align: 'center' },
   { key: 'moduleItem', label: '모듈', type: 'text', width: 88, align: 'center' },
   { key: 'moduleArray', label: '배열', type: 'text', width: 100, align: 'center' },
   { key: 'moduleKind', label: '종류', type: 'text', width: 88, align: 'center' },
-  { key: 'etcItem', label: '기타', type: 'text', width: 88, align: 'center' },
+  { key: 'etcItem', label: '형태', type: 'text', width: 88, align: 'center' },
   { key: 'manufacturing', label: '제작', type: 'text', width: 110, align: 'center' },
   { key: 'boardApplied', label: '보드적용', type: 'check', width: 100, align: 'center' },
   { key: 'programItem', label: '프로그램', type: 'check', width: 100, align: 'center' },
   { key: 'shippingInspection', label: '출하검사', type: 'check', width: 100, align: 'center' },
   { key: 'defect', label: '불량발생', type: 'check', width: 100, align: 'center' },
-  { key: 'note2', label: '비고', type: 'note', width: 180, align: 'center' },
+  { key: 'note2', label: '비고', type: 'note', width: 190, align: 'center' },
 ]
 
 /** 체크박스 열 폭 — 다른 대장과 동일한 44px, sticky 누적 left 의 시작점 */
 const BIT_CHECK_COL_WIDTH = 44
 
-/** 틀 고정 마지막 열(사업명) — 오른쪽 경계선·그림자를 여기에만 붙인다 */
-const BIT_STICKY_LAST_KEY = 'projectName'
+/** 틀 고정 마지막 열(현장 PM) — 오른쪽 경계선·그림자를 여기에만 붙인다 */
+const BIT_STICKY_LAST_KEY = 'pm'
 
-/** 체크박스 → 발주처 → … → 사업명 순으로 앞선 열 폭을 누적한 left 좌표 */
+/** 체크박스 → D-Day → … → 현장 PM 순으로 앞선 열 폭을 누적한 left 좌표 */
 const BIT_STICKY_LEFTS = (() => {
   const lefts = {}
   let offset = BIT_CHECK_COL_WIDTH
@@ -350,13 +355,13 @@ function BitDateRangeFilter({ startDate, endDate, onStartChange, onEndChange }) 
 /** 컬럼 type 하나로 셀 편집기를 결정한다 — 연동 행의 계약현황 필드는 읽기 전용. */
 function BitDataCell({ column, row, onCommit }) {
   const locked =
-    column.fromContract === true && (!isManualBitRow(row) || isAddedBitLine(row))
-  const muted = isAddedBitLine(row) && column.fromContract === true
+    column.readOnly === true ||
+    (column.fromContract === true && (!isManualBitRow(row) || isAddedBitLine(row)))
   const props = stickyCellProps(
     column,
     `editable-cell ${TABLE_INLINE_EDITABLE_CELL_CLASS} ${cellAlignClass(column.align)} bit-history-td--${column.key}${
       locked ? ' bit-history-td--from-contract' : ''
-    }${muted ? ' bit-history-td--added-muted' : ''}`
+    }`
   )
 
   if (column.type === 'date') {
@@ -564,7 +569,7 @@ export default function BitHistoryPage({ contracts = [] }) {
     if (!target) return
     const lockedKeys =
       isManualBitRow(target) && !isAddedBitLine(target) ? [] : BIT_FROM_CONTRACT_KEYS
-    if (lockedKeys.includes(key)) return
+    if (BIT_LINKED_PROJECT_KEYS.includes(key) || lockedKeys.includes(key)) return
     const nextRow = { ...target, [key]: safeString(value) }
     replaceRow(rowId, nextRow)
 
@@ -936,9 +941,7 @@ export default function BitHistoryPage({ contracts = [] }) {
                         }`}
                       >
                         <td
-                          className={`td-align-center registry-check-cell bit-history-sticky${
-                            isAddedBitLine(row) ? ' bit-history-td--added-muted' : ''
-                          }`}
+                          className="td-align-center registry-check-cell bit-history-sticky"
                           style={{
                             left: 0,
                             width: `${BIT_CHECK_COL_WIDTH}px`,
