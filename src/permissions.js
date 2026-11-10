@@ -101,7 +101,6 @@ export function normalizeAccountId(value) {
  */
 export const BIT_HISTORY_ALLOWED_NAMES = Object.freeze([
   '전기웅',
-  '유영무',
   '김성수',
   '정주희',
   '정화영',
@@ -158,7 +157,17 @@ export function hasAdminPrivileges(role) {
   return ADMIN_LEVEL_ROLES.has(normalizeRole(role))
 }
 
-/** 계정 연동 관리. 로그인 아이디 hy9039! 는 저장 시 hy9039 가 된다. DB 컬럼이 아니다. */
+/** 최고 관리자 계정(전기웅·정주희·정화영). 로그인 아이디 kk2331! → kk2331. */
+export const HIGHEST_ADMIN_ACCOUNT_IDS = Object.freeze(['kk2331', 'jhjoung', 'hy9039'])
+export const HIGHEST_ADMIN_DISPLAY_NAMES = Object.freeze(['전기웅', '정주희', '정화영'])
+
+export function isHighestAdminAccount(accountId, roleLabel) {
+  const id = normalizeAccountId(accountId)
+  const name = String(roleLabel || '').replace(/\s/g, '')
+  return HIGHEST_ADMIN_ACCOUNT_IDS.includes(id) || HIGHEST_ADMIN_DISPLAY_NAMES.includes(name)
+}
+
+/** 계정 연동 관리. 정화영(hy9039)만 승인·관리할 수 있다. */
 export function canManageKakaoAccountLinks(accountId, roleLabel) {
   const id = normalizeAccountId(accountId)
   const name = String(roleLabel || '').replace(/\s/g, '')

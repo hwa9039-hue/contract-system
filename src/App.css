@@ -70,6 +70,8 @@
   --status-delayed-border: #a855f7;
   --status-delayed-solid: #7c3aed;
   --status-delayed-pulse: #d8b4fe;
+  /* 표·카드·모달 공통 모서리. Tailwind rounded-lg(8px)와 같다. */
+  --cms-surface-radius: 8px;
   --shadow-sm: 0 1px 2px rgba(46, 52, 64, 0.06), 0 1px 3px rgba(46, 52, 64, 0.08);
   --shadow-md: 0 10px 28px rgba(46, 52, 64, 0.1);
   --shadow-lg: 0 24px 60px rgba(46, 52, 64, 0.16);
@@ -816,10 +818,6 @@ textarea {
   }
 }
 
-.registry-toolbar-date-range {
-  display: block;
-}
-
 .registry-search-toolbar-split {
   display: flex;
   flex-direction: row;
@@ -831,91 +829,6 @@ textarea {
 .registry-search-toolbar-split > .table-search-input {
   flex: 1 1 220px;
   min-width: 180px;
-}
-
-/* Fake Range Picker — 단일 입력창 형태 */
-.registry-date-range-picker {
-  position: relative;
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
-  min-width: 292px;
-  min-height: 42px;
-  height: 42px;
-  padding: 0 10px 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--panel);
-  box-sizing: border-box;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-.registry-date-range-picker:focus-within {
-  border-color: var(--color-medium);
-  box-shadow: 0 0 0 3px rgba(67, 76, 94, 0.16);
-}
-
-.registry-date-range-picker-segment {
-  border: none;
-  background: none;
-  padding: 0;
-  margin: 0;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.35;
-  color: #1f2937;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.registry-date-range-picker-placeholder {
-  color: #94a3b8;
-  font-weight: 400;
-}
-
-.registry-date-range-picker-sep {
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 600;
-  color: #94a3b8;
-  line-height: 1;
-  user-select: none;
-}
-
-.registry-date-range-picker-icon {
-  margin-left: auto;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  background: none;
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-  border-radius: 6px;
-}
-
-.registry-date-range-picker-icon:hover {
-  background: #f1f5f9;
-}
-
-.registry-date-range-picker-native {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 .table-search-input {
@@ -1323,9 +1236,10 @@ table[data-contract-table-row-key].contracts-fixed-table thead th.contract-th-fi
   font-size: 13px;
   font-weight: 700;
   line-height: 1.25;
-  height: 32px;
-  min-height: 32px;
-  padding: 6px 8px;
+  height: var(--cms-accordion-bar-height);
+  min-height: var(--cms-accordion-bar-height);
+  padding: var(--cms-accordion-bar-pad-y) 8px;
+  box-sizing: border-box;
   color: #0f172a;
 }
 
@@ -1362,9 +1276,9 @@ table[data-contract-table-row-key] .contract-check-col {
 }
 
 table[data-contract-table-row-key] .contract-copy-col {
-  width: 76px !important;
-  min-width: 76px !important;
-  max-width: 76px !important;
+  width: var(--contract-sticky-w-copy) !important;
+  min-width: var(--contract-sticky-w-copy) !important;
+  max-width: var(--contract-sticky-w-copy) !important;
   white-space: nowrap !important;
 }
 
@@ -1650,7 +1564,7 @@ table[data-contract-table-row-key] tbody td.col-amount .contract-table-cell-shel
 }
 
 .row-odd {
-  background: rgba(249, 250, 251, 0.5);
+  background: #ffffff;
 }
 
 .excel-table tbody tr.row-even:not(.contract-year-row):not(.contract-category-group-row):not(.inline-add-row):hover,
@@ -1822,7 +1736,7 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
 
 .contract-year-row td {
   height: auto;
-  min-height: 30px;
+  min-height: var(--cms-accordion-bar-height);
   padding: 0;
   background: #f1f6ff;
   border-bottom: 1px solid #ccd9ee;
@@ -1830,12 +1744,13 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
 
 .contract-year-toggle {
   width: 100%;
-  height: 32px;
-  min-height: 32px;
+  height: var(--cms-accordion-bar-height);
+  min-height: var(--cms-accordion-bar-height);
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
+  padding: var(--cms-accordion-bar-pad-y) 8px;
   border: none;
   background: transparent;
   color: #0f172a;
@@ -1895,16 +1810,16 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
 
 .contract-category-group-row td {
   height: auto;
-  min-height: 30px;
+  min-height: var(--cms-accordion-bar-height);
   padding: 0;
   background: #e8f0fc;
   border-bottom: 1px solid #d5e3f7;
 }
 
 .contract-category-group-row .contract-year-toggle {
-  height: 32px;
-  min-height: 32px;
-  padding: 6px 8px 6px 20px;
+  height: var(--cms-accordion-bar-height);
+  min-height: var(--cms-accordion-bar-height);
+  padding: var(--cms-accordion-bar-pad-y) 8px var(--cms-accordion-bar-pad-y) 20px;
   font-size: 13px;
   font-weight: 700;
   line-height: 1.25;
@@ -2355,7 +2270,7 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
   width: 100%;
   flex-shrink: 0;
   box-sizing: border-box;
-  margin-bottom: 10px;
+  margin-bottom: 16px;
 }
 
 .calendar-page-main .calendar-surface {
@@ -2398,9 +2313,9 @@ table[data-contract-table-row-key] tbody tr:not(.contract-year-row):not(.contrac
 
 .excel-table th.contract-copy-col,
 .excel-table td.contract-copy-col {
-  width: 44px;
-  min-width: 44px;
-  max-width: 44px;
+  width: var(--contract-sticky-w-copy, 44px);
+  min-width: var(--contract-sticky-w-copy, 44px);
+  max-width: var(--contract-sticky-w-copy, 44px);
 }
 
 .contract-row-copy-btn {
@@ -2860,11 +2775,14 @@ a.record-file-name:hover {
   flex-shrink: 0;
   width: 28px;
   height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: 1px solid #e5e7eb;
   border-radius: 999px;
   background: #fff;
   color: #64748b;
-  font-size: 18px;
   line-height: 1;
   cursor: pointer;
 }
@@ -3757,11 +3675,17 @@ a.record-file-name:hover {
 .modal-close-btn {
   width: 32px;
   height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: none;
   border-radius: 8px;
   background: #eef2f7;
   color: #111827;
   font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
   flex-shrink: 0;
   transition:
@@ -3966,6 +3890,9 @@ a.record-file-name:hover {
   --cms-accordion-summary-font-weight: 700;
   --cms-accordion-body-font-size: 12px;
   --cms-accordion-body-font-weight: 400;
+  /* 컬럼 헤더(2.75rem)보다 1/3 낮은 연도·분류 아코디언 바 */
+  --cms-accordion-bar-height: calc(2.75rem * 2 / 3);
+  --cms-accordion-bar-pad-y: calc(8px * 2 / 3);
 }
 
 body {
@@ -4257,18 +4184,76 @@ textarea:focus-visible {
   overscroll-behavior: contain;
 }
 
+/*
+ * 대시보드 헤더/본문 분리
+ * - main-area 자체는 스크롤하지 않음
+ * - 상단 네비는 flex로 고정(높이 확보, 본문과 겹치지 않음)
+ * - 대시보드 섹션만 overflow-y:auto 로 스크롤
+ */
+.main-area:has(> section.stat-card.stat-card--dashboard) {
+  --dashboard-sticky-header-gap: 16px;
+  /* 회색 배경 여백 복구: 헤더·좌우 테두리와 흰 카드 사이 간격 */
+  padding-top: var(--app-top-chrome-inset);
+  padding-right: 24px;
+  padding-bottom: 24px;
+  padding-left: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-sizing: border-box;
+  background: var(--page-bg);
+}
+
+.main-area:has(> section.stat-card.stat-card--dashboard) > .top-system-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 var(--dashboard-sticky-header-gap);
+  padding: 0;
+  background: var(--page-bg);
+}
+
+.main-area:has(> section.stat-card.stat-card--dashboard) > .top-system-bar .top-system-title {
+  position: relative;
+  z-index: 1;
+  background: var(--header);
+}
+
 .main-area > section.stat-card.stat-card--dashboard {
-  overflow-y: auto;
-  overflow-x: hidden;
+  position: relative;
+  z-index: 0;
+  flex: 1 1 auto;
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
   min-height: 0;
+  height: auto;
+  max-height: none;
+  margin: 0;
+  /* 흰 카드는 main-area 패딩 안쪽에만 두고, 바깥으로 붙지 않게 함 */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+  border-radius: var(--cms-surface-radius);
 }
 
 .main-area > section.stat-card.stat-card--dashboard > .dashboard-stack {
+  position: relative;
+  z-index: 0;
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
   min-height: 0;
+  height: auto;
+  overflow: visible;
 }
 
 .main-area > section.stat-card .work-report-summary-card,
@@ -4567,16 +4552,25 @@ textarea:focus-visible {
   height: 100%;
 }
 
-.main-area > section.stat-card.stat-card--calendar .calendar-surface {
-  flex: 1 1 auto;
+.main-area > section.stat-card.stat-card--calendar .calendar-surface,
+.main-area > section.stat-card.stat-card--calendar .calendar-month-weeks {
+  flex: 1 1 0%;
   min-height: 0;
-  height: 100%;
+  height: auto;
+  max-height: 100%;
   width: 100%;
   overflow: hidden;
 }
 
+.main-area > section.stat-card.stat-card--calendar .calendar-week-stack {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
 .main-area > section.stat-card.stat-card--calendar .calendar-grid {
-  flex: 1 1 auto;
+  flex: 1 1 0%;
   min-height: 0;
   height: 100%;
   width: 100%;
@@ -4584,18 +4578,18 @@ textarea:focus-visible {
 }
 
 .main-area > section.stat-card.stat-card--calendar .calendar-grid.calendar-grid--week {
-  flex: 0 0 auto;
+  flex: 1 1 0%;
   height: auto;
-  min-height: 168px;
-  grid-auto-rows: minmax(168px, auto);
-  overflow: visible;
-  align-content: start;
+  min-height: 0;
+  grid-auto-rows: minmax(0, 1fr);
+  overflow: hidden;
+  align-content: stretch;
 }
 
 .main-area > section.stat-card.stat-card--calendar .calendar-grid.calendar-grid--week .day-box {
-  height: auto;
-  min-height: 168px;
-  overflow: visible;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .main-area > section.stat-card .selected-events-wrap {
@@ -4744,7 +4738,7 @@ textarea:focus-visible {
   align-items: center;
   gap: 14px;
   margin: 0 0 12px;
-  padding: 18px 0; /* py ≈ 4.5 — 버튼 제거 후 타이틀 행 높이 확보 */
+  padding: 14px 0;
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -4782,8 +4776,10 @@ textarea:focus-visible {
 .dashboard-briefing-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 10px;
   align-items: stretch;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .dashboard-briefing-box {
@@ -4853,11 +4849,21 @@ textarea:focus-visible {
   background: #f8fafc;
 }
 
+.dashboard-briefing-due-head {
+  --dashboard-due-head-line: 22px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 13.5rem 4.5rem;
+  column-gap: 10px;
+  align-items: start;
+}
+
 .dashboard-briefing-due-title {
+  grid-column: 1;
+  min-width: 0;
   font-size: 13px;
   font-weight: 800;
   color: #1e293b;
-  line-height: 1.35;
+  line-height: var(--dashboard-due-head-line);
   word-break: break-word;
 }
 
@@ -4871,18 +4877,67 @@ textarea:focus-visible {
 }
 
 .dashboard-briefing-due-meta {
-  margin-top: 4px;
-  display: flex;
+  margin-top: 0;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
   font-size: 12px;
   font-weight: 700;
   color: #64748b;
 }
 
+/* 다가오는 일정: 날짜·배지 열 폭을 고정해 카드 간 수직 기준선 정렬 */
+.dashboard-briefing-due-head .dashboard-briefing-due-meta {
+  display: contents;
+}
+
+.dashboard-briefing-due-head .dashboard-briefing-due-date {
+  grid-column: 2;
+  justify-self: end;
+  align-self: start;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: var(--dashboard-due-head-line);
+  min-height: var(--dashboard-due-head-line);
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  font-size: 12px;
+  font-weight: 700;
+  color: inherit;
+}
+
+.dashboard-briefing-due-head .dashboard-briefing-due-dday {
+  grid-column: 3;
+  justify-self: end;
+  align-self: start;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  min-width: 4.5rem;
+  height: var(--dashboard-due-head-line);
+  min-height: var(--dashboard-due-head-line);
+  padding: 0 8px;
+  line-height: 1;
+}
+
 .dashboard-briefing-due-dday {
   color: #2e3440;
+}
+
+.dashboard-briefing-due-dday--placeholder {
+  visibility: hidden;
+  pointer-events: none;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
 }
 
 /* ── 대시보드 준공임박 카드 ─────────────────────────────────────────
@@ -4972,7 +5027,8 @@ textarea:focus-visible {
 
 .dashboard-briefing-due-item--delayed .dashboard-briefing-due-title,
 .dashboard-briefing-due-item--delayed .dashboard-briefing-due-sub,
-.dashboard-briefing-due-item--delayed .dashboard-briefing-due-meta {
+.dashboard-briefing-due-item--delayed .dashboard-briefing-due-meta,
+.dashboard-briefing-due-item--delayed .dashboard-briefing-due-date {
   color: var(--status-delayed-fg);
 }
 
@@ -4984,7 +5040,8 @@ textarea:focus-visible {
 
 .dashboard-briefing-due-item--week .dashboard-briefing-due-title,
 .dashboard-briefing-due-item--week .dashboard-briefing-due-sub,
-.dashboard-briefing-due-item--week .dashboard-briefing-due-meta {
+.dashboard-briefing-due-item--week .dashboard-briefing-due-meta,
+.dashboard-briefing-due-item--week .dashboard-briefing-due-date {
   color: var(--status-imminent-fg);
 }
 
@@ -4996,7 +5053,8 @@ textarea:focus-visible {
 
 .dashboard-briefing-due-item--inProgress .dashboard-briefing-due-title,
 .dashboard-briefing-due-item--inProgress .dashboard-briefing-due-sub,
-.dashboard-briefing-due-item--inProgress .dashboard-briefing-due-meta {
+.dashboard-briefing-due-item--inProgress .dashboard-briefing-due-meta,
+.dashboard-briefing-due-item--inProgress .dashboard-briefing-due-date {
   color: var(--status-due-fg);
 }
 
@@ -5008,7 +5066,8 @@ textarea:focus-visible {
 
 .dashboard-briefing-due-item--schedule .dashboard-briefing-due-title,
 .dashboard-briefing-due-item--schedule .dashboard-briefing-due-sub,
-.dashboard-briefing-due-item--schedule .dashboard-briefing-due-meta {
+.dashboard-briefing-due-item--schedule .dashboard-briefing-due-meta,
+.dashboard-briefing-due-item--schedule .dashboard-briefing-due-date {
   color: var(--status-manual-fg);
 }
 
@@ -5029,12 +5088,14 @@ textarea:focus-visible {
 .dashboard-briefing-due-dday--delayed {
   display: inline-flex;
   align-items: center;
-  padding: 2px 10px;
+  justify-content: center;
+  padding: 0 8px;
   border-radius: 999px;
   background: var(--status-delayed-bg);
   color: var(--status-delayed-fg);
   font-weight: 800;
   letter-spacing: 0.02em;
+  line-height: 1;
   animation: dashboard-due-overdue-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
@@ -5053,24 +5114,28 @@ textarea:focus-visible {
 .dashboard-briefing-due-dday--week {
   display: inline-flex;
   align-items: center;
-  padding: 2px 10px;
+  justify-content: center;
+  padding: 0 8px;
   border-radius: 999px;
   background: var(--status-imminent-bg);
   color: var(--status-imminent-fg);
   font-weight: 800;
   letter-spacing: 0.02em;
+  line-height: 1;
   animation: dashboard-due-urgent-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .dashboard-briefing-due-dday--inProgress {
   display: inline-flex;
   align-items: center;
-  padding: 2px 10px;
+  justify-content: center;
+  padding: 0 8px;
   border-radius: 999px;
   background: var(--status-due-bg);
   color: var(--status-due-fg);
   font-weight: 800;
   letter-spacing: 0.02em;
+  line-height: 1;
   animation: dashboard-due-in-progress-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
@@ -5089,12 +5154,14 @@ textarea:focus-visible {
 .dashboard-briefing-due-dday--schedule {
   display: inline-flex;
   align-items: center;
-  padding: 2px 10px;
+  justify-content: center;
+  padding: 0 8px;
   border-radius: 999px;
   background: var(--status-manual-bg);
   color: var(--status-manual-fg);
   font-weight: 800;
   letter-spacing: 0.02em;
+  line-height: 1;
   animation: dashboard-schedule-badge-pulse 1.4s ease-in-out infinite;
 }
 
@@ -5303,12 +5370,6 @@ textarea:focus-visible {
 .work-report-external-manager-multi-value {
   flex-wrap: nowrap;
   overflow-x: auto;
-}
-
-@media (max-width: 1200px) {
-  .dashboard-briefing-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 900px) {
@@ -5598,16 +5659,182 @@ textarea:focus-visible {
   height: 12px;
 }
 
+.dashboard-recent-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin: 0 0 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dashboard-recent-legend-title,
+.dashboard-contract-section-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #2e3440;
+  font-family: 'SUIT', sans-serif;
+  line-height: 1.35;
+}
+
+.dashboard-contract-section-title {
+  margin: 0 0 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dashboard-panel .dashboard-importance-legend {
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: auto;
+}
+
 .dashboard-recent-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-top: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 대시보드 카드 좌우 수직선 정렬: 섹션 패딩·간격·테두리·너비 통일 */
+.stat-card--dashboard {
+  --dashboard-surface-pad-x: 24px; /* p-6 상당 안쪽 좌우 여백 */
+  --dashboard-surface-pad-y: 20px; /* p-5 상당 안쪽 상하 여백 */
+  --dashboard-card-gap: 10px;
+  --dashboard-card-border: 1px solid #e2e8f0;
+  /* 본문 통일(+1단계: 12→13), 카드 제목(+1: 15→16), 섹션 제목(+1: 18→19) */
+  --dashboard-font-body: 13px;
+  --dashboard-font-card-title: 16px;
+  --dashboard-font-section: 19px;
+  --dashboard-due-head-line: 24px;
+}
+
+/* 대시보드 본문·날짜·상세 텍스트를 동일 기준 사이즈로 통일(+1단계) */
+.stat-card--dashboard .dashboard-briefing-due-title,
+.stat-card--dashboard .dashboard-briefing-due-sub,
+.stat-card--dashboard .dashboard-briefing-due-meta,
+.stat-card--dashboard .dashboard-briefing-due-date,
+.stat-card--dashboard .dashboard-briefing-due-section-title,
+.stat-card--dashboard .dashboard-briefing-due-section-count,
+.stat-card--dashboard .dashboard-briefing-due-dday,
+.stat-card--dashboard .dashboard-briefing-due-kind,
+.stat-card--dashboard .dashboard-briefing-box-empty,
+.stat-card--dashboard .dashboard-briefing-box-title-note,
+.stat-card--dashboard .dashboard-briefing-external-main,
+.stat-card--dashboard .dashboard-briefing-external-meta,
+.stat-card--dashboard .dashboard-work-report-briefing-checklist,
+.stat-card--dashboard .dashboard-work-report-briefing-col-empty,
+.stat-card--dashboard .dashboard-work-report-briefing-external-item,
+.stat-card--dashboard .dashboard-recent-date,
+.stat-card--dashboard .dashboard-recent-main,
+.stat-card--dashboard .dashboard-recent-main-text,
+.stat-card--dashboard .dashboard-recent-meta,
+.stat-card--dashboard .dashboard-recent-empty,
+.stat-card--dashboard .dashboard-year-total,
+.stat-card--dashboard .year-card-metric,
+.stat-card--dashboard .year-card-metric strong,
+.stat-card--dashboard .year-card-label,
+.stat-card--dashboard .dashboard-importance-legend:not(.registry-header-legend) .dashboard-importance-legend-item {
+  font-size: var(--dashboard-font-body);
+}
+
+.stat-card--dashboard .dashboard-briefing-box-title,
+.stat-card--dashboard .dashboard-recent-title-base,
+.stat-card--dashboard .dashboard-recent-title-counts,
+.stat-card--dashboard .dashboard-year-title > span:first-child,
+.stat-card--dashboard .graph-card-title,
+.stat-card--dashboard .dashboard-work-report-briefing-col-title,
+.stat-card--dashboard .dashboard-recent-title {
+  font-size: var(--dashboard-font-card-title);
+}
+
+.stat-card--dashboard .dashboard-work-report-briefing-title,
+.stat-card--dashboard .dashboard-recent-legend-title,
+.stat-card--dashboard .dashboard-contract-section-title {
+  font-size: var(--dashboard-font-section);
+}
+
+.stat-card--dashboard .dashboard-briefing-due-head {
+  --dashboard-due-head-line: 24px;
+}
+
+.stat-card--dashboard .dashboard-surface-card,
+.stat-card--dashboard .dashboard-document-surface,
+.stat-card--dashboard .dashboard-contract-surface {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--dashboard-surface-pad-y) var(--dashboard-surface-pad-x);
+  border-radius: var(--cms-surface-radius);
+}
+
+/* 오늘 업무 브리핑 카드: 줄어든 padding-top 복구, 박스 안쪽 여백 유지 */
+.stat-card--dashboard .dashboard-stack > .dashboard-surface-card:first-child {
+  padding: var(--dashboard-surface-pad-y) var(--dashboard-surface-pad-x);
+}
+
+.stat-card--dashboard .dashboard-briefing-grid,
+.stat-card--dashboard .dashboard-recent-grid,
+.stat-card--dashboard .dashboard-document-grid,
+.stat-card--dashboard .dashboard-year-cards {
+  width: 100%;
+  margin: 0;
+  gap: var(--dashboard-card-gap);
+  box-sizing: border-box;
+  align-items: stretch;
+}
+
+.stat-card--dashboard .dashboard-briefing-box,
+.stat-card--dashboard .dashboard-recent-card,
+.stat-card--dashboard .dashboard-year-card,
+.stat-card--dashboard .dashboard-year-card:hover {
+  border: var(--dashboard-card-border);
+  border-radius: var(--cms-surface-radius);
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.dashboard-document-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.dashboard-document-grid .dashboard-recent-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  height: auto;
+}
+
+.dashboard-document-grid .dashboard-recent-list {
+  flex: 0 1 auto;
+  max-height: 420px;
+  min-height: 0;
+  height: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: auto;
+  touch-action: pan-y;
+  pointer-events: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dashboard-document-grid .dashboard-recent-empty {
+  padding: 18px 10px;
 }
 
 .dashboard-recent-card {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  border: 1px solid #e5ebf3;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: #ffffff;
   overflow: hidden;
@@ -5615,13 +5842,13 @@ textarea:focus-visible {
 
 .dashboard-recent-title {
   width: 100%;
-  min-height: 52px;
+  min-height: 0;
   border-width: 0 0 1px;
   border-radius: 0;
-  background: var(--accent-soft);
-  color: var(--ink);
+  background: #f8fafc;
+  color: #2e3440;
   text-align: left;
-  padding: 10px 12px;
+  padding: 14px 16px;
   line-height: 1.35;
   white-space: normal;
   display: flex;
@@ -5638,12 +5865,30 @@ textarea:focus-visible {
 }
 
 .dashboard-recent-list {
-  display: grid;
-  gap: 0;
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
   max-height: 420px;
   overflow-y: auto;
   overflow-x: hidden;
-  overscroll-behavior: contain;
+  /* contain이면 리스트 위에서 페이지(대시보드) 스크롤이 끊긴다 */
+  overscroll-behavior-y: auto;
+  touch-action: pan-y;
+  pointer-events: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.stat-card--dashboard .dashboard-recent-list {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: auto;
+  pointer-events: auto;
+  touch-action: pan-y;
+}
+
+.stat-card--dashboard .dashboard-recent-item {
+  display: flex;
+  pointer-events: auto;
 }
 
 .dashboard-recent-item {
@@ -5699,12 +5944,103 @@ textarea:focus-visible {
   font-weight: 700;
 }
 
+/* 영업관리·문서관리: grid 규칙을 덮어 날짜·제목·상세를 한 줄(flex)로 고정 */
+.dashboard-recent-item.dashboard-recent-item--inline {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 9px 10px;
+  grid-template-columns: none;
+}
+
+.dashboard-recent-item.dashboard-recent-item--inline .dashboard-recent-date {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 4.75rem;
+  white-space: nowrap;
+}
+
+.dashboard-recent-item.dashboard-recent-item--inline .dashboard-recent-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dashboard-recent-item.dashboard-recent-item--inline .dashboard-recent-meta {
+  flex: 0 1 38%;
+  grid-column: auto;
+  margin-left: auto;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .dashboard-recent-empty {
   padding: 18px 10px;
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
   text-align: center;
+}
+
+/* 대시보드 계약현황: 상단 구역과 같은 외곽 카드, 내부는 상시 펼침 */
+.stat-card--dashboard .dashboard-contract-surface {
+  border: 1px solid var(--line);
+  background: #fbfcfe;
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-card--dashboard .dashboard-contract-block {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.stat-card--dashboard .dashboard-contract-heading {
+  background: transparent;
+  background-image: none;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 14px 0;
+  min-height: 0;
+  cursor: default;
+}
+
+.stat-card--dashboard .dashboard-contract-heading .dashboard-contract-section-title {
+  margin: 0;
+  padding: 0;
+  border: none;
+  flex: 0 0 auto;
+}
+
+.stat-card--dashboard .dashboard-contract-heading .dashboard-year-title {
+  margin-left: auto;
+}
+
+.stat-card--dashboard .dashboard-year-cards {
+  background: transparent;
+  padding: 14px 0 0;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.stat-card--dashboard .dashboard-year-card,
+.stat-card--dashboard .dashboard-year-card:hover {
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: none;
+  transform: none;
+}
+
+.stat-card--dashboard .graph-card-title {
+  margin: 0 0 10px;
+  text-align: left;
+  font-family: 'SUIT', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.35;
+  color: #2e3440;
 }
 
 .legacy-contract-dashboard-title {
@@ -5840,10 +6176,16 @@ button.dashboard-year-card {
 .primary-btn,
 .secondary-btn {
   min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border-radius: 8px;
   padding: 9px 15px;
   font-size: 13px;
   font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .primary-btn {
@@ -5987,7 +6329,7 @@ button.dashboard-year-card {
 }
 
 .row-odd {
-  background: rgba(249, 250, 251, 0.5);
+  background: #ffffff;
 }
 
 .excel-table tbody tr.row-even:not(.contract-year-row):not(.contract-category-group-row):not(.inline-add-row):hover,
@@ -6123,18 +6465,13 @@ table[data-contract-table-row-key] .contract-table-cell-shell .dday-cell.dday-ce
   }
 }
 
-/* 준공 지난 행 — 옅은 회색 음영 (hover·focus 강조는 td 규칙이 그대로 덮는다) */
-.excel-table tbody tr.contract-row--overdue {
-  background: #f3f4f6;
-}
-
 /* ── 계약현황 좌측 틀 고정 ──────────────────────────────────────────────
    고정 대상: 체크박스 · 복사 · D-Day · 공정상태 · 사업년도 · 참고번호 · 발주처 · 사업명 (좌→우)
    left 좌표는 앞선 열 폭을 누적한 calc 로 잡으므로, 폭을 바꿀 때는 아래
    --contract-sticky-w-* 값만 고치면 좌표가 전부 따라온다. */
 table[data-contract-table-row-key].contract-table {
   --contract-sticky-w-check: 44px;
-  --contract-sticky-w-copy: 76px;
+  --contract-sticky-w-copy: 44px;
   --contract-sticky-w-dday: 74px;
   --contract-sticky-w-process: 100px;
   --contract-sticky-w-year: 84px;
@@ -6174,6 +6511,22 @@ table[data-contract-table-row-key].contract-table.contract-table-readonly {
 }
 
 /* 고정 열은 폭이 흔들리면 left 좌표가 어긋나므로 col·th·td 모두 같은 값으로 못 박는다 */
+table[data-contract-table-row-key].contract-table col.contract-check-col,
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--check,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--check {
+  width: var(--contract-sticky-w-check) !important;
+  min-width: var(--contract-sticky-w-check) !important;
+  max-width: var(--contract-sticky-w-check) !important;
+}
+
+table[data-contract-table-row-key].contract-table col.contract-copy-col,
+table[data-contract-table-row-key].contract-table th.contract-sticky-col--copy,
+table[data-contract-table-row-key].contract-table td.contract-sticky-col--copy {
+  width: var(--contract-sticky-w-copy) !important;
+  min-width: var(--contract-sticky-w-copy) !important;
+  max-width: var(--contract-sticky-w-copy) !important;
+}
+
 table[data-contract-table-row-key].contract-table col.contract-dday-col,
 table[data-contract-table-row-key].contract-table th.contract-sticky-col--dday,
 table[data-contract-table-row-key].contract-table td.contract-sticky-col--dday {
@@ -6309,18 +6662,18 @@ table[data-contract-table-row-key].contract-table td.contract-sticky-col--projec
   left: var(--contract-sticky-left-project);
 }
 
-/* 줄무늬·준공 경과 행 배경을 고정 셀에도 직접 칠한다.
-   tr 배경만으로는 sticky 셀 뒤로 스크롤되는 데이터가 비쳐 보인다. */
-table[data-contract-table-row-key].contract-table tbody tr.row-even > td.contract-sticky-col {
-  background-color: #ffffff;
+/* 계약현황 데이터 행은 줄무늬·준공 경과 구분 없이 기본 배경을 흰색으로 통일한다.
+   sticky 셀은 tr 배경이 비치므로 셀에도 같은 색을 칠한다. */
+table[data-contract-table-row-key].contract-table tbody tr.row-even:not(.contracts-draft-row),
+table[data-contract-table-row-key].contract-table tbody tr.row-odd,
+table[data-contract-table-row-key].contract-table tbody tr.contract-row--overdue {
+  background: #ffffff;
 }
 
-table[data-contract-table-row-key].contract-table tbody tr.row-odd > td.contract-sticky-col {
-  background-color: #fcfcfd;
-}
-
+table[data-contract-table-row-key].contract-table tbody tr.row-even:not(.contracts-draft-row) > td.contract-sticky-col,
+table[data-contract-table-row-key].contract-table tbody tr.row-odd > td.contract-sticky-col,
 table[data-contract-table-row-key].contract-table tbody tr.contract-row--overdue > td.contract-sticky-col {
-  background-color: #f3f4f6;
+  background-color: #ffffff;
 }
 
 /* 신규 입력 행 — 셀 배경을 데이터 행과 같은 방식으로 직접 칠해 뒤 데이터가 비치지 않게 한다 */
@@ -6431,10 +6784,10 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
 
 .contract-year-row td {
   position: sticky;
-  top: 32px;
+  top: 2.75rem;
   z-index: 8;
   height: auto;
-  min-height: 30px;
+  min-height: var(--cms-accordion-bar-height);
   padding: 0;
   background: #EAF1FF;
   border-bottom-color: rgba(47, 107, 255, 0.18);
@@ -6442,9 +6795,9 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
 }
 
 .contract-year-toggle {
-  height: 32px;
-  min-height: 32px;
-  padding: 6px 8px;
+  height: var(--cms-accordion-bar-height);
+  min-height: var(--cms-accordion-bar-height);
+  padding: var(--cms-accordion-bar-pad-y) 8px;
   color: #183b84;
   font-size: 13px;
   font-weight: 500;
@@ -6883,11 +7236,6 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
     gap: 10px;
   }
 
-  .registry-date-range-picker {
-    width: 100%;
-    min-width: 0;
-  }
-
   .contract-filter-row.five-only {
     grid-template-columns: repeat(2, minmax(150px, 1fr));
   }
@@ -6896,26 +7244,6 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
     width: 220px;
   }
 
-  .materials-board-layout {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .materials-board-sidebar {
-    flex: 0 0 auto;
-    width: 100%;
-    min-height: auto;
-  }
-
-  .materials-board-folder-list {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
-  .materials-board-folder-item {
-    width: auto;
-    flex: 0 1 auto;
-  }
 }
 
 /* dashboard and calendar detail restoration */
@@ -7081,7 +7409,13 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
   }
 
   .dashboard-status-grid,
-  .dashboard-recent-grid {
+  .dashboard-briefing-grid,
+  .dashboard-recent-grid,
+  .dashboard-document-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stat-card--dashboard .dashboard-year-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -7112,8 +7446,11 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
   text-align: center;
   vertical-align: middle;
   line-height: var(--cms-table-cell-line-height);
-  padding-top: 10px;
-  padding-bottom: 10px;
+  box-sizing: border-box;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  padding-top: 8px;
+  padding-bottom: 8px;
   padding-left: 8px;
   padding-right: 8px;
   font-size: var(--cms-table-header-font-size);
@@ -7137,7 +7474,7 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
 
 .contract-year-row td {
   position: sticky;
-  top: 36px;
+  top: 2.75rem;
   z-index: 8;
   background: #EAF1FF;
   background-clip: padding-box;
@@ -7404,10 +7741,9 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
   gap: 4px;
 }
 
-.menu-group-btn {
+.menu-group-label-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
   min-width: 0;
   height: 42px;
@@ -7420,44 +7756,19 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
   font-weight: 700;
   line-height: 1.25;
   text-align: left;
-  cursor: pointer;
   box-sizing: border-box;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    transform 0.15s ease;
 }
 
-.menu-group-btn:hover {
-  background: var(--sidebar-hover);
-  border-color: rgba(255, 255, 255, 0.14);
-  color: var(--color-on-dark-strong);
-  transform: translateX(2px);
-}
-
-.menu-group-btn--has-active {
+.menu-group-label-row--has-active {
   border-color: transparent;
   background: #434c5e;
   color: #ffffff;
-  box-shadow: none;
-}
-
-.menu-group-label,
-.menu-group-chevron {
-  pointer-events: none;
 }
 
 .menu-group-label {
   flex: 1;
   min-width: 0;
-}
-
-.menu-group-chevron {
-  flex-shrink: 0;
-  margin-left: 8px;
-  font-size: 10px;
-  line-height: 1;
-  opacity: 0.9;
+  pointer-events: none;
 }
 
 .menu-group-items {
@@ -7536,8 +7847,7 @@ table[data-contract-table-row-key].contracts-fixed-table.contract-cols-locked co
   padding: 2px 0 2px 12px;
 }
 
-.menu-btn,
-.menu-group-btn {
+.menu-btn {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -8494,7 +8804,7 @@ table.sales-registry-table.excel-table.registry-table tbody tr.row-even
 
 table.sales-registry-table.excel-table.registry-table tbody tr.row-odd
   > td:is(.registry-check-cell, .sales-archive-cell, .sales-record-cell, .sales-sticky-col) {
-  background-color: #fcfcfd !important;
+  background-color: #ffffff !important;
 }
 
 table.sales-registry-table.excel-table.registry-table tbody tr.sales-draft-row
@@ -8737,7 +9047,7 @@ table.discovery-registry-table.excel-table.registry-table tbody tr.row-even
 
 table.discovery-registry-table.excel-table.registry-table tbody tr.row-odd
   > td:is(.registry-check-cell, .sales-archive-cell, .sales-record-cell, .discovery-sticky-col) {
-  background-color: #fcfcfd !important;
+  background-color: #ffffff !important;
 }
 
 table.discovery-registry-table.excel-table.registry-table tbody tr.discovery-draft-row
@@ -8850,22 +9160,22 @@ table.discovery-registry-table.excel-table.registry-table td.discovery-sticky-co
   align-items: center;
   gap: 6px;
   min-height: 36px;
-  padding: 0 12px;
+  padding: 0 10px;
   border: 1px solid #d1d5db;
   border-radius: 999px;
   background: #fff;
   color: #374151;
+  font-family: inherit;
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
 }
 
-.sales-hidden-toggle input {
-  width: 14px;
-  height: 14px;
-  margin: 0;
-  accent-color: #2563eb;
+.sales-hidden-toggle.is-active {
+  color: #1d4ed8;
+  border-color: #93c5fd;
+  background: #eff6ff;
 }
 
 .sales-hidden-toggle-count {
@@ -9564,7 +9874,7 @@ table.excluded-registry-table.excel-table.registry-table tbody tr.row-even
 
 table.excluded-registry-table.excel-table.registry-table tbody tr.row-odd
   > td:is(.registry-check-cell, .sales-archive-cell, .excluded-sticky-col) {
-  background-color: #fcfcfd !important;
+  background-color: #ffffff !important;
 }
 
 table.excluded-registry-table.excel-table.registry-table tbody tr.excluded-draft-row
@@ -10533,7 +10843,7 @@ table.documents-registry-table.excel-table.registry-table tbody tr.row-even
 
 table.documents-registry-table.excel-table.registry-table tbody tr.row-odd
   > td:is(.registry-check-cell, .documents-sticky-col) {
-  background-color: #fcfcfd !important;
+  background-color: #ffffff !important;
 }
 
 table.documents-registry-table.excel-table.registry-table tbody tr.documents-draft-row
@@ -11439,7 +11749,6 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
 .registry-control-stack .primary-btn,
 .registry-control-stack .secondary-btn,
 .registry-control-stack .registry-control-filters .table-search-input,
-.registry-control-stack .registry-control-filters .registry-date-range-picker,
 .registry-control-stack .registry-control-filters .sales-hidden-toggle {
   box-sizing: border-box;
   height: var(--registry-control-h) !important;
@@ -11512,6 +11821,85 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
   margin-bottom: 12px;
 }
 
+/* 버튼 줄과 검색·체크 줄을 한 줄로 둔다. */
+.registry-page-toolbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+
+.registry-page-toolbar > .contracts-header-actions,
+.registry-control-stack .registry-page-toolbar > .contracts-header-actions.flex {
+  flex: 0 1 auto;
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.registry-page-toolbar > .table-toolbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 220px;
+  width: auto;
+  max-width: none;
+  margin-bottom: 0;
+}
+
+.registry-page-toolbar .registry-search-toolbar-split {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.registry-page-toolbar .table-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.registry-page-toolbar .sales-hidden-toggle {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .registry-page-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .registry-page-toolbar > .table-toolbar,
+  .stat-card--unit-price .registry-page-toolbar > .unit-price-toolbar-search,
+  .stat-card--project-management .registry-page-toolbar > .unit-price-toolbar-search {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .registry-page-toolbar > .table-toolbar,
+  .registry-page-toolbar .registry-search-toolbar-split {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .registry-page-toolbar .table-search-input {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 .registry-control-stack .registry-control-filters .registry-search-toolbar-split {
   gap: 8px;
 }
@@ -11521,11 +11909,6 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
   background: #ffffff;
   font-size: 13px;
   line-height: 1.2;
-}
-
-.registry-control-stack .registry-control-filters .registry-date-range-picker {
-  padding: 0 10px 0 14px;
-  background: #ffffff;
 }
 
 .registry-control-stack .registry-control-filters .sales-hidden-toggle {
@@ -13250,7 +13633,7 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
   border-radius: 0;
   background: transparent;
   overflow: visible;
-  padding: 0;
+  padding: 0 0 28px;
   margin-top: 0;
 }
 
@@ -13297,6 +13680,33 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
   width: 148px;
   min-width: 140px;
   max-width: 160px;
+}
+
+.meeting-minutes-doc__col-remove {
+  width: 56px;
+  min-width: 56px;
+  max-width: 56px;
+}
+
+.meeting-minutes-doc__agenda-remove {
+  text-align: center;
+  padding: 8px 6px !important;
+}
+
+.meeting-minutes-doc .meeting-minutes-remove-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  color: #64748b;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.meeting-minutes-doc .meeting-minutes-remove-btn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #ef4444;
 }
 
 .meeting-minutes-doc__table.contract-table.excel-table.registry-table thead th {
@@ -14291,15 +14701,40 @@ body.work-report-manager-menu-open .work-report-board-section {
   color: #312e81;
 }
 
-.install-case-card-hide {
+.install-case-card-action {
   position: absolute;
   top: 8px;
-  left: 8px;
   z-index: 2;
-  min-height: 28px;
-  padding: 4px 8px;
-  font-size: 12px;
-  white-space: nowrap;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.95);
+  color: #334155;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  line-height: 0;
+}
+
+.install-case-card-action svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.install-case-card-action:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.install-case-card-hide {
+  left: 8px;
 }
 
 .install-cases-toolbar,
@@ -14411,25 +14846,9 @@ body.work-report-manager-menu-open .work-report-board-section {
 }
 
 .install-case-card-delete {
-  position: absolute;
-  top: 8px;
   right: 8px;
-  z-index: 2;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1;
-  border-radius: 999px;
-  border: 1px solid #fecaca;
-  background: rgba(255, 255, 255, 0.95);
+  border-color: #fecaca;
   color: #b91c1c;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
 }
 
 .install-case-card-delete:hover {
@@ -14632,6 +15051,21 @@ body.work-report-manager-menu-open .work-report-board-section {
   margin-bottom: 12px;
 }
 
+/* 계약현황·BIT 이력관리: 선택 삭제 등 툴바 버튼 높이·정렬 통일 */
+.stat-card--contracts .contracts-header-actions .primary-btn,
+.stat-card--contracts .contracts-header-actions .secondary-btn,
+.bit-history-toolbar .primary-btn,
+.bit-history-toolbar .secondary-btn,
+.bit-history-toolbar .table-search-input {
+  box-sizing: border-box;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .bit-history-toolbar-left,
 .bit-history-toolbar-right {
   display: flex;
@@ -14644,7 +15078,7 @@ body.work-report-manager-menu-open .work-report-board-section {
   flex: 0 0 auto;
 }
 
-/* 검색창이 [엑셀 다운로드] 오른쪽부터 기간 필터 앞까지 남는 폭을 모두 채운다 */
+/* 검색창이 버튼 오른쪽의 남는 폭을 채운다 */
 .bit-history-toolbar-right {
   flex: 1 1 auto;
   justify-content: flex-end;
@@ -14652,7 +15086,8 @@ body.work-report-manager-menu-open .work-report-board-section {
 
 .bit-history-toolbar-right > .table-search-input {
   flex: 1 1 auto;
-  min-width: 160px;
+  min-width: 0;
+  width: 100%;
 }
 
 .bit-history-table-panel {
@@ -14766,9 +15201,25 @@ body.work-report-manager-menu-open .work-report-board-section {
   padding-right: 8px;
 }
 
+/* 연도 막대는 계약현황과 같은 셀 패딩·토글 높이를 쓴다. */
+.bit-history-table.contract-table.excel-table.registry-table tbody tr.contract-year-row > td,
 .bit-history-table tbody tr.contract-year-row > td {
-  padding: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  padding: 6px 8px !important;
   vertical-align: middle !important;
+  box-sizing: border-box !important;
+}
+
+.bit-history-table.contract-table.excel-table.registry-table .contract-year-toggle,
+.bit-history-table .contract-year-toggle {
+  height: var(--cms-accordion-bar-height) !important;
+  min-height: var(--cms-accordion-bar-height) !important;
+  max-height: none !important;
+  padding: var(--cms-accordion-bar-pad-y) 8px !important;
+  line-height: 1.25 !important;
+  box-sizing: border-box !important;
 }
 
 /* ── 좌측 틀 고정: 체크박스 → D-Day → … → 현장 PM ─────────────────────
@@ -14793,7 +15244,7 @@ body.work-report-manager-menu-open .work-report-board-section {
 }
 
 .bit-history-table tbody tr.row-odd > td.bit-history-sticky {
-  background-color: #fcfcfd !important;
+  background-color: #ffffff !important;
 }
 
 .bit-history-table tbody tr:hover > td.bit-history-sticky {
@@ -15440,9 +15891,11 @@ table.sales-contacts-table td.sales-contacts-sticky--status select {
   justify-content: center;
   width: 34px;
   height: 30px;
+  padding: 0;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   background: #ffffff;
+  color: #475569;
   cursor: pointer;
   line-height: 1;
 }
@@ -15461,11 +15914,14 @@ table.sales-contacts-table td.sales-contacts-sticky--status select {
 .sales-contacts-remove-btn {
   width: 28px;
   height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   background: #fff;
   color: #64748b;
-  font-size: 16px;
   line-height: 1;
   cursor: pointer;
 }
@@ -16059,11 +16515,14 @@ table.payment-report-table .payment-report-sticky--action {
 .payment-report-remove-btn {
   width: 28px;
   height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   background: #fff;
   color: #64748b;
-  font-size: 16px;
   line-height: 1;
   cursor: pointer;
 }
@@ -16808,12 +17267,14 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   right: 4px;
   width: 22px;
   height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: none;
   border-radius: 999px;
   background: rgba(15, 23, 42, 0.75);
   color: #fff;
-  font-size: 12px;
-  font-weight: 800;
   cursor: pointer;
   line-height: 1;
 }
@@ -17564,10 +18025,15 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  gap: 16px;
+  gap: 0;
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
 }
 
 .materials-board-layout--list-only {
@@ -17580,35 +18046,52 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
 }
 
 .materials-board-sidebar {
-  flex: 0 0 250px;
-  width: 250px;
+  flex: 0 0 280px;
+  width: 280px;
+  min-width: 280px;
+  max-width: 300px;
   align-self: stretch;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #f8fafc;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 8px;
+  border: 0;
+  border-right: 1px solid #e5e7eb;
+  border-radius: 0;
+  background: #ffffff;
   box-sizing: border-box;
-  min-height: 100%;
+  min-height: 0;
 }
 
 .materials-board-folder-add-btn {
-  align-self: flex-start;
-  border: 1px dashed #93b4f5;
-  background: #ffffff;
-  color: #1f4fd1;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 6px 10px;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  align-self: stretch;
+  width: 100%;
+  min-height: 40px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid #dbe3f0;
   border-radius: 8px;
+  background: #ffffff;
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
   font-family: inherit;
+  box-sizing: border-box;
 }
 
 .materials-board-folder-add-btn:hover {
   background: #eef5ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
 }
 
 .materials-board-folder-list {
@@ -17690,7 +18173,7 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: #94a3b8;
+  color: #64748b;
   cursor: pointer;
 }
 
@@ -17718,8 +18201,12 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
 }
 
 .materials-board-main {
-  flex: 1 1 0;
+  flex: 1 1 auto;
+  flex-grow: 1;
+  width: auto;
   min-width: 0;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -17851,12 +18338,63 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   min-height: 32px;
 }
 
+.materials-board-sidebar .materials-board-folder-item {
+  display: flex;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  padding: 9px 8px 9px 10px;
+  border: 0;
+  background: transparent;
+  color: #334155;
+  font-weight: 600;
+}
+
+.materials-board-sidebar .materials-board-folder-row.active {
+  background: #e8eefc;
+}
+
+.materials-board-sidebar .materials-board-folder-row.active .materials-board-folder-item {
+  color: #1e3a8a;
+  font-weight: 800;
+}
+
+.materials-board-sidebar .materials-board-folder-actions {
+  max-width: none;
+  overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.materials-board-sidebar .materials-board-folder-row:hover .materials-board-folder-actions,
+.materials-board-sidebar .materials-board-folder-row:focus-within .materials-board-folder-actions,
+.materials-board-sidebar .materials-board-folder-row.active .materials-board-folder-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.materials-board-sidebar .materials-board-folder-add {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex: 0 0 auto;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.materials-board-sidebar .materials-board-folder-add-btn {
+  width: 100%;
+}
+
 .materials-board-toolbar {
-  margin: 0 0 20px;
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 12px;
+  width: 100%;
+  margin: 0 0 12px;
   flex-shrink: 0;
   min-height: 40px;
 }
@@ -17895,6 +18433,152 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   box-sizing: border-box;
 }
 
+.materials-board-upload-input {
+  display: none;
+}
+
+.materials-board-upload-btn {
+  gap: 6px;
+}
+
+.materials-board-dropzone {
+  position: relative;
+  overflow: auto;
+  padding: 8px;
+}
+
+.materials-board-dropzone.is-dragover {
+  background: #f8fbff;
+}
+
+.materials-board-drive-list {
+  display: flex;
+  flex-direction: column;
+  align-content: start;
+  width: 100%;
+}
+
+.materials-board-file-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-bottom-color: #f1f5f9;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.materials-board-file-row:hover,
+.materials-board-file-row:focus-within {
+  background: #f8fafc;
+  border-color: #e5e7eb;
+}
+
+.materials-board-file-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  stroke-width: 1.5;
+}
+
+.materials-board-file-icon.is-doc { color: #dc2626; }
+.materials-board-file-icon.is-sheet { color: #15803d; }
+.materials-board-file-icon.is-slides { color: #c2410c; }
+.materials-board-file-icon.is-image { color: #7c3aed; }
+.materials-board-file-icon.is-archive { color: #b45309; }
+.materials-board-file-icon.is-file { color: #475569; }
+
+.materials-board-file-name {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.materials-board-file-date {
+  margin: 0;
+  flex: 0 0 108px;
+  width: 108px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.materials-board-file-row-actions {
+  display: flex;
+  flex: 0 0 64px;
+  gap: 4px;
+  justify-content: flex-end;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.materials-board-file-card-action {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+}
+
+.materials-board-file-card-action:hover {
+  background: #f1f5f9;
+}
+
+.materials-board-file-card-action--danger:hover {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.materials-board-drive-empty {
+  margin: 64px 16px;
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.materials-board-drop-overlay {
+  position: absolute;
+  inset: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed #93c5fd;
+  border-radius: 12px;
+  background: rgba(239, 246, 255, 0.92);
+  color: #1d4ed8;
+  font-size: 15px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .materials-board-file-date {
+    flex-basis: 88px;
+    width: 88px;
+  }
+}
+
 .confirm-dialog-prompt-input {
   width: 100%;
   margin-top: 12px;
@@ -17913,6 +18597,13 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
 
 .materials-board-td--download {
   color: #1f4fd1;
+}
+
+.materials-board-explorer .materials-board-table-panel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: #ffffff;
 }
 
 .materials-board-table-panel {
@@ -18163,12 +18854,14 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   flex-shrink: 0;
   width: 28px;
   height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   border: none;
   border-radius: 6px;
   background: transparent;
   color: #64748b;
-  font-size: 14px;
   line-height: 1;
   cursor: pointer;
 }
@@ -18609,6 +19302,15 @@ div[class*='MuiDataGrid-licenseWatermark'] {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+}
+
+.stat-card--unit-price .registry-page-toolbar > .unit-price-toolbar-search,
+.stat-card--project-management .registry-page-toolbar > .unit-price-toolbar-search {
+  display: flex;
+  width: auto;
+  max-width: none;
+  flex: 1 1 280px;
+  min-width: 240px;
 }
 
 .unit-price-table .unit-price-col-contract-date {
@@ -19564,7 +20266,6 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   .table-search-input,
   .registry-search-toolbar-split > .table-search-input,
   .contract-filter-select,
-  .registry-date-range-picker,
   .work-report-week-select,
   .materials-board-toolbar .table-search-input {
     flex: none !important;
@@ -19759,14 +20460,28 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
 
   .dashboard-overview-grid,
   .dashboard-recent-grid,
+  .dashboard-document-grid,
   .dashboard-briefing-grid,
   .dashboard-year-cards,
   .contracts-year-summary-embed .dashboard-year-cards {
     grid-template-columns: 1fr !important;
   }
 
+  .main-area:has(> section.stat-card.stat-card--dashboard) {
+    overflow: hidden !important;
+    padding-top: var(--app-top-chrome-inset) !important;
+    padding-right: 16px !important;
+    padding-bottom: 16px !important;
+    padding-left: 16px !important;
+  }
+
   .main-area > section.stat-card.stat-card--dashboard {
-    overflow: visible !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
   }
 
   .main-area > section.stat-card.stat-card--dashboard > .dashboard-stack {
@@ -19800,8 +20515,12 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
   }
 
   .materials-board-sidebar {
+    flex: 0 0 auto;
     width: 100%;
+    max-width: none;
     min-width: 0;
+    border-right: 0;
+    border-bottom: 1px solid #e5e7eb;
   }
 
   .stat-card--iframe-embed,
@@ -20617,10 +21336,10 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
 }
 
 .work-report-week-board-inner {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .work-report-week-board-inner .work-report-week-day-headers {
@@ -20754,6 +21473,14 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
   border-color: #cbd5e1;
   color: #334155;
   outline: none;
+}
+
+.meeting-minutes-doc .meeting-minutes-add-row {
+  margin-top: 8px;
+  margin-bottom: 0;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  min-height: 48px;
 }
 
 /* 요일 칸은 520px 아래로 줄지 않는다. shrink 되면 글자가 한 글자씩 세로로 끊긴다. */
@@ -21418,12 +22145,19 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
 .audit-log-modal-close {
   position: static;
   flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: 1px solid #d1d5db;
   background: #fff;
   border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 700;
+  color: #334155;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .audit-log-open-btn {
@@ -21630,24 +22364,27 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
   word-break: break-word;
 }
 
-.sales-integrated-filters {
+.sales-integrated-page .sales-integrated-filters {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 10px 12px;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
   margin-bottom: 14px;
 }
 
-.sales-integrated-legend {
+.sales-integrated-page .sales-integrated-legend {
+  flex: 0 0 auto;
   margin: 0;
 }
 
-.sales-integrated-filters .sales-integrated-search {
-  flex: 1 1 240px;
-  width: auto;
-  min-width: 200px;
-  max-width: 420px;
-  margin-left: auto;
+.sales-integrated-page .sales-integrated-filters .sales-integrated-search {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  margin-left: 0;
 }
 
 .sales-integrated-page .sales-contacts-table-wrap {
@@ -21764,6 +22501,7 @@ table.sales-integrated-table td.sales-integrated-col-note {
 }
 
 .sales-integrated-modal {
+  position: relative;
   width: min(720px, 100%);
   max-height: min(82vh, 860px);
   overflow: auto;
@@ -21774,12 +22512,38 @@ table.sales-integrated-table td.sales-integrated-col-note {
   box-sizing: border-box;
 }
 
+.sales-integrated-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #334155;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sales-integrated-modal-close:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
 .sales-integrated-modal-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
+  padding-right: 40px;
 }
 
 .sales-integrated-modal-source {
@@ -21852,4 +22616,211 @@ table.sales-integrated-table td.sales-integrated-col-note {
     grid-template-columns: 1fr;
     gap: 2px;
   }
+}
+
+/* 데이터 행이 접혀도 헤더에서 잰 열 너비를 유지한다.
+   틀고정 열(sticky)은 더 구체적인 폭 규칙이 우선이라 left 좌표와 어긋나지 않는다. */
+table.excel-table.registry-table[data-cols-locked] {
+  table-layout: fixed !important;
+}
+
+table.registry-table[data-cols-locked] > colgroup > col {
+  width: var(--locked-col-width) !important;
+  min-width: var(--locked-col-width) !important;
+  max-width: var(--locked-col-width) !important;
+}
+
+/* 주간업무보고서·연락처·견적설계반출·문서수발신대장 상단 조작부 높이 */
+.work-report-toolbar,
+.sales-contacts-toolbar,
+.documents-page .registry-page-toolbar {
+  align-items: center;
+}
+
+.work-report-toolbar .primary-btn,
+.work-report-toolbar .secondary-btn,
+.work-report-toolbar .table-search-input,
+.work-report-toolbar .work-report-week-select,
+.sales-contacts-toolbar > .primary-btn,
+.sales-contacts-toolbar > .secondary-btn,
+.sales-contacts-toolbar > .table-search-input,
+.documents-page .registry-page-toolbar .primary-btn,
+.documents-page .registry-page-toolbar .secondary-btn,
+.documents-page .registry-page-toolbar .table-search-input {
+  box-sizing: border-box;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.work-report-toolbar .primary-btn,
+.work-report-toolbar .secondary-btn,
+.sales-contacts-toolbar > .primary-btn,
+.sales-contacts-toolbar > .secondary-btn,
+.documents-page .registry-page-toolbar .primary-btn,
+.documents-page .registry-page-toolbar .secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 14px;
+  padding-right: 14px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* 화면 전체 체크박스 — 16×16 로 통일 */
+input[type='checkbox'] {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+  max-width: 16px !important;
+  max-height: 16px !important;
+  flex: 0 0 16px !important;
+  box-sizing: border-box;
+}
+
+/* 표·카드·모달 모서리 통일 (rounded-lg = 8px). 셀 내부·버튼·입력·배지는 제외 */
+.stat-card,
+.dashboard-year-accordion,
+.dashboard-year-card,
+.dashboard-surface-card,
+.contracts-year-summary-embed,
+.guide-panel,
+.auth-card,
+.work-report-summary-card,
+.work-report-calendar-day,
+.work-report-section-row,
+.work-report-entry-card,
+.work-report-day-board,
+.work-report-day-board.report-mode,
+.work-report-report-section,
+.work-report-report-manager-block,
+.work-report-report-support-block,
+.work-report-mobile-day-card,
+.install-case-card,
+.install-case-form-panel,
+.install-case-spec-set,
+.materials-board-layout,
+.materials-board-drop-overlay,
+.materials-board-table-panel,
+.mobile-data-card,
+.mobile-data-card-empty,
+.calendar-mobile-agenda-item,
+.calendar-mobile-agenda-empty,
+.calendar-surface,
+.selected-event-card,
+.table-wrap,
+.sales-contacts-table-wrap,
+.payment-report-table-wrap,
+.payment-report-pdf-table-wrap,
+.payment-report-pdf-detail-wrap,
+.payment-report-expand-pane,
+.audit-log-table-wrap,
+.confirm-dialog-shell,
+.sales-record-modal,
+.sales-long-text-modal,
+.detail-modal,
+.install-case-detail-modal,
+.install-case-form-modal,
+.materials-board-form-modal,
+.audit-log-modal,
+.sales-integrated-modal,
+.delete-confirm-dialog {
+  border-radius: var(--cms-surface-radius);
+}
+
+.work-report-week-day-head {
+  border-radius: var(--cms-surface-radius) var(--cms-surface-radius) 0 0;
+}
+
+.work-report-board-section-cell {
+  border-radius: 0 0 var(--cms-surface-radius) var(--cms-surface-radius);
+}
+
+/* 주간업무보고서: 요일 열은 한 박스로, 행 사이는 가로선 한 줄만 */
+.work-report-week-board-inner .work-report-week-data-cell,
+.work-report-week-board-inner .work-report-week-data-cell:not(:last-child) {
+  border-top: none;
+  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.work-report-week-board-inner .work-report-week-data-cell .work-report-board-row,
+.work-report-week-board-inner .work-report-week-data-cell .work-report-board-row-no-index,
+.work-report-week-board-inner .work-report-week-data-cell .work-report-board-row-external-no-index,
+.work-report-week-board-inner .work-report-week-data-cell .work-report-board-header-row,
+.work-report-week-board-inner .work-report-week-data-cell .work-report-board-header-row-no-index,
+.work-report-week-board-inner .work-report-week-data-cell .work-report-board-header-row-external-no-index {
+  border-bottom: none;
+}
+
+.work-report-week-board-inner .work-report-board-header-row > *,
+.work-report-week-board-inner .work-report-board-header-row-no-index > *,
+.work-report-week-board-inner .work-report-board-header-row-external-no-index > *,
+.work-report-week-board-inner .work-report-board-row > *,
+.work-report-week-board-inner .work-report-board-row-no-index > *,
+.work-report-week-board-inner .work-report-board-row-external-no-index > *,
+.work-report-week-board-inner .work-report-board-header-row > *:not(:last-child),
+.work-report-week-board-inner .work-report-board-header-row-no-index > *:not(:last-child),
+.work-report-week-board-inner .work-report-board-header-row-external-no-index > *:not(:last-child),
+.work-report-week-board-inner .work-report-board-row > *:not(:last-child),
+.work-report-week-board-inner .work-report-board-row-no-index > *:not(:last-child),
+.work-report-week-board-inner .work-report-board-row-external-no-index > *:not(:last-child),
+.work-report-week-board-inner .work-report-board-index,
+.work-report-week-board-inner .work-report-board-todo-check,
+.work-report-week-board-inner .work-report-board-fixed-manager,
+.work-report-week-board-inner .work-report-board-select,
+.work-report-week-board-inner .work-report-board-date-input {
+  border-right: none;
+}
+
+.work-report-week-board-inner .work-report-board-select,
+.work-report-week-board-inner .work-report-external-manager-multi-trigger,
+.work-report-week-board-inner .work-report-board-date-input {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.work-report-week-board-inner .work-report-board-select:focus,
+.work-report-week-board-inner .work-report-external-manager-multi-trigger:focus {
+  border: none;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #3b82f6;
+}
+
+/* 하단 여백·섹션 바탕을 페이지 배경(#f9fafb)과 같게 */
+.work-report-week-board-inner,
+.main-area > section.stat-card.stat-card--work-reports .work-report-week-board-area,
+.work-report-week-board-inner .work-report-week-section,
+.work-report-week-board-inner .work-report-week-section-rows,
+.work-report-week-board-inner .work-report-week-data-row,
+.work-report-week-board-inner .work-report-week-section-title,
+.work-report-week-board-inner .work-report-board-section-title,
+.work-report-week-board-inner .work-report-board-support-title,
+.work-report-week-section-title-label {
+  background: #f9fafb;
+  background-color: #f9fafb;
+}
+
+.work-report-week-board-inner .work-report-week-data-cell {
+  background: #ffffff;
+  background-color: #ffffff;
+}
+
+.work-report-week-board-inner .work-report-support-add-row .work-report-week-data-cell {
+  background: transparent;
+  background-color: transparent;
+}
+
+.work-report-week-board-inner .work-report-support-add,
+.work-report-day-board .work-report-support-add {
+  padding-top: 14px;
+  padding-bottom: 14px;
+  min-height: 48px;
 }

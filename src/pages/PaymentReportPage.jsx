@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
@@ -1798,7 +1799,7 @@ export default function PaymentReportPage({ contracts = [] }) {
           type="search"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="사업명, 업체, 발주처 등 검색"
+          placeholder="검색어를 입력하세요."
           aria-label="결제보고 검색"
         />
       </div>
@@ -1881,7 +1882,7 @@ export default function PaymentReportPage({ contracts = [] }) {
                         onClick={() => requestDelete(row.id)}
                         aria-label={`${row.seq}번 행 삭제`}
                       >
-                        ×
+                        <Trash2 size={14} strokeWidth={2.25} aria-hidden="true" />
                       </button>
                     </td>
                     <td className="payment-report-sticky payment-report-sticky--seq payment-report-cell--locked">

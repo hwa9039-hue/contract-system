@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { X } from 'lucide-react'
 import { API_BASE_URL, apiFetch, apiFetchInit, getAuthHeaders } from '../../apiClient.js'
 import { MobileDataCardList } from '../../MobileDataCardList.jsx'
 import { useDesktopTableLayout } from '../../useDesktopTableLayout.js'
@@ -72,8 +73,8 @@ export default function AuditLogPage({ onClose }) {
           <p>로그인, 저장·삭제, 개발자 도구 접근 시도를 시간순으로 봅니다.</p>
         </div>
         {onClose ? (
-          <button type="button" className="audit-log-modal-close" onClick={onClose}>
-            닫기
+          <button type="button" className="audit-log-modal-close" onClick={onClose} aria-label="닫기">
+            <X size={16} strokeWidth={2.25} aria-hidden="true" />
           </button>
         ) : null}
       </div>
@@ -98,7 +99,7 @@ export default function AuditLogPage({ onClose }) {
           <input
             type="search"
             value={nameQuery}
-            placeholder="이름 검색"
+            placeholder="검색어를 입력하세요."
             onChange={(event) => setNameQuery(event.target.value)}
           />
         </label>

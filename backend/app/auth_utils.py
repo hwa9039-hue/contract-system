@@ -112,12 +112,13 @@ def normalize_token_role(role: str | None) -> str:
 
 
 # 브라우저 번들에 계정 목록을 넣지 않기 위해 서버에서만 권한을 계산한다.
-# BIT 이력관리: 전기웅·유영무·김성수·정주희·정화영
-_BIT_HISTORY_ACCOUNT_IDS = frozenset({"kk2331", "nov1st", "sskim", "jhjoung", "hy9039"})
+# BIT 이력관리: 전기웅·김성수·정주희·정화영 (퇴사자 유영무 제외)
+_BIT_HISTORY_ACCOUNT_IDS = frozenset({"kk2331", "sskim", "jhjoung", "hy9039"})
 # 비활성 연락처까지 전체 열람: 전기웅·정주희·정화영. 그 외 계정은 활성 연락처 + 본인이 등록한 연락처만 본다.
 _INACTIVE_CONTACTS_ACCOUNT_IDS = frozenset({"hy9039", "jhjoung", "kk2331"})
-# 설치사례 작성·수정·삭제: 정주희·정화영. 나머지 계정은 읽기만 한다.
-_INSTALL_CASE_EDITOR_IDS = frozenset({"jhjoung", "hy9039"})
+# 설치사례 작성·수정·삭제: 전기웅·정주희·정화영. 나머지 계정은 읽기만 한다.
+# (카카오 연동·감사 로그 열람은 정화영만 — 각 라우터에서 별도 게이트)
+_INSTALL_CASE_EDITOR_IDS = frozenset({"kk2331", "jhjoung", "hy9039"})
 
 
 def can_access_bit_history_account(account_id: str) -> bool:

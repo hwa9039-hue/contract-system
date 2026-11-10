@@ -773,6 +773,7 @@ export default function ProjectManagement({ canEdit = true }) {
           </div>
         ) : (
           <div className={UNIT_PRICE_PAGE_STACK}>
+            <div className="registry-page-toolbar">
             <div className="contracts-header-actions">
               <button className="secondary-btn" type="button" onClick={handleExcelDownload}>
                 엑셀 다운로드
@@ -782,10 +783,11 @@ export default function ProjectManagement({ canEdit = true }) {
             <div className={UNIT_PRICE_TOOLBAR}>
               <input
                 className={UNIT_PRICE_SEARCH_INPUT}
-                placeholder="검색어를 입력하세요"
+                placeholder="검색어를 입력하세요."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+            </div>
             </div>
 
             {isDesktopTable ? (

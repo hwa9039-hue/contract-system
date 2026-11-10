@@ -1301,6 +1301,12 @@ def init_db():
             )
             cursor.execute(
                 """
+                alter table materials_board_posts
+                  add column if not exists "parentId" text
+                """
+            )
+            cursor.execute(
+                """
                 create table if not exists materials_board_folders (
                   name text primary key,
                   "createdAt" timestamptz not null default now()

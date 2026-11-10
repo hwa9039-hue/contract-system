@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import {
   MOCK_EMAIL_EXPORT_LOGS,
   emailExportLogsApi,
   formatSentAt,
   normalizeEmailExportLog,
 } from '../emailExportLogsApi.js'
+import {
+  EMAIL_EXPORT_FILTERABLE_COLUMN_KEYS,
+  buildEmailExportColumnFilterOptions,
+  emailExportMatchesColumnFilters,
+  filterEmailExportRowsByActiveFilters,
+  hasActiveEmailExportColumnFilters,
+  normalizeEmailExportColumnFilterSelection,
+} from '../emailExportColumnFilter.js'
 import { computeFixedPortalPosition, fixedPortalStyle } from '../portalMenuPosition.js'
 import { buildStyledExcelFilename, downloadStyledExcel } from '../styledExcelDownload.js'
 import { MobileDataCardList } from '../MobileDataCardList.jsx'
@@ -21,6 +30,16 @@ const EXPORT_EXCEL_COLUMNS = [
   { header: '메일 제목', key: 'subject', minWidth: 40 },
   { header: '첨부파일', key: 'files', minWidth: 40 },
 ]
+
+const EXPORT_TABLE_COLUMNS = Object.freeze([
+  { key: 'seq', label: '구분', filterable: false },
+  { key: 'sentAt', label: '발신일시', filterable: true },
+  { key: 'name', label: '성명', filterable: true },
+  { key: 'sender', label: '발신자', filterable: true },
+  { key: 'recipient', label: '수신자', filterable: true },
+  { key: 'subject', label: '메일 제목', filterable: true },
+  { key: 'files', label: '첨부파일', filterable: false },
+])
 
 /**
  * 메일 제목 칸 — 제목에 마우스를 올리면 본문 요약이 말풍선으로 뜬다.
@@ -287,6 +306,8 @@ export default function QuoteDesignExportPage() {
   const [loading, setLoading] = useState(true)
   const [usingMock, setUsingMock] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [columnFilters, setColumnFilters] = useState({})
+  const [openColumnFilterKey, setOpenColumnFilterKey] = useState(null)
   const [excelError, setExcelError] = useState('')
   const [loadError, setLoadError] = useState('')
 
@@ -328,7 +349,7 @@ export default function QuoteDesignExportPage() {
   }, [rows])
 
   // 검색: 보낸일시·보낸사람·성명·제목·첨부파일명 어디에 있어도 찾는다.
-  const visibleRows = useMemo(() => {
+  const searchFilteredRows = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase()
     if (!keyword) return sortedRows
     return sortedRows.filter((row) =>
@@ -345,6 +366,35 @@ export default function QuoteDesignExportPage() {
         .includes(keyword)
     )
   }, [sortedRows, searchQuery])
+
+  const columnFilterOptionsMap = useMemo(() => {
+    const map = {}
+    EMAIL_EXPORT_FILTERABLE_COLUMN_KEYS.forEach((columnKey) => {
+      const pool = searchFilteredRows.filter((row) =>
+        emailExportMatchesColumnFilters(row, columnFilters, columnKey),
+      )
+      map[columnKey] = buildEmailExportColumnFilterOptions(pool, columnKey)
+    })
+    return map
+  }, [columnFilters, searchFilteredRows])
+
+  const handleColumnFiltersApply = useCallback((columnKey, selected) => {
+    setColumnFilters((prev) => {
+      const next = { ...prev }
+      const values = Array.isArray(selected) ? [...selected] : []
+      if (values.length === 0) delete next[columnKey]
+      else next[columnKey] = values
+      return next
+    })
+  }, [])
+
+  const visibleRows = useMemo(
+    () => filterEmailExportRowsByActiveFilters(searchFilteredRows, columnFilters),
+    [searchFilteredRows, columnFilters],
+  )
+
+  const hasActiveFilters =
+    Boolean(searchQuery.trim()) || hasActiveEmailExportColumnFilters(columnFilters)
 
   const handleExcelDownload = useCallback(async () => {
     try {
@@ -370,18 +420,24 @@ export default function QuoteDesignExportPage() {
 
   return (
     <section className="stat-card sales-contacts-page" aria-label="견적 · 설계 반출 현황">
-      <div className="sales-contacts-toolbar">
-        <button className="secondary-btn" type="button" onClick={handleExcelDownload}>
-          엑셀 다운로드
-        </button>
-        <input
-          className="table-search-input sales-contacts-search-input"
-          type="search"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="성명, 발신자, 수신자, 메일 제목, 첨부파일 등 검색"
-          aria-label="견적 · 설계 반출 현황 검색"
-        />
+      <div className="registry-page-toolbar sales-contacts-toolbar">
+        <div className="contracts-header-actions">
+          <button className="secondary-btn" type="button" onClick={handleExcelDownload}>
+            엑셀 다운로드
+          </button>
+        </div>
+        <div className="table-toolbar">
+          <div className="registry-search-toolbar-split">
+            <input
+              className="table-search-input sales-contacts-search-input"
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="검색어를 입력하세요."
+              aria-label="견적 · 설계 반출 현황 검색"
+            />
+          </div>
+        </div>
       </div>
       {loadError || excelError ? (
         <p className="sales-contacts-save-status is-error" role="alert">
@@ -408,13 +464,28 @@ export default function QuoteDesignExportPage() {
           </colgroup>
           <thead>
             <tr>
-              <th className="th-align-center">구분</th>
-              <th className="th-align-center">발신일시</th>
-              <th className="th-align-center">성명</th>
-              <th className="th-align-center">발신자</th>
-              <th className="th-align-center">수신자</th>
-              <th className="th-align-center">메일 제목</th>
-              <th className="th-align-center">첨부파일</th>
+              {EXPORT_TABLE_COLUMNS.map((column) =>
+                column.filterable ? (
+                  <th key={column.key} className="th-align-center contract-th-filterable">
+                    <div className="contract-th-filter-wrap">
+                      <span className="contract-th-label">{column.label}</span>
+                      <ContractColumnHeaderFilter
+                        columnKey={column.key}
+                        options={columnFilterOptionsMap[column.key] ?? []}
+                        selected={columnFilters[column.key] ?? []}
+                        onApply={handleColumnFiltersApply}
+                        isOpen={openColumnFilterKey === column.key}
+                        onOpenChange={setOpenColumnFilterKey}
+                        normalizeSelection={normalizeEmailExportColumnFilterSelection}
+                      />
+                    </div>
+                  </th>
+                ) : (
+                  <th key={column.key} className="th-align-center">
+                    {column.label}
+                  </th>
+                ),
+              )}
             </tr>
           </thead>
           <tbody>
@@ -443,7 +514,7 @@ export default function QuoteDesignExportPage() {
             {!loading && visibleRows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="email-export-cell--empty">
-                  {searchQuery.trim() ? '검색 결과가 없습니다.' : '반출 내역이 없습니다.'}
+                  {hasActiveFilters ? '필터 조건에 맞는 데이터가 없습니다.' : '반출 내역이 없습니다.'}
                 </td>
               </tr>
             ) : null}
@@ -472,8 +543,8 @@ export default function QuoteDesignExportPage() {
         emptyText={
           loading
             ? '불러오는 중...'
-            : searchQuery.trim()
-              ? '검색 결과가 없습니다.'
+            : hasActiveFilters
+              ? '필터 조건에 맞는 데이터가 없습니다.'
               : '반출 내역이 없습니다.'
         }
       />

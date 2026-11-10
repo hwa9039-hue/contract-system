@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import {
   INSTALL_CASE_MAX_MEDIA_COUNT,
   normalizeHeroImagesList,
@@ -221,7 +222,7 @@ export function InstallCaseMultiMediaField({
                 }}
                 aria-label={`${index + 1}번 미디어 삭제`}
               >
-                ✕
+                <Trash2 size={14} strokeWidth={2.25} aria-hidden="true" />
               </button>
             </li>
           ))}

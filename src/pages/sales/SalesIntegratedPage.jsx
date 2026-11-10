@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { X } from 'lucide-react'
+import { ContractColumnHeaderFilter } from '../../ContractColumnHeaderFilter.jsx'
 import { ImportanceLegend } from '../../ImportanceLegend.jsx'
 import { MobileDataCardList } from '../../MobileDataCardList.jsx'
 import { useDesktopTableLayout } from '../../useDesktopTableLayout.js'
 import { salesIntegratedApi } from '../../salesIntegratedApi.js'
+import {
+  SALES_INTEGRATED_FILTERABLE_COLUMN_KEYS,
+  buildSalesIntegratedColumnFilterOptions,
+  filterSalesIntegratedRowsByActiveFilters,
+  hasActiveSalesIntegratedColumnFilters,
+  normalizeSalesIntegratedColumnFilterSelection,
+  salesIntegratedMatchesColumnFilters,
+} from '../../salesIntegratedColumnFilter.js'
 import {
   SALES_STATUS_ALL_BADGE_CLASS,
   SALES_STATUS_LEGEND_ITEMS,
@@ -11,6 +21,17 @@ import {
   salesStatusMobileBadge,
   salesStatusMatchesLegend,
 } from '../../salesStatusBadge.jsx'
+
+const INTEGRATED_TABLE_COLUMNS = Object.freeze([
+  { key: 'statusLabel', label: '중요도(상태)', className: 'sales-integrated-col-status' },
+  { key: 'sourceMenu', label: '출처', className: 'sales-integrated-col-source' },
+  { key: 'date', label: '등록일', className: 'sales-integrated-col-date' },
+  { key: 'client', label: '발주처', className: 'sales-integrated-col-client' },
+  { key: 'title', label: '사업명', className: 'sales-integrated-col-title' },
+  { key: 'amount', label: '사업금액', className: 'sales-integrated-col-amount' },
+  { key: 'manager', label: '담당자', className: 'sales-integrated-col-manager' },
+  { key: 'note', label: '비고', className: 'sales-integrated-col-note' },
+])
 
 const INTEGRATED_LEGEND_ITEMS = SALES_STATUS_LEGEND_ITEMS
 
@@ -57,8 +78,8 @@ function IntegratedDetailModal({ detail, loading, error, onClose }) {
               <span>사업금액 {detail?.columns?.find((column) => column.label === '사업금액')?.value || '—'}</span>
             </p>
           </div>
-          <button type="button" className="secondary-btn" onClick={onClose}>
-            닫기
+          <button type="button" className="sales-integrated-modal-close" onClick={onClose} aria-label="닫기">
+            <X size={18} strokeWidth={2.25} aria-hidden="true" />
           </button>
         </header>
 
@@ -71,12 +92,12 @@ function IntegratedDetailModal({ detail, loading, error, onClose }) {
 
         {detail && !loading ? (
           <dl className="sales-integrated-detail-list">
-            {detail.columns.map((column) => (
+            {detail.columns.filter((column) => column.label !== '상태').map((column) => (
               <div key={column.label} className="sales-integrated-detail-row">
-                <dt>{column.label}</dt>
+                <dt>{column.label === '중요도' ? '중요도(상태)' : column.label}</dt>
                 <dd>
-                  {column.label === '중요도' || column.label === '상태' ? (
-                    <SalesStatusBadge status={column.label === '상태' ? column.value : detail.stage || column.value} />
+                  {column.label === '중요도' ? (
+                    <SalesStatusBadge status={detail.stage || column.value} />
                   ) : (
                     column.value || '—'
                   )}
@@ -95,6 +116,8 @@ export default function SalesIntegratedPage() {
   const isDesktopTable = useDesktopTableLayout()
   const [tone, setTone] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [columnFilters, setColumnFilters] = useState({})
+  const [openColumnFilterKey, setOpenColumnFilterKey] = useState(null)
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -144,20 +167,51 @@ export default function SalesIntegratedPage() {
     setDetailLoading(false)
   }, [])
 
-  const visibleRows = useMemo(() => {
+  const searchFilteredRows = useMemo(() => {
     const matched = rows.filter((row) => salesStatusMatchesLegend(row.stage || row.statusLabel, tone))
     const query = searchQuery.trim().toLowerCase().replace(/\s+/g, '')
     if (!query) return matched
     return matched.filter((row) => rowSearchText(row).includes(query))
   }, [rows, searchQuery, tone])
 
+  const columnFilterOptionsMap = useMemo(() => {
+    const map = {}
+    SALES_INTEGRATED_FILTERABLE_COLUMN_KEYS.forEach((columnKey) => {
+      const pool = searchFilteredRows.filter((row) =>
+        salesIntegratedMatchesColumnFilters(row, columnFilters, columnKey),
+      )
+      map[columnKey] = buildSalesIntegratedColumnFilterOptions(pool, columnKey)
+    })
+    return map
+  }, [columnFilters, searchFilteredRows])
+
+  const handleColumnFiltersApply = useCallback((columnKey, selectedValues) => {
+    setColumnFilters((prev) => {
+      const next = { ...prev }
+      const values = Array.isArray(selectedValues) ? [...selectedValues] : []
+      if (values.length === 0) delete next[columnKey]
+      else next[columnKey] = values
+      return next
+    })
+  }, [])
+
+  const visibleRows = useMemo(
+    () => filterSalesIntegratedRowsByActiveFilters(searchFilteredRows, columnFilters),
+    [searchFilteredRows, columnFilters],
+  )
+
+  const hasActiveFilters =
+    Boolean(tone) ||
+    Boolean(searchQuery.trim()) ||
+    hasActiveSalesIntegratedColumnFilters(columnFilters)
+
   const emptyText = loading
     ? '불러오는 중입니다.'
     : rows.length === 0
-      ? tone
-        ? '이 상태에 해당하는 데이터가 없습니다.'
+      ? '표시할 데이터가 없습니다.'
+      : hasActiveFilters
+        ? '필터 조건에 맞는 데이터가 없습니다.'
         : '표시할 데이터가 없습니다.'
-      : '검색 결과가 없습니다.'
 
   return (
     <section className="stat-card sales-contacts-page sales-integrated-page registry-control-stack" aria-label="영업관리(통합)">
@@ -176,7 +230,7 @@ export default function SalesIntegratedPage() {
           type="search"
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="사업명, 발주처, 담당자, 출처 등 검색"
+          placeholder="검색어를 입력하세요."
           aria-label="영업관리(통합) 검색"
         />
       </div>
@@ -202,14 +256,25 @@ export default function SalesIntegratedPage() {
           </colgroup>
           <thead>
             <tr>
-              <th className="sales-integrated-col-status">중요도(상태)</th>
-              <th className="sales-integrated-col-source">출처</th>
-              <th className="sales-integrated-col-date">등록일</th>
-              <th className="sales-integrated-col-client">발주처</th>
-              <th className="sales-integrated-col-title">사업명</th>
-              <th className="sales-integrated-col-amount">사업금액</th>
-              <th className="sales-integrated-col-manager">담당자</th>
-              <th className="sales-integrated-col-note">비고</th>
+              {INTEGRATED_TABLE_COLUMNS.map((column) => (
+                <th
+                  key={column.key}
+                  className={`${column.className} contract-th-filterable`.trim()}
+                >
+                  <div className="contract-th-filter-wrap">
+                    <span className="contract-th-label">{column.label}</span>
+                    <ContractColumnHeaderFilter
+                      columnKey={column.key}
+                      options={columnFilterOptionsMap[column.key] ?? []}
+                      selected={columnFilters[column.key] ?? []}
+                      onApply={handleColumnFiltersApply}
+                      isOpen={openColumnFilterKey === column.key}
+                      onOpenChange={setOpenColumnFilterKey}
+                      normalizeSelection={normalizeSalesIntegratedColumnFilterSelection}
+                    />
+                  </div>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>

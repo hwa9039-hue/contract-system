@@ -20,9 +20,10 @@ function withMaterialsBoardFolderFallback(row, folderValue) {
   return { ...row, folder: resolved, folderId: resolved }
 }
 
-function buildFormData({ title, content, folder, folderId, files = [], keepFileIds = null }) {
+function buildFormData({ title, content, folder, folderId, parentId, files = [], keepFileIds = null }) {
   const form = new FormData()
   const folderValue = resolveMaterialsBoardFolderValue({ folder, folderId })
+  const parentValue = String(parentId ?? '').trim()
   // null 이면 "유지 목록을 보내지 않음" — 서버는 기존 첨부를 그대로 둔다.
   const keepIds = Array.isArray(keepFileIds)
     ? keepFileIds.map((id) => String(id ?? '').trim()).filter(Boolean)
@@ -32,6 +33,7 @@ function buildFormData({ title, content, folder, folderId, files = [], keepFileI
     content: content || '',
     folder: folderValue,
     folderId: folderValue,
+    parentId: parentValue,
   }
   if (keepIds) meta.keepFileIds = keepIds
   // 설치사례 /form 과 동일: JSON payload 로 폴더·제목 전달 (multipart 필드 누락 방지)
@@ -40,6 +42,7 @@ function buildFormData({ title, content, folder, folderId, files = [], keepFileI
   form.append('content', content || '')
   form.append('folder', folderValue)
   form.append('folderId', folderValue)
+  if (parentValue) form.append('parentId', parentValue)
   if (keepIds) form.append('keepFileIds', JSON.stringify(keepIds))
   for (const entry of files) {
     const file = entry?.file

@@ -212,6 +212,7 @@ def clear_login_account_kakao_id(account_id: str) -> str:
     aid = (account_id or "").strip().lower()
     if not aid:
         return "missing"
+    # 정화영 계정은 카카오 연동 해제를 막는다.
     if aid == "hy9039":
         return "protected"
     with get_connection() as connection:

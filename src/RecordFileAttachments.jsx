@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Paperclip } from 'lucide-react'
+import { Paperclip, Trash2 } from 'lucide-react'
 import { addLocalAttachmentFiles, formatAttachmentSize } from './recordFileAttachments.js'
 
 export function RecordAttachmentChip({
@@ -111,7 +111,7 @@ export function RecordFileAttachments({
                   disabled={disabled}
                   onClick={() => removeItem(item.id)}
                 >
-                  ×
+                  <Trash2 size={14} strokeWidth={2.25} aria-hidden="true" />
                 </button>
               </li>
             )

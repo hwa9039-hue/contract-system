@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { X } from 'lucide-react'
 import { useAuth } from './AuthContext.jsx'
 import { savePin } from './pinAuth.js'
 import { markPinPassed, readPinProfile } from './pinProfile.js'
@@ -119,8 +120,8 @@ export default function PinSetupDialog({ gate = false }) {
       />
       <div className={gate ? 'pin-setup-actions pin-setup-actions-gate' : 'pin-setup-actions'}>
         {gate ? null : (
-          <button type="button" className="pin-setup-later" onClick={close} disabled={busy}>
-            닫기
+          <button type="button" className="pin-setup-later" onClick={close} disabled={busy} aria-label="닫기">
+            <X size={16} strokeWidth={2.25} aria-hidden="true" />
           </button>
         )}
         <button type="button" className="primary-btn pin-setup-save" onClick={() => void handleSave()} disabled={busy}>

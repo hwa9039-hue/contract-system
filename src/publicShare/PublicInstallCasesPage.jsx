@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { X } from 'lucide-react'
 import { API_BASE_URL } from '../apiClient.js'
 import { resolveInstallCaseHeroImage } from '../installCasesApi.js'
 import { InstallCaseMediaCarousel } from '../installCaseMediaUi.jsx'
@@ -150,7 +151,7 @@ function DetailModal({ row, onClose }) {
           </h3>
           <div className="install-case-detail-modal-actions">
             <button type="button" className="modal-close-btn" onClick={onClose} aria-label="닫기">
-              ✕
+              <X size={16} strokeWidth={2.25} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -361,7 +362,7 @@ export default function PublicInstallCasesPage() {
             </select>
             <input
               className="table-search-input install-cases-search-input"
-              placeholder="사업명·사업년도·분류·용도·발주처·규격으로 검색"
+              placeholder="검색어를 입력하세요."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               aria-label="설치사례 검색"

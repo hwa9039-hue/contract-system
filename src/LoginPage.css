@@ -42,7 +42,7 @@ html.login-page-active #root {
   max-width: 100%;
   min-height: 460px;
   padding: 56px 36px 52px;
-  border-radius: 16px;
+  border-radius: 8px;
   background: var(--panel, #ffffff);
   box-shadow: var(--shadow-md, 0 16px 40px rgba(46, 52, 64, 0.1));
   border: 1px solid var(--line, #d1d5db);

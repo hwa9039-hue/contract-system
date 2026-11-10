@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Copy, Trash2 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { AutoGrowTextarea } from '../AutoGrowTextarea.jsx'
+import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { EditableTextCell } from '../EditableTextCell.jsx'
 import { computeFixedPortalPosition, fixedPortalStyle } from '../portalMenuPosition.js'
@@ -8,6 +10,14 @@ import { ROLES, canViewAllContacts, hasAdminPrivileges, normalizeAccountId, norm
 import { MobileDataCardList } from '../MobileDataCardList.jsx'
 import { useDesktopTableLayout } from '../useDesktopTableLayout.js'
 import { normalizeSalesContactRow, salesContactsApi } from '../salesContactsApi.js'
+import {
+  SALES_CONTACTS_FILTERABLE_COLUMN_KEYS,
+  buildSalesContactsColumnFilterOptions,
+  filterSalesContactsRowsByActiveFilters,
+  hasActiveSalesContactsColumnFilters,
+  normalizeSalesContactsColumnFilterSelection,
+  salesContactsMatchesColumnFilters,
+} from '../salesContactsColumnFilter.js'
 import { useAuth } from '../AuthContext.jsx'
 import {
   EXCLUDED_INLINE_EDITOR_CLASS,
@@ -92,12 +102,12 @@ function createContactRow(seq, id, sortOrder = seq, authorId = '') {
   }
 }
 
-function nextSortOrder(rows) {
-  const max = rows.reduce((acc, row) => {
+function leadingSortOrder(rows) {
+  const min = rows.reduce((acc, row) => {
     const value = Number(row?.sortOrder)
-    return Number.isFinite(value) ? Math.max(acc, value) : acc
+    return Number.isFinite(value) ? Math.min(acc, value) : acc
   }, 0)
-  return max + 1
+  return min - 1
 }
 
 function isPersistedContactId(id) {
@@ -491,6 +501,8 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
 
   const [rows, setRows] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [columnFilters, setColumnFilters] = useState({})
+  const [openColumnFilterKey, setOpenColumnFilterKey] = useState(null)
   const { itemToDelete, isModalOpen, requestDelete, cancelDelete } = useDeleteConfirm()
   const [toast, setToast] = useState({ message: '', tone: '' })
   const [loadError, setLoadError] = useState('')
@@ -504,13 +516,59 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
     rowsRef.current = rows
   }, [rows])
 
-  const visibleRows = useMemo(() => {
+  const searchFilteredRows = useMemo(() => {
     return rows
       .filter((row) => canShowContactRow(row, accountId))
       .filter((row) =>
-        matchesContactSearch(row, searchQuery, { includeSensitive: canViewSensitive })
+        matchesContactSearch(row, searchQuery, { includeSensitive: canViewSensitive }),
       )
   }, [rows, accountId, searchQuery, canViewSensitive])
+
+  const columnFilterOptionsMap = useMemo(() => {
+    const map = {}
+    SALES_CONTACTS_FILTERABLE_COLUMN_KEYS.forEach((columnKey) => {
+      const pool = searchFilteredRows.filter((row) =>
+        salesContactsMatchesColumnFilters(row, columnFilters, columnKey),
+      )
+      map[columnKey] = buildSalesContactsColumnFilterOptions(pool, columnKey)
+    })
+    return map
+  }, [columnFilters, searchFilteredRows])
+
+  const handleColumnFiltersApply = useCallback((columnKey, selected) => {
+    setColumnFilters((prev) => {
+      const next = { ...prev }
+      const values = Array.isArray(selected) ? [...selected] : []
+      if (values.length === 0) delete next[columnKey]
+      else next[columnKey] = values
+      return next
+    })
+  }, [])
+
+  const visibleRows = useMemo(
+    () => filterSalesContactsRowsByActiveFilters(searchFilteredRows, columnFilters),
+    [searchFilteredRows, columnFilters],
+  )
+
+  const hasActiveFilters =
+    Boolean(searchQuery.trim()) || hasActiveSalesContactsColumnFilters(columnFilters)
+
+  const renderFilterableHeader = (columnKey, label, className = '') => (
+    <th className={`${className} contract-th-filterable`.trim()}>
+      <div className="contract-th-filter-wrap">
+        <span className="contract-th-label">{label}</span>
+        <ContractColumnHeaderFilter
+          columnKey={columnKey}
+          options={columnFilterOptionsMap[columnKey] ?? []}
+          selected={columnFilters[columnKey] ?? []}
+          onApply={handleColumnFiltersApply}
+          isOpen={openColumnFilterKey === columnKey}
+          onOpenChange={setOpenColumnFilterKey}
+          normalizeSelection={normalizeSalesContactsColumnFilterSelection}
+        />
+      </div>
+    </th>
+  )
 
   const showLocalToast = useCallback((message, tone = 'success') => {
     setToast({ message: safeString(message), tone })
@@ -636,20 +694,20 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
   }, [])
 
   const handleAddRow = async () => {
-    const sortOrder = nextSortOrder(rowsRef.current)
-    const draft = createContactRow(rowsRef.current.length + 1, `draft-${Date.now()}`, sortOrder, accountId)
+    const sortOrder = leadingSortOrder(rowsRef.current)
+    const draft = createContactRow(1, `draft-${Date.now()}`, sortOrder, accountId)
     try {
       const created = await salesContactsApi.create(draft)
-      const normalized = normalizeSalesContactRow(created, rowsRef.current.length + 1)
+      const normalized = normalizeSalesContactRow(created, 1)
       setRows((prev) =>
         renumberContactRows([
+          { ...normalized, authorId: normalized.authorId || draft.authorId, sortOrder },
           ...prev,
-          { ...normalized, authorId: normalized.authorId || draft.authorId },
         ])
       )
       setLoadError('')
     } catch (error) {
-      setRows((prev) => renumberContactRows([...prev, draft]))
+      setRows((prev) => renumberContactRows([draft, ...prev]))
       scheduleSave(draft.id)
       setLoadError(`등록에 실패했습니다. ${safeString(error?.message)}`)
     }
@@ -715,7 +773,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
           type="search"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="담당자, 회사, 연락처 등 검색"
+          placeholder="검색어를 입력하세요."
           aria-label="연락처 검색"
         />
       </div>
@@ -738,20 +796,54 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
               <th className="sales-contacts-sticky sales-contacts-sticky--action">삭제</th>
               <th className="sales-contacts-sticky sales-contacts-sticky--copy">복사</th>
               <th className="sales-contacts-sticky sales-contacts-sticky--seq">번호</th>
-              <th className="sales-contacts-sticky sales-contacts-sticky--manager">담당자명</th>
-              <th className="sales-contacts-sticky sales-contacts-sticky--position">직위</th>
-              <th className="sales-contacts-sticky sales-contacts-sticky--phone">휴대폰</th>
-              <th className="sales-contacts-sticky sales-contacts-sticky--email">이메일</th>
-              <th className="sales-contacts-sticky sales-contacts-sticky--division">구분</th>
-              <th className="sales-contacts-sticky sales-contacts-sticky--company">회사명</th>
-              <th className="sales-contacts-sticky sales-contacts-sticky--department">부서명</th>
-              <th className="sales-contacts-sticky sales-contacts-sticky--status">분류</th>
-              <th className="sales-contacts-sticky sales-contacts-sticky--linked sales-contacts-sticky--last">
-                연계 사업
-              </th>
-              <th className="sales-contacts-col--review">심사</th>
-              <th>주소</th>
-              <th className="sales-contacts-col--notes">비고</th>
+              {renderFilterableHeader(
+                'managerName',
+                '담당자명',
+                'sales-contacts-sticky sales-contacts-sticky--manager',
+              )}
+              {renderFilterableHeader(
+                'position',
+                '직위',
+                'sales-contacts-sticky sales-contacts-sticky--position',
+              )}
+              {renderFilterableHeader(
+                'phone',
+                '휴대폰',
+                'sales-contacts-sticky sales-contacts-sticky--phone',
+              )}
+              {renderFilterableHeader(
+                'email',
+                '이메일',
+                'sales-contacts-sticky sales-contacts-sticky--email',
+              )}
+              {renderFilterableHeader(
+                'division',
+                '구분',
+                'sales-contacts-sticky sales-contacts-sticky--division',
+              )}
+              {renderFilterableHeader(
+                'companyName',
+                '회사명',
+                'sales-contacts-sticky sales-contacts-sticky--company',
+              )}
+              {renderFilterableHeader(
+                'department',
+                '부서명',
+                'sales-contacts-sticky sales-contacts-sticky--department',
+              )}
+              {renderFilterableHeader(
+                'status',
+                '분류',
+                'sales-contacts-sticky sales-contacts-sticky--status',
+              )}
+              {renderFilterableHeader(
+                'linkedProject',
+                '연계 사업',
+                'sales-contacts-sticky sales-contacts-sticky--linked sales-contacts-sticky--last',
+              )}
+              {renderFilterableHeader('review', '심사', 'sales-contacts-col--review')}
+              {renderFilterableHeader('address', '주소')}
+              {renderFilterableHeader('notes', '비고', 'sales-contacts-col--notes')}
             </tr>
           </thead>
           <tbody>
@@ -765,7 +857,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
                       onClick={() => requestDelete(row.id)}
                       aria-label={`${row.seq}번 행 삭제`}
                     >
-                      ×
+                      <Trash2 size={14} strokeWidth={2.25} aria-hidden="true" />
                     </button>
                   </td>
                   <td className="sales-contacts-sticky sales-contacts-sticky--copy">
@@ -776,7 +868,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
                       title="연락처 복사"
                       aria-label={`${row.seq}번 연락처 복사`}
                     >
-                      📋
+                      <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
                     </button>
                   </td>
                   <td className="sales-contacts-sticky sales-contacts-sticky--seq sales-contacts-cell--locked">
@@ -897,7 +989,9 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
           { label: '주소', getValue: (row) => (canViewSensitive ? row.address : '') },
           { label: '비고', getValue: (row) => (canViewSensitive ? row.notes : '') },
         ]}
-        emptyText="표시할 연락처가 없습니다."
+        emptyText={
+          hasActiveFilters ? '필터 조건에 맞는 데이터가 없습니다.' : '표시할 연락처가 없습니다.'
+        }
       />
       )}
 

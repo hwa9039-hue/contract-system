@@ -23,7 +23,7 @@ UPLOAD_ROOT = Path(os.getenv("UPLOAD_DIR", "uploads")).resolve()
 MATERIALS_BOARD_DIR = UPLOAD_ROOT / "materials-board"
 
 RETURNING_COLUMNS = """
-  id, title, content, folder, files, "registeredAt", "downloadCount", "createdAt", "updatedAt"
+  id, title, content, folder, files, "parentId", "registeredAt", "downloadCount", "createdAt", "updatedAt"
 """
 
 
@@ -76,6 +76,24 @@ def _resolve_folder(request: Request, form) -> str:
             return ff
 
     return ""
+
+
+def parse_materials_board_parent_id(form, self_id: str = "") -> str:
+    """payload 또는 form 필드의 parentId. 자기 자신은 부모가 될 수 없다."""
+    raw = ""
+    payload_raw = form.get("payload")
+    if isinstance(payload_raw, str):
+        try:
+            data = json.loads(payload_raw)
+            if isinstance(data, dict):
+                raw = _str(data.get("parentId") or data.get("parent_id"))
+        except (json.JSONDecodeError, TypeError, ValueError):
+            raw = ""
+    if not raw:
+        raw = _str(form.get("parentId") or form.get("parent_id"))
+    if not raw or raw == _str(self_id):
+        return ""
+    return raw
 
 
 def parse_materials_board_submit(request: Request, form) -> tuple[str, str, str]:
@@ -315,6 +333,7 @@ async def api_create_materials_board_post(request: Request):
         "title": trimmed_title,
         "content": content_value,
         "folder": folder_value,
+        "parentId": parse_materials_board_parent_id(form, post_id) or None,
         "files": json.dumps(saved_files),
         "registeredAt": today_date_text(),
         "createdAt": timestamp,
@@ -326,10 +345,10 @@ async def api_create_materials_board_post(request: Request):
             cursor.execute(
                 f"""
                 insert into materials_board_posts (
-                  id, title, content, folder, files, "registeredAt", "createdAt", "updatedAt"
+                  id, title, content, folder, "parentId", files, "registeredAt", "createdAt", "updatedAt"
                 )
                 values (
-                  %(id)s, %(title)s, %(content)s, %(folder)s, %(files)s::jsonb,
+                  %(id)s, %(title)s, %(content)s, %(folder)s, %(parentId)s, %(files)s::jsonb,
                   %(registeredAt)s::date, %(createdAt)s, %(updatedAt)s
                 )
                 returning {RETURNING_COLUMNS}
@@ -566,6 +585,7 @@ async def api_update_materials_board_post(post_id: str, request: Request):
                 set title = %(title)s,
                     content = %(content)s,
                     folder = %(folder)s,
+                    "parentId" = %(parentId)s,
                     files = %(files)s::jsonb,
                     "updatedAt" = %(updatedAt)s
                 where id::text = %(id)s
@@ -576,6 +596,7 @@ async def api_update_materials_board_post(post_id: str, request: Request):
                     "title": trimmed_title,
                     "content": content_value,
                     "folder": folder_value,
+                    "parentId": parse_materials_board_parent_id(form, post_id) or None,
                     "files": json.dumps(merged_files),
                     "updatedAt": timestamp,
                 },

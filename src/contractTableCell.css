@@ -114,10 +114,11 @@ table[data-contract-table-row-key] .contract-table-header-shell {
 
 table[data-contract-table-row-key].contract-table.excel-table.registry-table .contract-year-toggle,
 table[data-contract-table-row-key].contract-table.excel-table.registry-table .contract-category-group-row .contract-year-toggle {
-  height: 28px;
-  min-height: 28px;
-  padding-top: 2px;
-  padding-bottom: 2px;
+  height: var(--cms-accordion-bar-height);
+  min-height: var(--cms-accordion-bar-height);
+  padding-top: var(--cms-accordion-bar-pad-y);
+  padding-bottom: var(--cms-accordion-bar-pad-y);
+  box-sizing: border-box;
 }
 
 table[data-contract-table-row-key] tbody tr.contract-year-row > td {
@@ -128,8 +129,10 @@ table[data-contract-table-row-key] .contract-table-header-shell > input.registry
 table[data-contract-table-row-key] .contract-table-cell-shell > input.registry-row-checkbox {
   width: 16px;
   height: 16px;
-  min-width: 0;
-  min-height: 0;
+  min-width: 16px;
+  min-height: 16px;
+  max-width: 16px;
+  max-height: 16px;
   cursor: pointer;
   accent-color: #3b82f6;
   flex: 0 0 auto;

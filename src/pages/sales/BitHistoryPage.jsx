@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { useAuth } from '../../AuthContext.jsx'
 import {
   bitMatchesColumnFilters,
@@ -17,6 +18,7 @@ import {
   normalizeBitHistoryRow,
 } from '../../bitHistoryApi.js'
 import { getContractYearKey } from '../../contractAggregation.js'
+import { lockRegistryTableColumns } from '../../lockRegistryTableColumns.js'
 import { DeleteConfirmModal, useDeleteConfirm } from '../../DeleteConfirmModal.jsx'
 import { EditableDateCell } from '../../EditableDateCell.jsx'
 import { EditableTextCell } from '../../EditableTextCell.jsx'
@@ -97,19 +99,6 @@ function formatYmdSlash(ymd) {
   const s = safeString(ymd).trim()
   if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return ''
   return s.replace(/-/g, '/')
-}
-
-function openNativeDatePicker(inputEl) {
-  if (!inputEl) return
-  if (typeof inputEl.showPicker === 'function') {
-    try {
-      inputEl.showPicker()
-      return
-    } catch {
-      /* 일부 브라우저는 사용자 제스처 없으면 거부 */
-    }
-  }
-  inputEl.click()
 }
 
 function formatAmountComma(value) {
@@ -209,16 +198,6 @@ function nextLineNo(rows, contractId) {
   return maxLine + 1
 }
 
-/** 기간 필터는 계약일자 기준 */
-function inContractDateRange(row, startDate, endDate) {
-  if (!startDate && !endDate) return true
-  const ymd = toDateInputValue(row?.contractDate)
-  if (!ymd) return false
-  if (startDate && ymd < startDate) return false
-  if (endDate && ymd > endDate) return false
-  return true
-}
-
 function matchesBitSearch(row, query) {
   const q = safeString(query).trim().toLowerCase()
   if (!q) return true
@@ -295,63 +274,6 @@ function stickyCellProps(column, extraClass = '') {
   }
 }
 
-function BitDateRangeFilter({ startDate, endDate, onStartChange, onEndChange }) {
-  const startInputRef = useRef(null)
-  const endInputRef = useRef(null)
-  const startLabel = formatYmdSlash(startDate) || 'YYYY/MM/DD'
-  const endLabel = formatYmdSlash(endDate) || 'YYYY/MM/DD'
-
-  return (
-    <div className="registry-date-range-picker" role="group" aria-label="기간 검색">
-      <button
-        type="button"
-        className="registry-date-range-picker-segment"
-        onClick={() => openNativeDatePicker(startInputRef.current)}
-        aria-label="시작일 선택"
-      >
-        <span className={startDate ? '' : 'registry-date-range-picker-placeholder'}>{startLabel}</span>
-      </button>
-      <span className="registry-date-range-picker-sep" aria-hidden="true">
-        ~
-      </span>
-      <button
-        type="button"
-        className="registry-date-range-picker-segment"
-        onClick={() => openNativeDatePicker(endInputRef.current)}
-        aria-label="종료일 선택"
-      >
-        <span className={endDate ? '' : 'registry-date-range-picker-placeholder'}>{endLabel}</span>
-      </button>
-      <button
-        type="button"
-        className="registry-date-range-picker-icon"
-        onClick={() => openNativeDatePicker(startInputRef.current)}
-        aria-label="기간 선택"
-      >
-        <span aria-hidden="true">📅</span>
-      </button>
-      <input
-        ref={startInputRef}
-        type="date"
-        className="registry-date-range-picker-native"
-        value={startDate}
-        onChange={(e) => onStartChange(e.target.value)}
-        tabIndex={-1}
-        aria-hidden="true"
-      />
-      <input
-        ref={endInputRef}
-        type="date"
-        className="registry-date-range-picker-native"
-        value={endDate}
-        onChange={(e) => onEndChange(e.target.value)}
-        tabIndex={-1}
-        aria-hidden="true"
-      />
-    </div>
-  )
-}
-
 /** 컬럼 type 하나로 셀 편집기를 결정한다 — 연동 행의 계약현황 필드는 읽기 전용. */
 function BitDataCell({ column, row, onCommit }) {
   const locked =
@@ -401,7 +323,6 @@ export default function BitHistoryPage({ contracts = [] }) {
   const [loadError, setLoadError] = useState('')
   const [syncNotice, setSyncNotice] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' })
   const [columnFilters, setColumnFilters] = useState({})
   const [openColumnFilterKey, setOpenColumnFilterKey] = useState(null)
   const [selectedIds, setSelectedIds] = useState([])
@@ -413,6 +334,10 @@ export default function BitHistoryPage({ contracts = [] }) {
   useEffect(() => {
     rowsRef.current = rows
   }, [rows])
+
+  useLayoutEffect(() => {
+    lockRegistryTableColumns()
+  })
 
   /** 계약현황은 비동기로 도착하므로 최신 목록을 ref 로 본다. */
   const contractsRef = useRef(contracts)
@@ -475,13 +400,8 @@ export default function BitHistoryPage({ contracts = [] }) {
   }, [allowed, isLoading, contracts, joinRows])
 
   const toolbarFilteredRows = useMemo(
-    () =>
-      rows.filter(
-        (row) =>
-          matchesBitSearch(row, searchQuery) &&
-          inContractDateRange(row, dateRange.startDate, dateRange.endDate),
-      ),
-    [rows, searchQuery, dateRange],
+    () => rows.filter((row) => matchesBitSearch(row, searchQuery)),
+    [rows, searchQuery],
   )
 
   const columnFilterOptionsMap = useMemo(() => {
@@ -782,8 +702,10 @@ export default function BitHistoryPage({ contracts = [] }) {
             onClick={() => requestDelete(selectedIds)}
             disabled={selectedIds.length === 0}
             title="BIT 이력 줄만 지웁니다. 계약현황 원본은 그대로 둡니다."
+            aria-label="선택 삭제"
           >
-            삭제
+            <Trash2 size={15} strokeWidth={2.25} aria-hidden="true" />
+            선택 삭제
           </button>
           {selectedIds.length > 0 && (
             <button
@@ -791,6 +713,7 @@ export default function BitHistoryPage({ contracts = [] }) {
               className="secondary-btn registry-selection-count"
               tabIndex={-1}
               aria-disabled="true"
+              role="status"
               aria-live="polite"
             >
               총 {selectedIds.length}건 선택됨
@@ -803,16 +726,10 @@ export default function BitHistoryPage({ contracts = [] }) {
         <div className="bit-history-toolbar-right">
           <input
             className="table-search-input"
-            placeholder="검색어를 입력하세요"
+            placeholder="검색어를 입력하세요."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="BIT 이력 검색"
-          />
-          <BitDateRangeFilter
-            startDate={dateRange.startDate}
-            endDate={dateRange.endDate}
-            onStartChange={(value) => setDateRange((prev) => ({ ...prev, startDate: value }))}
-            onEndChange={(value) => setDateRange((prev) => ({ ...prev, endDate: value }))}
           />
         </div>
       </div>

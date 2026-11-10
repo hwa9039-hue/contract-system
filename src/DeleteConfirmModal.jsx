@@ -38,7 +38,7 @@ export function DeleteConfirmModal({
         aria-modal="true"
         aria-labelledby="delete-confirm-title"
         aria-describedby="delete-confirm-message"
-        className="w-full max-w-[420px] rounded-2xl bg-white p-6 shadow-2xl"
+        className="delete-confirm-dialog w-full max-w-[420px] rounded-lg bg-white p-6 shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <h3 id="delete-confirm-title" className="m-0 text-lg font-extrabold tracking-tight text-slate-800">

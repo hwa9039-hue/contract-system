@@ -15,7 +15,7 @@ def _request_account_id(request: Request) -> str:
 
 
 def require_bit_history_access(request: Request) -> None:
-    """BIT 이력관리 API — 허용된 5명만. 로컬 개발에서 인증을 끈 경우에는 통과시킨다."""
+    """BIT 이력관리 API — 허용된 계정만. 로컬 개발에서 인증을 끈 경우에는 통과시킨다."""
     if is_auth_disabled():
         return
     if not can_access_bit_history_account(_request_account_id(request)):
@@ -23,7 +23,7 @@ def require_bit_history_access(request: Request) -> None:
 
 
 def require_install_case_editor(request: Request) -> None:
-    """설치사례 등록·수정·삭제·숨김은 정주희·정화영만. 인증을 끈 로컬 개발은 통과시킨다."""
+    """설치사례 등록·수정·삭제·숨김은 전기웅·정주희·정화영만. 인증을 끈 로컬 개발은 통과시킨다."""
     if is_auth_disabled():
         return
     if not can_edit_install_cases_account(_request_account_id(request)):

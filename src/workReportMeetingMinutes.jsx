@@ -1,4 +1,5 @@
 ﻿import { useCallback, useEffect, useRef, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { AutoGrowTextarea } from './AutoGrowTextarea.jsx'
 import { MobileDataCardList, mobileCardText } from './MobileDataCardList.jsx'
 import { useDesktopTableLayout } from './useDesktopTableLayout.js'
@@ -167,11 +168,11 @@ function bodyLinesToAgenda(body) {
 function normalizeMeetingMinutesDocument(raw = {}) {
   const source = coerceMeetingMinutesRawObject(raw) ?? raw
   if (Array.isArray(source)) {
-    return { agenda: normalizeMeetingMinutesAgenda(source) }
+    return { agenda: normalizeMeetingMinutesAgenda(source, { exact: source.length > 0 }) }
   }
   const agendaFromRaw = extractAgendaFromParsedObject(source)
   if (agendaFromRaw) {
-    return { agenda: normalizeMeetingMinutesAgenda(agendaFromRaw) }
+    return { agenda: normalizeMeetingMinutesAgenda(agendaFromRaw, { exact: true }) }
   }
   const legacyBody = safeString(source.body ?? source.content ?? source.text)
   if (legacyBody.trim() && !looksLikeJsonGarbage(legacyBody)) {
@@ -206,9 +207,19 @@ function meetingMinutesAssigneeKey(value) {
     .join('\u0001')
 }
 
-export function normalizeMeetingMinutesAgenda(agenda) {
+export function createEmptyMeetingMinutesAgendaRow() {
+  return {
+    content: '',
+    assignee: '',
+    assignees: [],
+    dueDate: '',
+  }
+}
+
+export function normalizeMeetingMinutesAgenda(agenda, { exact = false } = {}) {
   const rows = Array.isArray(agenda) ? agenda : []
-  return Array.from({ length: MEETING_MINUTES_AGENDA_FIXED_ROWS }, (_, index) => {
+  const length = exact ? rows.length : Math.max(MEETING_MINUTES_AGENDA_FIXED_ROWS, rows.length)
+  return Array.from({ length }, (_, index) => {
     const row = rows[index]
     if (Array.isArray(row)) {
       const assignees = parseManagerMultiSelectValue(row[1])
@@ -233,19 +244,16 @@ export function getDefaultMeetingMinutesAgenda() {
   return normalizeMeetingMinutesAgenda([])
 }
 
-/** 서버/저장소 agenda를 20행 템플릿 위에 병합 */
+/** 서버/저장소 agenda를 유지한다. 빈 목록만 기본 20행으로 채운다. */
 export function mergeMeetingMinutesAgendaForState(agenda) {
-  const template = getDefaultMeetingMinutesAgenda()
-  const source = Array.isArray(agenda) ? agenda : []
-  return template.map((emptyRow, index) => {
-    const row = source[index]
-    if (row === null || row === undefined) return { ...emptyRow }
-    return normalizeMeetingMinutesAgenda([row])[0]
-  })
+  if (!Array.isArray(agenda) || agenda.length === 0) return getDefaultMeetingMinutesAgenda()
+  return normalizeMeetingMinutesAgenda(agenda, { exact: true })
 }
 
 export function buildMeetingMinutesBoardEntry(weekStartDate, prevEntry, agendaRows) {
-  const agenda = mergeMeetingMinutesAgendaForState(agendaRows)
+  const agenda = Array.isArray(agendaRows)
+    ? normalizeMeetingMinutesAgenda(agendaRows, { exact: true })
+    : mergeMeetingMinutesAgendaForState(agendaRows)
   const content = serializeMeetingMinutesDocumentContent({ agenda })
   const base =
     prevEntry ||
@@ -375,10 +383,11 @@ function parseMeetingMinutesTextRows(raw) {
   )
 
   if (useIndexed) {
-    const agenda = getDefaultMeetingMinutesAgenda()
+    const maxIndex = parsed.reduce((max, row) => Math.max(max, Number(row.rowIndex) || 0), 0)
+    const agenda = normalizeMeetingMinutesAgenda(Array.from({ length: maxIndex + 1 }))
     for (const row of parsed) {
       const idx = row.rowIndex
-      if (idx == null || idx < 0 || idx >= MEETING_MINUTES_AGENDA_FIXED_ROWS) continue
+      if (idx == null || idx < 0) continue
       const assignees = parseManagerMultiSelectValue(row.assignee)
       agenda[idx] = {
         content: safeString(row.content).trim(),
@@ -470,7 +479,7 @@ export function parseMeetingMinutesFromEntry(entry) {
 }
 
 function documentToLegacyAgenda(doc) {
-  return normalizeMeetingMinutesAgenda(doc?.agenda)
+  return normalizeMeetingMinutesAgenda(doc?.agenda, { exact: Array.isArray(doc?.agenda) && doc.agenda.length > 0 })
 }
 
 function migrateLegacyParsedToDocument(parsed) {
@@ -491,7 +500,12 @@ export function parseMeetingMinutesDocumentFromEntry(entry) {
 
 export function serializeMeetingMinutesDocumentContent(doc) {
   const normalized = normalizeMeetingMinutesDocument(doc)
-  if (isMeetingMinutesDocumentEmpty(normalized)) return ''
+  if (
+    isMeetingMinutesDocumentEmpty(normalized) &&
+    normalized.agenda.length <= MEETING_MINUTES_AGENDA_FIXED_ROWS
+  ) {
+    return ''
+  }
   const payload = {
     v: MEETING_MINUTES_DOC_VERSION,
     agenda: normalized.agenda.map((row) => ({
@@ -528,6 +542,7 @@ export function isMeetingMinutesDataEmpty(data) {
 function meetingMinutesAgendaRowsMatch(leftAgenda, rightAgenda) {
   const left = normalizeMeetingMinutesAgenda(leftAgenda)
   const right = normalizeMeetingMinutesAgenda(rightAgenda)
+  if (left.length !== right.length) return false
   return left.every((row, index) => {
     const other = right[index]
     return (
@@ -666,7 +681,7 @@ function loadMeetingMinutesDocumentUnsafe(weekStartDate, getEntry) {
   const entry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
   if (entry && isMeetingMinutesDocEntry(entry)) {
     const doc = parseMeetingMinutesDocumentFromEntry(entry)
-    if (!isMeetingMinutesDocumentEmpty(doc)) return doc
+    if (!isMeetingMinutesDocumentEmpty(doc) || doc.agenda.length > MEETING_MINUTES_AGENDA_FIXED_ROWS) return doc
   }
 
   if (!weekHasPerRowMeetingMinutes(weekStartDate, getEntry)) {
@@ -699,7 +714,7 @@ function loadMeetingMinutesDocumentUnsafe(weekStartDate, getEntry) {
 
   if (entry) {
     const doc = parseMeetingMinutesDocumentFromEntry(entry)
-    if (!isMeetingMinutesDocumentEmpty(doc)) return doc
+    if (!isMeetingMinutesDocumentEmpty(doc) || doc.agenda.length > MEETING_MINUTES_AGENDA_FIXED_ROWS) return doc
   }
 
   const sessionDoc = loadMeetingMinutesDocumentFromSessionBackup(weekStartDate)
@@ -783,6 +798,7 @@ export function WorkReportMeetingMinutesSection({
   const isDesktopTable = useDesktopTableLayout()
   const boardEntry = getEntry(weekStartDate, WORK_REPORT_MEETING_MINUTES_SECTION, 1)
   const agendaRowsRef = useRef(getDefaultMeetingMinutesAgenda())
+  const pendingFocusIndexRef = useRef(null)
   const [agendaRows, setAgendaRows] = useState(() => getDefaultMeetingMinutesAgenda())
   const loadSyncKey = [
     weekStartDate,
@@ -798,8 +814,10 @@ export function WorkReportMeetingMinutesSection({
   }, [loadSyncKey, weekStartDate, getEntry])
 
   const commitAgendaRows = useCallback(
-    (nextAgenda) => {
-      const merged = mergeMeetingMinutesAgendaForState(nextAgenda)
+    (nextAgenda, { exact = false } = {}) => {
+      const merged = exact
+        ? normalizeMeetingMinutesAgenda(nextAgenda, { exact: true })
+        : mergeMeetingMinutesAgendaForState(nextAgenda)
       agendaRowsRef.current = merged
       setAgendaRows(merged)
       const boardEntry = buildMeetingMinutesBoardEntry(weekStartDate, null, merged)
@@ -835,6 +853,27 @@ export function WorkReportMeetingMinutesSection({
     [commitAgendaRows]
   )
 
+  const removeAgendaRow = useCallback((index) => {
+    const nextAgenda = agendaRowsRef.current.filter((_, rowIndex) => rowIndex !== index)
+    commitAgendaRows(nextAgenda, { exact: true })
+  }, [commitAgendaRows])
+
+  const addAgendaRow = useCallback(() => {
+    const nextAgenda = [...agendaRowsRef.current, createEmptyMeetingMinutesAgendaRow()]
+    pendingFocusIndexRef.current = nextAgenda.length - 1
+    commitAgendaRows(nextAgenda)
+  }, [commitAgendaRows])
+
+  useEffect(() => {
+    const index = pendingFocusIndexRef.current
+    if (index == null) return
+    pendingFocusIndexRef.current = null
+    const row = document.querySelector(`[data-meeting-agenda-index="${index}"]`)
+    const field = row?.querySelector('textarea, input')
+    row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    if (field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement) field.focus()
+  }, [agendaRows])
+
   const handleRowBlur = useCallback(
     (event) => {
       if (event.currentTarget.contains(event.relatedTarget)) return
@@ -857,6 +896,7 @@ export function WorkReportMeetingMinutesSection({
               <col className="meeting-minutes-doc__col-content" />
               <col className="meeting-minutes-doc__col-assignee" />
               <col className="meeting-minutes-doc__col-due" />
+              <col className="meeting-minutes-doc__col-remove" />
             </colgroup>
             <thead>
               <tr>
@@ -864,6 +904,7 @@ export function WorkReportMeetingMinutesSection({
                 <th className="th-align-center meeting-minutes-doc__col-content">회의 내용</th>
                 <th className="th-align-center meeting-minutes-doc__col-assignee">담당자</th>
                 <th className="th-align-center meeting-minutes-doc__col-due">기한</th>
+                <th className="th-align-center meeting-minutes-doc__col-remove">삭제</th>
               </tr>
             </thead>
             <tbody>
@@ -879,6 +920,7 @@ export function WorkReportMeetingMinutesSection({
                 return (
                 <tr
                   key={`meeting-agenda-${index + 1}`}
+                  data-meeting-agenda-index={index}
                   className={`meeting-minutes-doc__agenda-row${isRowEmpty ? ' is-empty' : ' has-data'}`}
                   onBlur={handleRowBlur}
                 >
@@ -920,6 +962,20 @@ export function WorkReportMeetingMinutesSection({
                       onChange={(e) => patchAgendaRow(index, { dueDate: e.target.value })}
                     />
                   </td>
+                  <td className="th-align-center meeting-minutes-doc__agenda-remove align-middle">
+                    <button
+                      type="button"
+                      className="sales-contacts-remove-btn meeting-minutes-remove-btn"
+                      aria-label={`${index + 1}번 행 삭제`}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        removeAgendaRow(index)
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" />
+                    </button>
+                  </td>
                 </tr>
                 )
               })}
@@ -951,6 +1007,9 @@ export function WorkReportMeetingMinutesSection({
           emptyText="이번 주 회의록이 없습니다."
         />
         )}
+        <button type="button" className="work-report-support-add meeting-minutes-add-row" onClick={addAgendaRow}>
+          + 항목 추가
+        </button>
       </div>
     </section>
   )

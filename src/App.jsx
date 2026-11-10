@@ -1,17 +1,27 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { lockRegistryTableColumns } from './lockRegistryTableColumns.js'
 import {
   AlertTriangle,
   ChevronRight,
   ClipboardList,
   Copy,
   Download,
+  Edit,
   Eye,
   EyeOff,
+  File as FileIcon,
+  FileArchive,
+  FileImage,
+  FileSpreadsheet,
   FileText,
   KeyRound,
   LogOut,
   Pencil,
+  Plus,
+  X,
+  Presentation,
   Trash2,
+  Upload,
   User,
 } from 'lucide-react'
 import { ContractColumnHeaderFilter } from './ContractColumnHeaderFilter.jsx'
@@ -65,6 +75,8 @@ import './App.css'
 import { contractsApi } from './contractsApi'
 import { contactsManageApi } from './contactsManageApi.js'
 import { documentRegisterApi } from './documentRegisterApi'
+import { emailExportLogsApi } from './emailExportLogsApi.js'
+import { resolveSenderName } from './userNameMap.js'
 import { excludedProjectsApi, EXCLUDED_PROJECTS_API_PATH } from './excludedProjectsApi'
 import { buildExcelImportAlertBody } from './excelImportResponse.js'
 import {
@@ -189,7 +201,7 @@ import { formatExcelUploadErrorMessage } from './apiErrors.js'
 import { useAuth } from './AuthContext.jsx'
 import { usePresence } from './usePresence.js'
 import { PresenceAvatars, formatPersonDisplayName } from './PresenceAvatars.jsx'
-import { DeleteConfirmModal } from './DeleteConfirmModal.jsx'
+import { DeleteConfirmModal, useDeleteConfirm } from './DeleteConfirmModal.jsx'
 import {
   BIT_HISTORY_MENU_KEY,
   canAccessBitHistory,
@@ -197,6 +209,7 @@ import {
   canEditMenu,
   canManageKakaoAccountLinks,
   filterSidebarMenuGroups,
+  HIGHEST_ADMIN_ACCOUNT_IDS,
 } from './permissions.js'
 import { CONTRACT_SHARED_WARNING_MS, formatRemainingSessionLabel, hydrateAuthSessionFromStorage } from './authSession.js'
 import AuditLogPage from './pages/admin/AuditLogPage.jsx'
@@ -214,6 +227,7 @@ import {
   MeetingMinutesSearchResults,
   WorkReportSearchResults,
   WorkReportMeetingMinutesSection,
+  MEETING_MINUTES_AGENDA_FIXED_ROWS,
   buildMeetingMinutesPdfMarkup,
   clearMeetingMinutesSessionBackup,
   isMeetingMinutesDataEmpty,
@@ -1746,7 +1760,6 @@ function isWorkReportRelatedMenu(menuKey) {
 }
 
 const ACTIVE_MENU_STORAGE_KEY = 'cms-active-menu'
-const SIDEBAR_GROUPS_EXPANDED_KEY = 'cms-sidebar-groups-expanded'
 const SALES_HIDDEN_ROW_IDS_STORAGE_KEY = 'cms-sales-hidden-row-ids'
 const EXCLUDED_HIDDEN_ROW_IDS_STORAGE_KEY = 'cms-excluded-hidden-row-ids'
 
@@ -1874,7 +1887,7 @@ const SIDEBAR_MENU_TREE = [
     ],
   },
   { type: 'item', key: 'contracts', label: '계약현황' },
-  // 권한자(전기웅·전재우·정화영·정주희)에게만 보인다. 판정은 permissions.js 의 canAccessBitHistory.
+  // 권한자(전기웅·김성수·정화영·정주희)에게만 보인다. 판정은 permissions.js 의 canAccessBitHistory.
   { type: 'item', key: BIT_HISTORY_MENU_KEY, label: 'BIT 이력관리' },
   {
     type: 'group',
@@ -1921,8 +1934,6 @@ const SIDEBAR_MENU_TREE = [
 ]
 
 /** 펼침/접힘 그룹만 뽑은 목록 (그룹 찾기·권한 필터에 사용) */
-const SIDEBAR_MENU_GROUPS = SIDEBAR_MENU_TREE.filter((node) => node.type === 'group')
-
 const ALL_MENU_KEYS = SIDEBAR_MENU_TREE.flatMap((node) =>
   node.type === 'group' ? node.items.map((item) => item.key) : [node.key]
 )
@@ -1947,13 +1958,6 @@ function resolveInitialMenu() {
   return loadStoredMenu()
 }
 
-function getMenuGroupIdForMenu(menuKey) {
-  for (const group of SIDEBAR_MENU_GROUPS) {
-    if (group.items.some((item) => item.key === menuKey)) return group.id
-  }
-  return null
-}
-
 function loadStoredMenu() {
   try {
     const saved = localStorage.getItem(ACTIVE_MENU_STORAGE_KEY)
@@ -1968,37 +1972,18 @@ function loadStoredMenu() {
   return 'dashboard'
 }
 
-function loadExpandedMenuGroups(menuKey) {
-  const expanded = { work: true, sales: true, documents: true, salesInfo: true, monitoring: true }
-  try {
-    const raw = localStorage.getItem(SIDEBAR_GROUPS_EXPANDED_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      if (parsed && typeof parsed === 'object') {
-        if (typeof parsed.work === 'boolean') expanded.work = parsed.work
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  const activeGroupId = getMenuGroupIdForMenu(menuKey)
-  if (activeGroupId) expanded[activeGroupId] = true
-  expanded.sales = true
-  return expanded
-}
-
-function persistExpandedMenuGroups(groups) {
-  try {
-    localStorage.setItem(SIDEBAR_GROUPS_EXPANDED_KEY, JSON.stringify(groups))
-  } catch {
-    /* ignore */
-  }
+function compareMaterialsBoardName(a, b) {
+  return safeString(a).localeCompare(safeString(b), 'ko')
 }
 
 function compareMaterialsBoardPosts(a, b) {
-  const dateCmp = safeString(b.registeredAt).localeCompare(safeString(a.registeredAt))
-  if (dateCmp !== 0) return dateCmp
-  return safeString(b.id).localeCompare(safeString(a.id))
+  const nameCmp = compareMaterialsBoardName(getMaterialsBoardFileLabel(a), getMaterialsBoardFileLabel(b))
+  if (nameCmp !== 0) return nameCmp
+  return compareMaterialsBoardName(a?.id, b?.id)
+}
+
+function materialsBoardParentId(row) {
+  return safeString(row?.parentId ?? row?.parent_id ?? row?.parentPostId).trim()
 }
 
 const MATERIALS_BOARD_MOCK_SAVE_MS = 1000
@@ -2046,7 +2031,7 @@ const MATERIALS_BOARD_SEED = [
 ]
 
 function getDefaultMaterialsBoardForm() {
-  return { title: '', content: '', folder: '' }
+  return { title: '', content: '', folder: '', parentId: '' }
 }
 
 function formatMaterialsBoardFileSize(bytes) {
@@ -2087,6 +2072,7 @@ function normalizeMaterialsBoardPost(row) {
     downloadCount: Number(row?.downloadCount) || 0,
     registeredAt: safeString(row?.registeredAt).trim() || formatMaterialsBoardRegisteredAt(),
     folder: safeString(row?.folder ?? row?.folderId).trim(),
+    parentId: materialsBoardParentId(row),
   }
 }
 
@@ -2153,6 +2139,32 @@ function revokeMaterialsBoardPostUrls(row) {
   })
   const legacy = safeString(row?.downloadUrl).trim()
   if (legacy) URL.revokeObjectURL(legacy)
+}
+
+function getMaterialsBoardFileLabel(row) {
+  const files = Array.isArray(row?.files) ? row.files : []
+  const fileName = safeString(files[0]?.name).trim()
+  if (fileName) return files.length > 1 ? `${fileName} 외 ${files.length - 1}개` : fileName
+  return safeString(row?.title).trim() || '이름 없는 파일'
+}
+
+function getMaterialsBoardFileKind(name) {
+  const ext = safeString(name).split('.').pop()?.toLowerCase() || ''
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'heic'].includes(ext)) return 'image'
+  if (['xls', 'xlsx', 'xlsm', 'csv'].includes(ext)) return 'sheet'
+  if (['ppt', 'pptx'].includes(ext)) return 'slides'
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'archive'
+  if (['pdf', 'doc', 'docx', 'hwp', 'hwpx', 'txt', 'rtf'].includes(ext)) return 'doc'
+  return 'file'
+}
+
+const MATERIALS_BOARD_FILE_ICONS = {
+  image: FileImage,
+  sheet: FileSpreadsheet,
+  slides: Presentation,
+  archive: FileArchive,
+  doc: FileText,
+  file: FileIcon,
 }
 
 function getMaterialsBoardAttachSummary(row) {
@@ -2294,7 +2306,7 @@ function MaterialBoardMultiFileDropzone({
                     if (typeof onRemoveFile === 'function' && entry?.id) onRemoveFile(entry.id)
                   }}
                 >
-                  ✕
+                  <X size={14} strokeWidth={2.25} aria-hidden="true" />
                 </button>
               </li>
             )
@@ -3239,7 +3251,7 @@ function InstallCaseSpecSetGroup({
             aria-label={`규격 세트 ${setIndex + 1} 삭제`}
             title="이 규격 세트 삭제"
           >
-            ✕
+            <Trash2 size={14} strokeWidth={2.25} aria-hidden="true" />
           </button>
         ) : null}
       </div>
@@ -4290,22 +4302,26 @@ function DashboardDueWatchItem({ item, variant }) {
       : item.dueDate || item.date
   return (
     <li className={`dashboard-briefing-due-item dashboard-briefing-due-item--${variant}`}>
-      <div className="dashboard-briefing-due-title">{item.projectName || item.title || '—'}</div>
+      <div className="dashboard-briefing-due-head">
+        <div className="dashboard-briefing-due-title">{item.projectName || item.title || '—'}</div>
+        <div className="dashboard-briefing-due-meta">
+          <span className="dashboard-briefing-due-date">{dateLabel}</span>
+          {isSchedule ? (
+            <span className="dashboard-briefing-due-dday dashboard-briefing-due-dday--schedule">일정</span>
+          ) : item.dday ? (
+            <span className={`dashboard-briefing-due-dday dashboard-briefing-due-dday--${variant}`}>
+              {item.dday}
+            </span>
+          ) : (
+            <span className="dashboard-briefing-due-dday dashboard-briefing-due-dday--placeholder" aria-hidden="true" />
+          )}
+        </div>
+      </div>
       {isSchedule ? null : (
         <p className="dashboard-briefing-due-sub">
           {`${item.client || '—'} | 영업: ${item.salesManager || '—'} | PM: ${item.fieldPM || '—'}`}
         </p>
       )}
-      <div className="dashboard-briefing-due-meta">
-        <span>{dateLabel}</span>
-        {isSchedule ? (
-          <span className="dashboard-briefing-due-dday dashboard-briefing-due-dday--schedule">일정</span>
-        ) : item.dday ? (
-          <span className={`dashboard-briefing-due-dday dashboard-briefing-due-dday--${variant}`}>
-            {item.dday}
-          </span>
-        ) : null}
-      </div>
     </li>
   )
 }
@@ -4368,7 +4384,7 @@ function syncMaterialsBoardFolderCounts(posts, folders) {
   }
   return [...counts.entries()]
     .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'))
+    .sort((a, b) => compareMaterialsBoardName(a.name, b.name))
 }
 
 /** 메모장 복붙: NUL·CR 제거. PostgreSQL text / JSON 저장 실패 방지 */
@@ -5392,97 +5408,6 @@ function sortRegistryRowsByDateDesc(rows, dateKey) {
   return [...rows].sort((rowA, rowB) => compareRegistryRowsByDateDesc(rowA, rowB, dateKey))
 }
 
-/** 기간 검색: startDate/endDate(yyyy-mm-dd) 중 하나라도 있으면 dateKey 기준으로 필터 */
-function matchesDateRangeFilter(row, dateKey, startDate, endDate) {
-  const start = safeString(startDate).trim()
-  const end = safeString(endDate).trim()
-  if (!start && !end) return true
-  if (row?.isDraft) return true
-
-  const rowYmd = getRegistryRowDateYmd(row, dateKey)
-  if (!rowYmd) return false
-
-  if (start && rowYmd < start) return false
-  if (end && rowYmd > end) return false
-  return true
-}
-
-function formatYmdSlash(ymd) {
-  const s = safeString(ymd).trim()
-  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return ''
-  return s.replace(/-/g, '/')
-}
-
-function openNativeDatePicker(inputEl) {
-  if (!inputEl) return
-  if (typeof inputEl.showPicker === 'function') {
-    try {
-      inputEl.showPicker()
-      return
-    } catch {
-      /* 일부 브라우저는 사용자 제스처 없으면 거부 */
-    }
-  }
-  inputEl.click()
-}
-
-function RegistryDateRangeFilter({ startDate, endDate, onStartChange, onEndChange }) {
-  const startInputRef = useRef(null)
-  const endInputRef = useRef(null)
-  const startLabel = formatYmdSlash(startDate) || 'YYYY/MM/DD'
-  const endLabel = formatYmdSlash(endDate) || 'YYYY/MM/DD'
-
-  return (
-    <div className="registry-date-range-picker" role="group" aria-label="기간 검색">
-      <button
-        type="button"
-        className="registry-date-range-picker-segment"
-        onClick={() => openNativeDatePicker(startInputRef.current)}
-        aria-label="시작일 선택"
-      >
-        <span className={startDate ? '' : 'registry-date-range-picker-placeholder'}>{startLabel}</span>
-      </button>
-      <span className="registry-date-range-picker-sep" aria-hidden="true">
-        ~
-      </span>
-      <button
-        type="button"
-        className="registry-date-range-picker-segment"
-        onClick={() => openNativeDatePicker(endInputRef.current)}
-        aria-label="종료일 선택"
-      >
-        <span className={endDate ? '' : 'registry-date-range-picker-placeholder'}>{endLabel}</span>
-      </button>
-      <button
-        type="button"
-        className="registry-date-range-picker-icon"
-        onClick={() => openNativeDatePicker(startInputRef.current)}
-        aria-label="기간 선택"
-      >
-        <span aria-hidden="true">📅</span>
-      </button>
-      <input
-        ref={startInputRef}
-        type="date"
-        className="registry-date-range-picker-native"
-        value={startDate}
-        onChange={(e) => onStartChange(e.target.value)}
-        tabIndex={-1}
-        aria-hidden="true"
-      />
-      <input
-        ref={endInputRef}
-        type="date"
-        className="registry-date-range-picker-native"
-        value={endDate}
-        onChange={(e) => onEndChange(e.target.value)}
-        tabIndex={-1}
-        aria-hidden="true"
-      />
-    </div>
-  )
-}
-
 function getRegistryCellSignatureValue(column, row) {
   if (column.type === 'amount') {
     return normalizeAmountValue(row[column.key])
@@ -6029,7 +5954,9 @@ function isWorkReportRowEmpty(row) {
   }
 
   if (normalizedSection === WORK_REPORT_SECTION_KEYS.meetingMinutes) {
-    return isMeetingMinutesDataEmpty(parseMeetingMinutesFromEntry(row))
+    const parsed = parseMeetingMinutesFromEntry(row)
+    if (Array.isArray(parsed?.agenda) && parsed.agenda.length > MEETING_MINUTES_AGENDA_FIXED_ROWS) return false
+    return isMeetingMinutesDataEmpty(parsed)
   }
 
   return safeString(row.content).trim() === ''
@@ -6520,20 +6447,6 @@ function getRegisterDateWeekTag(dateValue) {
   return null
 }
 
-/** 문서 접수·수신 vs 발송·발신 — 텍스트 필드에서 키워드 탐지(발신류 우선) */
-function countDocumentsInboundOutbound(rows) {
-  let inbound = 0
-  let outbound = 0
-  for (const row of rows) {
-    const hay = [row.method, row.title, row.note, row.senderReceiver, row.writer, row.docNo]
-      .map((v) => safeString(v))
-      .join('\n')
-    if (/(발신|발송)/.test(hay)) outbound += 1
-    else if (/(수신|접수)/.test(hay)) inbound += 1
-  }
-  return { inbound, outbound }
-}
-
 function splitDashboardRecentTitleLabel(fullLabel) {
   const s = safeString(fullLabel).trim()
   const idx = s.indexOf(' (')
@@ -6571,7 +6484,7 @@ function App() {
   const canEditContracts = canEditMenu('contracts', role)
   // const canEditProjectManagement = canEditMenu('projectManagement', role) // 메뉴 제거
   const canEditMaterialsBoard = canEditMenu('materialsBoard', role)
-  const canEditInstallCases = ['jhjoung', 'hy9039'].includes(String(accountId || '').trim().toLowerCase())
+  const canEditInstallCases = HIGHEST_ADMIN_ACCOUNT_IDS.includes(String(accountId || '').trim().toLowerCase())
   const canEditContactsManage = canEditMenu('contactsManage', role)
   // const canEditUnitPrice = canEditMenu('unitPrice', role) // 메뉴 제거
   const canEditSales = canEditMenu('sales', role)
@@ -6589,6 +6502,7 @@ function App() {
   const [openContactsColumnFilterKey, setOpenContactsColumnFilterKey] = useState(null)
   const [contracts, setContracts] = useState([])
   const [documents, setDocuments] = useState([])
+  const [quoteDesignExportRows, setQuoteDesignExportRows] = useState([])
   const [salesRows, setSalesRows] = useState([])
   const [salesRecordModal, setSalesRecordModal] = useState(null)
   const [excludedAttachmentsModal, setExcludedAttachmentsModal] = useState(null)
@@ -6612,13 +6526,6 @@ function App() {
       : !canAccessMenu(menu, role, accountId))
   const { onlineUsers } = usePresence(PAGE_TITLE_MAP[menu] || '')
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
-  const [expandedMenuGroups, setExpandedMenuGroups] = useState(() =>
-    loadExpandedMenuGroups(initialMenu)
-  )
-  const [openDashboardYears, setOpenDashboardYears] = useState(() => {
-    const currentYear = String(new Date().getFullYear())
-    return { [currentYear]: true }
-  })
   const [isDashboardLoading, setIsDashboardLoading] = useState(
     () => resolveInitialMenu() === 'dashboard'
   )
@@ -6670,8 +6577,17 @@ function App() {
   const [materialsBoardSearch, setMaterialsBoardSearch] = useState('')
   const [materialsBoardFolders, setMaterialsBoardFolders] = useState([])
   const [materialsBoardFolderFilter, setMaterialsBoardFolderFilter] = useState('')
-  const [materialsBoardFolderDraft, setMaterialsBoardFolderDraft] = useState('')
   const [materialsBoardDownloadingId, setMaterialsBoardDownloadingId] = useState('')
+  const [materialsBoardDragOver, setMaterialsBoardDragOver] = useState(false)
+  const [materialsBoardDeleteBusy, setMaterialsBoardDeleteBusy] = useState(false)
+  const {
+    itemToDelete: materialsBoardDeleteTarget,
+    isModalOpen: materialsBoardDeleteOpen,
+    requestDelete: requestMaterialsBoardDelete,
+    cancelDelete: cancelMaterialsBoardDelete,
+  } = useDeleteConfirm()
+  const materialsBoardUploadInputRef = useRef(null)
+  const materialsBoardDragDepthRef = useRef(0)
   /** 계약현황: 2차 그룹이 접힌 경우에만 키(`${year}__${groupId}`)를 보관. 비어 있으면 전부 펼침. */
   const [collapsedContractCategoryGroups, setCollapsedContractCategoryGroups] = useState(() => new Set())
   const [selectedContractRowKeys, setSelectedContractRowKeys] = useState(() => new Set())
@@ -6686,7 +6602,6 @@ function App() {
   const [documentDraftFocusRowId, setDocumentDraftFocusRowId] = useState(null)
   const [isSavingDocuments, setIsSavingDocuments] = useState(false)
   const [documentSearch, setDocumentSearch] = useState('')
-  const [documentDateRange, setDocumentDateRange] = useState({ startDate: '', endDate: '' })
   const [documentActiveFilters, setDocumentActiveFilters] = useState({})
   const [openDocumentColumnFilterKey, setOpenDocumentColumnFilterKey] = useState(null)
   const [selectedSalesIds, setSelectedSalesIds] = useState([])
@@ -6696,7 +6611,6 @@ function App() {
   const [isSavingSales, setIsSavingSales] = useState(false)
   const [salesSearch, setSalesSearch] = useState('')
   const [selectedSalesImportance, setSelectedSalesImportance] = useState(null)
-  const [salesDateRange, setSalesDateRange] = useState({ startDate: '', endDate: '' })
   const [salesActiveFilters, setSalesActiveFilters] = useState({})
   const [openSalesColumnFilterKey, setOpenSalesColumnFilterKey] = useState(null)
   const [showHiddenSalesRows, setShowHiddenSalesRows] = useState(false)
@@ -6708,7 +6622,6 @@ function App() {
   const [isSavingDiscovery, setIsSavingDiscovery] = useState(false)
   const [discoverySearch, setDiscoverySearch] = useState('')
   const [selectedDiscoveryImportance, setSelectedDiscoveryImportance] = useState(null)
-  const [discoveryDateRange, setDiscoveryDateRange] = useState({ startDate: '', endDate: '' })
   const [discoveryActiveFilters, setDiscoveryActiveFilters] = useState({})
   const [openDiscoveryColumnFilterKey, setOpenDiscoveryColumnFilterKey] = useState(null)
   const [showHiddenDiscoveryRows, setShowHiddenDiscoveryRows] = useState(false)
@@ -6718,7 +6631,6 @@ function App() {
   const [isSavingExcluded, setIsSavingExcluded] = useState(false)
   const [excludedSearch, setExcludedSearch] = useState('')
   const [selectedExcludedImportance, setSelectedExcludedImportance] = useState(null)
-  const [excludedDateRange, setExcludedDateRange] = useState({ startDate: '', endDate: '' })
   const [excludedActiveFilters, setExcludedActiveFilters] = useState({})
   const [openExcludedColumnFilterKey, setOpenExcludedColumnFilterKey] = useState(null)
   const [showHiddenExcludedRows, setShowHiddenExcludedRows] = useState(false)
@@ -6742,6 +6654,10 @@ function App() {
   useLayoutEffect(() => {
     workReportRowsRef.current = workReportRows
   }, [workReportRows])
+
+  useLayoutEffect(() => {
+    lockRegistryTableColumns()
+  })
 
   const [isSavingWorkReports, setIsSavingWorkReports] = useState(false)
   const [generatedWorkWeeks, setGeneratedWorkWeeks] = useState([])
@@ -7287,23 +7203,7 @@ function App() {
     } catch {
       /* ignore */
     }
-    const activeGroupId = getMenuGroupIdForMenu(menu)
-    if (!activeGroupId) return
-    setExpandedMenuGroups((prev) => {
-      if (prev[activeGroupId]) return prev
-      const next = { ...prev, [activeGroupId]: true }
-      persistExpandedMenuGroups(next)
-      return next
-    })
   }, [menu])
-
-  const toggleMenuGroup = useCallback((groupId) => {
-    setExpandedMenuGroups((prev) => {
-      const next = { ...prev, [groupId]: !prev[groupId] }
-      persistExpandedMenuGroups(next)
-      return next
-    })
-  }, [])
 
   useEffect(() => {
     setInstallCaseDetailModal(null)
@@ -7463,6 +7363,7 @@ function App() {
         const [
           contractData,
           documentRows,
+          quoteDesignRows,
           salesApiRows,
           discoveryApiRows,
           excludedApiRows,
@@ -7471,6 +7372,10 @@ function App() {
         ] = await Promise.all([
           contractsApi.list(),
           documentRegisterApi.list(),
+          emailExportLogsApi.list().catch((error) => {
+            console.error('[대시보드] 견적·설계 반출 현황 조회 실패', error)
+            return []
+          }),
           salesRegisterApi.list(),
           projectDiscoveryApi.list({ allowCacheFallback: false }),
           excludedProjectsApi.list(),
@@ -7506,6 +7411,7 @@ function App() {
             'docDate'
           )
         )
+        setQuoteDesignExportRows(Array.isArray(quoteDesignRows) ? quoteDesignRows : [])
         setSalesRows((Array.isArray(salesApiRows) ? salesApiRows : []).map(normalizeSalesRow))
         applyDiscoveryRowsToState(normalizedDiscoveryRows, false, {
           setDiscoveryRows,
@@ -7990,17 +7896,14 @@ function App() {
     const rows = [...materialsBoardPosts]
       .filter((row) => !materialsBoardFolderFilter || row.folder === materialsBoardFolderFilter)
       .sort(compareMaterialsBoardPosts)
-
     if (!query) return rows
     return rows.filter((row) => {
       const title = safeString(row.title).toLowerCase()
       const content = safeString(row.content).toLowerCase()
       const fileNames = (Array.isArray(row.files) ? row.files : [])
-        .map((f) => safeString(f?.name).toLowerCase())
+        .map((file) => safeString(file?.name).toLowerCase())
         .join(' ')
-      return (
-        title.includes(query) || content.includes(query) || fileNames.includes(query)
-      )
+      return title.includes(query) || content.includes(query) || fileNames.includes(query)
     })
   }, [materialsBoardFolderFilter, materialsBoardPosts, materialsBoardSearch])
 
@@ -8075,6 +7978,7 @@ function App() {
     setMaterialsBoardFormDraft({
       ...getDefaultMaterialsBoardForm(),
       folder: materialsBoardFolderFilter || '',
+      parentId: '',
     })
     setMaterialsBoardFile([])
     setMaterialsBoardRegisterOpen(true)
@@ -8087,26 +7991,43 @@ function App() {
       title: safeString(row.title).trim(),
       content: safeString(row.content),
       folder: safeString(row.folder).trim(),
+      parentId: materialsBoardParentId(row),
     })
     setMaterialsBoardFile(buildMaterialsBoardFileEntriesFromRow(row))
     setMaterialsBoardRegisterOpen(true)
   }, [canEditMaterialsBoard])
 
-  const handleAddMaterialsBoardFolder = useCallback(async () => {
+  const handleOpenMaterialsBoardReply = useCallback((row) => {
+    if (!row || !canEditMaterialsBoard) return
+    setMaterialsBoardEditingId(null)
+    setMaterialsBoardFormDraft({
+      ...getDefaultMaterialsBoardForm(),
+      folder: safeString(row.folder).trim() || materialsBoardFolderFilter || '',
+      parentId: row.id,
+    })
+    setMaterialsBoardFile([])
+    setMaterialsBoardRegisterOpen(true)
+  }, [canEditMaterialsBoard, materialsBoardFolderFilter])
+
+  const handleAddMaterialsBoardFolder = useCallback(() => {
     if (!canEditMaterialsBoard) return
-    const name = safeString(materialsBoardFolderDraft).trim()
-    if (!name) {
-      showAppAlert('폴더 이름을 입력해 주세요.', '알림')
-      return
-    }
-    try {
-      await materialsBoardApi.createFolder(name)
-      setMaterialsBoardFolderDraft('')
-      setMaterialsBoardFolders((prev) => syncMaterialsBoardFolderCounts(materialsBoardPosts, [...prev, { name, count: 0 }]))
-    } catch (error) {
-      showAppAlert(error?.message || '폴더를 만들지 못했습니다.', '알림')
-    }
-  }, [canEditMaterialsBoard, materialsBoardFolderDraft, materialsBoardPosts, showAppAlert])
+    setContractConfirmDialog({
+      title: '새 폴더',
+      message: '새 폴더 이름을 입력하세요.',
+      confirmLabel: '추가',
+      prompt: { value: '', placeholder: '폴더 이름' },
+      onConfirm: async (nextRaw) => {
+        const name = safeString(nextRaw).trim()
+        if (!name) return
+        try {
+          await materialsBoardApi.createFolder(name)
+          setMaterialsBoardFolders((prev) => syncMaterialsBoardFolderCounts(materialsBoardPosts, [...prev, { name, count: 0 }]))
+        } catch (error) {
+          showAppAlert(error?.message || '폴더를 만들지 못했습니다.', '알림')
+        }
+      },
+    })
+  }, [canEditMaterialsBoard, materialsBoardPosts, showAppAlert])
 
   const handleRenameMaterialsBoardFolder = useCallback((name) => {
     if (!canEditMaterialsBoard || !name) return
@@ -8138,32 +8059,8 @@ function App() {
 
   const handleDeleteMaterialsBoardFolder = useCallback((name) => {
     if (!canEditMaterialsBoard || !name) return
-    const count = materialsBoardFolders.find((folder) => folder.name === name)?.count || 0
-    setContractConfirmDialog({
-      title: '폴더 삭제',
-      message: count
-        ? `"${name}" 폴더를 삭제할까요? 안의 글 ${count}건은 삭제되지 않고 전체 목록에만 남습니다.`
-        : `"${name}" 폴더를 삭제할까요?`,
-      destructive: true,
-      confirmLabel: '삭제',
-      onConfirm: async () => {
-        try {
-          await materialsBoardApi.deleteFolder(name)
-          if (materialsBoardFolderFilter === name) setMaterialsBoardFolderFilter('')
-          setMaterialsBoardPosts((prev) => {
-            const updated = prev.map((post) => (post.folder === name ? { ...post, folder: '' } : post))
-            setMaterialsBoardFolders((folders) =>
-              syncMaterialsBoardFolderCounts(updated, folders.filter((folder) => folder.name !== name))
-            )
-            return updated
-          })
-          setMaterialsBoardFormDraft((prev) => (prev.folder === name ? { ...prev, folder: '' } : prev))
-        } catch (error) {
-          showAppAlert(error?.message || '폴더를 지우지 못했습니다.', '알림')
-        }
-      },
-    })
-  }, [canEditMaterialsBoard, materialsBoardFolderFilter, materialsBoardFolders, showAppAlert])
+    requestMaterialsBoardDelete({ kind: 'folder', name })
+  }, [canEditMaterialsBoard, requestMaterialsBoardDelete])
 
   const handleCloseMaterialsBoardRegister = useCallback(() => {
     setMaterialsBoardRegisterOpen(false)
@@ -8173,31 +8070,125 @@ function App() {
     setMaterialsBoardSubmitting(false)
   }, [])
 
+  const uploadMaterialsBoardFiles = useCallback(async (fileList) => {
+    if (!canEditMaterialsBoard || materialsBoardSubmitting) return
+    const files = Array.from(fileList || []).filter((file) => file instanceof File && file.size >= 0 && file.name)
+    if (files.length === 0) return
+    setMaterialsBoardSubmitting(true)
+    const created = []
+    const failed = []
+    for (const file of files) {
+      try {
+        const saved = await materialsBoardApi.create({
+          title: file.name,
+          content: '',
+          folder: materialsBoardFolderFilter || '',
+          folderId: materialsBoardFolderFilter || '',
+          files: [{ file }],
+        })
+        created.push(normalizeMaterialsBoardPost(saved))
+      } catch (error) {
+        failed.push(file.name)
+        logApiOperationError('게시판 파일 업로드', error)
+      }
+    }
+    if (created.length > 0) {
+      setMaterialsBoardPosts((prev) => {
+        const updated = [...created, ...prev]
+        setMaterialsBoardFolders((folders) => syncMaterialsBoardFolderCounts(updated, folders))
+        return updated
+      })
+      setToastMessage(created.length === 1 ? '업로드되었습니다.' : `${created.length}개 파일을 업로드했습니다.`)
+    }
+    if (failed.length > 0) {
+      showAppAlert(`${failed.join(', ')} 업로드에 실패했습니다.`, '알림')
+    }
+    setMaterialsBoardSubmitting(false)
+  }, [canEditMaterialsBoard, materialsBoardFolderFilter, materialsBoardSubmitting, showAppAlert])
+
+  const handleMaterialsBoardFileInput = useCallback((event) => {
+    const files = event.target.files
+    event.target.value = ''
+    void uploadMaterialsBoardFiles(files)
+  }, [uploadMaterialsBoardFiles])
+
+  const handleMaterialsBoardDragEnter = useCallback((event) => {
+    if (!canEditMaterialsBoard) return
+    event.preventDefault()
+    materialsBoardDragDepthRef.current += 1
+    setMaterialsBoardDragOver(true)
+  }, [canEditMaterialsBoard])
+
+  const handleMaterialsBoardDragOver = useCallback((event) => {
+    if (!canEditMaterialsBoard) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'copy'
+  }, [canEditMaterialsBoard])
+
+  const handleMaterialsBoardDragLeave = useCallback((event) => {
+    if (!canEditMaterialsBoard) return
+    event.preventDefault()
+    materialsBoardDragDepthRef.current = Math.max(0, materialsBoardDragDepthRef.current - 1)
+    if (materialsBoardDragDepthRef.current === 0) setMaterialsBoardDragOver(false)
+  }, [canEditMaterialsBoard])
+
+  const handleMaterialsBoardDrop = useCallback((event) => {
+    if (!canEditMaterialsBoard) return
+    event.preventDefault()
+    materialsBoardDragDepthRef.current = 0
+    setMaterialsBoardDragOver(false)
+    void uploadMaterialsBoardFiles(event.dataTransfer?.files)
+  }, [canEditMaterialsBoard, uploadMaterialsBoardFiles])
+
   const handleDeleteMaterialsBoardPost = useCallback((row, e) => {
     e?.stopPropagation()
     if (!canEditMaterialsBoard || !row) return
-    setContractConfirmDialog({
-      title: '게시판 삭제',
-      message: `「${row.title}」을(를) 삭제하시겠습니까?`,
-      destructive: true,
-      confirmLabel: '삭제',
-      onConfirm: async () => {
-        try {
-          await materialsBoardApi.remove(row.id)
-          revokeMaterialsBoardPostUrls(row)
-          setMaterialsBoardPosts((prev) => {
-            const updated = prev.filter((post) => post.id !== row.id)
-            setMaterialsBoardFolders((folders) => syncMaterialsBoardFolderCounts(updated, folders))
-            return updated
-          })
-          setToastMessage('삭제되었습니다.')
-        } catch (error) {
-          logApiOperationError('게시판 삭제', error)
-          showAppAlert(error?.message || '삭제에 실패했습니다.', '알림')
-        }
-      },
-    })
-  }, [canEditMaterialsBoard, showAppAlert])
+    requestMaterialsBoardDelete({ kind: 'file', row })
+  }, [canEditMaterialsBoard, requestMaterialsBoardDelete])
+
+  const handleConfirmMaterialsBoardDelete = useCallback(async () => {
+    const target = materialsBoardDeleteTarget
+    if (!target || materialsBoardDeleteBusy) return
+    setMaterialsBoardDeleteBusy(true)
+    try {
+      if (target.kind === 'folder') {
+        const name = safeString(target.name).trim()
+        if (!name) return
+        await materialsBoardApi.deleteFolder(name)
+        if (materialsBoardFolderFilter === name) setMaterialsBoardFolderFilter('')
+        setMaterialsBoardPosts((prev) => {
+          const updated = prev.map((post) => (post.folder === name ? { ...post, folder: '' } : post))
+          setMaterialsBoardFolders((folders) =>
+            syncMaterialsBoardFolderCounts(updated, folders.filter((folder) => folder.name !== name))
+          )
+          return updated
+        })
+        setMaterialsBoardFormDraft((prev) => (prev.folder === name ? { ...prev, folder: '' } : prev))
+      } else if (target.kind === 'file' && target.row) {
+        const row = target.row
+        await materialsBoardApi.remove(row.id)
+        revokeMaterialsBoardPostUrls(row)
+        setMaterialsBoardPosts((prev) => {
+          const updated = prev.filter((post) => post.id !== row.id)
+          setMaterialsBoardFolders((folders) => syncMaterialsBoardFolderCounts(updated, folders))
+          return updated
+        })
+      }
+      setToastMessage('삭제되었습니다.')
+      cancelMaterialsBoardDelete()
+    } catch (error) {
+      logApiOperationError('게시판 삭제', error)
+      showAppAlert(error?.message || '삭제에 실패했습니다.', '알림')
+    } finally {
+      setMaterialsBoardDeleteBusy(false)
+    }
+  }, [
+    materialsBoardDeleteTarget,
+    materialsBoardDeleteBusy,
+    materialsBoardFolderFilter,
+    cancelMaterialsBoardDelete,
+    showAppAlert,
+  ])
 
   const handleSaveMaterialsBoardRegister = useCallback(async () => {
     if (!canEditMaterialsBoard || materialsBoardSubmitting) return
@@ -8216,6 +8207,7 @@ function App() {
         content,
         folder: safeString(materialsBoardFormDraft.folder).trim(),
         folderId: safeString(materialsBoardFormDraft.folder).trim(),
+        parentId: materialsBoardParentId(materialsBoardFormDraft),
         // 신규 업로드만 전송하고, 남겨둔 기존 첨부는 id 목록으로 알린다
         files: getMaterialsBoardNewFileEntries(materialsBoardFile),
         keepFileIds: getMaterialsBoardKeepFileIds(materialsBoardFile),
@@ -8235,6 +8227,7 @@ function App() {
       } else {
         const saved = await materialsBoardApi.create(payload)
         const normalized = normalizeMaterialsBoardPost(saved)
+        if (!normalized.parentId && payload.parentId) normalized.parentId = payload.parentId
         setMaterialsBoardPosts((prev) => {
           const updated = [normalized, ...prev]
           setMaterialsBoardFolders((folders) => syncMaterialsBoardFolderCounts(updated, folders))
@@ -8441,15 +8434,8 @@ function App() {
   const documentsRawData = documents
 
   const documentColumnFilterOptionsMap = useMemo(() => {
-    const basePool = documentsRawData.filter(
-      (row) =>
-        matchesRegistrySearch(row, DOCUMENT_COLUMNS, documentSearch) &&
-        matchesDateRangeFilter(
-          row,
-          'docDate',
-          documentDateRange.startDate,
-          documentDateRange.endDate
-        )
+    const basePool = documentsRawData.filter((row) =>
+      matchesRegistrySearch(row, DOCUMENT_COLUMNS, documentSearch)
     )
     const map = {}
     DOCUMENT_COLUMNS.forEach(({ key: columnKey }) => {
@@ -8459,13 +8445,7 @@ function App() {
       map[columnKey] = buildDocumentColumnFilterOptions(pool, columnKey)
     })
     return map
-  }, [
-    documentActiveFilters,
-    documentDateRange.endDate,
-    documentDateRange.startDate,
-    documentsRawData,
-    documentSearch,
-  ])
+  }, [documentActiveFilters, documentsRawData, documentSearch])
 
   const handleDocumentActiveFiltersApply = useCallback((columnKey, selected) => {
     setDocumentActiveFilters((prev) => {
@@ -8477,26 +8457,13 @@ function App() {
     })
   }, [])
 
-  /** [1단계] rawData → 검색·기간·헤더 열 필터(AND) → filteredData */
+  /** [1단계] rawData → 검색·헤더 열 필터(AND) → filteredData */
   const filteredDocuments = useMemo(() => {
-    const toolbarFiltered = documentsRawData.filter(
-      (row) =>
-        matchesRegistrySearch(row, DOCUMENT_COLUMNS, documentSearch) &&
-        matchesDateRangeFilter(
-          row,
-          'docDate',
-          documentDateRange.startDate,
-          documentDateRange.endDate
-        )
+    const toolbarFiltered = documentsRawData.filter((row) =>
+      matchesRegistrySearch(row, DOCUMENT_COLUMNS, documentSearch)
     )
     return filterDocumentRowsByActiveFilters(toolbarFiltered, documentActiveFilters)
-  }, [
-    documentActiveFilters,
-    documentDateRange.endDate,
-    documentDateRange.startDate,
-    documentsRawData,
-    documentSearch,
-  ])
+  }, [documentActiveFilters, documentsRawData, documentSearch])
 
   const isDocumentTableFilterResultEmpty = useMemo(
     () => documentsRawData.length > 0 && filteredDocuments.length === 0,
@@ -8579,15 +8546,8 @@ function App() {
   )
 
   const salesColumnFilterOptionsMap = useMemo(() => {
-    const basePool = visibleModeSalesRows.filter(
-      (row) =>
-        matchesRegistrySearch(row, SALES_COLUMNS, salesSearch) &&
-        matchesDateRangeFilter(
-          row,
-          'registerDate',
-          salesDateRange.startDate,
-          salesDateRange.endDate
-        )
+    const basePool = visibleModeSalesRows.filter((row) =>
+      matchesRegistrySearch(row, SALES_COLUMNS, salesSearch)
     )
     const map = {}
     SALES_COLUMNS.forEach(({ key: columnKey }) => {
@@ -8597,13 +8557,7 @@ function App() {
       map[columnKey] = buildSalesColumnFilterOptions(pool, columnKey)
     })
     return map
-  }, [
-    salesActiveFilters,
-    salesDateRange.endDate,
-    salesDateRange.startDate,
-    salesSearch,
-    visibleModeSalesRows,
-  ])
+  }, [salesActiveFilters, salesSearch, visibleModeSalesRows])
 
   const handleSalesActiveFiltersApply = useCallback((columnKey, selected) => {
     setSalesActiveFilters((prev) => {
@@ -8637,15 +8591,8 @@ function App() {
   )
 
   const discoveryColumnFilterOptionsMap = useMemo(() => {
-    const basePool = visibleModeDiscoveryRows.filter(
-      (row) =>
-        matchesRegistrySearch(row, DISCOVERY_COLUMNS, discoverySearch) &&
-        matchesDateRangeFilter(
-          row,
-          'permitDate',
-          discoveryDateRange.startDate,
-          discoveryDateRange.endDate
-        )
+    const basePool = visibleModeDiscoveryRows.filter((row) =>
+      matchesRegistrySearch(row, DISCOVERY_COLUMNS, discoverySearch)
     )
     const map = {}
     DISCOVERY_COLUMNS.forEach(({ key: columnKey }) => {
@@ -8655,13 +8602,7 @@ function App() {
       map[columnKey] = buildDiscoveryColumnFilterOptions(pool, columnKey)
     })
     return map
-  }, [
-    discoveryActiveFilters,
-    discoveryDateRange.endDate,
-    discoveryDateRange.startDate,
-    discoverySearch,
-    visibleModeDiscoveryRows,
-  ])
+  }, [discoveryActiveFilters, discoverySearch, visibleModeDiscoveryRows])
 
   const handleDiscoveryActiveFiltersApply = useCallback((columnKey, selected) => {
     setDiscoveryActiveFilters((prev) => {
@@ -8673,52 +8614,24 @@ function App() {
     })
   }, [])
 
-  /** [1단계] rawData → 검색·기간·헤더 열 필터(AND) → filteredData */
+  /** [1단계] rawData → 검색·헤더 열 필터(AND) → filteredData */
   const filteredSalesRows = useMemo(() => {
-    const toolbarFiltered = visibleModeSalesRows.filter(
-      (row) =>
-        matchesRegistrySearch(row, SALES_COLUMNS, salesSearch) &&
-        matchesDateRangeFilter(
-          row,
-          'registerDate',
-          salesDateRange.startDate,
-          salesDateRange.endDate
-        )
+    const toolbarFiltered = visibleModeSalesRows.filter((row) =>
+      matchesRegistrySearch(row, SALES_COLUMNS, salesSearch)
     )
     return filterSalesRowsByActiveFilters(toolbarFiltered, salesActiveFilters).filter((row) =>
       salesStatusMatchesLegend(row.projectStage, selectedSalesImportance)
     )
-  }, [
-    salesActiveFilters,
-    salesDateRange.endDate,
-    salesDateRange.startDate,
-    salesSearch,
-    selectedSalesImportance,
-    visibleModeSalesRows,
-  ])
+  }, [salesActiveFilters, salesSearch, selectedSalesImportance, visibleModeSalesRows])
 
   const filteredDiscoveryRows = useMemo(() => {
-    const toolbarFiltered = visibleModeDiscoveryRows.filter(
-      (row) =>
-        matchesRegistrySearch(row, DISCOVERY_COLUMNS, discoverySearch) &&
-        matchesDateRangeFilter(
-          row,
-          'permitDate',
-          discoveryDateRange.startDate,
-          discoveryDateRange.endDate
-        )
+    const toolbarFiltered = visibleModeDiscoveryRows.filter((row) =>
+      matchesRegistrySearch(row, DISCOVERY_COLUMNS, discoverySearch)
     )
     return filterDiscoveryRowsByActiveFilters(toolbarFiltered, discoveryActiveFilters).filter((row) =>
       salesStatusMatchesLegend(row.projectStage, selectedDiscoveryImportance)
     )
-  }, [
-    discoveryActiveFilters,
-    discoveryDateRange.endDate,
-    discoveryDateRange.startDate,
-    discoverySearch,
-    selectedDiscoveryImportance,
-    visibleModeDiscoveryRows,
-  ])
+  }, [discoveryActiveFilters, discoverySearch, selectedDiscoveryImportance, visibleModeDiscoveryRows])
 
   const excludedRawData = useMemo(
     () => excludedRows.map((row) => applyExcludedHiddenState(row, excludedHiddenRowIds)),
@@ -8746,15 +8659,8 @@ function App() {
   )
 
   const excludedColumnFilterOptionsMap = useMemo(() => {
-    const basePool = visibleModeExcludedRows.filter(
-      (row) =>
-        matchesRegistrySearch(row, EXCLUDED_COLUMNS, excludedSearch) &&
-        matchesDateRangeFilter(
-          row,
-          'writeDate',
-          excludedDateRange.startDate,
-          excludedDateRange.endDate
-        )
+    const basePool = visibleModeExcludedRows.filter((row) =>
+      matchesRegistrySearch(row, EXCLUDED_COLUMNS, excludedSearch)
     )
     const map = {}
     EXCLUDED_COLUMNS.forEach(({ key: columnKey }) => {
@@ -8764,13 +8670,7 @@ function App() {
       map[columnKey] = buildExcludedColumnFilterOptions(pool, columnKey)
     })
     return map
-  }, [
-    excludedActiveFilters,
-    excludedDateRange.endDate,
-    excludedDateRange.startDate,
-    excludedSearch,
-    visibleModeExcludedRows,
-  ])
+  }, [excludedActiveFilters, excludedSearch, visibleModeExcludedRows])
 
   const handleExcludedActiveFiltersApply = useCallback((columnKey, selected) => {
     setExcludedActiveFilters((prev) => {
@@ -8782,29 +8682,15 @@ function App() {
     })
   }, [])
 
-  /** [1단계] rawData → 검색·기간·헤더 열 필터(AND) → filteredData */
+  /** [1단계] rawData → 검색·헤더 열 필터(AND) → filteredData */
   const filteredExcludedRows = useMemo(() => {
-    const toolbarFiltered = visibleModeExcludedRows.filter(
-      (row) =>
-        matchesRegistrySearch(row, EXCLUDED_COLUMNS, excludedSearch) &&
-        matchesDateRangeFilter(
-          row,
-          'writeDate',
-          excludedDateRange.startDate,
-          excludedDateRange.endDate
-        )
+    const toolbarFiltered = visibleModeExcludedRows.filter((row) =>
+      matchesRegistrySearch(row, EXCLUDED_COLUMNS, excludedSearch)
     )
     return filterExcludedRowsByActiveFilters(toolbarFiltered, excludedActiveFilters).filter((row) =>
       salesStatusMatchesLegend(row.category, selectedExcludedImportance)
     )
-  }, [
-    excludedActiveFilters,
-    excludedDateRange.endDate,
-    excludedDateRange.startDate,
-    excludedSearch,
-    selectedExcludedImportance,
-    visibleModeExcludedRows,
-  ])
+  }, [excludedActiveFilters, excludedSearch, selectedExcludedImportance, visibleModeExcludedRows])
 
   const isExcludedTableFilterResultEmpty = useMemo(
     () => visibleModeExcludedRows.length > 0 && filteredExcludedRows.length === 0,
@@ -9007,7 +8893,6 @@ function App() {
     const persistedSalesRows = getPersistedRows(visibleSalesRowsForDashboard)
     const persistedDiscoveryRows = getPersistedRows(visibleDiscoveryRowsForDashboard)
     const persistedExcludedRows = getPersistedRows(visibleExcludedRowsForDashboard)
-    const persistedDocuments = getPersistedRows(documents)
     // 헤더 건수 filter == 목록 filter(계약/마감 제외)로 통일해 카운트와 목록을 동기화한다.
     // 전주/금주 동일 필터(계약·마감 제외)로 계산해 비교 기준을 일치시킨다.
     const salesStageFilter = (row) => !isSalesStageInContractClosedGroup(row)
@@ -9041,8 +8926,6 @@ function App() {
       'writeDate',
       isExcludedShareStatusOpen
     )
-    const { inbound: docInboundCount, outbound: docOutboundCount } =
-      countDocumentsInboundOutbound(persistedDocuments)
 
     return {
       recentGroups: [
@@ -9069,8 +8952,7 @@ function App() {
             dateKey: 'permitDate',
             filterRow: (row) => Boolean(parseDateOnly(row.permitDate)),
             getTitle: (row) => safeString(row.projectName || row.client).trim() || '건축정보 항목',
-            getMeta: (row) =>
-              [row.client, row.manager || row.salesTarget].filter(Boolean).join(' · ') || '-',
+            getMeta: (row) => safeString(row.client).trim() || '-',
             getStatus: (row) => row.projectStage,
           }),
         },
@@ -9087,33 +8969,74 @@ function App() {
             getStatus: (row) => row.category,
           }),
         },
-        {
-          key: 'documents',
-          label: `문서수발신대장 (수신 ${docInboundCount.toLocaleString('ko-KR')}건 / 발신 ${docOutboundCount.toLocaleString('ko-KR')}건)`,
-          menu: 'documents',
-          items: getDashboardRecentItems(persistedDocuments, {
-            dateKey: 'docDate',
-            getTitle: (row) => safeString(row.title || row.docNo).trim() || '문서 항목',
-            getMeta: (row) =>
-              [row.senderReceiver, row.writer || row.method].filter(Boolean).join(' · ') || '-',
-          }),
-        },
       ],
+      documentGroups: (() => {
+        const persistedDocuments = getPersistedRows(documents)
+        const quoteRows = Array.isArray(quoteDesignExportRows) ? quoteDesignExportRows : []
+        const documentWeekFilter = (row) => Boolean(parseDateOnly(row.docDate))
+        const quoteWeekFilter = (row) => Boolean(parseDateOnly(row.sentAt))
+        const documentsWeekCount = countRowsRegisteredInCurrentWeek(
+          persistedDocuments,
+          'docDate',
+          documentWeekFilter
+        )
+        const documentsLastWeekCount = countRowsRegisteredInLastWeek(
+          persistedDocuments,
+          'docDate',
+          documentWeekFilter
+        )
+        const quoteWeekCount = countRowsRegisteredInCurrentWeek(quoteRows, 'sentAt', quoteWeekFilter)
+        const quoteLastWeekCount = countRowsRegisteredInLastWeek(quoteRows, 'sentAt', quoteWeekFilter)
+
+        return [
+          {
+            key: 'quoteDesignDocs',
+            label: `견적 · 설계 반출 현황 (전주 ${quoteLastWeekCount.toLocaleString('ko-KR')}건 / 금주 ${quoteWeekCount.toLocaleString('ko-KR')}건)`,
+            menu: 'quoteDesignDocs',
+            items: getDashboardRecentItems(quoteRows, {
+              dateKey: 'sentAt',
+              filterRow: quoteWeekFilter,
+              getTitle: (row) => safeString(row.subject).trim() || '견적 · 설계 반출',
+              getMeta: (row) =>
+                [resolveSenderName(row.sender) || row.sender, row.recipient]
+                  .map((part) => safeString(part).trim())
+                  .filter(Boolean)
+                  .join(' · ') || '-',
+              getStatus: () => '',
+            }),
+          },
+          {
+            key: 'documents',
+            label: `문서수발신대장 (전주 ${documentsLastWeekCount.toLocaleString('ko-KR')}건 / 금주 ${documentsWeekCount.toLocaleString('ko-KR')}건)`,
+            menu: 'documents',
+            items: getDashboardRecentItems(persistedDocuments, {
+              dateKey: 'docDate',
+              filterRow: documentWeekFilter,
+              getTitle: (row) =>
+                safeString(row.title || row.docNo || row.senderReceiver).trim() || '문서수발신 항목',
+              getMeta: (row) =>
+                [row.senderReceiver, row.writer || row.method].filter(Boolean).join(' · ') || '-',
+              getStatus: () => '',
+            }),
+          },
+        ]
+      })(),
     }
-  }, [discoveryRows, documents, excludedRows, visibleDiscoveryRowsForDashboard, visibleExcludedRowsForDashboard, visibleSalesRowsForDashboard])
+  }, [
+    discoveryRows,
+    documents,
+    excludedRows,
+    quoteDesignExportRows,
+    visibleDiscoveryRowsForDashboard,
+    visibleExcludedRowsForDashboard,
+    visibleSalesRowsForDashboard,
+  ])
   const currentRegistryYear = String(new Date().getFullYear())
   const defaultContractYear = groupedContracts.find((group) => group.year === currentRegistryYear)?.year ?? groupedContracts[0]?.year
   const defaultSalesYear = groupedSalesRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedSalesRows)
   const defaultDiscoveryYear = currentRegistryYear
   const defaultExcludedYear = groupedExcludedRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedExcludedRows)
   const defaultDocumentYear = groupedDocumentRows.find((group) => group.year === currentRegistryYear)?.year ?? getLatestRegistryYear(groupedDocumentRows)
-
-  const isDashboardYearOpen = (year) => {
-    const key = String(year)
-    return Object.prototype.hasOwnProperty.call(openDashboardYears, key)
-      ? openDashboardYears[key]
-      : key === dashboardCurrentYear
-  }
 
   const isContractYearOpen = (year) =>
     Object.prototype.hasOwnProperty.call(openContractYears, year)
@@ -9489,21 +9412,7 @@ function App() {
         void handleCopyContactRow(row)
       }}
     >
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <rect x="9" y="9" width="11" height="11" rx="2" />
-        <path d="M5 15V5a2 2 0 0 1 2-2h8" />
-      </svg>
-      <span>복사</span>
+      <Copy size={14} strokeWidth={2.25} aria-hidden="true" />
     </button>
   )
 
@@ -9531,14 +9440,6 @@ function App() {
       else next.add(key)
       return next
     })
-  }
-
-  const toggleDashboardYear = (year) => {
-    const key = String(year)
-    setOpenDashboardYears((prev) => ({
-      ...prev,
-      [key]: !isDashboardYearOpen(key),
-    }))
   }
 
   const toggleSalesYear = (year) => {
@@ -16851,40 +16752,30 @@ function App() {
                 )
               }
               const group = node
-              const isExpanded = Boolean(expandedMenuGroups[group.id])
               const hasActiveChild = group.items.some((item) => item.key === menu)
               return (
                 <div key={group.id} className="menu-group">
-                  <button
-                    type="button"
-                    className={`menu-group-btn${hasActiveChild ? ' menu-group-btn--has-active' : ''}`}
-                    onClick={() => toggleMenuGroup(group.id)}
-                    aria-expanded={isExpanded}
-                    aria-label={`${group.label} ${isExpanded ? '접기' : '펼치기'}`}
+                  <div
+                    className={`menu-group-label-row${hasActiveChild ? ' menu-group-label-row--has-active' : ''}`}
                   >
                     <span className="menu-group-label truncate">{group.label}</span>
-                    <span className="menu-group-chevron" aria-hidden>
-                      {isExpanded ? '▲' : '▼'}
-                    </span>
-                  </button>
-                  {isExpanded ? (
-                    <ul className="menu-group-items">
-                      {group.items.map((item) => (
-                        <li key={item.key} className="menu-group-item">
-                          <button
-                            type="button"
-                            className={
-                              menu === item.key ? 'menu-btn menu-btn--child active' : 'menu-btn menu-btn--child'
-                            }
-                            onClick={() => setMenu(item.key)}
-                            title={item.label}
-                          >
-                            <span className="block min-w-0 truncate whitespace-nowrap">{item.label}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
+                  </div>
+                  <ul className="menu-group-items">
+                    {group.items.map((item) => (
+                      <li key={item.key} className="menu-group-item">
+                        <button
+                          type="button"
+                          className={
+                            menu === item.key ? 'menu-btn menu-btn--child active' : 'menu-btn menu-btn--child'
+                          }
+                          onClick={() => setMenu(item.key)}
+                          title={item.label}
+                        >
+                          <span className="block min-w-0 truncate whitespace-nowrap">{item.label}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )
             })}
@@ -17188,7 +17079,10 @@ function App() {
 
               <div className="dashboard-surface-card">
                 <div className="dashboard-panel">
-                  <ImportanceLegend items={DASHBOARD_STATUS_LEGEND_ITEMS} />
+                  <div className="dashboard-recent-heading">
+                    <h2 className="dashboard-recent-legend-title">영업관리</h2>
+                    <ImportanceLegend items={DASHBOARD_STATUS_LEGEND_ITEMS} />
+                  </div>
                   <div className="dashboard-recent-grid">
                     {dashboardData.recentGroups.map((group) => {
                       const { base, counts } = splitDashboardRecentTitleLabel(group.label)
@@ -17209,7 +17103,7 @@ function App() {
                             {group.items.length > 0 ? (
                               group.items.map((item) => (
                                 <button
-                                  className="dashboard-recent-item"
+                                  className="dashboard-recent-item dashboard-recent-item--inline"
                                   type="button"
                                   key={`${group.key}-${item.id || item.title}-${item.date}`}
                                   onClick={() => setMenu(group.menu)}
@@ -17233,48 +17127,77 @@ function App() {
                 </div>
               </div>
 
-              <div className="dashboard-surface-card">
-                <div className="dashboard-year-list">
-                  {dashboardSummary.years.map((yearBlock) => {
-                    const isCollapsed = !isDashboardYearOpen(yearBlock.year)
+              <div className="dashboard-surface-card dashboard-document-surface">
+                <div className="dashboard-panel">
+                  <div className="dashboard-recent-heading">
+                    <h2 className="dashboard-recent-legend-title">문서관리</h2>
+                  </div>
+                  <div className="dashboard-recent-grid dashboard-document-grid">
+                    {dashboardData.documentGroups.map((group) => {
+                      const { base, counts } = splitDashboardRecentTitleLabel(group.label)
+                      return (
+                        <div className="dashboard-recent-card" key={group.key}>
+                          <button
+                            className="dashboard-recent-title"
+                            type="button"
+                            onClick={() => setMenu(group.menu)}
+                          >
+                            <span className="dashboard-recent-title-base">{base}</span>
+                            {counts ? (
+                              <span className="dashboard-recent-title-counts">{counts}</span>
+                            ) : null}
+                          </button>
 
-                    return (
-                      <section
-                        className={`dashboard-year-accordion${
-                          isCollapsed ? '' : ' is-expanded'
-                        }`}
-                        key={yearBlock.year}
-                      >
-                        <div
-                          className="dashboard-year-summary dashboard-year-summary--toggle"
-                          aria-label={`${yearBlock.year}년 ${isCollapsed ? '펼치기' : '접기'}`}
-                          {...bindExpandCollapseRow(
-                            () => toggleDashboardYear(yearBlock.year),
-                            !isCollapsed
-                          )}
-                        >
-                          <div className="dashboard-year-title">
-                            <span>{yearBlock.year}년</span>
-                            <span className="dashboard-year-total">
-                              총 {yearBlock.totalAmount.toLocaleString('ko-KR')}원
-                            </span>
+                          <div className="dashboard-recent-list">
+                            {group.items.length > 0 ? (
+                              group.items.map((item) => (
+                                <button
+                                  className="dashboard-recent-item dashboard-recent-item--inline"
+                                  type="button"
+                                  key={`${group.key}-${item.id || item.title}-${item.date}`}
+                                  onClick={() => setMenu(group.menu)}
+                                >
+                                  <span className="dashboard-recent-date">{item.date}</span>
+                                  <span className="dashboard-recent-main">
+                                    <RegistryImportanceDot status={item.status} size="sm" />
+                                    <span className="dashboard-recent-main-text">{item.title}</span>
+                                  </span>
+                                  <span className="dashboard-recent-meta">{item.meta}</span>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="dashboard-recent-empty">등록 내역이 없습니다.</div>
+                            )}
                           </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
 
-                          <span className="panel-toggle-btn panel-toggle-btn--decor" aria-hidden="true">
-                            {isCollapsed ? '+' : '-'}
+              <div className="dashboard-surface-card dashboard-contract-surface">
+                <div className="dashboard-year-list">
+                  {dashboardSummary.years.map((yearBlock, yearIndex) => (
+                    <section className="dashboard-contract-block" key={yearBlock.year}>
+                      <div className="dashboard-year-summary dashboard-contract-heading">
+                        {yearIndex === 0 ? (
+                          <h2 className="dashboard-contract-section-title">계약현황</h2>
+                        ) : null}
+                        <div className="dashboard-year-title">
+                          <span>{yearBlock.year}년</span>
+                          <span className="dashboard-year-total">
+                            총 {yearBlock.totalAmount.toLocaleString('ko-KR')}원
                           </span>
                         </div>
-
-                        {!isCollapsed && (
-                          <YearContractAmountCategoryCards
-                            items={yearBlock.items}
-                            keyPrefix={yearBlock.year}
-                            formatCategoryTitle={getContractPageSummaryCategoryTitle}
-                          />
-                        )}
-                      </section>
-                    )
-                  })}
+                      </div>
+                      <YearContractAmountCategoryCards
+                        items={yearBlock.items}
+                        keyPrefix={yearBlock.year}
+                        formatCategoryTitle={getContractPageSummaryCategoryTitle}
+                      />
+                    </section>
+                  ))}
                 </div>
               </div>
             </div>
@@ -17326,7 +17249,7 @@ function App() {
                     type="search"
                     value={workReportSearchInput}
                     onChange={(event) => setWorkReportSearchInput(event.target.value)}
-                    placeholder="전체 주간업무보고서 검색"
+                    placeholder="검색어를 입력하세요."
                     aria-label="전체 주간업무보고서 검색"
                   />
                   {workReportSearchActive ? (
@@ -17421,7 +17344,7 @@ function App() {
                     type="search"
                     value={meetingSearchInput}
                     onChange={(event) => setMeetingSearchInput(event.target.value)}
-                    placeholder="전체 회의록 검색"
+                    placeholder="검색어를 입력하세요."
                     aria-label="전체 회의록 검색"
                   />
                   {meetingSearchActive ? (
@@ -17507,7 +17430,9 @@ function App() {
                     type="button"
                     onClick={handleDeleteSelected}
                     disabled={selectedContractRowKeys.size === 0}
+                    aria-label="선택 삭제"
                   >
+                    <Trash2 size={15} strokeWidth={2.25} aria-hidden="true" />
                     선택 삭제
                   </button>
                   {selectedContractRowKeys.size > 0 && (
@@ -17559,7 +17484,7 @@ function App() {
               <div className="registry-search-toolbar-split">
                 <input
                   className="table-search-input"
-                  placeholder="검색어를 입력하세요"
+                  placeholder="검색어를 입력하세요."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -18014,6 +17939,7 @@ function App() {
 
         {menu === 'sales' && (
           <section className="stat-card registry-control-stack">
+            <div className="registry-page-toolbar">
             <div className="contracts-header-actions registry-control-row flex flex-wrap items-center gap-x-4">
               <div className="registry-control-actions flex shrink-0 flex-wrap items-center gap-2">
                 <button className="primary-btn" type="button" onClick={handleAddSalesRow}>
@@ -18025,6 +17951,7 @@ function App() {
                   onClick={deleteSelectedSalesRows}
                   disabled={selectedSalesIds.length === 0}
                 >
+                  <Trash2 size={15} strokeWidth={2.25} aria-hidden="true" />
                   선택 삭제
                 </button>
                 {selectedSalesIds.length > 0 && (
@@ -18055,39 +17982,35 @@ function App() {
               />
             </div>
 
-            <div className="table-toolbar registry-toolbar-date-range registry-control-filters">
+            <div className="table-toolbar registry-control-filters">
               <div className="registry-search-toolbar-split flex items-center">
                 <input
                   className="table-search-input"
-                  placeholder="검색어를 입력하세요"
+                  placeholder="검색어를 입력하세요."
                   value={salesSearch}
                   onChange={(e) => setSalesSearch(e.target.value)}
                 />
-                <RegistryDateRangeFilter
-                  startDate={salesDateRange.startDate}
-                  endDate={salesDateRange.endDate}
-                  onStartChange={(value) =>
-                    setSalesDateRange((prev) => ({ ...prev, startDate: value }))
-                  }
-                  onEndChange={(value) =>
-                    setSalesDateRange((prev) => ({ ...prev, endDate: value }))
-                  }
-                />
-                <label className="sales-hidden-toggle">
-                  <input
-                    type="checkbox"
-                    checked={showHiddenSalesRows}
-                    onChange={(e) => {
-                      setShowHiddenSalesRows(e.target.checked)
-                      setSelectedSalesIds([])
-                    }}
-                  />
-                  <span>숨긴 항목 보기</span>
+                <button
+                  type="button"
+                  className={`sales-hidden-toggle${showHiddenSalesRows ? ' is-active' : ''}`}
+                  aria-pressed={showHiddenSalesRows}
+                  aria-label={showHiddenSalesRows ? '숨긴 항목 숨기기' : '숨긴 항목 보기'}
+                  onClick={() => {
+                    setShowHiddenSalesRows((prev) => !prev)
+                    setSelectedSalesIds([])
+                  }}
+                >
+                  {showHiddenSalesRows ? (
+                    <EyeOff size={16} strokeWidth={2} aria-hidden="true" />
+                  ) : (
+                    <Eye size={16} strokeWidth={2} aria-hidden="true" />
+                  )}
                   <span className="sales-hidden-toggle-count">
                     {hiddenSalesCount.toLocaleString('ko-KR')}건
                   </span>
-                </label>
+                </button>
               </div>
+            </div>
             </div>
 
             <div className="contract-table-panel">
@@ -18276,6 +18199,7 @@ function App() {
 
         {menu === 'discovery' && (
           <section className="stat-card registry-control-stack">
+            <div className="registry-page-toolbar">
             <div className="contracts-header-actions registry-control-row flex flex-wrap items-center gap-x-4">
               <div className="registry-control-actions flex shrink-0 flex-wrap items-center gap-2">
                 <button className="primary-btn" type="button" onClick={handleAddDiscoveryRow}>
@@ -18287,6 +18211,7 @@ function App() {
                   onClick={deleteSelectedDiscoveryRows}
                   disabled={selectedDiscoveryIds.length === 0}
                 >
+                  <Trash2 size={15} strokeWidth={2.25} aria-hidden="true" />
                   선택 삭제
                 </button>
                 <button
@@ -18325,39 +18250,35 @@ function App() {
               />
             </div>
 
-            <div className="table-toolbar registry-toolbar-date-range registry-control-filters">
+            <div className="table-toolbar registry-control-filters">
               <div className="registry-search-toolbar-split flex items-center">
                 <input
                   className="table-search-input"
-                  placeholder="검색어를 입력하세요"
+                  placeholder="검색어를 입력하세요."
                   value={discoverySearch}
                   onChange={(e) => setDiscoverySearch(e.target.value)}
                 />
-                <RegistryDateRangeFilter
-                  startDate={discoveryDateRange.startDate}
-                  endDate={discoveryDateRange.endDate}
-                  onStartChange={(value) =>
-                    setDiscoveryDateRange((prev) => ({ ...prev, startDate: value }))
-                  }
-                  onEndChange={(value) =>
-                    setDiscoveryDateRange((prev) => ({ ...prev, endDate: value }))
-                  }
-                />
-                <label className="sales-hidden-toggle">
-                  <input
-                    type="checkbox"
-                    checked={showHiddenDiscoveryRows}
-                    onChange={(e) => {
-                      setShowHiddenDiscoveryRows(e.target.checked)
-                      setSelectedDiscoveryIds([])
-                    }}
-                  />
-                  <span>숨긴 항목 보기</span>
+                <button
+                  type="button"
+                  className={`sales-hidden-toggle${showHiddenDiscoveryRows ? ' is-active' : ''}`}
+                  aria-pressed={showHiddenDiscoveryRows}
+                  aria-label={showHiddenDiscoveryRows ? '숨긴 항목 숨기기' : '숨긴 항목 보기'}
+                  onClick={() => {
+                    setShowHiddenDiscoveryRows((prev) => !prev)
+                    setSelectedDiscoveryIds([])
+                  }}
+                >
+                  {showHiddenDiscoveryRows ? (
+                    <EyeOff size={16} strokeWidth={2} aria-hidden="true" />
+                  ) : (
+                    <Eye size={16} strokeWidth={2} aria-hidden="true" />
+                  )}
                   <span className="sales-hidden-toggle-count">
                     {hiddenDiscoveryCount.toLocaleString('ko-KR')}건
                   </span>
-                </label>
+                </button>
               </div>
+            </div>
             </div>
 
             <div className="contract-table-panel">
@@ -18546,6 +18467,7 @@ function App() {
 
         {menu === 'excluded' && (
           <section className="stat-card registry-control-stack">
+            <div className="registry-page-toolbar">
             <div className="contracts-header-actions registry-control-row flex flex-wrap items-center gap-x-4">
               <div className="registry-control-actions flex shrink-0 flex-wrap items-center gap-2">
                 <button className="primary-btn" type="button" onClick={handleAddExcludedRow}>
@@ -18557,6 +18479,7 @@ function App() {
                   onClick={deleteSelectedExcludedRows}
                   disabled={selectedExcludedIds.length === 0}
                 >
+                  <Trash2 size={15} strokeWidth={2.25} aria-hidden="true" />
                   선택 삭제
                 </button>
                 <button
@@ -18595,39 +18518,35 @@ function App() {
               />
             </div>
 
-            <div className="table-toolbar registry-toolbar-date-range registry-control-filters">
+            <div className="table-toolbar registry-control-filters">
               <div className="registry-search-toolbar-split flex items-center">
                 <input
                   className="table-search-input"
-                  placeholder="검색어를 입력하세요"
+                  placeholder="검색어를 입력하세요."
                   value={excludedSearch}
                   onChange={(e) => setExcludedSearch(e.target.value)}
                 />
-                <RegistryDateRangeFilter
-                  startDate={excludedDateRange.startDate}
-                  endDate={excludedDateRange.endDate}
-                  onStartChange={(value) =>
-                    setExcludedDateRange((prev) => ({ ...prev, startDate: value }))
-                  }
-                  onEndChange={(value) =>
-                    setExcludedDateRange((prev) => ({ ...prev, endDate: value }))
-                  }
-                />
-                <label className="sales-hidden-toggle">
-                  <input
-                    type="checkbox"
-                    checked={showHiddenExcludedRows}
-                    onChange={(e) => {
-                      setShowHiddenExcludedRows(e.target.checked)
-                      setSelectedExcludedIds([])
-                    }}
-                  />
-                  <span>숨긴 항목 보기</span>
+                <button
+                  type="button"
+                  className={`sales-hidden-toggle${showHiddenExcludedRows ? ' is-active' : ''}`}
+                  aria-pressed={showHiddenExcludedRows}
+                  aria-label={showHiddenExcludedRows ? '숨긴 항목 숨기기' : '숨긴 항목 보기'}
+                  onClick={() => {
+                    setShowHiddenExcludedRows((prev) => !prev)
+                    setSelectedExcludedIds([])
+                  }}
+                >
+                  {showHiddenExcludedRows ? (
+                    <EyeOff size={16} strokeWidth={2} aria-hidden="true" />
+                  ) : (
+                    <Eye size={16} strokeWidth={2} aria-hidden="true" />
+                  )}
                   <span className="sales-hidden-toggle-count">
                     {hiddenExcludedCount.toLocaleString('ko-KR')}건
                   </span>
-                </label>
+                </button>
               </div>
+            </div>
             </div>
 
             <div className="contract-table-panel">
@@ -18795,7 +18714,8 @@ function App() {
         )}
 
         {menu === 'documents' && (
-          <section className="stat-card">
+          <section className="stat-card documents-page">
+            <div className="registry-page-toolbar">
             <div className="contracts-header-actions">
               <button className="primary-btn" type="button" onClick={handleAddDocumentRow}>
                 등록
@@ -18806,6 +18726,7 @@ function App() {
                 onClick={deleteSelectedDocuments}
                 disabled={selectedDocumentIds.length === 0}
               >
+                <Trash2 size={15} strokeWidth={2.25} aria-hidden="true" />
                 선택 삭제
               </button>
               {selectedDocumentIds.length > 0 && (
@@ -18825,25 +18746,16 @@ function App() {
               </button>
             </div>
 
-            <div className="table-toolbar registry-toolbar-date-range">
+            <div className="table-toolbar">
               <div className="registry-search-toolbar-split">
                 <input
                   className="table-search-input"
-                  placeholder="검색어를 입력하세요"
+                  placeholder="검색어를 입력하세요."
                   value={documentSearch}
                   onChange={(e) => setDocumentSearch(e.target.value)}
                 />
-                <RegistryDateRangeFilter
-                  startDate={documentDateRange.startDate}
-                  endDate={documentDateRange.endDate}
-                  onStartChange={(value) =>
-                    setDocumentDateRange((prev) => ({ ...prev, startDate: value }))
-                  }
-                  onEndChange={(value) =>
-                    setDocumentDateRange((prev) => ({ ...prev, endDate: value }))
-                  }
-                />
               </div>
+            </div>
             </div>
 
             <div className="contract-table-panel">
@@ -18995,6 +18907,7 @@ function App() {
 
         {menu === 'contactsManage' && canAccessMenu('contactsManage', role) && (
           <section className="stat-card">
+            <div className="registry-page-toolbar">
               <div className="contracts-header-actions">
                 {canEditContactsManage ? (
                   <>
@@ -19007,6 +18920,7 @@ function App() {
                       onClick={deleteSelectedContactsRows}
                       disabled={selectedContactsIds.length === 0}
                     >
+                      <Trash2 size={15} strokeWidth={2.25} aria-hidden="true" />
                       선택 삭제
                     </button>
                     {selectedContactsIds.length > 0 && (
@@ -19031,10 +18945,11 @@ function App() {
             <div className="table-toolbar">
               <input
                 className="table-search-input"
-                placeholder="검색어를 입력하세요"
+                placeholder="검색어를 입력하세요."
                 value={contactsSearch}
                 onChange={(e) => setContactsSearch(e.target.value)}
               />
+            </div>
             </div>
 
             <div className="contract-table-panel">
@@ -19260,7 +19175,7 @@ function App() {
               </div>
               <input
                 className="table-search-input install-cases-search-input"
-                placeholder="사업명, 발주처, 용도 검색"
+                placeholder="검색어를 입력하세요."
                 value={installCaseSearch}
                 onChange={(e) => setInstallCaseSearch(e.target.value)}
                 aria-label="설치사례 검색"
@@ -19271,7 +19186,8 @@ function App() {
                 type="button"
                 onClick={() => setInstallShareModalOpen(true)}
               >
-                🔗 외부 공유 링크 복사
+                <Copy size={15} strokeWidth={2.25} aria-hidden="true" />
+                외부 공유 링크 복사
               </button>
             </div>
 
@@ -19300,32 +19216,37 @@ function App() {
                     (row.shareVisibility === 'internal' || installCaseVisibilityFilter === 'internal' ? (
                       <button
                         type="button"
-                        className="secondary-btn install-case-card-hide"
+                        className="install-case-card-action install-case-card-hide"
                         onClick={(e) => changeInstallCaseVisibility(row, e, 'external')}
+                        aria-label="숨김 취소"
+                        title="숨김 취소"
                       >
-                        숨김 취소
+                        <Eye size={16} strokeWidth={2.25} aria-hidden="true" />
                       </button>
                     ) : (
                       <button
                         type="button"
-                        className="secondary-btn install-case-card-hide"
+                        className="install-case-card-action install-case-card-hide"
                         onClick={(e) => changeInstallCaseVisibility(row, e, 'internal')}
+                        aria-label="숨김"
+                        title="숨김"
                       >
-                        숨김
+                        <EyeOff size={16} strokeWidth={2.25} aria-hidden="true" />
                       </button>
                     ))}
                   {canEditInstallCases && (
                     <button
                       type="button"
-                      className="install-case-card-delete"
+                      className="install-case-card-action install-case-card-delete"
                       onClick={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
                         deleteInstallCaseById(row.id)
                       }}
                       aria-label={`${getInstallCaseProjectTitle(row)} 삭제`}
+                      title="삭제"
                     >
-                      ✕
+                      <Trash2 size={16} strokeWidth={2.25} aria-hidden="true" />
                     </button>
                   )}
                 </div>
@@ -19388,237 +19309,156 @@ function App() {
 
         {menu === 'materialsBoard' && (
           <section className="stat-card stat-card--materials-board">
-            <div className="materials-board-layout materials-board-layout--list-only">
-              <div className="materials-board-main">
-                <div className="materials-board-folders flex flex-wrap items-center gap-2" aria-label="게시판 폴더">
+            <div className="materials-board-toolbar">
+              <input
+                className="table-search-input"
+                placeholder="검색어를 입력하세요."
+                value={materialsBoardSearch}
+                onChange={(e) => setMaterialsBoardSearch(e.target.value)}
+              />
+              {canEditMaterialsBoard && (
+                <>
+                  <input
+                    ref={materialsBoardUploadInputRef}
+                    className="materials-board-upload-input"
+                    type="file"
+                    multiple
+                    onChange={handleMaterialsBoardFileInput}
+                  />
                   <button
                     type="button"
-                    className={`materials-board-folder-chip rounded-md px-3 py-1.5${materialsBoardFolderFilter ? '' : ' is-active'}`}
-                    onClick={() => setMaterialsBoardFolderFilter('')}
+                    className="primary-btn materials-board-upload-btn"
+                    onClick={() => materialsBoardUploadInputRef.current?.click()}
+                    disabled={materialsBoardSubmitting}
                   >
-                    전체
-                    <span className="materials-board-folder-count">({materialsBoardPosts.length})</span>
+                    <Upload size={16} aria-hidden="true" />
+                    {materialsBoardSubmitting ? '업로드 중…' : '업로드'}
                   </button>
-                  {[...materialsBoardFolders]
-                    .sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'))
-                    .map((folder) => (
-                    <span key={folder.name} className="materials-board-folder-item group">
-                      <button
-                        type="button"
-                        className={`materials-board-folder-chip rounded-md px-3 py-1.5${
-                          materialsBoardFolderFilter === folder.name ? ' is-active' : ''
-                        }`}
-                        onClick={() => setMaterialsBoardFolderFilter(folder.name)}
-                      >
-                        <span className="materials-board-folder-emoji" aria-hidden="true">📁</span>
-                        {folder.name}
-                        <span className="materials-board-folder-count">({folder.count})</span>
-                      </button>
-                      {canEditMaterialsBoard ? (
-                        <span className="materials-board-folder-actions opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
-                          <button
-                            type="button"
-                            className="materials-board-folder-icon-btn"
-                            aria-label={`${folder.name} 폴더 이름 수정`}
-                            onClick={() => handleRenameMaterialsBoardFolder(folder.name)}
-                          >
-                            <span aria-hidden="true">✏️</span>
-                          </button>
-                          <button
-                            type="button"
-                            className="materials-board-folder-icon-btn"
-                            aria-label={`${folder.name} 폴더 삭제`}
-                            onClick={() => handleDeleteMaterialsBoardFolder(folder.name)}
-                          >
-                            <span aria-hidden="true">🗑️</span>
-                          </button>
-                        </span>
-                      ) : null}
-                    </span>
-                  ))}
-                  {canEditMaterialsBoard ? (
-                    <span className="materials-board-folder-add">
-                      <input
-                        className="table-search-input"
-                        value={materialsBoardFolderDraft}
-                        placeholder="새 폴더"
-                        aria-label="새 폴더 이름"
-                        onChange={(event) => setMaterialsBoardFolderDraft(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault()
-                            void handleAddMaterialsBoardFolder()
-                          }
-                        }}
-                      />
-                      <button type="button" className="materials-board-folder-add-btn" onClick={() => void handleAddMaterialsBoardFolder()}>
-                        추가
-                      </button>
-                    </span>
-                  ) : null}
-                </div>
-                <div className="materials-board-toolbar">
-                  <input
-                    className="table-search-input"
-                    placeholder="제목 검색"
-                    value={materialsBoardSearch}
-                    onChange={(e) => setMaterialsBoardSearch(e.target.value)}
-                  />
-                  <div className="materials-board-toolbar-right">
-                    {canEditMaterialsBoard && (
-                      <button
-                        type="button"
-                        className="primary-btn"
-                        onClick={handleOpenMaterialsBoardRegister}
-                      >
-                        등록
-                      </button>
-                    )}
+                </>
+              )}
+            </div>
+            <div className="materials-board-layout materials-board-explorer">
+              <aside className="materials-board-sidebar" aria-label="게시판 폴더">
+                <div className="materials-board-folder-list">
+                  <div className={`materials-board-folder-row${!materialsBoardFolderFilter ? ' active' : ''}`}>
+                    <button
+                      type="button"
+                      className="materials-board-folder-item"
+                      onClick={() => setMaterialsBoardFolderFilter('')}
+                    >
+                      <span className="materials-board-folder-icon" aria-hidden="true">📁</span>
+                      <span className="materials-board-folder-label">전체</span>
+                      <span className="materials-board-folder-count">({materialsBoardPosts.length})</span>
+                    </button>
                   </div>
+                  {[...materialsBoardFolders]
+                    .sort((a, b) => compareMaterialsBoardName(a.name, b.name))
+                    .map((folder) => (
+                      <div
+                        key={folder.name}
+                        className={`materials-board-folder-row${
+                          materialsBoardFolderFilter === folder.name ? ' active' : ''
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          className="materials-board-folder-item"
+                          onClick={() => setMaterialsBoardFolderFilter(folder.name)}
+                        >
+                          <span className="materials-board-folder-icon" aria-hidden="true">📁</span>
+                          <span className="materials-board-folder-label">{folder.name}</span>
+                          <span className="materials-board-folder-count">({folder.count})</span>
+                        </button>
+                        {canEditMaterialsBoard ? (
+                          <span className="materials-board-folder-actions">
+                            <button
+                              type="button"
+                              className="materials-board-folder-action-btn"
+                              aria-label={`${folder.name} 폴더 이름 수정`}
+                              onClick={() => handleRenameMaterialsBoardFolder(folder.name)}
+                            >
+                              <Pencil size={15} strokeWidth={2} aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              className="materials-board-folder-action-btn materials-board-folder-action-btn--danger"
+                              aria-label={`${folder.name} 폴더 삭제`}
+                              onClick={() => handleDeleteMaterialsBoardFolder(folder.name)}
+                            >
+                              <Trash2 size={15} strokeWidth={2} aria-hidden="true" />
+                            </button>
+                          </span>
+                        ) : null}
+                      </div>
+                    ))}
                 </div>
-
-                {isDesktopTable ? (
-                <div className="materials-board-table-panel">
-                  <table className="contract-table excel-table registry-table materials-board-table">
-                    <thead>
-                      <tr>
-                        <th className="materials-board-th materials-board-th--no th-align-center">No</th>
-                        <th className="materials-board-th materials-board-th--title th-align-left">제목</th>
-                        <th className="materials-board-th materials-board-th--attach th-align-center">첨부</th>
-                        <th className="materials-board-th materials-board-th--downloads th-align-center">다운로드</th>
-                        <th className="materials-board-th materials-board-th--date th-align-center">등록일</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredMaterialsBoardPosts.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="materials-board-empty">
-                            {materialsBoardPosts.length === 0
-                              ? '등록된 글이 없습니다.'
-                              : '검색 결과가 없습니다.'}
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredMaterialsBoardPosts.map((row, index) => (
-                          <tr
-                            key={row.id}
-                            className="materials-board-row materials-board-row--clickable"
-                            onClick={(event) => {
-                              void handleDownloadMaterialsBoardFile(row, event)
-                            }}
-                          >
-                            <td className="materials-board-td materials-board-td--no">{index + 1}</td>
-                            <td className="materials-board-td materials-board-td--title materials-board-td--download">
-                              <div className="materials-board-title-cell">
-                                <span className="materials-board-title-text">{row.title}</span>
-                                <button
-                                  type="button"
-                                  className="materials-board-inline-download-btn"
-                                  disabled={materialsBoardDownloadingId === row.id}
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    void handleDownloadMaterialsBoardFile(row, event)
-                                  }}
-                                >
-                                  {materialsBoardDownloadingId === row.id ? '다운로드 중…' : '다운로드'}
-                                </button>
-                              </div>
-                            </td>
-                            <td className="materials-board-td materials-board-td--attach">
-                              {(() => {
-                                const attach = getMaterialsBoardAttachSummary(row)
-                                if (!attach) {
-                                  return (
-                                    <span className="materials-board-attach materials-board-attach--empty">
-                                      —
-                                    </span>
-                                  )
-                                }
-                                return (
-                                  <span
-                                    className="materials-board-attach"
-                                    title={attach.title}
-                                    aria-label={`첨부 ${attach.count}개: ${attach.title}`}
-                                  >
-                                    <span className="materials-board-attach-icon" aria-hidden>
-                                      📎
-                                    </span>
-                                    {attach.count > 1 ? (
-                                      <span className="materials-board-attach-count">{attach.count}</span>
-                                    ) : null}
-                                  </span>
-                                )
-                              })()}
-                            </td>
-                            <td className="materials-board-td materials-board-td--downloads">
-                              <span className="materials-board-download-count">
-                                {Number(row.downloadCount) || 0}
-                              </span>
-                            </td>
-                            <td className="materials-board-td materials-board-td--date">
-                              <div className="materials-board-date-cell">
-                                <span className="materials-board-date-text">{row.registeredAt}</span>
-                                {canEditMaterialsBoard && (
-                                  <div
-                                    className="materials-board-row-actions"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <button
-                                      type="button"
-                                      className="materials-board-row-btn"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleOpenMaterialsBoardEdit(row)
-                                      }}
-                                    >
-                                      수정
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="materials-board-row-btn materials-board-row-btn--danger"
-                                      onClick={(e) => handleDeleteMaterialsBoardPost(row, e)}
-                                    >
-                                      삭제
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                {canEditMaterialsBoard ? (
+                  <div className="materials-board-folder-add">
+                    <button type="button" className="materials-board-folder-add-btn" onClick={handleAddMaterialsBoardFolder}>
+                      <Plus size={16} aria-hidden="true" />
+                      <span>새 폴더</span>
+                    </button>
+                  </div>
+                ) : null}
+              </aside>
+              <div
+                className={`materials-board-main materials-board-dropzone${
+                  materialsBoardDragOver ? ' is-dragover' : ''
+                }`}
+                onDragEnter={handleMaterialsBoardDragEnter}
+                onDragOver={handleMaterialsBoardDragOver}
+                onDragLeave={handleMaterialsBoardDragLeave}
+                onDrop={handleMaterialsBoardDrop}
+              >
+                {filteredMaterialsBoardPosts.length === 0 ? (
+                  <p className="materials-board-drive-empty">
+                    {materialsBoardPosts.length === 0
+                      ? '파일이 없습니다. 파일을 끌어다 놓거나 업로드하세요.'
+                      : '검색 결과가 없습니다.'}
+                  </p>
                 ) : (
-                <MobileDataCardList
-                  rows={filteredMaterialsBoardPosts}
-                  getRowKey={(row) => row.id}
-                  getTitle={(row) => row.title}
-                  getBadge={(row) => {
-                    const attach = getMaterialsBoardAttachSummary(row)
-                    return attach ? { label: `첨부 ${attach.count}`, tone: 'blue' } : { label: '첨부 없음', tone: 'slate' }
-                  }}
-                  getDateText={(row) => row.registeredAt}
-                  summaryFields={[]}
-                  detailFields={[
-                    {
-                      label: '다운로드',
-                      getValue: (row) => String(Number(row.downloadCount) || 0),
-                    },
-                    {
-                      label: '첨부파일',
-                      getValue: (row) => getMaterialsBoardAttachSummary(row)?.title || '',
-                    },
-                  ]}
-                  emptyText={
-                    materialsBoardPosts.length === 0 ? '등록된 글이 없습니다.' : '검색 결과가 없습니다.'
-                  }
-                  onCardClick={(row) => {
-                    void handleDownloadMaterialsBoardFile(row)
-                  }}
-                />
+                  <div className="materials-board-drive-list" role="list">
+                    {filteredMaterialsBoardPosts.map((row) => {
+                      const fileLabel = getMaterialsBoardFileLabel(row)
+                      const fileKind = getMaterialsBoardFileKind(fileLabel)
+                      const CardIcon = MATERIALS_BOARD_FILE_ICONS[fileKind] || FileIcon
+                      return (
+                        <article key={row.id} className="materials-board-file-row" role="listitem" title={fileLabel}>
+                          <CardIcon className={`materials-board-file-icon is-${fileKind}`} aria-hidden="true" />
+                          <p className="materials-board-file-name">{fileLabel}</p>
+                          <p className="materials-board-file-date">{row.registeredAt}</p>
+                          <div className="materials-board-file-row-actions">
+                            <button
+                              type="button"
+                              className="materials-board-file-card-action"
+                              aria-label={`${fileLabel} 다운로드`}
+                              disabled={materialsBoardDownloadingId === row.id}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                void handleDownloadMaterialsBoardFile(row, event)
+                              }}
+                            >
+                              <Download size={16} aria-hidden="true" />
+                            </button>
+                            {canEditMaterialsBoard ? (
+                              <button
+                                type="button"
+                                className="materials-board-file-card-action materials-board-file-card-action--danger"
+                                aria-label={`${fileLabel} 삭제`}
+                                onClick={(event) => handleDeleteMaterialsBoardPost(row, event)}
+                              >
+                                <Trash2 size={16} aria-hidden="true" />
+                              </button>
+                            ) : null}
+                          </div>
+                        </article>
+                      )
+                    })}
+                  </div>
                 )}
+                {materialsBoardDragOver ? (
+                  <div className="materials-board-drop-overlay">파일을 놓으면 업로드됩니다</div>
+                ) : null}
               </div>
             </div>
           </section>
@@ -19846,37 +19686,41 @@ function App() {
                     {installCaseDetailModal.shareVisibility === 'internal' ? (
                       <button
                         type="button"
-                        className="secondary-btn"
+                        className="modal-close-btn"
+                        aria-label="숨김 취소"
                         onClick={(event) => changeInstallCaseVisibility(installCaseDetailModal, event, 'external')}
                       >
-                        숨김 취소
+                        <Eye className="w-4 h-4" aria-hidden="true" />
                       </button>
                     ) : (
                       <button
                         type="button"
-                        className="secondary-btn"
+                        className="modal-close-btn"
+                        aria-label="숨김"
                         onClick={(event) => changeInstallCaseVisibility(installCaseDetailModal, event, 'internal')}
                       >
-                        숨김
+                        <EyeOff className="w-4 h-4" aria-hidden="true" />
                       </button>
                     )}
                     <button
                       type="button"
-                      className="secondary-btn install-case-modal-edit-btn"
+                      className="modal-close-btn"
+                      aria-label="수정"
                       onClick={() => {
                         const row = installCaseDetailModal
                         setInstallCaseDetailModal(null)
                         handleOpenInstallCaseEdit(row)
                       }}
                     >
-                      수정
+                      <Edit className="w-4 h-4" aria-hidden="true" />
                     </button>
                     <button
                       type="button"
-                      className="secondary-btn install-case-modal-delete-btn"
+                      className="modal-close-btn"
+                      aria-label="삭제"
                       onClick={() => deleteInstallCaseById(installCaseDetailModal.id)}
                     >
-                      삭제
+                      <Trash2 className="w-4 h-4 text-red-500" aria-hidden="true" />
                     </button>
                   </>
                 )}
@@ -19886,7 +19730,7 @@ function App() {
                   onClick={() => setInstallCaseDetailModal(null)}
                   aria-label="닫기"
                 >
-                  ✕
+                  <X size={16} strokeWidth={2.25} aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -20011,7 +19855,7 @@ function App() {
                 aria-label="닫기"
                 disabled={registryLongTextModal.saving}
               >
-                ✕
+                <X size={16} strokeWidth={2.25} aria-hidden="true" />
               </button>
             </div>
             <div className="sales-record-modal-body">
@@ -20078,7 +19922,7 @@ function App() {
                 aria-label="닫기"
                 disabled={discoveryRecordModal.saving}
               >
-                ✕
+                <X size={16} strokeWidth={2.25} aria-hidden="true" />
               </button>
             </div>
             <div className="sales-record-modal-body">
@@ -20193,7 +20037,7 @@ function App() {
                 aria-label="닫기"
                 disabled={salesRecordModal.saving}
               >
-                ✕
+                <X size={16} strokeWidth={2.25} aria-hidden="true" />
               </button>
             </div>
             <div className="sales-record-modal-body">
@@ -20318,7 +20162,7 @@ function App() {
                 aria-label="닫기"
                 disabled={excludedAttachmentsModal.saving}
               >
-                ✕
+                <X size={16} strokeWidth={2.25} aria-hidden="true" />
               </button>
             </div>
             <div className="sales-record-modal-body">
@@ -20405,7 +20249,7 @@ function App() {
                 }}
                 aria-label="닫기"
               >
-                ✕
+                <X size={16} strokeWidth={2.25} aria-hidden="true" />
               </button>
             </div>
             <div className="install-case-form-modal-body">
@@ -20532,14 +20376,16 @@ function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="install-case-form-modal-header">
-              <h3 id="materials-board-form-title">{PAGE_TITLE_MAP.materialsBoard}</h3>
+              <h3 id="materials-board-form-title">
+                {materialsBoardFormDraft.parentId && !materialsBoardEditingId ? '답글 등록' : PAGE_TITLE_MAP.materialsBoard}
+              </h3>
               <button
                 type="button"
                 className="modal-close-btn"
                 onClick={handleCloseMaterialsBoardRegister}
                 aria-label="닫기"
               >
-                ✕
+                <X size={16} strokeWidth={2.25} aria-hidden="true" />
               </button>
             </div>
             <div className="install-case-form-modal-body materials-board-register-modal-body">
@@ -20561,7 +20407,7 @@ function App() {
                     <option value={materialsBoardFormDraft.folder}>{materialsBoardFormDraft.folder}</option>
                   ) : null}
                   {[...materialsBoardFolders]
-                    .sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'))
+                    .sort((a, b) => compareMaterialsBoardName(a.name, b.name))
                     .map((folder) => (
                     <option key={folder.name} value={folder.name}>
                       📁 {folder.name}
@@ -20661,7 +20507,7 @@ function App() {
                 disabled={installCaseSubmitting}
                 aria-label="닫기"
               >
-                ✕
+                <X size={16} strokeWidth={2.25} aria-hidden="true" />
               </button>
             </div>
             <div className="install-case-form-modal-body">
@@ -20795,6 +20641,13 @@ function App() {
         />
       ) : null}
 
+      <DeleteConfirmModal
+        open={materialsBoardDeleteOpen}
+        confirmBusy={materialsBoardDeleteBusy}
+        onCancel={cancelMaterialsBoardDelete}
+        onConfirm={() => void handleConfirmMaterialsBoardDelete()}
+      />
+
       {contractConfirmDialog && !isDeleteConfirmDialog(contractConfirmDialog) &&
         (() => {
           const d = contractConfirmDialog
@@ -20901,21 +20754,23 @@ function App() {
                       <>
                         <button
                           type="button"
-                          className="secondary-btn install-case-modal-delete-btn"
+                          className="modal-close-btn"
+                          aria-label="삭제"
                           onClick={() => {
                             deleteManualEvent(detailModal.manualEventId, {
                               onDeleted: () => closeCalendarDetailModal(),
                             })
                           }}
                         >
-                          삭제
+                          <Trash2 className="w-4 h-4 text-red-500" aria-hidden="true" />
                         </button>
                         <button
                           type="button"
-                          className="secondary-btn install-case-modal-edit-btn"
+                          className="modal-close-btn"
+                          aria-label="수정"
                           onClick={beginCalendarManualDetailInlineEdit}
                         >
-                          수정
+                          <Edit className="w-4 h-4" aria-hidden="true" />
                         </button>
                       </>
                     ) : (
@@ -20944,7 +20799,7 @@ function App() {
                   onClick={closeCalendarDetailModal}
                   aria-label="닫기"
                 >
-                  ✕
+                  <X size={16} strokeWidth={2.25} aria-hidden="true" />
                 </button>
               </div>
             </div>

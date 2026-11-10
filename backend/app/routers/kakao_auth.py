@@ -64,7 +64,7 @@ def _disabled_payload():
 
 
 def _require_link_admin(request: Request) -> None:
-    """로그인 아이디 hy9039! 는 토큰의 account_id 가 hy9039 다. 역할 값만으로는 구분하지 않는다."""
+    """로그인 아이디 hy9039! 는 토큰의 account_id 가 hy9039 다. 역할 값만으로는 구분하지 않는다. 카카오 연동 승인은 정화영만."""
     account_id = str(getattr(request.state, "auth_account_id", "") or "").strip().lower().rstrip("!")
     display_name = "".join(str(getattr(request.state, "auth_display_name", "") or "").split())
     if account_id == "hy9039" or display_name == "정화영":
