@@ -51,7 +51,7 @@ MAX_HERO_MEDIA_COUNT = 10
 
 RETURNING_COLUMNS = """
   id, "projectName", "heroImage", "heroImages", environment, "middleCategory", audience,
-  "shareVisibility", year, purpose, client, specs, "createdAt", "updatedAt"
+  "shareVisibility", year, purpose, client, "contractAmount", specs, "createdAt", "updatedAt"
 """
 
 

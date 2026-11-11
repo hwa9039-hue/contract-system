@@ -1004,6 +1004,11 @@ class InstallCaseSpecs(BaseModel):
     ledPitch3: str = ""
     moduleSize: str = ""
     moduleSize2: str = ""
+    moduleSize3: str = ""
+    # 규격 세트별 모듈 사이즈 여러 개 (세트 1: moduleSizes, 세트 2·3: moduleSizes2·3)
+    moduleSizes: list[str] = Field(default_factory=list)
+    moduleSizes2: list[str] = Field(default_factory=list)
+    moduleSizes3: list[str] = Field(default_factory=list)
     moduleQty: str = ""
     moduleQty2: str = ""
     resolution: str = ""
@@ -1023,6 +1028,7 @@ class InstallCaseBase(BaseModel):
     year: Optional[Any] = ""
     purpose: Optional[Any] = ""
     client: Optional[Any] = ""
+    contractAmount: Optional[Any] = ""  # 계약금액(원) 숫자 문자열
     specs: Optional[Any] = None
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
@@ -1044,6 +1050,7 @@ class InstallCasePatch(BaseModel):
     year: Optional[Any] = None
     purpose: Optional[Any] = None
     client: Optional[Any] = None
+    contractAmount: Optional[Any] = None
     specs: Optional[Any] = None
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
@@ -1345,6 +1352,13 @@ def row_to_calendar_manual_event(row) -> dict:
     }
 
 
+def _normalize_install_case_text_list(raw) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    items = [str(to_response_value(item) or "").strip() for item in raw]
+    return [item for item in items if item and item != "-"]
+
+
 def _normalize_install_case_specs(raw) -> dict:
     if raw is None:
         return {}
@@ -1358,6 +1372,10 @@ def _normalize_install_case_specs(raw) -> dict:
             "ledPitch3": to_response_value(raw.get("ledPitch3")) or "",
             "moduleSize": to_response_value(raw.get("moduleSize")) or "",
             "moduleSize2": to_response_value(raw.get("moduleSize2")) or "",
+            "moduleSize3": to_response_value(raw.get("moduleSize3")) or "",
+            "moduleSizes": _normalize_install_case_text_list(raw.get("moduleSizes")),
+            "moduleSizes2": _normalize_install_case_text_list(raw.get("moduleSizes2")),
+            "moduleSizes3": _normalize_install_case_text_list(raw.get("moduleSizes3")),
             "moduleQty": to_response_value(raw.get("moduleQty")) or "",
             "moduleQty2": to_response_value(raw.get("moduleQty2")) or "",
             "resolution": to_response_value(raw.get("resolution")) or "",
@@ -1415,6 +1433,7 @@ def row_to_install_case(row) -> dict:
         "year": to_response_value(row["year"]),
         "purpose": to_response_value(row["purpose"]),
         "client": to_response_value(row["client"]),
+        "contractAmount": to_response_value(row.get("contractAmount")) or "",
         "specs": _normalize_install_case_specs(row.get("specs")),
         "createdAt": to_response_value(row["createdAt"]),
         "updatedAt": to_response_value(row["updatedAt"]),
@@ -1661,6 +1680,7 @@ TABLE_COLUMN_MAPPINGS = {
         "year": "year",
         "purpose": "purpose",
         "client": "client",
+        "contractAmount": "contractAmount",
         "specs": "specs",
         "createdAt": "createdAt",
         "updatedAt": "updatedAt",
@@ -2259,6 +2279,8 @@ def install_case_to_db_values(row: InstallCaseBase) -> dict:
     if "shareVisibility" in values:
         text = str(values["shareVisibility"] or "").strip().lower()
         values["shareVisibility"] = "internal" if text in {"internal", "내부", "내부용"} else "external"
+    if "contractAmount" in values:
+        values["contractAmount"] = "".join(ch for ch in str(values["contractAmount"] or "") if ch.isdigit())
     return values
 
 

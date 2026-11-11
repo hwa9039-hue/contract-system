@@ -70,6 +70,12 @@ import {
   normalizeContactsManageColumnFilterSelection,
 } from './contactsManageColumnFilter.js'
 import * as XLSX from 'xlsx'
+import {
+  MODULE_SIZES_BASE as INSTALL_CASE_MODULE_SIZES_BASE,
+  formatContractAmount as formatInstallCaseContractAmount,
+  formatModuleSizes as formatInstallCaseModuleSizes,
+  readModuleSizes as readInstallCaseModuleSizes,
+} from './publicShare/installCaseView.js'
 import { buildStyledExcelFilename, downloadStyledExcel } from './styledExcelDownload.js'
 import './App.css'
 import { contractsApi } from './contractsApi'
@@ -2500,7 +2506,34 @@ const INSTALL_CASE_REGISTER_BASIC_ROWS = [
     required: true,
     placeholder: '예: 00시(계약서 명칭과 동일하게 작성 필요)',
   },
+  { type: 'amount', key: 'contractAmount', label: '계약금액', unit: '원', placeholder: '숫자만 입력' },
 ]
+
+/** 계약금액 입력값 → 저장용 숫자 문자열 (앞자리 0 제거) */
+function parseInstallCaseAmountDigits(raw) {
+  return safeString(raw).replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 15)
+}
+
+/** 계약금액 입력칸 표시: 125000000 → 125,000,000 */
+function formatInstallCaseAmountInput(digits) {
+  return parseInstallCaseAmountDigits(digits).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
+/** 규격 세트 한 벌에 넣을 수 있는 모듈 사이즈 최대 개수 */
+const INSTALL_CASE_MAX_MODULE_SIZES = 10
+
+function getEmptyInstallCaseModuleSize() {
+  return { w: '', h: '' }
+}
+
+/** 저장된 모듈 사이즈 문자열 → 폼 W/H. `(W)320 x (H)160mm`·`320x160` 모두 받는다. */
+function parseInstallCaseModuleSizeToWH(raw) {
+  const pair = parseWhMmNumbers(raw)
+  if (pair) return { w: String(pair.w), h: String(pair.h) }
+  const m = safeString(raw).match(/([\d,]+\.?\d*)\s*[x×*]\s*([\d,]+\.?\d*)/i)
+  if (m) return { w: m[1].replace(/,/g, ''), h: m[2].replace(/,/g, '') }
+  return getEmptyInstallCaseModuleSize()
+}
 
 const CONTRACT_FIELD_PLACEHOLDERS = {}
 
@@ -2530,15 +2563,22 @@ function getEmptyInstallCaseSpecSet() {
     resolutionW: '',
     resolutionH: '',
     ledPitch: '',
+    moduleSizes: [getEmptyInstallCaseModuleSize()],
   }
 }
 
 function hasInstallCaseSpecSetValue(set) {
   if (!set) return false
-  return INSTALL_CASE_SPEC_SET_FIELDS.some(({ base, type }) =>
-    type === 'wh'
-      ? Boolean(safeString(set[`${base}W`]).trim() || safeString(set[`${base}H`]).trim())
-      : Boolean(safeString(set[base]).trim())
+  const hasModuleSize = (Array.isArray(set.moduleSizes) ? set.moduleSizes : []).some(
+    (size) => safeString(size?.w).trim() || safeString(size?.h).trim()
+  )
+  return (
+    hasModuleSize ||
+    INSTALL_CASE_SPEC_SET_FIELDS.some(({ base, type }) =>
+      type === 'wh'
+        ? Boolean(safeString(set[`${base}W`]).trim() || safeString(set[`${base}H`]).trim())
+        : Boolean(safeString(set[base]).trim())
+    )
   )
 }
 
@@ -2564,6 +2604,8 @@ function normalizeInstallCaseSpecs(rawSpecs) {
       // 세트 1은 빈 값을 '-' 로 채워 기존 상세 표시 형식을 유지한다.
       normalized[key] = value || (setIndex === 0 ? '-' : '')
     }
+    normalized[installCaseSpecKey(INSTALL_CASE_MODULE_SIZES_BASE, setIndex)] =
+      readInstallCaseModuleSizes(specs, setIndex)
   }
   return normalized
 }
@@ -2572,10 +2614,12 @@ function normalizeInstallCaseSpecs(rawSpecs) {
 function getInstallCaseFilledSpecSetIndexes(specs) {
   const indexes = []
   for (let setIndex = 0; setIndex < INSTALL_CASE_MAX_SPEC_SETS; setIndex += 1) {
-    const hasValue = INSTALL_CASE_SPEC_SET_FIELDS.some(({ base }) => {
-      const value = safeString(specs?.[installCaseSpecKey(base, setIndex)]).trim()
-      return value && value !== '-'
-    })
+    const hasValue =
+      readInstallCaseModuleSizes(specs, setIndex).length > 0 ||
+      INSTALL_CASE_SPEC_SET_FIELDS.some(({ base }) => {
+        const value = safeString(specs?.[installCaseSpecKey(base, setIndex)]).trim()
+        return value && value !== '-'
+      })
     if (setIndex === 0 || hasValue) indexes.push(setIndex)
   }
   return indexes
@@ -2588,12 +2632,14 @@ function installCaseSpecsToFormDraft(rawSpecs) {
   for (let setIndex = 0; setIndex < INSTALL_CASE_MAX_SPEC_SETS; setIndex += 1) {
     const area = parseWhMmNumbers(specs[installCaseSpecKey('displayArea', setIndex)])
     const resolution = parseResolutionStoredToWH(specs[installCaseSpecKey('resolution', setIndex)])
+    const moduleSizes = readInstallCaseModuleSizes(specs, setIndex).map(parseInstallCaseModuleSizeToWH)
     sets.push({
       displayAreaW: area ? String(area.w) : '',
       displayAreaH: area ? String(area.h) : '',
       resolutionW: resolution.w,
       resolutionH: resolution.h,
       ledPitch: installCaseLedPitchToFormValue(specs[installCaseSpecKey('ledPitch', setIndex)]),
+      moduleSizes: moduleSizes.length ? moduleSizes : [getEmptyInstallCaseModuleSize()],
     })
   }
 
@@ -2629,6 +2675,12 @@ function buildInstallCaseSpecsPayload(formSpecs = {}) {
     for (const { base } of INSTALL_CASE_SPEC_SET_FIELDS) {
       payload[installCaseSpecKey(base, setIndex)] = values[base] || (setIndex === 0 ? '-' : '')
     }
+    const moduleSizes = (Array.isArray(set.moduleSizes) ? set.moduleSizes : [])
+      .map((size) => formatInstallCaseWhMmFromWH(size?.w, size?.h))
+      .filter(Boolean)
+    payload[installCaseSpecKey(INSTALL_CASE_MODULE_SIZES_BASE, setIndex)] = moduleSizes
+    // 엑셀 백업 등 단일 문자열만 읽는 곳을 위해 예전 키도 함께 채운다.
+    payload[installCaseSpecKey('moduleSize', setIndex)] = moduleSizes.join(', ')
   }
   return payload
 }
@@ -2666,6 +2718,7 @@ function normalizeInstallCaseRow(row) {
     year: safeString(row?.year).trim() || '-',
     purpose: safeString(row?.purpose).trim() || '-',
     client: safeString(row?.client).trim() || '-',
+    contractAmount: parseInstallCaseAmountDigits(row?.contractAmount),
     specs,
     // 레거시 폴백 URL 캐시 버스팅에 쓰인다
     updatedAt: safeString(row?.updatedAt).trim(),
@@ -2724,6 +2777,10 @@ function getInstallCaseSearchTokens(row) {
       values.push(raw)
       values.push(formatInstallCaseSpecValueDisplay(base, raw))
     }
+    values.push(
+      ...readInstallCaseModuleSizes(specs, setIndex),
+      ...formatInstallCaseModuleSizes(specs, setIndex)
+    )
   }
 
   return values
@@ -2732,11 +2789,15 @@ function getInstallCaseSearchTokens(row) {
     .filter(Boolean)
 }
 
-/** 설치사례 통합 검색 — 위 항목 중 하나라도 포함하면 노출 (대소문자·공백 무시) */
+/**
+ * 설치사례 통합 검색 — 위 항목 중 하나라도 포함하면 노출 (대소문자·공백 무시).
+ * 쉼표로 나눈 검색어 중 하나라도 맞으면 포함 (OR).
+ */
 function installCaseMatchesSearch(row, keyword) {
-  const normalizedKeyword = toInstallCaseSearchToken(keyword)
-  if (!normalizedKeyword) return true
-  return getInstallCaseSearchTokens(row).some((token) => token.includes(normalizedKeyword))
+  const keywords = safeString(keyword).split(',').map(toInstallCaseSearchToken).filter(Boolean)
+  if (!keywords.length) return true
+  const tokens = getInstallCaseSearchTokens(row)
+  return keywords.some((term) => tokens.some((token) => token.includes(term)))
 }
 
 function getInstallCaseEnvironmentLabel(env) {
@@ -3237,8 +3298,15 @@ function InstallCaseSpecSetGroup({
   canRemove,
   onWhChange,
   onLedPitchChange,
+  onModuleSizeChange,
+  onAddModuleSize,
+  onRemoveModuleSize,
   onRemove,
 }) {
+  const moduleSizes =
+    Array.isArray(set.moduleSizes) && set.moduleSizes.length
+      ? set.moduleSizes
+      : [getEmptyInstallCaseModuleSize()]
   return (
     <div className="install-case-spec-set">
       <div className="install-case-spec-set-head">
@@ -3294,6 +3362,66 @@ function InstallCaseSpecSetGroup({
         }
         return null
       })}
+      <div className="install-case-form-stack-field">
+        <label className="install-case-form-label">모듈 사이즈 (W x H)</label>
+        <div className="install-case-module-size-list">
+          {moduleSizes.map((size, sizeIndex) => (
+            <div key={`module-size-${sizeIndex}`} className="install-case-module-size-row">
+              <div className="install-case-form-wh-pair">
+                <input
+                  className="table-search-input install-case-form-input"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  autoComplete="off"
+                  placeholder="가로 (W)"
+                  value={size?.w ?? ''}
+                  onChange={onModuleSizeChange(setIndex, sizeIndex, 'w')}
+                />
+                <input
+                  className="table-search-input install-case-form-input"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  autoComplete="off"
+                  placeholder="세로 (H)"
+                  value={size?.h ?? ''}
+                  onChange={onModuleSizeChange(setIndex, sizeIndex, 'h')}
+                />
+              </div>
+              {moduleSizes.length > 1 ? (
+                <button
+                  type="button"
+                  className="install-case-spec-set-remove"
+                  onClick={() => onRemoveModuleSize(setIndex, sizeIndex)}
+                  aria-label={`모듈 사이즈 ${sizeIndex + 1} 삭제`}
+                  title="이 모듈 사이즈 삭제"
+                >
+                  <X size={14} strokeWidth={2.25} aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+        {(() => {
+          const preview = moduleSizes
+            .map((size) => formatInstallCaseWhMmFromWH(size?.w, size?.h))
+            .filter(Boolean)
+            .join(', ')
+          return preview ? <div className="install-case-form-digit-preview">{preview}</div> : null
+        })()}
+        {moduleSizes.length < INSTALL_CASE_MAX_MODULE_SIZES ? (
+          <button
+            type="button"
+            className="install-case-module-size-add"
+            onClick={() => onAddModuleSize(setIndex)}
+          >
+            + 추가
+          </button>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -3305,6 +3433,9 @@ function InstallCaseFormTwoColumn({
   setIcMediaItems,
   onSpecSetWhChange,
   onSpecSetLedPitchChange,
+  onSpecSetModuleSizeChange,
+  onAddSpecSetModuleSize,
+  onRemoveSpecSetModuleSize,
   onAddSpecSet,
   onRemoveSpecSet,
   onInstallTypeChange,
@@ -3380,6 +3511,30 @@ function InstallCaseFormTwoColumn({
               </div>
             )
           }
+          if (def.type === 'amount') {
+            return (
+              <div key={def.key} className="install-case-form-stack-field">
+                <label className="install-case-form-label">{def.label}</label>
+                <div className="install-case-form-unit-input">
+                  <input
+                    className="table-search-input install-case-form-input"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={formatInstallCaseAmountInput(formDraft[def.key])}
+                    onChange={(e) => {
+                      const v = parseInstallCaseAmountDigits(e.target.value)
+                      setFormDraft((prev) => ({ ...prev, [def.key]: v }))
+                    }}
+                    placeholder={def.placeholder}
+                  />
+                  <span className="install-case-form-unit" aria-hidden="true">
+                    {def.unit}
+                  </span>
+                </div>
+              </div>
+            )
+          }
           return null
         })}
       </InstallCaseFormSection>
@@ -3393,6 +3548,9 @@ function InstallCaseFormTwoColumn({
             canRemove={setIndex > 0}
             onWhChange={onSpecSetWhChange}
             onLedPitchChange={onSpecSetLedPitchChange}
+            onModuleSizeChange={onSpecSetModuleSizeChange}
+            onAddModuleSize={onAddSpecSetModuleSize}
+            onRemoveModuleSize={onRemoveSpecSetModuleSize}
             onRemove={onRemoveSpecSet}
           />
         ))}
@@ -3438,6 +3596,7 @@ function getDefaultInstallCaseForm() {
     businessYearDigits: '',
     purpose: '',
     client: '',
+    contractAmount: '',
     specs: {
       sets: [getEmptyInstallCaseSpecSet()],
       installType: '',
@@ -3467,6 +3626,7 @@ function hasMeaningfulInstallCaseFormContent(form, mediaItems = []) {
   if (safeString(form.projectName).trim()) return true
   if (safeString(form.purpose).trim()) return true
   if (safeString(form.client).trim()) return true
+  if (safeString(form.contractAmount).trim()) return true
   const specs = form.specs || {}
   if (safeString(specs.installType).trim()) return true
   if (Array.isArray(specs.sets) && specs.sets.some(hasInstallCaseSpecSetValue)) return true
@@ -7840,6 +8000,7 @@ function App() {
         businessYearDigits: parseYearToFormDigits(row.year),
         purpose: safeString(row.purpose).trim(),
         client: safeString(row.client).trim(),
+        contractAmount: parseInstallCaseAmountDigits(row.contractAmount),
         specs: installCaseSpecsToFormDraft(row.specs),
       })
       setIcMediaItems(buildInstallCaseMediaItemsFromRow(row))
@@ -8286,6 +8447,53 @@ function App() {
     [updateInstallCaseSpecSet]
   )
 
+  /** 세트 안 모듈 사이즈 배열만 갈아끼운다. */
+  const updateInstallCaseModuleSizes = useCallback((setIndex, updater) => {
+    setInstallCaseFormDraft((prev) => {
+      const sets = Array.isArray(prev.specs?.sets) ? prev.specs.sets : []
+      if (!sets[setIndex]) return prev
+      const nextSets = sets.map((set, index) => {
+        if (index !== setIndex) return set
+        const current =
+          Array.isArray(set.moduleSizes) && set.moduleSizes.length
+            ? set.moduleSizes
+            : [getEmptyInstallCaseModuleSize()]
+        return { ...set, moduleSizes: updater(current) }
+      })
+      return { ...prev, specs: { ...prev.specs, sets: nextSets } }
+    })
+  }, [])
+
+  const handleInstallCaseModuleSizeChange = useCallback(
+    (setIndex, sizeIndex, axis) => (e) => {
+      const value = sanitizeInstallCaseDecimalInput(e.target.value, 2)
+      updateInstallCaseModuleSizes(setIndex, (sizes) =>
+        sizes.map((size, index) => (index === sizeIndex ? { ...size, [axis]: value } : size))
+      )
+    },
+    [updateInstallCaseModuleSizes]
+  )
+
+  const handleAddInstallCaseModuleSize = useCallback(
+    (setIndex) => {
+      updateInstallCaseModuleSizes(setIndex, (sizes) =>
+        sizes.length >= INSTALL_CASE_MAX_MODULE_SIZES
+          ? sizes
+          : [...sizes, getEmptyInstallCaseModuleSize()]
+      )
+    },
+    [updateInstallCaseModuleSizes]
+  )
+
+  const handleRemoveInstallCaseModuleSize = useCallback(
+    (setIndex, sizeIndex) => {
+      updateInstallCaseModuleSizes(setIndex, (sizes) =>
+        sizes.length <= 1 ? sizes : sizes.filter((_, index) => index !== sizeIndex)
+      )
+    },
+    [updateInstallCaseModuleSizes]
+  )
+
   const handleAddInstallCaseSpecSet = useCallback(() => {
     setInstallCaseFormDraft((prev) => {
       const sets = Array.isArray(prev.specs?.sets) ? prev.specs.sets : []
@@ -8355,6 +8563,7 @@ function App() {
       year: businessYearDigitsToStored(d.businessYearDigits),
       purpose: safeString(d.purpose).trim() || '-',
       client: safeString(d.client).trim() || '-',
+      contractAmount: parseInstallCaseAmountDigits(d.contractAmount),
       specs: buildInstallCaseSpecsPayload(d.specs),
     }
 
@@ -19189,11 +19398,11 @@ function App() {
               </div>
               <input
                 className="table-search-input install-cases-search-input"
-                placeholder="검색어를 입력하세요."
+                placeholder="검색어를 입력하세요. (쉼표로 여러 개)"
                 value={installCaseSearch}
                 onChange={(e) => setInstallCaseSearch(e.target.value)}
                 aria-label="설치사례 검색"
-                title="사업명·사업년도·대분류·중분류·소분류·용도·발주처·표출부 사이즈·해상도·LED Pitch·설치유형 통합 검색"
+                title="사업명·사업년도·대분류·중분류·소분류·용도·발주처·표출부 사이즈·해상도·LED Pitch·설치유형 통합 검색 — 쉼표(,)로 여러 검색어를 입력하면 하나라도 맞는 사례를 보여 줍니다."
               />
               <button
                 className="secondary-btn install-cases-share-btn"
@@ -19790,6 +19999,10 @@ function App() {
                         <dt>발주처</dt>
                         <dd>{installCaseDetailModal.client ?? '-'}</dd>
                       </div>
+                      <div className="install-case-meta-row">
+                        <dt>계약금액</dt>
+                        <dd>{formatInstallCaseContractAmount(installCaseDetailModal.contractAmount)}</dd>
+                      </div>
                     </dl>
                   </div>
                   <div className="install-case-detail-specs-col">
@@ -19805,6 +20018,14 @@ function App() {
                               specs[installCaseSpecKey(base, setIndex)]
                             ),
                           })).filter(({ text }) => setIndex === 0 || text !== '-')
+                          const moduleSizes = formatInstallCaseModuleSizes(specs, setIndex)
+                          if (moduleSizes.length) {
+                            rows.push({
+                              base: INSTALL_CASE_MODULE_SIZES_BASE,
+                              label: installCaseSpecSetLabel('모듈 사이즈', setIndex),
+                              text: moduleSizes.join('\n'),
+                            })
+                          }
                           return rows.map(({ base, label, text }, rowIndex) => (
                             <div
                               className={`install-case-meta-row${
@@ -20532,6 +20753,9 @@ function App() {
                 icMediaItems={icMediaItems}
                 setIcMediaItems={setIcMediaItems}
                 onSpecSetWhChange={handleInstallCaseSpecSetWhChange}
+                onSpecSetModuleSizeChange={handleInstallCaseModuleSizeChange}
+                onAddSpecSetModuleSize={handleAddInstallCaseModuleSize}
+                onRemoveSpecSetModuleSize={handleRemoveInstallCaseModuleSize}
                 onSpecSetLedPitchChange={handleInstallCaseSpecSetLedPitchChange}
                 onAddSpecSet={handleAddInstallCaseSpecSet}
                 onRemoveSpecSet={handleRemoveInstallCaseSpecSet}

@@ -287,6 +287,19 @@ def _join_install_case_dual_spec(primary, secondary) -> str:
     return " / ".join(parts) if parts else ""
 
 
+def _join_install_case_module_sizes(specs: dict) -> str:
+    """세트별 모듈 사이즈 목록을 ', ' 로, 세트끼리는 ' / ' 로 잇는다. 목록이 없으면 예전 단일 값."""
+    groups = []
+    for suffix in ("", "2", "3"):
+        sizes = specs.get(f"moduleSizes{suffix}") or []
+        if not sizes:
+            legacy = _normalize_cell(specs.get(f"moduleSize{suffix}"))
+            sizes = [legacy] if legacy and legacy != "-" else []
+        if sizes:
+            groups.append(", ".join(sizes))
+    return " / ".join(groups)
+
+
 def _project_install_case(row: dict) -> dict[str, Any]:
     item = row_to_install_case(row)
     specs = item.get("specs") if isinstance(item.get("specs"), dict) else {}
@@ -298,13 +311,14 @@ def _project_install_case(row: dict) -> dict[str, Any]:
         "소분류": _normalize_cell(item.get("audience")),
         "용도": _normalize_cell(item.get("purpose")),
         "발주처": _normalize_cell(item.get("client")),
+        "계약금액": _normalize_cell(item.get("contractAmount")),
         "표출부 사이즈": _join_install_case_dual_spec(
             specs.get("displayArea"), specs.get("displayArea2")
         ),
         "LED Pitch": _join_install_case_dual_spec(
             specs.get("ledPitch"), specs.get("ledPitch2")
         ),
-        "MODULE 크기": _normalize_cell(specs.get("moduleSize")),
+        "MODULE 크기": _join_install_case_module_sizes(specs),
         "MODULE 수량": _normalize_cell(specs.get("moduleQty")),
         "해상도": _normalize_cell(specs.get("resolution")),
         "설치유형": _normalize_cell(specs.get("installType")),

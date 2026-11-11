@@ -133,8 +133,37 @@ function normalizeSpecs(rawSpecs) {
       const value = safeString(specs[key]).trim()
       normalized[key] = value || (setIndex === 0 ? '-' : '')
     }
+    normalized[specKey(MODULE_SIZES_BASE, setIndex)] = readModuleSizes(specs, setIndex)
   }
   return normalized
+}
+
+export const MODULE_SIZES_BASE = 'moduleSizes'
+
+/**
+ * 규격 세트의 모듈 사이즈 목록 (저장 문자열 그대로).
+ * 배열 키(moduleSizes·moduleSizes2·3)가 비었으면 예전 단일 값(moduleSize·2·3)을 1개짜리로 쓴다.
+ */
+export function readModuleSizes(specs, setIndex) {
+  const list = specs?.[specKey(MODULE_SIZES_BASE, setIndex)]
+  const sizes = (Array.isArray(list) ? list : [])
+    .map((item) => safeString(item).trim())
+    .filter((item) => item && item !== '-')
+  if (sizes.length) return sizes
+  const legacy = safeString(specs?.[specKey('moduleSize', setIndex)]).trim()
+  return legacy && legacy !== '-' ? [legacy] : []
+}
+
+/** 모듈 사이즈 목록 → 표시용 문자열 배열 ((W)… x (H)…mm) */
+export function formatModuleSizes(specs, setIndex) {
+  return readModuleSizes(specs, setIndex).map((raw) => formatSpecValue('displayArea', raw))
+}
+
+/** 계약금액 숫자 문자열 → `125,000,000원` (값이 없으면 '-') */
+export function formatContractAmount(raw) {
+  const digits = safeString(raw).replace(/\D/g, '').replace(/^0+(?=\d)/, '')
+  if (!digits) return '-'
+  return `${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}원`
 }
 
 function isDummyHeroUrl(url) {
@@ -315,20 +344,29 @@ export function formatCardSubline(row) {
 export function buildSpecRows(specs) {
   const rows = []
   for (let setIndex = 0; setIndex < MAX_SPEC_SETS; setIndex += 1) {
-    const hasValue = SPEC_SET_FIELDS.some(({ base }) => {
-      const value = safeString(specs?.[specKey(base, setIndex)]).trim()
-      return value && value !== '-'
-    })
+    const moduleSizes = formatModuleSizes(specs, setIndex)
+    const hasValue =
+      moduleSizes.length > 0 ||
+      SPEC_SET_FIELDS.some(({ base }) => {
+        const value = safeString(specs?.[specKey(base, setIndex)]).trim()
+        return value && value !== '-'
+      })
     if (setIndex > 0 && !hasValue) continue
-    SPEC_SET_FIELDS.forEach(({ base, label }, rowIndex) => {
+    const setRows = []
+    SPEC_SET_FIELDS.forEach(({ base, label }) => {
       const text = formatSpecValue(base, specs?.[specKey(base, setIndex)])
       if (setIndex > 0 && text === '-') return
-      rows.push({
-        key: `${base}-${setIndex}`,
-        label: specSetLabel(label, setIndex),
-        text,
-        setStart: setIndex > 0 && rowIndex === 0,
+      setRows.push({ key: `${base}-${setIndex}`, label: specSetLabel(label, setIndex), text })
+    })
+    if (moduleSizes.length) {
+      setRows.push({
+        key: `${MODULE_SIZES_BASE}-${setIndex}`,
+        label: specSetLabel('모듈 사이즈', setIndex),
+        text: moduleSizes.join('\n'),
       })
+    }
+    setRows.forEach((row, rowIndex) => {
+      rows.push({ ...row, setStart: setIndex > 0 && rowIndex === 0 })
     })
   }
   rows.push({
@@ -367,6 +405,7 @@ function searchTokens(row) {
       values.push(raw)
       values.push(formatSpecValue(base, raw))
     }
+    values.push(...readModuleSizes(specs, setIndex), ...formatModuleSizes(specs, setIndex))
   }
   return values
     .filter((value) => safeString(value).trim() !== '-')

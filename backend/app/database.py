@@ -1270,6 +1270,12 @@ def init_db():
             )
             cursor.execute(
                 """
+                alter table install_cases_rows
+                  add column if not exists "contractAmount" text not null default ''
+                """
+            )
+            cursor.execute(
+                """
                 create table if not exists materials_board_posts (
                   id uuid primary key default gen_random_uuid(),
                   title text not null default '',

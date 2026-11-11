@@ -17852,6 +17852,75 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   color: #1d4ed8;
 }
 
+/* 규격 세트 안 모듈 사이즈 (1:N) */
+.install-case-module-size-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.install-case-module-size-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.install-case-module-size-row .install-case-form-wh-pair {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.install-case-module-size-row .install-case-spec-set-remove {
+  flex: 0 0 auto;
+}
+
+.install-case-module-size-add {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.install-case-module-size-add:hover {
+  border-color: #60a5fa;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+/* 계약금액: 입력칸 오른쪽에 단위(원) */
+.install-case-form-unit-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.install-case-form-unit-input .install-case-form-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-right: 34px;
+  text-align: right;
+}
+
+.install-case-form-unit {
+  position: absolute;
+  right: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  pointer-events: none;
+}
+
+/* 상세 보기: 모듈 사이즈 여러 개는 줄바꿈으로 */
+.install-case-detail-specs-col .install-case-meta-row dd {
+  white-space: pre-line;
+}
+
 /* 상세 보기: 두 번째 이후 규격 세트 시작 지점 구분선 */
 .install-case-meta-row--set-start {
   margin-top: 6px;
