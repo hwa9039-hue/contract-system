@@ -21796,7 +21796,10 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
   .mobile-data-card-list {
     display: none !important;
   }
+}
 
+/* 모바일 블록이 max-width: 768px 이라, 가로 고정은 769px 부터 건다(768px 에서 한 줄로 찌그러짐 방지). */
+@media (min-width: 769px) {
   /* App.css .flex-col 이 Tailwind md:flex-row 보다 뒤에 있어, 설치사례 줄만 다시 가로로 고정한다. */
   .install-cases-toolbar,
   .install-cases-filters {
@@ -22892,4 +22895,208 @@ input[type='checkbox'] {
   padding-top: 14px;
   padding-bottom: 14px;
   min-height: 48px;
+}
+
+/*
+ * 모바일(768px 이하) 반응형 보정 — 데스크탑(769px~) 규칙은 건드리지 않는다.
+ * 파일 맨 끝에 두어 위쪽 모바일 블록의 같은 선택자를 덮어쓴다.
+ */
+@media (max-width: 768px) {
+  /*
+   * 세로 스크롤은 html 한 곳만. body·main-area·바깥 박스가 overflow-x: hidden 때문에 각자
+   * 스크롤 영역이 되어 오른쪽에 스크롤바 칸이 겹겹이 생기고 박스가 한쪽으로 쏠렸다.
+   * clip 은 가로만 자르고 스크롤 영역을 만들지 않는다. 대시보드는 자체 스크롤 구조라 제외.
+   */
+  html {
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: auto;
+  }
+
+  body {
+    overflow-x: clip !important;
+    overflow-y: visible !important;
+    scrollbar-gutter: auto;
+  }
+
+  .main-area:not(:has(> section.stat-card.stat-card--dashboard)),
+  .main-area > section.stat-card:not(.stat-card--dashboard) {
+    overflow-x: clip !important;
+    overflow-y: visible !important;
+  }
+
+  /*
+   * 표: 화면 전체가 아니라 표 안에서만 가로 스크롤.
+   * 767px 이하는 카드 목록으로 바뀌지만, 768px 에서는 표가 그대로 그려져 오른쪽이 잘렸다.
+   */
+  .table-wrap,
+  .table-wrap.contracts-only-scroll,
+  .contracts-only-scroll,
+  .unit-price-table-scroll,
+  .meeting-minutes-table-wrap,
+  .payment-report-table-wrap,
+  .sales-contacts-table-wrap,
+  .bit-history-table-panel,
+  .audit-log-table-wrap {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  /* 상단 조작부: 버튼·검색창이 찌그러지지 않게 세로로 쌓는다. */
+  .sales-contacts-toolbar,
+  .registry-page-toolbar,
+  .bit-history-toolbar {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .registry-page-toolbar > .table-toolbar {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* 뒤쪽 공통 규칙(align-items: center)에 버튼이 가운데로 몰리지 않게 폭을 채운다. */
+  .contracts-header-actions,
+  .work-report-toolbar,
+  .documents-page .registry-page-toolbar,
+  .sales-contacts-toolbar {
+    align-items: stretch !important;
+    min-width: 0;
+  }
+
+  .contracts-header-actions {
+    flex-wrap: wrap;
+  }
+
+  .contracts-header-actions > .primary-btn,
+  .contracts-header-actions > .secondary-btn,
+  .contracts-header-actions > .contract-filter-select,
+  .work-report-toolbar > .primary-btn,
+  .work-report-toolbar > .secondary-btn {
+    width: 100%;
+  }
+
+  /* 영업관리(통합) 중요도 범례: 필터 줄 안에서 한 줄로 늘어나 화면 밖으로 나가던 문제 */
+  .registry-control-filters {
+    flex-direction: column;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    gap: 8px;
+  }
+
+  .registry-control-filters > .dashboard-importance-legend {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
+    border-radius: 12px;
+    box-sizing: border-box;
+  }
+
+  /* 주간업무보고서·회의록 검색: 세로 배치에서 flex-basis 280px 가 높이가 되던 문제 */
+  .meeting-minutes-search {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+
+  .meeting-minutes-search .meeting-minutes-search-input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* 설치사례 갤러리: 481~768px 2열 */
+  .install-cases-gallery,
+  .main-area > section.stat-card .install-cases-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .install-case-card,
+  .install-case-card-shell {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* 설치사례 등록/수정 모달: 화면 폭에 맞추고 안쪽 여백을 줄인다. */
+  .install-case-form-modal,
+  .modal-backdrop > .install-case-form-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100dvh - 24px);
+  }
+
+  .install-case-form-modal-header {
+    padding: 12px 14px;
+  }
+
+  .install-case-form-modal-body {
+    padding: 12px 12px 14px;
+  }
+
+  .install-case-form-modal-footer {
+    padding: 0 12px 12px;
+  }
+
+  .install-case-form-two-col,
+  .install-case-form-two-col.install-case-form-two-col--unified {
+    gap: 12px;
+  }
+
+  .install-case-form-section-title {
+    padding: 12px 14px;
+  }
+
+  .install-case-form-panel-body {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .install-case-spec-set {
+    padding: 10px;
+  }
+
+  /*
+   * 모바일 공통 .table-search-input(width 100%, flex none) 이 W·H 입력 쌍에도 걸려
+   * 두 칸이 각각 100% 가 되어 모달 밖으로 밀려났다. 쌍 안에서는 반반 나눈다.
+   */
+  .install-case-form-wh-pair {
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .install-case-form-wh-pair > .install-case-form-input {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .install-case-module-size-row {
+    min-width: 0;
+  }
+
+  .install-case-form-digit-preview {
+    overflow-wrap: anywhere;
+  }
+
+  .install-case-form-actions {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  /* 좁은 휴대폰은 갤러리 1열 */
+  .install-cases-gallery,
+  .main-area > section.stat-card .install-cases-gallery {
+    grid-template-columns: 1fr;
+  }
 }
