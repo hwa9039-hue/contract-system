@@ -14976,6 +14976,12 @@ body.work-report-manager-menu-open .work-report-board-section {
   color: #312e81;
 }
 
+.install-cases-visibility-tab.is-active.is-external {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
 .install-case-card-action {
   position: absolute;
   top: 8px;
@@ -19109,6 +19115,15 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
   margin-top: 12px;
   margin-bottom: 4px;
   box-sizing: border-box;
+}
+
+.confirm-dialog-summary {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #dc2626;
+  overflow-wrap: anywhere;
 }
 
 .confirm-dialog-checkbox {

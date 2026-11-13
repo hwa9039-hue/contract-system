@@ -8086,9 +8086,24 @@ function App() {
       showAppAlert('PDF로 내보낼 설치사례가 없습니다. 필터를 확인해 주세요.', '알림')
       return
     }
+    const filterParts = [
+      installCaseEnvFilter ? getInstallCaseEnvironmentLabel(installCaseEnvFilter) : '',
+      installCaseMiddleFilter ? getInstallCaseMiddleCategoryLabel(installCaseMiddleFilter) : '',
+      installCaseAudienceFilter ? getInstallCaseAudienceLabel(installCaseAudienceFilter) : '',
+      installCaseSearch.trim() ? `검색어('${installCaseSearch.trim()}')` : '',
+      installCaseVisibilityFilter === 'external'
+        ? '외부용'
+        : installCaseVisibilityFilter === 'internal'
+          ? '내부용'
+          : '',
+    ].filter(Boolean)
     setContractConfirmDialog({
       title: 'PDF 다운로드',
       message: `현재 목록 ${filteredInstallCases.length}건을 PDF로 저장합니다.`,
+      summary: (includeAmount) => {
+        const parts = includeAmount ? [...filterParts, '계약금액 포함'] : filterParts
+        return `선택 필터: ${parts.length ? parts.join(', ') : '없음(전체)'}`
+      },
       confirmLabel: '다운로드',
       checkbox: {
         label: '계약금액 포함',
@@ -8100,6 +8115,11 @@ function App() {
     })
   }, [
     filteredInstallCases.length,
+    installCaseAudienceFilter,
+    installCaseEnvFilter,
+    installCaseMiddleFilter,
+    installCaseSearch,
+    installCaseVisibilityFilter,
     installCasesPdfBusy,
     runInstallCasesPdfDownload,
     showAppAlert,
@@ -19648,7 +19668,7 @@ function App() {
                     aria-selected={installCaseVisibilityFilter === tab.id}
                     className={`secondary-btn install-cases-visibility-tab${
                       installCaseVisibilityFilter === tab.id ? ' is-active' : ''
-                    }`}
+                    }${tab.id === 'external' ? ' is-external' : ''}`}
                     onClick={() => setInstallCaseVisibilityFilter(tab.id)}
                   >
                     {tab.label}
@@ -21231,6 +21251,13 @@ function App() {
               >
                 <h3 className="confirm-dialog-title">{d.title}</h3>
                 <p className="confirm-dialog-message">{d.message}</p>
+                {d.summary ? (
+                  <p className="confirm-dialog-summary">
+                    {typeof d.summary === 'function'
+                      ? d.summary(Boolean(d.checkbox?.checked))
+                      : d.summary}
+                  </p>
+                ) : null}
                 {d.prompt ? (
                   <input
                     type="text"
