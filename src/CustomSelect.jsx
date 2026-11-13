@@ -59,7 +59,8 @@ export function CustomSelect({
     setMenuPosition(
       computeFixedPortalPosition(triggerRef.current, {
         gap: 6,
-        minWidth: 0,
+        // 좁은 표 칸에서도 항목이 한 줄로 보이도록 메뉴는 내용 폭까지 넓어진다.
+        minWidth: menuRef.current?.offsetWidth || 0,
         maxHeight: 280,
         preferBelowMinSpace: 120,
       }),
@@ -126,7 +127,11 @@ export function CustomSelect({
             className="cms-custom-select-menu"
             role="listbox"
             aria-label={ariaLabel || placeholder}
-            style={fixedPortalStyle(menuPosition, { zIndex: 12000 })}
+            style={fixedPortalStyle(menuPosition, {
+              zIndex: 12000,
+              matchWidth: false,
+              minWidth: menuPosition.width,
+            })}
             onMouseDown={(event) => event.preventDefault()}
           >
             {items.length === 0 ? (

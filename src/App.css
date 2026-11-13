@@ -971,6 +971,8 @@ textarea {
   padding: 6px;
   list-style: none;
   box-sizing: border-box;
+  width: max-content;
+  max-width: calc(100vw - 16px);
   overflow-x: hidden;
   overflow-y: auto;
   border: 1px solid #e5e7eb;
@@ -991,6 +993,7 @@ textarea {
   font-size: 13px;
   font-weight: 600;
   line-height: 1.35;
+  white-space: nowrap;
   cursor: pointer;
   user-select: none;
 }
@@ -6855,10 +6858,18 @@ table[data-contract-table-row-key].contract-table .cms-custom-select.contract-pr
 table[data-contract-table-row-key].contract-table
   .cms-custom-select.contract-process-status-select
   .cms-custom-select-trigger {
-  padding: 0 22px 0 4px;
+  gap: 0;
+  padding: 0 4px;
   font-size: 12px;
   line-height: 1.25;
   color: #0f172a;
+}
+
+/* 좁은 칸이라 화살표 없이 글자만 (예전 기본 select 와 같은 모양) */
+table[data-contract-table-row-key].contract-table
+  .cms-custom-select.contract-process-status-select
+  .cms-custom-select-chevron {
+  display: none;
 }
 
 table[data-contract-table-row-key].contract-table
