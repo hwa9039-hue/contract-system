@@ -322,12 +322,21 @@ export function InstallCaseMediaCarousel({ sources, fallbackHeroImage = '', phot
             preload="metadata"
           />
         ) : (
-          <img
-            key={currentSrc}
-            className="install-case-carousel-media"
-            src={currentSrc}
-            alt={`설치사례 사진 ${safeIndex + 1}`}
-          />
+          <>
+            <img
+              key={`${currentSrc}-backdrop`}
+              className="install-case-carousel-backdrop"
+              src={currentSrc}
+              alt=""
+              aria-hidden="true"
+            />
+            <img
+              key={currentSrc}
+              className="install-case-carousel-media"
+              src={currentSrc}
+              alt={`설치사례 사진 ${safeIndex + 1}`}
+            />
+          </>
         )}
         {photoSign}
 
