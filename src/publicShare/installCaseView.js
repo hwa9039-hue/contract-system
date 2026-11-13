@@ -224,8 +224,8 @@ export function formatContractAmount(raw, note = '') {
   const digits = safeString(raw).replace(/\D/g, '').replace(/^0+(?=\d)/, '')
   if (!digits) return '-'
   const amount = `${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}원`
-  const noteText = safeString(note).trim()
-  return noteText ? `${amount} ${noteText}` : amount
+  const noteText = safeString(note).trim().replace(/^\((.*)\)$/, '$1').trim()
+  return noteText ? `${amount} (${noteText})` : amount
 }
 
 function isDummyHeroUrl(url) {
