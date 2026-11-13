@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Copy, Trash2 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { AutoGrowTextarea } from '../AutoGrowTextarea.jsx'
+import { CustomSelect } from '../CustomSelect.jsx'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { EditableTextCell } from '../EditableTextCell.jsx'
@@ -936,17 +937,13 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
                   <td
                     className={`${CONTACT_EDITABLE_CELL_CLASS} sales-contacts-sticky sales-contacts-sticky--status`}
                   >
-                    <select
+                    <CustomSelect
+                      className="sales-contacts-status-select"
                       value={normalizeContactStatus(row.status)}
-                      onChange={(e) => commitField(row.id, 'status', e.target.value)}
+                      options={CONTACT_STATUS_OPTIONS}
                       aria-label={`${row.seq}번 분류`}
-                    >
-                      {CONTACT_STATUS_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(nextValue) => commitField(row.id, 'status', nextValue)}
+                    />
                   </td>
                   <ContactLinkedProjectCell
                     row={row}

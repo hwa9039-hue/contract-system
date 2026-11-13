@@ -8,6 +8,7 @@ import {
   rejectKakaoLink,
   unlinkKakaoAccount,
 } from './kakaoAuth.js'
+import { CustomSelect } from './CustomSelect.jsx'
 import './KakaoAccountLinkPage.css'
 
 function formatWhen(value) {
@@ -167,26 +168,28 @@ export default function KakaoAccountLinkPage() {
                     </td>
                     <td>{formatWhen(row.requestedAt) || '-'}</td>
                     <td>
-                      <select
+                      <CustomSelect
                         className="kakao-link-page-select"
                         value={selected[row.kakaoId] || ''}
-                        onChange={(event) =>
-                          setSelected((prev) => ({ ...prev, [row.kakaoId]: event.target.value }))
-                        }
+                        placeholder="직원 선택"
                         aria-label={`${row.nickname || '카카오 계정'}에 연결할 직원`}
-                      >
-                        <option value="">직원 선택</option>
-                        {employees.map((employee) => (
-                          <option
-                            key={employee.accountId}
-                            value={employee.accountId}
-                            disabled={linkedAccountIds.has(String(employee.accountId || '').toLowerCase())}
-                          >
-                            {employee.displayName}
-                            {linkedAccountIds.has(String(employee.accountId || '').toLowerCase()) ? ' (연결됨)' : ''}
-                          </option>
-                        ))}
-                      </select>
+                        options={[
+                          { value: '', label: '직원 선택' },
+                          ...employees.map((employee) => {
+                            const linked = linkedAccountIds.has(
+                              String(employee.accountId || '').toLowerCase(),
+                            )
+                            return {
+                              value: employee.accountId,
+                              label: `${employee.displayName}${linked ? ' (연결됨)' : ''}`,
+                              disabled: linked,
+                            }
+                          }),
+                        ]}
+                        onChange={(nextValue) =>
+                          setSelected((prev) => ({ ...prev, [row.kakaoId]: nextValue }))
+                        }
+                      />
                     </td>
                     <td>
                       <div className="kakao-link-page-actions">

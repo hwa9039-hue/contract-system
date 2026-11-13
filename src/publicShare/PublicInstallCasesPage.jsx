@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { API_BASE_URL } from '../apiClient.js'
+import { CustomSelect } from '../CustomSelect.jsx'
 import { resolveInstallCaseHeroImage } from '../installCasesApi.js'
 import { InstallCaseMediaCarousel } from '../installCaseMediaUi.jsx'
 import { isInstallCaseVideo } from '../installCaseMedia.js'
@@ -322,44 +323,50 @@ export default function PublicInstallCasesPage() {
         </p>
       ) : null}
       <section className="stat-card stat-card--install-cases public-share-card" aria-label="설치사례">
-        <div className="install-cases-toolbar flex w-full flex-col items-stretch gap-2 md:flex-row md:flex-nowrap md:items-center">
-          <div className="install-cases-filters flex w-full flex-col items-stretch gap-2 md:flex-row md:flex-nowrap md:items-center md:min-w-0">
-            <select
-              className="contract-filter-select install-cases-select"
-              value={majorFilter}
-              onChange={(event) => setMajorFilter(event.target.value)}
-              aria-label="대분류 필터"
-            >
-              {withSelectPlaceholder(MAJOR_CATEGORY_OPTIONS, '대분류').map((opt) => (
-                <option key={opt.value || 'major-all'} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <select
-              className="contract-filter-select install-cases-select"
-              value={middleFilter}
-              onChange={(event) => setMiddleFilter(event.target.value)}
-              aria-label="중분류 필터"
-            >
-              {withSelectPlaceholder(MIDDLE_CATEGORY_OPTIONS, '중분류').map((opt) => (
-                <option key={opt.value || 'middle-all'} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <select
-              className="contract-filter-select install-cases-select"
-              value={minorFilter}
-              onChange={(event) => setMinorFilter(event.target.value)}
-              aria-label="소분류 필터"
-            >
-              {withSelectPlaceholder(MINOR_CATEGORY_OPTIONS, '소분류').map((opt) => (
-                <option key={opt.value || 'minor-all'} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+        <div className="install-cases-toolbar flex w-full flex-col items-stretch gap-2 md:flex-row md:flex-nowrap md:items-end">
+          <div className="install-cases-filters flex w-full flex-col items-stretch gap-2 md:flex-row md:flex-nowrap md:items-end md:min-w-0">
+            <div className="install-cases-filter-field">
+              <label className="install-cases-filter-label" htmlFor="public-install-case-filter-major">
+                대분류
+              </label>
+              <CustomSelect
+                id="public-install-case-filter-major"
+                className="contract-filter-select install-cases-select"
+                value={majorFilter}
+                options={withSelectPlaceholder(MAJOR_CATEGORY_OPTIONS, '전체')}
+                placeholder="전체"
+                aria-label="대분류 필터"
+                onChange={setMajorFilter}
+              />
+            </div>
+            <div className="install-cases-filter-field">
+              <label className="install-cases-filter-label" htmlFor="public-install-case-filter-middle">
+                중분류
+              </label>
+              <CustomSelect
+                id="public-install-case-filter-middle"
+                className="contract-filter-select install-cases-select"
+                value={middleFilter}
+                options={withSelectPlaceholder(MIDDLE_CATEGORY_OPTIONS, '전체')}
+                placeholder="전체"
+                aria-label="중분류 필터"
+                onChange={setMiddleFilter}
+              />
+            </div>
+            <div className="install-cases-filter-field">
+              <label className="install-cases-filter-label" htmlFor="public-install-case-filter-minor">
+                소분류
+              </label>
+              <CustomSelect
+                id="public-install-case-filter-minor"
+                className="contract-filter-select install-cases-select"
+                value={minorFilter}
+                options={withSelectPlaceholder(MINOR_CATEGORY_OPTIONS, '전체')}
+                placeholder="전체"
+                aria-label="소분류 필터"
+                onChange={setMinorFilter}
+              />
+            </div>
             <input
               className="table-search-input install-cases-search-input"
               placeholder="검색어를 입력하세요."

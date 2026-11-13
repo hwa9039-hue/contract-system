@@ -51,7 +51,7 @@ MAX_HERO_MEDIA_COUNT = 10
 
 RETURNING_COLUMNS = """
   id, "projectName", "heroImage", "heroImages", environment, "middleCategory", audience,
-  "shareVisibility", year, purpose, client, "contractAmount", specs, "createdAt", "updatedAt"
+  "shareVisibility", year, purpose, client, "contractAmount", "contractAmountNote", specs, "createdAt", "updatedAt"
 """
 
 
@@ -542,11 +542,11 @@ def list_install_case_rows():
                     ''
                   )::int desc nulls last,
                   case
-                    when lower(coalesce(environment, '')) in ('outdoor', '옥외전광판', '옥외')
-                      or coalesce(environment, '') ilike '%옥외%'
+                    when lower(coalesce(audience, '')) in ('outdoor', '옥외전광판', '옥외')
+                      or coalesce(audience, '') ilike '%옥외%'
                       then 0
-                    when lower(coalesce(environment, '')) in ('indoor', '옥내전광판', '옥내')
-                      or coalesce(environment, '') ilike '%옥내%'
+                    when lower(coalesce(audience, '')) in ('indoor', '옥내전광판', '옥내')
+                      or coalesce(audience, '') ilike '%옥내%'
                       then 1
                     else 2
                   end asc,

@@ -354,6 +354,76 @@ def _migrate_excluded_projects_row_columns(cursor) -> None:
         )
 
 
+_INSTALL_CASE_BOARD_VALUES = ("outdoor", "indoor", "옥외", "옥내", "옥외전광판", "옥내전광판")
+_INSTALL_CASE_MEDIA_VALUES = (
+    "미디어보드", "미디어 폴", "미디어파사드", "재난·재해·환경안내",
+    "전자게시대", "체육시설", "교통정보전광판", "해외비즈니스",
+)
+_INSTALL_CASE_FACILITY_VALUES = (
+    "공공기관", "교육기관", "문화·전시·컨벤션", "관광·레저", "상업·유통", "교통", "의료기관",
+    "운동장", "축구장", "야구장", "수영장", "빙상장", "체육관", "기타",
+    "public", "education", "culture", "private",
+)
+
+
+def _migrate_install_case_category_layout(cursor) -> None:
+    """설치사례 분류 배치를 대분류=미디어 분류, 중분류=기관/시설, 소분류=옥외/옥내전광판 으로 맞춘다.
+
+    - 예전 배치(대분류=옥외/옥내, 중분류=미디어, 소분류=기관): 세 값을 회전
+    - 대분류·소분류만 맞바꾼 중간 배치(대분류=기관, 중분류=미디어): 대분류·중분류 교환
+    두 조건 모두 결과 행에는 다시 걸리지 않아 재시작해도 반복 적용되지 않는다.
+    """
+    cursor.execute(
+        """
+        update install_cases_rows
+        set
+          environment = case
+            when coalesce(trim("middleCategory"), '') <> '' then trim("middleCategory")
+            when trim(environment) = any(%(media)s) then trim(environment)
+            else ''
+          end,
+          "middleCategory" = case coalesce(trim(audience), '')
+            when 'public' then '공공기관'
+            when 'education' then '교육기관'
+            when 'culture' then '문화·전시·컨벤션'
+            when 'private' then '기타'
+            else coalesce(trim(audience), '')
+          end,
+          audience = case
+            when lower(coalesce(trim(environment), '')) in ('outdoor', '옥외', '옥외전광판') then '옥외전광판'
+            when lower(coalesce(trim(environment), '')) in ('indoor', '옥내', '옥내전광판') then '옥내전광판'
+            else ''
+          end
+        where lower(coalesce(trim(environment), '')) = any(%(board)s)
+          or (
+            trim(environment) = any(%(media)s)
+            and coalesce(trim(audience), '') = any(%(facility)s)
+          )
+        """,
+        {
+            "board": list(_INSTALL_CASE_BOARD_VALUES),
+            "media": list(_INSTALL_CASE_MEDIA_VALUES),
+            "facility": list(_INSTALL_CASE_FACILITY_VALUES),
+        },
+    )
+    cursor.execute(
+        """
+        update install_cases_rows
+        set
+          environment = coalesce(trim("middleCategory"), ''),
+          "middleCategory" = case trim(environment)
+            when 'public' then '공공기관'
+            when 'education' then '교육기관'
+            when 'culture' then '문화·전시·컨벤션'
+            when 'private' then '기타'
+            else trim(environment)
+          end
+        where trim(environment) = any(%(facility)s)
+        """,
+        {"facility": list(_INSTALL_CASE_FACILITY_VALUES)},
+    )
+
+
 @contextmanager
 def get_connection():
     with psycopg.connect(DATABASE_URL, row_factory=dict_row) as connection:
@@ -1220,9 +1290,9 @@ def init_db():
                   "projectName" text not null default '',
                   "heroImage" text not null default '',
                   "heroImages" jsonb not null default '[]'::jsonb,
-                  environment text not null default 'indoor',
+                  environment text not null default '',
                   "middleCategory" text not null default '',
-                  audience text not null default 'public',
+                  audience text not null default '',
                   year text not null default '',
                   purpose text not null default '',
                   client text not null default '',
@@ -1274,6 +1344,20 @@ def init_db():
                   add column if not exists "contractAmount" text not null default ''
                 """
             )
+            cursor.execute(
+                """
+                alter table install_cases_rows
+                  add column if not exists "contractAmountNote" text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table install_cases_rows
+                  alter column environment set default '',
+                  alter column audience set default ''
+                """
+            )
+            _migrate_install_case_category_layout(cursor)
             cursor.execute(
                 """
                 create table if not exists materials_board_posts (

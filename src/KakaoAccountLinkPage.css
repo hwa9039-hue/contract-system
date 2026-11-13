@@ -165,12 +165,7 @@
 
 .kakao-link-page-select {
   min-width: 180px;
-  height: 36px;
-  padding: 0 8px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #1e293b;
+  /* 시각 스타일(흰 배경·연한 테두리·커스텀 화살표)은 App.css 공통 모던 Select 규칙 */
 }
 
 .kakao-link-page-approve {

@@ -12,23 +12,20 @@ function safeString(value) {
   return String(value)
 }
 
+/** 대분류 (DB `environment`) — 이 순서가 목록·PDF 간지 순서 */
 export const MAJOR_CATEGORY_OPTIONS = [
-  { value: '옥외전광판', label: '옥외전광판' },
-  { value: '옥내전광판', label: '옥내전광판' },
-]
-
-export const MIDDLE_CATEGORY_OPTIONS = [
-  { value: '체육시설', label: '체육시설' },
   { value: '미디어보드', label: '미디어보드' },
-  { value: '미디어파사드', label: '미디어파사드' },
   { value: '미디어 폴', label: '미디어 폴' },
+  { value: '미디어파사드', label: '미디어파사드' },
   { value: '재난·재해·환경안내', label: '재난·재해·환경안내' },
   { value: '전자게시대', label: '전자게시대' },
+  { value: '체육시설', label: '체육시설' },
   { value: '교통정보전광판', label: '교통정보전광판' },
   { value: '해외비즈니스', label: '해외비즈니스' },
 ]
 
-export const MINOR_CATEGORY_OPTIONS = [
+/** 중분류 (DB `middleCategory`) */
+export const MIDDLE_CATEGORY_OPTIONS = [
   { value: '공공기관', label: '공공기관' },
   { value: '교육기관', label: '교육기관' },
   { value: '문화·전시·컨벤션', label: '문화·전시·컨벤션' },
@@ -45,12 +42,56 @@ export const MINOR_CATEGORY_OPTIONS = [
   { value: '기타', label: '기타' },
 ]
 
-const LEGACY_MAJOR_CATEGORY = { indoor: '옥내전광판', outdoor: '옥외전광판' }
-const LEGACY_MINOR_CATEGORY = {
+/** 소분류 (DB `audience`) */
+export const MINOR_CATEGORY_OPTIONS = [
+  { value: '옥외전광판', label: '옥외전광판' },
+  { value: '옥내전광판', label: '옥내전광판' },
+]
+
+const LEGACY_MIDDLE_CATEGORY = {
   public: '공공기관',
   education: '교육기관',
   culture: '문화·전시·컨벤션',
   private: '기타',
+}
+const LEGACY_MINOR_CATEGORY = {
+  indoor: '옥내전광판',
+  outdoor: '옥외전광판',
+  옥내: '옥내전광판',
+  옥외: '옥외전광판',
+}
+
+/** 예전 배치에서 대분류(environment)에 저장되던 전광판 값 */
+const LEGACY_BOARD_VALUES = new Set(['outdoor', 'indoor', '옥외', '옥내', '옥외전광판', '옥내전광판'])
+
+/**
+ * 예전 배치(대분류=옥외/옥내, 중분류=미디어보드 등, 소분류=공공기관 등)로 저장된 행을
+ * 현재 배치(대분류=미디어보드 등, 중분류=공공기관 등, 소분류=옥외/옥내)로 바꾼다.
+ */
+export function resolveCategories(row) {
+  const environment = safeString(row?.environment).trim()
+  const middleCategory = safeString(row?.middleCategory).trim()
+  const audience = safeString(row?.audience).trim()
+  let next = { environment, middleCategory, audience }
+  if (LEGACY_BOARD_VALUES.has(environment)) {
+    next = { environment: middleCategory, middleCategory: audience, audience: environment }
+  } else if (
+    MAJOR_CATEGORY_OPTIONS.some((o) => o.value === environment) &&
+    audience &&
+    !LEGACY_BOARD_VALUES.has(audience)
+  ) {
+    next = { environment, middleCategory: audience, audience: '' }
+  } else if (
+    MIDDLE_CATEGORY_OPTIONS.some((o) => o.value === environment) ||
+    LEGACY_MIDDLE_CATEGORY[environment]
+  ) {
+    next = { environment: middleCategory, middleCategory: environment, audience }
+  }
+  return {
+    environment: next.environment,
+    middleCategory: migrateMiddle(next.middleCategory),
+    audience: migrateMinor(next.audience),
+  }
 }
 
 const MAX_SPEC_SETS = 3
@@ -72,28 +113,14 @@ function specSetLabel(label, setIndex) {
   return setIndex === 0 ? label : `${label} (${setIndex + 1})`
 }
 
-function migrateMajor(raw) {
+function migrateMiddle(raw) {
   const v = safeString(raw).trim()
-  if (!v) return ''
-  if (LEGACY_MAJOR_CATEGORY[v]) return LEGACY_MAJOR_CATEGORY[v]
-  if (MAJOR_CATEGORY_OPTIONS.some((o) => o.value === v)) return v
-  if (MIDDLE_CATEGORY_OPTIONS.some((o) => o.value === v)) return ''
-  return v
-}
-
-function migrateMiddle(middleRaw, environmentRaw) {
-  const mid = safeString(middleRaw).trim()
-  if (mid && MIDDLE_CATEGORY_OPTIONS.some((o) => o.value === mid)) return mid
-  const env = safeString(environmentRaw).trim()
-  if (env && MIDDLE_CATEGORY_OPTIONS.some((o) => o.value === env)) return env
-  return mid
+  return LEGACY_MIDDLE_CATEGORY[v] || v
 }
 
 function migrateMinor(raw) {
   const v = safeString(raw).trim()
-  if (!v) return ''
-  if (LEGACY_MINOR_CATEGORY[v]) return LEGACY_MINOR_CATEGORY[v]
-  return v
+  return LEGACY_MINOR_CATEGORY[v] || v
 }
 
 function categoryLabel(options, value, legacyMap = {}) {
@@ -106,10 +133,10 @@ function categoryLabel(options, value, legacyMap = {}) {
 }
 
 export function getMajorLabel(value) {
-  return categoryLabel(MAJOR_CATEGORY_OPTIONS, value, LEGACY_MAJOR_CATEGORY)
+  return categoryLabel(MAJOR_CATEGORY_OPTIONS, value)
 }
 export function getMiddleLabel(value) {
-  return categoryLabel(MIDDLE_CATEGORY_OPTIONS, value)
+  return categoryLabel(MIDDLE_CATEGORY_OPTIONS, value, LEGACY_MIDDLE_CATEGORY)
 }
 export function getMinorLabel(value) {
   return categoryLabel(MINOR_CATEGORY_OPTIONS, value, LEGACY_MINOR_CATEGORY)
@@ -130,6 +157,13 @@ function normalizeSpecs(rawSpecs) {
   for (let setIndex = 0; setIndex < MAX_SPEC_SETS; setIndex += 1) {
     for (const { base } of SPEC_SET_FIELDS) {
       const key = specKey(base, setIndex)
+      if (base === 'ledPitch') {
+        const pitches = readLedPitches(specs, setIndex)
+        normalized[specKey(LED_PITCHES_BASE, setIndex)] = pitches
+        // 세트 1은 빈 값을 '-' 로 채워 기존 상세 표시 형식을 유지한다.
+        normalized[key] = pitches[0] || (setIndex === 0 ? '-' : '')
+        continue
+      }
       const value = safeString(specs[key]).trim()
       normalized[key] = value || (setIndex === 0 ? '-' : '')
     }
@@ -139,6 +173,7 @@ function normalizeSpecs(rawSpecs) {
 }
 
 export const MODULE_SIZES_BASE = 'moduleSizes'
+export const LED_PITCHES_BASE = 'ledPitches'
 
 /**
  * 규격 세트의 모듈 사이즈 목록 (저장 문자열 그대로).
@@ -159,11 +194,38 @@ export function formatModuleSizes(specs, setIndex) {
   return readModuleSizes(specs, setIndex).map((raw) => formatSpecValue('displayArea', raw))
 }
 
-/** 계약금액 숫자 문자열 → `125,000,000원` (값이 없으면 '-') */
-export function formatContractAmount(raw) {
+/**
+ * 규격 세트의 LED Pitch 목록.
+ * 배열 키(ledPitches·2·3)가 비었으면 예전 단일 값(ledPitch·2·3)을 1개짜리로 쓴다.
+ */
+export function readLedPitches(specs, setIndex) {
+  const list = specs?.[specKey(LED_PITCHES_BASE, setIndex)]
+  const pitches = (Array.isArray(list) ? list : [])
+    .map((item) => safeString(item).trim())
+    .filter((item) => item && item !== '-')
+  if (pitches.length) return pitches
+  const legacy = safeString(specs?.[specKey('ledPitch', setIndex)]).trim()
+  return legacy && legacy !== '-' ? [legacy] : []
+}
+
+/** LED Pitch 목록 → 표시용 문자열 배열 (P1.25mm) */
+export function formatLedPitches(specs, setIndex) {
+  return readLedPitches(specs, setIndex).map((raw) => formatLedPitch(raw)).filter((text) => text && text !== '-')
+}
+
+/** LED Pitch 여러 개 → `P1.25mm / P2.5mm` (없으면 '-') */
+export function joinLedPitches(specs, setIndex) {
+  const parts = formatLedPitches(specs, setIndex)
+  return parts.length ? parts.join(' / ') : '-'
+}
+
+/** 계약금액 숫자 문자열 → `125,000,000원` (값이 없으면 '-'). note 가 있으면 `원` 뒤에 한 칸 띄워 붙인다. */
+export function formatContractAmount(raw, note = '') {
   const digits = safeString(raw).replace(/\D/g, '').replace(/^0+(?=\d)/, '')
   if (!digits) return '-'
-  return `${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}원`
+  const amount = `${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}원`
+  const noteText = safeString(note).trim()
+  return noteText ? `${amount} ${noteText}` : amount
 }
 
 function isDummyHeroUrl(url) {
@@ -187,14 +249,15 @@ export function normalizePublicInstallCase(row) {
       }
       return text
     })
+  const categories = resolveCategories(row)
   return {
     id: safeString(row?.id).trim(),
     projectName: safeString(row?.projectName).trim() || '-',
     heroImages,
     heroImage: heroImages[0] || '',
-    environment: migrateMajor(row?.environment),
-    middleCategory: migrateMiddle(row?.middleCategory, row?.environment),
-    audience: migrateMinor(row?.audience),
+    environment: categories.environment,
+    middleCategory: categories.middleCategory,
+    audience: categories.audience,
     year: safeString(row?.year).trim() || '-',
     purpose: safeString(row?.purpose).trim() || '-',
     client: safeString(row?.client).trim() || '-',
@@ -204,26 +267,37 @@ export function normalizePublicInstallCase(row) {
 
 // ── 정렬 ────────────────────────────────────────────────────────────
 
-function sortYear(row) {
-  const digits = safeString(row?.year).replace(/[^\d]/g, '').slice(0, 4)
-  const n = Number(digits)
-  return Number.isFinite(n) && n > 0 ? n : -1
+/** 사업년도 → 정렬용 YYYYMM (`2024.09`·`202409`·`2024`). 없으면 -1 */
+function sortYearMonth(row) {
+  const digits = safeString(row?.year).replace(/\D/g, '')
+  const year = Number(digits.slice(0, 4))
+  if (digits.length < 4 || !Number.isFinite(year) || year <= 0) return -1
+  const month = digits.length >= 6 ? Math.min(12, Math.max(1, Number(digits.slice(4, 6)) || 1)) : 0
+  return year * 100 + month
 }
 
-function environmentRank(environment) {
-  const raw = safeString(environment).trim()
-  const label = migrateMajor(raw)
-  if (raw.toLowerCase() === 'outdoor' || label.includes('옥외') || raw.includes('옥외')) return 0
-  if (raw.toLowerCase() === 'indoor' || label.includes('옥내') || raw.includes('옥내')) return 1
-  return 2
+/** 목록 순서대로 0, 1, 2… — 목록에 없는 값은 맨 뒤 */
+function optionRank(options, value) {
+  const index = options.findIndex((o) => o.value === value)
+  return index === -1 ? options.length : index
+}
+
+/** 대분류 → 중분류 → 소분류(각 목록 순서) → 사업년도(년·월) 최신순 → 사업명. PDF 정렬과 같다. */
+export function compareInstallCases(a, b) {
+  const majorDiff = optionRank(MAJOR_CATEGORY_OPTIONS, a.environment) - optionRank(MAJOR_CATEGORY_OPTIONS, b.environment)
+  if (majorDiff !== 0) return majorDiff
+  const middleDiff =
+    optionRank(MIDDLE_CATEGORY_OPTIONS, a.middleCategory) - optionRank(MIDDLE_CATEGORY_OPTIONS, b.middleCategory)
+  if (middleDiff !== 0) return middleDiff
+  const minorDiff = optionRank(MINOR_CATEGORY_OPTIONS, a.audience) - optionRank(MINOR_CATEGORY_OPTIONS, b.audience)
+  if (minorDiff !== 0) return minorDiff
+  const yearDiff = sortYearMonth(b) - sortYearMonth(a)
+  if (yearDiff !== 0) return yearDiff
+  return safeString(a.projectName).localeCompare(safeString(b.projectName), 'ko')
 }
 
 export function sortInstallCases(rows) {
-  return [...(Array.isArray(rows) ? rows : [])].sort((a, b) => {
-    const yearDiff = sortYear(b) - sortYear(a)
-    if (yearDiff !== 0) return yearDiff
-    return environmentRank(a.environment) - environmentRank(b.environment)
-  })
+  return [...(Array.isArray(rows) ? rows : [])].sort(compareInstallCases)
 }
 
 // ── 규격 표시 ───────────────────────────────────────────────────────
@@ -311,7 +385,10 @@ export function formatSpecValue(base, rawValue) {
 function joinedSpecSets(specs, base) {
   const parts = []
   for (let setIndex = 0; setIndex < MAX_SPEC_SETS; setIndex += 1) {
-    const text = formatSpecValue(base, specs?.[specKey(base, setIndex)])
+    const text =
+      base === 'ledPitch'
+        ? joinLedPitches(specs, setIndex)
+        : formatSpecValue(base, specs?.[specKey(base, setIndex)])
     if (text && text !== '-') parts.push(text)
   }
   return parts.length ? parts.join(' / ') : '-'
@@ -345,16 +422,22 @@ export function buildSpecRows(specs) {
   const rows = []
   for (let setIndex = 0; setIndex < MAX_SPEC_SETS; setIndex += 1) {
     const moduleSizes = formatModuleSizes(specs, setIndex)
+    const ledPitches = formatLedPitches(specs, setIndex)
     const hasValue =
       moduleSizes.length > 0 ||
+      ledPitches.length > 0 ||
       SPEC_SET_FIELDS.some(({ base }) => {
+        if (base === 'ledPitch') return false
         const value = safeString(specs?.[specKey(base, setIndex)]).trim()
         return value && value !== '-'
       })
     if (setIndex > 0 && !hasValue) continue
     const setRows = []
     SPEC_SET_FIELDS.forEach(({ base, label }) => {
-      const text = formatSpecValue(base, specs?.[specKey(base, setIndex)])
+      const text =
+        base === 'ledPitch'
+          ? joinLedPitches(specs, setIndex)
+          : formatSpecValue(base, specs?.[specKey(base, setIndex)])
       if (setIndex > 0 && text === '-') return
       setRows.push({ key: `${base}-${setIndex}`, label: specSetLabel(label, setIndex), text })
     })
@@ -406,6 +489,7 @@ function searchTokens(row) {
       values.push(formatSpecValue(base, raw))
     }
     values.push(...readModuleSizes(specs, setIndex), ...formatModuleSizes(specs, setIndex))
+    values.push(...readLedPitches(specs, setIndex), ...formatLedPitches(specs, setIndex))
   }
   return values
     .filter((value) => safeString(value).trim() !== '-')

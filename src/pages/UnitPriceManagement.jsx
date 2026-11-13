@@ -4,6 +4,7 @@ import { useDesktopTableLayout } from '../useDesktopTableLayout.js'
 import { Plus, Trash2 } from 'lucide-react'
 import { ContractColumnHeaderFilter } from '../ContractColumnHeaderFilter.jsx'
 import { normalizeContractColumnFilterSelection } from '../contractColumnFilter.js'
+import { CustomSelect } from '../CustomSelect.jsx'
 import { EditableTextCell } from '../EditableTextCell.jsx'
 import { DeleteConfirmModal, useDeleteConfirm } from '../DeleteConfirmModal.jsx'
 import { isAuthSessionExpiredError } from '../apiClient.js'
@@ -835,19 +836,17 @@ export default function UnitPriceManagement({ canEdit = true }) {
               key={column.field}
               className={`unit-price-editable-cell p-0 align-middle ${colClass} ${tableCellStateClass(isEmpty)}`}
             >
-              <select
+              <CustomSelect
                 className="unit-price-cell-input unit-price-cell-select"
                 value={safeString(row[column.field]).trim()}
                 disabled={tableBusy}
-                onChange={(e) => void handleItemFieldSave(row, column.field, e.target.value)}
-              >
-                <option value="">선택</option>
-                {(column.options || []).map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+                placeholder="선택"
+                options={[
+                  { value: '', label: '선택' },
+                  ...(column.options || []).map((option) => ({ value: option, label: option })),
+                ]}
+                onChange={(nextValue) => void handleItemFieldSave(row, column.field, nextValue)}
+              />
             </td>
           )
         }

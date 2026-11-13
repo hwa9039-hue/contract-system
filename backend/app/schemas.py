@@ -1002,6 +1002,10 @@ class InstallCaseSpecs(BaseModel):
     ledPitch: str = ""
     ledPitch2: str = ""
     ledPitch3: str = ""
+    # 규격 세트별 LED Pitch 여러 개 (세트 1: ledPitches, 세트 2·3: ledPitches2·3)
+    ledPitches: list[str] = Field(default_factory=list)
+    ledPitches2: list[str] = Field(default_factory=list)
+    ledPitches3: list[str] = Field(default_factory=list)
     moduleSize: str = ""
     moduleSize2: str = ""
     moduleSize3: str = ""
@@ -1021,14 +1025,15 @@ class InstallCaseBase(BaseModel):
     projectName: Optional[Any] = ""
     heroImage: Optional[Any] = ""
     heroImages: Optional[Any] = None
-    environment: Optional[Any] = "indoor"
-    middleCategory: Optional[Any] = ""
-    audience: Optional[Any] = "public"
+    environment: Optional[Any] = ""  # 대분류 (미디어보드 등)
+    middleCategory: Optional[Any] = ""  # 중분류 (공공기관 등)
+    audience: Optional[Any] = ""  # 소분류 (옥외전광판/옥내전광판)
     shareVisibility: Optional[Any] = "external"
     year: Optional[Any] = ""
     purpose: Optional[Any] = ""
     client: Optional[Any] = ""
     contractAmount: Optional[Any] = ""  # 계약금액(원) 숫자 문자열
+    contractAmountNote: Optional[Any] = None  # 계약금액 비고 (예: 0식 일괄)
     specs: Optional[Any] = None
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
@@ -1051,6 +1056,7 @@ class InstallCasePatch(BaseModel):
     purpose: Optional[Any] = None
     client: Optional[Any] = None
     contractAmount: Optional[Any] = None
+    contractAmountNote: Optional[Any] = None
     specs: Optional[Any] = None
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
@@ -1370,6 +1376,9 @@ def _normalize_install_case_specs(raw) -> dict:
             "ledPitch": to_response_value(raw.get("ledPitch")) or "",
             "ledPitch2": to_response_value(raw.get("ledPitch2")) or "",
             "ledPitch3": to_response_value(raw.get("ledPitch3")) or "",
+            "ledPitches": _normalize_install_case_text_list(raw.get("ledPitches")),
+            "ledPitches2": _normalize_install_case_text_list(raw.get("ledPitches2")),
+            "ledPitches3": _normalize_install_case_text_list(raw.get("ledPitches3")),
             "moduleSize": to_response_value(raw.get("moduleSize")) or "",
             "moduleSize2": to_response_value(raw.get("moduleSize2")) or "",
             "moduleSize3": to_response_value(raw.get("moduleSize3")) or "",
@@ -1434,6 +1443,7 @@ def row_to_install_case(row) -> dict:
         "purpose": to_response_value(row["purpose"]),
         "client": to_response_value(row["client"]),
         "contractAmount": to_response_value(row.get("contractAmount")) or "",
+        "contractAmountNote": to_response_value(row.get("contractAmountNote")) or "",
         "specs": _normalize_install_case_specs(row.get("specs")),
         "createdAt": to_response_value(row["createdAt"]),
         "updatedAt": to_response_value(row["updatedAt"]),
@@ -1681,6 +1691,7 @@ TABLE_COLUMN_MAPPINGS = {
         "purpose": "purpose",
         "client": "client",
         "contractAmount": "contractAmount",
+        "contractAmountNote": "contractAmountNote",
         "specs": "specs",
         "createdAt": "createdAt",
         "updatedAt": "updatedAt",
@@ -2281,6 +2292,9 @@ def install_case_to_db_values(row: InstallCaseBase) -> dict:
         values["shareVisibility"] = "internal" if text in {"internal", "내부", "내부용"} else "external"
     if "contractAmount" in values:
         values["contractAmount"] = "".join(ch for ch in str(values["contractAmount"] or "") if ch.isdigit())
+    if "contractAmountNote" in values:
+        note = str(values["contractAmountNote"] or "").strip()
+        values["contractAmountNote"] = note
     return values
 
 

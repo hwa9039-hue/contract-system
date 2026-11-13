@@ -24,6 +24,7 @@ import {
   Upload,
   User,
 } from 'lucide-react'
+import { CustomSelect } from './CustomSelect.jsx'
 import { ContractColumnHeaderFilter } from './ContractColumnHeaderFilter.jsx'
 import {
   clearContractCellEdit,
@@ -70,10 +71,15 @@ import {
   normalizeContactsManageColumnFilterSelection,
 } from './contactsManageColumnFilter.js'
 import * as XLSX from 'xlsx'
+import { downloadInstallCasesPdf, isPdfAbortError, splitSearchTerms } from './installCasesPdf.js'
 import {
+  LED_PITCHES_BASE as INSTALL_CASE_LED_PITCHES_BASE,
   MODULE_SIZES_BASE as INSTALL_CASE_MODULE_SIZES_BASE,
   formatContractAmount as formatInstallCaseContractAmount,
+  formatLedPitches as formatInstallCaseLedPitches,
   formatModuleSizes as formatInstallCaseModuleSizes,
+  joinLedPitches as joinInstallCaseLedPitches,
+  readLedPitches as readInstallCaseLedPitches,
   readModuleSizes as readInstallCaseModuleSizes,
 } from './publicShare/installCaseView.js'
 import { buildStyledExcelFilename, downloadStyledExcel } from './styledExcelDownload.js'
@@ -2352,26 +2358,20 @@ function installCaseSpecSetLabel(label, setIndex) {
   return setIndex === 0 ? label : `${label} (${setIndex + 1})`
 }
 
-/** 설치사례 대분류 */
+/** 설치사례 대분류 (DB `environment`) — 이 순서가 목록·PDF 간지 순서 */
 const INSTALL_CASE_MAJOR_CATEGORY_OPTIONS = [
-  { value: '옥외전광판', label: '옥외전광판' },
-  { value: '옥내전광판', label: '옥내전광판' },
-]
-
-/** 설치사례 중분류 */
-const INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS = [
-  { value: '체육시설', label: '체육시설' },
   { value: '미디어보드', label: '미디어보드' },
-  { value: '미디어파사드', label: '미디어파사드' },
   { value: '미디어 폴', label: '미디어 폴' },
+  { value: '미디어파사드', label: '미디어파사드' },
   { value: '재난·재해·환경안내', label: '재난·재해·환경안내' },
   { value: '전자게시대', label: '전자게시대' },
+  { value: '체육시설', label: '체육시설' },
   { value: '교통정보전광판', label: '교통정보전광판' },
   { value: '해외비즈니스', label: '해외비즈니스' },
 ]
 
-/** 설치사례 소분류(구 발주처 구분) */
-const INSTALL_CASE_MINOR_CATEGORY_OPTIONS = [
+/** 설치사례 중분류 (DB `middleCategory`) */
+const INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS = [
   { value: '공공기관', label: '공공기관' },
   { value: '교육기관', label: '교육기관' },
   { value: '문화·전시·컨벤션', label: '문화·전시·컨벤션' },
@@ -2388,72 +2388,112 @@ const INSTALL_CASE_MINOR_CATEGORY_OPTIONS = [
   { value: '기타', label: '기타' },
 ]
 
-const INSTALL_CASE_LEGACY_MAJOR_CATEGORY = {
-  indoor: '옥내전광판',
-  outdoor: '옥외전광판',
-}
+/** 설치사례 소분류 (DB `audience`) */
+const INSTALL_CASE_MINOR_CATEGORY_OPTIONS = [
+  { value: '옥외전광판', label: '옥외전광판' },
+  { value: '옥내전광판', label: '옥내전광판' },
+]
 
-const INSTALL_CASE_LEGACY_MINOR_CATEGORY = {
+const INSTALL_CASE_LEGACY_MIDDLE_CATEGORY = {
   public: '공공기관',
   education: '교육기관',
   culture: '문화·전시·컨벤션',
   private: '기타',
 }
 
+const INSTALL_CASE_LEGACY_MINOR_CATEGORY = {
+  indoor: '옥내전광판',
+  outdoor: '옥외전광판',
+  옥내: '옥내전광판',
+  옥외: '옥외전광판',
+}
+
+/** 예전 배치에서 대분류(environment)에 저장되던 전광판 값 */
+const INSTALL_CASE_LEGACY_BOARD_VALUES = new Set(['outdoor', 'indoor', '옥외', '옥내', '옥외전광판', '옥내전광판'])
+
+/**
+ * 예전 배치(대분류=옥외/옥내, 중분류=미디어보드 등, 소분류=공공기관 등)로 저장된 행을
+ * 현재 배치(대분류=미디어보드 등, 중분류=공공기관 등, 소분류=옥외/옥내)로 바꾼다.
+ * 서버 마이그레이션 전 데이터도 화면에서 같은 결과가 나오게 한다.
+ */
+function resolveInstallCaseCategories(row) {
+  const environment = safeString(row?.environment).trim()
+  const middleCategory = safeString(row?.middleCategory).trim()
+  const audience = safeString(row?.audience).trim()
+  let next = { environment, middleCategory, audience }
+  if (INSTALL_CASE_LEGACY_BOARD_VALUES.has(environment)) {
+    next = { environment: middleCategory, middleCategory: audience, audience: environment }
+  } else if (
+    INSTALL_CASE_MAJOR_CATEGORY_OPTIONS.some((o) => o.value === environment) &&
+    audience &&
+    !INSTALL_CASE_LEGACY_BOARD_VALUES.has(audience)
+  ) {
+    // 대분류 칸에 미디어 분류가, 소분류 칸에 기관이 들어 있던 레거시 행
+    next = { environment, middleCategory: audience, audience: '' }
+  } else if (
+    INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS.some((o) => o.value === environment) ||
+    INSTALL_CASE_LEGACY_MIDDLE_CATEGORY[environment]
+  ) {
+    // 대분류·소분류만 맞바꿨던 중간 배치(대분류=기관, 중분류=미디어)
+    next = { environment: middleCategory, middleCategory: environment, audience }
+  }
+  return {
+    environment: next.environment,
+    middleCategory: migrateInstallCaseMiddleCategory(next.middleCategory),
+    audience: migrateInstallCaseMinorCategory(next.audience),
+  }
+}
+
 function withInstallCaseSelectPlaceholder(options, placeholder) {
   return [{ value: '', label: placeholder }, ...options]
 }
 
-function migrateInstallCaseMajorCategory(raw) {
-  const v = safeString(raw).trim()
-  if (!v) return ''
-  if (INSTALL_CASE_LEGACY_MAJOR_CATEGORY[v]) return INSTALL_CASE_LEGACY_MAJOR_CATEGORY[v]
-  if (INSTALL_CASE_MAJOR_CATEGORY_OPTIONS.some((o) => o.value === v)) return v
-  if (INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS.some((o) => o.value === v)) return ''
-  return v
+/** 사업년도 → 정렬용 YYYYMM (`2024.09`·`202409`·`2024`). 없으면 -1 */
+function getInstallCaseSortYearMonth(row) {
+  const digits = safeString(row?.year).replace(/\D/g, '')
+  const year = Number(digits.slice(0, 4))
+  if (digits.length < 4 || !Number.isFinite(year) || year <= 0) return -1
+  const month = digits.length >= 6 ? Math.min(12, Math.max(1, Number(digits.slice(4, 6)) || 1)) : 0
+  return year * 100 + month
 }
 
-/** 설치사례 카드 목록 — 설치년도(숫자) 추출. 없으면 -1 */
-function getInstallCaseSortYear(row) {
-  const digits = safeString(row?.year).replace(/[^\d]/g, '').slice(0, 4)
-  const n = Number(digits)
-  return Number.isFinite(n) && n > 0 ? n : -1
+/** 목록 순서대로 0, 1, 2… — 목록에 없는 값은 맨 뒤 */
+function getInstallCaseOptionRank(options, value) {
+  const index = options.findIndex((o) => o.value === value)
+  return index === -1 ? options.length : index
 }
 
-/** 옥외=0, 옥내=1, 기타=2 — 같은 연도에서 옥외가 먼저 */
-function getInstallCaseEnvironmentSortRank(environment) {
-  const raw = safeString(environment).trim()
-  const lower = raw.toLowerCase()
-  const label = migrateInstallCaseMajorCategory(raw)
-  if (lower === 'outdoor' || label.includes('옥외') || raw.includes('옥외')) return 0
-  if (lower === 'indoor' || label.includes('옥내') || raw.includes('옥내')) return 1
-  return 2
-}
-
+/** 대분류 → 중분류 → 소분류(각 목록 순서) → 사업년도(년·월) 최신순 → 사업명. PDF 정렬과 같다. */
 function compareInstallCasesForDisplay(a, b) {
-  const yearDiff = getInstallCaseSortYear(b) - getInstallCaseSortYear(a)
+  const majorDiff =
+    getInstallCaseOptionRank(INSTALL_CASE_MAJOR_CATEGORY_OPTIONS, a.environment) -
+    getInstallCaseOptionRank(INSTALL_CASE_MAJOR_CATEGORY_OPTIONS, b.environment)
+  if (majorDiff !== 0) return majorDiff
+  const middleDiff =
+    getInstallCaseOptionRank(INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS, a.middleCategory) -
+    getInstallCaseOptionRank(INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS, b.middleCategory)
+  if (middleDiff !== 0) return middleDiff
+  const minorDiff =
+    getInstallCaseOptionRank(INSTALL_CASE_MINOR_CATEGORY_OPTIONS, a.audience) -
+    getInstallCaseOptionRank(INSTALL_CASE_MINOR_CATEGORY_OPTIONS, b.audience)
+  if (minorDiff !== 0) return minorDiff
+  const yearDiff = getInstallCaseSortYearMonth(b) - getInstallCaseSortYearMonth(a)
   if (yearDiff !== 0) return yearDiff
-  return getInstallCaseEnvironmentSortRank(a.environment) - getInstallCaseEnvironmentSortRank(b.environment)
+  return safeString(a.projectName).localeCompare(safeString(b.projectName), 'ko')
 }
 
 function sortInstallCasesForDisplay(rows) {
   return [...(Array.isArray(rows) ? rows : [])].sort(compareInstallCasesForDisplay)
 }
 
-function migrateInstallCaseMiddleCategory(middleRaw, environmentRaw) {
-  const mid = safeString(middleRaw).trim()
-  if (mid && INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS.some((o) => o.value === mid)) return mid
-  const env = safeString(environmentRaw).trim()
-  if (env && INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS.some((o) => o.value === env)) return env
-  return mid
+function migrateInstallCaseMiddleCategory(raw) {
+  const v = safeString(raw).trim()
+  return INSTALL_CASE_LEGACY_MIDDLE_CATEGORY[v] || v
 }
 
 function migrateInstallCaseMinorCategory(raw) {
   const v = safeString(raw).trim()
-  if (!v) return ''
-  if (INSTALL_CASE_LEGACY_MINOR_CATEGORY[v]) return INSTALL_CASE_LEGACY_MINOR_CATEGORY[v]
-  if (INSTALL_CASE_MINOR_CATEGORY_OPTIONS.some((o) => o.value === v)) return v
-  return v
+  return INSTALL_CASE_LEGACY_MINOR_CATEGORY[v] || v
 }
 
 function getInstallCaseCategoryLabel(options, value, legacyMap = {}) {
@@ -2506,7 +2546,15 @@ const INSTALL_CASE_REGISTER_BASIC_ROWS = [
     required: true,
     placeholder: '예: 00시(계약서 명칭과 동일하게 작성 필요)',
   },
-  { type: 'amount', key: 'contractAmount', label: '계약금액', unit: '원', placeholder: '숫자만 입력' },
+  {
+    type: 'amount',
+    key: 'contractAmount',
+    noteKey: 'contractAmountNote',
+    label: '계약금액',
+    unit: '원',
+    placeholder: '예: 0',
+    notePlaceholder: '예: 0식 일괄',
+  },
 ]
 
 /** 계약금액 입력값 → 저장용 숫자 문자열 (앞자리 0 제거) */
@@ -2519,8 +2567,9 @@ function formatInstallCaseAmountInput(digits) {
   return parseInstallCaseAmountDigits(digits).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
-/** 규격 세트 한 벌에 넣을 수 있는 모듈 사이즈 최대 개수 */
+/** 규격 세트 한 벌에 넣을 수 있는 모듈 사이즈·LED Pitch 최대 개수 */
 const INSTALL_CASE_MAX_MODULE_SIZES = 10
+const INSTALL_CASE_MAX_LED_PITCHES = 10
 
 function getEmptyInstallCaseModuleSize() {
   return { w: '', h: '' }
@@ -2562,7 +2611,7 @@ function getEmptyInstallCaseSpecSet() {
     displayAreaH: '',
     resolutionW: '',
     resolutionH: '',
-    ledPitch: '',
+    ledPitches: [''],
     moduleSizes: [getEmptyInstallCaseModuleSize()],
   }
 }
@@ -2572,13 +2621,18 @@ function hasInstallCaseSpecSetValue(set) {
   const hasModuleSize = (Array.isArray(set.moduleSizes) ? set.moduleSizes : []).some(
     (size) => safeString(size?.w).trim() || safeString(size?.h).trim()
   )
+  const hasLedPitch = (Array.isArray(set.ledPitches) ? set.ledPitches : []).some((pitch) =>
+    Boolean(safeString(pitch).trim())
+  )
   return (
     hasModuleSize ||
-    INSTALL_CASE_SPEC_SET_FIELDS.some(({ base, type }) =>
-      type === 'wh'
+    hasLedPitch ||
+    INSTALL_CASE_SPEC_SET_FIELDS.some(({ base, type }) => {
+      if (type === 'ledPitch') return false
+      return type === 'wh'
         ? Boolean(safeString(set[`${base}W`]).trim() || safeString(set[`${base}H`]).trim())
         : Boolean(safeString(set[base]).trim())
-    )
+    })
   )
 }
 
@@ -2600,8 +2654,14 @@ function normalizeInstallCaseSpecs(rawSpecs) {
   for (let setIndex = 0; setIndex < INSTALL_CASE_MAX_SPEC_SETS; setIndex += 1) {
     for (const { base } of INSTALL_CASE_SPEC_SET_FIELDS) {
       const key = installCaseSpecKey(base, setIndex)
+      if (base === 'ledPitch') {
+        const pitches = readInstallCaseLedPitches(specs, setIndex)
+        normalized[installCaseSpecKey(INSTALL_CASE_LED_PITCHES_BASE, setIndex)] = pitches
+        // 세트 1은 빈 값을 '-' 로 채워 기존 상세 표시 형식을 유지한다.
+        normalized[key] = pitches[0] || (setIndex === 0 ? '-' : '')
+        continue
+      }
       const value = safeString(specs[key]).trim()
-      // 세트 1은 빈 값을 '-' 로 채워 기존 상세 표시 형식을 유지한다.
       normalized[key] = value || (setIndex === 0 ? '-' : '')
     }
     normalized[installCaseSpecKey(INSTALL_CASE_MODULE_SIZES_BASE, setIndex)] =
@@ -2616,7 +2676,9 @@ function getInstallCaseFilledSpecSetIndexes(specs) {
   for (let setIndex = 0; setIndex < INSTALL_CASE_MAX_SPEC_SETS; setIndex += 1) {
     const hasValue =
       readInstallCaseModuleSizes(specs, setIndex).length > 0 ||
+      readInstallCaseLedPitches(specs, setIndex).length > 0 ||
       INSTALL_CASE_SPEC_SET_FIELDS.some(({ base }) => {
+        if (base === 'ledPitch') return false
         const value = safeString(specs?.[installCaseSpecKey(base, setIndex)]).trim()
         return value && value !== '-'
       })
@@ -2633,12 +2695,13 @@ function installCaseSpecsToFormDraft(rawSpecs) {
     const area = parseWhMmNumbers(specs[installCaseSpecKey('displayArea', setIndex)])
     const resolution = parseResolutionStoredToWH(specs[installCaseSpecKey('resolution', setIndex)])
     const moduleSizes = readInstallCaseModuleSizes(specs, setIndex).map(parseInstallCaseModuleSizeToWH)
+    const ledPitches = readInstallCaseLedPitches(specs, setIndex).map(installCaseLedPitchToFormValue)
     sets.push({
       displayAreaW: area ? String(area.w) : '',
       displayAreaH: area ? String(area.h) : '',
       resolutionW: resolution.w,
       resolutionH: resolution.h,
-      ledPitch: installCaseLedPitchToFormValue(specs[installCaseSpecKey('ledPitch', setIndex)]),
+      ledPitches: ledPitches.length ? ledPitches : [''],
       moduleSizes: moduleSizes.length ? moduleSizes : [getEmptyInstallCaseModuleSize()],
     })
   }
@@ -2670,16 +2733,22 @@ function buildInstallCaseSpecsPayload(formSpecs = {}) {
     const values = {
       displayArea: formatInstallCaseWhMmFromWH(set.displayAreaW, set.displayAreaH),
       resolution: formatInstallCaseResolutionFromWH(set.resolutionW, set.resolutionH),
-      ledPitch: safeString(set.ledPitch).trim(),
     }
     for (const { base } of INSTALL_CASE_SPEC_SET_FIELDS) {
+      if (base === 'ledPitch') continue
       payload[installCaseSpecKey(base, setIndex)] = values[base] || (setIndex === 0 ? '-' : '')
     }
+    const ledPitches = (Array.isArray(set.ledPitches) ? set.ledPitches : [])
+      .map((pitch) => safeString(pitch).trim())
+      .filter(Boolean)
+    payload[installCaseSpecKey(INSTALL_CASE_LED_PITCHES_BASE, setIndex)] = ledPitches
+    // 엑셀 백업 등 단일 문자열만 읽는 곳을 위해 예전 키도 함께 채운다.
+    payload[installCaseSpecKey('ledPitch', setIndex)] =
+      ledPitches.join(' / ') || (setIndex === 0 ? '-' : '')
     const moduleSizes = (Array.isArray(set.moduleSizes) ? set.moduleSizes : [])
       .map((size) => formatInstallCaseWhMmFromWH(size?.w, size?.h))
       .filter(Boolean)
     payload[installCaseSpecKey(INSTALL_CASE_MODULE_SIZES_BASE, setIndex)] = moduleSizes
-    // 엑셀 백업 등 단일 문자열만 읽는 곳을 위해 예전 키도 함께 채운다.
     payload[installCaseSpecKey('moduleSize', setIndex)] = moduleSizes.join(', ')
   }
   return payload
@@ -2706,19 +2775,21 @@ function normalizeInstallCaseRow(row) {
     return text
   })
   const heroImage = heroImages[0] || ''
+  const categories = resolveInstallCaseCategories(row)
   return {
     id,
     projectName: safeString(row?.projectName).trim() || '-',
     heroImage,
     heroImages,
-    environment: migrateInstallCaseMajorCategory(row?.environment),
-    middleCategory: migrateInstallCaseMiddleCategory(row?.middleCategory, row?.environment),
-    audience: migrateInstallCaseMinorCategory(row?.audience),
+    environment: categories.environment,
+    middleCategory: categories.middleCategory,
+    audience: categories.audience,
     shareVisibility: safeString(row?.shareVisibility).trim().toLowerCase() === 'internal' ? 'internal' : 'external',
     year: safeString(row?.year).trim() || '-',
     purpose: safeString(row?.purpose).trim() || '-',
     client: safeString(row?.client).trim() || '-',
     contractAmount: parseInstallCaseAmountDigits(row?.contractAmount),
+    contractAmountNote: safeString(row?.contractAmountNote).trim(),
     specs,
     // 레거시 폴백 URL 캐시 버스팅에 쓰인다
     updatedAt: safeString(row?.updatedAt).trim(),
@@ -2781,6 +2852,10 @@ function getInstallCaseSearchTokens(row) {
       ...readInstallCaseModuleSizes(specs, setIndex),
       ...formatInstallCaseModuleSizes(specs, setIndex)
     )
+    values.push(
+      ...readInstallCaseLedPitches(specs, setIndex),
+      ...formatInstallCaseLedPitches(specs, setIndex)
+    )
   }
 
   return values
@@ -2794,22 +2869,22 @@ function getInstallCaseSearchTokens(row) {
  * 쉼표로 나눈 검색어 중 하나라도 맞으면 포함 (OR).
  */
 function installCaseMatchesSearch(row, keyword) {
-  const keywords = safeString(keyword).split(',').map(toInstallCaseSearchToken).filter(Boolean)
+  const keywords = splitSearchTerms(keyword).map(toInstallCaseSearchToken).filter(Boolean)
   if (!keywords.length) return true
   const tokens = getInstallCaseSearchTokens(row)
   return keywords.some((term) => tokens.some((token) => token.includes(term)))
 }
 
 function getInstallCaseEnvironmentLabel(env) {
-  return getInstallCaseCategoryLabel(
-    INSTALL_CASE_MAJOR_CATEGORY_OPTIONS,
-    env,
-    INSTALL_CASE_LEGACY_MAJOR_CATEGORY
-  )
+  return getInstallCaseCategoryLabel(INSTALL_CASE_MAJOR_CATEGORY_OPTIONS, env)
 }
 
 function getInstallCaseMiddleCategoryLabel(middle) {
-  return getInstallCaseCategoryLabel(INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS, middle)
+  return getInstallCaseCategoryLabel(
+    INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS,
+    middle,
+    INSTALL_CASE_LEGACY_MIDDLE_CATEGORY
+  )
 }
 
 function getInstallCaseAudienceLabel(audience) {
@@ -2933,10 +3008,13 @@ function formatInstallCaseWhMmDetailDisplay(raw) {
 function formatInstallCaseJoinedSpecSets(specs, base) {
   const parts = []
   for (let setIndex = 0; setIndex < INSTALL_CASE_MAX_SPEC_SETS; setIndex += 1) {
-    const text = formatInstallCaseSpecValueDisplay(
-      base,
-      specs?.[installCaseSpecKey(base, setIndex)]
-    )
+    const text =
+      base === 'ledPitch'
+        ? joinInstallCaseLedPitches(specs, setIndex)
+        : formatInstallCaseSpecValueDisplay(
+            base,
+            specs?.[installCaseSpecKey(base, setIndex)]
+          )
     if (text && text !== '-') parts.push(text)
   }
   return parts.length ? parts.join(' / ') : '-'
@@ -3298,6 +3376,8 @@ function InstallCaseSpecSetGroup({
   canRemove,
   onWhChange,
   onLedPitchChange,
+  onAddLedPitch,
+  onRemoveLedPitch,
   onModuleSizeChange,
   onAddModuleSize,
   onRemoveModuleSize,
@@ -3307,6 +3387,8 @@ function InstallCaseSpecSetGroup({
     Array.isArray(set.moduleSizes) && set.moduleSizes.length
       ? set.moduleSizes
       : [getEmptyInstallCaseModuleSize()]
+  const ledPitches =
+    Array.isArray(set.ledPitches) && set.ledPitches.length ? set.ledPitches : ['']
   return (
     <div className="install-case-spec-set">
       <div className="install-case-spec-set-head">
@@ -3343,20 +3425,55 @@ function InstallCaseSpecSetGroup({
           return (
             <div key={def.base} className="install-case-form-stack-field">
               <label className="install-case-form-label">{def.label}</label>
-              <input
-                className="table-search-input install-case-form-input"
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                placeholder="숫자·소수점 입력 (표시: P값mm)"
-                value={
-                  safeString(set[def.base])
-                    .replace(/^P\.?/i, '')
-                    .replace(/mm$/i, '')
-                    .trim() || ''
-                }
-                onChange={onLedPitchChange(setIndex)}
-              />
+              <div className="install-case-module-size-list">
+                {ledPitches.map((pitch, pitchIndex) => (
+                  <div key={`led-pitch-${pitchIndex}`} className="install-case-module-size-row">
+                    <input
+                      className="table-search-input install-case-form-input"
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      placeholder="숫자·소수점 입력 (표시: P값mm)"
+                      value={
+                        safeString(pitch)
+                          .replace(/^P\.?/i, '')
+                          .replace(/mm$/i, '')
+                          .trim() || ''
+                      }
+                      onChange={onLedPitchChange(setIndex, pitchIndex)}
+                    />
+                    {ledPitches.length > 1 ? (
+                      <button
+                        type="button"
+                        className="install-case-spec-set-remove"
+                        onClick={() => onRemoveLedPitch(setIndex, pitchIndex)}
+                        aria-label={`LED Pitch ${pitchIndex + 1} 삭제`}
+                        title="이 LED Pitch 삭제"
+                      >
+                        <X size={14} strokeWidth={2.25} aria-hidden="true" />
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+              {(() => {
+                const preview = ledPitches
+                  .map((pitch) => formatInstallCaseLedPitchDisplay(pitch))
+                  .filter((text) => text && text !== '-')
+                  .join(' / ')
+                return preview ? (
+                  <div className="install-case-form-digit-preview">{preview}</div>
+                ) : null
+              })()}
+              {ledPitches.length < INSTALL_CASE_MAX_LED_PITCHES ? (
+                <button
+                  type="button"
+                  className="install-case-module-size-add"
+                  onClick={() => onAddLedPitch(setIndex)}
+                >
+                  + 추가
+                </button>
+              ) : null}
             </div>
           )
         }
@@ -3433,6 +3550,8 @@ function InstallCaseFormTwoColumn({
   setIcMediaItems,
   onSpecSetWhChange,
   onSpecSetLedPitchChange,
+  onAddSpecSetLedPitch,
+  onRemoveSpecSetLedPitch,
   onSpecSetModuleSizeChange,
   onAddSpecSetModuleSize,
   onRemoveSpecSetModuleSize,
@@ -3473,22 +3592,19 @@ function InstallCaseFormTwoColumn({
             return (
               <div key={def.key} className="install-case-form-stack-field">
                 <label className="install-case-form-label">{def.label}</label>
-                <select
+                <CustomSelect
                   className="contract-filter-select install-case-form-input"
                   value={formDraft[def.key]}
-                  onChange={(e) =>
+                  options={def.options}
+                  placeholder={def.label || '선택'}
+                  aria-label={def.label}
+                  onChange={(nextValue) =>
                     setFormDraft((prev) => ({
                       ...prev,
-                      [def.key]: e.target.value,
+                      [def.key]: nextValue,
                     }))
                   }
-                >
-                  {def.options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
             )
           }
@@ -3512,25 +3628,40 @@ function InstallCaseFormTwoColumn({
             )
           }
           if (def.type === 'amount') {
+            const noteKey = def.noteKey || 'contractAmountNote'
             return (
               <div key={def.key} className="install-case-form-stack-field">
                 <label className="install-case-form-label">{def.label}</label>
-                <div className="install-case-form-unit-input">
+                <div className="install-case-form-amount-row">
+                  <div className="install-case-form-unit-input">
+                    <input
+                      className="table-search-input install-case-form-input"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={formatInstallCaseAmountInput(formDraft[def.key])}
+                      onChange={(e) => {
+                        const v = parseInstallCaseAmountDigits(e.target.value)
+                        setFormDraft((prev) => ({ ...prev, [def.key]: v }))
+                      }}
+                      placeholder={def.placeholder}
+                    />
+                    <span className="install-case-form-unit" aria-hidden="true">
+                      {def.unit}
+                    </span>
+                  </div>
                   <input
-                    className="table-search-input install-case-form-input"
+                    className="table-search-input install-case-form-input install-case-form-amount-note"
                     type="text"
-                    inputMode="numeric"
                     autoComplete="off"
-                    value={formatInstallCaseAmountInput(formDraft[def.key])}
+                    value={safeString(formDraft[noteKey])}
                     onChange={(e) => {
-                      const v = parseInstallCaseAmountDigits(e.target.value)
-                      setFormDraft((prev) => ({ ...prev, [def.key]: v }))
+                      const v = e.target.value.slice(0, 40)
+                      setFormDraft((prev) => ({ ...prev, [noteKey]: v }))
                     }}
-                    placeholder={def.placeholder}
+                    placeholder={def.notePlaceholder || '예: 0식 일괄'}
+                    aria-label="계약금액 비고"
                   />
-                  <span className="install-case-form-unit" aria-hidden="true">
-                    {def.unit}
-                  </span>
                 </div>
               </div>
             )
@@ -3548,6 +3679,8 @@ function InstallCaseFormTwoColumn({
             canRemove={setIndex > 0}
             onWhChange={onSpecSetWhChange}
             onLedPitchChange={onSpecSetLedPitchChange}
+            onAddLedPitch={onAddSpecSetLedPitch}
+            onRemoveLedPitch={onRemoveSpecSetLedPitch}
             onModuleSizeChange={onSpecSetModuleSizeChange}
             onAddModuleSize={onAddSpecSetModuleSize}
             onRemoveModuleSize={onRemoveSpecSetModuleSize}
@@ -3597,6 +3730,7 @@ function getDefaultInstallCaseForm() {
     purpose: '',
     client: '',
     contractAmount: '',
+    contractAmountNote: '',
     specs: {
       sets: [getEmptyInstallCaseSpecSet()],
       installType: '',
@@ -3627,6 +3761,7 @@ function hasMeaningfulInstallCaseFormContent(form, mediaItems = []) {
   if (safeString(form.purpose).trim()) return true
   if (safeString(form.client).trim()) return true
   if (safeString(form.contractAmount).trim()) return true
+  if (safeString(form.contractAmountNote).trim()) return true
   const specs = form.specs || {}
   if (safeString(specs.installType).trim()) return true
   if (Array.isArray(specs.sets) && specs.sets.some(hasInstallCaseSpecSetValue)) return true
@@ -6703,6 +6838,10 @@ function App() {
   const [installShareModalOpen, setInstallShareModalOpen] = useState(false)
   const [installShareDays, setInstallShareDays] = useState(7)
   const [installShareBusy, setInstallShareBusy] = useState(false)
+  const [installCasesPdfBusy, setInstallCasesPdfBusy] = useState(false)
+  /** PDF 생성 진행 상태 { done, total } — null 이면 오버레이 숨김 */
+  const [installCasesPdfProgress, setInstallCasesPdfProgress] = useState(null)
+  const installCasesPdfAbortRef = useRef(null)
   const [installCaseFormDraft, setInstallCaseFormDraft] = useState(() => getDefaultInstallCaseForm())
   const [installCaseEditingId, setInstallCaseEditingId] = useState(null)
   const [installCaseSubmitting, setInstallCaseSubmitting] = useState(false)
@@ -7846,7 +7985,9 @@ function App() {
 
   const filteredInstallCases = useMemo(() => {
     return sortInstallCasesForDisplay(
-      installCases.filter((row) => {
+      installCases
+        .map((row) => ({ ...row, ...resolveInstallCaseCategories(row) }))
+        .filter((row) => {
         const envOk = !installCaseEnvFilter || row.environment === installCaseEnvFilter
         const midOk =
           !installCaseMiddleFilter || row.middleCategory === installCaseMiddleFilter
@@ -7865,6 +8006,116 @@ function App() {
     installCaseSearch,
     installCases,
   ])
+
+  const runInstallCasesPdfDownload = useCallback(
+    async (includeContractAmount = false) => {
+      if (installCasesPdfBusy) return
+      if (!filteredInstallCases.length) {
+        showAppAlert('PDF로 내보낼 설치사례가 없습니다. 필터를 확인해 주세요.', '알림')
+        return
+      }
+      const controller = new AbortController()
+      installCasesPdfAbortRef.current = controller
+      setInstallCasesPdfBusy(true)
+      setInstallCasesPdfProgress({ phase: 'load', done: 0, total: filteredInstallCases.length })
+      try {
+        const visibilityLabel =
+          installCaseVisibilityFilter === 'internal'
+            ? '내부용'
+            : installCaseVisibilityFilter === 'external'
+              ? '외부용'
+              : '전체'
+        const { included, excluded } = await downloadInstallCasesPdf(filteredInstallCases, {
+          getImageSources: getInstallCaseThumbnailSources,
+          filters: {
+            searchKeyword: installCaseSearch.trim(),
+            majorLabel: installCaseEnvFilter
+              ? getInstallCaseEnvironmentLabel(installCaseEnvFilter)
+              : '전체',
+            middleLabel: installCaseMiddleFilter
+              ? getInstallCaseMiddleCategoryLabel(installCaseMiddleFilter)
+              : '전체',
+            minorLabel: installCaseAudienceFilter
+              ? getInstallCaseAudienceLabel(installCaseAudienceFilter)
+              : '전체',
+            visibilityLabel,
+          },
+          includeContractAmount: Boolean(includeContractAmount),
+          onProgress: (progress) => {
+            if (!controller.signal.aborted) setInstallCasesPdfProgress(progress)
+          },
+          signal: controller.signal,
+        })
+        if (!controller.signal.aborted) {
+          setToastMessage(
+            excluded
+              ? `설치사례 PDF ${included}건을 저장했습니다. (사진 없음·영상·로드 실패 ${excluded}건 제외)`
+              : `설치사례 PDF ${included}건을 저장했습니다.`,
+          )
+        }
+      } catch (error) {
+        // 취소는 handleInstallCasesPdfCancel에서 창을 닫고 토스트까지 처리했다.
+        if (!controller.signal.aborted && !isPdfAbortError(error)) {
+          logApiOperationError('설치사례 PDF 다운로드', error)
+          showAppAlert(error?.message || 'PDF 다운로드에 실패했습니다.', '알림')
+        }
+      } finally {
+        // 취소 뒤 새 생성이 시작됐을 수 있으므로, 이 작업이 현재 작업일 때만 상태를 정리한다.
+        if (installCasesPdfAbortRef.current === controller) {
+          installCasesPdfAbortRef.current = null
+          setInstallCasesPdfBusy(false)
+          setInstallCasesPdfProgress(null)
+        }
+      }
+    },
+    [
+      filteredInstallCases,
+      installCaseAudienceFilter,
+      installCaseEnvFilter,
+      installCaseMiddleFilter,
+      installCaseSearch,
+      installCaseVisibilityFilter,
+      installCasesPdfBusy,
+      showAppAlert,
+    ]
+  )
+
+  const handleInstallCasesPdfDownload = useCallback(() => {
+    if (installCasesPdfBusy) return
+    if (!filteredInstallCases.length) {
+      showAppAlert('PDF로 내보낼 설치사례가 없습니다. 필터를 확인해 주세요.', '알림')
+      return
+    }
+    setContractConfirmDialog({
+      title: 'PDF 다운로드',
+      message: `현재 목록 ${filteredInstallCases.length}건을 PDF로 저장합니다.`,
+      confirmLabel: '다운로드',
+      checkbox: {
+        label: '계약금액 포함',
+        checked: false,
+      },
+      onConfirm: (includeAmount) => {
+        void runInstallCasesPdfDownload(Boolean(includeAmount))
+      },
+    })
+  }, [
+    filteredInstallCases.length,
+    installCasesPdfBusy,
+    runInstallCasesPdfDownload,
+    showAppAlert,
+  ])
+
+  const handleInstallCasesPdfCancel = useCallback(() => {
+    const controller = installCasesPdfAbortRef.current
+    if (!controller || controller.signal.aborted) return
+    controller.abort()
+    installCasesPdfAbortRef.current = null
+    setInstallCasesPdfBusy(false)
+    setInstallCasesPdfProgress(null)
+    setToastMessage('PDF 생성이 취소되었습니다')
+  }, [])
+
+  useEffect(() => () => installCasesPdfAbortRef.current?.abort(), [])
 
   const deleteInstallCaseById = useCallback((id) => {
     setContractConfirmDialog({
@@ -7994,13 +8245,12 @@ function App() {
       setInstallCaseEditingId(row.id)
       setInstallCaseFormDraft({
         projectName: safeString(row.projectName).trim(),
-        environment: migrateInstallCaseMajorCategory(row.environment),
-        middleCategory: migrateInstallCaseMiddleCategory(row.middleCategory, row.environment),
-        audience: migrateInstallCaseMinorCategory(row.audience),
+        ...resolveInstallCaseCategories(row),
         businessYearDigits: parseYearToFormDigits(row.year),
         purpose: safeString(row.purpose).trim(),
         client: safeString(row.client).trim(),
         contractAmount: parseInstallCaseAmountDigits(row.contractAmount),
+        contractAmountNote: safeString(row.contractAmountNote).trim(),
         specs: installCaseSpecsToFormDraft(row.specs),
       })
       setIcMediaItems(buildInstallCaseMediaItemsFromRow(row))
@@ -8438,13 +8688,50 @@ function App() {
     [updateInstallCaseSpecSet]
   )
 
+  /** 세트 안 LED Pitch 배열만 갈아끼운다. */
+  const updateInstallCaseLedPitches = useCallback((setIndex, updater) => {
+    setInstallCaseFormDraft((prev) => {
+      const sets = Array.isArray(prev.specs?.sets) ? prev.specs.sets : []
+      if (!sets[setIndex]) return prev
+      const nextSets = sets.map((set, index) => {
+        if (index !== setIndex) return set
+        const current =
+          Array.isArray(set.ledPitches) && set.ledPitches.length ? set.ledPitches : ['']
+        return { ...set, ledPitches: updater(current) }
+      })
+      return { ...prev, specs: { ...prev.specs, sets: nextSets } }
+    })
+  }, [])
+
   const handleInstallCaseSpecSetLedPitchChange = useCallback(
-    (setIndex) => (e) => {
+    (setIndex, pitchIndex) => (e) => {
       // LED Pitch 는 P1.875mm 처럼 소수 자릿수 제한 없이 문자열 그대로 보관한다.
       const value = sanitizeInstallCaseDecimalInput(e.target.value, null)
-      updateInstallCaseSpecSet(setIndex, { ledPitch: value === '' ? '' : `P${value}mm` })
+      updateInstallCaseLedPitches(setIndex, (pitches) =>
+        pitches.map((pitch, index) =>
+          index === pitchIndex ? (value === '' ? '' : `P${value}mm`) : pitch
+        )
+      )
     },
-    [updateInstallCaseSpecSet]
+    [updateInstallCaseLedPitches]
+  )
+
+  const handleAddInstallCaseLedPitch = useCallback(
+    (setIndex) => {
+      updateInstallCaseLedPitches(setIndex, (pitches) =>
+        pitches.length >= INSTALL_CASE_MAX_LED_PITCHES ? pitches : [...pitches, '']
+      )
+    },
+    [updateInstallCaseLedPitches]
+  )
+
+  const handleRemoveInstallCaseLedPitch = useCallback(
+    (setIndex, pitchIndex) => {
+      updateInstallCaseLedPitches(setIndex, (pitches) =>
+        pitches.length <= 1 ? pitches : pitches.filter((_, index) => index !== pitchIndex)
+      )
+    },
+    [updateInstallCaseLedPitches]
   )
 
   /** 세트 안 모듈 사이즈 배열만 갈아끼운다. */
@@ -8564,6 +8851,7 @@ function App() {
       purpose: safeString(d.purpose).trim() || '-',
       client: safeString(d.client).trim() || '-',
       contractAmount: parseInstallCaseAmountDigits(d.contractAmount),
+      contractAmountNote: safeString(d.contractAmountNote).trim().slice(0, 40),
       specs: buildInstallCaseSpecsPayload(d.specs),
     }
 
@@ -13392,7 +13680,11 @@ function App() {
 
     // 확인 직후 중복 클릭 방지 + API 완료까지 모달 유지 후 닫기
     setContractConfirmDialog((prev) => (prev ? { ...prev, confirmBusy: true } : prev))
-    const run = d.prompt ? () => d.onConfirm(d.prompt.value) : () => d.onConfirm()
+    const run = d.prompt
+      ? () => d.onConfirm(d.prompt.value)
+      : d.checkbox
+        ? () => d.onConfirm(Boolean(d.checkbox.checked))
+        : () => d.onConfirm()
     void Promise.resolve()
       .then(run)
       .catch((error) => {
@@ -13659,26 +13951,26 @@ function App() {
     let control
     if (column.type === 'select') {
       control = (
-        <select
-          {...commonProps}
-          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} min-h-0 py-0`}
-          style={{ textAlign: 'center' }}
-          onChange={(e) => {
-            const value = e.target.value
-            setContractEditDraft(value)
-            contractEditDraftRef.current = value
+        <CustomSelect
+          className={`${TABLE_INLINE_INPUT_STANDARD_CLASS} cms-custom-select--inline min-h-0`}
+          value={contractEditDraft}
+          placeholder="선택"
+          aria-label={column.label || '선택'}
+          options={[
+            { value: '', label: '선택' },
+            ...withStoredSelectOption(column.options, contractEditDraft).map((option) => ({
+              value: option,
+              label: option,
+            })),
+          ]}
+          onChange={(nextValue) => {
+            setContractEditDraft(nextValue)
+            contractEditDraftRef.current = nextValue
             window.setTimeout(() => {
               void saveEdit()
             }, 0)
           }}
-        >
-          <option value="">선택</option>
-          {withStoredSelectOption(column.options, contractEditDraft).map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+        />
       )
     } else if (column.type === 'date') {
       control = <input {...commonProps} type="date" />
@@ -14582,58 +14874,28 @@ function App() {
       }
 
       return (
-        <select
-          className={inlineEditorClass}
-          style={
-            useFlatInlineStyle
-              ? {
-                  ...EXCLUDED_SELECT_INLINE_EDITOR_STYLE,
-                  textAlign: column.align || 'left',
-                }
-              : { textAlign: column.align || 'left' }
-          }
+        <CustomSelect
+          className={`${inlineEditorClass} cms-custom-select--inline`}
           value={
             column.type === 'statusBadge'
               ? salesStatusSelectValue(registryCellEditDraft, selectOptions)
               : registryCellEditDraft
           }
-          autoFocus
-          onMouseDown={(e) => {
-            e.stopPropagation()
+          placeholder="선택"
+          aria-label={column.label || '선택'}
+          options={[
+            { value: '', label: '선택' },
+            ...selectOptions.map((option) => ({
+              value: option,
+              label: column.type === 'statusBadge' ? salesStatusBadgeLabel(option) : option,
+            })),
+          ]}
+          onChange={(nextValue) => {
+            setRegistryCellEditDraft(nextValue)
+            registryCellEditDraftRef.current = nextValue
+            void commitSelectValue(nextValue)
           }}
-          onChange={(e) => {
-            const value = e.target.value
-            setRegistryCellEditDraft(value)
-            registryCellEditDraftRef.current = value
-            void commitSelectValue(value)
-          }}
-          onBlur={() => {
-            window.setTimeout(() => {
-              if (!registryCellEditRef.current) return
-              if (
-                registryCellEditRef.current.scope !== scope ||
-                safeString(registryCellEditRef.current.rowId).trim() !== safeString(rowId).trim() ||
-                registryCellEditRef.current.columnKey !== column.key
-              ) {
-                return
-              }
-              cancelRegistryCellEdit()
-            }, 150)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.preventDefault()
-              cancelRegistryCellEdit()
-            }
-          }}
-        >
-          <option value="">선택</option>
-          {selectOptions.map((option) => (
-            <option key={option} value={option}>
-              {column.type === 'statusBadge' ? salesStatusBadgeLabel(option) : option}
-            </option>
-          ))}
-        </select>
+        />
       )
     }
     if (column.type === 'amount') {
@@ -14753,25 +15015,24 @@ function App() {
           ? resolveSalesStageOptions(row[column.key], column.options)
           : withStoredSelectOption(column.options, row[column.key])
       return (
-        <select
-          className={inputClassName}
-          style={{ ...(extraStyle || {}), textAlign: 'center' }}
+        <CustomSelect
+          className={`${inputClassName} cms-custom-select--inline`}
           value={
             column.type === 'statusBadge'
               ? salesStatusSelectValue(row[column.key], selectOptions)
               : row[column.key] ?? ''
           }
-          autoFocus={autoFocus}
-          onChange={(e) => onChange(row.id, column.key, e.target.value)}
-          onKeyDown={(e) => handleRegistryEditorKeyDown(e, column, onSave, onCancel)}
-        >
-          <option value="">선택</option>
-          {selectOptions.map((option) => (
-            <option key={option} value={option}>
-              {column.type === 'statusBadge' ? salesStatusBadgeLabel(option) : option}
-            </option>
-          ))}
-        </select>
+          placeholder="선택"
+          aria-label={column.label || '선택'}
+          options={[
+            { value: '', label: '선택' },
+            ...selectOptions.map((option) => ({
+              value: option,
+              label: column.type === 'statusBadge' ? salesStatusBadgeLabel(option) : option,
+            })),
+          ]}
+          onChange={(nextValue) => onChange(row.id, column.key, nextValue)}
+        />
       )
     }
 
@@ -15254,28 +15515,31 @@ function App() {
                     <SalesStatusBadge status={row[column.key]} />
                   )}
                   {isAdminForRegistry && !row.isDraft ? (
-                    <select
+                    <CustomSelect
                       className="sales-status-badge-hit"
-                      value={salesStatusSelectValue(row[column.key], resolveSalesStageOptions(row[column.key], column.options))}
+                      value={salesStatusSelectValue(
+                        row[column.key],
+                        resolveSalesStageOptions(row[column.key], column.options),
+                      )}
                       aria-label="중요도(상태)"
-                      onChange={(event) => {
-                        const value = event.target.value
+                      placeholder="선택"
+                      options={[
+                        { value: '', label: '선택' },
+                        ...resolveSalesStageOptions(row[column.key], column.options).map((option) => ({
+                          value: option,
+                          label: salesStatusBadgeLabel(option),
+                        })),
+                      ]}
+                      onChange={(nextValue) => {
                         void persistRegistryCellPatch(
                           cellEditScope,
                           rowId,
                           column,
-                          value,
-                          row[column.key]
+                          nextValue,
+                          row[column.key],
                         )
                       }}
-                    >
-                      <option value="">선택</option>
-                      {resolveSalesStageOptions(row[column.key], column.options).map((option) => (
-                        <option key={option} value={option}>
-                          {salesStatusBadgeLabel(option)}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   ) : null}
                 </div>
               ) : (
@@ -15724,19 +15988,19 @@ function App() {
         >
           <div className="work-report-section-card-title">{label}</div>
           {type === 'external' && (
-            <select
+            <CustomSelect
               className="contract-filter-select work-report-user-select"
               value={editingWorkCellData.user}
-              autoFocus
-              onChange={(e) => handleWorkReportEditorChange('user', e.target.value)}
-            >
-              <option value="">담당자</option>
-              {withStoredSelectOption(WORK_REPORT_EXTERNAL_USER_OPTIONS, editingWorkCellData.user).map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
+              placeholder="담당자"
+              aria-label="담당자"
+              options={[
+                { value: '', label: '담당자' },
+                ...withStoredSelectOption(WORK_REPORT_EXTERNAL_USER_OPTIONS, editingWorkCellData.user).map(
+                  (option) => ({ value: option, label: option }),
+                ),
+              ]}
+              onChange={(nextValue) => handleWorkReportEditorChange('user', nextValue)}
+            />
           )}
           <textarea
             className="work-report-section-textarea"
@@ -15839,20 +16103,22 @@ function App() {
               {fixedName ? (
                 <div className="work-report-board-fixed-manager">{fixedName}</div>
               ) : (
-                <select
+                <CustomSelect
                   className="work-report-board-select"
                   value={entry.user}
-                  onChange={(e) =>
-                    updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
+                  placeholder="선택"
+                  aria-label="담당자"
+                  options={[
+                    { value: '', label: '선택' },
+                    ...withStoredSelectOption(WORK_REPORT_MANAGER_OPTIONS, entry.user).map((option) => ({
+                      value: option,
+                      label: option,
+                    })),
+                  ]}
+                  onChange={(nextValue) =>
+                    updateWorkReportBoardEntry(date, section, orderIndex, { user: nextValue })
                   }
-                >
-                  <option value="">선택</option>
-                  {withStoredSelectOption(WORK_REPORT_MANAGER_OPTIONS, entry.user).map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                />
               )}
               <AutoGrowTextarea
                 className={`work-report-board-textarea ${contentClassName}`}
@@ -15912,22 +16178,24 @@ function App() {
               onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
             >
               <div className="work-report-board-index">{orderIndex}</div>
-              <select
+              <CustomSelect
                 className="work-report-board-select"
                 value={entry.user}
-                onChange={(e) =>
+                placeholder="선택"
+                aria-label="담당자"
+                options={[
+                  { value: '', label: '선택' },
+                  ...withStoredSelectOption(WORK_REPORT_MANAGER_OPTIONS, entry.user).map((option) => ({
+                    value: option,
+                    label: option,
+                  })),
+                ]}
+                onChange={(nextValue) =>
                   updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
-                    user: e.target.value,
+                    user: nextValue,
                   })
                 }
-              >
-                <option value="">선택</option>
-                {withStoredSelectOption(WORK_REPORT_MANAGER_OPTIONS, entry.user).map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+              />
               <textarea
                 className="work-report-board-textarea work-report-board-textarea-external"
                 value={entry.content}
@@ -16077,22 +16345,24 @@ function App() {
               onBlur={handleWorkReportBoardBlur(date, WORK_REPORT_SECTION_KEYS.external, orderIndex)}
             >
               <div className="work-report-board-index">{orderIndex}</div>
-              <select
+              <CustomSelect
                 className="work-report-board-select"
                 value={entry.user}
-                onChange={(e) =>
+                placeholder="선택"
+                aria-label="담당자"
+                options={[
+                  { value: '', label: '선택' },
+                  ...withStoredSelectOption(WORK_REPORT_MANAGER_OPTIONS, entry.user).map((option) => ({
+                    value: option,
+                    label: option,
+                  })),
+                ]}
+                onChange={(nextValue) =>
                   updateWorkReportBoardEntry(date, WORK_REPORT_SECTION_KEYS.external, orderIndex, {
-                    user: e.target.value,
+                    user: nextValue,
                   })
                 }
-              >
-                <option value="">선택</option>
-                {withStoredSelectOption(WORK_REPORT_MANAGER_OPTIONS, entry.user).map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+              />
               <textarea
                 className="work-report-board-textarea work-report-board-textarea-external"
                 value={entry.content}
@@ -16732,20 +17002,22 @@ function App() {
               {fixedName ? (
                 <div className="work-report-board-fixed-manager">{fixedName}</div>
               ) : (
-                <select
+                <CustomSelect
                   className="work-report-board-select"
                   value={entry.user}
-                  onChange={(e) =>
-                    updateWorkReportBoardEntry(date, section, orderIndex, { user: e.target.value })
+                  placeholder="선택"
+                  aria-label="담당자"
+                  options={[
+                    { value: '', label: '선택' },
+                    ...withStoredSelectOption(WORK_REPORT_MANAGER_OPTIONS, entry.user).map((option) => ({
+                      value: option,
+                      label: option,
+                    })),
+                  ]}
+                  onChange={(nextValue) =>
+                    updateWorkReportBoardEntry(date, section, orderIndex, { user: nextValue })
                   }
-                >
-                  <option value="">선택</option>
-                  {withStoredSelectOption(WORK_REPORT_MANAGER_OPTIONS, entry.user).map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                />
               )}
               <AutoGrowTextarea
                 className={`work-report-board-textarea ${contentClassName}`}
@@ -17421,17 +17693,16 @@ function App() {
                 <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
                   이전 주
                 </button>
-                <select
+                <CustomSelect
                   className="contract-filter-select work-report-week-select"
                   value={selectedWorkWeek}
-                  onChange={(e) => trackWorkWeek(e.target.value)}
-                >
-                  {workReportWeekOptions.map((option) => (
-                    <option key={option.weekStartDate} value={option.weekStartDate}>
-                      {getWorkReportWeekLabel(option.weekStartDate)}
-                    </option>
-                  ))}
-                </select>
+                  aria-label="주차 선택"
+                  options={workReportWeekOptions.map((option) => ({
+                    value: option.weekStartDate,
+                    label: getWorkReportWeekLabel(option.weekStartDate),
+                  }))}
+                  onChange={trackWorkWeek}
+                />
                 <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(1)}>
                   다음 주
                 </button>
@@ -17525,17 +17796,16 @@ function App() {
                 <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(-1)}>
                   이전 주
                 </button>
-                <select
+                <CustomSelect
                   className="contract-filter-select work-report-week-select"
                   value={selectedWorkWeek}
-                  onChange={(e) => trackWorkWeek(e.target.value)}
-                >
-                  {workReportWeekOptions.map((option) => (
-                    <option key={option.weekStartDate} value={option.weekStartDate}>
-                      {getWorkReportWeekLabel(option.weekStartDate)}
-                    </option>
-                  ))}
-                </select>
+                  aria-label="주차 선택"
+                  options={workReportWeekOptions.map((option) => ({
+                    value: option.weekStartDate,
+                    label: getWorkReportWeekLabel(option.weekStartDate),
+                  }))}
+                  onChange={trackWorkWeek}
+                />
                 <button className="secondary-btn" type="button" onClick={() => handleShiftWorkWeek(1)}>
                   다음 주
                 </button>
@@ -18051,26 +18321,15 @@ function App() {
                                       >
                                         <ContractTableCellShell align="center">
                                           {canEditContracts ? (
-                                            <select
+                                            <CustomSelect
                                               className="contract-process-status-select"
                                               value={isKnownStatus ? stored : stored || ''}
                                               aria-label={`${item.projectName || '계약'} 공정상태`}
-                                              onChange={(e) => {
-                                                void handleContractProcessStatusChange(
-                                                  item,
-                                                  e.target.value
-                                                )
+                                              options={processStatusOptions}
+                                              onChange={(nextValue) => {
+                                                void handleContractProcessStatusChange(item, nextValue)
                                               }}
-                                            >
-                                              {processStatusOptions.map((opt) => (
-                                                <option
-                                                  key={opt.value || 'empty'}
-                                                  value={opt.value}
-                                                >
-                                                  {opt.label}
-                                                </option>
-                                              ))}
-                                            </select>
+                                            />
                                           ) : (
                                             <div
                                               className={`cell-display editable-text-cell-display editable-text-cell-display--center contract-process-status-label${
@@ -19328,49 +19587,49 @@ function App() {
 
         {menu === 'installCases' && (
           <section className="stat-card stat-card--install-cases">
-            <div className="install-cases-toolbar flex w-full flex-col items-stretch gap-2 md:flex-row md:flex-nowrap md:items-center">
-              <select
-                className="contract-filter-select install-cases-select"
-                value={installCaseEnvFilter}
-                onChange={(e) => setInstallCaseEnvFilter(e.target.value)}
-                aria-label="대분류 필터"
-              >
-                {withInstallCaseSelectPlaceholder(INSTALL_CASE_MAJOR_CATEGORY_OPTIONS, '대분류').map(
-                  (opt) => (
-                    <option key={opt.value || 'major-all'} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  )
-                )}
-              </select>
-              <select
-                className="contract-filter-select install-cases-select"
-                value={installCaseMiddleFilter}
-                onChange={(e) => setInstallCaseMiddleFilter(e.target.value)}
-                aria-label="중분류 필터"
-              >
-                {withInstallCaseSelectPlaceholder(INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS, '중분류').map(
-                  (opt) => (
-                    <option key={opt.value || 'middle-all'} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  )
-                )}
-              </select>
-              <select
-                className="contract-filter-select install-cases-select"
-                value={installCaseAudienceFilter}
-                onChange={(e) => setInstallCaseAudienceFilter(e.target.value)}
-                aria-label="소분류 필터"
-              >
-                {withInstallCaseSelectPlaceholder(INSTALL_CASE_MINOR_CATEGORY_OPTIONS, '소분류').map(
-                  (opt) => (
-                    <option key={opt.value || 'minor-all'} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  )
-                )}
-              </select>
+            <div className="install-cases-toolbar flex w-full flex-col items-stretch gap-2 md:flex-row md:flex-nowrap md:items-end">
+              <div className="install-cases-filter-field">
+                <label className="install-cases-filter-label" htmlFor="install-case-filter-major">
+                  대분류
+                </label>
+                <CustomSelect
+                  id="install-case-filter-major"
+                  className="contract-filter-select install-cases-select"
+                  value={installCaseEnvFilter}
+                  options={withInstallCaseSelectPlaceholder(INSTALL_CASE_MAJOR_CATEGORY_OPTIONS, '전체')}
+                  placeholder="전체"
+                  aria-label="대분류 필터"
+                  onChange={setInstallCaseEnvFilter}
+                />
+              </div>
+              <div className="install-cases-filter-field">
+                <label className="install-cases-filter-label" htmlFor="install-case-filter-middle">
+                  중분류
+                </label>
+                <CustomSelect
+                  id="install-case-filter-middle"
+                  className="contract-filter-select install-cases-select"
+                  value={installCaseMiddleFilter}
+                  options={withInstallCaseSelectPlaceholder(INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS, '전체')}
+                  placeholder="전체"
+                  aria-label="중분류 필터"
+                  onChange={setInstallCaseMiddleFilter}
+                />
+              </div>
+              <div className="install-cases-filter-field">
+                <label className="install-cases-filter-label" htmlFor="install-case-filter-minor">
+                  소분류
+                </label>
+                <CustomSelect
+                  id="install-case-filter-minor"
+                  className="contract-filter-select install-cases-select"
+                  value={installCaseAudienceFilter}
+                  options={withInstallCaseSelectPlaceholder(INSTALL_CASE_MINOR_CATEGORY_OPTIONS, '전체')}
+                  placeholder="전체"
+                  aria-label="소분류 필터"
+                  onChange={setInstallCaseAudienceFilter}
+                />
+              </div>
               {canEditInstallCases && (
                 <button className="primary-btn install-cases-register-btn" type="button" onClick={handleOpenInstallCaseRegister}>
                   등록
@@ -19412,7 +19671,55 @@ function App() {
                 <Copy size={15} strokeWidth={2.25} aria-hidden="true" />
                 외부 공유 링크 복사
               </button>
+              <button
+                className="secondary-btn install-cases-pdf-btn"
+                type="button"
+                disabled={installCasesPdfBusy || filteredInstallCases.length === 0}
+                onClick={() => handleInstallCasesPdfDownload()}
+                aria-busy={installCasesPdfBusy}
+              >
+                <Download size={15} strokeWidth={2.25} aria-hidden="true" />
+                {installCasesPdfBusy ? 'PDF 생성 중…' : 'PDF 다운로드'}
+              </button>
             </div>
+
+            {installCasesPdfProgress ? (
+              <div className="install-cases-pdf-progress-backdrop" role="status" aria-live="polite">
+                <div className="install-cases-pdf-progress-card">
+                  <div className="install-cases-pdf-progress-spinner" aria-hidden="true" />
+                  <div className="install-cases-pdf-progress-title">
+                    PDF 생성 중... ({installCasesPdfProgress.done}/{installCasesPdfProgress.total}건)
+                  </div>
+                  <div className="install-cases-pdf-progress-track">
+                    <div
+                      className="install-cases-pdf-progress-bar"
+                      style={{
+                        width: `${
+                          installCasesPdfProgress.total
+                            ? Math.round(
+                                (installCasesPdfProgress.done / installCasesPdfProgress.total) * 100
+                              )
+                            : 0
+                        }%`,
+                      }}
+                    />
+                  </div>
+                  <div className="install-cases-pdf-progress-hint">
+                    {installCasesPdfProgress.phase === 'draw'
+                      ? '페이지를 구성하는 중입니다.'
+                      : '사진을 불러오는 중입니다.'}{' '}
+                    창을 닫지 말고 잠시만 기다려 주세요.
+                  </div>
+                  <button
+                    type="button"
+                    className="install-cases-pdf-progress-cancel"
+                    onClick={handleInstallCasesPdfCancel}
+                  >
+                    취소
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             <div className="install-cases-gallery">
               {filteredInstallCases.map((row) => (
@@ -20001,7 +20308,12 @@ function App() {
                       </div>
                       <div className="install-case-meta-row">
                         <dt>계약금액</dt>
-                        <dd>{formatInstallCaseContractAmount(installCaseDetailModal.contractAmount)}</dd>
+                        <dd>
+                          {formatInstallCaseContractAmount(
+                            installCaseDetailModal.contractAmount,
+                            installCaseDetailModal.contractAmountNote
+                          )}
+                        </dd>
                       </div>
                     </dl>
                   </div>
@@ -20013,10 +20325,13 @@ function App() {
                           const rows = INSTALL_CASE_SPEC_SET_FIELDS.map(({ base, label }) => ({
                             base,
                             label: installCaseSpecSetLabel(label, setIndex),
-                            text: formatInstallCaseSpecValueDisplay(
-                              base,
-                              specs[installCaseSpecKey(base, setIndex)]
-                            ),
+                            text:
+                              base === 'ledPitch'
+                                ? joinInstallCaseLedPitches(specs, setIndex)
+                                : formatInstallCaseSpecValueDisplay(
+                                    base,
+                                    specs[installCaseSpecKey(base, setIndex)]
+                                  ),
                           })).filter(({ text }) => setIndex === 0 || text !== '-')
                           const moduleSizes = formatInstallCaseModuleSizes(specs, setIndex)
                           if (moduleSizes.length) {
@@ -20628,27 +20943,29 @@ function App() {
                 <label className="install-case-form-label" htmlFor="materials-board-folder">
                   폴더
                 </label>
-                <select
+                <CustomSelect
                   id="materials-board-folder"
-                  className="table-search-input install-case-form-input"
+                  className="contract-filter-select install-case-form-input"
                   value={materialsBoardFormDraft.folder || ''}
-                  onChange={(e) =>
-                    setMaterialsBoardFormDraft((prev) => ({ ...prev, folder: e.target.value }))
+                  placeholder="폴더 없음"
+                  aria-label="폴더"
+                  options={[
+                    { value: '', label: '폴더 없음' },
+                    ...(materialsBoardFormDraft.folder &&
+                    !materialsBoardFolders.some((folder) => folder.name === materialsBoardFormDraft.folder)
+                      ? [{ value: materialsBoardFormDraft.folder, label: materialsBoardFormDraft.folder }]
+                      : []),
+                    ...[...materialsBoardFolders]
+                      .sort((a, b) => compareMaterialsBoardName(a.name, b.name))
+                      .map((folder) => ({
+                        value: folder.name,
+                        label: `📁 ${folder.name}`,
+                      })),
+                  ]}
+                  onChange={(nextValue) =>
+                    setMaterialsBoardFormDraft((prev) => ({ ...prev, folder: nextValue }))
                   }
-                >
-                  <option value="">폴더 없음</option>
-                  {materialsBoardFormDraft.folder &&
-                  !materialsBoardFolders.some((folder) => folder.name === materialsBoardFormDraft.folder) ? (
-                    <option value={materialsBoardFormDraft.folder}>{materialsBoardFormDraft.folder}</option>
-                  ) : null}
-                  {[...materialsBoardFolders]
-                    .sort((a, b) => compareMaterialsBoardName(a.name, b.name))
-                    .map((folder) => (
-                    <option key={folder.name} value={folder.name}>
-                      📁 {folder.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               <div className="materials-board-register-field">
                 <label className="install-case-form-label" htmlFor="materials-board-title">
@@ -20757,6 +21074,8 @@ function App() {
                 onAddSpecSetModuleSize={handleAddInstallCaseModuleSize}
                 onRemoveSpecSetModuleSize={handleRemoveInstallCaseModuleSize}
                 onSpecSetLedPitchChange={handleInstallCaseSpecSetLedPitchChange}
+                onAddSpecSetLedPitch={handleAddInstallCaseLedPitch}
+                onRemoveSpecSetLedPitch={handleRemoveInstallCaseLedPitch}
                 onAddSpecSet={handleAddInstallCaseSpecSet}
                 onRemoveSpecSet={handleRemoveInstallCaseSpecSet}
                 onInstallTypeChange={handleInstallCaseInstallTypeChange}
@@ -20936,6 +21255,27 @@ function App() {
                       }
                     }}
                   />
+                ) : null}
+                {d.checkbox ? (
+                  <label className="confirm-dialog-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(d.checkbox.checked)}
+                      disabled={Boolean(d.confirmBusy)}
+                      onChange={(e) => {
+                        const checked = e.target.checked
+                        setContractConfirmDialog((prev) =>
+                          prev?.checkbox
+                            ? {
+                                ...prev,
+                                checkbox: { ...prev.checkbox, checked },
+                              }
+                            : prev
+                        )
+                      }}
+                    />
+                    {d.checkbox.label || '선택'}
+                  </label>
                 ) : null}
                 <div className="confirm-dialog-actions">
                   {!d.alert && (
