@@ -194,6 +194,7 @@ export const FULL_ACCESS_MENUS = new Set([
   'discovery',
   'excluded',
   'documents',
+  'mainBudget',
   'naraMarket',
   'newsMonitor',
 ])

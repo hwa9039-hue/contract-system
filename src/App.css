@@ -4412,6 +4412,7 @@ textarea:focus-visible {
   scrollbar-gutter: stable;
 }
 
+.main-area > section.stat-card .install-cases-body,
 .main-area > section.stat-card .install-cases-gallery,
 .main-area > section.stat-card .materials-board-table-panel {
   flex: 1 1 auto;
@@ -4420,6 +4421,14 @@ textarea:focus-visible {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+}
+
+.main-area > section.stat-card .install-cases-body {
+  overflow: hidden;
+}
+
+.main-area > section.stat-card .install-cases-gallery-panel .install-cases-gallery {
+  flex: 1 1 auto;
 }
 
 /*
@@ -14961,6 +14970,540 @@ body.work-report-manager-menu-open .work-report-board-section {
   flex-shrink: 0;
 }
 
+/* 설치사례: 좌측 분류 사이드바 + 우측 갤러리 */
+.install-cases-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.install-cases-category-sidebar {
+  flex: 0 0 260px;
+  width: 260px;
+  max-width: 260px;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.install-cases-category-sidebar-title {
+  flex: 0 0 auto;
+  padding: 14px 16px 2px;
+  margin: 0 0 6px;
+  font-family: 'SUIT', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #374151;
+  letter-spacing: 0;
+}
+
+.install-cases-category-all {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: calc(100% - 16px);
+  margin: 0 8px 4px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #374151;
+  font-family: 'SUIT', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.install-cases-category-all:hover {
+  background: #f9fafb;
+}
+
+.install-cases-category-all.is-active {
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.install-cases-category-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 8px 12px;
+}
+
+.install-cases-category-group {
+  margin: 0 0 2px;
+}
+
+.install-cases-category-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  min-height: 36px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #374151;
+  font-family: 'SUIT', sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.install-cases-category-row--major {
+  padding-right: 2px;
+}
+
+.install-cases-category-row--major:hover {
+  background: #f9fafb;
+}
+
+.install-cases-category-row--major.is-active {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.install-cases-category-row--middle {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4b5563;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.install-cases-category-row--middle:hover {
+  background: #f9fafb;
+}
+
+.install-cases-category-row--middle.is-active {
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.install-cases-category-children {
+  margin: 2px 0 8px 18px;
+  padding: 2px 0 2px 10px;
+  border-left: 2px solid #f3f4f6;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.install-cases-category-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0 0 0 2px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.install-cases-category-toggle:hover {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.install-cases-category-chevron {
+  display: block;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+  transform: rotate(0deg);
+}
+
+.install-cases-category-group.is-open .install-cases-category-chevron {
+  transform: rotate(90deg);
+}
+
+.install-cases-category-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+  margin: 0;
+  padding: 6px 10px 6px 2px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.install-cases-category-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.install-cases-category-count {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.install-cases-category-row.is-active .install-cases-category-count,
+.install-cases-category-all.is-active .install-cases-category-count {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.install-cases-category-empty {
+  padding: 8px 10px 8px 12px;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.install-cases-gallery-panel {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.install-cases-view-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  height: 42px;
+  min-height: 42px;
+  padding: 3px;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.install-cases-view-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.install-cases-view-toggle-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.install-cases-view-toggle-btn.is-active {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.install-cases-list-wrap {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  -webkit-overflow-scrolling: touch;
+}
+
+.install-cases-list-table {
+  --ic-sticky-thumb-w: 64px;
+  --ic-sticky-year-w: 90px;
+  --ic-sticky-title-w: 220px;
+  --ic-sticky-client-w: 180px;
+  --ic-sticky-year-left: var(--ic-sticky-thumb-w);
+  --ic-sticky-title-left: calc(var(--ic-sticky-thumb-w) + var(--ic-sticky-year-w));
+  --ic-sticky-client-left: calc(
+    var(--ic-sticky-thumb-w) + var(--ic-sticky-year-w) + var(--ic-sticky-title-w)
+  );
+  table-layout: auto;
+  width: 100%;
+  min-width: 1280px;
+  max-width: none;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.install-cases-list-table th,
+.install-cases-list-table td {
+  box-sizing: border-box;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.install-cases-list-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f8fafc;
+  white-space: nowrap;
+}
+
+.install-cases-list-align-center {
+  text-align: center;
+}
+
+.install-cases-list-align-left {
+  text-align: left;
+}
+
+/* 사진·관리: 최소 공간만 고정 */
+.install-cases-list-th-thumb,
+.install-cases-list-td-thumb {
+  width: var(--ic-sticky-thumb-w);
+  min-width: var(--ic-sticky-thumb-w);
+  max-width: var(--ic-sticky-thumb-w);
+  text-align: center;
+}
+
+.install-cases-list-th-actions,
+.install-cases-list-td-actions {
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.install-cases-list-col-year {
+  width: var(--ic-sticky-year-w);
+  min-width: var(--ic-sticky-year-w);
+  max-width: var(--ic-sticky-year-w);
+  white-space: nowrap;
+}
+
+/* 사업명·발주처: 틀고정용 고정 폭 + 말줄임 */
+.install-cases-list-col-title {
+  width: var(--ic-sticky-title-w);
+  min-width: var(--ic-sticky-title-w);
+  max-width: var(--ic-sticky-title-w);
+}
+
+.install-cases-list-col-client {
+  width: var(--ic-sticky-client-w);
+  min-width: var(--ic-sticky-client-w);
+  max-width: var(--ic-sticky-client-w);
+}
+
+.install-cases-list-col-category,
+.install-cases-list-col-purpose {
+  width: 1%;
+  min-width: 96px;
+  white-space: nowrap;
+}
+
+.install-cases-list-col-spec {
+  width: 1%;
+  min-width: 120px;
+  white-space: normal;
+  vertical-align: top;
+}
+
+/* 좌측 4열 틀고정 — 사진 / 사업년도 / 사업명 / 발주처 */
+.install-cases-list-sticky {
+  position: sticky;
+  z-index: 3;
+  background: #ffffff;
+}
+
+.install-cases-list-table thead th.install-cases-list-sticky {
+  z-index: 5;
+  background: #f8fafc;
+}
+
+.install-cases-list-sticky--thumb {
+  left: 0;
+}
+
+.install-cases-list-sticky--year {
+  left: var(--ic-sticky-year-left);
+}
+
+.install-cases-list-sticky--title {
+  left: var(--ic-sticky-title-left);
+}
+
+.install-cases-list-sticky--client {
+  left: var(--ic-sticky-client-left);
+  box-shadow: 4px 0 8px -4px rgba(15, 23, 42, 0.18);
+}
+
+.install-cases-list-row.row-even > td.install-cases-list-sticky {
+  background: #ffffff;
+}
+
+.install-cases-list-row.row-odd > td.install-cases-list-sticky {
+  background: #f8fafc;
+}
+
+.install-cases-list-row:hover > td,
+.install-cases-list-row:hover > td.install-cases-list-sticky {
+  background: #f8fbff;
+}
+
+.install-cases-list-row {
+  cursor: pointer;
+}
+
+.install-cases-list-thumb {
+  width: 48px;
+  height: 36px;
+  margin: 0 auto;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.install-cases-list-thumb .install-case-card-media,
+.install-cases-list-thumb img,
+.install-cases-list-thumb video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.install-cases-list-thumb .install-case-card-video-badge,
+.install-cases-list-thumb .install-case-card-media-overlay {
+  display: none;
+}
+
+.install-cases-list-cell-truncate {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.install-cases-list-spec-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.install-cases-list-spec-line {
+  display: block;
+  padding: 4px 0;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.install-cases-list-spec-line + .install-cases-list-spec-line {
+  border-top: 1px solid #eef2f7;
+}
+
+.install-cases-list-td-title {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.install-cases-list-td-actions {
+  white-space: nowrap;
+}
+
+.install-cases-list-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin: 0 2px;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+}
+
+.install-cases-list-action-btn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.install-cases-list-action-btn.is-danger {
+  color: #dc2626;
+}
+
+.install-cases-list-action-btn.is-danger:hover {
+  background: #fef2f2;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .install-cases-visibility-tabs {
   display: inline-flex;
   flex: 0 0 auto;
@@ -15023,20 +15566,22 @@ body.work-report-manager-menu-open .work-report-board-section {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  /* 라벨이 있는 필터 필드와 버튼·검색창을 하단(셀렉트) 기준으로 맞춤 */
-  align-items: flex-end;
+  align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 12px;
   min-width: 0;
   width: 100%;
   padding: 4px 0 2px;
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .install-cases-filters {
   padding: 0;
-  flex: 1 1 auto;
-  align-items: flex-end;
+  flex: 0 0 auto;
+  align-items: center;
 }
 
 .install-cases-toolbar .install-cases-select,
@@ -15063,32 +15608,33 @@ body.work-report-manager-menu-open .work-report-board-section {
   background: #ffffff;
 }
 
-/* 설치사례 필터 필드(라벨+select) — 세 칸 높이·폭을 동일하게 고정 */
+/* 설치사례 필터 필드 — 라벨 + 드롭다운 가로(inline) 배치 */
 .install-cases-filter-field {
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: stretch;
-  gap: 4px;
-  flex: 0 0 140px;
-  width: 140px;
-  min-width: 140px;
-  max-width: 140px;
-  min-height: 0;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  min-height: 42px;
 }
 
 .install-cases-filter-label {
-  display: block;
-  height: 16px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  height: 42px;
   margin: 0;
-  padding: 0 2px;
-  font-size: 12px;
+  padding: 0;
+  font-size: 13px;
   font-weight: 600;
-  line-height: 16px;
+  line-height: 1.2;
   color: #4b5563;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* 설치사례 필터 — 커스텀 Select 폭 */
@@ -15096,9 +15642,9 @@ body.work-report-manager-menu-open .work-report-board-section {
 .install-cases-filters .cms-custom-select.install-cases-select,
 .install-cases-filter-field > .cms-custom-select.install-cases-select {
   flex: 0 0 auto;
-  width: 100%;
-  min-width: 0;
-  max-width: none;
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
 }
 
 .install-cases-toolbar .cms-custom-select.install-cases-select .cms-custom-select-trigger,
@@ -15121,9 +15667,10 @@ body.work-report-manager-menu-open .work-report-board-section {
 
 .install-cases-toolbar > .install-cases-search-input,
 .install-cases-filters > .install-cases-search-input {
-  flex: 1 1 auto;
+  /* 남는 가로 여백을 채우되, 너무 작아지지만 않게 최소폭만 둔다 */
+  flex: 1 1 280px;
   width: auto;
-  min-width: 160px;
+  min-width: 220px;
   max-width: none;
 }
 
@@ -15132,6 +15679,22 @@ body.work-report-manager-menu-open .work-report-board-section {
 .install-cases-toolbar .primary-btn:active,
 .install-cases-toolbar .secondary-btn:active {
   transform: none;
+}
+
+.install-cases-toolbar > .install-cases-view-toggle {
+  flex: 0 0 auto;
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
+  box-sizing: border-box;
+}
+
+.install-cases-toolbar > .install-cases-view-toggle {
+  flex: 0 0 auto;
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
+  box-sizing: border-box;
 }
 
 .install-cases-toolbar > .install-cases-register-btn,
@@ -18022,6 +18585,20 @@ table.payment-report-table tbody tr.payment-report-expand-row.is-open .payment-r
 }
 
 @media (max-width: 900px) {
+  /* 좁은 화면에서는 좌측 분류를 숨기고 상단 필터만 사용 */
+  .install-cases-category-sidebar {
+    display: none !important;
+  }
+
+  .install-cases-body {
+    display: block;
+    overflow: visible;
+  }
+
+  .install-cases-gallery-panel {
+    width: 100%;
+  }
+
   .install-case-detail-modal {
     --ic-modal-w: min(1000px, 94vw, calc(100vw - 24px));
     width: var(--ic-modal-w);
@@ -20836,7 +21413,6 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     gap: 8px;
   }
 
-  .install-cases-toolbar,
   .install-cases-filters {
     flex-direction: column !important;
     flex-wrap: wrap !important;
@@ -20844,6 +21420,17 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     gap: 8px !important;
     width: 100%;
     overflow: visible;
+  }
+
+  /* 설치사례 상단 필터는 모바일에서도 한 줄 + 가로 스크롤 */
+  .install-cases-toolbar {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 12px !important;
+    width: 100%;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
   }
 
   .table-search-input,
@@ -20870,7 +21457,6 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     padding-right: 40px !important;
   }
 
-  .install-cases-toolbar > .install-cases-search-input,
   .install-cases-filters > .install-cases-search-input {
     flex: 1 1 auto !important;
     width: 100% !important;
@@ -20897,18 +21483,62 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     max-width: none !important;
   }
 
-  .install-cases-toolbar > .install-cases-filter-field,
   .install-cases-filters > .install-cases-filter-field,
-  .install-cases-toolbar .install-cases-select,
-  .install-cases-filters .install-cases-select,
-  .install-cases-toolbar > .install-cases-register-btn,
-  .install-cases-toolbar > .install-cases-share-btn,
-  .install-cases-toolbar > .install-cases-pdf-btn,
-  .install-cases-visibility-tabs {
+  .install-cases-filters .install-cases-select {
     flex: 1 1 auto !important;
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
+  }
+
+  .install-cases-toolbar > .install-cases-filter-field {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+
+  .install-cases-toolbar .install-cases-select,
+  .install-cases-toolbar .cms-custom-select.install-cases-select,
+  .install-cases-toolbar .install-cases-filter-field > .cms-custom-select.install-cases-select {
+    flex: 0 0 auto !important;
+    width: 140px !important;
+    min-width: 140px !important;
+    max-width: 140px !important;
+  }
+
+  .install-cases-toolbar > .install-cases-register-btn,
+  .install-cases-toolbar > .install-cases-share-btn,
+  .install-cases-toolbar > .install-cases-pdf-btn,
+  .install-cases-toolbar > .install-cases-view-toggle,
+  .install-cases-toolbar > .install-cases-visibility-tabs,
+  .install-cases-toolbar .install-cases-visibility-tab {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .install-cases-toolbar > .install-cases-search-input {
+    flex: 1 1 280px !important;
+    width: auto !important;
+    min-width: 220px !important;
+    max-width: none !important;
+  }
+
+  .install-cases-toolbar > .install-cases-view-toggle {
+    justify-content: center;
+  }
+
+  .install-cases-list-wrap,
+  .main-area > section.stat-card .install-cases-list-wrap {
+    flex: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
   }
 
   .install-cases-toolbar .install-cases-select,
@@ -20932,6 +21562,28 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
 
   .top-system-account-name .top-system-account-label {
     display: none !important;
+  }
+
+  /* 모바일: 좌측 분류 사이드바 숨김 — 상단 대/중/소분류 필터로 대체 */
+  .install-cases-category-sidebar {
+    display: none !important;
+  }
+
+  .install-cases-body,
+  .main-area > section.stat-card .install-cases-body {
+    display: block;
+    flex: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .install-cases-gallery-panel {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   .install-cases-gallery,
@@ -22337,39 +22989,44 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
   .install-cases-filters {
     flex-direction: row !important;
     flex-wrap: nowrap !important;
-    align-items: flex-end !important;
+    align-items: center !important;
     justify-content: flex-start;
-    gap: 8px !important;
+    gap: 12px !important;
     width: 100%;
   }
 
   .install-cases-filters {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     min-width: 0;
     padding: 0;
   }
 
   .install-cases-toolbar > .install-cases-filter-field,
   .install-cases-filters > .install-cases-filter-field {
-    flex: 0 0 140px !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+
+  .install-cases-toolbar .install-cases-select,
+  .install-cases-filters .install-cases-select,
+  .install-cases-toolbar .cms-custom-select.install-cases-select,
+  .install-cases-filters .cms-custom-select.install-cases-select,
+  .install-cases-filter-field > .cms-custom-select.install-cases-select {
+    flex: 0 0 auto !important;
     width: 140px !important;
     min-width: 140px !important;
     max-width: 140px !important;
   }
 
-  .install-cases-toolbar .install-cases-select,
-  .install-cases-filters .install-cases-select {
-    flex: 0 0 auto !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: none !important;
-  }
-
   .install-cases-toolbar > .install-cases-search-input,
   .install-cases-filters > .install-cases-search-input {
-    flex: 1 1 auto !important;
+    flex: 1 1 280px !important;
     width: auto !important;
-    min-width: 160px !important;
+    min-width: 220px !important;
     max-width: none !important;
   }
 

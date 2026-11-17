@@ -15,6 +15,8 @@ import {
   FileSpreadsheet,
   FileText,
   KeyRound,
+  LayoutGrid,
+  List,
   LogOut,
   Pencil,
   Plus,
@@ -106,6 +108,7 @@ import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 // import UnitPriceManagement from './pages/UnitPriceManagement.jsx'
 // import ProjectManagement from './pages/ProjectManagement.jsx'
 import OrderManagementPlaceholder from './pages/OrderManagementPlaceholder.jsx'
+import MainBudgetPlaceholder from './pages/MainBudgetPlaceholder.jsx'
 import BitHistoryPage from './pages/sales/BitHistoryPage.jsx'
 import SalesIntegratedPage from './pages/sales/SalesIntegratedPage.jsx'
 import PreparingPlaceholder from './pages/PreparingPlaceholder.jsx'
@@ -1737,6 +1740,7 @@ const PAGE_TITLE_MAP = {
   // projectManagement / unitPrice — 사이드바에서 제거됨 (레거시 키 보관)
   projectManagement: '사업관리',
   unitPrice: '단가관리',
+  mainBudget: '본예산',
   naraMarket: '나라장터',
   newsMonitor: '각종뉴스',
   materialsBoard: '게시판',
@@ -1748,6 +1752,7 @@ const UNIT_PRICE_MENU_PATH = '/unit-price'
 /** @deprecated 사이드바에서 제거 — 북마크 진입 시 홈으로 되돌림 */
 const PROJECT_MANAGEMENT_MENU_PATH = '/project-management'
 const ORDER_MANAGEMENT_MENU_PATH = '/order-management'
+const MAIN_BUDGET_MENU_PATH = '/monitoring/main-budget'
 const BIT_HISTORY_MENU_PATH = '/sales/bit-history'
 /** 준비 중 화면을 쓰는 신규 메뉴의 URL (북마크·새로고침 시에도 같은 화면으로 들어온다) */
 const SALES_INTEGRATED_MENU_PATH = '/sales/integrated'
@@ -1760,6 +1765,7 @@ const QUOTE_DESIGN_EXPORT_READY = true
 /** URL 경로로 직접 열리는 메뉴 키 ↔ 경로 */
 const MENU_KEY_BY_PATH = {
   [ORDER_MANAGEMENT_MENU_PATH]: 'orderManagement',
+  [MAIN_BUDGET_MENU_PATH]: 'mainBudget',
   [BIT_HISTORY_MENU_PATH]: BIT_HISTORY_MENU_KEY,
   [SALES_INTEGRATED_MENU_PATH]: 'salesIntegrated',
   [QUOTE_DESIGN_DOCS_MENU_PATH]: 'quoteDesignDocs',
@@ -1937,6 +1943,7 @@ const SIDEBAR_MENU_TREE = [
     id: 'monitoring',
     label: '모니터링',
     items: [
+      { key: 'mainBudget', label: '본예산' },
       { key: 'naraMarket', label: '나라장터' },
       { key: 'newsMonitor', label: '각종뉴스' },
     ],
@@ -3018,6 +3025,57 @@ function formatInstallCaseJoinedSpecSets(specs, base) {
     if (text && text !== '-') parts.push(text)
   }
   return parts.length ? parts.join(' / ') : '-'
+}
+
+/** 리스트 뷰용 — 규격 세트 1~3의 모듈 사이즈를 한 칸에 이어 붙인다 */
+function formatInstallCaseJoinedModuleSizes(specs) {
+  const parts = []
+  for (let setIndex = 0; setIndex < INSTALL_CASE_MAX_SPEC_SETS; setIndex += 1) {
+    const sizes = formatInstallCaseModuleSizes(specs, setIndex)
+    for (const size of sizes) {
+      const text = safeString(size).trim()
+      if (text && text !== '-') parts.push(text)
+    }
+  }
+  return parts.length ? parts.join(' / ') : '-'
+}
+
+/**
+ * 리스트 뷰용 — 규격 세트별 한 줄씩 세로로 쌓기 위한 배열.
+ * 세트마다 표출부·해상도·Pitch·모듈이 같은 줄에 맞춰지도록 빈 값은 '-' 로 둔다.
+ */
+function getInstallCaseListSpecStacks(specs) {
+  const stacks = []
+  for (let setIndex = 0; setIndex < INSTALL_CASE_MAX_SPEC_SETS; setIndex += 1) {
+    const displayArea = formatInstallCaseSpecValueDisplay(
+      'displayArea',
+      specs?.[installCaseSpecKey('displayArea', setIndex)]
+    )
+    const resolution = formatInstallCaseSpecValueDisplay(
+      'resolution',
+      specs?.[installCaseSpecKey('resolution', setIndex)]
+    )
+    const ledPitch = joinInstallCaseLedPitches(specs, setIndex) || '-'
+    const moduleParts = formatInstallCaseModuleSizes(specs, setIndex)
+      .map((size) => safeString(size).trim())
+      .filter((size) => size && size !== '-')
+    const moduleSize = moduleParts.length ? moduleParts.join(' / ') : '-'
+    const hasValue =
+      (displayArea && displayArea !== '-') ||
+      (resolution && resolution !== '-') ||
+      (ledPitch && ledPitch !== '-') ||
+      (moduleSize && moduleSize !== '-')
+    if (setIndex > 0 && !hasValue) continue
+    if (setIndex === 0 || hasValue) {
+      stacks.push({
+        displayArea: displayArea || '-',
+        resolution: resolution || '-',
+        ledPitch: ledPitch || '-',
+        moduleSize,
+      })
+    }
+  }
+  return stacks.length ? stacks : [{ displayArea: '-', resolution: '-', ledPitch: '-', moduleSize: '-' }]
 }
 
 function formatInstallCaseModuleQtyDetailDisplay(raw) {
@@ -6832,6 +6890,10 @@ function App() {
   const [installCaseAudienceFilter, setInstallCaseAudienceFilter] = useState('')
   const [installCaseVisibilityFilter, setInstallCaseVisibilityFilter] = useState('')
   const [installCaseSearch, setInstallCaseSearch] = useState('')
+  /** 좌측 카테고리 아코디언 — 1Depth(옥외/옥내) value → 펼침 여부 */
+  const [installCaseCategoryOpen, setInstallCaseCategoryOpen] = useState({})
+  /** 설치사례 우측 영역 보기 방식 — gallery | list */
+  const [installCaseViewMode, setInstallCaseViewMode] = useState('gallery')
   const [installCaseDetailModal, setInstallCaseDetailModal] = useState(null)
   const [installCases, setInstallCases] = useState([])
   const [installCaseRegisterOpen, setInstallCaseRegisterOpen] = useState(false)
@@ -7983,29 +8045,104 @@ function App() {
     return buildEmptyContractYearSummaryBlock(y)
   }, [contractPageSummaryFocusYear, contractPageSummaryRows])
 
+  /** 가시성·검색만 반영 — 좌측 카테고리 건수·목록용 (분류 필터는 제외) */
+  const installCasesForCategoryNav = useMemo(() => {
+    return installCases
+      .map((row) => ({ ...row, ...resolveInstallCaseCategories(row) }))
+      .filter((row) => {
+        const visibility = row.shareVisibility === 'internal' ? 'internal' : 'external'
+        const visibilityOk = !installCaseVisibilityFilter || visibility === installCaseVisibilityFilter
+        const searchOk = installCaseMatchesSearch(row, installCaseSearch)
+        return visibilityOk && searchOk
+      })
+  }, [installCaseSearch, installCaseVisibilityFilter, installCases])
+
+  /**
+   * 1Depth: 소분류(옥외전광판/옥내전광판) → 2Depth: 중분류(공공기관 등 장소·기관).
+   * 부모 건수 = 해당 옥외/옥내 전체, 자식 건수 = 그 안의 장소·기관 건수. 0건은 숨김.
+   */
+  const installCaseCategoryNav = useMemo(() => {
+    const boardCounts = new Map()
+    const facilityCountsByBoard = new Map()
+    for (const row of installCasesForCategoryNav) {
+      const board = safeString(row.audience).trim()
+      if (!board) continue
+      boardCounts.set(board, (boardCounts.get(board) || 0) + 1)
+      const facility = safeString(row.middleCategory).trim()
+      if (!facility) continue
+      if (!facilityCountsByBoard.has(board)) facilityCountsByBoard.set(board, new Map())
+      const facilityMap = facilityCountsByBoard.get(board)
+      facilityMap.set(facility, (facilityMap.get(facility) || 0) + 1)
+    }
+
+    const knownBoards = INSTALL_CASE_MINOR_CATEGORY_OPTIONS.map((opt) => opt.value)
+    const orderedBoards = [
+      ...knownBoards.filter((value) => boardCounts.has(value)),
+      ...[...boardCounts.keys()].filter((value) => !knownBoards.includes(value)),
+    ]
+
+    return orderedBoards.map((board) => {
+      const facilityMap = facilityCountsByBoard.get(board) || new Map()
+      const knownFacilities = INSTALL_CASE_MIDDLE_CATEGORY_OPTIONS.map((opt) => opt.value)
+      const orderedFacilities = [
+        ...knownFacilities.filter((value) => facilityMap.has(value)),
+        ...[...facilityMap.keys()].filter((value) => !knownFacilities.includes(value)),
+      ]
+      return {
+        value: board,
+        label: getInstallCaseAudienceLabel(board),
+        count: boardCounts.get(board) || 0,
+        children: orderedFacilities.map((facility) => ({
+          value: facility,
+          label: getInstallCaseMiddleCategoryLabel(facility),
+          count: facilityMap.get(facility) || 0,
+        })),
+      }
+    })
+  }, [installCasesForCategoryNav])
+
   const filteredInstallCases = useMemo(() => {
     return sortInstallCasesForDisplay(
-      installCases
-        .map((row) => ({ ...row, ...resolveInstallCaseCategories(row) }))
-        .filter((row) => {
+      installCasesForCategoryNav.filter((row) => {
         const envOk = !installCaseEnvFilter || row.environment === installCaseEnvFilter
         const midOk =
           !installCaseMiddleFilter || row.middleCategory === installCaseMiddleFilter
         const audOk = !installCaseAudienceFilter || row.audience === installCaseAudienceFilter
-        const visibility = row.shareVisibility === 'internal' ? 'internal' : 'external'
-        const visibilityOk = !installCaseVisibilityFilter || visibility === installCaseVisibilityFilter
-        const searchOk = installCaseMatchesSearch(row, installCaseSearch)
-        return envOk && midOk && audOk && visibilityOk && searchOk
+        return envOk && midOk && audOk
       })
     )
   }, [
     installCaseAudienceFilter,
-    installCaseVisibilityFilter,
     installCaseEnvFilter,
     installCaseMiddleFilter,
-    installCaseSearch,
-    installCases,
+    installCasesForCategoryNav,
   ])
+
+  const handleInstallCaseCategorySelectAll = useCallback(() => {
+    setInstallCaseAudienceFilter('')
+    setInstallCaseMiddleFilter('')
+  }, [])
+
+  /** 1Depth: 옥외 또는 옥내 전체 */
+  const handleInstallCaseCategorySelectBoard = useCallback((boardValue) => {
+    setInstallCaseAudienceFilter(boardValue)
+    setInstallCaseMiddleFilter('')
+    setInstallCaseCategoryOpen((prev) => ({ ...prev, [boardValue]: true }))
+  }, [])
+
+  /** 2Depth: 특정 옥외/옥내 + 장소·기관 */
+  const handleInstallCaseCategorySelectFacility = useCallback((boardValue, facilityValue) => {
+    setInstallCaseAudienceFilter(boardValue)
+    setInstallCaseMiddleFilter(facilityValue)
+    setInstallCaseCategoryOpen((prev) => ({ ...prev, [boardValue]: true }))
+  }, [])
+
+  const toggleInstallCaseCategoryOpen = useCallback((boardValue) => {
+    setInstallCaseCategoryOpen((prev) => ({
+      ...prev,
+      [boardValue]: !(prev[boardValue] ?? true),
+    }))
+  }, [])
 
   const runInstallCasesPdfDownload = useCallback(
     async (includeContractAmount = false) => {
@@ -19607,7 +19744,7 @@ function App() {
 
         {menu === 'installCases' && (
           <section className="stat-card stat-card--install-cases">
-            <div className="install-cases-toolbar flex w-full flex-col items-stretch gap-2 md:flex-row md:flex-nowrap md:items-end">
+            <div className="install-cases-toolbar flex w-full flex-row flex-nowrap items-center gap-x-3">
               <div className="install-cases-filter-field">
                 <label className="install-cases-filter-label" htmlFor="install-case-filter-major">
                   대분류
@@ -19701,6 +19838,32 @@ function App() {
                 <Download size={15} strokeWidth={2.25} aria-hidden="true" />
                 {installCasesPdfBusy ? 'PDF 생성 중…' : 'PDF 다운로드'}
               </button>
+              <div className="install-cases-view-toggle" role="group" aria-label="보기 방식">
+                <button
+                  type="button"
+                  className={`install-cases-view-toggle-btn${
+                    installCaseViewMode === 'gallery' ? ' is-active' : ''
+                  }`}
+                  aria-pressed={installCaseViewMode === 'gallery'}
+                  title="갤러리 뷰"
+                  onClick={() => setInstallCaseViewMode('gallery')}
+                >
+                  <LayoutGrid size={16} strokeWidth={2.25} aria-hidden="true" />
+                  <span className="sr-only">갤러리 뷰</span>
+                </button>
+                <button
+                  type="button"
+                  className={`install-cases-view-toggle-btn${
+                    installCaseViewMode === 'list' ? ' is-active' : ''
+                  }`}
+                  aria-pressed={installCaseViewMode === 'list'}
+                  title="리스트 뷰"
+                  onClick={() => setInstallCaseViewMode('list')}
+                >
+                  <List size={16} strokeWidth={2.25} aria-hidden="true" />
+                  <span className="sr-only">리스트 뷰</span>
+                </button>
+              </div>
             </div>
 
             {installCasesPdfProgress ? (
@@ -19741,79 +19904,382 @@ function App() {
               </div>
             ) : null}
 
-            <div className="install-cases-gallery">
-              {filteredInstallCases.map((row) => (
-                <div key={row.id} className="install-case-card-shell">
-                  <button
-                    type="button"
-                    className="install-case-card"
-                    onClick={() => setInstallCaseDetailModal(row)}
-                  >
-                    <div className="install-case-card-thumb">
-                      <InstallCaseHeroMedia
-                        sources={getInstallCaseThumbnailSources(row)}
-                        src={row.heroImages?.[0] || row.heroImage || ''}
-                        loading="lazy"
-                        variant="card"
-                      />
-                    </div>
-                    <div className="install-case-card-body">
-                      <div className="install-case-card-title">{getInstallCaseProjectTitle(row)}</div>
-                      <div className="install-case-card-meta">{formatInstallCaseCardSubline(row)}</div>
-                    </div>
-                  </button>
-                  {canEditInstallCases &&
-                    (row.shareVisibility === 'internal' || installCaseVisibilityFilter === 'internal' ? (
-                      <button
-                        type="button"
-                        className="install-case-card-action install-case-card-hide"
-                        onClick={(e) => changeInstallCaseVisibility(row, e, 'external')}
-                        aria-label="숨김 취소"
-                        title="숨김 취소"
+            <div className="install-cases-body">
+              <aside className="install-cases-category-sidebar" aria-label="설치사례 분류">
+                <div className="install-cases-category-sidebar-title">분류</div>
+                <button
+                  type="button"
+                  className={`install-cases-category-all${
+                    !installCaseAudienceFilter && !installCaseMiddleFilter ? ' is-active' : ''
+                  }`}
+                  onClick={handleInstallCaseCategorySelectAll}
+                >
+                  <span className="install-cases-category-label">전체</span>
+                  <span className="install-cases-category-count">
+                    {installCasesForCategoryNav.length}건
+                  </span>
+                </button>
+                <div className="install-cases-category-list" role="tree">
+                  {installCaseCategoryNav.map((board) => {
+                    const isOpen = installCaseCategoryOpen[board.value] ?? true
+                    const isBoardActive =
+                      installCaseAudienceFilter === board.value && !installCaseMiddleFilter
+                    return (
+                      <div
+                        key={board.value}
+                        className={`install-cases-category-group${isOpen ? ' is-open' : ''}`}
+                        role="treeitem"
+                        aria-expanded={isOpen}
                       >
-                        <Eye size={16} strokeWidth={2.25} aria-hidden="true" />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="install-case-card-action install-case-card-hide"
-                        onClick={(e) => changeInstallCaseVisibility(row, e, 'internal')}
-                        aria-label="숨김"
-                        title="숨김"
-                      >
-                        <EyeOff size={16} strokeWidth={2.25} aria-hidden="true" />
-                      </button>
-                    ))}
-                  {canEditInstallCases && (
-                    <button
-                      type="button"
-                      className="install-case-card-action install-case-card-delete"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        deleteInstallCaseById(row.id)
-                      }}
-                      aria-label={`${getInstallCaseProjectTitle(row)} 삭제`}
-                      title="삭제"
-                    >
-                      <Trash2 size={16} strokeWidth={2.25} aria-hidden="true" />
-                    </button>
-                  )}
+                        <div
+                          className={`install-cases-category-row install-cases-category-row--major${
+                            isBoardActive ? ' is-active' : ''
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            className="install-cases-category-toggle"
+                            aria-label={`${board.label} ${isOpen ? '접기' : '펼치기'}`}
+                            onClick={() => toggleInstallCaseCategoryOpen(board.value)}
+                          >
+                            <ChevronRight
+                              className="install-cases-category-chevron"
+                              size={16}
+                              strokeWidth={2.25}
+                              aria-hidden="true"
+                            />
+                          </button>
+                          <button
+                            type="button"
+                            className="install-cases-category-select"
+                            onClick={() => handleInstallCaseCategorySelectBoard(board.value)}
+                          >
+                            <span className="install-cases-category-label">{board.label}</span>
+                            <span className="install-cases-category-count">{board.count}건</span>
+                          </button>
+                        </div>
+                        {isOpen ? (
+                          <div className="install-cases-category-children" role="group">
+                            {board.children.length === 0 ? (
+                              <div className="install-cases-category-empty">장소·기관 없음</div>
+                            ) : (
+                              board.children.map((facility) => {
+                                const isFacilityActive =
+                                  installCaseAudienceFilter === board.value &&
+                                  installCaseMiddleFilter === facility.value
+                                return (
+                                  <button
+                                    key={`${board.value}::${facility.value}`}
+                                    type="button"
+                                    className={`install-cases-category-row install-cases-category-row--middle${
+                                      isFacilityActive ? ' is-active' : ''
+                                    }`}
+                                    onClick={() =>
+                                      handleInstallCaseCategorySelectFacility(
+                                        board.value,
+                                        facility.value
+                                      )
+                                    }
+                                  >
+                                    <span className="install-cases-category-label">
+                                      {facility.label}
+                                    </span>
+                                    <span className="install-cases-category-count">
+                                      {facility.count}건
+                                    </span>
+                                  </button>
+                                )
+                              })
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    )
+                  })}
+                  {installCaseCategoryNav.length === 0 ? (
+                    <div className="install-cases-category-empty">표시할 분류가 없습니다.</div>
+                  ) : null}
                 </div>
-              ))}
-            </div>
+              </aside>
 
-            {filteredInstallCases.length === 0 && (
-              <div className="install-cases-empty">
-                {installCases.length === 0 &&
-                !installCaseEnvFilter &&
-                !installCaseMiddleFilter &&
-                !installCaseAudienceFilter &&
-                !safeString(installCaseSearch).trim()
-                  ? '조회된 설치사례가 없습니다.'
-                  : '조건에 맞는 설치사례가 없습니다.'}
+              <div className="install-cases-gallery-panel">
+                {installCaseViewMode === 'list' ? (
+                  <div className="install-cases-list-wrap table-wrap w-full">
+                    <table className="excel-table install-cases-list-table w-full">
+                      <thead>
+                        <tr>
+                          <th className="install-cases-list-th-thumb install-cases-list-sticky install-cases-list-sticky--thumb install-cases-list-align-center">
+                            사진
+                          </th>
+                          <th className="install-cases-list-col-year install-cases-list-sticky install-cases-list-sticky--year install-cases-list-align-center">
+                            사업년도
+                          </th>
+                          <th className="install-cases-list-col-title install-cases-list-sticky install-cases-list-sticky--title install-cases-list-align-center">
+                            사업명
+                          </th>
+                          <th className="install-cases-list-col-client install-cases-list-sticky install-cases-list-sticky--client install-cases-list-align-center">
+                            발주처
+                          </th>
+                          <th className="install-cases-list-col-category install-cases-list-align-center">대분류</th>
+                          <th className="install-cases-list-col-category install-cases-list-align-center">중분류</th>
+                          <th className="install-cases-list-col-category install-cases-list-align-center">소분류</th>
+                          <th className="install-cases-list-col-purpose install-cases-list-align-center">용도</th>
+                          <th className="install-cases-list-col-spec">표출부 사이즈</th>
+                          <th className="install-cases-list-col-spec">해상도</th>
+                          <th className="install-cases-list-col-spec">LED Pitch</th>
+                          <th className="install-cases-list-col-spec">모듈 사이즈</th>
+                          <th className="install-cases-list-col-spec">설치유형</th>
+                          {canEditInstallCases ? <th className="install-cases-list-th-actions">관리</th> : null}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredInstallCases.map((row, index) => {
+                          const projectTitle = getInstallCaseProjectTitle(row)
+                          const clientLabel = safeString(row.client).trim() || '-'
+                          const purposeLabel = safeString(row.purpose).trim() || '-'
+                          const majorLabel = getInstallCaseEnvironmentLabel(row.environment)
+                          const middleLabel = getInstallCaseMiddleCategoryLabel(row.middleCategory)
+                          const minorLabel = getInstallCaseAudienceLabel(row.audience)
+                          const specStacks = getInstallCaseListSpecStacks(row.specs)
+                          const installTypeRaw = safeString(row.specs?.installType).trim()
+                          const installTypeLabel =
+                            installTypeRaw && installTypeRaw !== '-' ? installTypeRaw : '-'
+                          return (
+                          <tr
+                            key={row.id}
+                            className={`install-cases-list-row ${index % 2 === 0 ? 'row-even' : 'row-odd'}`}
+                            onClick={() => setInstallCaseDetailModal(row)}
+                          >
+                            <td className="install-cases-list-td-thumb install-cases-list-sticky install-cases-list-sticky--thumb install-cases-list-align-center">
+                              <div className="install-cases-list-thumb">
+                                <InstallCaseHeroMedia
+                                  sources={getInstallCaseThumbnailSources(row)}
+                                  src={row.heroImages?.[0] || row.heroImage || ''}
+                                  loading="lazy"
+                                  variant="card"
+                                />
+                              </div>
+                            </td>
+                            <td className="install-cases-list-col-year install-cases-list-sticky install-cases-list-sticky--year install-cases-list-align-center">
+                              {formatInstallCaseYearDetailDisplay(row.year)}
+                            </td>
+                            <td className="install-cases-list-td-title install-cases-list-col-title install-cases-list-sticky install-cases-list-sticky--title install-cases-list-align-left">
+                              <span className="install-cases-list-cell-truncate" title={projectTitle}>
+                                {projectTitle}
+                              </span>
+                            </td>
+                            <td className="install-cases-list-col-client install-cases-list-sticky install-cases-list-sticky--client install-cases-list-align-left">
+                              <span className="install-cases-list-cell-truncate" title={clientLabel}>
+                                {clientLabel}
+                              </span>
+                            </td>
+                            <td className="install-cases-list-col-category install-cases-list-align-center">
+                              <span className="install-cases-list-cell-truncate" title={majorLabel}>
+                                {majorLabel}
+                              </span>
+                            </td>
+                            <td className="install-cases-list-col-category install-cases-list-align-center">
+                              <span className="install-cases-list-cell-truncate" title={middleLabel}>
+                                {middleLabel}
+                              </span>
+                            </td>
+                            <td className="install-cases-list-col-category install-cases-list-align-center">
+                              <span className="install-cases-list-cell-truncate" title={minorLabel}>
+                                {minorLabel}
+                              </span>
+                            </td>
+                            <td className="install-cases-list-col-purpose install-cases-list-align-center">
+                              <span className="install-cases-list-cell-truncate" title={purposeLabel}>
+                                {purposeLabel}
+                              </span>
+                            </td>
+                            <td className="install-cases-list-col-spec">
+                              <div className="install-cases-list-spec-stack">
+                                {specStacks.map((stack, stackIndex) => (
+                                  <div
+                                    key={`area-${row.id}-${stackIndex}`}
+                                    className="install-cases-list-spec-line"
+                                    title={stack.displayArea}
+                                  >
+                                    {stack.displayArea}
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="install-cases-list-col-spec">
+                              <div className="install-cases-list-spec-stack">
+                                {specStacks.map((stack, stackIndex) => (
+                                  <div
+                                    key={`res-${row.id}-${stackIndex}`}
+                                    className="install-cases-list-spec-line"
+                                    title={stack.resolution}
+                                  >
+                                    {stack.resolution}
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="install-cases-list-col-spec">
+                              <div className="install-cases-list-spec-stack">
+                                {specStacks.map((stack, stackIndex) => (
+                                  <div
+                                    key={`pitch-${row.id}-${stackIndex}`}
+                                    className="install-cases-list-spec-line"
+                                    title={stack.ledPitch}
+                                  >
+                                    {stack.ledPitch}
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="install-cases-list-col-spec">
+                              <div className="install-cases-list-spec-stack">
+                                {specStacks.map((stack, stackIndex) => (
+                                  <div
+                                    key={`module-${row.id}-${stackIndex}`}
+                                    className="install-cases-list-spec-line"
+                                    title={stack.moduleSize}
+                                  >
+                                    {stack.moduleSize}
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="install-cases-list-col-spec">
+                              <span className="install-cases-list-cell-truncate" title={installTypeLabel}>
+                                {installTypeLabel}
+                              </span>
+                            </td>
+                            {canEditInstallCases ? (
+                              <td
+                                className="install-cases-list-td-actions"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {row.shareVisibility === 'internal' ||
+                                installCaseVisibilityFilter === 'internal' ? (
+                                  <button
+                                    type="button"
+                                    className="install-cases-list-action-btn"
+                                    onClick={(e) => changeInstallCaseVisibility(row, e, 'external')}
+                                    aria-label="숨김 취소"
+                                    title="숨김 취소"
+                                  >
+                                    <Eye size={15} strokeWidth={2.25} aria-hidden="true" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="install-cases-list-action-btn"
+                                    onClick={(e) => changeInstallCaseVisibility(row, e, 'internal')}
+                                    aria-label="숨김"
+                                    title="숨김"
+                                  >
+                                    <EyeOff size={15} strokeWidth={2.25} aria-hidden="true" />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className="install-cases-list-action-btn is-danger"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    deleteInstallCaseById(row.id)
+                                  }}
+                                  aria-label={`${getInstallCaseProjectTitle(row)} 삭제`}
+                                  title="삭제"
+                                >
+                                  <Trash2 size={15} strokeWidth={2.25} aria-hidden="true" />
+                                </button>
+                              </td>
+                            ) : null}
+                          </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="install-cases-gallery">
+                    {filteredInstallCases.map((row) => (
+                      <div key={row.id} className="install-case-card-shell">
+                        <button
+                          type="button"
+                          className="install-case-card"
+                          onClick={() => setInstallCaseDetailModal(row)}
+                        >
+                          <div className="install-case-card-thumb">
+                            <InstallCaseHeroMedia
+                              sources={getInstallCaseThumbnailSources(row)}
+                              src={row.heroImages?.[0] || row.heroImage || ''}
+                              loading="lazy"
+                              variant="card"
+                            />
+                          </div>
+                          <div className="install-case-card-body">
+                            <div className="install-case-card-title">
+                              {getInstallCaseProjectTitle(row)}
+                            </div>
+                            <div className="install-case-card-meta">
+                              {formatInstallCaseCardSubline(row)}
+                            </div>
+                          </div>
+                        </button>
+                        {canEditInstallCases &&
+                          (row.shareVisibility === 'internal' ||
+                          installCaseVisibilityFilter === 'internal' ? (
+                            <button
+                              type="button"
+                              className="install-case-card-action install-case-card-hide"
+                              onClick={(e) => changeInstallCaseVisibility(row, e, 'external')}
+                              aria-label="숨김 취소"
+                              title="숨김 취소"
+                            >
+                              <Eye size={16} strokeWidth={2.25} aria-hidden="true" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="install-case-card-action install-case-card-hide"
+                              onClick={(e) => changeInstallCaseVisibility(row, e, 'internal')}
+                              aria-label="숨김"
+                              title="숨김"
+                            >
+                              <EyeOff size={16} strokeWidth={2.25} aria-hidden="true" />
+                            </button>
+                          ))}
+                        {canEditInstallCases && (
+                          <button
+                            type="button"
+                            className="install-case-card-action install-case-card-delete"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              deleteInstallCaseById(row.id)
+                            }}
+                            aria-label={`${getInstallCaseProjectTitle(row)} 삭제`}
+                            title="삭제"
+                          >
+                            <Trash2 size={16} strokeWidth={2.25} aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {filteredInstallCases.length === 0 && (
+                  <div className="install-cases-empty">
+                    {installCases.length === 0 &&
+                    !installCaseEnvFilter &&
+                    !installCaseMiddleFilter &&
+                    !installCaseAudienceFilter &&
+                    !safeString(installCaseSearch).trim()
+                      ? '조회된 설치사례가 없습니다.'
+                      : '조건에 맞는 설치사례가 없습니다.'}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </section>
         )}
 
@@ -19825,6 +20291,8 @@ function App() {
         {menu === 'salesContacts' && !isMenuAccessDenied && <SalesContactsPage role={role} />}
 
         {menu === 'orderManagement' && !isMenuAccessDenied && <OrderManagementPlaceholder />}
+
+        {menu === 'mainBudget' && !isMenuAccessDenied && <MainBudgetPlaceholder />}
 
         {/* 신규 메뉴 — 발주관리와 같은 '준비 중입니다.' 공용 화면 재사용 */}
         {menu === 'salesIntegrated' && !isMenuAccessDenied && <SalesIntegratedPage />}
