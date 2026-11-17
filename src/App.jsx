@@ -73,7 +73,12 @@ import {
   normalizeContactsManageColumnFilterSelection,
 } from './contactsManageColumnFilter.js'
 import * as XLSX from 'xlsx'
-import { downloadInstallCasesPdf, isPdfAbortError, splitSearchTerms } from './installCasesPdf.js'
+import {
+  downloadInstallCasesPdf,
+  isPdfAbortError,
+  loadInstallCaseExcelThumbnails,
+  splitSearchTerms,
+} from './installCasesPdf.js'
 import {
   LED_PITCHES_BASE as INSTALL_CASE_LED_PITCHES_BASE,
   MODULE_SIZES_BASE as INSTALL_CASE_MODULE_SIZES_BASE,
@@ -84,7 +89,12 @@ import {
   readLedPitches as readInstallCaseLedPitches,
   readModuleSizes as readInstallCaseModuleSizes,
 } from './publicShare/installCaseView.js'
-import { buildStyledExcelFilename, downloadStyledExcel } from './styledExcelDownload.js'
+import {
+  buildStyledExcelFilename,
+  countLeadingStickyColumns,
+  downloadStyledExcel,
+} from './styledExcelDownload.js'
+import { useModalEscapeClose } from './useModalEscapeClose.js'
 import './App.css'
 import { contractsApi } from './contractsApi'
 import { contactsManageApi } from './contactsManageApi.js'
@@ -2783,6 +2793,8 @@ function normalizeInstallCaseRow(row) {
   })
   const heroImage = heroImages[0] || ''
   const categories = resolveInstallCaseCategories(row)
+  const statusRaw = safeString(row?.status).trim().toLowerCase()
+  const status = statusRaw === 'draft' || statusRaw === '임시' || statusRaw === '임시저장' ? 'draft' : ''
   return {
     id,
     projectName: safeString(row?.projectName).trim() || '-',
@@ -2797,10 +2809,70 @@ function normalizeInstallCaseRow(row) {
     client: safeString(row?.client).trim() || '-',
     contractAmount: parseInstallCaseAmountDigits(row?.contractAmount),
     contractAmountNote: safeString(row?.contractAmountNote).trim(),
+    status,
+    sourceContractId: safeString(row?.sourceContractId).trim(),
+    sourceDueDate: safeString(row?.sourceDueDate).trim(),
+    hasPhoto: heroImages.length > 0 || row?.hasPhoto === true,
     specs,
     // 레거시 폴백 URL 캐시 버스팅에 쓰인다
     updatedAt: safeString(row?.updatedAt).trim(),
   }
+}
+
+function installCaseHasPhoto(row) {
+  if (!row) return false
+  if (row.hasPhoto === true) return true
+  if (Array.isArray(row.heroImages) && row.heroImages.some((url) => safeString(url).trim())) return true
+  return Boolean(safeString(row.heroImage).trim())
+}
+
+function isInstallCaseDraft(row) {
+  if (!row) return false
+  const status = safeString(row.status).trim().toLowerCase()
+  if (status === 'draft') return true
+  return !installCaseHasPhoto(row) && Boolean(safeString(row.sourceContractId).trim())
+}
+
+function parseInstallCaseSourceDueDate(raw) {
+  const text = safeString(raw).trim()
+  if (!text || text === '-' || text === '--') return null
+  const m = text.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/)
+  if (m) {
+    const y = Number(m[1])
+    const mo = Number(m[2])
+    const d = Number(m[3])
+    if (!y || !mo || !d) return null
+    const dt = new Date(y, mo - 1, d)
+    if (Number.isNaN(dt.getTime())) return null
+    dt.setHours(0, 0, 0, 0)
+    return dt
+  }
+  const digits = text.replace(/\D/g, '')
+  if (digits.length >= 8) {
+    const y = Number(digits.slice(0, 4))
+    const mo = Number(digits.slice(4, 6))
+    const d = Number(digits.slice(6, 8))
+    const dt = new Date(y, mo - 1, d)
+    if (Number.isNaN(dt.getTime())) return null
+    dt.setHours(0, 0, 0, 0)
+    return dt
+  }
+  return null
+}
+
+/** 계약 연동 임시 건 중 사진이 아직 없는 건 (준공일과 무관) */
+function isInstallCaseMissingPhotoDraft(row) {
+  return isInstallCaseDraft(row) && !installCaseHasPhoto(row)
+}
+
+/** 준공일 경과 + 사진 없음 → 등록 유도 애니메이션 */
+function isInstallCasePhotoOverdue(row) {
+  if (!row || installCaseHasPhoto(row)) return false
+  const due = parseInstallCaseSourceDueDate(row.sourceDueDate)
+  if (!due) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return due.getTime() < today.getTime()
 }
 
 /** 등록 폼 payload → 갤러리 카드용 행 (모킹·실API 공통) */
@@ -2810,6 +2882,26 @@ function buildInstallCaseRowFromPayload(rowPayload, idOverride = null) {
     id: idOverride || rowPayload?.id || `local-${Date.now()}`,
   })
 }
+
+/** 설치사례 리스트 뷰와 같은 13개 컬럼 (사진 = 첫 열) */
+const INSTALL_CASE_EXCEL_HEADERS = Object.freeze([
+  '사진',
+  '사업년도',
+  '사업명',
+  '발주처',
+  '대분류',
+  '중분류',
+  '소분류',
+  '용도',
+  '표출부 사이즈',
+  '해상도',
+  'LED Pitch',
+  '모듈 사이즈',
+  '설치유형',
+])
+const INSTALL_CASE_EXCEL_THUMB = Object.freeze({ width: 160, height: 120 })
+/** 리스트 뷰 좌측 고정(install-cases-list-sticky) 열 — 사진·사업년도·사업명·발주처 */
+const INSTALL_CASE_EXCEL_FROZEN_COLUMN_COUNT = 4
 
 function getInstallCaseProjectTitle(row) {
   return safeString(row?.projectName).trim() || '-'
@@ -3254,6 +3346,8 @@ function InstallCaseHeroMedia({
   className = '',
   loading,
   variant = 'card',
+  photoOverdue = false,
+  isDraft = false,
 }) {
   const candidateList = useMemo(() => {
     const rawList =
@@ -3296,8 +3390,19 @@ function InstallCaseHeroMedia({
   if (variant === 'card') {
     if (!mediaSrc) {
       return (
-        <div className="install-case-card-media install-case-card-media--empty">
-          <div className="install-case-card-media-empty">이미지 없음</div>
+        <div
+          className={`install-case-card-media install-case-card-media--empty${
+            isDraft ? ' install-case-card-media--draft' : ''
+          }${photoOverdue ? ' install-case-card-media--photo-overdue' : ''}`}
+        >
+          <div className="install-case-card-media-empty">
+            {isDraft ? '사진 대기' : '이미지 없음'}
+          </div>
+          {photoOverdue ? (
+            <div className="install-case-photo-prompt animate-pulse" role="status">
+              📸 사진을 등록해주세요
+            </div>
+          ) : null}
           <div className="install-case-card-media-overlay" aria-hidden />
         </div>
       )
@@ -3336,8 +3441,18 @@ function InstallCaseHeroMedia({
 
   if (!mediaSrc) {
     return (
-      <div className={`install-case-detail-media install-case-detail-media--empty${className ? ` ${className}` : ''}`}>
-        미디어 없음
+      <div
+        className={`install-case-detail-media install-case-detail-media--empty${
+          className ? ` ${className}` : ''
+        }${photoOverdue ? ' is-photo-overdue' : ''}`}
+      >
+        {photoOverdue ? (
+          <span className="install-case-photo-prompt animate-pulse" role="status">
+            📸 사진을 등록해주세요
+          </span>
+        ) : (
+          '미디어 없음'
+        )}
       </div>
     )
   }
@@ -5965,8 +6080,17 @@ function buildExcelRowsFromTableColumns(rows, columns, getCellValue, { excludeDr
   })
 }
 
-/** 필터 결과 0건이어도 화면과 동일한 헤더 행을 유지한다. */
-function downloadStyledExcelFromTableColumns(rows, columns, sheetName, filename) {
+/**
+ * 필터 결과 0건이어도 화면과 동일한 헤더 행을 유지한다.
+ * 화면 표에서 좌측 고정(sticky)된 열 개수만큼 엑셀도 열 틀고정한다.
+ */
+function downloadStyledExcelFromTableColumns(
+  rows,
+  columns,
+  sheetName,
+  filename,
+  { isStickyColumn = (column) => Boolean(column.stickyClass) } = {}
+) {
   return downloadStyledExcel({
     sheetName,
     filename,
@@ -5975,6 +6099,7 @@ function downloadStyledExcelFromTableColumns(rows, columns, sheetName, filename)
       key: column.label,
     })),
     rows,
+    freezeColumnCount: countLeadingStickyColumns(columns, isStickyColumn),
   })
 }
 
@@ -6888,6 +7013,7 @@ function App() {
   const [installCaseEnvFilter, setInstallCaseEnvFilter] = useState('')
   const [installCaseMiddleFilter, setInstallCaseMiddleFilter] = useState('')
   const [installCaseAudienceFilter, setInstallCaseAudienceFilter] = useState('')
+  const [installCaseMissingPhotoOnly, setInstallCaseMissingPhotoOnly] = useState(false)
   const [installCaseVisibilityFilter, setInstallCaseVisibilityFilter] = useState('')
   const [installCaseSearch, setInstallCaseSearch] = useState('')
   /** 좌측 카테고리 아코디언 — 1Depth(옥외/옥내) value → 펼침 여부 */
@@ -6901,6 +7027,9 @@ function App() {
   const [installShareDays, setInstallShareDays] = useState(7)
   const [installShareBusy, setInstallShareBusy] = useState(false)
   const [installCasesPdfBusy, setInstallCasesPdfBusy] = useState(false)
+  const [installCasesExcelBusy, setInstallCasesExcelBusy] = useState(false)
+  const installCaseDetailDialogRef = useRef(null)
+  const installCaseFormDialogRef = useRef(null)
   /** PDF 생성 진행 상태 { done, total } — null 이면 오버레이 숨김 */
   const [installCasesPdfProgress, setInstallCasesPdfProgress] = useState(null)
   const installCasesPdfAbortRef = useRef(null)
@@ -7460,6 +7589,8 @@ function App() {
 
     try {
       const data = await contractsApi.create(payload)
+      // 전광판/VMS 신규 계약은 서버에서 설치사례 임시 건이 생기므로 바로 다시 불러온다.
+      void fetchInstallCases()
       return data ? [data] : []
     } catch (error) {
       logApiOperationError('계약현황 저장', error)
@@ -8101,9 +8232,15 @@ function App() {
     })
   }, [installCasesForCategoryNav])
 
+  const installCaseMissingPhotoCount = useMemo(
+    () => installCasesForCategoryNav.filter((row) => isInstallCaseMissingPhotoDraft(row)).length,
+    [installCasesForCategoryNav]
+  )
+
   const filteredInstallCases = useMemo(() => {
     return sortInstallCasesForDisplay(
       installCasesForCategoryNav.filter((row) => {
+        if (installCaseMissingPhotoOnly && !isInstallCaseMissingPhotoDraft(row)) return false
         const envOk = !installCaseEnvFilter || row.environment === installCaseEnvFilter
         const midOk =
           !installCaseMiddleFilter || row.middleCategory === installCaseMiddleFilter
@@ -8115,16 +8252,19 @@ function App() {
     installCaseAudienceFilter,
     installCaseEnvFilter,
     installCaseMiddleFilter,
+    installCaseMissingPhotoOnly,
     installCasesForCategoryNav,
   ])
 
   const handleInstallCaseCategorySelectAll = useCallback(() => {
+    setInstallCaseMissingPhotoOnly(false)
     setInstallCaseAudienceFilter('')
     setInstallCaseMiddleFilter('')
   }, [])
 
   /** 1Depth: 옥외 또는 옥내 전체 */
   const handleInstallCaseCategorySelectBoard = useCallback((boardValue) => {
+    setInstallCaseMissingPhotoOnly(false)
     setInstallCaseAudienceFilter(boardValue)
     setInstallCaseMiddleFilter('')
     setInstallCaseCategoryOpen((prev) => ({ ...prev, [boardValue]: true }))
@@ -8132,9 +8272,16 @@ function App() {
 
   /** 2Depth: 특정 옥외/옥내 + 장소·기관 */
   const handleInstallCaseCategorySelectFacility = useCallback((boardValue, facilityValue) => {
+    setInstallCaseMissingPhotoOnly(false)
     setInstallCaseAudienceFilter(boardValue)
     setInstallCaseMiddleFilter(facilityValue)
     setInstallCaseCategoryOpen((prev) => ({ ...prev, [boardValue]: true }))
+  }, [])
+
+  const handleInstallCaseCategorySelectMissingPhoto = useCallback(() => {
+    setInstallCaseMissingPhotoOnly(true)
+    setInstallCaseAudienceFilter('')
+    setInstallCaseMiddleFilter('')
   }, [])
 
   const toggleInstallCaseCategoryOpen = useCallback((boardValue) => {
@@ -8261,6 +8408,61 @@ function App() {
     runInstallCasesPdfDownload,
     showAppAlert,
   ])
+
+  const handleInstallCasesExcelDownload = useCallback(async () => {
+    if (installCasesExcelBusy) return
+    const rows = filteredInstallCases
+    if (!rows.length) {
+      showAppAlert('엑셀로 내보낼 설치사례가 없습니다. 필터를 확인해 주세요.', '알림')
+      return
+    }
+    setInstallCasesExcelBusy(true)
+    try {
+      const thumbnails = await loadInstallCaseExcelThumbnails(rows, getInstallCaseThumbnailSources, {
+        width: INSTALL_CASE_EXCEL_THUMB.width,
+        height: INSTALL_CASE_EXCEL_THUMB.height,
+      })
+      const excelRows = rows.map((row, index) => {
+        const specStacks = getInstallCaseListSpecStacks(row.specs)
+        const joinStack = (key) => specStacks.map((stack) => stack[key]).join('\n')
+        const installTypeRaw = safeString(row.specs?.installType).trim()
+        return {
+          사진: thumbnails[index] ? '' : '사진 없음',
+          사업년도: formatInstallCaseYearDetailDisplay(row.year),
+          사업명: getInstallCaseProjectTitle(row),
+          발주처: safeString(row.client).trim() || '-',
+          대분류: getInstallCaseEnvironmentLabel(row.environment),
+          중분류: getInstallCaseMiddleCategoryLabel(row.middleCategory),
+          소분류: getInstallCaseAudienceLabel(row.audience),
+          용도: safeString(row.purpose).trim() || '-',
+          '표출부 사이즈': joinStack('displayArea'),
+          해상도: joinStack('resolution'),
+          'LED Pitch': joinStack('ledPitch'),
+          '모듈 사이즈': joinStack('moduleSize'),
+          설치유형: installTypeRaw && installTypeRaw !== '-' ? installTypeRaw : '-',
+        }
+      })
+      await downloadStyledExcel({
+        sheetName: '설치사례',
+        filename: buildStyledExcelFilename('설치사례'),
+        columns: INSTALL_CASE_EXCEL_HEADERS.map((header) => ({ header, key: header })),
+        rows: excelRows,
+        freezeColumnCount: INSTALL_CASE_EXCEL_FROZEN_COLUMN_COUNT,
+        image: {
+          key: '사진',
+          width: INSTALL_CASE_EXCEL_THUMB.width,
+          height: INSTALL_CASE_EXCEL_THUMB.height,
+          items: thumbnails,
+        },
+      })
+      setToastMessage(`설치사례 엑셀 ${rows.length}건을 저장했습니다.`)
+    } catch (error) {
+      logApiOperationError('설치사례 엑셀 다운로드', error)
+      showAppAlert(error?.message || '엑셀 다운로드에 실패했습니다.', '알림')
+    } finally {
+      setInstallCasesExcelBusy(false)
+    }
+  }, [filteredInstallCases, installCasesExcelBusy, showAppAlert])
 
   const handleInstallCasesPdfCancel = useCallback(() => {
     const controller = installCasesPdfAbortRef.current
@@ -8399,13 +8601,17 @@ function App() {
     if (!row) return
 
     const openEditFromRow = () => {
+      const blankDash = (value) => {
+        const text = safeString(value).trim()
+        return text === '-' ? '' : text
+      }
       setInstallCaseEditingId(row.id)
       setInstallCaseFormDraft({
-        projectName: safeString(row.projectName).trim(),
+        projectName: blankDash(row.projectName),
         ...resolveInstallCaseCategories(row),
         businessYearDigits: parseYearToFormDigits(row.year),
-        purpose: safeString(row.purpose).trim(),
-        client: safeString(row.client).trim(),
+        purpose: blankDash(row.purpose),
+        client: blankDash(row.client),
         contractAmount: parseInstallCaseAmountDigits(row.contractAmount),
         contractAmountNote: safeString(row.contractAmountNote).trim(),
         specs: installCaseSpecsToFormDraft(row.specs),
@@ -8445,6 +8651,19 @@ function App() {
     openEditFromRow()
   }, [applyInstallCaseFormDraftSnapshot])
 
+  /** 초안·사진 미등록 건은 수정 모달로, 그 외는 상세 모달 */
+  const openInstallCaseRow = useCallback(
+    (row) => {
+      if (!row) return
+      if (canEditInstallCases && !installCaseHasPhoto(row) && (isInstallCaseDraft(row) || isInstallCasePhotoOverdue(row))) {
+        handleOpenInstallCaseEdit(row)
+        return
+      }
+      setInstallCaseDetailModal(row)
+    },
+    [canEditInstallCases, handleOpenInstallCaseEdit]
+  )
+
   const handleCloseInstallCaseRegister = useCallback(
     ({ discardDraft = false } = {}) => {
       setInstallCaseSubmitting(false)
@@ -8457,6 +8676,19 @@ function App() {
       setInstallCaseFormDraft(getDefaultInstallCaseForm())
     },
     [flushInstallCaseFormDraftToStorage]
+  )
+
+  useModalEscapeClose(
+    installCaseDetailDialogRef,
+    () => setInstallCaseDetailModal(null),
+    Boolean(installCaseDetailModal)
+  )
+  useModalEscapeClose(
+    installCaseFormDialogRef,
+    () => {
+      if (!installCaseSubmitting) handleCloseInstallCaseRegister()
+    },
+    installCaseRegisterOpen
   )
 
   const filteredMaterialsBoardPosts = useMemo(() => {
@@ -10312,7 +10544,8 @@ function App() {
       rows,
       CONTRACT_COLUMNS,
       '계약현황',
-      buildStyledExcelFilename('계약현황')
+      buildStyledExcelFilename('계약현황'),
+      { isStickyColumn: (column) => Boolean(getContractStickyColumnClass(column.key)) }
     )
   }
 
@@ -13903,6 +14136,9 @@ function App() {
 
     try {
       await contractsApi.update(id, { [snap.key]: value })
+      if (['contractType', 'projectName', 'client', 'amount', 'dueDate'].includes(snap.key)) {
+        void fetchInstallCases()
+      }
       setContracts((prev) =>
         prev.map((row) => {
           const rowId = firstUsableContractPathId(row.id, row.key, row._id, row.contract_id)
@@ -19805,7 +20041,9 @@ function App() {
                     aria-selected={installCaseVisibilityFilter === tab.id}
                     className={`secondary-btn install-cases-visibility-tab${
                       installCaseVisibilityFilter === tab.id ? ' is-active' : ''
-                    }${tab.id === 'external' ? ' is-external' : ''}`}
+                    }${tab.id === 'external' ? ' is-external' : ''}${
+                      tab.id === 'internal' ? ' is-internal' : ''
+                    }`}
                     onClick={() => setInstallCaseVisibilityFilter(tab.id)}
                   >
                     {tab.label}
@@ -19837,6 +20075,16 @@ function App() {
               >
                 <Download size={15} strokeWidth={2.25} aria-hidden="true" />
                 {installCasesPdfBusy ? 'PDF 생성 중…' : 'PDF 다운로드'}
+              </button>
+              <button
+                className="secondary-btn install-cases-pdf-btn"
+                type="button"
+                disabled={installCasesExcelBusy || filteredInstallCases.length === 0}
+                onClick={() => void handleInstallCasesExcelDownload()}
+                aria-busy={installCasesExcelBusy}
+              >
+                <Download size={15} strokeWidth={2.25} aria-hidden="true" />
+                {installCasesExcelBusy ? '엑셀 생성 중…' : '엑셀 다운로드'}
               </button>
               <div className="install-cases-view-toggle" role="group" aria-label="보기 방식">
                 <button
@@ -19910,7 +20158,9 @@ function App() {
                 <button
                   type="button"
                   className={`install-cases-category-all${
-                    !installCaseAudienceFilter && !installCaseMiddleFilter ? ' is-active' : ''
+                    !installCaseMissingPhotoOnly && !installCaseAudienceFilter && !installCaseMiddleFilter
+                      ? ' is-active'
+                      : ''
                   }`}
                   onClick={handleInstallCaseCategorySelectAll}
                 >
@@ -19923,7 +20173,9 @@ function App() {
                   {installCaseCategoryNav.map((board) => {
                     const isOpen = installCaseCategoryOpen[board.value] ?? true
                     const isBoardActive =
-                      installCaseAudienceFilter === board.value && !installCaseMiddleFilter
+                      !installCaseMissingPhotoOnly &&
+                      installCaseAudienceFilter === board.value &&
+                      !installCaseMiddleFilter
                     return (
                       <div
                         key={board.value}
@@ -19965,6 +20217,7 @@ function App() {
                             ) : (
                               board.children.map((facility) => {
                                 const isFacilityActive =
+                                  !installCaseMissingPhotoOnly &&
                                   installCaseAudienceFilter === board.value &&
                                   installCaseMiddleFilter === facility.value
                                 return (
@@ -20000,6 +20253,16 @@ function App() {
                     <div className="install-cases-category-empty">표시할 분류가 없습니다.</div>
                   ) : null}
                 </div>
+                <button
+                  type="button"
+                  className={`install-cases-category-missing-photo text-red-500 font-medium${
+                    installCaseMissingPhotoOnly ? ' is-active' : ''
+                  }`}
+                  aria-pressed={installCaseMissingPhotoOnly}
+                  onClick={handleInstallCaseCategorySelectMissingPhoto}
+                >
+                  사진 미등록 {installCaseMissingPhotoCount}건
+                </button>
               </aside>
 
               <div className="install-cases-gallery-panel">
@@ -20047,8 +20310,10 @@ function App() {
                           return (
                           <tr
                             key={row.id}
-                            className={`install-cases-list-row ${index % 2 === 0 ? 'row-even' : 'row-odd'}`}
-                            onClick={() => setInstallCaseDetailModal(row)}
+                            className={`install-cases-list-row ${index % 2 === 0 ? 'row-even' : 'row-odd'}${
+                              isInstallCasePhotoOverdue(row) ? ' is-photo-overdue' : ''
+                            }${isInstallCaseDraft(row) && !installCaseHasPhoto(row) ? ' is-draft' : ''}`}
+                            onClick={() => openInstallCaseRow(row)}
                           >
                             <td className="install-cases-list-td-thumb install-cases-list-sticky install-cases-list-sticky--thumb install-cases-list-align-center">
                               <div className="install-cases-list-thumb">
@@ -20057,6 +20322,8 @@ function App() {
                                   src={row.heroImages?.[0] || row.heroImage || ''}
                                   loading="lazy"
                                   variant="card"
+                                  isDraft={isInstallCaseDraft(row) && !installCaseHasPhoto(row)}
+                                  photoOverdue={isInstallCasePhotoOverdue(row)}
                                 />
                               </div>
                             </td>
@@ -20201,11 +20468,22 @@ function App() {
                 ) : (
                   <div className="install-cases-gallery">
                     {filteredInstallCases.map((row) => (
-                      <div key={row.id} className="install-case-card-shell">
+                      <div
+                        key={row.id}
+                        className={`install-case-card-shell${
+                          isInstallCasePhotoOverdue(row) ? ' is-photo-overdue' : ''
+                        }${isInstallCaseDraft(row) && !installCaseHasPhoto(row) ? ' is-draft' : ''}`}
+                      >
                         <button
                           type="button"
-                          className="install-case-card"
-                          onClick={() => setInstallCaseDetailModal(row)}
+                          className={`install-case-card ${
+                            isInstallCaseMissingPhotoDraft(row)
+                              ? 'is-missing-photo'
+                              : row.shareVisibility === 'internal'
+                                ? 'is-internal'
+                                : 'is-external'
+                          }`}
+                          onClick={() => openInstallCaseRow(row)}
                         >
                           <div className="install-case-card-thumb">
                             <InstallCaseHeroMedia
@@ -20213,6 +20491,8 @@ function App() {
                               src={row.heroImages?.[0] || row.heroImage || ''}
                               loading="lazy"
                               variant="card"
+                              isDraft={isInstallCaseDraft(row) && !installCaseHasPhoto(row)}
+                              photoOverdue={isInstallCasePhotoOverdue(row)}
                             />
                           </div>
                           <div className="install-case-card-body">
@@ -20688,6 +20968,7 @@ function App() {
       {installCaseDetailModal && (
         <div className="modal-backdrop" onClick={() => setInstallCaseDetailModal(null)}>
           <div
+            ref={installCaseDetailDialogRef}
             className="install-case-detail-modal"
             role="dialog"
             aria-modal="true"
@@ -20763,6 +21044,11 @@ function App() {
                         : [installCaseDetailModal.heroImage].filter(Boolean)
                     }
                     fallbackHeroImage={installCaseDetailModal.heroImage || ''}
+                    isDraft={
+                      isInstallCaseDraft(installCaseDetailModal) &&
+                      !installCaseHasPhoto(installCaseDetailModal)
+                    }
+                    photoOverdue={isInstallCasePhotoOverdue(installCaseDetailModal)}
                   />
                 </div>
               </div>
@@ -21530,6 +21816,7 @@ function App() {
       {installCaseRegisterOpen && (
         <div className="modal-backdrop" onClick={handleCloseInstallCaseRegister}>
           <div
+            ref={installCaseFormDialogRef}
             className="install-case-form-modal"
             role="dialog"
             aria-modal="true"

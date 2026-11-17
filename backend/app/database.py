@@ -94,6 +94,8 @@ def _migrate_project_discovery_row_columns(cursor) -> None:
 
 def _migrate_project_discovery_permit_date_to_text(cursor) -> None:
     """건축정보일자: date → text (날짜·'분기별자료(9월)' 등 혼용 저장)."""
+    if _pg_column_udt_name(cursor, "project_discovery_rows", "permitDate") in {None, "text"}:
+        return
     try:
         cursor.execute(
             """
@@ -116,6 +118,8 @@ def _migrate_project_discovery_permit_date_to_text(cursor) -> None:
 
 def _migrate_project_management_commencement_cert_to_text(cursor) -> None:
     """사업관리 착수계: date → text (날짜·'생략' 혼용 저장)."""
+    if _pg_column_udt_name(cursor, "project_management_items", "commencementCert") in {None, "text"}:
+        return
     try:
         cursor.execute(
             """
@@ -157,6 +161,9 @@ def _migrate_project_discovery_text_columns(cursor) -> None:
         "salesNote",
     )
     for col in text_columns:
+        current = _pg_column_udt_name(cursor, "project_discovery_rows", col)
+        if current in {None, "text"}:
+            continue
         quoted = f'"{col}"'
         try:
             cursor.execute(
@@ -191,6 +198,9 @@ def _migrate_weekly_work_reports_text_columns(cursor) -> None:
     )
     for col in text_columns:
         quoted = f'"{col}"' if col == "user" else col
+        current = _pg_column_udt_name(cursor, "weekly_work_reports_rows", col)
+        if current in {None, "text"}:
+            continue
         try:
             cursor.execute(
                 f"""
@@ -229,6 +239,9 @@ def _migrate_contracts_text_columns(cursor) -> None:
         "note",
     )
     for col in text_columns:
+        current = _pg_column_udt_name(cursor, "contracts_rows", col)
+        if current in {None, "text"}:
+            continue
         quoted = f'"{col}"'
         try:
             cursor.execute(
@@ -252,7 +265,10 @@ def _migrate_contracts_text_columns(cursor) -> None:
 
 
 def _migrate_sales_register_text_columns(cursor) -> None:
-    """구형 NAS DB: 영업관리대장 varchar(50) → text (긴 세부내용 보존)."""
+    """구형 NAS DB: 영업관리대장 varchar(50) → text (긴 세부내용 보존).
+
+    이미 text 인 컬럼은 매번 테이블을 다시 쓰지 않는다. 기동 중 ALTER 가 로그인까지 막는다.
+    """
     text_columns = (
         "client",
         "projectName",
@@ -268,6 +284,9 @@ def _migrate_sales_register_text_columns(cursor) -> None:
         "summary",
     )
     for col in text_columns:
+        current = _pg_column_udt_name(cursor, "sales_register_rows", col)
+        if current in {None, "text"}:
+            continue
         quoted = f'"{col}"'
         try:
             cursor.execute(
@@ -310,6 +329,9 @@ def _migrate_excluded_projects_text_columns(cursor) -> None:
         "salesNote",
     )
     for col in text_columns:
+        current = _pg_column_udt_name(cursor, "excluded_projects_rows", col)
+        if current in {None, "text"}:
+            continue
         quoted = f'"{col}"'
         try:
             cursor.execute(
@@ -788,6 +810,20 @@ def init_db():
                   pm text not null default '',
                   note text not null default ''
                 )
+                """
+            )
+            # 기존 행은 NULL 로 두고 새 행만 now() — 설치사례 자동 연동은 이 값이 있는 계약만 대상.
+            if not _pg_rel_column_exists(cursor, "contracts_rows", "insertedAt"):
+                cursor.execute(
+                    """
+                    alter table contracts_rows
+                      add column "insertedAt" timestamptz
+                    """
+                )
+            cursor.execute(
+                """
+                alter table contracts_rows
+                  alter column "insertedAt" set default now()
                 """
             )
             cursor.execute(
@@ -1355,6 +1391,49 @@ def init_db():
                 alter table install_cases_rows
                   alter column environment set default '',
                   alter column audience set default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table install_cases_rows
+                  add column if not exists status text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table install_cases_rows
+                  add column if not exists "sourceContractId" text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                alter table install_cases_rows
+                  add column if not exists "sourceDueDate" text not null default ''
+                """
+            )
+            cursor.execute(
+                """
+                create index if not exists install_cases_rows_source_contract_id_idx
+                  on install_cases_rows ("sourceContractId")
+                  where coalesce(trim("sourceContractId"), '') <> ''
+                """
+            )
+            try:
+                from app.install_case_contract_sync import collapse_duplicate_contract_install_cases
+
+                collapsed = collapse_duplicate_contract_install_cases(cursor)
+                if collapsed:
+                    logger.info(
+                        "collapsed %s duplicate contract-linked install case draft(s)",
+                        collapsed,
+                    )
+            except Exception:
+                logger.exception("collapse duplicate install-case drafts failed")
+            cursor.execute(
+                """
+                create unique index if not exists install_cases_rows_source_contract_id_uidx
+                  on install_cases_rows (trim("sourceContractId"))
+                  where coalesce(trim("sourceContractId"), '') <> ''
                 """
             )
             _migrate_install_case_category_layout(cursor)

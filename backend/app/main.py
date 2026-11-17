@@ -40,7 +40,10 @@ from app.routers.dashboard import router as dashboard_router
 DEFAULT_CORS_ORIGINS = (
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
     "http://192.168.0.131:5173",
+    "http://192.168.0.131:5174",
     "https://contract-system-2ev.pages.dev",
     "https://contract.signtelecom-smartdi.com",
     "http://contract.signtelecom-smartdi.com",
@@ -50,8 +53,10 @@ DEFAULT_CORS_ORIGINS = (
     "http://contract.smart-di.com",
 )
 # 환경변수에 도메인을 빠뜨려도 회사 프론트(pages.dev·smart-di.com)가 허용되도록 정규식으로 보조합니다.
+# Vite 가 5173 점유 시 5174/5175 로 뜨는 로컬·사내 LAN 도 허용합니다.
 ALLOW_ORIGIN_REGEX = (
     r"https://(.*\.pages\.dev|([a-zA-Z0-9-]+\.)*((signtelecom|signtelcom)-smartdi|smart-di)\.com)$"
+    r"|http://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}):(517\d)$"
 )
 
 

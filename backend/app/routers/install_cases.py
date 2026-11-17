@@ -51,7 +51,9 @@ MAX_HERO_MEDIA_COUNT = 10
 
 RETURNING_COLUMNS = """
   id, "projectName", "heroImage", "heroImages", environment, "middleCategory", audience,
-  "shareVisibility", year, purpose, client, "contractAmount", "contractAmountNote", specs, "createdAt", "updatedAt"
+  "shareVisibility", year, purpose, client, "contractAmount", "contractAmountNote",
+  status, "sourceContractId", "sourceDueDate",
+  specs, "createdAt", "updatedAt"
 """
 
 
@@ -609,13 +611,18 @@ def update_install_case_row(row_id: str, patch: InstallCasePatch):
 
     if "heroImage" in values:
         values["heroImage"] = sanitize_hero_image_value(values.get("heroImage"))
-    if "heroImages" in values and "heroImage" not in values:
+    images_for_draft_clear = None
+    if "heroImages" in values:
         try:
             parsed = json.loads(values["heroImages"]) if isinstance(values["heroImages"], str) else values["heroImages"]
         except Exception:
             parsed = []
-        images = sanitize_hero_images_value(parsed)
-        values["heroImage"] = images[0] if images else ""
+        images_for_draft_clear = sanitize_hero_images_value(parsed)
+        if "heroImage" not in values:
+            values["heroImage"] = images_for_draft_clear[0] if images_for_draft_clear else ""
+    # 사진이 등록되면 DRAFT 해제
+    if images_for_draft_clear:
+        values["status"] = ""
 
     values["id"] = row_id
     values["updatedAt"] = now_text()
@@ -649,10 +656,13 @@ def set_install_case_hero_media(row_id: str, urls: list[str]) -> dict:
         len(fields["heroImages"]),
         fields["heroImages"],
     )
-    return update_install_case_row(
-        row_id,
-        InstallCasePatch(heroImages=fields["heroImages"], heroImage=fields["heroImage"]),
-    )
+    patch_kwargs = {
+        "heroImages": fields["heroImages"],
+        "heroImage": fields["heroImage"],
+    }
+    if fields["heroImages"]:
+        patch_kwargs["status"] = ""
+    return update_install_case_row(row_id, InstallCasePatch(**patch_kwargs))
 
 
 def delete_install_case_row(row_id: str):

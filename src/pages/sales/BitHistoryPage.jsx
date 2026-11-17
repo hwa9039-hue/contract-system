@@ -26,7 +26,11 @@ import { formatDateDisplay, toDateInputValue } from '../../dateFieldUtils.js'
 import { MobileDataCardList, mobileCardText } from '../../MobileDataCardList.jsx'
 import { useDesktopTableLayout } from '../../useDesktopTableLayout.js'
 import { canAccessBitHistory } from '../../permissions.js'
-import { buildStyledExcelFilename, downloadStyledExcel } from '../../styledExcelDownload.js'
+import {
+  buildStyledExcelFilename,
+  countLeadingStickyColumns,
+  downloadStyledExcel,
+} from '../../styledExcelDownload.js'
 import {
   EXCLUDED_INLINE_EDITOR_CLASS,
   TABLE_INLINE_EDITABLE_CELL_CLASS,
@@ -89,11 +93,30 @@ const BIT_STICKY_LEFTS = (() => {
 /** 모바일 카드 요약에 고정으로 올리는 3개 — 나머지는 아코디언 상세로 내려간다. */
 const MOBILE_SUMMARY_KEYS = ['projectName', 'client', 'quantity']
 
+/** 엑셀에서 숫자 셀로 넣고 가운데 정렬하는 열 */
+const BIT_EXCEL_CENTER_NUMBER_KEYS = new Set(['year', 'quantity'])
+
 const BIT_EXCEL_COLUMNS = BIT_COLUMNS.map((column) => ({
   header: column.label,
   key: column.label,
   minWidth: column.type === 'note' ? 24 : column.type === 'amount' ? 16 : undefined,
+  ...(BIT_EXCEL_CENTER_NUMBER_KEYS.has(column.key)
+    ? { numFmt: column.key === 'year' ? '0' : '#,##0', horizontal: 'center' }
+    : {}),
 }))
+
+/** 같은 계약의 추가 줄끼리 값이 같으면 세로 병합하는 열 (계약현황에서 온 열) */
+const BIT_EXCEL_MERGE_KEYS = BIT_COLUMNS.filter((column) => column.fromContract).map(
+  (column) => column.label
+)
+
+/** 사업년도는 4자리 연도, 수량은 순수 정수일 때만 숫자로 바꾼다 (2026.05, 2EA 같은 값은 문자 유지). */
+function toBitExcelNumber(key, value) {
+  const text = safeString(value).trim().replace(/,/g, '')
+  if (key === 'year') return /^\d{4}$/.test(text) ? Number(text) : safeString(value)
+  if (key === 'quantity') return /^(0|[1-9]\d{0,14})$/.test(text) ? Number(text) : safeString(value)
+  return safeString(value)
+}
 
 function formatYmdSlash(ymd) {
   const s = safeString(ymd).trim()
@@ -615,7 +638,9 @@ export default function BitHistoryPage({ contracts = [] }) {
       for (const column of BIT_COLUMNS) {
         if (column.type === 'amount') out[column.label] = formatAmountComma(row[column.key])
         else if (column.type === 'date') out[column.label] = toDateInputValue(row[column.key])
-        else out[column.label] = safeString(row[column.key])
+        else if (BIT_EXCEL_CENTER_NUMBER_KEYS.has(column.key)) {
+          out[column.label] = toBitExcelNumber(column.key, row[column.key])
+        } else out[column.label] = safeString(row[column.key])
       }
       return out
     })
@@ -626,6 +651,10 @@ export default function BitHistoryPage({ contracts = [] }) {
         filename: buildStyledExcelFilename('BIT이력관리'),
         columns: BIT_EXCEL_COLUMNS,
         rows: excelRows,
+        // 수동 행(contractId 없음)은 병합하지 않는다.
+        rowGroupKeys: filteredRows.map((row) => safeString(row.contractId).trim()),
+        mergeColumnKeys: BIT_EXCEL_MERGE_KEYS,
+        freezeColumnCount: countLeadingStickyColumns(BIT_COLUMNS),
       })
     } catch (error) {
       setLoadError(`엑셀 다운로드에 실패했습니다. ${safeString(error?.message)}`)

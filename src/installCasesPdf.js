@@ -1055,6 +1055,67 @@ function buildCoverSubtitle(filters = {}) {
   return [...categories, keywords].filter(Boolean).join('  ·  ')
 }
 
+/** 사진을 가운데 기준으로 잘라(cover) width×height JPEG 썸네일로 만든다. */
+function buildCoverThumbnail(img, width, height) {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, width, height)
+  const scale = Math.max(width / img.naturalWidth, height / img.naturalHeight)
+  const drawW = img.naturalWidth * scale
+  const drawH = img.naturalHeight * scale
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, (width - drawW) / 2, (height - drawH) / 2, drawW, drawH)
+  return canvas.toDataURL('image/jpeg', 0.85)
+}
+
+async function loadExcelThumbnail(sources, width, height, signal) {
+  for (const src of pickImageSources(sources)) {
+    throwIfAborted(signal)
+    const dataUrl = await fetchMediaAsDataUrl(src, signal)
+    if (!dataUrl) continue
+    const img = await loadImageElement(dataUrl)
+    if (!img || isBlankImage(img)) continue
+    return { base64: buildCoverThumbnail(img, width, height), extension: 'jpeg' }
+  }
+  return null
+}
+
+/**
+ * 엑셀에 넣을 사례별 대표 사진 썸네일. 결과는 rows 순서와 같고, 사진이 없거나 못 불러오면 null.
+ * options: { width, height, onEach(done), signal }
+ */
+export async function loadInstallCaseExcelThumbnails(rows, getImageSources, options = {}) {
+  const { width = 160, height = 120, signal } = options
+  const onEach = typeof options.onEach === 'function' ? options.onEach : () => {}
+  const list = Array.isArray(rows) ? rows : []
+  const results = new Array(list.length).fill(null)
+  let cursor = 0
+  let done = 0
+  const worker = async () => {
+    while (cursor < list.length) {
+      throwIfAborted(signal)
+      const index = cursor
+      cursor += 1
+      try {
+        results[index] = await loadExcelThumbnail(getImageSources(list[index]), width, height, signal)
+      } catch (error) {
+        if (isPdfAbortError(error)) throw error
+        results[index] = null
+      }
+      done += 1
+      onEach(done)
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(IMAGE_PREFETCH_WINDOW, list.length) }, () => worker()),
+  )
+  return results
+}
+
 /** 사진(영상 제외) 후보가 하나라도 있는 사례만 */
 function hasPhotoCandidate(row, getImageSources) {
   return pickImageSources(getImageSources(row)).length > 0

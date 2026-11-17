@@ -233,7 +233,13 @@ export function InstallCaseMultiMediaField({
 }
 
 /** 상세 모달: 다중 미디어 캐러셀 (currentIndex로 슬라이드) */
-export function InstallCaseMediaCarousel({ sources, fallbackHeroImage = '', photoSign = null }) {
+export function InstallCaseMediaCarousel({
+  sources,
+  fallbackHeroImage = '',
+  photoSign = null,
+  photoOverdue = false,
+  isDraft = false,
+}) {
   const urls = useMemo(() => {
     const list = normalizeHeroImagesList(sources, fallbackHeroImage)
     const out = []
@@ -297,8 +303,17 @@ export function InstallCaseMediaCarousel({ sources, fallbackHeroImage = '', phot
 
   if (!currentSrc) {
     return (
-      <div className="install-case-carousel install-case-carousel--empty">
-        <div className="install-case-carousel-empty">미디어 없음</div>
+      <div
+        className={`install-case-carousel install-case-carousel--empty${
+          isDraft ? ' install-case-carousel--draft' : ''
+        }${photoOverdue ? ' install-case-carousel--photo-overdue' : ''}`}
+      >
+        <div className="install-case-carousel-empty">{isDraft ? '사진 대기' : '미디어 없음'}</div>
+        {photoOverdue ? (
+          <div className="install-case-photo-prompt animate-pulse" role="status">
+            📸 사진을 등록해주세요
+          </div>
+        ) : null}
       </div>
     )
   }

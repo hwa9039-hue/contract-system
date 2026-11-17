@@ -141,6 +141,16 @@ def _is_external_install_case(row: dict) -> bool:
     return text not in {"internal", "내부", "내부용"}
 
 
+def _is_public_install_case(row: dict) -> bool:
+    """초안(사진 없음)은 외부 공유에 노출하지 않는다."""
+    if not _is_external_install_case(row):
+        return False
+    status = str(row.get("status") or "").strip().lower()
+    if status == "draft" and not row.get("hasPhoto"):
+        return False
+    return True
+
+
 @router.get("")
 def list_public_install_cases(
     response: Response,
@@ -154,7 +164,7 @@ def list_public_install_cases(
         return [
             {key: row.get(key) for key in _PUBLIC_FIELDS}
             for row in list_install_case_rows()
-            if _is_external_install_case(row)
+            if _is_public_install_case(row)
         ]
     payload = _verified_share_payload(token)
     exp = payload.get("exp")
@@ -163,5 +173,5 @@ def list_public_install_cases(
     return [
         {key: row.get(key) for key in _PUBLIC_FIELDS}
         for row in list_install_case_rows()
-        if _is_external_install_case(row)
+        if _is_public_install_case(row)
     ]

@@ -230,6 +230,10 @@ const CONTACT_EXCEL_COLUMNS = [
   { header: '비고', key: '비고', minWidth: 16 },
 ]
 
+/** 화면 좌측 고정 열(번호 ~ 연계 사업)과 같은 범위 — 삭제·복사 버튼 열은 엑셀에 없다. */
+const CONTACT_EXCEL_FROZEN_COLUMN_COUNT =
+  CONTACT_EXCEL_COLUMNS.findIndex((column) => column.key === '연계 사업') + 1
+
 /**
  * 화면에 보이는 연락처를 엑셀 행으로 변환한다.
  * user 권한이면 심사·주소·비고는 원본 대신 마스킹 문구만 넣는다.
@@ -761,6 +765,7 @@ export default function SalesContactsPage({ role = ROLES.USER }) {
         filename: buildStyledExcelFilename('연락처'),
         columns: CONTACT_EXCEL_COLUMNS,
         rows: excelRows,
+        freezeColumnCount: CONTACT_EXCEL_FROZEN_COLUMN_COUNT,
       })
     } catch {
       showLocalToast('엑셀 다운로드에 실패했습니다.', 'error')

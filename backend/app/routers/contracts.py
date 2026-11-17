@@ -5,6 +5,11 @@ from fastapi import APIRouter, HTTPException, Request, status
 
 from app.contract_identity import contract_signature_from_mapping
 from app.database import get_connection, repair_contract_row_ids
+from app.install_case_contract_sync import (
+    delete_install_case_drafts_for_contracts,
+    sync_install_case_draft_for_new_contract,
+    sync_install_case_draft_from_contract,
+)
 from app.schemas import (
     CONTRACT_DATE_API_KEYS,
     _coerce_sql_date,
@@ -363,6 +368,7 @@ def create_contract(contract: ContractCreate):
                 row = _execute_contract_row_insert(cursor, values, returning=True)
                 if row and row.get("id"):
                     _after_contract_insert_unit_price(cursor, str(row["id"]), contract)
+                    sync_install_case_draft_from_contract(cursor, row)
             except Exception as exc:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -412,6 +418,7 @@ def bulk_delete_contracts(payload: ContractBulkDelete):
     try:
         with get_connection() as connection:
             with connection.cursor() as cursor:
+                delete_install_case_drafts_for_contracts(cursor, ids)
                 cursor.execute(
                     "delete from bit_history_rows where contract_id = any(%s)",
                     (ids,),
@@ -492,6 +499,8 @@ async def update_contract(contract_id: str, request: Request):
                             status_code=status.HTTP_404_NOT_FOUND, detail="Contract not found"
                         )
 
+                if row:
+                    sync_install_case_draft_for_new_contract(cursor, row)
                 connection.commit()
         except HTTPException:
             raise
@@ -510,6 +519,7 @@ async def update_contract(contract_id: str, request: Request):
 def delete_contract(contract_id: str):
     with get_connection() as connection:
         with connection.cursor() as cursor:
+            delete_install_case_drafts_for_contracts(cursor, [contract_id])
             cursor.execute(
                 "delete from bit_history_rows where contract_id = %s",
                 (contract_id,),

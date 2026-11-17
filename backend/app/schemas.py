@@ -1034,6 +1034,9 @@ class InstallCaseBase(BaseModel):
     client: Optional[Any] = ""
     contractAmount: Optional[Any] = ""  # 계약금액(원) 숫자 문자열
     contractAmountNote: Optional[Any] = None  # 계약금액 비고 (예: 0식 일괄)
+    status: Optional[Any] = ""  # draft | ''(게시)
+    sourceContractId: Optional[Any] = ""  # 계약현황 연동 id
+    sourceDueDate: Optional[Any] = ""  # 준공일 YYYY-MM-DD (초안 알림용)
     specs: Optional[Any] = None
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
@@ -1057,6 +1060,9 @@ class InstallCasePatch(BaseModel):
     client: Optional[Any] = None
     contractAmount: Optional[Any] = None
     contractAmountNote: Optional[Any] = None
+    status: Optional[Any] = None
+    sourceContractId: Optional[Any] = None
+    sourceDueDate: Optional[Any] = None
     specs: Optional[Any] = None
     createdAt: Optional[Any] = None
     updatedAt: Optional[Any] = None
@@ -1064,6 +1070,7 @@ class InstallCasePatch(BaseModel):
 
 class InstallCaseOut(InstallCaseBase):
     id: Optional[Any] = None
+    hasPhoto: Optional[bool] = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1430,6 +1437,8 @@ def _normalize_install_case_hero_images(hero_images, hero_image) -> list[str]:
 
 def row_to_install_case(row) -> dict:
     hero_images = _normalize_install_case_hero_images(row.get("heroImages"), row.get("heroImage"))
+    status_raw = str(to_response_value(row.get("status")) or "").strip().lower()
+    status = "draft" if status_raw in {"draft", "임시", "임시저장"} else ""
     return {
         "id": to_response_value(row["id"]),
         "projectName": to_response_value(row["projectName"]),
@@ -1444,6 +1453,10 @@ def row_to_install_case(row) -> dict:
         "client": to_response_value(row["client"]),
         "contractAmount": to_response_value(row.get("contractAmount")) or "",
         "contractAmountNote": to_response_value(row.get("contractAmountNote")) or "",
+        "status": status,
+        "sourceContractId": to_response_value(row.get("sourceContractId")) or "",
+        "sourceDueDate": to_response_value(row.get("sourceDueDate")) or "",
+        "hasPhoto": bool(hero_images),
         "specs": _normalize_install_case_specs(row.get("specs")),
         "createdAt": to_response_value(row["createdAt"]),
         "updatedAt": to_response_value(row["updatedAt"]),
@@ -1692,6 +1705,9 @@ TABLE_COLUMN_MAPPINGS = {
         "client": "client",
         "contractAmount": "contractAmount",
         "contractAmountNote": "contractAmountNote",
+        "status": "status",
+        "sourceContractId": "sourceContractId",
+        "sourceDueDate": "sourceDueDate",
         "specs": "specs",
         "createdAt": "createdAt",
         "updatedAt": "updatedAt",
@@ -2295,6 +2311,13 @@ def install_case_to_db_values(row: InstallCaseBase) -> dict:
     if "contractAmountNote" in values:
         note = str(values["contractAmountNote"] or "").strip()
         values["contractAmountNote"] = note
+    if "status" in values:
+        text = str(values["status"] or "").strip().lower()
+        values["status"] = "draft" if text in {"draft", "임시", "임시저장"} else ""
+    if "sourceContractId" in values:
+        values["sourceContractId"] = str(values["sourceContractId"] or "").strip()
+    if "sourceDueDate" in values:
+        values["sourceDueDate"] = str(values["sourceDueDate"] or "").strip()
     return values
 
 
