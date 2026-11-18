@@ -7,8 +7,7 @@ from app.contract_identity import contract_signature_from_mapping
 from app.database import get_connection, repair_contract_row_ids
 from app.install_case_contract_sync import (
     delete_install_case_drafts_for_contracts,
-    sync_install_case_draft_for_new_contract,
-    sync_install_case_draft_from_contract,
+    run_install_case_sync,
 )
 from app.schemas import (
     CONTRACT_DATE_API_KEYS,
@@ -368,7 +367,7 @@ def create_contract(contract: ContractCreate):
                 row = _execute_contract_row_insert(cursor, values, returning=True)
                 if row and row.get("id"):
                     _after_contract_insert_unit_price(cursor, str(row["id"]), contract)
-                    sync_install_case_draft_from_contract(cursor, row)
+                    run_install_case_sync(cursor, row, new_contracts_only=False)
             except Exception as exc:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -500,7 +499,7 @@ async def update_contract(contract_id: str, request: Request):
                         )
 
                 if row:
-                    sync_install_case_draft_for_new_contract(cursor, row)
+                    run_install_case_sync(cursor, row, new_contracts_only=True)
                 connection.commit()
         except HTTPException:
             raise

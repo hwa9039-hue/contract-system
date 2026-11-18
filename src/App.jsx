@@ -95,6 +95,7 @@ import {
   downloadStyledExcel,
 } from './styledExcelDownload.js'
 import { useModalEscapeClose } from './useModalEscapeClose.js'
+import { MenuHelpBadge } from './MenuHelpTooltip.jsx'
 import './App.css'
 import { contractsApi } from './contractsApi'
 import { contactsManageApi } from './contactsManageApi.js'
@@ -401,6 +402,9 @@ function getContractDueWatchTone(dueDate, processStatus) {
   return ''
 }
 
+/** 이 열을 수정하면 서버가 설치사례 임시 건을 만들거나 갱신한다 (계약분류 + 매핑 4개 필드) */
+const CONTRACT_INSTALL_CASE_SYNC_KEYS = new Set(['contractType', 'projectName', 'client', 'amount', 'dueDate'])
+
 const CONTRACT_COLUMNS = [
   {
     key: 'processStatus',
@@ -415,8 +419,8 @@ const CONTRACT_COLUMNS = [
   { key: 'refNo', label: '참고번호', className: 'col-ref', align: 'center', type: 'text', width: 110 },
   { key: 'client', label: '발주처', className: 'col-client', align: 'center', type: 'textarea', width: 168 },
   { key: 'projectName', label: '사업명', className: 'col-project', align: 'left', type: 'textarea', width: 520, widthGrow: true },
-  { key: 'contractDate', label: '계약일자', className: 'col-date col-contract-date', align: 'center', type: 'date', width: 148 },
-  { key: 'dueDate', label: '준공일자', className: 'col-date col-due-date', align: 'center', type: 'date', width: 148 },
+  { key: 'contractDate', label: '계약일자', className: 'col-date col-contract-date', align: 'center', type: 'date', width: 172 },
+  { key: 'dueDate', label: '준공일자', className: 'col-date col-due-date', align: 'center', type: 'date', width: 172 },
   { key: 'amount', label: '계약금액', className: 'col-amount', align: 'right', type: 'amount', width: 146 },
   { key: 'salesOwner', label: '영업담당자', className: 'col-owner', align: 'center', type: 'text', width: 136 },
   { key: 'pm', label: '현장 PM', className: 'col-pm', align: 'center', type: 'text', width: 124 },
@@ -6080,6 +6084,36 @@ function buildExcelRowsFromTableColumns(rows, columns, getCellValue, { excludeDr
   })
 }
 
+const REGISTRY_CELL_EDITOR_SELECTOR =
+  'textarea, input:not([type="checkbox"]), select, .cms-custom-select-trigger'
+
+/**
+ * 신규 입력 행에서 입력기 바깥의 빈 칸(행 높이만큼 남는 아래쪽, 날짜 칸 여백 등)을 눌러도
+ * 그 칸의 입력기로 포커스를 옮긴다. 입력기·버튼을 직접 누른 경우는 기본 동작을 그대로 둔다.
+ */
+function focusRegistryCellEditorFromEmptyArea(event) {
+  if (event.button !== 0) return
+  const target = event.target
+  if (!(target instanceof Element)) return
+  if (target.closest('input, textarea, select, button, a, label, .cms-custom-select-menu')) return
+  const cell = target.closest('td')
+  if (!cell || !event.currentTarget.contains(cell)) return
+  const editor = cell.querySelector(REGISTRY_CELL_EDITOR_SELECTOR)
+  if (!editor) return
+  event.preventDefault()
+  editor.focus()
+  if (editor.classList.contains('cms-custom-select-trigger')) {
+    editor.click()
+    return
+  }
+  const isTextEntry =
+    editor.tagName === 'TEXTAREA' || (editor.tagName === 'INPUT' && editor.type === 'text')
+  if (isTextEntry) {
+    const end = editor.value.length
+    editor.setSelectionRange(end, end)
+  }
+}
+
 /**
  * 필터 결과 0건이어도 화면과 동일한 헤더 행을 유지한다.
  * 화면 표에서 좌측 고정(sticky)된 열 개수만큼 엑셀도 열 틀고정한다.
@@ -7028,6 +7062,7 @@ function App() {
   const [installShareBusy, setInstallShareBusy] = useState(false)
   const [installCasesPdfBusy, setInstallCasesPdfBusy] = useState(false)
   const [installCasesExcelBusy, setInstallCasesExcelBusy] = useState(false)
+  const installCasesFetchSeqRef = useRef(0)
   const installCaseDetailDialogRef = useRef(null)
   const installCaseFormDialogRef = useRef(null)
   /** PDF 생성 진행 상태 { done, total } — null 이면 오버레이 숨김 */
@@ -7501,19 +7536,31 @@ function App() {
     }
   }
 
-  const fetchInstallCases = async () => {
+  /**
+   * keepOnError: 계약 저장 직후처럼 백그라운드로 다시 불러올 때는 실패해도 기존 목록을 지우지 않는다.
+   * 요청이 겹치면 마지막 요청의 응답만 반영한다(늦게 온 이전 응답이 최신 목록을 덮지 않게).
+   */
+  const fetchInstallCases = async ({ keepOnError = false } = {}) => {
+    const requestSeq = installCasesFetchSeqRef.current + 1
+    installCasesFetchSeqRef.current = requestSeq
     try {
       const rows = await installCasesApi.list()
       const normalized = sortInstallCasesForDisplay(
         Array.isArray(rows) ? rows.map(normalizeInstallCaseRow) : []
       )
+      if (requestSeq !== installCasesFetchSeqRef.current) return normalized
       setInstallCases(normalized)
       return normalized
     } catch (error) {
       console.error('[설치사례] API fetch failed', error)
-      setInstallCases([])
+      if (requestSeq === installCasesFetchSeqRef.current && !keepOnError) setInstallCases([])
       return []
     }
+  }
+
+  /** 계약 등록·수정·삭제가 설치사례 임시 건(목록·사진 미등록 건수)을 바꿨을 수 있으므로 다시 불러온다. */
+  const refreshInstallCasesAfterContractMutation = () => {
+    void fetchInstallCases({ keepOnError: true })
   }
 
   const fetchMaterialsBoardPosts = async () => {
@@ -7589,8 +7636,7 @@ function App() {
 
     try {
       const data = await contractsApi.create(payload)
-      // 전광판/VMS 신규 계약은 서버에서 설치사례 임시 건이 생기므로 바로 다시 불러온다.
-      void fetchInstallCases()
+      refreshInstallCasesAfterContractMutation()
       return data ? [data] : []
     } catch (error) {
       logApiOperationError('계약현황 저장', error)
@@ -13321,24 +13367,6 @@ function App() {
     await flushWorkReportEntrySave(date, sectionNorm, oi)
   }
 
-  const handleManualWorkReportSave = async (notifyMessage, scope) => {
-    clearWorkReportSaveTimers()
-    workReportManualSaveFailedRef.current = false
-    setIsSavingWorkReports(true)
-    try {
-      if (scope) {
-        await flushWorkReportEntrySave(scope.date, scope.section, scope.orderIndex)
-      } else {
-        await flushAllPendingWorkReportSaves()
-      }
-      if (!workReportManualSaveFailedRef.current) {
-        setToastMessage(notifyMessage)
-      }
-    } finally {
-      setIsSavingWorkReports(false)
-    }
-  }
-
   /** 영업지원 통합 To-Do: 진행/완료 section을 하나의 슬롯으로 합쳐 읽기 */
   const getSupportTodoBoardEntry = (date, orderIndex = 1, draftsMap = workReportDrafts) => {
     const oi = Number(orderIndex || 1)
@@ -14029,6 +14057,7 @@ function App() {
         await contractsApi.bulkRemove(ids)
       }
       deleteSucceeded = true
+      refreshInstallCasesAfterContractMutation()
       const idSet = new Set(ids)
       setContracts((prev) =>
         prev.filter((row) => !idSet.has(firstUsableContractPathId(row.id, row.key, row._id, row.contract_id)))
@@ -14136,8 +14165,8 @@ function App() {
 
     try {
       await contractsApi.update(id, { [snap.key]: value })
-      if (['contractType', 'projectName', 'client', 'amount', 'dueDate'].includes(snap.key)) {
-        void fetchInstallCases()
+      if (CONTRACT_INSTALL_CASE_SYNC_KEYS.has(snap.key)) {
+        refreshInstallCasesAfterContractMutation()
       }
       setContracts((prev) =>
         prev.map((row) => {
@@ -14203,6 +14232,7 @@ function App() {
         key={rowId || `contract-draft-${index}`}
         className="contracts-draft-row inline-add-row row-even"
         data-contract-draft-row={rowId}
+        onMouseDown={focusRegistryCellEditorFromEmptyArea}
         onBlur={(e) =>
           handleRegistryRowBlur(
             e,
@@ -17706,7 +17736,10 @@ function App() {
                 strokeWidth={2}
                 aria-hidden="true"
               />
-              <h1 className="top-system-page-title">{PAGE_TITLE_MAP[menu] || ''}</h1>
+              <span className="top-system-page-title-group">
+                <h1 className="top-system-page-title">{PAGE_TITLE_MAP[menu] || ''}</h1>
+                <MenuHelpBadge key={menu} menuKey={menu} title={PAGE_TITLE_MAP[menu] || ''} />
+              </span>
             </div>
             <div className="top-system-session-actions flex items-center gap-4">
               <PresenceAvatars users={onlineUsers} />
@@ -18102,15 +18135,6 @@ function App() {
                 <button className="secondary-btn" type="button" onClick={handleWorkReportBoardPdfDownload}>
                   PDF 다운로드
                 </button>
-                <button
-                  className="primary-btn"
-                  type="button"
-                  onClick={() => {
-                    void handleManualWorkReportSave('주간업무보고가 성공적으로 저장되었습니다.')
-                  }}
-                >
-                  저장
-                </button>
                 <form
                   className="meeting-minutes-search"
                   onSubmit={(event) => {
@@ -18167,7 +18191,7 @@ function App() {
                     {selectedWorkWeekMeta.month}월 {selectedWorkWeekMeta.weekNumber}주차
                   </span>
                   <span>시작일 {selectedWorkWeekMeta.weekStartDate}</span>
-                  <span>입력 후 자동 저장 · 새로고침 전 「저장」 버튼 권장</span>
+                  <span>입력 후 자동 저장</span>
                 </div>
               </div>
 

@@ -1,6 +1,6 @@
 """계약현황 → 설치사례 초안(DRAFT) 자동 연동.
 
-계약분류가 전광판·VMS 계열인 계약이 화면에서 한 건씩 새로 등록될 때,
+계약분류가 정확히 '전광판' 또는 'VMS' 인 계약이 화면에서 한 건씩 새로 등록될 때,
 또는 그렇게 새로 등록된 계약(insertedAt 있음)을 수정할 때만 설치사례 행을 만든다.
 기존 계약 전체 스캔·엑셀 일괄 등록·과거 계약 수정으로는 만들지 않는다.
 같은 계약(sourceContractId)에 대해 중복 생성하지 않는다.
@@ -13,9 +13,16 @@ import re
 from datetime import date, datetime
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 DRAFT_STATUS = "draft"
+
+# uvicorn 은 앱 로거의 INFO 를 콘솔에 내보내지 않으므로 연동 로그용 핸들러를 따로 단다.
+logger = logging.getLogger("install_case_sync")
+if not logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(levelname)s:     %(message)s"))
+    logger.addHandler(_handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
 
 
 def _safe_text(value: Any) -> str:
@@ -25,18 +32,25 @@ def _safe_text(value: Any) -> str:
 
 
 def is_install_case_sync_contract_type(contract_type: Any) -> bool:
-    """계약분류가 전광판 또는 VMS 인지 (코드·한글 라벨 혼용)."""
+    """계약분류가 정확히 '전광판' 또는 'VMS' 인지 (앞뒤 공백·VMS 대소문자만 허용)."""
     raw = _safe_text(contract_type)
-    if not raw or raw in {"-", "--"}:
-        return False
-    compact = re.sub(r"[\s,]+", "", raw)
-    lower = compact.lower()
-    if "vms" in lower:
+    return raw == "전광판" or raw.upper() == "VMS"
+
+
+def _contract_type_label(contract_type: Any) -> str:
+    raw = _safe_text(contract_type)
+    return raw if raw and raw not in {"-", "--"} else "미입력"
+
+
+def _contract_type_eligible(contract_row: dict) -> bool:
+    contract_type = contract_row.get("contractType")
+    if is_install_case_sync_contract_type(contract_type):
         return True
-    if "전광판" in compact or "디스플레이" in compact:
-        return True
-    if "55121903" in compact:
-        return True
+    logger.info(
+        "[Sync Skipped] 계약번호 %s: 조건 불일치 (현재 분류: %s)",
+        _safe_text(contract_row.get("id")),
+        _contract_type_label(contract_type),
+    )
     return False
 
 
@@ -157,9 +171,12 @@ def sync_install_case_draft_from_contract(cursor, contract_row: dict | None) -> 
     contract_id = _safe_text(contract_row.get("id"))
     if not contract_id:
         return None
-    if not is_install_case_sync_contract_type(contract_row.get("contractType")):
+    if not _contract_type_eligible(contract_row):
         return None
+    return _upsert_install_case_draft(cursor, contract_row, contract_id)
 
+
+def _upsert_install_case_draft(cursor, contract_row: dict, contract_id: str) -> str | None:
     fields = _contract_mapping_fields(contract_row)
     cursor.execute(
         """
@@ -202,7 +219,7 @@ def sync_install_case_draft_from_contract(cursor, contract_row: dict | None) -> 
             {**fields, "sourceContractId": contract_id, "id": existing_id},
         )
         logger.info(
-            "install-case draft synced(update) contract_id=%s install_case_id=%s extras=%s",
+            "[Sync Success] 계약번호 %s: 설치사례 %s 갱신 (중복 정리 %s건)",
             contract_id,
             existing_id,
             len(extra_ids),
@@ -245,7 +262,7 @@ def sync_install_case_draft_from_contract(cursor, contract_row: dict | None) -> 
             {**fields, "sourceContractId": contract_id, "id": existing_id},
         )
         logger.info(
-            "install-case draft synced(link-existing) contract_id=%s install_case_id=%s",
+            "[Sync Success] 계약번호 %s: 기존 설치사례 %s 에 연결 (사업명·발주처 일치)",
             contract_id,
             existing_id,
         )
@@ -274,7 +291,7 @@ def sync_install_case_draft_from_contract(cursor, contract_row: dict | None) -> 
     created = cursor.fetchone()
     created_id = _safe_text((created or {}).get("id"))
     logger.info(
-        "install-case draft synced(create) contract_id=%s install_case_id=%s",
+        "[Sync Success] 계약번호 %s: 설치사례 임시 건 %s 생성",
         contract_id,
         created_id,
     )
@@ -286,14 +303,37 @@ def sync_install_case_draft_for_new_contract(cursor, contract_row: dict | None) 
     contract_id = _safe_text((contract_row or {}).get("id"))
     if not contract_id:
         return None
+    if not _contract_type_eligible(contract_row):
+        return None
     cursor.execute(
         'select "insertedAt" from contracts_rows where id::text = %s',
         (contract_id,),
     )
     marker = cursor.fetchone()
     if not marker or marker.get("insertedAt") is None:
+        logger.info(
+            "[Sync Skipped] 계약번호 %s: 기능 도입 전 등록된 기존 계약 (신규 등록 건만 연동)",
+            contract_id,
+        )
         return None
-    return sync_install_case_draft_from_contract(cursor, contract_row)
+    return _upsert_install_case_draft(cursor, contract_row, contract_id)
+
+
+def run_install_case_sync(cursor, contract_row: dict | None, *, new_contracts_only: bool) -> str | None:
+    """연동을 savepoint 안에서 실행한다. 연동이 실패해도 계약 저장은 그대로 커밋된다."""
+    contract_id = _safe_text((contract_row or {}).get("id"))
+    cursor.execute("savepoint install_case_sync")
+    try:
+        if new_contracts_only:
+            result = sync_install_case_draft_for_new_contract(cursor, contract_row)
+        else:
+            result = sync_install_case_draft_from_contract(cursor, contract_row)
+    except Exception:
+        cursor.execute("rollback to savepoint install_case_sync")
+        logger.exception("[Sync Failed] 계약번호 %s: 설치사례 연동 중 오류 (계약 저장은 유지)", contract_id)
+        return None
+    cursor.execute("release savepoint install_case_sync")
+    return result
 
 
 def delete_install_case_drafts_for_contracts(cursor, contract_ids: list[str]) -> int:

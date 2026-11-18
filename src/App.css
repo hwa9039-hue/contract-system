@@ -349,6 +349,13 @@ textarea {
   display: block;
 }
 
+.top-system-page-title-group {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
 .top-system-page-title {
   margin: 0;
   padding: 0;
@@ -6740,7 +6747,7 @@ table[data-contract-table-row-key].contract-table {
   --contract-sticky-w-ref: 88px;
   --contract-sticky-w-client: 168px;
   --contract-sticky-w-project: 520px;
-  --contract-col-w-date: 148px;
+  --contract-col-w-date: 172px;
   --contract-col-w-department: 144px;
 
   --contract-sticky-left-check: 0px;
@@ -11879,6 +11886,40 @@ table.documents-registry-table.excel-table.registry-table td.documents-sticky-co
 .discovery-registry-table td:has(> .registry-table-date-input:focus-within),
 .contracts-fixed-table tr.contracts-draft-row td:has(> .registry-table-date-input:focus-within) {
   box-shadow: inset 0 0 0 1px #3b82f6;
+}
+
+/* 계약현황 신규 입력 행 — 날짜 + 달력 아이콘이 셀 폭 안에서 양끝 정렬되도록(flex items-center justify-between).
+   입력칸은 남는 폭에 맞춰 줄어들어 아이콘이 셀 밖으로 밀려나지 않는다. */
+.contracts-fixed-table tr.contracts-draft-row td.editable-cell > .registry-table-date-input {
+  width: 100%;
+  min-height: 32px;
+  justify-content: space-between;
+  cursor: text;
+}
+
+.contracts-fixed-table tr.contracts-draft-row .registry-table-date-input .registry-table-date-input-field,
+.contracts-fixed-table tr.contracts-draft-row .registry-table-date-input .excluded-inline-editor {
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  flex: 1 1 auto;
+  cursor: text;
+}
+
+/* 셀 전체를 클릭 영역으로 — 빈 곳 클릭은 focusRegistryCellEditorFromEmptyArea 가 입력기로 포커스를 넘긴다. */
+.contracts-fixed-table tr.contracts-draft-row > td.editable-cell {
+  cursor: text;
+}
+
+.contracts-fixed-table tr.contracts-draft-row > td.editable-cell:has(.cms-custom-select),
+.contracts-fixed-table tr.contracts-draft-row .cms-custom-select-trigger,
+.contracts-fixed-table tr.contracts-draft-row .registry-table-date-input-icon {
+  cursor: pointer;
+}
+
+.contracts-fixed-table tr.contracts-draft-row td.editable-cell > input:not([type='checkbox']),
+.contracts-fixed-table tr.contracts-draft-row td.editable-cell > textarea {
+  cursor: text;
 }
 
 .sales-registry-table .registry-check-cell,
