@@ -186,6 +186,44 @@ function mergeGroupedRowCells(worksheet, columnDefs, dataRowCount, rowGroupKeys,
 }
 
 /**
+ * 값은 모든 행에 채워 둔 채(필터용), 바로 윗줄과 값이 같으면 글자를 흰색으로 숨겨 병합된 것처럼 보이게 한다.
+ * 정렬 후에도 다시 계산되도록 조건부 서식으로 넣는다. groupColumnKeys 열들도 윗줄과 같을 때만 숨겨
+ * 서로 다른 계약이 우연히 같은 값(같은 발주처 등)을 가져도 이어 붙어 보이지 않게 한다.
+ */
+function addHideRepeatedValueFormatting(worksheet, columnDefs, dataRowCount, hideColumnKeys, groupColumnKeys) {
+  if (!Array.isArray(hideColumnKeys) || !hideColumnKeys.length || dataRowCount < 2) return
+  const letterOf = (key) => {
+    const columnNumber = columnDefs.findIndex((column) => column.key === key) + 1
+    return columnNumber > 0 ? worksheet.getColumn(columnNumber).letter : ''
+  }
+  // 데이터 1행 = 엑셀 2행, 비교는 3행부터
+  const firstRow = 3
+  const lastRow = dataRowCount + 1
+  const groupLetters = (Array.isArray(groupColumnKeys) ? groupColumnKeys : []).map(letterOf).filter(Boolean)
+  const groupConditions = groupLetters.map((letter) => `$${letter}${firstRow}=$${letter}${firstRow - 1}`)
+
+  for (const key of hideColumnKeys) {
+    const letter = letterOf(key)
+    if (!letter) continue
+    const conditions = [
+      `${letter}${firstRow}<>""`,
+      `${letter}${firstRow}=${letter}${firstRow - 1}`,
+      ...groupConditions,
+    ]
+    worksheet.addConditionalFormatting({
+      ref: `${letter}${firstRow}:${letter}${lastRow}`,
+      rules: [
+        {
+          type: 'expression',
+          formulae: [`AND(${conditions.join(',')})`],
+          style: { font: { color: { argb: 'FFFFFFFF' } } },
+        },
+      ],
+    })
+  }
+}
+
+/**
  * exceljs로 헤더 배경·굵은 글씨·테두리·가운데 정렬을 입힌 뒤 파일로 저장한다.
  * 행 데이터(매핑·마스킹 결과)는 호출 측에서 만든 값을 넣되, 숫자로 보이는 값은
  * Number 로 바꾸고 `#,##0` 서식을 입혀 엑셀에서 바로 합계를 낼 수 있게 한다.
@@ -201,6 +239,9 @@ function mergeGroupedRowCells(worksheet, columnDefs, dataRowCount, rowGroupKeys,
  * rowGroupKeys(행마다 하나, 빈 값은 그룹 없음)와 mergeColumnKeys 를 주면
  * 그룹 키가 같은 연속 행에서 값이 모두 같은 열을 세로로 병합하고 세로 가운데 정렬한다.
  *
+ * hideRepeatedColumnKeys 를 주면 병합 대신, 그 열 값이 바로 윗줄과 같을 때 글자를 흰색으로 숨긴다
+ * (값은 그대로라 엑셀 필터가 모든 행에서 동작한다). hideRepeatGroupColumnKeys 열들도 윗줄과 같아야 숨긴다.
+ *
  * @param {{
  *   sheetName: string,
  *   filename: string,
@@ -214,6 +255,8 @@ function mergeGroupedRowCells(worksheet, columnDefs, dataRowCount, rowGroupKeys,
  *   rows?: Record<string, unknown>[],
  *   rowGroupKeys?: string[],
  *   mergeColumnKeys?: string[],
+ *   hideRepeatedColumnKeys?: string[],
+ *   hideRepeatGroupColumnKeys?: string[],
  *   freezeColumnCount?: number,
  *   image?: {
  *     key: string,
@@ -232,6 +275,8 @@ export async function downloadStyledExcel({
   image,
   rowGroupKeys,
   mergeColumnKeys,
+  hideRepeatedColumnKeys,
+  hideRepeatGroupColumnKeys,
   freezeColumnCount = 0,
 }) {
   const workbook = new ExcelJS.Workbook()
@@ -300,6 +345,13 @@ export async function downloadStyledExcel({
   }
 
   mergeGroupedRowCells(worksheet, columnDefs, dataRows.length, rowGroupKeys, mergeColumnKeys)
+  addHideRepeatedValueFormatting(
+    worksheet,
+    columnDefs,
+    dataRows.length,
+    hideRepeatedColumnKeys,
+    hideRepeatGroupColumnKeys
+  )
 
   if (imageColumnIndex >= 0) {
     const actualColumnPx =

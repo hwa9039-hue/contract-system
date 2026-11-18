@@ -105,10 +105,18 @@ const BIT_EXCEL_COLUMNS = BIT_COLUMNS.map((column) => ({
     : {}),
 }))
 
-/** 같은 계약의 추가 줄끼리 값이 같으면 세로 병합하는 열 (계약현황에서 온 열) */
-const BIT_EXCEL_MERGE_KEYS = BIT_COLUMNS.filter((column) => column.fromContract).map(
-  (column) => column.label
-)
+/**
+ * 계약 공통 정보 열 (계약현황에서 온 열, 계약금액 제외) — 모든 장비 행에 값을 채우고
+ * 윗줄과 같으면 글자만 숨겨 병합처럼 보이게 한다.
+ */
+const BIT_EXCEL_HIDE_REPEATED_KEYS = BIT_COLUMNS.filter(
+  (column) => column.fromContract && column.type !== 'amount'
+).map((column) => column.label)
+
+/** 같은 계약인지 판단하는 열 — 두 값이 모두 윗줄과 같을 때만 글자를 숨긴다 */
+const BIT_EXCEL_REPEAT_GROUP_KEYS = BIT_COLUMNS.filter((column) =>
+  ['seqNo', 'projectName'].includes(column.key)
+).map((column) => column.label)
 
 /** 사업년도는 4자리 연도, 수량은 순수 정수일 때만 숫자로 바꾼다 (2026.05, 2EA 같은 값은 문자 유지). */
 function toBitExcelNumber(key, value) {
@@ -633,10 +641,17 @@ export default function BitHistoryPage({ contracts = [] }) {
   }
 
   const handleExcelDownload = useCallback(async () => {
-    const excelRows = filteredRows.map((row) => {
+    const excelRows = filteredRows.map((row, index) => {
+      const contractId = safeString(row.contractId).trim()
+      // 같은 계약의 2번째 줄부터는 계약금액을 비워 세로 합계가 중복되지 않게 한다.
+      const isContinuedContractRow =
+        Boolean(contractId) && index > 0 && safeString(filteredRows[index - 1].contractId).trim() === contractId
       const out = {}
       for (const column of BIT_COLUMNS) {
-        if (column.type === 'amount') out[column.label] = formatAmountComma(row[column.key])
+        if (column.type === 'amount') {
+          out[column.label] =
+            column.fromContract && isContinuedContractRow ? null : formatAmountComma(row[column.key])
+        }
         else if (column.type === 'date') out[column.label] = toDateInputValue(row[column.key])
         else if (BIT_EXCEL_CENTER_NUMBER_KEYS.has(column.key)) {
           out[column.label] = toBitExcelNumber(column.key, row[column.key])
@@ -651,9 +666,8 @@ export default function BitHistoryPage({ contracts = [] }) {
         filename: buildStyledExcelFilename('BIT이력관리'),
         columns: BIT_EXCEL_COLUMNS,
         rows: excelRows,
-        // 수동 행(contractId 없음)은 병합하지 않는다.
-        rowGroupKeys: filteredRows.map((row) => safeString(row.contractId).trim()),
-        mergeColumnKeys: BIT_EXCEL_MERGE_KEYS,
+        hideRepeatedColumnKeys: BIT_EXCEL_HIDE_REPEATED_KEYS,
+        hideRepeatGroupColumnKeys: BIT_EXCEL_REPEAT_GROUP_KEYS,
         freezeColumnCount: countLeadingStickyColumns(BIT_COLUMNS),
       })
     } catch (error) {
@@ -661,10 +675,32 @@ export default function BitHistoryPage({ contracts = [] }) {
     }
   }, [filteredRows])
 
-  const toggleRowSelection = (rowId) => {
-    setSelectedIds((prev) =>
-      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
-    )
+  /** 메인 행이면 같은 계약의 하위 행(↳, 추가 줄) id — 지금 목록에 보이는 행만. 하위 행이면 빈 배열 */
+  const getChildRowIds = (row) => {
+    const contractId = safeString(row?.contractId).trim()
+    if (!contractId || isAddedBitLine(row)) return []
+    return filteredRows
+      .filter(
+        (other) =>
+          other.id !== row.id &&
+          isAddedBitLine(other) &&
+          safeString(other.contractId).trim() === contractId
+      )
+      .map((other) => other.id)
+  }
+
+  /**
+   * 메인 행을 체크/해제하면 하위 행도 같은 상태로 맞춘다(단방향).
+   * 하위 행은 자기 자신만 바뀌고 메인 행에는 영향을 주지 않는다.
+   */
+  const toggleRowSelection = (row) => {
+    const linkedIds = [row.id, ...getChildRowIds(row)]
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(row.id)) linkedIds.forEach((id) => next.delete(id))
+      else linkedIds.forEach((id) => next.add(id))
+      return [...next]
+    })
   }
 
   const toggleAllFiltered = () => {
@@ -899,7 +935,7 @@ export default function BitHistoryPage({ contracts = [] }) {
                             className="registry-row-checkbox"
                             type="checkbox"
                             checked={selectedIds.includes(row.id)}
-                            onChange={() => toggleRowSelection(row.id)}
+                            onChange={() => toggleRowSelection(row)}
                             aria-label={`${row.projectName || 'BIT 이력'} 선택`}
                           />
                         </td>
