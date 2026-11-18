@@ -91,7 +91,7 @@ const BIT_STICKY_LEFTS = (() => {
 })()
 
 /** 모바일 카드 요약에 고정으로 올리는 3개 — 나머지는 아코디언 상세로 내려간다. */
-const MOBILE_SUMMARY_KEYS = ['projectName', 'client', 'quantity']
+const MOBILE_SUMMARY_KEYS = ['projectName', 'client', 'contractAmount', 'quantity']
 
 /** 엑셀에서 숫자 셀로 넣고 가운데 정렬하는 열 */
 const BIT_EXCEL_CENTER_NUMBER_KEYS = new Set(['year', 'quantity'])
@@ -961,7 +961,8 @@ export default function BitHistoryPage({ contracts = [] }) {
           getRowKey={(row, index) => row.id || `bit-${index}`}
           getTitle={(row) => row.projectName}
           getClient={(row) => row.client}
-          getAmount={(row) => mobileCardText(row.quantity)}
+          getAmount={(row) => formatAmountDisplay(row.contractAmount)}
+          getFootTag={(row) => (mobileCardText(row.quantity) ? `수량 ${mobileCardText(row.quantity)}` : '')}
           summaryFields={[]}
           detailFields={mobileDetailFields}
           emptyText={isLoading ? '불러오는 중...' : '표시할 데이터가 없습니다.'}

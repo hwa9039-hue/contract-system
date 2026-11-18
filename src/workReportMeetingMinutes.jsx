@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { AutoGrowTextarea } from './AutoGrowTextarea.jsx'
 import { MobileDataCardList, mobileCardText } from './MobileDataCardList.jsx'
@@ -1015,7 +1015,7 @@ export function WorkReportMeetingMinutesSection({
           }}
           getDateText={(row) => row.dueDate}
           summaryFields={[]}
-          detailFields={[{ label: '회의내용', getValue: (row) => row.content }]}
+          detailFields={[]}
           emptyText="이번 주 회의록이 없습니다."
         />
         )}

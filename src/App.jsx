@@ -128,7 +128,12 @@ import { useAppVersionPolling } from './useAppVersionPolling.js'
 import AccessDeniedPlaceholder from './pages/AccessDeniedPlaceholder.jsx'
 import PaymentReportPage from './pages/PaymentReportPage.jsx'
 import SalesContactsPage from './pages/SalesContactsPage.jsx'
-import { MobileDataCardList, mobileCardAmount, mobileCardText } from './MobileDataCardList.jsx'
+import {
+  MobileClosedAccordionCardList,
+  MobileDataCardList,
+  mobileCardAmount,
+  mobileCardText,
+} from './MobileDataCardList.jsx'
 import { useDesktopTableLayout } from './useDesktopTableLayout.js'
 import NaraMarket from './pages/NaraMarket.jsx'
 import NewsMonitor from './pages/NewsMonitor.jsx'
@@ -5944,6 +5949,12 @@ function isSalesStageInContractClosedGroup(row) {
   if (SALES_CONTRACT_CLOSED_STAGES.has(stage)) return true
   const raw = safeString(row?.projectStage).trim()
   return raw === '완료' || raw === '마감' || raw === '계약'
+}
+
+/** 모바일 카드: 계약&마감 건을 접지 않고 한 목록으로 보여 줄지 (계약·마감 필터 선택 또는 검색 중) */
+function shouldShowContractClosedInline(search, selectedLegendId) {
+  if (safeString(search).trim()) return true
+  return selectedLegendId === SALES_CONTRACT_CLOSED_GROUP_LABEL || SALES_CONTRACT_CLOSED_STAGES.has(selectedLegendId)
 }
 
 function isSalesStageCompletedForGrouping(row) {
@@ -19070,11 +19081,13 @@ function App() {
                 </table>
               </div>
               ) : (
-              <MobileDataCardList
+              <MobileClosedAccordionCardList
                 rows={sortRegistryRowsByDateDesc(
                   filteredSalesRows.filter((row) => !row.isDraft),
                   'registerDate'
                 )}
+                isClosedRow={isSalesStageInContractClosedGroup}
+                showAllInline={shouldShowContractClosedInline(salesSearch, selectedSalesImportance)}
                 getRowKey={(row, index) => row.id || `sales-${index}`}
                 getTitle={(row) => row.projectName}
                 getBadge={(row) => salesStatusMobileBadge(row.projectStage)}
@@ -19341,8 +19354,10 @@ function App() {
                 </table>
               </div>
               ) : (
-              <MobileDataCardList
+              <MobileClosedAccordionCardList
                 rows={sortedDiscoveryRows}
+                isClosedRow={isSalesStageInContractClosedGroup}
+                showAllInline={shouldShowContractClosedInline(discoverySearch, selectedDiscoveryImportance)}
                 getRowKey={(row, index) => row.id || `discovery-${index}`}
                 getTitle={(row) => row.projectName}
                 getBadge={(row) => salesStatusMobileBadge(row.projectStage)}
@@ -19789,11 +19804,11 @@ function App() {
                 getRowKey={(row, index) => row.id || `document-${index}`}
                 getTitle={(row) => row.title}
                 getBadge={(row) => ({ label: row.method })}
+                getTag={(row) => row.docNo}
                 getClient={(row) => row.senderReceiver}
                 getDateText={(row) => row.docDate}
                 summaryFields={[]}
                 detailFields={[
-                  { label: '문서번호', getValue: (row) => row.docNo },
                   { label: '작성자', getValue: (row) => row.writer },
                   { label: '비고', getValue: (row) => row.note },
                 ]}

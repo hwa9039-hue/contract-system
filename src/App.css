@@ -1,4 +1,4 @@
-﻿@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 @import url('https://cdn.jsdelivr.net/gh/sunn-us/SUIT/fonts/static/woff2/SUIT.css');
 
 /**
@@ -822,6 +822,11 @@ textarea {
   .stat-card--contracts .contracts-page-toolbar .table-summary-box {
     flex: none;
     width: 100%;
+  }
+
+  /* 세로 배치에서는 flex-basis(180px)가 높이가 되어 검색창 아래가 크게 비던 문제 */
+  .stat-card--contracts .contracts-page-toolbar .registry-search-toolbar-split {
+    flex: none;
   }
 }
 
@@ -4393,6 +4398,27 @@ textarea:focus-visible {
   padding: 0;
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+/* 새 창 열기 — 모바일에서만 보인다(아래 768px 이하 규칙) */
+.iframe-embed-open-btn {
+  display: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15);
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
 }
 
 .stat-card--iframe-embed .iframe-embed-frame {
@@ -21616,9 +21642,10 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     box-sizing: border-box;
   }
 
-  /* 모바일에서도 커스텀 ▼ 화살표·우측 여백 유지 (background 단축 속성으로 덮지 않음) */
-  .contract-filter-select,
-  .calendar-filter-select,
+  /* 모바일에서도 커스텀 ▼ 화살표·우측 여백 유지 (background 단축 속성으로 덮지 않음).
+     CustomSelect 바깥 상자는 제외 — 여기에 여백을 주면 안쪽 버튼이 줄어 오른쪽이 비어 보인다. */
+  .contract-filter-select:not(.cms-custom-select),
+  .calendar-filter-select:not(.cms-custom-select),
   select.kakao-link-page-select,
   .install-case-form-stack-field > select.install-case-form-input,
   .materials-board-register-field > select.install-case-form-input {
@@ -21944,11 +21971,30 @@ table[data-contract-table-row-key] .contract-category-group-row .contract-year-t
     border-bottom: 1px solid #e5e7eb;
   }
 
-  .stat-card--iframe-embed,
+  /* 본예산·나라장터·각종뉴스 — 고정 헤더(높이 + 위 16px)와 아래 8px 여백을 뺀 화면 전체를 iframe 이 채운다 */
+  .main-area > section.stat-card.stat-card--iframe-embed {
+    display: flex !important;
+    flex-direction: column;
+    position: relative;
+    height: calc(100vh - var(--app-top-chrome-height) - 24px) !important;
+    height: calc(100dvh - var(--app-top-chrome-height) - 24px) !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0;
+    box-shadow: none;
+    overflow: hidden !important;
+  }
+
   .stat-card--iframe-embed .iframe-embed-viewer,
-  .stat-card--iframe-embed .iframe-embed-frame {
-    min-height: 60vh;
-    height: auto;
+  .stat-card--iframe-embed .iframe-embed-frame,
+  .stat-card--iframe-embed > iframe {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .stat-card--iframe-embed > .iframe-embed-open-btn {
+    display: inline-flex;
   }
 
   .stat-card--calendar,
@@ -23307,15 +23353,15 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
 
 .mobile-data-card-badge {
   flex: 0 0 auto;
-  max-width: 42%;
+  flex-shrink: 0;
+  width: auto;
+  max-width: none;
   padding: 4px 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
   line-height: 1.2;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   background: #e2e8f0;
   color: #334155;
 }
@@ -23407,23 +23453,11 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
   word-break: break-word;
 }
 
+/* 펼친 카드에만 렌더링된다 — 애니메이션 없이 즉시 열고 닫는다 */
 .mobile-data-card-details {
-  display: grid;
-  grid-template-rows: 0fr;
   margin-top: 4px;
-  border-top: 1px solid transparent;
-  transition: grid-template-rows 0.22s ease, border-color 0.22s ease;
-}
-
-.mobile-data-card-details > dl {
-  min-height: 0;
-  overflow: hidden;
-}
-
-.mobile-data-card-details.is-open {
-  grid-template-rows: 1fr;
   padding-top: 8px;
-  border-top-color: #e2e8f0;
+  border-top: 1px solid #e2e8f0;
 }
 
 .mobile-data-card-toggle {
@@ -23431,16 +23465,63 @@ table[data-contract-table-row-key].contracts-fixed-table tbody tr:not(.contract-
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 40px;
-  margin-top: 8px;
-  padding: 8px 4px;
+  min-height: 0;
+  margin-top: 2px;
+  padding: 6px 4px;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #f8fafc;
   color: #2563eb;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
+  line-height: 1.2;
   cursor: pointer;
+}
+
+/* 영업관리대장·건축정보 모바일 — 계약·마감 접이 섹션 바(애니메이션 없이 즉시 토글) */
+.mobile-closed-accordion-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 4px 0 10px;
+  padding: 11px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-closed-accordion-bar[aria-expanded='true'] {
+  border-color: #94a3b8;
+  background: #e2e8f0;
+}
+
+.mobile-data-card-tag {
+  min-width: 0;
+  overflow: hidden;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mobile-data-card-foot-tag {
+  padding: 2px 8px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .mobile-data-card-toggle:hover,
@@ -24465,5 +24546,64 @@ input[type='checkbox'] {
   .install-cases-gallery,
   .main-area > section.stat-card .install-cases-gallery {
     grid-template-columns: 1fr;
+  }
+}
+
+/* 설치사례 상단 조작부(모바일) — 가로 스크롤 없이 6칸 격자로 접는다.
+   1줄: 대·중·소분류 3등분 / 등록·탭·검색·공유는 한 줄씩 / PDF·엑셀은 반반 */
+@media (max-width: 768px) {
+  .main-area > section.stat-card .install-cases-toolbar {
+    display: grid !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px !important;
+    width: 100%;
+    overflow: visible !important;
+  }
+
+  .main-area > section.stat-card .install-cases-toolbar > * {
+    grid-column: 1 / -1;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  .main-area > section.stat-card .install-cases-toolbar > .install-cases-filter-field {
+    grid-column: span 2;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 4px;
+    min-height: 0;
+  }
+
+  .main-area > section.stat-card .install-cases-toolbar > .install-cases-filter-field > .install-cases-filter-label {
+    height: auto;
+    font-size: 12px;
+  }
+
+  .main-area > section.stat-card .install-cases-toolbar .install-cases-filter-field > .cms-custom-select.install-cases-select {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .main-area > section.stat-card .install-cases-toolbar .install-cases-filter-field .cms-custom-select-trigger {
+    padding-left: 10px;
+    padding-right: 8px;
+    gap: 4px;
+  }
+
+  .main-area > section.stat-card .install-cases-toolbar > .install-cases-pdf-btn {
+    grid-column: span 3;
+  }
+
+  .main-area > section.stat-card .install-cases-toolbar > .install-cases-visibility-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+  }
+
+  .main-area > section.stat-card .install-cases-toolbar .install-cases-visibility-tab {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
   }
 }

@@ -1,3 +1,5 @@
+import { IframeOpenInNewWindowButton } from '../IframeOpenInNewWindowButton.jsx'
+
 /** 본예산(뷰어) — 지자체 예산서 자동화 화면을 조회 전용(?viewer=1)으로 띄운다 */
 const MAIN_BUDGET_VIEWER_URL =
   import.meta.env.VITE_MAIN_BUDGET_VIEWER_URL || 'https://automation.signtelecom-smartdi.com/?viewer=1'
@@ -5,6 +7,7 @@ const MAIN_BUDGET_VIEWER_URL =
 export default function MainBudgetViewer() {
   return (
     <section className="stat-card stat-card--iframe-embed main-budget-viewer-card">
+      <IframeOpenInNewWindowButton href={MAIN_BUDGET_VIEWER_URL} title="본예산" />
       <iframe
         title="본예산"
         src={MAIN_BUDGET_VIEWER_URL}
