@@ -4388,6 +4388,13 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
+/* 본예산 뷰어 — 공통 카드(배경·모서리·그림자)는 유지하고 안쪽 여백만 없애 iframe 이 카드 내부를 꽉 채운다 */
+.main-area > section.stat-card.stat-card--iframe-embed.main-budget-viewer-card {
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .stat-card--iframe-embed .iframe-embed-frame {
   flex: 1 1 auto;
   flex-grow: 1;

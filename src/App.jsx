@@ -119,7 +119,7 @@ import { weeklyWorkReportsApi } from './weeklyWorkReportsApi'
 // import UnitPriceManagement from './pages/UnitPriceManagement.jsx'
 // import ProjectManagement from './pages/ProjectManagement.jsx'
 import OrderManagementPlaceholder from './pages/OrderManagementPlaceholder.jsx'
-import MainBudgetPlaceholder from './pages/MainBudgetPlaceholder.jsx'
+import MainBudgetViewer from './pages/MainBudgetViewer.jsx'
 import BitHistoryPage from './pages/sales/BitHistoryPage.jsx'
 import SalesIntegratedPage from './pages/sales/SalesIntegratedPage.jsx'
 import PreparingPlaceholder from './pages/PreparingPlaceholder.jsx'
@@ -20596,7 +20596,7 @@ function App() {
 
         {menu === 'orderManagement' && !isMenuAccessDenied && <OrderManagementPlaceholder />}
 
-        {menu === 'mainBudget' && !isMenuAccessDenied && <MainBudgetPlaceholder />}
+        {menu === 'mainBudget' && !isMenuAccessDenied && <MainBudgetViewer />}
 
         {/* 신규 메뉴 — 발주관리와 같은 '준비 중입니다.' 공용 화면 재사용 */}
         {menu === 'salesIntegrated' && !isMenuAccessDenied && <SalesIntegratedPage />}
